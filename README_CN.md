@@ -1,4 +1,4 @@
-# LLM Wiki Plugin for Obsidian
+# Karpathy LLM Wiki Plugin for Obsidian
 
 > 🤖 Karpathy 的 LLM Wiki 完整实现 - 多页面知识生成系统
 
@@ -51,18 +51,18 @@ schema/      # 工作流配置（未来功能）
 
 #### 手动安装
 
-1. 下载最新版本：[Releases](https://github.com/Greener-Dalii/llm-wiki-plugin/releases)
+1. 下载最新版本：[Releases](https://github.com/Greener-Dalii/llm-wiki-obsidian/releases)
    - `main.js`
    - `manifest.json`
    - `styles.css`
-2. 复制到你的 vault: `.obsidian/plugins/llm-wiki-plugin/`
-3. 在 Obsidian 中启用：Settings → Community plugins → LLM Wiki
+2. 复制到你的 vault: `.obsidian/plugins/llm-wiki/`
+3. 在 Obsidian 中启用：Settings → Community plugins → Karpathy LLM Wiki
 
 #### 开发构建
 
 ```bash
-git clone https://github.com/Greener-Dalii/llm-wiki-plugin.git
-cd llm-wiki-plugin
+git clone https://github.com/Greener-Dalii/llm-wiki-obsidian.git
+cd llm-wiki-obsidian
 pnpm install
 pnpm build
 ```
@@ -344,8 +344,8 @@ MIT License - 详见 [LICENSE](LICENSE)
 ## 📞 支持
 
 - 📖 [文档](docs/)
-- 🐛 [问题反馈](https://github.com/Greener-Dalii/llm-wiki-plugin/issues)
-- 💬 [讨论](https://github.com/Greener-Dalii/llm-wiki-plugin/discussions)
+- 🐛 [问题反馈](https://github.com/Greener-Dalii/llm-wiki-obsidian/issues)
+- 💬 [讨论](https://github.com/Greener-Dalii/llm-wiki-obsidian/discussions)
 
 ---
 

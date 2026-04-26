@@ -1,8 +1,14 @@
-# LLM Wiki Plugin for Obsidian
+# Karpathy LLM Wiki Plugin for Obsidian
 
-A complete Karpathy LLM Wiki implementation - **multi-page knowledge generation** with entity/concept pages.
+> 🤖 A complete implementation of Karpathy's LLM Wiki concept - automated knowledge graph generation
 
-**Author:** Greener-Dalii
+**Concept Origin:** This plugin implements [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) vision for Obsidian.
+
+**Author:** Greener-Dalii | **Version:** 1.0.8 | **Status:** Production Ready
+
+[English](README.md) | [中文文档](README_CN.md)
+
+---
 
 ## Features
 
@@ -30,15 +36,15 @@ schema/      # Workflow configuration (future)
 
 ### Manual Installation
 
-1. Download `main.js`, `manifest.json`, `styles.css` from [releases](https://github.com/yourusername/llm-wiki-plugin/releases)
-2. Copy to your vault: `.obsidian/plugins/llm-wiki-plugin/`
+1. Download `main.js`, `manifest.json`, `styles.css` from [releases](https://github.com/Greener-Dalii/llm-wiki-obsidian/releases)
+2. Copy to your vault: `.obsidian/plugins/llm-wiki/`
 3. Enable in Obsidian Settings → Community plugins
 
 ### Development Build
 
 ```bash
-git clone https://github.com/yourusername/llm-wiki-plugin.git
-cd llm-wiki-plugin
+git clone https://github.com/Greener-Dalii/llm-wiki-obsidian.git
+cd llm-wiki-obsidian
 pnpm install
 pnpm build
 ```
@@ -213,8 +219,8 @@ We deeply thank **Andrej Karpathy** for sharing this innovative concept and insp
 ## Support
 
 - 📖 [Documentation](docs/)
-- 🐛 [Issues](https://github.com/Greener-Dalii/llm-wiki-plugin/issues)
-- 💬 [Discussions](https://github.com/Greener-Dalii/llm-wiki-plugin/discussions)
+- 🐛 [Issues](https://github.com/Greener-Dalii/llm-wiki-obsidian/issues)
+- 💬 [Discussions](https://github.com/Greener-Dalii/llm-wiki-obsidian/discussions)
 
 ---
 
