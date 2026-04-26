@@ -77,9 +77,44 @@ pnpm build
 | Command | Description |
 |---------|-------------|
 | **Ingest Sources** | Process source documents → generate Wiki pages |
+| **Ingest from Folder** | Select existing folder → initialize Wiki from any folder |
 | **Query Wiki** | Ask questions → get synthesized answers |
 | **Lint Wiki** | Detect contradictions, outdated info, orphaned pages |
 | **Generate Index** | Create `wiki/index.md` with recent updates |
+
+## Usage Examples
+
+### Option 1: Use Dedicated Source Folder
+
+```bash
+# Create sources folder
+mkdir sources
+
+# Add documents
+sources/machine-learning.md
+sources/data-science.md
+
+# Run: Cmd+P → "Ingest Sources"
+```
+
+### Option 2: Initialize from Existing Folder
+
+```bash
+# Your existing notes
+notes/
+  ├── programming/
+  ├── research/
+  └── daily/
+
+# Run: Cmd+P → "Ingest from Folder"
+# Select: notes/programming
+# Auto-generates Wiki from existing notes
+```
+
+**Benefits:**
+- No need to reorganize files
+- Flexible per-folder initialization
+- Supports nested directories
 
 ## Security
 
