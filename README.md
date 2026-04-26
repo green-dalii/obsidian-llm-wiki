@@ -4,7 +4,7 @@
 
 **Concept Origin:** This plugin implements [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) vision for Obsidian.
 
-**Author:** Greener-Dalii | **Version:** 1.0.8 | **Status:** Production Ready
+**Author:** green-dalii | **Version:** 1.0.8 | **Status:** Production Ready
 
 [English](README.md) | [中文文档](README_CN.md)
 
@@ -36,14 +36,14 @@ schema/      # Workflow configuration (future)
 
 ### Manual Installation
 
-1. Download `main.js`, `manifest.json`, `styles.css` from [releases](https://github.com/Greener-Dalii/obsidian-llm-wiki/releases)
+1. Download `main.js`, `manifest.json`, `styles.css` from [releases](https://github.com/green-dalii/obsidian-llm-wiki/releases)
 2. Copy to your vault: `.obsidian/plugins/llm-wiki/`
 3. Enable in Obsidian Settings → Community plugins
 
 ### Development Build
 
 ```bash
-git clone https://github.com/Greener-Dalii/obsidian-llm-wiki.git
+git clone https://github.com/green-dalii/obsidian-llm-wiki.git
 cd obsidian-llm-wiki
 pnpm install
 pnpm build
@@ -219,9 +219,9 @@ We deeply thank **Andrej Karpathy** for sharing this innovative concept and insp
 ## Support
 
 - 📖 [Documentation](docs/)
-- 🐛 [Issues](https://github.com/Greener-Dalii/obsidian-llm-wiki/issues)
-- 💬 [Discussions](https://github.com/Greener-Dalii/obsidian-llm-wiki/discussions)
+- 🐛 [Issues](https://github.com/green-dalii/obsidian-llm-wiki/issues)
+- 💬 [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
 ---
 
-**Version**: 1.0.8 | **Status**: Production Ready | **Author**: Greener-Dalii
+**Version**: 1.0.8 | **Status**: Production Ready | **Author**: green-dalii

@@ -78,14 +78,14 @@ grep "version" manifest.json package.json versions.json
 
 ```bash
 # 添加 remote（替换为你的 GitHub 用户名）
-git remote add origin https://github.com/Greener-Dalii/llm-wiki-plugin.git
+git remote add origin https://github.com/green-dalii/llm-wiki-plugin.git
 
 # 推送到 GitHub
 git push -u origin main
 ```
 
 **验证推送：**
-- 访问 `https://github.com/Greener-Dalii/llm-wiki-plugin`
+- 访问 `https://github.com/green-dalii/llm-wiki-plugin`
 - 确认所有文件都已上传
 - 确认 README.md 正常显示
 
@@ -210,8 +210,8 @@ For full changelog, see [CHANGELOG.md](CHANGELOG.md)
 - **Name:** LLM Wiki
 - **Version:** 1.0.8
 - **Description:** Karpathy's LLM Wiki implementation for Obsidian - multi-page knowledge generation
-- **Author:** Greener-Dalii
-- **Repo:** https://github.com/Greener-Dalii/llm-wiki-plugin
+- **Author:** green-dalii
+- **Repo:** https://github.com/green-dalii/llm-wiki-plugin
 - **Branch:** main
 
 ### Compliance Checklist
@@ -228,7 +228,7 @@ The plugin has been tested with:
 - Multiple LLM providers (Anthropic, OpenAI, DeepSeek, Ollama)
 - Chinese and English content
 
-For more details, see [README.md](https://github.com/Greener-Dalii/llm-wiki-plugin/blob/main/README.md)
+For more details, see [README.md](https://github.com/green-dalii/llm-wiki-plugin/blob/main/README.md)
 ```
 
 ---
@@ -319,7 +319,7 @@ Obsidian 团队会自动检查：
 **当前项目合规性：**
 - ✅ MIT License
 - ✅ LICENSE 文件存在
-- ✅ manifest.json author: "Greener-Dalii", authorUrl: "https://github.com/Greener-Dalii"
+- ✅ manifest.json author: "green-dalii", authorUrl: "https://github.com/green-dalii"
 
 ---
 
@@ -439,7 +439,7 @@ Obsidian 团队会自动检查：
 
 3. ✅ **推送到 GitHub：**
    ```bash
-   git remote add origin https://github.com/Greener-Dalii/llm-wiki-plugin.git
+   git remote add origin https://github.com/green-dalii/llm-wiki-plugin.git
    git push -u origin main
    ```
 
@@ -453,4 +453,4 @@ Obsidian 团队会自动检查：
 
 ---
 
-**最后更新:** 2025-04-26 | **文档作者:** Greener-Dalii
+**最后更新:** 2025-04-26 | **文档作者:** green-dalii

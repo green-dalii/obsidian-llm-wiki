@@ -2,7 +2,7 @@
 
 > 🤖 Karpathy 的 LLM Wiki 完整实现 - 多页面知识生成系统
 
-**作者:** Greener-Dalii | **版本:** 1.0.8 | **状态:** 生产可用
+**作者:** green-dalii | **版本:** 1.0.8 | **状态:** 生产可用
 
 [English](README.md) | 中文文档
 
@@ -51,7 +51,7 @@ schema/      # 工作流配置（未来功能）
 
 #### 手动安装
 
-1. 下载最新版本：[Releases](https://github.com/Greener-Dalii/obsidian-llm-wiki/releases)
+1. 下载最新版本：[Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases)
    - `main.js`
    - `manifest.json`
    - `styles.css`
@@ -61,7 +61,7 @@ schema/      # 工作流配置（未来功能）
 #### 开发构建
 
 ```bash
-git clone https://github.com/Greener-Dalii/obsidian-llm-wiki.git
+git clone https://github.com/green-dalii/obsidian-llm-wiki.git
 cd obsidian-llm-wiki
 pnpm install
 pnpm build
@@ -344,8 +344,8 @@ MIT License - 详见 [LICENSE](LICENSE)
 ## 📞 支持
 
 - 📖 [文档](docs/)
-- 🐛 [问题反馈](https://github.com/Greener-Dalii/obsidian-llm-wiki/issues)
-- 💬 [讨论](https://github.com/Greener-Dalii/obsidian-llm-wiki/discussions)
+- 🐛 [问题反馈](https://github.com/green-dalii/obsidian-llm-wiki/issues)
+- 💬 [讨论](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
 ---
 

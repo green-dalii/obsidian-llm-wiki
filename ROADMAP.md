@@ -244,9 +244,9 @@ If you want to contribute code, prioritize these areas:
 
 Have suggestions or ideas about feature planning?
 
-- 📝 [GitHub Discussions](https://github.com/Greener-Dalii/obsidian-llm-wiki/discussions)
-- 🐛 [Issue Tracker](https://github.com/Greener-Dalii/obsidian-llm-wiki/issues)
+- 📝 [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+- 🐛 [Issue Tracker](https://github.com/green-dalii/obsidian-llm-wiki/issues)
 
 ---
 
-**Last Updated:** 2025-04-26 | **Maintainer:** Greener-Dalii
+**Last Updated:** 2025-04-26 | **Maintainer:** green-dalii
