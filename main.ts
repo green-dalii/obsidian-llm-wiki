@@ -909,71 +909,207 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
       console.error(error);
     }
   }
+
+  // 测试 LLM Provider 连接
+  async testLLMConnection(): Promise<{ success: boolean; message: string }> {
+    console.log('测试 LLM 连接...');
+    console.log('当前配置:', {
+      provider: this.settings.provider,
+      apiKey: this.settings.apiKey ? '已配置' : '未配置',
+      model: this.settings.model,
+      openaiBaseUrl: this.settings.openaiBaseUrl || '默认'
+    });
+
+    if (!this.settings.apiKey || this.settings.apiKey.trim() === '') {
+      return {
+        success: false,
+        message: 'API Key 未配置'
+      };
+    }
+
+    try {
+      // 临时初始化客户端进行测试
+      let testClient: LLMClient;
+      if (this.settings.provider === 'anthropic') {
+        testClient = new AnthropicClient(this.settings.apiKey.trim());
+      } else {
+        testClient = new OpenAIClient(
+          this.settings.apiKey.trim(),
+          this.settings.openaiBaseUrl?.trim() || undefined
+        );
+      }
+
+      // 发送测试请求
+      const testResponse = await testClient.createMessage({
+        model: this.settings.model,
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: '测试连接，请回复"连接成功"'
+        }]
+      });
+
+      console.log('测试响应:', testResponse);
+
+      return {
+        success: true,
+        message: `连接成功！响应: "${testResponse.substring(0, 50)}..."`
+      };
+    } catch (error: any) {
+      console.error('连接测试失败:', error);
+      return {
+        success: false,
+        message: `连接失败: ${error.message || '未知错误'}`
+      };
+    }
+  }
 }
 
 // ==================== UI 模态框 ====================
 
 class LLMWikiSettingTab extends PluginSettingTab {
   plugin: LLMWikiPlugin;
+  tempSettings: LLMWikiSettings; // 临时设置对象
 
   constructor(app: App, plugin: LLMWikiPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+    this.tempSettings = { ...plugin.settings }; // 初始化临时设置
   }
 
   display() {
     const { containerEl } = this;
     containerEl.empty();
-
     containerEl.createEl('h2', { text: 'LLM Wiki 设置' });
+
+    // ===== 状态显示 =====
+    const statusDiv = containerEl.createDiv({ cls: 'llm-wiki-status' });
+    const clientStatus = this.plugin.llmClient ? '✅ 已初始化' : '❌ 未初始化';
+    statusDiv.createEl('p', {
+      text: `LLM Client 状态: ${clientStatus}`,
+      attr: { style: 'margin-bottom: 20px; font-weight: bold; font-size: 14px;' }
+    });
+
+    // ===== Provider 配置 =====
+    containerEl.createEl('h3', { text: 'LLM Provider 配置' });
 
     new Setting(containerEl)
       .setName('LLM Provider')
+      .setDesc('选择使用的 LLM 提供商')
       .addDropdown(dropdown => dropdown
         .addOption('anthropic', 'Anthropic (Claude)')
-        .addOption('openai', 'OpenAI / Compatible')
-        .setValue(this.plugin.settings.provider)
-        .onChange(async (value) => {
-          this.plugin.settings.provider = value;
-          await this.plugin.saveSettings();
+        .addOption('openai', 'OpenAI / OpenAI Compatible')
+        .setValue(this.tempSettings.provider)
+        .onChange((value) => {
+          this.tempSettings.provider = value as 'anthropic' | 'openai';
+          // 自动切换默认模型
+          if (value === 'anthropic') {
+            this.tempSettings.model = 'claude-sonnet-4-6';
+          } else {
+            this.tempSettings.model = 'gpt-4o';
+          }
+          this.display(); // 重新渲染（显示/隐藏 BaseURL）
         }));
 
     new Setting(containerEl)
       .setName('API Key')
+      .setDesc(this.tempSettings.provider === 'anthropic'
+        ? 'Anthropic API Key'
+        : 'OpenAI API Key')
       .addText(text => text
-        .setValue(this.plugin.settings.apiKey)
-        .onChange(async (value) => {
-          this.plugin.settings.apiKey = value;
-          await this.plugin.saveSettings();
+        .setPlaceholder(this.tempSettings.provider === 'anthropic'
+          ? 'sk-ant-...'
+          : 'sk-...')
+        .setValue(this.tempSettings.apiKey)
+        .onChange((value) => {
+          this.tempSettings.apiKey = value;
         }));
 
-    if (this.plugin.settings.provider === 'openai') {
+    // OpenAI Base URL（仅在 provider 为 openai 时显示）
+    if (this.tempSettings.provider === 'openai') {
       new Setting(containerEl)
         .setName('OpenAI Base URL')
+        .setDesc('自定义 API endpoint（可选，默认使用官方 API）')
         .addText(text => text
-          .setValue(this.plugin.settings.openaiBaseUrl || '')
-          .onChange(async (value) => {
-            this.plugin.settings.openaiBaseUrl = value;
-            await this.plugin.saveSettings();
+          .setPlaceholder('https://api.openai.com/v1')
+          .setValue(this.tempSettings.openaiBaseUrl || '')
+          .onChange((value) => {
+            this.tempSettings.openaiBaseUrl = value;
           }));
     }
 
     new Setting(containerEl)
-      .setName('Wiki 文件夹')
+      .setName('Model 名称')
+      .setDesc(this.tempSettings.provider === 'anthropic'
+        ? 'Claude 模型（如：claude-sonnet-4-6, claude-opus-4-7）'
+        : 'GPT 模型（如：gpt-4o, gpt-4o-mini）')
       .addText(text => text
-        .setValue(this.plugin.settings.wikiFolder)
-        .onChange(async (value) => {
-          this.plugin.settings.wikiFolder = value;
-          await this.plugin.saveSettings();
+        .setPlaceholder(this.tempSettings.provider === 'anthropic'
+          ? 'claude-sonnet-4-6'
+          : 'gpt-4o')
+        .setValue(this.tempSettings.model)
+        .onChange((value) => {
+          this.tempSettings.model = value;
+        }));
+
+    // ===== 测试和保存按钮 =====
+    containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
+
+    new Setting(containerEl)
+      .setName('测试连接')
+      .setDesc('验证当前配置是否能成功连接到 LLM Provider')
+      .addButton(button => button
+        .setButtonText('测试连接')
+        .onClick(async () => {
+          button.setButtonText('测试中...');
+          button.setDisabled(true);
+
+          // 临时应用设置进行测试
+          const testSettings = { ...this.tempSettings };
+          this.plugin.settings = testSettings;
+          this.plugin.initializeLLMClient();
+
+          const result = await this.plugin.testLLMConnection();
+
+          button.setButtonText('测试连接');
+          button.setDisabled(false);
+
+          if (result.success) {
+            new Notice(result.message, 5000);
+          } else {
+            new Notice(result.message, 8000);
+          }
         }));
 
     new Setting(containerEl)
-      .setName('模型')
-      .addText(text => text
-        .setValue(this.plugin.settings.model)
-        .onChange(async (value) => {
-          this.plugin.settings.model = value;
+      .setName('保存设置')
+      .setDesc('保存当前配置到插件数据文件')
+      .addButton(button => button
+        .setButtonText('保存设置')
+        .setCta() // 突出显示主要按钮
+        .onClick(async () => {
+          // 保存临时设置到插件设置
+          this.plugin.settings = { ...this.tempSettings };
           await this.plugin.saveSettings();
+
+          new Notice('设置已保存成功！', 3000);
+
+          // 刷新面板以显示最新状态
+          this.display();
+        }));
+
+    // ===== Wiki 配置 =====
+    containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
+    containerEl.createEl('h3', { text: 'Wiki 文件夹配置' });
+
+    new Setting(containerEl)
+      .setName('Wiki 文件夹')
+      .setDesc('存放生成的 Wiki 页面（将自动创建子文件夹）')
+      .addText(text => text
+        .setPlaceholder('wiki')
+        .setValue(this.tempSettings.wikiFolder)
+        .onChange((value) => {
+          this.tempSettings.wikiFolder = value;
         }));
   }
 }
