@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, Notice, Modal } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile, TFolder, Notice, Modal, FuzzySuggestModal } from 'obsidian';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
@@ -99,6 +99,12 @@ export default class LLMWikiPlugin extends Plugin {
       id: 'ingest-sources',
       name: '摄入新资料 (Ingest Sources)',
       callback: () => this.ingestSources()
+    });
+
+    this.addCommand({
+      id: 'ingest-from-folder',
+      name: '从文件夹初始化 Wiki (Ingest from Folder)',
+      callback: () => this.ingestFromFolder()
     });
 
     this.addCommand({
@@ -256,6 +262,68 @@ export default class LLMWikiPlugin extends Plugin {
       console.error('摄入失败:', error);
       new Notice(`摄入失败: ${(error as any).message || '未知错误'}`, 8000);
     }
+  }
+
+  // 从文件夹初始化 Wiki
+  async ingestFromFolder() {
+    console.log('从文件夹初始化命令触发');
+
+    if (!this.llmClient) {
+      new Notice('请先配置 API Key 并保存设置');
+      return;
+    }
+
+    // 打开文件夹选择器
+    new FolderSuggestModal(this.app, async (folder) => {
+      console.log('用户选择文件夹:', folder.path);
+
+      new Notice(`开始从 ${folder.path} 摄入...`);
+
+      try {
+        // 确保 wiki 文件夹存在
+        try {
+          await this.app.vault.createFolder(this.settings.wikiFolder);
+          console.log(`创建 Wiki 文件夹: ${this.settings.wikiFolder}`);
+        } catch (error) {
+          // 文件夹已存在，忽略错误
+        }
+
+        // 获取文件夹中的所有 Markdown 文件（包括子文件夹）
+        const files = this.app.vault.getMarkdownFiles()
+          .filter(f => f.path.startsWith(folder.path));
+
+        console.log(`在 ${folder.path} 中找到 ${files.length} 个文件`);
+
+        if (files.length === 0) {
+          new Notice(`文件夹 ${folder.path} 中没有 Markdown 文件`);
+          return;
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const file of files) {
+          try {
+            await this.processSourceFile(file);
+            successCount++;
+            console.log(`成功处理: ${file.path} (${successCount}/${files.length})`);
+          } catch (error) {
+            failCount++;
+            console.error(`处理失败: ${file.path}`, error);
+          }
+        }
+
+        await this.generateIndex();
+
+        const message = `从 ${folder.path} 完成: ${successCount} 成功, ${failCount} 失败`;
+        new Notice(message, 5000);
+        console.log(message);
+
+      } catch (error) {
+        console.error('从文件夹摄入失败:', error);
+        new Notice(`摄入失败: ${(error as any).message || '未知错误'}`, 8000);
+      }
+    }).open();
   }
 
   // 处理单个源文件
@@ -804,5 +872,51 @@ class LintReportModal extends Modal {
   onClose() {
     const { contentEl } = this;
     contentEl.empty();
+  }
+}
+
+// 文件夹选择器模态框
+class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
+  onSelect: (folder: TFolder) => void;
+
+  constructor(app: App, onSelect: (folder: TFolder) => void) {
+    super(app);
+    this.onSelect = onSelect;
+    this.setPlaceholder('选择要摄入的文件夹...');
+  }
+
+  getItems(): TFolder[] {
+    // 获取 vault 中所有文件夹
+    const folders: TFolder[] = [];
+    const root = this.app.vault.getRoot();
+
+    // 递归获取所有文件夹
+    const collectFolders = (folder: TFolder) => {
+      // 过滤掉 .obsidian 和 wiki 文件夹
+      if (!folder.path.startsWith('.obsidian') &&
+          !folder.path.startsWith('wiki') &&
+          !folder.path.startsWith('schema')) {
+        folders.push(folder);
+      }
+
+      // 遍历子文件夹
+      for (const child of folder.children) {
+        if (child instanceof TFolder) {
+          collectFolders(child);
+        }
+      }
+    };
+
+    collectFolders(root);
+    return folders;
+  }
+
+  getItemText(folder: TFolder): string {
+    return folder.path;
+  }
+
+  onChooseItem(folder: TFolder, evt: MouseEvent | KeyboardEvent): void {
+    this.onSelect(folder);
+    this.close();
   }
 }
