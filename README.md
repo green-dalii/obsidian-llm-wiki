@@ -99,6 +99,19 @@ pnpm dev
 - **Azure OpenAI**：`https://your-resource.openai.azure.com/openai/deployments/your-deployment`
 - **其他兼容服务**：根据服务商提供的 endpoint 配置
 
+### 关于 OpenAI SDK 浏览器环境
+
+使用 OpenAI Provider 时，你可能注意到插件启用了 `dangerouslyAllowBrowser: true` 选项。这是**安全的低风险配置**，原因：
+
+- **Obsidian 是 Electron 应用**：虽然被 OpenAI SDK 检测为浏览器环境，但实际上是本地应用
+- **本地数据存储**：API Key 存储在本地文件（`.obsidian/plugins/data.json`），只有你能访问
+- **社区通用做法**：许多 Obsidian 插件都使用此方案
+- **安全性评估**：详见 [SECURITY.md](SECURITY.md)
+
+**如果你仍然担心安全性**，可以使用：
+- **本地 LLM**（如 Ollama）：完全不暴露 API Key
+- **Anthropic Provider**：无浏览器限制
+
 ## 使用方法
 
 ### 命令面板命令
