@@ -211,19 +211,50 @@ export default class LLMWikiPlugin extends Plugin {
     new Notice('开始摄入资料...');
 
     try {
+      // 确保 wiki 文件夹存在
+      try {
+        await this.app.vault.createFolder(this.settings.wikiFolder);
+        console.log(`创建 Wiki 文件夹: ${this.settings.wikiFolder}`);
+      } catch (error) {
+        // 文件夹已存在，忽略错误
+        console.log('Wiki 文件夹已存在');
+      }
+
       const sourceFolder = this.settings.sourceFolder;
       const files = this.app.vault.getMarkdownFiles()
         .filter(f => f.path.startsWith(sourceFolder));
 
-      for (const file of files) {
-        await this.processSourceFile(file);
+      console.log(`找到 ${files.length} 个源文件`);
+
+      if (files.length === 0) {
+        new Notice(`源文件夹 ${sourceFolder} 中没有找到文件`);
+        console.log('提示：请在源文件夹中添加 Markdown 文件');
+        return;
       }
 
-      new Notice(`成功摄入 ${files.length} 个文件`);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const file of files) {
+        try {
+          await this.processSourceFile(file);
+          successCount++;
+          console.log(`成功处理: ${file.basename} (${successCount}/${files.length})`);
+        } catch (error) {
+          failCount++;
+          console.error(`处理失败: ${file.basename}`, error);
+        }
+      }
+
       await this.generateIndex();
+
+      const message = `处理完成: ${successCount} 成功, ${failCount} 失败`;
+      new Notice(message, 5000);
+      console.log(message);
+
     } catch (error) {
       console.error('摄入失败:', error);
-      new Notice('摄入失败，请查看控制台');
+      new Notice(`摄入失败: ${(error as any).message || '未知错误'}`, 8000);
     }
   }
 
@@ -233,8 +264,20 @@ export default class LLMWikiPlugin extends Plugin {
       throw new Error('LLM client not initialized');
     }
 
-    const content = await this.app.vault.read(file);
+    console.log('开始处理文件:', file.path);
 
+    // 确保 wiki 文件夹存在
+    try {
+      await this.app.vault.createFolder(this.settings.wikiFolder);
+      console.log(`创建文件夹: ${this.settings.wikiFolder}`);
+    } catch (error) {
+      // 文件夹已存在，忽略错误
+    }
+
+    const content = await this.app.vault.read(file);
+    console.log('文件内容长度:', content.length);
+
+    console.log('调用 LLM API...');
     const wikiContent = await this.llmClient.createMessage({
       model: this.settings.model,
       max_tokens: 4000,
@@ -253,12 +296,23 @@ ${content}
       }]
     });
 
+    console.log('LLM 响应长度:', wikiContent.length);
+
     // 保存到 Wiki 文件夹
     const wikiPath = `${this.settings.wikiFolder}/${file.basename}.md`;
-    await this.app.vault.create(wikiPath, wikiContent);
+    const wikiFile = this.app.vault.getAbstractFileByPath(wikiPath);
+
+    if (wikiFile instanceof TFile) {
+      await this.app.vault.modify(wikiFile, wikiContent);
+      console.log('Wiki 文件已更新:', wikiPath);
+    } else {
+      await this.app.vault.create(wikiPath, wikiContent);
+      console.log('Wiki 文件已创建:', wikiPath);
+    }
 
     // 更新日志
     await this.updateLog(`摄入: ${file.basename}`);
+    console.log('文件处理完成:', file.basename);
   }
 
   // 查询 Wiki
@@ -364,28 +418,46 @@ ${allContent}
 
   // 生成索引
   async generateIndex() {
+    const indexPath = `${this.settings.wikiFolder}/index.md`;
+
+    // 确保 wiki 文件夹存在
+    try {
+      await this.app.vault.createFolder(this.settings.wikiFolder);
+      console.log(`创建文件夹: ${this.settings.wikiFolder}`);
+    } catch (error) {
+      // 文件夹已存在，忽略错误
+      if (!(error as any).message?.includes('already exists')) {
+        console.log('文件夹已存在或创建失败:', error);
+      }
+    }
+
+    // 获取所有 Wiki 文件
     const wikiFiles = this.app.vault.getMarkdownFiles()
-      .filter(f => f.path.startsWith(this.settings.wikiFolder));
+      .filter(f => f.path.startsWith(this.settings.wikiFolder) && f.basename !== 'index');
 
     let indexContent = '# Wiki 索引\n\n';
     indexContent += '## 最近更新\n\n';
 
     for (const file of wikiFiles) {
-      const stat = await this.app.vault.adapter.stat(file.path);
-      if (stat) {
-        const mtime = new Date(stat.mtime);
-        indexContent += `- [[${file.basename}]] (更新于 ${mtime.toLocaleDateString()})\n`;
+      try {
+        const stat = await this.app.vault.adapter.stat(file.path);
+        if (stat) {
+          const mtime = new Date(stat.mtime);
+          indexContent += `- [[${file.basename}]] (更新于 ${mtime.toLocaleDateString()})\n`;
+        }
+      } catch (error) {
+        console.log('获取文件信息失败:', file.path, error);
       }
     }
 
-    const indexPath = `${this.settings.wikiFolder}/index.md`;
-    try {
+    // 创建或更新索引文件
+    const indexFile = this.app.vault.getAbstractFileByPath(indexPath);
+    if (indexFile instanceof TFile) {
+      await this.app.vault.modify(indexFile, indexContent);
+      console.log('索引文件已更新:', indexPath);
+    } else {
       await this.app.vault.create(indexPath, indexContent);
-    } catch {
-      await this.app.vault.modify(
-        this.app.vault.getAbstractFileByPath(indexPath) as TFile,
-        indexContent
-      );
+      console.log('索引文件已创建:', indexPath);
     }
   }
 
@@ -395,11 +467,19 @@ ${allContent}
     const timestamp = new Date().toISOString();
     const entry = `- ${timestamp}: ${action}\n`;
 
+    // 确保 wiki 文件夹存在
     try {
-      const file = this.app.vault.getAbstractFileByPath(logPath) as TFile;
-      const content = await this.app.vault.read(file);
-      await this.app.vault.modify(file, content + entry);
-    } catch {
+      await this.app.vault.createFolder(this.settings.wikiFolder);
+    } catch (error) {
+      // 文件夹已存在，忽略错误
+    }
+
+    // 创建或更新日志文件
+    const logFile = this.app.vault.getAbstractFileByPath(logPath);
+    if (logFile instanceof TFile) {
+      const content = await this.app.vault.read(logFile);
+      await this.app.vault.modify(logFile, content + entry);
+    } else {
       await this.app.vault.create(logPath, `# 操作日志\n\n${entry}`);
     }
   }
