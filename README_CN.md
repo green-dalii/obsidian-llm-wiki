@@ -51,7 +51,7 @@ schema/      # 工作流配置（未来功能）
 
 #### 手动安装
 
-1. 下载最新版本：[Releases](https://github.com/Greener-Dalii/llm-wiki-obsidian/releases)
+1. 下载最新版本：[Releases](https://github.com/Greener-Dalii/obsidian-llm-wiki/releases)
    - `main.js`
    - `manifest.json`
    - `styles.css`
@@ -61,8 +61,8 @@ schema/      # 工作流配置（未来功能）
 #### 开发构建
 
 ```bash
-git clone https://github.com/Greener-Dalii/llm-wiki-obsidian.git
-cd llm-wiki-obsidian
+git clone https://github.com/Greener-Dalii/obsidian-llm-wiki.git
+cd obsidian-llm-wiki
 pnpm install
 pnpm build
 ```
@@ -344,8 +344,8 @@ MIT License - 详见 [LICENSE](LICENSE)
 ## 📞 支持
 
 - 📖 [文档](docs/)
-- 🐛 [问题反馈](https://github.com/Greener-Dalii/llm-wiki-obsidian/issues)
-- 💬 [讨论](https://github.com/Greener-Dalii/llm-wiki-obsidian/discussions)
+- 🐛 [问题反馈](https://github.com/Greener-Dalii/obsidian-llm-wiki/issues)
+- 💬 [讨论](https://github.com/Greener-Dalii/obsidian-llm-wiki/discussions)
 
 ---
 

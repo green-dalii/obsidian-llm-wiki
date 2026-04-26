@@ -36,15 +36,15 @@ schema/      # Workflow configuration (future)
 
 ### Manual Installation
 
-1. Download `main.js`, `manifest.json`, `styles.css` from [releases](https://github.com/Greener-Dalii/llm-wiki-obsidian/releases)
+1. Download `main.js`, `manifest.json`, `styles.css` from [releases](https://github.com/Greener-Dalii/obsidian-llm-wiki/releases)
 2. Copy to your vault: `.obsidian/plugins/llm-wiki/`
 3. Enable in Obsidian Settings → Community plugins
 
 ### Development Build
 
 ```bash
-git clone https://github.com/Greener-Dalii/llm-wiki-obsidian.git
-cd llm-wiki-obsidian
+git clone https://github.com/Greener-Dalii/obsidian-llm-wiki.git
+cd obsidian-llm-wiki
 pnpm install
 pnpm build
 ```
@@ -219,8 +219,8 @@ We deeply thank **Andrej Karpathy** for sharing this innovative concept and insp
 ## Support
 
 - 📖 [Documentation](docs/)
-- 🐛 [Issues](https://github.com/Greener-Dalii/llm-wiki-obsidian/issues)
-- 💬 [Discussions](https://github.com/Greener-Dalii/llm-wiki-obsidian/discussions)
+- 🐛 [Issues](https://github.com/Greener-Dalii/obsidian-llm-wiki/issues)
+- 💬 [Discussions](https://github.com/Greener-Dalii/obsidian-llm-wiki/discussions)
 
 ---
 
