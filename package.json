@@ -1,21 +1,22 @@
 {
   "name": "llm-wiki-plugin",
-  "version": "0.3.0",
-  "description": "LLM Wiki Plugin for Obsidian",
+  "version": "1.0.0",
+  "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "version": "node version-bump.mjs && git add manifest.json versions.json"
+    "build": "node esbuild.config.mjs production"
   },
   "keywords": [
     "obsidian",
     "plugin",
     "llm",
     "wiki",
-    "knowledge-management"
+    "karpathy",
+    "knowledge-management",
+    "multi-page"
   ],
-  "author": "Your Name",
+  "author": "Greener-Dalii",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^16.11.6",

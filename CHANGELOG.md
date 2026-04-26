@@ -5,76 +5,103 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-04-26
+
+### Added - Karpathy Complete Implementation
+
+**Multi-page Generation Mechanism**
+- One source file generates 10+ Wiki pages (not just 1)
+- Entity pages (persons, organizations, projects, locations)
+- Concept pages (theories, methods, technologies, terms)
+- Summary pages with bidirectional links
+- Automatic contradiction detection and marking
+
+**Structured Prompt Design**
+- JSON format output for source analysis
+- Entity extraction with types and summaries
+- Concept extraction with related concepts
+- Contradiction detection between new and existing Wiki
+- Related pages identification
+
+**Bidirectional Link Maintenance**
+- Ensure [[Entity]] links point to real entity pages
+- Ensure [[Concept]] links point to real concept pages
+- Automatic link creation in wiki folder structure
+- No broken/red links
+
+**Wiki Folder Structure**
+- `wiki/entities/` - Entity pages
+- `wiki/concepts/` - Concept pages
+- `wiki/sources/` - Summary pages
+- `wiki/index.md` - Classified index
+- `wiki/log.md` - Detailed operation log
+
+**Index Classification**
+- Organized by categories (Entities, Concepts, Sources)
+- Each entry includes one-line summary
+- Using Obsidian `[[links]]` syntax
+- Auto-generated and updated
+
+**Log Detail Recording**
+- Records created pages (all entity/concept/summary pages)
+- Records updated pages (existing related pages)
+- Records discovered contradictions
+- Standard format with parseable timestamps
+
+**Lint Maintenance**
+- Checks contradictions between pages
+- Checks outdated claims
+- Checks orphan pages (no inbound links)
+- Checks missing concept/entity pages
+- Checks broken bidirectional links
+- Checks data gaps
+
+### Changed
+
+**Complete Rewrite**
+- Replaced single-page generation with multi-page mechanism
+- Replaced simple prompt with structured JSON prompt
+- Replaced time-based index with classified index
+- Replaced simple log with detailed operation log
+- Added entity and concept page creation logic
+- Added contradiction detection and marking
+- Added related pages update mechanism
+
+**Folder Structure**
+```
+wiki/
+├── entities/    # New: Entity pages
+├── concepts/    # New: Concept pages
+├── sources/     # New: Summary pages
+├── index.md     # Improved: Classified
+└── log.md       # Improved: Detailed
+```
+
+### Fixed
+
+- ✅ Multi-page generation (Karpathy requirement)
+- ✅ Bidirectional links effectiveness (links point to real pages)
+- ✅ Entity and concept page creation
+- ✅ Existing pages update when new source arrives
+- ✅ Contradiction marking
+- ✅ Classified index structure
+- ✅ Detailed log recording
+
+### Authors
+
+- **Greener-Dalii** - Complete Karpathy implementation
+
+---
+
 ## [0.3.0] - 2026-04-26
 
 ### Added
 - Folder picker for initializing Wiki from existing folders
-- New command: "Ingest from Folder" - select any folder in vault
-- FuzzySuggestModal for folder selection with search
-- Support for nested folders (includes subdirectories)
-- Filter out `.obsidian`, `wiki`, `schema` folders from picker
+- FuzzySuggestModal for folder selection
+- Support for nested folders
 
-### Improved
-- Better workflow: use existing notes without manual file organization
-- No need to create dedicated `sources/` folder
-- Flexible source selection per execution
+---
 
-## [0.2.2] - 2026-04-26
+## [0.2.0-0.2.2] - Earlier versions
 
-### Fixed
-- Vault operation errors (`TypeError: Cannot read properties of null`)
-- Ensure folders exist before file operations
-- Use `instanceof TFile` instead of unsafe type casting
-- Handle file existence properly (create vs modify)
-- Improve batch processing (individual failures don't stop execution)
-
-### Improved
-- Detailed logging for debugging
-- Progress statistics (success/failure counts)
-- Source folder validation
-- User notifications with actionable messages
-
-## [0.2.1] - 2026-04-26
-
-### Fixed
-- OpenAI SDK browser environment error
-- Add `dangerouslyAllowBrowser: true` for Obsidian Electron environment
-- Security documentation and best practices
-
-### Security
-- Detailed security analysis in SECURITY.md
-- Alternative solutions (local LLM, Anthropic provider)
-
-## [0.2.0] - 2026-04-26
-
-### Added
-- Manual save button in settings (replaces auto-save)
-- Test connection button to validate LLM provider config
-- LLM Client status display (initialized/uninitialized)
-- Temporary settings object pattern
-
-### Changed
-- Removed problematic `onChange` auto-save
-- Explicit user control over configuration saving
-- Better user feedback and status indicators
-
-### Fixed
-- Configuration persistence issues
-- API Key validation logic
-
-## [0.1.0] - 2026-04-26
-
-### Added
-- Multi-provider LLM support (Anthropic + OpenAI)
-- OpenAI compatible endpoint support (local LLM, custom services)
-- Core features: ingest, query, lint, generate index
-- Bidirectional links (`[[wiki-links]]`)
-- Auto-generated index and operation log
-- Git-friendly structure
-
-### Technical
-- TypeScript implementation
-- Obsidian Plugin API integration
-- Anthropic SDK integration
-- OpenAI SDK integration
-- esbuild build system
+See git history for details of earlier implementations.

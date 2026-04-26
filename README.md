@@ -1,6 +1,8 @@
 # LLM Wiki Plugin for Obsidian
 
-An Obsidian plugin implementing Karpathy's [LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) - building and maintaining a persistent knowledge base with LLM assistance.
+A complete Karpathy LLM Wiki implementation - **multi-page knowledge generation** with entity/concept pages.
+
+**Author:** Greener-Dalii
 
 ## Features
 

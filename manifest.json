@@ -1,10 +1,10 @@
 {
   "id": "llm-wiki-plugin",
   "name": "LLM Wiki",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "minAppVersion": "0.15.0",
-  "description": "An Obsidian plugin that implements Karpathy's LLM Wiki concept - building and maintaining a persistent knowledge base with LLM assistance",
-  "author": "Your Name",
-  "authorUrl": "https://github.com/yourusername",
+  "description": "Karpathy's LLM Wiki implementation for Obsidian - multi-page knowledge generation with entity/concept pages",
+  "author": "Greener-Dalii",
+  "authorUrl": "https://github.com/Greener-Dalii",
   "isDesktopOnly": false
 }
