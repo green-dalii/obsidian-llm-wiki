@@ -36,7 +36,8 @@ class OpenAIClient implements LLMClient {
   constructor(apiKey: string, baseUrl?: string) {
     this.client = new OpenAI({
       apiKey,
-      baseURL: baseUrl || 'https://api.openai.com/v1'
+      baseURL: baseUrl || 'https://api.openai.com/v1',
+      dangerouslyAllowBrowser: true // Obsidian 是 Electron 应用，允许在浏览器环境中使用
     });
   }
 

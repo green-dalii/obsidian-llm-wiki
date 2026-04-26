@@ -1,7 +1,7 @@
 {
   "id": "llm-wiki-plugin",
   "name": "LLM Wiki",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minAppVersion": "0.15.0",
   "description": "An Obsidian plugin that implements Karpathy's LLM Wiki concept - building and maintaining a persistent knowledge base with LLM assistance",
   "author": "Your Name",
