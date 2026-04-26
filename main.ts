@@ -485,15 +485,70 @@ function slugify(text: string): string {
 }
 
 function parseJsonResponse(response: string): any {
+  console.log('parseJsonResponse 开始解析...');
+  console.log('响应长度:', response.length);
+
   try {
-    // 提取 JSON（可能被 markdown 包围）
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+    // 步骤1: 清理可能的 markdown 包裹
+    let cleaned = response.trim();
+
+    // 移除开头的 ```json 或 ``` 标记
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```(?:json|markdown|md)?\s*\n?/, '');
+      console.log('移除开头的代码块标记');
     }
-    return JSON.parse(response);
+
+    // 移除结尾的 ``` 标记
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.replace(/\n?```$/, '');
+      console.log('移除结尾的代码块标记');
+    }
+
+    cleaned = cleaned.trim();
+    console.log('清理后长度:', cleaned.length);
+    console.log('前100字符:', cleaned.substring(0, 100));
+
+    // 步骤2: 尝试直接解析
+    try {
+      const result = JSON.parse(cleaned);
+      console.log('✅ 直接解析成功');
+      return result;
+    } catch (directError) {
+      console.warn('直接解析失败，尝试提取 JSON 对象');
+    }
+
+    // 步骤3: 提取 JSON 对象（可能被其他文本包围）
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      console.log('找到 JSON 对象，长度:', jsonMatch[0].length);
+      try {
+        const result = JSON.parse(jsonMatch[0]);
+        console.log('✅ 提取后解析成功');
+        return result;
+      } catch (extractError) {
+        console.error('提取后解析失败:', extractError);
+        console.log('提取的 JSON 前200字符:', jsonMatch[0].substring(0, 200));
+
+        // 步骤4: 尝试修复常见的 JSON 格式问题
+        // 移除可能的尾随逗号
+        let fixedJson = jsonMatch[0].replace(/,\s*\}/g, '}').replace(/,\s*\]/g, ']');
+        try {
+          const result = JSON.parse(fixedJson);
+          console.log('✅ 修复后解析成功');
+          return result;
+        } catch (fixError) {
+          console.error('修复后解析失败:', fixError);
+        }
+      }
+    }
+
+    // 步骤5: 如果所有尝试都失败，返回 null
+    console.error('❌ JSON 解析完全失败');
+    console.log('完整响应内容:', response);
+    return null;
+
   } catch (error) {
-    console.error('JSON 解析失败:', error);
+    console.error('parseJsonResponse 异常:', error);
     console.log('原始响应:', response);
     return null;
   }
@@ -809,38 +864,76 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   async analyzeSource(file: TFile): Promise<SourceAnalysis | null> {
+    console.log('=== 开始分析源文件 ===');
+    console.log('文件:', file.path);
+
     const content = await this.app.vault.read(file);
+    console.log('文件内容长度:', content.length);
 
     // 获取现有 Wiki 页面列表
     const existingPages = await this.getExistingWikiPages();
     const existingPagesList = existingPages.map(p => `- [[${p.title}]]`).join('\n');
+    console.log('现有 Wiki 页面数量:', existingPages.length);
 
     // 构建 prompt
     const prompt = PROMPTS.analyzeSource
       .replace('{{content}}', content)
       .replace('{{existing_pages}}', existingPagesList);
 
+    console.log('Prompt 长度:', prompt.length);
     console.log('调用 LLM 分析源文件...');
-    const response = await this.llmClient.createMessage({
-      model: this.settings.model,
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }]
-    });
 
-    const analysisData = parseJsonResponse(response);
-    if (!analysisData) {
+    try {
+      const response = await this.llmClient.createMessage({
+        model: this.settings.model,
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      console.log('LLM 响应长度:', response.length);
+      console.log('响应前200字符:', response.substring(0, 200));
+
+      const analysisData = parseJsonResponse(response);
+
+      if (!analysisData) {
+        console.error('❌ JSON 解析失败，返回 null');
+        console.log('这可能导致 "源文件分析失败" 错误');
+        return null;
+      }
+
+      console.log('✅ JSON 解析成功');
+      console.log('解析结果包含字段:', Object.keys(analysisData));
+
+      // 验证必要字段
+      const requiredFields = ['source_title', 'summary', 'entities', 'concepts'];
+      const missingFields = requiredFields.filter(field => !analysisData[field]);
+
+      if (missingFields.length > 0) {
+        console.error('❌ 缺少必要字段:', missingFields);
+        return null;
+      }
+
+      console.log('✅ 所有必要字段存在');
+
+      // 补充分析结果
+      const analysis: SourceAnalysis = {
+        ...analysisData,
+        source_file: file.path,
+        created_pages: [],
+        updated_pages: []
+      };
+
+      console.log('分析完成:');
+      console.log('  - 实体数量:', analysis.entities.length);
+      console.log('  - 概念数量:', analysis.concepts.length);
+      console.log('  - 相关页面:', analysis.related_pages?.length || 0);
+
+      return analysis;
+
+    } catch (error) {
+      console.error('❌ analyzeSource 异常:', error);
       return null;
     }
-
-    // 补充分析结果
-    const analysis: SourceAnalysis = {
-      ...analysisData,
-      source_file: file.path,
-      created_pages: [],
-      updated_pages: []
-    };
-
-    return analysis;
   }
 
   async getExistingWikiPages(): Promise<{path: string, title: string}[]> {
