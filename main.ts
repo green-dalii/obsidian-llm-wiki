@@ -7,7 +7,7 @@ interface LLMClient {
   createMessage(params: {
     model: string;
     max_tokens: number;
-    messages: Array<{role: string; content: string}>;
+    messages: Array<{role: 'user' | 'assistant'; content: string}>;
   }): Promise<string>;
 }
 
@@ -22,7 +22,7 @@ class AnthropicClient implements LLMClient {
   async createMessage(params: {
     model: string;
     max_tokens: number;
-    messages: Array<{role: string; content: string}>;
+    messages: Array<{role: 'user' | 'assistant'; content: string}>;
   }): Promise<string> {
     const response = await this.client.messages.create(params);
     return response.content[0].type === 'text' ? response.content[0].text : '';
@@ -43,7 +43,7 @@ class OpenAIClient implements LLMClient {
   async createMessage(params: {
     model: string;
     max_tokens: number;
-    messages: Array<{role: string; content: string}>;
+    messages: Array<{role: 'user' | 'assistant'; content: string}>;
   }): Promise<string> {
     const response = await this.client.chat.completions.create({
       model: params.model,
@@ -136,23 +136,41 @@ export default class LLMWikiPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+    console.log('设置已持久化');
     this.initializeLLMClient();
+    if (this.llmClient && this.settings.apiKey) {
+      new Notice('LLM 配置已保存成功');
+    }
   }
 
   // 初始化 LLM 客户端
   private initializeLLMClient() {
-    if (!this.settings.apiKey) {
+    console.log('初始化 LLM 客户端...');
+    console.log('Provider:', this.settings.provider);
+    console.log('API Key:', this.settings.apiKey ? '已设置' : '未设置');
+    console.log('OpenAI Base URL:', this.settings.openaiBaseUrl);
+
+    if (!this.settings.apiKey || this.settings.apiKey.trim() === '') {
+      console.log('API Key 为空，客户端初始化失败');
       this.llmClient = null;
       return;
     }
 
-    if (this.settings.provider === 'anthropic') {
-      this.llmClient = new AnthropicClient(this.settings.apiKey);
-    } else if (this.settings.provider === 'openai') {
-      this.llmClient = new OpenAIClient(
-        this.settings.apiKey,
-        this.settings.openaiBaseUrl
-      );
+    try {
+      if (this.settings.provider === 'anthropic') {
+        this.llmClient = new AnthropicClient(this.settings.apiKey.trim());
+        console.log('Anthropic 客户端初始化成功');
+      } else if (this.settings.provider === 'openai') {
+        const baseUrl = this.settings.openaiBaseUrl?.trim() || undefined;
+        this.llmClient = new OpenAIClient(
+          this.settings.apiKey.trim(),
+          baseUrl
+        );
+        console.log('OpenAI 客户端初始化成功，Base URL:', baseUrl || '默认');
+      }
+    } catch (error) {
+      console.error('客户端初始化失败:', error);
+      this.llmClient = null;
     }
   }
 
@@ -168,8 +186,17 @@ export default class LLMWikiPlugin extends Plugin {
 
   // 摄入新资料
   async ingestSources() {
+    console.log('摄入命令触发');
+    console.log('LLM Client:', this.llmClient ? '已初始化' : '未初始化');
+    console.log('Settings:', {
+      provider: this.settings.provider,
+      apiKey: this.settings.apiKey ? '已设置' : '未设置',
+      model: this.settings.model
+    });
+
     if (!this.llmClient) {
-      new Notice('请先配置 API Key');
+      new Notice('请先配置 API Key 并保存设置');
+      console.log('客户端未初始化，请检查设置');
       return;
     }
 
@@ -194,6 +221,10 @@ export default class LLMWikiPlugin extends Plugin {
 
   // 处理单个源文件
   async processSourceFile(file: TFile) {
+    if (!this.llmClient) {
+      throw new Error('LLM client not initialized');
+    }
+
     const content = await this.app.vault.read(file);
 
     const wikiContent = await this.llmClient.createMessage({
@@ -229,9 +260,16 @@ ${content}
       return;
     }
 
+    const client = this.llmClient; // 保存引用避免 null 检查
+
     // 创建查询模态框
     new QueryModal(this.app, async (query) => {
       try {
+        if (!client) {
+          new Notice('LLM 客户端未初始化');
+          return;
+        }
+
         // 收集相关的 Wiki 页面
         const wikiFiles = this.app.vault.getMarkdownFiles()
           .filter(f => f.path.startsWith(this.settings.wikiFolder));
@@ -242,7 +280,7 @@ ${content}
           context += `\n\n---\n## ${file.basename}\n${content}`;
         }
 
-        const answer = await this.llmClient.createMessage({
+        const answer = await client.createMessage({
           model: this.settings.model,
           max_tokens: 4000,
           messages: [{
@@ -273,6 +311,8 @@ ${context}
       return;
     }
 
+    const client = this.llmClient; // 保存引用避免 null 检查
+
     new Notice('开始维护 Wiki...');
 
     try {
@@ -286,7 +326,7 @@ ${context}
         allContent += `\n\n---\n## ${file.basename}\n${content}`;
       }
 
-      const issues = await this.llmClient.createMessage({
+      const issues = await client.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
         messages: [{
@@ -403,8 +443,10 @@ class LLMWikiSettingTab extends PluginSettingTab {
           : 'sk-...')
         .setValue(this.plugin.settings.apiKey)
         .onChange(async (value) => {
+          console.log('API Key onChange 触发，值:', value ? '已输入' : '空');
           this.plugin.settings.apiKey = value;
           await this.plugin.saveSettings();
+          console.log('设置已保存');
         }));
 
     // OpenAI Base URL（仅在 OpenAI provider 时显示）
