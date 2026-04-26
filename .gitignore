@@ -1,0 +1,18 @@
+# 忽略 node_modules
+node_modules/
+
+# 忽略构建输出
+main.js
+*.js.map
+
+# 忽略 IDE 配置
+.vscode/
+.idea/
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
+
+# 忽略临时文件
+*.tmp
+*.log

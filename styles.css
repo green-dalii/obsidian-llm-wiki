@@ -1,0 +1,41 @@
+/* LLM Wiki Plugin Styles */
+
+/* 查询模态框样式 */
+.llm-wiki-query-modal textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 10px;
+  font-family: var(--font-text);
+  font-size: 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.llm-wiki-answer-modal {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 10px;
+  font-family: var(--font-text);
+  line-height: 1.6;
+}
+
+/* 设置面板样式 */
+.llm-wiki-settings .setting-item {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 12px 0;
+}
+
+.llm-wiki-settings .setting-item:last-child {
+  border-bottom: none;
+}
+
+/* 命令面板提示 */
+.llm-wiki-notice {
+  padding: 10px 15px;
+  background: var(--background-modifier-success);
+  color: var(--text-on-accent);
+  border-radius: 4px;
+  margin: 10px 0;
+}
