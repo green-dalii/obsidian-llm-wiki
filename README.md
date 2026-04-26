@@ -190,17 +190,32 @@ Contributions welcome! Please:
 
 MIT License - see [LICENSE](LICENSE)
 
-## Credits
+---
 
-- Concept: [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-- Built with [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
+## 🙏 Acknowledgments & Credits
+
+### Concept Origin
+This project is a complete implementation of **Karpathy's LLM Wiki** concept:
+
+- **Original Concept:** [Andrej Karpathy's LLM Wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+- **Core Idea:** Three-layer separation (Sources → Wiki → Schema) with automated knowledge graph generation
+- **Inspiration:** Karpathy's vision of "LLM as Wiki maintainer" - automating knowledge organization
+
+We deeply thank **Andrej Karpathy** for sharing this innovative concept and inspiring the knowledge management community.
+
+### Technology Stack
+- **Platform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
+- **LLM SDKs:** [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-typescript), [OpenAI SDK](https://github.com/openai/openai-node)
+- **Build System:** [esbuild](https://github.com/evanw/esbuild)
+
+---
 
 ## Support
 
 - 📖 [Documentation](docs/)
-- 🐛 [Issues](https://github.com/yourusername/llm-wiki-plugin/issues)
-- 💬 [Discussions](https://github.com/yourusername/llm-wiki-plugin/discussions)
+- 🐛 [Issues](https://github.com/Greener-Dalii/llm-wiki-plugin/issues)
+- 💬 [Discussions](https://github.com/Greener-Dalii/llm-wiki-plugin/discussions)
 
 ---
 
-**Version**: 0.2.2 | **Status**: Active | **Author**: Your Name
+**Version**: 1.0.8 | **Status**: Production Ready | **Author**: Greener-Dalii
