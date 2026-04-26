@@ -1,160 +1,119 @@
-# LLM Wiki Plugin 开发路线图
+# Roadmap
 
-## 当前版本：v0.1.0 (MVP)
+Planned features and improvements for LLM Wiki Plugin.
 
-### ✅ 已完成
-- [x] 基础项目结构
-- [x] 核心插件框架
-- [x] Anthropic API 集成
-- [x] 三大核心命令实现
-  - [x] 摄入（Ingest）
-  - [x] 查询（Query）
-  - [x] 维护（Lint）
-- [x] 设置面板
-- [x] 基础模态框 UI
+## Version Milestones
 
----
+### v0.3.0 - Enhanced Features
 
-## 下一版本：v0.2.0 (增强功能)
+**Planned:**
+- Incremental ingestion (only process modified files)
+- File watcher (auto-detect source folder changes)
+- Query history and saved queries
+- Conflict resolution UI
+- Schema configuration system (templates, metadata)
 
-### 计划功能
+**Target: Q2 2026**
 
-#### 1. 增强的摄入系统
-- [ ] 支持增量摄入（只处理新增/修改的文件）
-- [ ] 文件监听器（自动检测源文件夹变化）
-- [ ] 批量摄入进度条
-- [ ] 处理失败文件的错误日志
+### v0.4.0 - Advanced Features
 
-#### 2. 改进的查询系统
-- [ ] 上下文窗口管理（避免超过 token 限制）
-- [ ] 相关性评分（显示哪些 Wiki 页面被引用）
-- [ ] 查询历史记录
-- [ ] 将查询结果直接保存为新 Wiki 页面的选项
+**Planned:**
+- Multi-LLM support (Ollama, local models)
+- Semantic search with embeddings
+- Knowledge graph enhancements (visualizations, filters)
+- Collaboration features (multi-user editing detection)
+- Advanced filtering (time, tags, author)
 
-#### 3. 智能维护系统
-- [ ] 自动修复简单问题（如缺失链接）
-- [ ] 冲突解决界面（可视化差异）
-- [ ] 维护日志（记录每次修复）
-- [ ] 孤立页面检测与处理
+**Target: Q3 2026**
 
-#### 4. Schema 配置系统
-- [ ] 可自定义的 Wiki 页面模板
-- [ ] 元数据 Schema（YAML frontmatter）
-- [ ] 提示词模板配置
-- [ ] 不同领域的预设模板
+### v1.0.0 - Production Ready
+
+**Planned:**
+- Performance optimization (large-scale vaults 10k+ pages)
+- Comprehensive testing (unit, integration, E2E)
+- Complete documentation
+- User onboarding wizard
+- Plugin marketplace submission
+
+**Target: Q4 2026**
 
 ---
 
-## 未来版本：v0.3.0 (高级功能)
+## Feature Categories
 
-### 1. 多 LLM 支持
-- [ ] OpenAI GPT 集成
-- [ ] 本地模型支持（Ollama）
-- [ ] 自定义 API 端点
-- [ ] 模型切换界面
+### 🔥 High Priority
 
-### 2. 知识图谱增强
-- [ ] 实体关系可视化
-- [ ] 图谱过滤器（按时间、类型、标签）
-- [ ] 导出图谱数据（JSON/GraphML）
-- [ ] 图谱统计信息
+- Model dropdown selection (instead of manual input)
+- API key validation button (verify before save)
+- Connection status indicator
+- Local model support (Ollama)
+- Schema templates
 
-### 3. 协作功能
-- [ ] 多用户编辑检测
-- [ ] 变更历史追踪（Git 集成）
-- [ ] 评论系统
-- [ ] 审核工作流
+### 📊 Medium Priority
 
-### 4. 高级检索
-- [ ] 语义搜索（嵌入向量）
-- [ ] 全文搜索优化
-- [ ] 标签系统
-- [ ] 高级过滤（时间、作者、类型）
+- Multimodal support (images, PDFs)
+- Export formats (HTML, PDF, EPUB)
+- Real-time collaboration
+- Mobile optimization
+- Web Clipper integration
 
----
+### 🔮 Experimental
 
-## 长期目标：v1.0.0 (生产就绪)
-
-### 性能优化
-- [ ] 大规模 Wiki 性能测试（10,000+ 页面）
-- [ ] 增量索引构建
-- [ ] 缓存机制
-- [ ] 后台处理队列
-
-### 用户体验
-- [ ] 交互式向导（首次使用引导）
-- [ ] 键盘快捷键
-- [ ] 命令面板增强
-- [ ] Toast 通知优化
-
-### 文档与社区
-- [ ] 完整的用户文档
-- [ ] API 文档
-- [ ] 示例知识库
-- [ ] 社区模板库
-
-### 测试与质量
-- [ ] 单元测试覆盖率 80%+
-- [ ] 集成测试
-- [ ] E2E 测试
-- [ ] 性能基准测试
+- AI conversation mode (direct chat with Wiki)
+- Auto-categorization and tag suggestions
+- Knowledge base health score
+- Integration with other Obsidian plugins
+- Custom prompt templates
 
 ---
 
-## 研究与实验
+## Technical Improvements
 
-### 探索性功能
-- [ ] 多模态支持（图片、PDF 摄入）
-- [ ] 实时协作编辑
-- [ ] 移动端优化
-- [ ] Web Clipper 集成
-- [ ] AI 对话模式（直接与 Wiki 对话）
-- [ ] 自动分类与标签建议
-- [ ] 知识库导出（HTML、PDF、EPUB）
+### Performance
 
----
+- [ ] Large-scale testing (10k+ pages)
+- [ ] Incremental indexing
+- [ ] Background processing queue
+- [ ] Memory optimization
 
-## 技术债务
+### Code Quality
 
-### 需要改进的地方
-- [ ] 错误处理增强
-- [ ] 日志系统完善
-- [ ] 配置验证
-- [ ] 类型安全性提升
-- [ ] 代码注释完善
-- [ ] 性能监控
+- [ ] Unit tests (target 80%+ coverage)
+- [ ] Integration tests
+- [ ] Performance benchmarks
+- [ ] Code documentation
 
----
+### User Experience
 
-## 贡献指南
-
-欢迎贡献！优先级：
-
-1. **高优先级**：v0.2.0 功能
-2. **中优先级**：性能优化、文档
-3. **低优先级**：研究性功能
-
-### 贡献流程
-1. Fork 仓库
-2. 创建功能分支
-3. 提交 Pull Request
-4. 等待审核
+- [ ] Onboarding wizard
+- [ ] Keyboard shortcuts
+- [ ] Toast notifications refinement
+- [ ] Status indicators
 
 ---
 
-## 版本发布计划
+## Community Requests
 
-- **v0.1.0** - 2024 Q4 (MVP)
-- **v0.2.0** - 2025 Q1 (增强功能)
-- **v0.3.0** - 2025 Q2 (高级功能)
-- **v1.0.0** - 2025 Q3 (生产就绪)
+Top requested features from users:
+
+1. **Ollama Integration** - Local LLM support without API keys
+2. **Schema Templates** - Customizable page templates
+3. **Model Selection** - Dropdown for popular models
+4. **Export** - HTML/PDF export of Wiki
+5. **Graph View** - Enhanced knowledge graph
 
 ---
 
-## 反馈与建议
+## Development Status
 
-请通过 GitHub Issues 提交：
-- 🐛 Bug 报告
-- 💡 功能建议
-- 📚 文档改进
-- 🎨 UI/UX 建议
+**Current Version**: 0.2.2
+**Status**: Active Development
+**Next Release**: 0.3.0 (Q2 2026)
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to help implement these features.
+
+**Want a specific feature?** Open an [Issue](https://github.com/yourusername/llm-wiki-plugin/issues) with your request.
