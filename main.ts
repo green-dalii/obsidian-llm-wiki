@@ -612,31 +612,31 @@ export default class LLMWikiPlugin extends Plugin {
     // 注册命令
     this.addCommand({
       id: 'ingest-source',
-      name: '摄入单个源文件 (Ingest Single Source)',
+      name: 'Ingest Single Source (摄入单个源文件)',
       callback: () => this.selectSourceToIngest()
     });
 
     this.addCommand({
       id: 'ingest-folder',
-      name: '从文件夹批量摄入 (Ingest from Folder)',
+      name: 'Ingest from Folder (从文件夹批量摄入)',
       callback: () => this.selectFolderToIngest()
     });
 
     this.addCommand({
       id: 'query-wiki',
-      name: '查询 Wiki (Query Wiki)',
+      name: 'Query Wiki (查询 Wiki)',
       callback: () => this.queryWiki()
     });
 
     this.addCommand({
       id: 'lint-wiki',
-      name: '维护 Wiki (Lint Wiki)',
+      name: 'Lint Wiki (维护 Wiki)',
       callback: () => this.lintWiki()
     });
 
     this.addCommand({
       id: 'regenerate-index',
-      name: '重新生成索引 (Regenerate Index)',
+      name: 'Regenerate Index (重新生成索引)',
       callback: () => this.generateIndex()
     });
 
@@ -691,7 +691,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   async selectSourceToIngest() {
     if (!this.llmClient) {
-      new Notice('请先配置 API Key');
+      new Notice('⚠️ Please configure API Key first (请先配置 API Key)');
       return;
     }
 
@@ -702,7 +702,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   async selectFolderToIngest() {
     if (!this.llmClient) {
-      new Notice('请先配置 API Key');
+      new Notice('⚠️ Please configure API Key first (请先配置 API Key)');
       return;
     }
 
@@ -1400,24 +1400,56 @@ class LLMWikiSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h2', { text: 'LLM Wiki 设置' });
 
-    // ===== 状态显示 =====
-    const statusDiv = containerEl.createDiv({ cls: 'llm-wiki-status' });
-    const clientStatus = this.plugin.llmClient ? '✅ 已初始化' : '❌ 未初始化';
-    const currentProvider = PREDEFINED_PROVIDERS[this.tempSettings.provider]?.name || '自定义';
-    statusDiv.createEl('p', {
-      text: `LLM Client: ${clientStatus} | 当前提供商: ${currentProvider}`,
-      attr: { style: 'margin-bottom: 20px; font-weight: bold; font-size: 14px;' }
+    // ===== Plugin Introduction =====
+    containerEl.createEl('h2', { text: 'Karpathy LLM Wiki Settings' });
+
+    // Introduction Section
+    const introDiv = containerEl.createDiv({ cls: 'llm-wiki-intro' });
+    introDiv.createEl('p', {
+      text: 'This plugin implements Karpathy\'s LLM Wiki concept for Obsidian.',
+      attr: { style: 'margin-bottom: 10px; font-size: 14px;' }
+    });
+    introDiv.createEl('p', {
+      text: 'Concept Origin: [Andrej Karpathy\'s LLM Wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)',
+      attr: { style: 'margin-bottom: 15px; font-size: 13px; color: #666;' }
+    });
+    introDiv.createEl('p', {
+      text: 'Core Features (核心功能):',
+      attr: { style: 'margin-bottom: 5px; font-size: 14px; font-weight: bold;' }
     });
 
-    // ===== Provider 配置 =====
-    containerEl.createEl('h3', { text: 'LLM Provider 配置' });
+    const features = [
+      '✅ Multi-LLM Provider Support (多 LLM Provider 支持)',
+      '✅ Auto-generate Wiki pages from sources (自动从源文件生成 Wiki 页面)',
+      '✅ Bidirectional links [[wiki-links]] (双向链接)',
+      '✅ Knowledge graph visualization (知识图谱可视化)',
+      '✅ Query Wiki with synthesized answers (Wiki 查询)',
+      '✅ Auto-maintenance: detect contradictions (自动维护)'
+    ];
+    features.forEach(f => {
+      introDiv.createEl('p', {
+        text: f,
+        attr: { style: 'margin: 3px 0; font-size: 12px;' }
+      });
+    });
 
-    // 1. Provider 下拉选择
+    // ===== Status Display =====
+    const statusDiv = containerEl.createDiv({ cls: 'llm-wiki-status' });
+    const clientStatus = this.plugin.llmClient ? '✅ Initialized (已初始化)' : '❌ Not initialized (未初始化)';
+    const currentProvider = PREDEFINED_PROVIDERS[this.tempSettings.provider]?.name || 'Custom (自定义)';
+    statusDiv.createEl('p', {
+      text: `LLM Client: ${clientStatus} | Current Provider (当前提供商): ${currentProvider}`,
+      attr: { style: 'margin-top: 20px; margin-bottom: 20px; font-weight: bold; font-size: 14px;' }
+    });
+
+    // ===== Provider Configuration =====
+    containerEl.createEl('h3', { text: 'LLM Provider Configuration (LLM Provider 配置)' });
+
+    // 1. Provider Dropdown
     new Setting(containerEl)
       .setName('LLM Provider')
-      .setDesc('选择预定义提供商或自定义 OpenAI 兼容服务')
+      .setDesc('Select predefined provider or custom OpenAI-compatible service (选择预定义提供商或自定义服务)')
       .addDropdown(dropdown => {
         // 添加所有预定义提供商
         Object.values(PREDEFINED_PROVIDERS).forEach(config => {
@@ -1428,27 +1460,27 @@ class LLMWikiSettingTab extends PluginSettingTab {
           this.tempSettings.provider = value;
           const config = PREDEFINED_PROVIDERS[value];
 
-          // 自动填充预设配置
+          // Auto-fill preset configuration (自动填充预设配置)
           if (config) {
             this.tempSettings.model = config.defaultModel;
-            // 只有 custom 才需要手动配置 baseUrl，其他使用预设值
+            // Only custom needs manual baseUrl configuration
             if (value !== 'custom') {
               this.tempSettings.baseUrl = config.baseUrl;
             }
           }
 
-          this.display(); // 重新渲染UI
+          this.display(); // Re-render UI
         });
       });
 
-    // 2. API Key 输入框
+    // 2. API Key Input
     const providerConfig = PREDEFINED_PROVIDERS[this.tempSettings.provider];
     const isOllama = this.tempSettings.provider === 'ollama';
 
     if (!isOllama) {
       new Setting(containerEl)
         .setName('API Key')
-        .setDesc(providerConfig?.apiKeyPlaceholder || '输入 API Key')
+        .setDesc(providerConfig?.apiKeyPlaceholder || 'Enter API Key (输入 API Key)')
         .addText(text => text
           .setPlaceholder(providerConfig?.apiKeyPlaceholder || 'API Key')
           .setValue(this.tempSettings.apiKey)
@@ -1457,18 +1489,18 @@ class LLMWikiSettingTab extends PluginSettingTab {
           }));
     } else {
       containerEl.createEl('p', {
-        text: 'ℹ️ Ollama 运行在本地，无需 API Key',
+        text: 'ℹ️ Ollama runs locally, no API Key required (Ollama 本地运行，无需 API Key)',
         attr: { style: 'color: #666; margin: 10px 0; font-size: 13px;' }
       });
     }
 
-    // 3. Base URL（仅 custom 或需要修改预设时显示）
+    // 3. Base URL (only for custom or when modifying preset)
     if (this.tempSettings.provider === 'custom' || (providerConfig && this.tempSettings.baseUrl !== providerConfig.baseUrl)) {
       new Setting(containerEl)
         .setName('API Base URL')
         .setDesc(this.tempSettings.provider === 'custom'
-          ? '必填：自定义 OpenAI 兼容服务的 endpoint'
-          : '可选：覆盖预设的 Base URL')
+          ? 'Required: Custom OpenAI-compatible endpoint (必填：自定义 endpoint)'
+          : 'Optional: Override preset Base URL (可选：覆盖预设 URL)')
         .addText(text => text
           .setPlaceholder(providerConfig?.baseUrl || 'https://api.example.com/v1')
           .setValue(this.tempSettings.baseUrl)
@@ -1477,24 +1509,24 @@ class LLMWikiSettingTab extends PluginSettingTab {
           }));
     }
 
-    // 4. 模型选择（下拉 + 自定义输入）
+    // 4. Model Selection (Dropdown + Custom Input)
     containerEl.createEl('h4', {
-      text: '模型选择',
+      text: 'Model Selection (模型选择)',
       attr: { style: 'margin-top: 20px; color: #888; font-size: 13px;' }
     });
 
-    // 获取模型列表按钮
+    // Fetch Model List Button
     new Setting(containerEl)
-      .setName('获取可用模型')
-      .setDesc('从 Provider API 获取最新的模型列表')
+      .setName('Fetch Available Models (获取可用模型)')
+      .setDesc('Get latest model list from Provider API (从 API 获取最新模型列表)')
       .addButton(button => button
-        .setButtonText('获取模型列表')
+        .setButtonText('Fetch Models (获取模型列表)')
         .onClick(async () => {
-          button.setButtonText('获取中...');
+          button.setButtonText('Fetching... (获取中...)');
           button.setDisabled(true);
 
           try {
-            // 临时初始化客户端获取模型列表
+            // Temporarily initialize client to fetch models
             let tempClient: LLMClient;
             const apiKey = isOllama ? 'ollama' : this.tempSettings.apiKey.trim();
             const baseUrl = this.tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
@@ -1510,46 +1542,46 @@ class LLMWikiSettingTab extends PluginSettingTab {
               this.tempSettings.availableModels = models;
 
               if (models.length > 0) {
-                new Notice(`获取成功！共 ${models.length} 个可用模型`, 5000);
-                // 默认选择第一个模型
+                new Notice(`✅ Success! ${models.length} models available (获取成功！共 ${models.length} 个可用模型)`, 5000);
+                // Default select first model
                 if (!this.tempSettings.model || !models.includes(this.tempSettings.model)) {
                   this.tempSettings.model = models[0];
                 }
               } else {
-                new Notice('获取失败或列表为空，请手动输入模型名称', 5000);
+                new Notice('⚠️ Failed or empty list, please input model name manually (获取失败或列表为空，请手动输入模型名称)', 5000);
                 this.tempSettings.useCustomModel = true;
               }
 
-              this.display(); // 重新渲染UI
+              this.display(); // Re-render UI
             } else {
-              new Notice('该 Provider 不支持模型列表查询', 5000);
+              new Notice('⚠️ Provider doesn\'t support model list query (该 Provider 不支持模型列表查询)', 5000);
             }
           } catch (error: any) {
-            console.error('获取模型列表失败:', error);
-            new Notice(`获取失败: ${error.message}`, 8000);
+            console.error('Failed to fetch model list (获取模型列表失败):', error);
+            new Notice(`❌ Failed: ${error.message} (获取失败: ${error.message})`, 8000);
             this.tempSettings.useCustomModel = true;
             this.display();
           }
 
-          button.setButtonText('获取模型列表');
+          button.setButtonText('Fetch Models (获取模型列表)');
           button.setDisabled(false);
         }));
 
-    // 模型选择下拉框（如果有可用模型列表）
+    // Model Selection Dropdown (if available models list exists)
     if (this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0 && !this.tempSettings.useCustomModel) {
       new Setting(containerEl)
-        .setName('选择模型')
-        .setDesc(`从 ${this.tempSettings.availableModels.length} 个可用模型中选择`)
+        .setName('Select Model (选择模型)')
+        .setDesc(`Choose from ${this.tempSettings.availableModels.length} available models (从 ${this.tempSettings.availableModels.length} 个可用模型中选择)`)
         .addDropdown(dropdown => {
           this.tempSettings.availableModels.forEach(model => {
             dropdown.addOption(model, model);
           });
-          dropdown.addOption('__custom__', '自定义输入...');
+          dropdown.addOption('__custom__', 'Custom input... (自定义输入...)');
           dropdown.setValue(this.tempSettings.model);
           dropdown.onChange((value) => {
             if (value === '__custom__') {
               this.tempSettings.useCustomModel = true;
-              this.display(); // 切换到自定义输入模式
+              this.display(); // Switch to custom input mode
             } else {
               this.tempSettings.model = value;
               this.tempSettings.useCustomModel = false;
@@ -1557,20 +1589,20 @@ class LLMWikiSettingTab extends PluginSettingTab {
           });
         });
 
-      // 切换到自定义输入的按钮（隐藏）
+      // Hint for custom input
       containerEl.createEl('p', {
-        text: '💡 如需使用其他模型，请选择"自定义输入..."',
+        text: '💡 To use other models, select "Custom input..." (如需使用其他模型，请选择"自定义输入...")',
         attr: { style: 'color: #666; margin: 5px 0; font-size: 12px;' }
       });
     } else {
-      // 自定义模型输入框（无模型列表或用户选择自定义）
+      // Custom Model Input (no model list or user selected custom)
       new Setting(containerEl)
-        .setName('模型名称')
+        .setName('Model Name (模型名称)')
         .setDesc(this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0
-          ? '当前使用自定义模型（可点击上方按钮重新获取列表）'
+          ? 'Using custom model (click above button to re-fetch list) (当前使用自定义模型，可重新获取列表)'
           : providerConfig
-            ? `推荐: ${providerConfig.defaultModel}`
-            : '手动输入模型名称')
+            ? `Recommended (推荐): ${providerConfig.defaultModel}`
+            : 'Manually input model name (手动输入模型名称)')
         .addText(text => text
           .setPlaceholder(providerConfig?.defaultModel || 'model-name')
           .setValue(this.tempSettings.model)
@@ -1578,13 +1610,13 @@ class LLMWikiSettingTab extends PluginSettingTab {
             this.tempSettings.model = value;
           }));
 
-      // 如果之前有获取过模型列表，提供切换回下拉选择的选项
+      // Switch back to dropdown selection
       if (this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0) {
         new Setting(containerEl)
-          .setName('切换到下拉选择')
+          .setName('Switch to Dropdown Selection (切换到下拉选择)')
           .setDesc('')
           .addButton(button => button
-            .setButtonText('使用下拉选择')
+            .setButtonText('Use Dropdown (使用下拉选择)')
             .onClick(() => {
               this.tempSettings.useCustomModel = false;
               this.display();
@@ -1592,26 +1624,26 @@ class LLMWikiSettingTab extends PluginSettingTab {
       }
     }
 
-    // ===== 测试和保存按钮 =====
+    // ===== Test and Save Buttons =====
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
 
     new Setting(containerEl)
-      .setName('测试连接')
-      .setDesc('验证配置是否能成功调用 LLM API')
+      .setName('Test Connection (测试连接)')
+      .setDesc('Validate configuration can successfully call LLM API (验证配置能否成功调用 API)')
       .addButton(button => button
-        .setButtonText('测试连接')
+        .setButtonText('Test Connection (测试连接)')
         .onClick(async () => {
-          button.setButtonText('测试中...');
+          button.setButtonText('Testing... (测试中...)');
           button.setDisabled(true);
 
-          // 临时应用设置进行测试
+          // Temporarily apply settings for testing
           const testSettings = { ...this.tempSettings };
           this.plugin.settings = testSettings;
           this.plugin.initializeLLMClient();
 
           const result = await this.plugin.testLLMConnection();
 
-          button.setButtonText('测试连接');
+          button.setButtonText('Test Connection (测试连接)');
           button.setDisabled(false);
 
           if (result.success) {
@@ -1622,26 +1654,26 @@ class LLMWikiSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName('保存设置')
-      .setDesc('保存当前配置')
+      .setName('Save Settings (保存设置)')
+      .setDesc('Save current configuration (保存当前配置)')
       .addButton(button => button
-        .setButtonText('保存设置')
+        .setButtonText('Save Settings (保存设置)')
         .setCta()
         .onClick(async () => {
           this.plugin.settings = { ...this.tempSettings };
           await this.plugin.saveSettings();
 
-          new Notice('设置已保存！', 3000);
+          new Notice('✅ Settings saved! (设置已保存)', 3000);
           this.display();
         }));
 
-    // ===== Wiki 配置 =====
+    // ===== Wiki Configuration =====
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
-    containerEl.createEl('h3', { text: 'Wiki 文件夹配置' });
+    containerEl.createEl('h3', { text: 'Wiki Folder Configuration (Wiki 文件夹配置)' });
 
     new Setting(containerEl)
-      .setName('Wiki 文件夹')
-      .setDesc('存放生成的 Wiki 页面')
+      .setName('Wiki Folder (Wiki 文件夹)')
+      .setDesc('Location for generated Wiki pages (存放生成的 Wiki 页面)')
       .addText(text => text
         .setPlaceholder('wiki')
         .setValue(this.tempSettings.wikiFolder)
