@@ -59,6 +59,8 @@ interface LLMClient {
     max_tokens: number;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
   }): Promise<string>;
+
+  listModels?(): Promise<string[]>; // 可选：获取可用模型列表
 }
 
 class AnthropicClient implements LLMClient {
@@ -75,6 +77,23 @@ class AnthropicClient implements LLMClient {
   }): Promise<string> {
     const response = await this.client.messages.create(params);
     return response.content[0].type === 'text' ? response.content[0].text : '';
+  }
+
+  async listModels(): Promise<string[]> {
+    // Anthropic 目前没有公开的模型列表 API
+    // 尝试从官方文档获取最新列表，或返回空数组让用户自行填写
+    try {
+      // 未来如果 Anthropic 提供 API，可以在这里调用
+      // 目前返回推荐的模型列表（用户可以通过"自定义"选项输入其他模型）
+      return [
+        'claude-sonnet-4-6',
+        'claude-opus-4-7',
+        'claude-haiku-4-5-20251001'
+      ];
+    } catch (error) {
+      console.error('Anthropic 模型列表获取失败:', error);
+      return [];
+    }
   }
 }
 
@@ -100,6 +119,21 @@ class OpenAIClient implements LLMClient {
       messages: params.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[]
     });
     return response.choices[0]?.message?.content || '';
+  }
+
+  async listModels(): Promise<string[]> {
+    try {
+      const models = await this.client.models.list();
+      const modelIds = models.data
+        .map(m => m.id)
+        .filter(id => !id.includes(':') && !id.includes('/')) // 过滤掉微调模型
+        .sort();
+      return modelIds.slice(0, 100); // 返回最多100个模型
+    } catch (error) {
+      console.error('获取模型列表失败:', error);
+      // API 失败时返回空数组，让用户通过"自定义"选项手动输入
+      return [];
+    }
   }
 }
 
@@ -302,30 +336,152 @@ tags: [{{tags}}]
 
 // ==================== 插件设置 ====================
 
+// ==================== 类型定义 ====================
+
+interface ProviderConfig {
+  id: string;
+  name: string;
+  baseUrl: string;
+  defaultModel: string;
+  apiKeyPlaceholder: string;
+  requiresBaseUrl: boolean;
+}
+
+// 预定义的 LLM 提供商配置
+const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
+  anthropic: {
+    id: 'anthropic',
+    name: 'Anthropic (Claude)',
+    baseUrl: '',
+    defaultModel: 'claude-sonnet-4-6',
+    apiKeyPlaceholder: 'sk-ant-...',
+    requiresBaseUrl: false
+  },
+  openai: {
+    id: 'openai',
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    defaultModel: 'gpt-4o',
+    apiKeyPlaceholder: 'sk-...',
+    requiresBaseUrl: false
+  },
+  deepseek: {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-chat',
+    apiKeyPlaceholder: 'sk-...',
+    requiresBaseUrl: false
+  },
+  kimi: {
+    id: 'kimi',
+    name: 'Kimi (Moonshot)',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    defaultModel: 'moonshot-v1-8k',
+    apiKeyPlaceholder: 'sk-...',
+    requiresBaseUrl: false
+  },
+  glm: {
+    id: 'glm',
+    name: 'GLM (智谱AI)',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultModel: 'glm-4',
+    apiKeyPlaceholder: '...',
+    requiresBaseUrl: false
+  },
+  openrouter: {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    defaultModel: 'openai/gpt-4o',
+    apiKeyPlaceholder: 'sk-or-...',
+    requiresBaseUrl: false
+  },
+  ollama: {
+    id: 'ollama',
+    name: 'Ollama (本地)',
+    baseUrl: 'http://localhost:11434/v1',
+    defaultModel: 'llama3',
+    apiKeyPlaceholder: 'ollama (无需Key)',
+    requiresBaseUrl: false
+  },
+  custom: {
+    id: 'custom',
+    name: '自定义 OpenAI 兼容',
+    baseUrl: '',
+    defaultModel: '',
+    apiKeyPlaceholder: 'API Key',
+    requiresBaseUrl: true
+  }
+};
+
 interface LLMWikiSettings {
-  provider: 'anthropic' | 'openai';
+  provider: string; // 使用预定义提供商的ID（如 'anthropic', 'openai', 'deepseek'等）或 'custom'
   apiKey: string;
-  openaiBaseUrl?: string;
-  wikiFolder: string;
+  baseUrl: string; // 自定义endpoint（当provider为'custom'时使用，或覆盖预设值）
   model: string;
+  wikiFolder: string;
+  availableModels?: string[]; // 动态获取的可用模型列表（临时存储，不持久化）
+  useCustomModel?: boolean; // 是否使用自定义模型名称（而非下拉选择）
 }
 
 const DEFAULT_SETTINGS: LLMWikiSettings = {
   provider: 'anthropic',
   apiKey: '',
-  openaiBaseUrl: '',
+  baseUrl: '',
+  model: 'claude-sonnet-4-6',
   wikiFolder: 'wiki',
-  model: 'claude-sonnet-4-6'
+  availableModels: [],
+  useCustomModel: false
 }
 
 // ==================== 辅助函数 ====================
 
 function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .trim();
+  console.log('slugify 输入:', text, '长度:', text?.length);
+
+  if (!text || text.trim().length === 0) {
+    console.warn('slugify: 输入文本为空');
+    return 'untitled';
+  }
+
+  const trimmed = text.trim();
+  console.log('trim 后:', trimmed, '长度:', trimmed.length);
+
+  // 步骤1: 移除文件系统不支持的字符 + 控制字符
+  // 保留所有可见字符（Unicode > 32），包括中文、英文、数字、符号等
+  const afterRemoveInvalid = trimmed.replace(/[\/\\:*?"<>|\x00-\x1f]/g, '');
+  console.log('移除无效字符后:', afterRemoveInvalid, '长度:', afterRemoveInvalid.length);
+
+  // 如果移除无效字符后为空，说明输入全是无效字符
+  if (afterRemoveInvalid.length === 0) {
+    console.warn('slugify: 移除无效字符后为空，使用备用名称');
+    console.log('原始输入字符编码:', trimmed.split('').map(c => c.charCodeAt(0)));
+    return 'untitled-' + Date.now();
+  }
+
+  // 步骤2: 空格转连字符
+  const afterSpaceToDash = afterRemoveInvalid.replace(/\s+/g, '-');
+  console.log('空格转连字符后:', afterSpaceToDash, '长度:', afterSpaceToDash.length);
+
+  // 步骤3: 合并多个连字符
+  const afterMergeDash = afterSpaceToDash.replace(/-+/g, '-');
+  console.log('合并连字符后:', afterMergeDash, '长度:', afterMergeDash.length);
+
+  // 步骤4: 移除开头和结尾的连字符
+  const finalSlug = afterMergeDash.replace(/^-|-$/g, '').trim();
+  console.log('最终 slug:', finalSlug, '长度:', finalSlug.length);
+
+  // 最终检查：如果仍然为空，使用备用名称
+  if (finalSlug.length === 0) {
+    console.warn('slugify: 最终结果为空，使用备用名称');
+    console.log('=== 调试信息 ===');
+    console.log('原始输入字符编码:', trimmed.split('').map(c => c.charCodeAt(0)));
+    console.log('处理后字符编码:', afterRemoveInvalid.split('').map(c => c.charCodeAt(0)));
+    return 'untitled-' + Date.now();
+  }
+
+  return finalSlug;
 }
 
 function parseJsonResponse(response: string): any {
@@ -341,6 +497,51 @@ function parseJsonResponse(response: string): any {
     console.log('原始响应:', response);
     return null;
   }
+}
+
+function cleanMarkdownResponse(response: string): string {
+  console.log('cleanMarkdownResponse 输入长度:', response.length);
+
+  // 移除 markdown 代码块包裹
+  // 模式1: ```markdown ... ```
+  // 模式2: ``` ... ```
+  // 模式3: ```md ... ```
+
+  let cleaned = response.trim();
+
+  // 尝试匹配代码块模式
+  const codeBlockPatterns = [
+    /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/gm,  // 完整代码块（多行）
+    /^```(?:markdown|md)?\s*([\s\S]*?)```$/gm,       // 完整代码块（无换行）
+    /^```(?:markdown|md)?\s*\n([\s\S]*)$/gm,         // 开头有代码块，结尾没有
+    /^```(?:markdown|md)?\s*([\s\S]*)$/gm,           // 开头有代码块标记
+  ];
+
+  for (const pattern of codeBlockPatterns) {
+    const match = cleaned.match(pattern);
+    if (match) {
+      // 提取代码块内容（去掉```标记）
+      cleaned = cleaned.replace(pattern, '$1').trim();
+      console.log('检测到代码块包裹，已移除');
+      break;
+    }
+  }
+
+  // 如果仍然有残留的```，手动移除开头和结尾
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:markdown|md)?\s*\n?/, '');
+    console.log('移除开头的代码块标记');
+  }
+
+  if (cleaned.endsWith('```')) {
+    cleaned = cleaned.replace(/\n?```$/, '');
+    console.log('移除结尾的代码块标记');
+  }
+
+  console.log('cleanMarkdownResponse 输出长度:', cleaned.length);
+  console.log('前50字符:', cleaned.substring(0, 50));
+
+  return cleaned.trim();
 }
 
 // ==================== 主插件类 ====================
@@ -404,21 +605,27 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   initializeLLMClient() {
-    if (!this.settings.apiKey?.trim()) {
+    if (!this.settings.apiKey?.trim() && this.settings.provider !== 'ollama') {
+      // Ollama 不需要 API Key
       this.llmClient = null;
       return;
     }
 
     try {
+      const providerConfig = PREDEFINED_PROVIDERS[this.settings.provider];
+
       if (this.settings.provider === 'anthropic') {
+        // Anthropic 使用自己的 SDK
         this.llmClient = new AnthropicClient(this.settings.apiKey.trim());
       } else {
-        this.llmClient = new OpenAIClient(
-          this.settings.apiKey.trim(),
-          this.settings.openaiBaseUrl?.trim() || undefined
-        );
+        // 其他提供商都使用 OpenAI SDK（兼容接口）
+        const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
+        const apiKey = this.settings.provider === 'ollama' ? 'ollama' : this.settings.apiKey.trim();
+
+        this.llmClient = new OpenAIClient(apiKey, baseUrl);
       }
-      console.log('LLM Client initialized:', this.settings.provider);
+
+      console.log('LLM Client initialized:', this.settings.provider, 'baseUrl:', this.settings.baseUrl || PREDEFINED_PROVIDERS[this.settings.provider]?.baseUrl);
     } catch (error) {
       console.error('LLM Client initialization failed:', error);
       this.llmClient = null;
@@ -453,17 +660,39 @@ export default class LLMWikiPlugin extends Plugin {
         return;
       }
 
-      new Notice(`开始批量摄入 ${files.length} 个文件...`);
+      const totalFiles = files.length;
+      let successCount = 0;
+      let failedCount = 0;
+      const failedFiles: string[] = [];
 
-      for (const file of files) {
+      new Notice(`开始批量摄入 ${totalFiles} 个文件...`, 10000);
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const progress = `(${i + 1}/${totalFiles})`;
+
         try {
+          console.log(`${progress} 开始摄入: ${file.path}`);
           await this.ingestSource(file);
-        } catch (error) {
-          console.error(`摄入失败: ${file.path}`, error);
+          successCount++;
+          console.log(`${progress} 摄入成功: ${file.path}`);
+        } catch (error: any) {
+          failedCount++;
+          failedFiles.push(file.path);
+          console.error(`${progress} 摄入失败: ${file.path}`, error);
+          new Notice(`${progress} 摄入失败: ${file.basename}`, 3000);
         }
       }
 
-      new Notice(`批量摄入完成`);
+      // 最终统计报告
+      const summary = `批量摄入完成: 成功 ${successCount}/${totalFiles}, 失败 ${failedCount}`;
+      new Notice(summary, 10000);
+      console.log(summary);
+
+      if (failedFiles.length > 0) {
+        console.log('失败的文件列表:', failedFiles);
+        new Notice(`失败的文件:\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? '\n...' : ''}`, 15000);
+      }
     }).open();
   }
 
@@ -472,63 +701,91 @@ export default class LLMWikiPlugin extends Plugin {
       throw new Error('LLM Client not initialized');
     }
 
-    console.log('开始摄入:', file.path);
+    console.log('=== 开始摄入流程 ===');
+    console.log('源文件:', file.path);
     new Notice(`正在摄入: ${file.basename}...`);
 
     try {
       // 1. 确保 Wiki 文件夹结构存在
+      console.log('[步骤 1] 确保 Wiki 文件夹结构...');
       await this.ensureWikiStructure();
+      console.log('[步骤 1] 完成');
 
       // 2. 分析源文件
+      console.log('[步骤 2] 分析源文件...');
       const analysis = await this.analyzeSource(file);
       if (!analysis) {
         throw new Error('源文件分析失败');
       }
-
-      console.log('分析结果:', analysis);
+      console.log('[步骤 2] 完成');
+      console.log('分析结果:', JSON.stringify(analysis, null, 2));
 
       // 3. 创建摘要页
+      console.log('[步骤 3] 创建摘要页...');
       const summaryPage = await this.createSummaryPage(file, analysis);
       analysis.created_pages.push(summaryPage);
+      console.log('[步骤 3] 完成:', summaryPage);
 
       // 4. 创建/更新实体页
+      console.log('[步骤 4] 创建实体页 (共 ' + analysis.entities.length + ' 个)...');
+      let entityCount = 0;
       for (const entity of analysis.entities) {
+        console.log(`  [实体 ${entityCount + 1}] ${entity.name}`);
         const entityPage = await this.createOrUpdateEntityPage(entity, analysis, file);
         if (entityPage) {
           analysis.created_pages.push(entityPage);
+          console.log(`  [实体 ${entityCount + 1}] 完成: ${entityPage}`);
         }
+        entityCount++;
       }
+      console.log('[步骤 4] 完成');
 
       // 5. 创建/更新概念页
+      console.log('[步骤 5] 创建概念页 (共 ' + analysis.concepts.length + ' 个)...');
+      let conceptCount = 0;
       for (const concept of analysis.concepts) {
+        console.log(`  [概念 ${conceptCount + 1}] ${concept.name}`);
         const conceptPage = await this.createOrUpdateConceptPage(concept, analysis, file);
         if (conceptPage) {
           analysis.created_pages.push(conceptPage);
+          console.log(`  [概念 ${conceptCount + 1}] 完成: ${conceptPage}`);
         }
+        conceptCount++;
       }
+      console.log('[步骤 5] 完成');
 
       // 6. 更新相关现有页面
+      console.log('[步骤 6] 更新相关页面 (共 ' + analysis.related_pages.length + ' 个)...');
       for (const relatedPageName of analysis.related_pages) {
         await this.updateRelatedPage(relatedPageName, analysis);
         analysis.updated_pages.push(relatedPageName);
       }
+      console.log('[步骤 6] 完成');
 
       // 7. 标记矛盾
+      console.log('[步骤 7] 标记矛盾 (共 ' + analysis.contradictions.length + ' 个)...');
       for (const contradiction of analysis.contradictions) {
         await this.noteContradiction(contradiction);
       }
+      console.log('[步骤 7] 完成');
 
       // 8. 更新 Index 和 Log
+      console.log('[步骤 8] 更新 Index 和 Log...');
       await this.generateIndex();
       await this.updateLog('ingest', analysis);
+      console.log('[步骤 8] 完成');
 
       const message = `摄入成功: 创建 ${analysis.created_pages.length} 页, 更新 ${analysis.updated_pages.length} 页`;
-      new Notice(message, 5000);
+      console.log('=== 摄入流程完成 ===');
       console.log(message);
+      console.log('创建的页面:', analysis.created_pages);
+      console.log('更新的页面:', analysis.updated_pages);
+      new Notice(message, 5000);
 
     } catch (error) {
-      console.error('摄入失败:', error);
-      new Notice(`摄入失败: ${(error as any).message}`);
+      console.error('=== 摄入流程失败 ===');
+      console.error('错误:', error);
+      new Notice(`摄入失败: ${(error as any).message}`, 8000);
       throw error;
     }
   }
@@ -617,13 +874,27 @@ export default class LLMWikiPlugin extends Plugin {
       messages: [{ role: 'user', content: prompt }]
     });
 
-    await this.createOrUpdateFile(path, pageContent);
+    const cleanedContent = cleanMarkdownResponse(pageContent);
+    await this.createOrUpdateFile(path, cleanedContent);
     return path;
   }
 
-  async createOrUpdateEntityPage(entity: EntityInfo, analysis: SourceAnalysis, sourceFile: TFile): Promise<string> {
+  async createOrUpdateEntityPage(entity: EntityInfo, analysis: SourceAnalysis, sourceFile: TFile): Promise<string | null> {
+    // 验证实体名称
+    if (!entity.name || entity.name.trim().length === 0) {
+      console.warn('实体名称为空，跳过创建');
+      return null;
+    }
+
+    console.log('=== 创建实体页 ===');
+    console.log('entity.name:', entity.name);
+    console.log('entity.name 字符编码:', entity.name.split('').map(c => c.charCodeAt(0)));
+    console.log('类型:', entity.type);
+
     const slug = slugify(entity.name);
+    console.log('生成的 slug:', slug);
     const path = `${this.settings.wikiFolder}/entities/${slug}.md`;
+    console.log('目标路径:', path);
 
     // 检查是否已有该实体页
     const existingContent = await this.tryReadFile(path);
@@ -644,13 +915,27 @@ export default class LLMWikiPlugin extends Plugin {
       messages: [{ role: 'user', content: prompt }]
     });
 
-    await this.createOrUpdateFile(path, pageContent);
+    const cleanedContent = cleanMarkdownResponse(pageContent);
+    await this.createOrUpdateFile(path, cleanedContent);
     return path;
   }
 
-  async createOrUpdateConceptPage(concept: ConceptInfo, analysis: SourceAnalysis, sourceFile: TFile): Promise<string> {
+  async createOrUpdateConceptPage(concept: ConceptInfo, analysis: SourceAnalysis, sourceFile: TFile): Promise<string | null> {
+    // 验证概念名称
+    if (!concept.name || concept.name.trim().length === 0) {
+      console.warn('概念名称为空，跳过创建');
+      return null;
+    }
+
+    console.log('=== 创建概念页 ===');
+    console.log('concept.name:', concept.name);
+    console.log('concept.name 字符编码:', concept.name.split('').map(c => c.charCodeAt(0)));
+    console.log('类型:', concept.type);
+
     const slug = slugify(concept.name);
+    console.log('生成的 slug:', slug);
     const path = `${this.settings.wikiFolder}/concepts/${slug}.md`;
+    console.log('目标路径:', path);
 
     const existingContent = await this.tryReadFile(path);
 
@@ -671,7 +956,8 @@ export default class LLMWikiPlugin extends Plugin {
       messages: [{ role: 'user', content: prompt }]
     });
 
-    await this.createOrUpdateFile(path, pageContent);
+    const cleanedContent = cleanMarkdownResponse(pageContent);
+    await this.createOrUpdateFile(path, cleanedContent);
     return path;
   }
 
@@ -704,7 +990,8 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
       messages: [{ role: 'user', content: prompt }]
     });
 
-    await this.createOrUpdateFile(page.path, updatedContent);
+    const cleanedContent = cleanMarkdownResponse(updatedContent);
+    await this.createOrUpdateFile(page.path, cleanedContent);
   }
 
   async noteContradiction(contradiction: ContradictionInfo) {
@@ -721,12 +1008,47 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
     await this.createOrUpdateFile(pagePath, existingContent + contradictionNote);
   }
 
-  async createOrUpdateFile(path: string, content: string) {
+  async createOrUpdateFile(path: string, content: string): Promise<void> {
+    console.log('createOrUpdateFile:', path);
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const file = this.app.vault.getAbstractFileByPath(path);
+        if (file instanceof TFile) {
+          console.log(`尝试 ${attempt + 1}: 文件已存在，更新:`, path);
+          await this.app.vault.modify(file, content);
+          console.log('更新成功:', path);
+          return; // 成功完成
+        } else {
+          console.log(`尝试 ${attempt + 1}: 文件不存在，创建:`, path);
+          await this.app.vault.create(path, content);
+          console.log('创建成功:', path);
+          return; // 成功完成
+        }
+      } catch (error: any) {
+        console.error(`尝试 ${attempt + 1} 失败:`, error.message);
+
+        // 如果是因为文件已存在的错误，等待后重试
+        if (error.message?.includes('File already exists') || error.message?.includes('already exists')) {
+          console.log('文件已存在异常，等待100ms后重试:', path);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          continue; // 继续下一次尝试
+        } else {
+          // 其他错误直接抛出
+          console.error('无法处理的错误:', path, error);
+          throw error;
+        }
+      }
+    }
+
+    // 3次尝试后仍然失败，最后一次强制尝试更新
+    console.log('3次尝试后，强制查找文件并更新:', path);
     const file = this.app.vault.getAbstractFileByPath(path);
     if (file instanceof TFile) {
       await this.app.vault.modify(file, content);
+      console.log('最终更新成功:', path);
     } else {
-      await this.app.vault.create(path, content);
+      throw new Error(`无法创建或更新文件: ${path}`);
     }
   }
 
@@ -839,7 +1161,8 @@ ${indexContent}
           messages: [{ role: 'user', content: prompt }]
         });
 
-        new AnswerModal(this.app, answer).open();
+        const cleanedAnswer = cleanMarkdownResponse(answer);
+        new AnswerModal(this.app, cleanedAnswer).open();
 
       } catch (error) {
         new Notice('查询失败');
@@ -901,7 +1224,8 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
         messages: [{ role: 'user', content: prompt }]
       });
 
-      new LintReportModal(this.app, report).open();
+      const cleanedReport = cleanMarkdownResponse(report);
+      new LintReportModal(this.app, cleanedReport).open();
       new Notice('维护完成');
 
     } catch (error) {
@@ -916,11 +1240,13 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
     console.log('当前配置:', {
       provider: this.settings.provider,
       apiKey: this.settings.apiKey ? '已配置' : '未配置',
-      model: this.settings.model,
-      openaiBaseUrl: this.settings.openaiBaseUrl || '默认'
+      baseUrl: this.settings.baseUrl || PREDEFINED_PROVIDERS[this.settings.provider]?.baseUrl || '默认',
+      model: this.settings.model
     });
 
-    if (!this.settings.apiKey || this.settings.apiKey.trim() === '') {
+    // Ollama 不需要 API Key
+    const isOllama = this.settings.provider === 'ollama';
+    if (!isOllama && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
       return {
         success: false,
         message: 'API Key 未配置'
@@ -930,13 +1256,14 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
     try {
       // 临时初始化客户端进行测试
       let testClient: LLMClient;
+      const providerConfig = PREDEFINED_PROVIDERS[this.settings.provider];
+
       if (this.settings.provider === 'anthropic') {
         testClient = new AnthropicClient(this.settings.apiKey.trim());
       } else {
-        testClient = new OpenAIClient(
-          this.settings.apiKey.trim(),
-          this.settings.openaiBaseUrl?.trim() || undefined
-        );
+        const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
+        const apiKey = isOllama ? 'ollama' : this.settings.apiKey.trim();
+        testClient = new OpenAIClient(apiKey, baseUrl);
       }
 
       // 发送测试请求
@@ -953,13 +1280,13 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
 
       return {
         success: true,
-        message: `连接成功！响应: "${testResponse.substring(0, 50)}..."`
+        message: `✅ 连接成功！提供商: ${providerConfig?.name || this.settings.provider}`
       };
     } catch (error: any) {
       console.error('连接测试失败:', error);
       return {
         success: false,
-        message: `连接失败: ${error.message || '未知错误'}`
+        message: `❌ 连接失败: ${error.message || '未知错误'}`
       };
     }
   }
@@ -985,79 +1312,199 @@ class LLMWikiSettingTab extends PluginSettingTab {
     // ===== 状态显示 =====
     const statusDiv = containerEl.createDiv({ cls: 'llm-wiki-status' });
     const clientStatus = this.plugin.llmClient ? '✅ 已初始化' : '❌ 未初始化';
+    const currentProvider = PREDEFINED_PROVIDERS[this.tempSettings.provider]?.name || '自定义';
     statusDiv.createEl('p', {
-      text: `LLM Client 状态: ${clientStatus}`,
+      text: `LLM Client: ${clientStatus} | 当前提供商: ${currentProvider}`,
       attr: { style: 'margin-bottom: 20px; font-weight: bold; font-size: 14px;' }
     });
 
     // ===== Provider 配置 =====
     containerEl.createEl('h3', { text: 'LLM Provider 配置' });
 
+    // 1. Provider 下拉选择
     new Setting(containerEl)
       .setName('LLM Provider')
-      .setDesc('选择使用的 LLM 提供商')
-      .addDropdown(dropdown => dropdown
-        .addOption('anthropic', 'Anthropic (Claude)')
-        .addOption('openai', 'OpenAI / OpenAI Compatible')
-        .setValue(this.tempSettings.provider)
-        .onChange((value) => {
-          this.tempSettings.provider = value as 'anthropic' | 'openai';
-          // 自动切换默认模型
-          if (value === 'anthropic') {
-            this.tempSettings.model = 'claude-sonnet-4-6';
-          } else {
-            this.tempSettings.model = 'gpt-4o';
+      .setDesc('选择预定义提供商或自定义 OpenAI 兼容服务')
+      .addDropdown(dropdown => {
+        // 添加所有预定义提供商
+        Object.values(PREDEFINED_PROVIDERS).forEach(config => {
+          dropdown.addOption(config.id, config.name);
+        });
+        dropdown.setValue(this.tempSettings.provider);
+        dropdown.onChange((value) => {
+          this.tempSettings.provider = value;
+          const config = PREDEFINED_PROVIDERS[value];
+
+          // 自动填充预设配置
+          if (config) {
+            this.tempSettings.model = config.defaultModel;
+            // 只有 custom 才需要手动配置 baseUrl，其他使用预设值
+            if (value !== 'custom') {
+              this.tempSettings.baseUrl = config.baseUrl;
+            }
           }
-          this.display(); // 重新渲染（显示/隐藏 BaseURL）
-        }));
 
-    new Setting(containerEl)
-      .setName('API Key')
-      .setDesc(this.tempSettings.provider === 'anthropic'
-        ? 'Anthropic API Key'
-        : 'OpenAI API Key')
-      .addText(text => text
-        .setPlaceholder(this.tempSettings.provider === 'anthropic'
-          ? 'sk-ant-...'
-          : 'sk-...')
-        .setValue(this.tempSettings.apiKey)
-        .onChange((value) => {
-          this.tempSettings.apiKey = value;
-        }));
+          this.display(); // 重新渲染UI
+        });
+      });
 
-    // OpenAI Base URL（仅在 provider 为 openai 时显示）
-    if (this.tempSettings.provider === 'openai') {
+    // 2. API Key 输入框
+    const providerConfig = PREDEFINED_PROVIDERS[this.tempSettings.provider];
+    const isOllama = this.tempSettings.provider === 'ollama';
+
+    if (!isOllama) {
       new Setting(containerEl)
-        .setName('OpenAI Base URL')
-        .setDesc('自定义 API endpoint（可选，默认使用官方 API）')
+        .setName('API Key')
+        .setDesc(providerConfig?.apiKeyPlaceholder || '输入 API Key')
         .addText(text => text
-          .setPlaceholder('https://api.openai.com/v1')
-          .setValue(this.tempSettings.openaiBaseUrl || '')
+          .setPlaceholder(providerConfig?.apiKeyPlaceholder || 'API Key')
+          .setValue(this.tempSettings.apiKey)
           .onChange((value) => {
-            this.tempSettings.openaiBaseUrl = value;
+            this.tempSettings.apiKey = value;
+          }));
+    } else {
+      containerEl.createEl('p', {
+        text: 'ℹ️ Ollama 运行在本地，无需 API Key',
+        attr: { style: 'color: #666; margin: 10px 0; font-size: 13px;' }
+      });
+    }
+
+    // 3. Base URL（仅 custom 或需要修改预设时显示）
+    if (this.tempSettings.provider === 'custom' || (providerConfig && this.tempSettings.baseUrl !== providerConfig.baseUrl)) {
+      new Setting(containerEl)
+        .setName('API Base URL')
+        .setDesc(this.tempSettings.provider === 'custom'
+          ? '必填：自定义 OpenAI 兼容服务的 endpoint'
+          : '可选：覆盖预设的 Base URL')
+        .addText(text => text
+          .setPlaceholder(providerConfig?.baseUrl || 'https://api.example.com/v1')
+          .setValue(this.tempSettings.baseUrl)
+          .onChange((value) => {
+            this.tempSettings.baseUrl = value;
           }));
     }
 
+    // 4. 模型选择（下拉 + 自定义输入）
+    containerEl.createEl('h4', {
+      text: '模型选择',
+      attr: { style: 'margin-top: 20px; color: #888; font-size: 13px;' }
+    });
+
+    // 获取模型列表按钮
     new Setting(containerEl)
-      .setName('Model 名称')
-      .setDesc(this.tempSettings.provider === 'anthropic'
-        ? 'Claude 模型（如：claude-sonnet-4-6, claude-opus-4-7）'
-        : 'GPT 模型（如：gpt-4o, gpt-4o-mini）')
-      .addText(text => text
-        .setPlaceholder(this.tempSettings.provider === 'anthropic'
-          ? 'claude-sonnet-4-6'
-          : 'gpt-4o')
-        .setValue(this.tempSettings.model)
-        .onChange((value) => {
-          this.tempSettings.model = value;
+      .setName('获取可用模型')
+      .setDesc('从 Provider API 获取最新的模型列表')
+      .addButton(button => button
+        .setButtonText('获取模型列表')
+        .onClick(async () => {
+          button.setButtonText('获取中...');
+          button.setDisabled(true);
+
+          try {
+            // 临时初始化客户端获取模型列表
+            let tempClient: LLMClient;
+            const apiKey = isOllama ? 'ollama' : this.tempSettings.apiKey.trim();
+            const baseUrl = this.tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
+
+            if (this.tempSettings.provider === 'anthropic') {
+              tempClient = new AnthropicClient(this.tempSettings.apiKey.trim());
+            } else {
+              tempClient = new OpenAIClient(apiKey, baseUrl);
+            }
+
+            if (tempClient.listModels) {
+              const models = await tempClient.listModels();
+              this.tempSettings.availableModels = models;
+
+              if (models.length > 0) {
+                new Notice(`获取成功！共 ${models.length} 个可用模型`, 5000);
+                // 默认选择第一个模型
+                if (!this.tempSettings.model || !models.includes(this.tempSettings.model)) {
+                  this.tempSettings.model = models[0];
+                }
+              } else {
+                new Notice('获取失败或列表为空，请手动输入模型名称', 5000);
+                this.tempSettings.useCustomModel = true;
+              }
+
+              this.display(); // 重新渲染UI
+            } else {
+              new Notice('该 Provider 不支持模型列表查询', 5000);
+            }
+          } catch (error: any) {
+            console.error('获取模型列表失败:', error);
+            new Notice(`获取失败: ${error.message}`, 8000);
+            this.tempSettings.useCustomModel = true;
+            this.display();
+          }
+
+          button.setButtonText('获取模型列表');
+          button.setDisabled(false);
         }));
+
+    // 模型选择下拉框（如果有可用模型列表）
+    if (this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0 && !this.tempSettings.useCustomModel) {
+      new Setting(containerEl)
+        .setName('选择模型')
+        .setDesc(`从 ${this.tempSettings.availableModels.length} 个可用模型中选择`)
+        .addDropdown(dropdown => {
+          this.tempSettings.availableModels.forEach(model => {
+            dropdown.addOption(model, model);
+          });
+          dropdown.addOption('__custom__', '自定义输入...');
+          dropdown.setValue(this.tempSettings.model);
+          dropdown.onChange((value) => {
+            if (value === '__custom__') {
+              this.tempSettings.useCustomModel = true;
+              this.display(); // 切换到自定义输入模式
+            } else {
+              this.tempSettings.model = value;
+              this.tempSettings.useCustomModel = false;
+            }
+          });
+        });
+
+      // 切换到自定义输入的按钮（隐藏）
+      containerEl.createEl('p', {
+        text: '💡 如需使用其他模型，请选择"自定义输入..."',
+        attr: { style: 'color: #666; margin: 5px 0; font-size: 12px;' }
+      });
+    } else {
+      // 自定义模型输入框（无模型列表或用户选择自定义）
+      new Setting(containerEl)
+        .setName('模型名称')
+        .setDesc(this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0
+          ? '当前使用自定义模型（可点击上方按钮重新获取列表）'
+          : providerConfig
+            ? `推荐: ${providerConfig.defaultModel}`
+            : '手动输入模型名称')
+        .addText(text => text
+          .setPlaceholder(providerConfig?.defaultModel || 'model-name')
+          .setValue(this.tempSettings.model)
+          .onChange((value) => {
+            this.tempSettings.model = value;
+          }));
+
+      // 如果之前有获取过模型列表，提供切换回下拉选择的选项
+      if (this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0) {
+        new Setting(containerEl)
+          .setName('切换到下拉选择')
+          .setDesc('')
+          .addButton(button => button
+            .setButtonText('使用下拉选择')
+            .onClick(() => {
+              this.tempSettings.useCustomModel = false;
+              this.display();
+            }));
+      }
+    }
 
     // ===== 测试和保存按钮 =====
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
 
     new Setting(containerEl)
       .setName('测试连接')
-      .setDesc('验证当前配置是否能成功连接到 LLM Provider')
+      .setDesc('验证配置是否能成功调用 LLM API')
       .addButton(button => button
         .setButtonText('测试连接')
         .onClick(async () => {
@@ -1083,18 +1530,15 @@ class LLMWikiSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('保存设置')
-      .setDesc('保存当前配置到插件数据文件')
+      .setDesc('保存当前配置')
       .addButton(button => button
         .setButtonText('保存设置')
-        .setCta() // 突出显示主要按钮
+        .setCta()
         .onClick(async () => {
-          // 保存临时设置到插件设置
           this.plugin.settings = { ...this.tempSettings };
           await this.plugin.saveSettings();
 
-          new Notice('设置已保存成功！', 3000);
-
-          // 刷新面板以显示最新状态
+          new Notice('设置已保存！', 3000);
           this.display();
         }));
 
@@ -1104,7 +1548,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Wiki 文件夹')
-      .setDesc('存放生成的 Wiki 页面（将自动创建子文件夹）')
+      .setDesc('存放生成的 Wiki 页面')
       .addText(text => text
         .setPlaceholder('wiki')
         .setValue(this.tempSettings.wikiFolder)
