@@ -17,6 +17,14 @@
 - ✅ **CHANGELOG.md:** English (international tracking)
 - ✅ **All other docs:** English (except user-facing localized content)
 
+**User Interface (v1.0.9+):**
+- ✅ **Settings panel:** Supports English and Chinese interface
+- ✅ **Language switcher:** Dropdown at top of settings panel
+- ✅ **Default language:** English (for international users)
+- ✅ **TEXTS system:** Complete translation constants for all UI text
+- ✅ **Dynamic rendering:** Real-time UI update when switching language
+- ✅ **Language preference:** Persisted in plugin settings (`language: 'en' | 'zh'`)
+
 **Code Comments:**
 - ⚠️ **Minimal comments:** Only for non-obvious logic (WHY, not WHAT)
 - ✅ **English comments:** No Chinese comments in codebase

@@ -2,7 +2,7 @@
 
 > 🤖 Karpathy 的 LLM Wiki 完整实现 - 多页面知识生成系统
 
-**作者:** green-dalii | **版本:** 1.0.8 | **状态:** 生产可用
+**作者:** green-dalii | **版本:** 1.0.9 | **状态:** 生产可用
 
 [English](README.md) | 中文文档
 
@@ -15,6 +15,7 @@
 ### 核心特性
 
 - **🤖 多 LLM Provider 支持**：Anthropic (Claude)、OpenAI、DeepSeek、Kimi、GLM、OpenRouter、Ollama、自定义兼容服务
+- **🌍 国际化支持**：英文和中文界面（默认：英文）
 - **📝 智能摄入**：自动提取实体、概念，生成 Wiki 页面
 - **🔗 双向链接**：原生 Obsidian `[[wiki-links]]` 语法
 - **📊 知识图谱**：通过 Obsidian Graph View 可视化关系网络

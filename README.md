@@ -4,7 +4,7 @@
 
 **Concept Origin:** This plugin implements [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) vision for Obsidian.
 
-**Author:** green-dalii | **Version:** 1.0.8 | **Status:** Production Ready
+**Author:** green-dalii | **Version:** 1.0.9 | **Status:** Production Ready
 
 [English](README.md) | [中文文档](README_CN.md)
 
@@ -12,7 +12,8 @@
 
 ## Features
 
-- 🤖 **Multi-Provider Support**: Anthropic (Claude) and OpenAI/compatible endpoints
+- 🤖 **Multi-Provider Support**: Anthropic (Claude), OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama and compatible endpoints
+- 🌍 **Internationalization**: English and Chinese interface (default: English)
 - 📝 **Intelligent Ingestion**: Extract key information from source documents
 - 🔗 **Bidirectional Links**: Native Obsidian `[[wiki-links]]` syntax
 - 📊 **Knowledge Graph**: Visualize relationships with Obsidian's graph view
@@ -74,6 +75,7 @@ pnpm build
 
 ### Settings
 
+- **Interface Language**: Switch between English (default) and Chinese interface
 - **Test Connection**: Validate configuration before saving
 - **Save Settings**: Explicit save button (no auto-save)
 - **Status Display**: Shows LLM Client initialization state

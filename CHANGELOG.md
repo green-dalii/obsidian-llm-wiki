@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2026-04-26
+
+### Added
+
+**Internationalization (i18n) Support**
+- Settings panel now supports English and Chinese interface
+- Language switcher dropdown at top of settings panel
+- Default language: English (for international users)
+- All UI text (titles, descriptions, buttons, notices) localized
+- Language preference persisted in plugin settings
+- Real-time UI re-render when switching language
+
+**TEXTS System**
+- Complete English and Chinese translation constants
+- `getText()` helper method for dynamic text retrieval
+- All hardcoded text replaced with TEXTS references
+- Clean separation of content and presentation
+
+**Settings Interface**
+- Added `language` field to `LLMWikiSettings` interface
+- Improved user experience for non-English users
+- Consistent with project's internationalization standards
+
+---
+
 ## [1.0.0] - 2026-04-26
 
 ### Added - Karpathy Complete Implementation
