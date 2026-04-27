@@ -450,4 +450,226 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
     const existingLog = await this.tryReadFile(logPath) || `# Wiki 操作日志\n\n`;
     await this.createOrUpdateFile(logPath, existingLog + entry);
   }
+
+  async ingestConversation(history: {
+    messages: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+      timestamp: number;
+    }>;
+  }): Promise<void> {
+    if (!this.getLLMClient()) {
+      throw new Error('LLM Client not initialized');
+    }
+
+    console.log('=== Starting conversation extraction ===');
+
+    const actualDate = new Date().toISOString().split('T')[0];
+    console.log('[系统时间]', actualDate);
+
+    const indexPath = `${this.settings.wikiFolder}/index.md`;
+    const existingWikiIndex = await this.tryReadFile(indexPath) || 'Wiki is empty';
+    console.log('[Wiki索引]', existingWikiIndex ? '已读取' : '为空');
+
+    const conversationText = this.formatConversation(history);
+
+    const analysisPrompt = this.settings.language === 'en'
+      ? `You are a Wiki knowledge extraction assistant.
+
+Existing Wiki Index (use this as reference for entity/concept names):
+${existingWikiIndex}
+
+User conversation with AI:
+${conversationText}
+
+Convert this conversation into structured Wiki pages.
+
+Focus on:
+1. Extracting key knowledge points (not full conversation log)
+2. Identifying core concepts and entities discussed
+3. Summarizing conversation topic and conclusions
+4. Entity/concept names should match existing Wiki pages if possible
+
+Actual conversation date: ${actualDate} (use this, do not generate date yourself)
+
+Output JSON format:
+{
+  "source_title": "Semantic Topic Title (no date, describe the discussion topic)",
+  "summary": "Conversation topic summary",
+  "entities": [
+    {
+      "name": "Short Reference Name",
+      "type": "person|organization|project|other",
+      "summary": "Entity information summary",
+      "mentions_in_source": ["Specific mentions in conversation"]
+    }
+  ],
+  "concepts": [
+    {
+      "name": "Concept Name",
+      "type": "theory|method|technology|term|other",
+      "summary": "Concept definition",
+      "mentions_in_source": ["Specific mentions in conversation"],
+      "related_concepts": ["Related Concept 1", "Related Concept 2"]
+    }
+  ],
+  "key_points": ["Point 1", "Point 2"],
+  "created_pages": [],
+  "updated_pages": []
+}
+
+CRITICAL RULES:
+- source_title: Semantic title describing discussion topic (NOT date-based generic title)
+- entity.name: Choose or extract appropriate name from Wiki index (maintain consistency with existing Wiki)
+- concept.name: Same principle - reference Wiki index for concept names
+- mentions_in_source: REQUIRED field - list actual mentions in conversation text
+- If no entities/concepts found, use empty arrays [] (never omit the field)
+- Names should be suitable for [[wiki-links]] referencing (judge appropriate naming based on Wiki index)`
+      : `你是Wiki知识提取助手。
+
+现有Wiki索引（作为实体/概念名称参考）：
+${existingWikiIndex}
+
+用户与AI的对话：
+${conversationText}
+
+将此对话转化为结构化Wiki页面。
+
+重点：
+1. 提取关键知识点（非完整对话日志）
+2. 识别讨论的核心概念和实体
+3. 总结对话主题和结论
+4. 实体/概念名称应尽量匹配现有Wiki页面
+
+实际对话日期：${actualDate}（请使用此日期，不要自己生成）
+
+输出JSON格式：
+{
+  "source_title": "语义化主题标题（不含日期，描述讨论主题）",
+  "summary": "对话主题总结",
+  "entities": [
+    {
+      "name": "简短引用名称",
+      "type": "person|organization|project|other",
+      "summary": "实体信息总结",
+      "mentions_in_source": ["在对话中的具体提及"]
+    }
+  ],
+  "concepts": [
+    {
+      "name": "概念名称",
+      "type": "theory|method|technology|term|other",
+      "summary": "概念定义",
+      "mentions_in_source": ["在对话中的具体提及"],
+      "related_concepts": ["相关概念1", "相关概念2"]
+    }
+  ],
+  "key_points": ["要点1", "要点2"],
+  "created_pages": [],
+  "updated_pages": []
+}
+
+关键规则：
+- source_title：语义化标题，描述讨论主题（不要用日期作为标题）
+- entity.name：从Wiki索引中选择或提取合适名称（与现有Wiki保持一致，便于双向链接引用）
+- concept.name：同理，参考Wiki索引中的概念名称
+- mentions_in_source：必填字段 - 列出在对话中的具体提及内容
+- 如果没有实体/概念，用空数组[]（绝不能省略字段）
+- 名称应简短且便于[[wiki-links]]引用（根据Wiki索引判断合适的命名方式）`;
+
+    const analysis = await this.client.createMessage({
+      model: this.settings.model,
+      max_tokens: 5000,
+      messages: [{
+        role: 'user',
+        content: analysisPrompt
+      }]
+    });
+
+    const parsed = parseJsonResponse(analysis);
+    if (!parsed) {
+      throw new Error('Conversation analysis JSON parsing failed');
+    }
+
+    console.log('[LLM分析结果]', parsed);
+    console.log('[生成的标题]', parsed.source_title);
+
+    await this.ensureWikiStructure();
+
+    const semanticSlug = slugify(parsed.source_title);
+    const summaryPath = `${this.settings.wikiFolder}/sources/${semanticSlug}.md`;
+    console.log('[语义化文件路径]', summaryPath);
+
+    const tags = parsed.concepts.map((c: any) => c.name).join(', ');
+    const summaryContent = `---
+type: source
+created: ${actualDate}
+source_file: Conversation Extract - ${actualDate}
+tags: [${tags}]
+---
+
+# ${parsed.source_title}
+
+## 来源
+- 对话日期：${actualDate}
+- 来源类型：用户查询提炼
+- 语义路径：[[${summaryPath.replace(this.settings.wikiFolder + '/', '')}]]
+
+## 核心内容
+
+${parsed.summary}
+
+## 关键实体
+
+${parsed.entities.map((e: any) => `- [[entities/${slugify(e.name)}|${e.name}]] - ${e.summary}`).join('\n')}
+
+## 关键概念
+
+${parsed.concepts.map((c: any) => `- [[concepts/${slugify(c.name)}|${c.name}]] - ${c.summary}`).join('\n')}
+
+## 主要观点
+
+${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
+
+---
+更新日期：${actualDate}`;
+
+    await this.createOrUpdateFile(summaryPath, summaryContent);
+    parsed.created_pages.push(summaryPath);
+
+    for (const entity of parsed.entities) {
+      const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug } as any);
+      if (entityPage) {
+        parsed.created_pages.push(entityPage);
+      }
+    }
+
+    for (const concept of parsed.concepts) {
+      const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug } as any);
+      if (conceptPage) {
+        parsed.created_pages.push(conceptPage);
+      }
+    }
+
+    await this.generateIndexFromEngine();
+    parsed.contradictions = parsed.contradictions || [];
+    await this.updateLog('conversation', parsed);
+
+    console.log('=== Conversation extraction complete ===');
+    console.log('Created pages:', parsed.created_pages);
+  }
+
+  formatConversation(history: {
+    messages: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+      timestamp: number;
+    }>;
+  }): string {
+    return history.messages.map(msg => {
+      const role = msg.role === 'user' ? '👤 User' : '🤖 Wiki';
+      const time = new Date(msg.timestamp).toLocaleTimeString();
+      return `### ${role} (${time})\n\n${msg.content}\n\n---\n`;
+    }).join('\n');
+  }
 }

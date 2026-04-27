@@ -363,7 +363,7 @@ export class QueryModal extends Modal {
     );
 
     try {
-      await this.plugin.ingestConversation(this.history);
+      await this.plugin.wikiEngine.ingestConversation(this.history);
       new Notice(
         this.plugin.settings.language === 'en'
           ? 'Conversation saved to Wiki!'
