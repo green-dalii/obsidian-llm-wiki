@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, TFolder, Notice, Modal, FuzzySuggestModal } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile, TFolder, Notice, Modal, FuzzySuggestModal, MarkdownRenderer } from 'obsidian';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
