@@ -424,6 +424,7 @@ interface LLMWikiSettings {
   language: 'en' | 'zh'; // Interface language: English or Chinese
   availableModels?: string[]; // Dynamically fetched model list (temporary, not persisted)
   useCustomModel?: boolean; // Whether to use custom model name (instead of dropdown)
+  maxConversationHistory: number; // Max conversation rounds (avoid token overflow)
 }
 
 const DEFAULT_SETTINGS: LLMWikiSettings = {
@@ -434,7 +435,8 @@ const DEFAULT_SETTINGS: LLMWikiSettings = {
   wikiFolder: 'wiki',
   language: 'en', // Default: English (international users)
   availableModels: [],
-  useCustomModel: false
+  useCustomModel: false,
+  maxConversationHistory: 10, // Default: 10 rounds (20 messages)
 }
 
 // ==================== Internationalization Text System ====================
@@ -528,6 +530,23 @@ const TEXTS = {
     // Errors
     errorNoApiKey: '⚠️ Please configure API Key first',
     errorFetchFailed: '❌ Failed: {}',
+
+    // Query Modal UI
+    queryModalTitle: 'Query Wiki - Conversational Query',
+    queryModalPlaceholder: 'Enter question... (Enter to send)',
+    queryModalSendButton: 'Send',
+    queryModalSaveButton: 'Save to Wiki',
+    queryModalClearButton: 'Clear History',
+    queryModalHistoryCount: 'Conversation history: {}/{} rounds',
+    queryModalStreaming: 'Streaming...',
+
+    // Settings
+    maxConversationHistoryName: 'Max Conversation History',
+    maxConversationHistoryDesc: 'Limit conversation messages to avoid token overflow',
+    maxConversationHistoryHint: 'Recommended: 10-15 rounds',
+
+    // LLM Language Hint
+    llmLanguageHint: 'Please answer in English.'
   },
   zh: {
     // Plugin Info
@@ -617,6 +636,23 @@ const TEXTS = {
     // Errors
     errorNoApiKey: '⚠️ 请先配置 API Key',
     errorFetchFailed: '❌ 获取失败：{}',
+
+    // Query Modal UI
+    queryModalTitle: 'Query Wiki - 对话式查询',
+    queryModalPlaceholder: '输入问题... (Enter发送)',
+    queryModalSendButton: '发送',
+    queryModalSaveButton: '保存到Wiki',
+    queryModalClearButton: '清空历史',
+    queryModalHistoryCount: '对话历史: {}/{} 轮',
+    queryModalStreaming: '流式生成中...',
+
+    // Settings
+    maxConversationHistoryName: '对话历史上限',
+    maxConversationHistoryDesc: '限制对话消息数，避免超出LLM token限制',
+    maxConversationHistoryHint: '推荐：10-15轮',
+
+    // LLM Language Hint
+    llmLanguageHint: '请用中文回答。'
   }
 };
 
