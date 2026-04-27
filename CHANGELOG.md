@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2026-04-27
+## [1.2.0] - 2026-04-27
+
+### Changed
+
+**Modular Architecture (main.ts 2987 → 305 lines, -90%)**
+- Extracted 9 focused modules: wiki-engine, query-engine, settings, texts, types, prompts, llm-client, utils, modals
+- Clear separation of concerns: each module has one responsibility
+- Plugin entry point now only handles lifecycle and command routing
+
+**Settings Page Redesign**
+- Replaced vague feature bullets with 3-step workflow (Ingest → Query → Maintain)
+- Merged intro texts into a single paragraph with clickable Karpathy link
+- First-time users can understand the plugin in 10 seconds
+
+**Query Modal Polish**
+- Increased height from 600px to 780px for better readability
+- "Save to Wiki" button now uses Obsidian's accent color (purple)
+
+### Fixed
+
+- JSON parsing: added LLM-based repair fallback for malformed JSON (unescaped quotes, trailing commas)
+- Frontmatter: ensure `---` delimiter at position 0 so Obsidian parses YAML correctly
+- Removed dead code: empty `selectSourceToIngest()`, unused `streamResponse()`, unused imports
+- Replaced brittle regex-based JSON extraction with robust `parseJsonResponse()`
+- Replaced `require()` calls with static ES module imports in settings
+
+---
 
 ### Added
 
