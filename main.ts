@@ -88,6 +88,42 @@ class AnthropicClient implements LLMClient {
     return response.content[0].type === 'text' ? response.content[0].text : '';
   }
 
+  // New streaming method
+  async createMessageStream(params: {
+    model: string;
+    max_tokens: number;
+    messages: Array<{role: 'user' | 'assistant'; content: string}>;
+    language: 'en' | 'zh';
+    onChunk: (chunk: string) => void;
+  }): Promise<string> {
+    // Add language instruction
+    const messagesWithLanguage = [
+      ...params.messages,
+      {
+        role: 'user',
+        content: params.language === 'en'
+          ? 'Please answer in English.'
+          : '请用中文回答。'
+      }
+    ];
+
+    const stream = await this.client.messages.stream({
+      model: params.model,
+      max_tokens: params.max_tokens,
+      messages: messagesWithLanguage as any
+    });
+
+    let fullResponse = '';
+
+    stream.on('text', (text) => {
+      fullResponse += text;
+      params.onChunk(text);
+    });
+
+    await stream.finalMessage();
+    return fullResponse;
+  }
+
   async listModels(): Promise<string[]> {
     // Anthropic 目前没有公开的模型列表 API
     // 尝试从官方文档获取最新列表，或返回空数组让用户自行填写
@@ -128,6 +164,44 @@ class OpenAIClient implements LLMClient {
       messages: params.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[]
     });
     return response.choices[0]?.message?.content || '';
+  }
+
+  // New streaming method
+  async createMessageStream(params: {
+    model: string;
+    max_tokens: number;
+    messages: Array<{role: 'user' | 'assistant'; content: string}>;
+    language: 'en' | 'zh';
+    onChunk: (chunk: string) => void;
+  }): Promise<string> {
+    const messagesWithLanguage = [
+      ...params.messages,
+      {
+        role: 'user',
+        content: params.language === 'en'
+          ? 'Please answer in English.'
+          : '请用中文回答。'
+      }
+    ];
+
+    const stream = await this.client.chat.completions.create({
+      model: params.model,
+      max_tokens: params.max_tokens,
+      messages: messagesWithLanguage as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+      stream: true
+    });
+
+    let fullResponse = '';
+
+    for await (const chunk of stream) {
+      const text = chunk.choices[0]?.delta?.content || '';
+      if (text) {
+        fullResponse += text;
+        params.onChunk(text);
+      }
+    }
+
+    return fullResponse;
   }
 
   async listModels(): Promise<string[]> {
