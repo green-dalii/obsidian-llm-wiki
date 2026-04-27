@@ -140,8 +140,17 @@ sources/data-science.md
 
 #### 方法2：从现有文件夹初始化
 
-你可以在任何现有文件夹基础上初始化 Wiki：
-- `Cmd+P` → "Ingest from Folder" → 选择文件夹 → 自动处理
+```bash
+# 你的现有笔记结构
+notes/
+  ├── programming/
+  ├── research/
+  └── daily/
+```
+
+在 Obsidian 中：
+- `Cmd+P` → "Ingest from Folder" → 选择 `notes/programming`
+- 自动从现有笔记生成 Wiki
 
 #### 方法3：对话式查询
 
@@ -165,20 +174,6 @@ sources/data-science.md
 - **多轮对话**：支持追问，无需重复打开Modal
 - **历史管理**：自动截断，避免超出token限制
 - **保存到Wiki**：将有价值对话提炼为结构化Wiki页面
-
-#### 方法2：从现有文件夹初始化
-
-```bash
-# 你的现有笔记结构
-notes/
-  ├── programming/
-  ├── research/
-  └── daily/
-```
-
-在 Obsidian 中：
-- `Cmd+P` → "Ingest from Folder" → 选择 `notes/programming`
-- 自动生成 Wiki 从现有笔记
 
 ---
 
