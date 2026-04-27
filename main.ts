@@ -1334,7 +1334,7 @@ export default class LLMWikiPlugin extends Plugin {
       .replace('{{entity_name}}', entity.name)
       .replace('{{entity_type}}', entity.type)
       .replace('{{entity_summary}}', entity.summary)
-      .replace('{{mentions}}', entity.mentions_in_source.join('\n'))
+      .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || '无具体提及')
       .replace('{{related_content}}', existingContent || '暂无相关内容')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
@@ -1374,8 +1374,8 @@ export default class LLMWikiPlugin extends Plugin {
       .replace('{{concept_name}}', concept.name)
       .replace('{{concept_type}}', concept.type)
       .replace('{{concept_summary}}', concept.summary)
-      .replace('{{mentions}}', concept.mentions_in_source.join('\n'))
-      .replace('{{related_concepts}}', concept.related_concepts.join(', '))
+      .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || '无具体提及')
+      .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || '无相关概念')
       .replace('{{related_content}}', existingContent || '暂无相关内容')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
@@ -1651,12 +1651,20 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
     const actualDate = new Date().toISOString().split('T')[0];
     console.log('[系统时间]', actualDate);
 
+    // Read Wiki index for entity/concept name validation
+    const indexPath = `${this.settings.wikiFolder}/index.md`;
+    const existingWikiIndex = await this.tryReadFile(indexPath) || 'Wiki is empty';
+    console.log('[Wiki索引]', existingWikiIndex ? '已读取' : '为空');
+
     // 1. Format conversation to structured text
     const conversationText = this.formatConversation(history);
 
     // 2. LLM analysis (generate semantic title, extract knowledge)
     const analysisPrompt = this.settings.language === 'en'
       ? `You are a Wiki knowledge extraction assistant.
+
+Existing Wiki Index (use this as reference for entity/concept names):
+${existingWikiIndex}
 
 User conversation with AI:
 ${conversationText}
@@ -1667,6 +1675,7 @@ Focus on:
 1. Extracting key knowledge points (not full conversation log)
 2. Identifying core concepts and entities discussed
 3. Summarizing conversation topic and conclusions
+4. Entity/concept names should match existing Wiki pages if possible
 
 Actual conversation date: ${actualDate} (use this, do not generate date yourself)
 
@@ -1676,9 +1685,10 @@ Output JSON format:
   "summary": "Conversation topic summary",
   "entities": [
     {
-      "name": "Entity Name",
+      "name": "Short Reference Name",
       "type": "person|organization|project|other",
-      "summary": "Entity information summary"
+      "summary": "Entity information summary",
+      "mentions_in_source": ["Specific mentions in conversation"]
     }
   ],
   "concepts": [
@@ -1686,6 +1696,7 @@ Output JSON format:
       "name": "Concept Name",
       "type": "theory|method|technology|term|other",
       "summary": "Concept definition",
+      "mentions_in_source": ["Specific mentions in conversation"],
       "related_concepts": ["Related Concept 1", "Related Concept 2"]
     }
   ],
@@ -1694,11 +1705,17 @@ Output JSON format:
   "updated_pages": []
 }
 
-Important:
-- source_title should be semantic and descriptive, like: "Relationship Analysis of 太阳化忌 and 太阳化禄"
-- NOT like: "Conversation Summary - ${actualDate}" (generic and unsearchable)
-- Title should reflect the actual discussion topic for easy future retrieval`
+CRITICAL RULES:
+- source_title: Semantic title describing discussion topic (NOT date-based generic title)
+- entity.name: Choose or extract appropriate name from Wiki index (maintain consistency with existing Wiki)
+- concept.name: Same principle - reference Wiki index for concept names
+- mentions_in_source: REQUIRED field - list actual mentions in conversation text
+- If no entities/concepts found, use empty arrays [] (never omit the field)
+- Names should be suitable for [[wiki-links]] referencing (judge appropriate naming based on Wiki index)`
       : `你是Wiki知识提取助手。
+
+现有Wiki索引（作为实体/概念名称参考）：
+${existingWikiIndex}
 
 用户与AI的对话：
 ${conversationText}
@@ -1709,6 +1726,7 @@ ${conversationText}
 1. 提取关键知识点（非完整对话日志）
 2. 识别讨论的核心概念和实体
 3. 总结对话主题和结论
+4. 实体/概念名称应尽量匹配现有Wiki页面
 
 实际对话日期：${actualDate}（请使用此日期，不要自己生成）
 
@@ -1718,9 +1736,10 @@ ${conversationText}
   "summary": "对话主题总结",
   "entities": [
     {
-      "name": "实体名称",
+      "name": "简短引用名称",
       "type": "person|organization|project|other",
-      "summary": "实体信息总结"
+      "summary": "实体信息总结",
+      "mentions_in_source": ["在对话中的具体提及"]
     }
   ],
   "concepts": [
@@ -1728,6 +1747,7 @@ ${conversationText}
       "name": "概念名称",
       "type": "theory|method|technology|term|other",
       "summary": "概念定义",
+      "mentions_in_source": ["在对话中的具体提及"],
       "related_concepts": ["相关概念1", "相关概念2"]
     }
   ],
@@ -1736,10 +1756,13 @@ ${conversationText}
   "updated_pages": []
 }
 
-重要：
-- source_title应该语义化且描述性，如："太阳化忌与太阳化禄的关系分析"
-- 不要用："对话总结 - ${actualDate}"（通用且无法检索）
-- 标题应反映实际讨论主题，便于日后检索`;
+关键规则：
+- source_title：语义化标题，描述讨论主题（不要用日期作为标题）
+- entity.name：从Wiki索引中选择或提取合适名称（与现有Wiki保持一致，便于双向链接引用）
+- concept.name：同理，参考Wiki索引中的概念名称
+- mentions_in_source：必填字段 - 列出在对话中的具体提及内容
+- 如果没有实体/概念，用空数组[]（绝不能省略字段）
+- 名称应简短且便于[[wiki-links]]引用（根据Wiki索引判断合适的命名方式）`;
 
     const analysis = await this.llmClient!.createMessage({
       model: this.settings.model,

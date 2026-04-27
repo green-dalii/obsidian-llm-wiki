@@ -11,10 +11,10 @@ export function slugify(text: string): string {
   const trimmed = text.trim();
   console.log('trim 后:', trimmed, '长度:', trimmed.length);
 
-  // Remove filesystem-unsupported characters + control characters
-  // Keep all visible characters (Unicode > 32), including Chinese, English, numbers, symbols
-  const afterRemoveInvalid = trimmed.replace(/[\/\\:*?"<>|\x00-\x1f]/g, '');
-  console.log('移除无效字符后:', afterRemoveInvalid, '长度:', afterRemoveInvalid.length);
+  // Step 1: Remove filesystem-unsupported characters + special symbols
+  // Keep only: Chinese characters, English letters, numbers, dash, underscore
+  const afterRemoveInvalid = trimmed.replace(/[\/\\:*?"<>|、，。；：！？（）【】《》\x00-\x1f]/g, '');
+  console.log('移除无效字符和特殊符号后:', afterRemoveInvalid, '长度:', afterRemoveInvalid.length);
 
   if (afterRemoveInvalid.length === 0) {
     console.warn('slugify: 移除无效字符后为空，使用备用名称');
@@ -22,15 +22,15 @@ export function slugify(text: string): string {
     return 'untitled-' + Date.now();
   }
 
-  // Convert spaces to dashes
-  const afterSpaceToDash = afterRemoveInvalid.replace(/\s+/g, '-');
+  // Step 2: Convert spaces and dots to dashes
+  const afterSpaceToDash = afterRemoveInvalid.replace(/[\s.]+/g, '-');
   console.log('空格转连字符后:', afterSpaceToDash, '长度:', afterSpaceToDash.length);
 
-  // Merge multiple dashes
+  // Step 3: Merge multiple dashes
   const afterMergeDash = afterSpaceToDash.replace(/-+/g, '-');
   console.log('合并连字符后:', afterMergeDash, '长度:', afterMergeDash.length);
 
-  // Remove leading and trailing dashes
+  // Step 4: Remove leading and trailing dashes
   const finalSlug = afterMergeDash.replace(/^-|-$/g, '').trim();
   console.log('最终 slug:', finalSlug, '长度:', finalSlug.length);
 
