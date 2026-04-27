@@ -1737,27 +1737,40 @@ ${conversationText}
     const summaryPath = `${this.settings.wikiFolder}/sources/${semanticSlug}.md`;
     console.log('[语义化文件路径]', summaryPath);
 
-    const summaryContent = `# ${parsed.source_title}
+    // Format: match standard source page structure (generateSummaryPage)
+    const tags = parsed.concepts.map((c: any) => c.name).join(', ');
+    const summaryContent = `---
+type: source
+created: ${actualDate}
+source_file: Conversation Extract - ${actualDate}
+tags: [${tags}]
+---
 
-> **对话日期**: ${actualDate}
-> **对话类型**: 用户查询提炼
+# ${parsed.source_title}
 
-## 对话主题
+## 来源
+- 对话日期：${actualDate}
+- 来源类型：用户查询提炼
+- 语义路径：[[${summaryPath.replace(this.settings.wikiFolder + '/', '')}]]
+
+## 核心内容
 
 ${parsed.summary}
 
-## 关键要点
-
-${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
-
-## 相关实体
+## 关键实体
 
 ${parsed.entities.map((e: any) => `- [[entities/${slugify(e.name)}|${e.name}]] - ${e.summary}`).join('\n')}
 
-## 相关概念
+## 关键概念
 
 ${parsed.concepts.map((c: any) => `- [[concepts/${slugify(c.name)}|${c.name}]] - ${c.summary}`).join('\n')}
-`;
+
+## 主要观点
+
+${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
+
+---
+更新日期：${actualDate}`;
 
     await this.createOrUpdateFile(summaryPath, summaryContent);
     parsed.created_pages.push(summaryPath);
