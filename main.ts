@@ -2729,9 +2729,24 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找
       return [];
     }
 
-    // Simple keyword matching: query words vs page title/summary
-    const queryKeywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 2);
-    console.log('查询关键词:', queryKeywords);
+    // Improved keyword extraction for both English and Chinese
+    // English: split by spaces
+    // Chinese: split into individual characters (simple approach)
+    let queryKeywords: string[];
+
+    if (/[一-龥]/.test(query)) {
+      // Contains Chinese characters - use character-based splitting
+      queryKeywords = query.split('')
+        .filter(char => /[一-龥]/.test(char)) // Only Chinese characters
+        .map(char => char.toLowerCase());
+      console.log('[中文关键词提取] 单字:', queryKeywords.slice(0, 20));
+    } else {
+      // English - split by spaces
+      queryKeywords = query.toLowerCase()
+        .split(/\s+/)
+        .filter(k => k.length > 1); // Lower threshold for English
+      console.log('[英文关键词提取] 单词:', queryKeywords);
+    }
 
     const scoredPages = pageEntries.map(entry => {
       const titleMatch = entry.match(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/);
@@ -2741,15 +2756,25 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找
       const summaryMatch = entry.match(/\]\] - (.+)$/);
       const summary = summaryMatch ? summaryMatch[1] : '';
 
-      // Calculate relevance score
+      // Calculate relevance score - improved matching
       let score = 0;
+
+      // Exact phrase match (highest priority)
+      if (title.toLowerCase().includes(query.toLowerCase())) {
+        score += 10;
+        console.log(`[精确匹配] "${title}" - 分数: ${score}`);
+      }
+
+      // Keyword matching
       for (const keyword of queryKeywords) {
-        if (title.toLowerCase().includes(keyword)) score += 2;
-        if (summary.toLowerCase().includes(keyword)) score += 1;
+        if (keyword.length > 0) {
+          if (title.toLowerCase().includes(keyword)) score += 3;
+          if (summary.toLowerCase().includes(keyword)) score += 1;
+        }
       }
 
       if (score > 0) {
-        console.log(`[评分] "${title}" - 分数: ${score} (标题匹配: ${title.toLowerCase()}, 摘要: ${summary.substring(0, 50)})`);
+        console.log(`[关键词匹配] "${title}" - 分数: ${score} (标题匹配: ${title.toLowerCase()}, 摘要: ${summary.substring(0, 50)})`);
       }
 
       return { title, score };
