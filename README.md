@@ -4,7 +4,7 @@
 
 **Concept Origin:** This plugin implements [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) vision for Obsidian.
 
-**Author:** green-dalii | **Version:** 1.0.9 | **Status:** Production Ready
+**Author:** green-dalii | **Version:** 1.1.0 | **Status:** Production Ready
 
 [English](README.md) | [中文文档](README_CN.md)
 
@@ -17,7 +17,7 @@
 - 📝 **Intelligent Ingestion**: Extract key information from source documents
 - 🔗 **Bidirectional Links**: Native Obsidian `[[wiki-links]]` syntax
 - 📊 **Knowledge Graph**: Visualize relationships with Obsidian's graph view
-- 🔍 **Wiki Query**: Ask questions and get synthesized answers
+- 🔍 **Conversational Query**: ChatGPT-style query interface with streaming responses, Markdown rendering, and optional Wiki saving
 - 🛠️ **Auto Maintenance**: Detect contradictions, outdated info, orphaned pages
 - 📑 **Index Generation**: Auto-generated `index.md` and `log.md`
 
@@ -75,12 +75,22 @@ pnpm build
 
 ### Settings
 
-- **Interface Language**: Switch between English (default) and Chinese interface
+- **Interface Language**: English (default) or Chinese interface
 - **Test Connection**: Validate configuration before saving
 - **Save Settings**: Explicit save button (no auto-save)
 - **Status Display**: Shows LLM Client initialization state
 - **Source Folder**: Default `sources`
 - **Wiki Folder**: Default `wiki`
+- **Conversation History Limit**: Max conversation rounds (default: 10, recommended: 10-15)
+
+### Query Wiki Features
+
+- **ChatGPT-Style Interface**: 800x600px conversational Modal
+- **Streaming Responses**: Real-time LLM output with visual feedback
+- **Markdown Rendering**: Full Obsidian syntax support ([[wiki-links]], callouts, code blocks)
+- **Multi-turn Conversation**: Follow-up questions without reopening Modal
+- **History Management**: Auto-truncate to avoid token overflow
+- **Save to Wiki**: Extract valuable conversations as structured Wiki pages
 
 ## Commands
 

@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-04-27
+
+### Added
+
+**Conversational Query Interface**
+- Refactored Query Wiki to ChatGPT-style conversational Modal (800x600px)
+- Real-time streaming LLM responses with visual feedback
+- Full Markdown rendering using Obsidian MarkdownRenderer
+  - Supports [[wiki-links]], callouts, code blocks, Obsidian syntax
+- Multi-turn conversation with follow-up questions
+- Conversation history management with visual scrollable display
+- Enter key shortcut (Shift+Enter for newline)
+- Auto-truncation when exceeding conversation limit (Notice feedback)
+- Clear history button to reset conversation
+
+**Knowledge Extraction from Conversations**
+- New "Save to Wiki" button to extract knowledge from valuable conversations
+- ingestConversation() method converts dialogue to structured Wiki pages
+  - Summary page with conversation topic and key points
+  - Entity pages extracted from discussion
+  - Concept pages with relationships
+- Reuses existing Wiki generation logic for consistency
+
+**Technical Improvements**
+- Extended LLMClient interface with optional createMessageStream() method
+  - Backward compatible (non-streaming fallback)
+- Implemented streaming for AnthropicClient (Anthropic SDK stream API)
+- Implemented streaming for OpenAIClient (OpenAI stream: true option)
+- Language-aware responses (match interface language setting)
+  - English: "Please answer in English."
+  - Chinese: "请用中文回答。"
+- Added maxConversationHistory to LLMWikiSettings (default: 10)
+- New TEXTS entries: 15 strings per language (English + Chinese)
+- Settings UI: "Wiki Query Configuration" section
+  - Input field with validation (1-50 range)
+  - Hint text with recommended value (10-15 rounds)
+
+**User Experience**
+- Immediate feedback: see responses stream in real-time
+- Interactive: follow-up questions without reopening Modal
+- Clean UI: rendered Markdown instead of raw text
+- Knowledge capture: save valuable conversations to Wiki
+- i18n: all UI text and LLM responses respect language setting
+
+---
+
 ## [1.0.9] - 2026-04-26
 
 ### Added

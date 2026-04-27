@@ -1,9 +1,9 @@
 {
   "id": "llm-wiki",
   "name": "Karpathy LLM Wiki",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "minAppVersion": "0.15.0",
-  "description": "Karpathy's LLM Wiki implementation for Obsidian - multi-page knowledge generation with entity/concept pages",
+  "description": "Karpathy's LLM Wiki implementation for Obsidian - multi-page knowledge generation with entity/concept pages and conversational query",
   "author": "Greener-Dalii",
   "authorUrl": "https://github.com/Greener-Dalii",
   "isDesktopOnly": false

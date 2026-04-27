@@ -2,7 +2,7 @@
 
 > 🤖 Karpathy 的 LLM Wiki 完整实现 - 多页面知识生成系统
 
-**作者:** green-dalii | **版本:** 1.0.9 | **状态:** 生产可用
+**作者:** green-dalii | **版本:** 1.1.0 | **状态:** 生产可用
 
 [English](README.md) | 中文文档
 
@@ -19,7 +19,7 @@
 - **📝 智能摄入**：自动提取实体、概念，生成 Wiki 页面
 - **🔗 双向链接**：原生 Obsidian `[[wiki-links]]` 语法
 - **📊 知识图谱**：通过 Obsidian Graph View 可视化关系网络
-- **🔍 Wiki 查询**：提问并获得综合答案
+- **🔍 对话式查询**：ChatGPT风格查询界面，流式输出、Markdown渲染、可选保存到Wiki
 - **🛠️ 自动维护**：检测矛盾、过时信息、孤立页面
 - **📑 自动生成索引**：`index.md` 和 `log.md` 自动维护
 
@@ -137,6 +137,34 @@ sources/data-science.md
 
 在 Obsidian 中：
 - `Cmd+P` → "Ingest Sources" → 自动处理 `sources/` 文件夹
+
+#### 方法2：从现有文件夹初始化
+
+你可以在任何现有文件夹基础上初始化 Wiki：
+- `Cmd+P` → "Ingest from Folder" → 选择文件夹 → 自动处理
+
+#### 方法3：对话式查询
+
+使用 ChatGPT 风格的对话界面查询 Wiki：
+- `Cmd+P` → "Query Wiki" → 打开对话Modal
+- 输入问题 → 实时流式回复（Markdown渲染）
+- 支持追问，历史记录可见
+- 点击"Save to Wiki"提炼知识为Wiki页面
+
+### 配置说明
+
+**基本配置：**
+- **界面语言**：默认英文，可切换中文
+- **对话历史上限**：限制对话轮数（默认10轮，推荐10-15轮）
+- **Wiki 文件夹**：存放生成的Wiki页面（默认 `wiki`）
+
+**对话查询特性：**
+- **ChatGPT风格界面**：800x600px对话Modal
+- **流式输出**：实时LLM回复，可视化反馈
+- **Markdown渲染**：完整Obsidian语法支持（[[wiki-links]]、callouts、代码块）
+- **多轮对话**：支持追问，无需重复打开Modal
+- **历史管理**：自动截断，避免超出token限制
+- **保存到Wiki**：将有价值对话提炼为结构化Wiki页面
 
 #### 方法2：从现有文件夹初始化
 
