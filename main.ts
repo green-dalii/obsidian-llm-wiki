@@ -2660,11 +2660,10 @@ class QueryModal extends Modal {
           : '你是Wiki助手。Wiki目前为空。请基于你的知识回答，并建议用户先摄入源文件。';
       }
 
-      // 2. Search for relevant pages based on user query
-      console.log('[步骤2] 搜索相关页面...');
-      const relevantPages = await this.searchRelevantPages(userMessage, indexContent);
-      console.log('[步骤2] 找到相关页面:', relevantPages);
-      console.log('[步骤2] 相关页面数量:', relevantPages.length);
+      // 2. Use LLM to select relevant pages from index
+      console.log('[步骤2] 让LLM选择相关页面...');
+      const relevantPages = await this.selectRelevantPagesWithLLM(userMessage, indexContent);
+      console.log('[步骤2] LLM选择的页面:', relevantPages);
 
       // 3. Load relevant page content
       console.log('[步骤3] 加载相关页面内容...');
@@ -2681,12 +2680,12 @@ class QueryModal extends Modal {
 Wiki Index:
 ${indexContent}
 
-Relevant Pages:
+Relevant Wiki Pages (loaded with full content):
 ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : 'No directly relevant pages found in Wiki.'}
 
 Instructions:
-- Answer based on the Wiki knowledge above
-- Cite sources with [[wiki-links]] when referencing Wiki pages
+- Answer based on the Wiki pages above (not general knowledge)
+- Cite sources with [[wiki-links]] when referencing specific pages
 - If Wiki lacks relevant information, acknowledge it and suggest ingesting more sources
 - Respond in the same language as the user's question`
         : `你是Wiki助手，拥有结构化知识库的访问权限。
@@ -2694,12 +2693,12 @@ Instructions:
 Wiki索引：
 ${indexContent}
 
-相关页面：
+相关Wiki页面（已加载完整内容）：
 ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找到直接相关的页面。'}
 
 指令：
-- 基于上述Wiki知识回答问题
-- 引用Wiki页面时使用[[wiki-links]]格式
+- 基于上述Wiki页面内容回答问题（而非通用知识）
+- 引用具体页面时使用[[wiki-links]]格式
 - 如果Wiki缺少相关信息，请如实说明并建议摄入更多源文件
 - 请用与用户提问相同的语言回答`;
 
@@ -2714,81 +2713,91 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找
     }
   }
 
-  async searchRelevantPages(query: string, indexContent: string): Promise<string[]> {
-    console.log('=== searchRelevantPages开始 ===');
-    console.log('查询:', query);
-    console.log('index.md内容长度:', indexContent.length);
+  async selectRelevantPagesWithLLM(query: string, indexContent: string): Promise<string[]> {
+    console.log('=== LLM选择相关页面开始 ===');
 
-    // Extract all page entries from index.md
-    const pageEntries = indexContent.match(/- \[\[([^\]]+)\]\]/g) || [];
-    console.log('提取的页面条目数量:', pageEntries.length);
-    console.log('页面条目示例:', pageEntries.slice(0, 3));
+    const prompt = this.plugin.settings.language === 'en'
+      ? `You are a Wiki page selector. Given a user query and the Wiki index, select the most relevant pages.
 
-    if (pageEntries.length === 0) {
-      console.log('未找到页面条目');
+User Query: "${query}"
+
+Wiki Index:
+${indexContent}
+
+Task:
+1. Read the Wiki index above
+2. Identify pages that are MOST relevant to the user's query
+3. Consider page titles, summaries, and semantic relevance
+4. Select top 3-5 most relevant pages
+
+Output Format (strict JSON):
+{
+  "relevant_pages": [
+    "entities/page-name-1",
+    "concepts/page-name-2",
+    "sources/page-name-3"
+  ]
+}
+
+Important:
+- Output ONLY the JSON object, no other text
+- Page paths should match the format in Wiki links: "entities/name", "concepts/name", "sources/name"
+- If no pages are relevant, output: {"relevant_pages": []}`
+      : `你是Wiki页面选择器。根据用户问题和Wiki索引，选择最相关的页面。
+
+用户问题："${query}"
+
+Wiki索引：
+${indexContent}
+
+任务：
+1. 阅读上述Wiki索引
+2. 识别与用户问题最相关的页面
+3. 考虑页面标题、摘要和语义相关性
+4. 选择最相关的3-5个页面
+
+输出格式（严格JSON）：
+{
+  "relevant_pages": [
+    "entities/页面名称1",
+    "concepts/页面名称2",
+    "sources/页面名称3"
+  ]
+}
+
+重要：
+- 仅输出JSON对象，不要有其他文本
+- 页面路径格式应与Wiki链接一致："entities/名称"、"concepts/名称"、"sources/名称"
+- 如果没有相关页面，输出：{"relevant_pages": []}`;
+
+    try {
+      console.log('[LLM调用] 发送选择请求...');
+      const response = await this.plugin.llmClient!.createMessage({
+        model: this.plugin.settings.model,
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      console.log('[LLM响应] 原始响应:', response);
+
+      // Parse JSON response
+      const cleanedResponse = response.trim();
+      const jsonMatch = cleanedResponse.match(/\{[^}]*"relevant_pages"[^}]*\}/);
+
+      if (!jsonMatch) {
+        console.error('[解析失败] 未找到JSON对象');
+        return [];
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      const pages = parsed.relevant_pages || [];
+
+      console.log('[解析成功] 页面列表:', pages);
+      return pages;
+    } catch (error: any) {
+      console.error('[LLM选择失败]', error);
       return [];
     }
-
-    // Improved keyword extraction for both English and Chinese
-    // English: split by spaces
-    // Chinese: split into individual characters (simple approach)
-    let queryKeywords: string[];
-
-    if (/[一-龥]/.test(query)) {
-      // Contains Chinese characters - use character-based splitting
-      queryKeywords = query.split('')
-        .filter(char => /[一-龥]/.test(char)) // Only Chinese characters
-        .map(char => char.toLowerCase());
-      console.log('[中文关键词提取] 单字:', queryKeywords.slice(0, 20));
-    } else {
-      // English - split by spaces
-      queryKeywords = query.toLowerCase()
-        .split(/\s+/)
-        .filter(k => k.length > 1); // Lower threshold for English
-      console.log('[英文关键词提取] 单词:', queryKeywords);
-    }
-
-    const scoredPages = pageEntries.map(entry => {
-      const titleMatch = entry.match(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/);
-      const title = titleMatch ? titleMatch[1] : '';
-
-      // Extract summary (text after ' - ' if exists)
-      const summaryMatch = entry.match(/\]\] - (.+)$/);
-      const summary = summaryMatch ? summaryMatch[1] : '';
-
-      // Calculate relevance score - improved matching
-      let score = 0;
-
-      // Exact phrase match (highest priority)
-      if (title.toLowerCase().includes(query.toLowerCase())) {
-        score += 10;
-        console.log(`[精确匹配] "${title}" - 分数: ${score}`);
-      }
-
-      // Keyword matching
-      for (const keyword of queryKeywords) {
-        if (keyword.length > 0) {
-          if (title.toLowerCase().includes(keyword)) score += 3;
-          if (summary.toLowerCase().includes(keyword)) score += 1;
-        }
-      }
-
-      if (score > 0) {
-        console.log(`[关键词匹配] "${title}" - 分数: ${score} (标题匹配: ${title.toLowerCase()}, 摘要: ${summary.substring(0, 50)})`);
-      }
-
-      return { title, score };
-    });
-
-    // Sort by score, take top 3 pages
-    const topPages = scoredPages
-      .filter(p => p.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
-      .map(p => p.title);
-
-    console.log('最终选中的页面:', topPages);
-    return topPages;
   }
 
   async loadRelevantPages(pageTitles: string[]): Promise<string[]> {
