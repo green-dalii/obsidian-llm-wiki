@@ -42,7 +42,7 @@ export class AnthropicClient implements LLMClient {
         }
       ];
 
-    const stream = await this.client.messages.stream({
+    const stream = this.client.messages.stream({
       model: params.model,
       max_tokens: params.max_tokens,
       system: params.system || undefined,
@@ -60,16 +60,16 @@ export class AnthropicClient implements LLMClient {
     return fullResponse;
   }
 
-  async listModels(): Promise<string[]> {
+  listModels(): Promise<string[]> {
     try {
-      return [
+      return Promise.resolve([
         'claude-sonnet-4-6',
         'claude-opus-4-7',
         'claude-haiku-4-5-20251001'
-      ];
+      ]);
     } catch (error) {
       console.error('Anthropic 模型列表获取失败:', error);
-      return [];
+      return Promise.resolve([]);
     }
   }
 }

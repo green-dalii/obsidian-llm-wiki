@@ -36,8 +36,8 @@ export class WikiEngine {
   }
 
   async ingestSource(file: TFile) {
-    console.log('=== 开始摄入流程 ===');
-    console.log('源文件:', file.path);
+    console.debug('=== 开始摄入流程 ===');
+    console.debug('源文件:', file.path);
     new Notice(`正在摄入: ${file.basename}...`);
 
     try {
@@ -47,7 +47,7 @@ export class WikiEngine {
       if (!analysis) {
         throw new Error('源文件分析失败');
       }
-      console.log('分析结果:', JSON.stringify(analysis, null, 2));
+      console.debug('分析结果:', JSON.stringify(analysis, null, 2));
 
       const summaryPage = await this.createSummaryPage(file, analysis);
       analysis.created_pages.push(summaryPage);
@@ -79,14 +79,15 @@ export class WikiEngine {
       await this.updateLog('ingest', analysis);
 
       const message = `摄入成功: 创建 ${analysis.created_pages.length} 页, 更新 ${analysis.updated_pages.length} 页`;
-      console.log('=== 摄入流程完成 ===');
-      console.log(message);
+      console.debug('=== 摄入流程完成 ===');
+      console.debug(message);
       new Notice(message, 5000);
 
     } catch (error) {
       console.error('=== 摄入流程失败 ===');
       console.error('错误:', error);
-      new Notice(`摄入失败: ${(error as any).message}`, 8000);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      new Notice(`摄入失败: ${errorMsg}`, 8000);
       throw error;
     }
   }
@@ -102,7 +103,7 @@ export class WikiEngine {
     for (const folder of folders) {
       try {
         await this.app.vault.createFolder(folder);
-        console.log('创建文件夹:', folder);
+        console.debug('创建文件夹:', folder);
       } catch (error) {
         // 文件夹已存在
       }
@@ -110,22 +111,22 @@ export class WikiEngine {
   }
 
   async analyzeSource(file: TFile): Promise<SourceAnalysis | null> {
-    console.log('=== 开始分析源文件 ===');
-    console.log('文件:', file.path);
+    console.debug('=== 开始分析源文件 ===');
+    console.debug('文件:', file.path);
 
     const content = await this.app.vault.read(file);
-    console.log('文件内容长度:', content.length);
+    console.debug('文件内容长度:', content.length);
 
-    const existingPages = await this.getExistingWikiPages();
+    const existingPages = this.getExistingWikiPages();
     const existingPagesList = existingPages.map(p => `- [[${p.title}]]`).join('\n');
-    console.log('现有 Wiki 页面数量:', existingPages.length);
+    console.debug('现有 Wiki 页面数量:', existingPages.length);
 
     const prompt = PROMPTS.analyzeSource
       .replace('{{content}}', content)
       .replace('{{existing_pages}}', existingPagesList);
 
-    console.log('Prompt 长度:', prompt.length);
-    console.log('调用 LLM 分析源文件...');
+    console.debug('Prompt 长度:', prompt.length);
+    console.debug('调用 LLM 分析源文件...');
 
     try {
       const response = await this.client.createMessage({
@@ -134,7 +135,7 @@ export class WikiEngine {
         messages: [{ role: 'user', content: prompt }]
       });
 
-      console.log('LLM 响应长度:', response.length);
+      console.debug('LLM 响应长度:', response.length);
 
       const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
         const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
@@ -143,16 +144,16 @@ export class WikiEngine {
           max_tokens: 4000,
           messages: [{ role: 'user', content: repairPrompt }]
         });
-      });
+      }) as SourceAnalysis | null;
 
       if (!analysisData) {
         console.error('❌ JSON 解析失败，返回 null');
         return null;
       }
 
-      console.log('✅ JSON 解析成功');
+      console.debug('✅ JSON 解析成功');
 
-      const requiredFields = ['source_title', 'summary', 'entities', 'concepts'];
+      const requiredFields: (keyof SourceAnalysis)[] = ['source_title', 'summary', 'entities', 'concepts'];
       const missingFields = requiredFields.filter(field => !analysisData[field]);
 
       if (missingFields.length > 0) {
@@ -160,7 +161,7 @@ export class WikiEngine {
         return null;
       }
 
-      console.log('✅ 所有必要字段存在');
+      console.debug('✅ 所有必要字段存在');
 
       const analysis: SourceAnalysis = {
         ...analysisData,
@@ -169,10 +170,10 @@ export class WikiEngine {
         updated_pages: []
       };
 
-      console.log('分析完成:');
-      console.log('  - 实体数量:', analysis.entities.length);
-      console.log('  - 概念数量:', analysis.concepts.length);
-      console.log('  - 相关页面:', analysis.related_pages?.length || 0);
+      console.debug('分析完成:');
+      console.debug('  - 实体数量:', analysis.entities.length);
+      console.debug('  - 概念数量:', analysis.concepts.length);
+      console.debug('  - 相关页面:', analysis.related_pages?.length || 0);
 
       return analysis;
 
@@ -182,7 +183,7 @@ export class WikiEngine {
     }
   }
 
-  async getExistingWikiPages(): Promise<{path: string, title: string}[]> {
+  getExistingWikiPages(): {path: string, title: string}[] {
     const wikiFiles = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(this.settings.wikiFolder) &&
                    !f.path.includes('index.md') &&
@@ -218,20 +219,20 @@ export class WikiEngine {
     return path;
   }
 
-  async createOrUpdateEntityPage(entity: EntityInfo, analysis: SourceAnalysis, sourceFile: TFile): Promise<string | null> {
+  async createOrUpdateEntityPage(entity: EntityInfo, analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<string | null> {
     if (!entity.name || entity.name.trim().length === 0) {
       console.warn('实体名称为空，跳过创建');
       return null;
     }
 
-    console.log('=== 创建实体页 ===');
-    console.log('entity.name:', entity.name);
-    console.log('类型:', entity.type);
+    console.debug('=== 创建实体页 ===');
+    console.debug('entity.name:', entity.name);
+    console.debug('类型:', entity.type);
 
     const slug = slugify(entity.name);
-    console.log('生成的 slug:', slug);
+    console.debug('生成的 slug:', slug);
     const path = `${this.settings.wikiFolder}/entities/${slug}.md`;
-    console.log('目标路径:', path);
+    console.debug('目标路径:', path);
 
     const existingContent = await this.tryReadFile(path);
 
@@ -256,20 +257,20 @@ export class WikiEngine {
     return path;
   }
 
-  async createOrUpdateConceptPage(concept: ConceptInfo, analysis: SourceAnalysis, sourceFile: TFile): Promise<string | null> {
+  async createOrUpdateConceptPage(concept: ConceptInfo, analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<string | null> {
     if (!concept.name || concept.name.trim().length === 0) {
       console.warn('概念名称为空，跳过创建');
       return null;
     }
 
-    console.log('=== 创建概念页 ===');
-    console.log('concept.name:', concept.name);
-    console.log('类型:', concept.type);
+    console.debug('=== 创建概念页 ===');
+    console.debug('concept.name:', concept.name);
+    console.debug('类型:', concept.type);
 
     const slug = slugify(concept.name);
-    console.log('生成的 slug:', slug);
+    console.debug('生成的 slug:', slug);
     const path = `${this.settings.wikiFolder}/concepts/${slug}.md`;
-    console.log('目标路径:', path);
+    console.debug('目标路径:', path);
 
     const existingContent = await this.tryReadFile(path);
 
@@ -296,15 +297,21 @@ export class WikiEngine {
   }
 
   async updateRelatedPage(pageName: string, analysis: SourceAnalysis) {
-    const existingPages = await this.getExistingWikiPages();
+    const existingPages = this.getExistingWikiPages();
     const page = existingPages.find(p => p.title === pageName);
 
     if (!page) {
-      console.log('相关页面不存在:', pageName);
+      console.debug('相关页面不存在:', pageName);
       return;
     }
 
-    const existingContent = await this.app.vault.read(this.app.vault.getAbstractFileByPath(page.path) as TFile);
+    const abstractFile = this.app.vault.getAbstractFileByPath(page.path);
+    if (!(abstractFile instanceof TFile)) {
+      console.debug('相关页面不是文件:', pageName);
+      return;
+    }
+
+    const existingContent = await this.app.vault.read(abstractFile);
 
     const prompt = `现有 Wiki 页面：${pageName}
 
@@ -341,27 +348,28 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
   }
 
   async createOrUpdateFile(path: string, content: string): Promise<void> {
-    console.log('createOrUpdateFile:', path);
+    console.debug('createOrUpdateFile:', path);
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const file = this.app.vault.getAbstractFileByPath(path);
         if (file instanceof TFile) {
-          console.log(`尝试 ${attempt + 1}: 文件已存在，更新:`, path);
+          console.debug(`尝试 ${attempt + 1}: 文件已存在，更新:`, path);
           await this.app.vault.modify(file, content);
-          console.log('更新成功:', path);
+          console.debug('更新成功:', path);
           return;
         } else {
-          console.log(`尝试 ${attempt + 1}: 文件不存在，创建:`, path);
+          console.debug(`尝试 ${attempt + 1}: 文件不存在，创建:`, path);
           await this.app.vault.create(path, content);
-          console.log('创建成功:', path);
+          console.debug('创建成功:', path);
           return;
         }
-      } catch (error: any) {
-        console.error(`尝试 ${attempt + 1} 失败:`, error.message);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(`尝试 ${attempt + 1} 失败:`, errorMsg);
 
-        if (error.message?.includes('File already exists') || error.message?.includes('already exists')) {
-          console.log('文件已存在异常，等待100ms后重试:', path);
+        if (errorMsg.includes('File already exists') || errorMsg.includes('already exists')) {
+          console.debug('文件已存在异常，等待100ms后重试:', path);
           await new Promise(resolve => setTimeout(resolve, 100));
           continue;
         } else {
@@ -371,11 +379,11 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
       }
     }
 
-    console.log('3次尝试后，强制查找文件并更新:', path);
+    console.debug('3次尝试后，强制查找文件并更新:', path);
     const file = this.app.vault.getAbstractFileByPath(path);
     if (file instanceof TFile) {
       await this.app.vault.modify(file, content);
-      console.log('最终更新成功:', path);
+      console.debug('最终更新成功:', path);
     } else {
       throw new Error(`无法创建或更新文件: ${path}`);
     }
@@ -465,14 +473,14 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
       throw new Error('LLM Client not initialized');
     }
 
-    console.log('=== Starting conversation extraction ===');
+    console.debug('=== Starting conversation extraction ===');
 
     const actualDate = new Date().toISOString().split('T')[0];
-    console.log('[系统时间]', actualDate);
+    console.debug('[系统时间]', actualDate);
 
     const indexPath = `${this.settings.wikiFolder}/index.md`;
     const existingWikiIndex = await this.tryReadFile(indexPath) || 'Wiki is empty';
-    console.log('[Wiki索引]', existingWikiIndex ? '已读取' : '为空');
+    console.debug('[Wiki索引]', existingWikiIndex ? '已读取' : '为空');
 
     const conversationText = this.formatConversation(history);
 
@@ -596,21 +604,21 @@ ${conversationText}
         max_tokens: 4000,
         messages: [{ role: 'user', content: repairPrompt }]
       });
-    });
+    }) as SourceAnalysis | null;
     if (!parsed) {
       throw new Error('Conversation analysis JSON parsing failed');
     }
 
-    console.log('[LLM分析结果]', parsed);
-    console.log('[生成的标题]', parsed.source_title);
+    console.debug('[LLM分析结果]', parsed);
+    console.debug('[生成的标题]', parsed.source_title);
 
     await this.ensureWikiStructure();
 
     const semanticSlug = slugify(parsed.source_title);
     const summaryPath = `${this.settings.wikiFolder}/sources/${semanticSlug}.md`;
-    console.log('[语义化文件路径]', summaryPath);
+    console.debug('[语义化文件路径]', summaryPath);
 
-    const tags = parsed.concepts.map((c: any) => c.name).join(', ');
+    const tags = parsed.concepts.map(c => c.name).join(', ');
     const summaryContent = `---
 type: source
 created: ${actualDate}
@@ -631,11 +639,11 @@ ${parsed.summary}
 
 ## 关键实体
 
-${parsed.entities.map((e: any) => `- [[entities/${slugify(e.name)}|${e.name}]] - ${e.summary}`).join('\n')}
+${parsed.entities.map(e => `- [[entities/${slugify(e.name)}|${e.name}]] - ${e.summary}`).join('\n')}
 
 ## 关键概念
 
-${parsed.concepts.map((c: any) => `- [[concepts/${slugify(c.name)}|${c.name}]] - ${c.summary}`).join('\n')}
+${parsed.concepts.map(c => `- [[concepts/${slugify(c.name)}|${c.name}]] - ${c.summary}`).join('\n')}
 
 ## 主要观点
 
@@ -648,14 +656,14 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
     parsed.created_pages.push(summaryPath);
 
     for (const entity of parsed.entities) {
-      const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug } as any);
+      const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug });
       if (entityPage) {
         parsed.created_pages.push(entityPage);
       }
     }
 
     for (const concept of parsed.concepts) {
-      const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug } as any);
+      const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug });
       if (conceptPage) {
         parsed.created_pages.push(conceptPage);
       }
@@ -665,8 +673,8 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
     parsed.contradictions = parsed.contradictions || [];
     await this.updateLog('conversation', parsed);
 
-    console.log('=== Conversation extraction complete ===');
-    console.log('Created pages:', parsed.created_pages);
+    console.debug('=== Conversation extraction complete ===');
+    console.debug('Created pages:', parsed.created_pages);
   }
 
   formatConversation(history: {

@@ -1,3 +1,6 @@
+![llm_wiki_banner](/docs/assets/llm_wiki_banner.jpg)
+
+
 # Karpathy LLM Wiki Plugin for Obsidian
 
 > 🤖 Karpathy 的 LLM Wiki 完整实现 - 多页面知识生成系统

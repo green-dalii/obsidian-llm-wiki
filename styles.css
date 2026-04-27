@@ -1,16 +1,17 @@
 /* LLM Wiki Plugin Styles */
 
 /* 查询模态框样式 */
-.llm-wiki-query-modal textarea {
+.llm-wiki-query-textarea {
   width: 100%;
   min-height: 150px;
-  padding: 10px;
+  padding: 8px;
   font-family: var(--font-text);
   font-size: 14px;
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
   background: var(--background-primary);
   color: var(--text-normal);
+  resize: none;
 }
 
 .llm-wiki-answer-modal {
@@ -38,4 +39,151 @@
   color: var(--text-on-accent);
   border-radius: 4px;
   margin: 10px 0;
+}
+
+/* Query Modal */
+.llm-wiki-query-modal {
+  width: 800px;
+  height: 780px;
+}
+
+.llm-wiki-query-content {
+  height: 100%;
+}
+
+.llm-wiki-query-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.llm-wiki-query-header {
+  background: #4caf50;
+  color: white;
+  padding: 12px;
+  font-weight: bold;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.llm-wiki-query-hint {
+  background: #fff3e0;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.llm-wiki-query-history {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  background: #f9f9f9;
+}
+
+.llm-wiki-query-input-container {
+  border-top: 2px solid #ddd;
+  padding: 16px;
+  background: white;
+  flex-shrink: 0;
+}
+
+.llm-wiki-query-button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.llm-wiki-query-send-btn {
+  flex: 2;
+  background: #2196f3;
+  color: white;
+  padding: 8px;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+}
+
+.llm-wiki-query-save-btn {
+  flex: 1;
+  background: var(--interactive-accent);
+  color: white;
+  padding: 8px;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+}
+
+.llm-wiki-query-clear-btn {
+  background: #999;
+  color: white;
+  padding: 8px;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+}
+
+.llm-wiki-query-count {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #999;
+}
+
+.llm-wiki-query-message-wrapper {
+  margin-bottom: 16px;
+  display: flex;
+}
+
+.llm-wiki-query-message-wrapper-user {
+  justify-content: flex-end;
+}
+
+.llm-wiki-query-message-wrapper-assistant {
+  justify-content: flex-start;
+}
+
+.llm-wiki-query-message-bubble-user {
+  background: #2196f3;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 12px 12px 0 12px;
+  max-width: 80%;
+}
+
+.llm-wiki-query-message-bubble-assistant {
+  background: white;
+  padding: 12px 16px;
+  border-radius: 12px 12px 12px 0;
+  border: 1px solid #e0e0e0;
+  max-width: 80%;
+}
+
+.llm-wiki-query-response-wrapper {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.llm-wiki-query-response-bubble {
+  background: white;
+  padding: 12px 16px;
+  border-radius: 12px 12px 12px 0;
+  border: 1px solid #e0e0e0;
+  max-width: 80%;
+}
+
+.llm-wiki-query-response-strong {
+  color: #4caf50;
+}
+
+.llm-wiki-query-response-content {
+  margin-top: 8px;
+}
+
+.llm-wiki-query-streaming-indicator {
+  font-size: 11px;
+  color: #4caf50;
+  margin-top: 4px;
 }

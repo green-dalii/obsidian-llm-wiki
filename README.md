@@ -1,3 +1,5 @@
+![llm_wiki_banner](/docs/assets/llm_wiki_banner.jpg)
+
 # Karpathy LLM Wiki Plugin for Obsidian
 
 > 🤖 A complete implementation of Karpathy's LLM Wiki concept — multi-page knowledge generation system

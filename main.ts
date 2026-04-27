@@ -62,11 +62,11 @@ export default class LLMWikiPlugin extends Plugin {
     // 设置面板
     this.addSettingTab(new LLMWikiSettingTab(this.app, this));
 
-    console.log('LLM Wiki Plugin loaded - Karpathy implementation');
+    console.debug('LLM Wiki Plugin loaded - Karpathy implementation');
   }
 
   onunload() {
-    console.log('LLM Wiki Plugin unloaded');
+    console.debug('LLM Wiki Plugin unloaded');
   }
 
   async loadSettings() {
@@ -102,7 +102,7 @@ export default class LLMWikiPlugin extends Plugin {
         this.llmClient = new OpenAIClient(apiKey, baseUrl);
       }
 
-      console.log('LLM Client initialized:', this.settings.provider, 'baseUrl:', this.settings.baseUrl || PREDEFINED_PROVIDERS[this.settings.provider]?.baseUrl);
+      console.debug('LLM Client initialized:', this.settings.provider, 'baseUrl:', this.settings.baseUrl || PREDEFINED_PROVIDERS[this.settings.provider]?.baseUrl);
     } catch (error) {
       console.error('LLM Client initialization failed:', error);
       this.llmClient = null;
@@ -111,24 +111,25 @@ export default class LLMWikiPlugin extends Plugin {
 
   // ==================== 核心功能实现 ====================
 
-  async selectSourceToIngest() {
+  selectSourceToIngest() {
     if (!this.llmClient) {
       new Notice('⚠️ Please configure API Key first (请先配置 API Key)');
       return;
     }
 
-    new FileSuggestModal(this.app, async (file) => {
-      await this.wikiEngine.ingestSource(file);
+    new FileSuggestModal(this.app, (file) => {
+      this.wikiEngine.ingestSource(file).catch(e => console.error(e));
     }).open();
   }
 
-  async selectFolderToIngest() {
+  selectFolderToIngest() {
     if (!this.llmClient) {
       new Notice('⚠️ Please configure API Key first (请先配置 API Key)');
       return;
     }
 
-    new FolderSuggestModal(this.app, async (folder) => {
+    new FolderSuggestModal(this.app, (folder) => {
+      void (async () => {
       const files = this.app.vault.getMarkdownFiles()
         .filter(f => f.path.startsWith(folder.path));
 
@@ -149,11 +150,11 @@ export default class LLMWikiPlugin extends Plugin {
         const progress = `(${i + 1}/${totalFiles})`;
 
         try {
-          console.log(`${progress} 开始摄入: ${file.path}`);
+          console.debug(`${progress} 开始摄入: ${file.path}`);
           await this.wikiEngine.ingestSource(file);
           successCount++;
-          console.log(`${progress} 摄入成功: ${file.path}`);
-        } catch (error: any) {
+          console.debug(`${progress} 摄入成功: ${file.path}`);
+        } catch (error) {
           failedCount++;
           failedFiles.push(file.path);
           console.error(`${progress} 摄入失败: ${file.path}`, error);
@@ -164,15 +165,16 @@ export default class LLMWikiPlugin extends Plugin {
       // 最终统计报告
       const summary = `批量摄入完成: 成功 ${successCount}/${totalFiles}, 失败 ${failedCount}`;
       new Notice(summary, 10000);
-      console.log(summary);
+      console.debug(summary);
 
       if (failedFiles.length > 0) {
-        console.log('失败的文件列表:', failedFiles);
+        console.debug('失败的文件列表:', failedFiles);
         new Notice(`失败的文件:\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? '\n...' : ''}`, 15000);
       }
+    })().catch(e => console.error(e));
     }).open();
   }
-  async queryWiki() {
+  queryWiki() {
     if (!this.llmClient) {
       new Notice(TEXTS[this.settings.language].errorNoApiKey);
       return;
@@ -191,7 +193,7 @@ export default class LLMWikiPlugin extends Plugin {
     new Notice('开始维护 Wiki...');
 
     try {
-      const wikiFiles = await this.wikiEngine.getExistingWikiPages();
+      const wikiFiles = this.wikiEngine.getExistingWikiPages();
       const indexContent = await this.wikiEngine.tryReadFile(`${this.settings.wikiFolder}/index.md`) || '';
 
       const prompt = `你是一个 Wiki 维护助手。请检查以下 Wiki 的健康状况。
@@ -229,7 +231,7 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
 ## 其他建议
 - [其他维护建议]`;
 
-      const report = await this.llmClient!.createMessage({
+      const report = await this.llmClient.createMessage({
         model: this.settings.model,
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }]
@@ -247,8 +249,8 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
 
   // Test LLM Provider connection
   async testLLMConnection(): Promise<{ success: boolean; message: string }> {
-    console.log('测试 LLM 连接...');
-    console.log('当前配置:', {
+    console.debug('测试 LLM 连接...');
+    console.debug('当前配置:', {
       provider: this.settings.provider,
       apiKey: this.settings.apiKey ? '已配置' : '未配置',
       baseUrl: this.settings.baseUrl || PREDEFINED_PROVIDERS[this.settings.provider]?.baseUrl || '默认',
@@ -287,17 +289,18 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
         }]
       });
 
-      console.log('测试响应:', testResponse);
+      console.debug('测试响应:', testResponse);
 
       return {
         success: true,
         message: `✅ 连接成功！提供商: ${providerConfig?.name || this.settings.provider}`
       };
-    } catch (error: any) {
+    } catch (error) {
       console.error('连接测试失败:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        message: `❌ 连接失败: ${error.message || '未知错误'}`
+        message: `❌ 连接失败: ${errorMsg || '未知错误'}`
       };
     }
   }

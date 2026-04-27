@@ -12,7 +12,7 @@ export class FileSuggestModal extends FuzzySuggestModal<TFile> {
 
   getItems(): TFile[] {
     return this.app.vault.getMarkdownFiles()
-      .filter(f => !f.path.startsWith('wiki') && !f.path.startsWith('.obsidian'));
+      .filter(f => !f.path.startsWith('wiki') && !f.path.startsWith(this.app.vault.configDir));
   }
 
   getItemText(file: TFile): string {
@@ -37,7 +37,7 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     const root = this.app.vault.getRoot();
 
     const collect = (folder: TFolder) => {
-      if (!folder.path.startsWith('.obsidian') && !folder.path.startsWith('wiki')) {
+      if (!folder.path.startsWith(this.app.vault.configDir) && !folder.path.startsWith('wiki')) {
         folders.push(folder);
       }
       for (const child of folder.children) {

@@ -41,7 +41,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       });
 
     // ===== Plugin Introduction =====
-    containerEl.createEl('h2', { text: this.getText('pluginTitle') });
+    new Setting(containerEl).setName(this.getText('pluginTitle')).setHeading();
 
     const introDiv = containerEl.createDiv({ cls: 'llm-wiki-intro' });
 
@@ -92,7 +92,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     });
 
     // ===== Provider Configuration =====
-    containerEl.createEl('h3', { text: this.getText('providerSection') });
+    new Setting(containerEl).setName(this.getText('providerSection')).setHeading();
 
     // 1. Provider Dropdown
     new Setting(containerEl)
@@ -157,10 +157,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     }
 
     // 4. Model Selection
-    containerEl.createEl('h4', {
-      text: this.getText('modelSection'),
-      attr: { style: 'margin-top: 20px; color: #888; font-size: 13px;' }
-    });
+    new Setting(containerEl).setName(this.getText('modelSection')).setHeading();
 
     // Fetch Model List Button
     new Setting(containerEl)
@@ -190,7 +187,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
               });
               const models = await tempClient.models.list();
               this.tempSettings.availableModels = models.data
-                .map((m: any) => m.id)
+                .map((m: { id: string }) => m.id)
                 .filter((id: string) => !id.includes(':') && !id.includes('/'))
                 .sort()
                 .slice(0, 100);
@@ -207,9 +204,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             }
 
             this.display();
-          } catch (error: any) {
+          } catch (error) {
             console.error('Failed to fetch model list:', error);
-            new Notice(this.getText('errorFetchFailed').replace('{}', error.message), 8000);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            new Notice(this.getText('errorFetchFailed').replace('{}', errorMsg), 8000);
             this.tempSettings.useCustomModel = true;
             this.display();
           }
@@ -316,7 +314,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
 
     // ===== Wiki Configuration =====
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
-    containerEl.createEl('h3', { text: this.getText('wikiSection') });
+    new Setting(containerEl).setName(this.getText('wikiSection')).setHeading();
 
     new Setting(containerEl)
       .setName(this.getText('wikiFolderName'))
@@ -330,7 +328,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
 
     // ===== Query Configuration =====
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
-    containerEl.createEl('h3', { text: this.getText('querySectionTitle') });
+    new Setting(containerEl).setName(this.getText('querySectionTitle')).setHeading();
 
     new Setting(containerEl)
       .setName(this.getText('maxConversationHistoryName'))

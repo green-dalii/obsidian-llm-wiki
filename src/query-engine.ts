@@ -30,9 +30,9 @@ export class QueryModal extends Modal {
     this.isStreaming = false;
     this.accumulatedResponse = '';
     this.currentResponseDiv = null;
-    this.historyContainer = null as any;
-    this.inputArea = null as any;
-    this.historyCountDisplay = null as any;
+    this.historyContainer = null as unknown as HTMLElement;
+    this.inputArea = null as unknown as HTMLTextAreaElement;
+    this.historyCountDisplay = null as unknown as HTMLElement;
   }
 
   onOpen() {
@@ -40,34 +40,25 @@ export class QueryModal extends Modal {
     contentEl.empty();
     const texts = TEXTS[this.plugin.settings.language];
 
-    this.modalEl.style.width = '800px';
-    this.modalEl.style.height = '780px';
-    contentEl.style.height = '100%';
+    this.modalEl.addClass('llm-wiki-query-modal');
+    contentEl.addClass('llm-wiki-query-content');
 
     const container = contentEl.createDiv({
-      attr: {
-        style: 'display: flex; flex-direction: column; height: 100%; overflow: hidden;'
-      }
+      cls: 'llm-wiki-query-container'
     });
 
     const header = container.createDiv({
-      attr: {
-        style: 'background: #4caf50; color: white; padding: 12px; font-weight: bold; font-size: 16px; flex-shrink: 0;'
-      }
+      cls: 'llm-wiki-query-header'
     });
     header.setText(texts.queryModalTitle);
 
     const hintText = container.createDiv({
-      attr: {
-        style: 'background: #fff3e0; padding: 8px 16px; font-size: 13px; color: #666; flex-shrink: 0;'
-      }
+      cls: 'llm-wiki-query-hint'
     });
     hintText.setText(texts.queryModalHint);
 
     this.historyContainer = container.createDiv({
-      attr: {
-        style: 'flex: 1; min-height: 0; overflow-y: auto; padding: 16px; background: #f9f9f9;'
-      }
+      cls: 'llm-wiki-query-history'
     });
 
     this.history.messages.forEach(msg => {
@@ -75,17 +66,15 @@ export class QueryModal extends Modal {
     });
 
     const inputContainer = container.createDiv({
-      attr: {
-        style: 'border-top: 2px solid #ddd; padding: 16px; background: white; flex-shrink: 0;'
-      }
+      cls: 'llm-wiki-query-input-container'
     });
 
     this.inputArea = inputContainer.createEl('textarea', {
       attr: {
         placeholder: texts.queryModalPlaceholder,
-        rows: '3',
-        style: 'width: 100%; resize: none; font-size: 14px; padding: 8px;'
-      }
+        rows: '3'
+      },
+      cls: 'llm-wiki-query-textarea'
     });
 
     this.inputArea.addEventListener('keydown', (evt) => {
@@ -99,16 +88,12 @@ export class QueryModal extends Modal {
     });
 
     const buttonRow = inputContainer.createDiv({
-      attr: {
-        style: 'display: flex; gap: 8px; margin-top: 8px;'
-      }
+      cls: 'llm-wiki-query-button-row'
     });
 
     buttonRow.createEl('button', {
       text: texts.queryModalSendButton,
-      attr: {
-        style: 'flex: 2; background: #2196f3; color: white; padding: 8px; cursor: pointer; border: none; border-radius: 4px;'
-      }
+      cls: 'llm-wiki-query-send-btn'
     }).addEventListener('click', () => {
       if (this.inputArea.value.trim() && !this.isStreaming) {
         this.sendMessage(this.inputArea.value);
@@ -118,9 +103,7 @@ export class QueryModal extends Modal {
 
     buttonRow.createEl('button', {
       text: texts.queryModalSaveButton,
-      attr: {
-        style: 'flex: 1; background: var(--interactive-accent); color: white; padding: 8px; cursor: pointer; border: none; border-radius: 4px;'
-      }
+      cls: 'llm-wiki-query-save-btn'
     }).addEventListener('click', () => {
       if (this.history.messages.length > 0) {
         this.saveToWiki();
@@ -129,17 +112,13 @@ export class QueryModal extends Modal {
 
     buttonRow.createEl('button', {
       text: texts.queryModalClearButton,
-      attr: {
-        style: 'background: #999; color: white; padding: 8px; cursor: pointer; border: none; border-radius: 4px;'
-      }
+      cls: 'llm-wiki-query-clear-btn'
     }).addEventListener('click', () => {
       this.clearHistory();
     });
 
     this.historyCountDisplay = inputContainer.createDiv({
-      attr: {
-        style: 'margin-top: 8px; font-size: 11px; color: #999;'
-      }
+      cls: 'llm-wiki-query-count'
     });
     const currentRounds = Math.floor(this.history.messages.length / 2);
     const maxRounds = this.plugin.settings.maxConversationHistory;
@@ -175,35 +154,25 @@ export class QueryModal extends Modal {
     this.limitHistory();
 
     const wrapperDiv = this.historyContainer.createDiv({
-      attr: {
-        style: 'margin-bottom: 16px; display: flex; justify-content: flex-start;'
-      }
+      cls: 'llm-wiki-query-response-wrapper'
     });
 
     this.currentResponseDiv = wrapperDiv.createDiv({
-      attr: {
-        style: 'background: white; padding: 12px 16px; border-radius: 12px 12px 12px 0; border: 1px solid #e0e0e0; max-width: 80%;'
-      }
+      cls: 'llm-wiki-query-response-bubble'
     });
 
     this.currentResponseDiv.createEl('strong', {
       text: '🤖 Wiki:',
-      attr: {
-        style: 'color: #4caf50;'
-      }
+      cls: 'llm-wiki-query-response-strong'
     });
 
     const contentDiv = this.currentResponseDiv.createDiv({
-      attr: {
-        style: 'margin-top: 8px;'
-      }
+      cls: 'llm-wiki-query-response-content'
     });
 
     const streamingIndicator = this.currentResponseDiv.createDiv({
       text: texts.queryModalStreaming,
-      attr: {
-        style: 'font-size: 11px; color: #4caf50; margin-top: 4px;'
-      }
+      cls: 'llm-wiki-query-streaming-indicator'
     });
 
     this.isStreaming = true;
@@ -237,7 +206,6 @@ export class QueryModal extends Modal {
         });
 
         streamingIndicator.remove();
-        this.currentResponseDiv.style.border = '1px solid #e0e0e0';
 
       } else {
         const response = await this.plugin.llmClient!.createMessage({
@@ -257,9 +225,10 @@ export class QueryModal extends Modal {
         streamingIndicator.remove();
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Query failed:', error);
-      contentDiv.setText(`Error: ${error.message}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      contentDiv.setText(`Error: ${errorMsg}`);
       streamingIndicator.remove();
     }
 
@@ -278,7 +247,8 @@ export class QueryModal extends Modal {
   renderMarkdownContent(content: string, container: HTMLElement) {
     container.empty();
 
-    MarkdownRenderer.renderMarkdown(
+    MarkdownRenderer.render(
+      this.app,
       content,
       container,
       '',
@@ -290,32 +260,22 @@ export class QueryModal extends Modal {
     const texts = TEXTS[this.plugin.settings.language];
 
     const messageWrapper = this.historyContainer.createDiv({
-      attr: {
-        style: role === 'user'
-          ? 'margin-bottom: 16px; display: flex; justify-content: flex-end;'
-          : 'margin-bottom: 16px; display: flex; justify-content: flex-start;'
-      }
+      cls: ['llm-wiki-query-message-wrapper', role === 'user' ? 'llm-wiki-query-message-wrapper-user' : 'llm-wiki-query-message-wrapper-assistant']
     });
 
     const messageBubble = messageWrapper.createDiv({
-      attr: {
-        style: role === 'user'
-          ? 'background: #2196f3; color: white; padding: 12px 16px; border-radius: 12px 12px 0 12px; max-width: 80%;'
-          : 'background: white; padding: 12px 16px; border-radius: 12px 12px 12px 0; border: 1px solid #e0e0e0; max-width: 80%;'
-      }
+      cls: role === 'user' ? 'llm-wiki-query-message-bubble-user' : 'llm-wiki-query-message-bubble-assistant'
     });
 
-    messageBubble.createEl('strong', {
-      text: role === 'user' ? '👤 You:' : '🤖 Wiki:',
-      attr: {
-        style: role === 'user' ? 'color: white;' : 'color: #4caf50;'
-      }
+    const strongEl = messageBubble.createEl('strong', {
+      text: role === 'user' ? '👤 You:' : '🤖 Wiki:'
     });
+    if (role === 'assistant') {
+      strongEl.addClass('llm-wiki-query-response-strong');
+    }
 
     const contentDiv = messageBubble.createDiv({
-      attr: {
-        style: 'margin-top: 8px;'
-      }
+      cls: 'llm-wiki-query-response-content'
     });
 
     if (role === 'assistant') {
@@ -367,12 +327,13 @@ export class QueryModal extends Modal {
           : '对话已保存到Wiki！',
         5000
       );
-    } catch (error: any) {
+    } catch (error) {
       console.error('Save failed:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
       new Notice(
         this.plugin.settings.language === 'en'
-          ? `Save failed: ${error.message}`
-          : `保存失败: ${error.message}`,
+          ? `Save failed: ${errorMsg}`
+          : `保存失败: ${errorMsg}`,
         8000
       );
     }
@@ -402,31 +363,31 @@ export class QueryModal extends Modal {
   }
 
   async buildWikiContext(userMessage: string): Promise<string> {
-    console.log('=== buildWikiContext开始 ===');
-    console.log('用户问题:', userMessage);
+    console.debug('=== buildWikiContext开始 ===');
+    console.debug('用户问题:', userMessage);
 
     try {
       const indexPath = `${this.plugin.settings.wikiFolder}/index.md`;
-      console.log('[步骤1] 读取index.md路径:', indexPath);
+      console.debug('[步骤1] 读取index.md路径:', indexPath);
       const indexContent = await this.plugin.wikiEngine.tryReadFile(indexPath);
-      console.log('[步骤1] index.md内容:', indexContent ? '已读取' : '不存在');
+      console.debug('[步骤1] index.md内容:', indexContent ? '已读取' : '不存在');
 
       if (!indexContent) {
-        console.log('[步骤1] Wiki为空，返回提示');
+        console.debug('[步骤1] Wiki为空，返回提示');
         return this.plugin.settings.language === 'en'
           ? 'You are a Wiki assistant. The Wiki is empty. Please answer based on your knowledge and suggest the user ingest sources first.'
           : '你是Wiki助手。Wiki目前为空。请基于你的知识回答，并建议用户先摄入源文件。';
       }
 
-      console.log('[步骤2] 让LLM选择相关页面...');
+      console.debug('[步骤2] 让LLM选择相关页面...');
       const relevantPages = await this.selectRelevantPagesWithLLM(userMessage, indexContent);
-      console.log('[步骤2] LLM选择的页面:', relevantPages);
+      console.debug('[步骤2] LLM选择的页面:', relevantPages);
 
-      console.log('[步骤3] 加载相关页面内容...');
+      console.debug('[步骤3] 加载相关页面内容...');
       const pagesContent = await this.loadRelevantPages(relevantPages);
-      console.log('[步骤3] 加载的页面内容数量:', pagesContent.length);
+      console.debug('[步骤3] 加载的页面内容数量:', pagesContent.length);
       pagesContent.forEach((content, i) => {
-        console.log(`[步骤3] 页面${i+1}内容长度:`, content.length);
+        console.debug(`[步骤3] 页面${i+1}内容长度:`, content.length);
       });
 
       const wikiContext = this.plugin.settings.language === 'en'
@@ -483,10 +444,10 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找
 
 请用与用户提问相同的语言回答`;
 
-      console.log('[步骤4] Wiki上下文构建完成');
-      console.log('[步骤4] 上下文长度:', wikiContext.length);
+      console.debug('[步骤4] Wiki上下文构建完成');
+      console.debug('[步骤4] 上下文长度:', wikiContext.length);
       return wikiContext;
-    } catch (error: any) {
+    } catch (error) {
       console.error('[错误] buildWikiContext失败:', error);
       return this.plugin.settings.language === 'en'
         ? 'You are a Wiki assistant. Failed to load Wiki context. Please answer based on your knowledge.'
@@ -495,7 +456,7 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找
   }
 
   async selectRelevantPagesWithLLM(query: string, indexContent: string): Promise<string[]> {
-    console.log('=== LLM选择相关页面开始 ===');
+    console.debug('=== LLM选择相关页面开始 ===');
 
     const prompt = this.plugin.settings.language === 'en'
       ? `You are a Wiki page selector. Given a user query and the Wiki index, select the most relevant pages.
@@ -552,45 +513,45 @@ ${indexContent}
 - 如果没有相关页面，输出：{"relevant_pages": []}`;
 
     try {
-      console.log('[LLM调用] 发送选择请求...');
+      console.debug('[LLM调用] 发送选择请求...');
       const response = await this.plugin.llmClient!.createMessage({
         model: this.plugin.settings.model,
         max_tokens: 500,
         messages: [{ role: 'user', content: prompt }]
       });
 
-      console.log('[LLM响应] 原始响应:', response);
+      console.debug('[LLM响应] 原始响应:', response);
 
-      const parsed = await parseJsonResponse(response);
+      const parsed = await parseJsonResponse(response) as { relevant_pages?: string[] } | null;
       const pages = parsed?.relevant_pages || [];
 
-      console.log('[解析成功] 页面列表:', pages);
+      console.debug('[解析成功] 页面列表:', pages);
       return pages;
-    } catch (error: any) {
+    } catch (error) {
       console.error('[LLM选择失败]', error);
       return [];
     }
   }
 
   async loadRelevantPages(pageTitles: string[]): Promise<string[]> {
-    console.log('=== loadRelevantPages开始 ===');
-    console.log('页面标题列表:', pageTitles);
+    console.debug('=== loadRelevantPages开始 ===');
+    console.debug('页面标题列表:', pageTitles);
 
     const pages: string[] = [];
 
     for (const title of pageTitles) {
-      console.log(`[加载页面] 处理标题: "${title}"`);
+      console.debug(`[加载页面] 处理标题: "${title}"`);
 
       const pagePath = `${this.plugin.settings.wikiFolder}/${title}.md`;
 
-      console.log(`[加载页面] 完整路径: "${pagePath}"`);
+      console.debug(`[加载页面] 完整路径: "${pagePath}"`);
 
       const content = await this.plugin.wikiEngine.tryReadFile(pagePath);
-      console.log(`[加载页面] 文件是否存在: ${content ? '是' : '否'}`);
+      console.debug(`[加载页面] 文件是否存在: ${content ? '是' : '否'}`);
 
       if (content) {
-        console.log(`[加载页面] 内容长度: ${content.length}`);
-        console.log(`[加载页面] 内容前100字符: ${content.substring(0, 100)}`);
+        console.debug(`[加载页面] 内容长度: ${content.length}`);
+        console.debug(`[加载页面] 内容前100字符: ${content.substring(0, 100)}`);
         const displayTitle = title.startsWith(this.plugin.settings.wikiFolder + '/')
           ? title
           : `${this.plugin.settings.wikiFolder}/${title}`;
@@ -600,7 +561,7 @@ ${indexContent}
       }
     }
 
-    console.log(`[加载页面] 成功加载${pages.length}个页面`);
+    console.debug(`[加载页面] 成功加载${pages.length}个页面`);
     return pages;
   }
 }
