@@ -16,3 +16,7 @@ Thumbs.db
 # 忽略临时文件
 *.tmp
 *.log
+
+# 忽略 superpowers 中间讨论文件
+.superpowers/
+docs/superpowers/
