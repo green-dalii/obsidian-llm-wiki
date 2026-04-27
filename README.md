@@ -4,7 +4,7 @@
 
 **Concept Origin:** This plugin implements [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) vision for Obsidian.
 
-**Author:** green-dalii | **Version:** 1.1.0 | **Status:** Production Ready
+**Author:** green-dalii | **Version:** 1.2.0 | **Status:** Production Ready
 
 [English](README.md) | [中文文档](README_CN.md)
 
