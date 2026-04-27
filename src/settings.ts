@@ -51,25 +51,30 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       text: `${this.getText('conceptOrigin')} [Andrej Karpathy's LLM Wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)`,
       attr: { style: 'margin-bottom: 15px; font-size: 13px; color: #666;' }
     });
+
+    // Intro paragraph — what this plugin does
     introDiv.createEl('p', {
-      text: this.getText('featuresTitle'),
-      attr: { style: 'margin-bottom: 5px; font-size: 14px; font-weight: bold;' }
+      text: this.getText('introParagraph'),
+      attr: { style: 'margin-bottom: 12px; font-size: 14px; line-height: 1.6;' }
     });
 
-    const features = [
-      this.getText('feature1'),
-      this.getText('feature2'),
-      this.getText('feature3'),
-      this.getText('feature4'),
-      this.getText('feature5'),
-      this.getText('feature6')
-    ];
-    features.forEach(f => {
-      introDiv.createEl('p', {
-        text: f,
-        attr: { style: 'margin: 3px 0; font-size: 12px;' }
-      });
+    // How It Works
+    introDiv.createEl('p', {
+      text: this.getText('featuresTitle'),
+      attr: { style: 'margin-bottom: 8px; font-size: 14px; font-weight: bold;' }
     });
+
+    for (let i = 1; i <= 3; i++) {
+      const item = introDiv.createDiv({ attr: { style: 'margin: 6px 0;' } });
+      item.createEl('strong', {
+        text: this.getText(`workflow${i}Title`),
+        attr: { style: 'font-size: 13px;' }
+      });
+      item.createEl('span', {
+        text: ` — ${this.getText(`workflow${i}Desc`)}`,
+        attr: { style: 'font-size: 13px; color: #666;' }
+      });
+    }
 
     // ===== Status Display =====
     const statusDiv = containerEl.createDiv({ cls: 'llm-wiki-status' });

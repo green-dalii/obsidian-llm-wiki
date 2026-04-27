@@ -40,7 +40,7 @@ export class QueryModal extends Modal {
     const texts = TEXTS[this.plugin.settings.language];
 
     this.modalEl.style.width = '800px';
-    this.modalEl.style.height = '600px';
+    this.modalEl.style.height = '780px';
     contentEl.style.height = '100%';
 
     const container = contentEl.createDiv({
@@ -118,7 +118,7 @@ export class QueryModal extends Modal {
     buttonRow.createEl('button', {
       text: texts.queryModalSaveButton,
       attr: {
-        style: 'flex: 1; background: #4caf50; color: white; padding: 8px; cursor: pointer; border: none; border-radius: 4px;'
+        style: 'flex: 1; background: var(--interactive-accent); color: white; padding: 8px; cursor: pointer; border: none; border-radius: 4px;'
       }
     }).addEventListener('click', () => {
       if (this.history.messages.length > 0) {

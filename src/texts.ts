@@ -8,13 +8,14 @@ export const TEXTS = {
     conceptOrigin: 'Concept Origin:',
 
     // Features Section
-    featuresTitle: 'Core Features',
-    feature1: 'Multi-Provider LLM Support',
-    feature2: 'Intelligent Source Ingestion',
-    feature3: 'Bidirectional Wiki Links',
-    feature4: 'Knowledge Graph Visualization',
-    feature5: 'Wiki Query Assistant',
-    feature6: 'Auto Wiki Maintenance',
+    featuresTitle: 'How It Works',
+    introParagraph: 'LLM Wiki reads your notes, uses AI to extract entities and concepts, and builds a structured, interlinked Wiki in your vault.',
+    workflow1Title: '1. Ingest',
+    workflow1Desc: 'Select a note — AI extracts entities, concepts, and relationships into Wiki pages.',
+    workflow2Title: '2. Query',
+    workflow2Desc: 'Chat with your Wiki — answers are grounded in your ingested knowledge.',
+    workflow3Title: '3. Maintain',
+    workflow3Desc: 'Auto-generated index, cross-links, and lint checks keep the Wiki healthy.',
 
     // Language Switcher
     languageTitle: 'Interface Language',
@@ -152,13 +153,14 @@ export const TEXTS = {
     conceptOrigin: '概念来源：',
 
     // 功能部分
-    featuresTitle: '核心功能',
-    feature1: '多 Provider LLM 支持',
-    feature2: '智能源文件摄入',
-    feature3: '双向 Wiki 链接',
-    feature4: '知识图谱可视化',
-    feature5: 'Wiki 查询助手',
-    feature6: '自动 Wiki 维护',
+    featuresTitle: '使用方式',
+    introParagraph: 'LLM Wiki 读取你的笔记，用 AI 提取实体和概念，在 Vault 中构建结构化、互联的知识库。',
+    workflow1Title: '1. 摄入 (Ingest)',
+    workflow1Desc: '选择笔记 → AI 提取实体、概念、关系 → 生成 Wiki 页面。',
+    workflow2Title: '2. 查询 (Query)',
+    workflow2Desc: '与 Wiki 对话，答案基于你已摄入的知识，而非通用知识。',
+    workflow3Title: '3. 维护 (Maintain)',
+    workflow3Desc: '自动生成索引、交叉链接、健康检查，保持 Wiki 整洁。',
 
     // 语言切换
     languageTitle: '界面语言',
