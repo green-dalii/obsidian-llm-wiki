@@ -2235,18 +2235,19 @@ class QueryModal extends Modal {
     // Modal styling (ChatGPT-style dimensions)
     this.modalEl.style.width = '800px';
     this.modalEl.style.height = '600px';
+    contentEl.style.height = '100%';
 
     // Create container with flex layout
     const container = contentEl.createDiv({
       attr: {
-        style: 'display: flex; flex-direction: column; height: 100%;'
+        style: 'display: flex; flex-direction: column; height: 100%; overflow: hidden;'
       }
     });
 
-    // Header
+    // Header (fixed)
     const header = container.createDiv({
       attr: {
-        style: 'background: #4caf50; color: white; padding: 12px; font-weight: bold; font-size: 16px;'
+        style: 'background: #4caf50; color: white; padding: 12px; font-weight: bold; font-size: 16px; flex-shrink: 0;'
       }
     });
     header.setText(texts.queryModalTitle);
@@ -2254,7 +2255,7 @@ class QueryModal extends Modal {
     // History container (scrollable)
     this.historyContainer = container.createDiv({
       attr: {
-        style: 'flex: 1; overflow-y: auto; padding: 16px; background: #f9f9f9;'
+        style: 'flex: 1; min-height: 0; overflow-y: auto; padding: 16px; background: #f9f9f9;'
       }
     });
 
@@ -2266,7 +2267,7 @@ class QueryModal extends Modal {
     // Fixed bottom input area
     const inputContainer = container.createDiv({
       attr: {
-        style: 'border-top: 2px solid #ddd; padding: 16px; background: white;'
+        style: 'border-top: 2px solid #ddd; padding: 16px; background: white; flex-shrink: 0;'
       }
     });
 
