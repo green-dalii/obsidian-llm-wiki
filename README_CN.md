@@ -1,207 +1,77 @@
 ![llm_wiki_banner](/docs/assets/llm_wiki_banner.jpg)
 
+# Karpathy LLM Wiki — Obsidian 插件
 
-# Karpathy LLM Wiki Plugin for Obsidian
+> 基于 [Andrej Karpathy 的 LLM Wiki 概念](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 实现的知识库生成系统，自动从笔记中提取实体与概念，构建互联的 Wiki 页面。
 
-> 🤖 Karpathy 的 LLM Wiki 完整实现 - 多页面知识生成系统
+**作者:** Greener-Dalii | **版本:** 1.2.0
 
-**作者:** green-dalii | **版本:** 1.2.0 | **状态:** 生产可用
-
-[English](README.md) | 中文文档
-
----
-
-## 🎯 项目简介
-
-这是一个完整的 Karpathy LLM Wiki 实现，专为 Obsidian 设计。它能自动从源文档生成结构化的 Wiki 知识库，支持实体页、概念页的双向链接和知识图谱可视化。
-
-### 核心特性
-
-- **🤖 多 LLM Provider 支持**：Anthropic (Claude)、OpenAI、DeepSeek、Kimi、GLM、OpenRouter、Ollama、自定义兼容服务
-- **🌍 国际化支持**：英文和中文界面（默认：英文）
-- **📝 智能摄入**：自动提取实体、概念，生成 Wiki 页面
-- **🔗 双向链接**：原生 Obsidian `[[wiki-links]]` 语法
-- **📊 知识图谱**：通过 Obsidian Graph View 可视化关系网络
-- **🔍 对话式查询**：ChatGPT风格查询界面，流式输出、Markdown渲染、可选保存到Wiki
-- **🛠️ 自动维护**：检测矛盾、过时信息、孤立页面
-- **📑 自动生成索引**：`index.md` 和 `log.md` 自动维护
+[English](README.md) | [中文文档](README_CN.md)
 
 ---
 
-## 📖 架构说明
+## 核心特性
 
-基于 Karpathy 的三层分离架构：
-
-```
-sources/     # 源文档（只读）
-  ↓ ingest
-wiki/        # LLM 生成的 Wiki 页面
-  ↓ query/maintain
-schema/      # 工作流配置（未来功能）
-```
-
-**生成的页面结构：**
-- `wiki/sources/文件名.md` - 源文件摘要页
-- `wiki/entities/实体名.md` - 实体详情页（人物、组织、项目等）
-- `wiki/concepts/概念名.md` - 概念解释页（理论、方法、术语等）
-- `wiki/index.md` - Wiki 索引页
-- `wiki/log.md` - 操作日志
+- **多 LLM Provider 支持** — Anthropic (Claude)、OpenAI、DeepSeek、Kimi、GLM、OpenRouter、Ollama，以及自定义 OpenAI 兼容接口
+- **国际化** — 中英文界面切换（默认英文）
+- **智能摄入** — 自动从源文档提取实体和概念，生成结构化 Wiki 页面
+- **双向链接** — 所有生成页面使用原生 Obsidian `[[wiki-links]]` 语法
+- **知识图谱** — 在 Obsidian Graph View 中可视化实体/概念关系
+- **对话式查询** — ChatGPT 风格对话框，流式 Markdown 输出，支持多轮追问和保存到 Wiki
+- **自动维护** — 检测矛盾、过时信息、孤立页面
+- **自动索引** — `index.md` 和 `log.md` 自动维护
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 安装
 
-#### 手动安装
+**手动安装（推荐）：** 从 [Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases) 下载 `main.js`、`manifest.json`、`styles.css`，复制到 `.obsidian/plugins/llm-wiki/`，在 设置 → 第三方插件 中启用。
 
-1. 下载最新版本：[Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases)
-   - `main.js`
-   - `manifest.json`
-   - `styles.css`
-2. 复制到你的 vault: `.obsidian/plugins/llm-wiki/`
-3. 在 Obsidian 中启用：Settings → Community plugins → Karpathy LLM Wiki
-
-#### 开发构建
-
-```bash
-git clone https://github.com/green-dalii/obsidian-llm-wiki.git
-cd obsidian-llm-wiki
-pnpm install
-pnpm build
-```
+**开发构建：** `git clone` 后执行 `pnpm install` 和 `pnpm build`。
 
 ### 配置 LLM Provider
 
-#### 1. Anthropic (Claude)
+1. 打开 设置 → Karpathy LLM Wiki
+2. 从下拉菜单选择 Provider（Anthropic、OpenAI、DeepSeek、Kimi、GLM、Ollama、OpenRouter 或自定义）
+3. 填入 API Key（Ollama 不需要）
+4. 点击 **获取模型列表** 填充模型下拉框，或手动输入模型名
+5. 点击 **测试连接**，然后 **保存设置**
 
-**步骤：**
-- Provider 选择：`Anthropic (Claude)`
-- API Key: `sk-ant-...`（从 [Anthropic Console](https://console.anthropic.com/) 获取）
-- 点击"获取模型列表" → 下拉选择模型（如 `claude-sonnet-4-6`）
-- 点击"测试连接"验证 → 点击"保存设置"
+**Ollama 本地模型（无需 API Key）：** 安装 [Ollama](https://ollama.com)，拉取模型（如 `ollama pull qwen2`），在 Provider 下拉选择 "Ollama (本地)"。
 
-**费用参考：**
-- Claude Sonnet 4.6: ~$3/百万输入 token, ~$15/百万输出 token
-- 每次摄入约消耗 2000-5000 token（费用 $0.01-0.08）
+### 使用方式
 
-#### 2. OpenAI
+| 方式 | 操作 |
+|------|------|
+| **从 sources/ 摄入** | `Cmd+P` → "Ingest Sources"，处理整个 `sources/` 文件夹 |
+| **从任意文件夹摄入** | `Cmd+P` → "Ingest from Folder"，选择文件夹从现有笔记生成 Wiki |
+| **对话查询** | `Cmd+P` → "Query Wiki"，提问并获取流式回答，回答中自带 `[[wiki-links]]` |
 
-**步骤：**
-- Provider: `OpenAI`
-- API Key: `sk-...`（从 [OpenAI Platform](https://platform.openai.com/) 获取）
-- 模型: `gpt-4o` 或 `gpt-4o-mini`
-
-#### 3. DeepSeek / Kimi / GLM
-
-**步骤：**
-- Provider 选择相应服务商
-- API Key 从对应平台获取
-- 自动填充 Base URL 和默认模型
-
-#### 4. Ollama (本地模型)
-
-**步骤：**
-- Provider: `Ollama (本地)`
-- 无需 API Key
-- Base URL: `http://localhost:11434/v1`（自动填充）
-- 模型: 输入本地模型名称（如 `llama3`、`qwen2`）
-
-**前置条件：**
-```bash
-# 安装 Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# 拉取模型
-ollama pull llama3
-ollama pull qwen2  # 中文模型推荐
-```
-
-#### 5. 自定义 OpenAI 兼容服务
-
-**步骤：**
-- Provider: `自定义 OpenAI 兼容`
-- Base URL: 输入你的 API endpoint（如 `http://your-server:8000/v1`）
-- API Key: 按服务商要求填写
-- 模型: 手动输入模型名称
-
-### 基础使用流程
-
-#### 方法1：从源文件夹摄入
-
-```bash
-# 创建源文件夹
-mkdir sources
-
-# 添加 Markdown 文件
-sources/machine-learning.md
-sources/data-science.md
-```
-
-在 Obsidian 中：
-- `Cmd+P` → "Ingest Sources" → 自动处理 `sources/` 文件夹
-
-#### 方法2：从现有文件夹初始化
-
-```bash
-# 你的现有笔记结构
-notes/
-  ├── programming/
-  ├── research/
-  └── daily/
-```
-
-在 Obsidian 中：
-- `Cmd+P` → "Ingest from Folder" → 选择 `notes/programming`
-- 自动从现有笔记生成 Wiki
-
-#### 方法3：对话式查询
-
-使用 ChatGPT 风格的对话界面查询 Wiki：
-- `Cmd+P` → "Query Wiki" → 打开对话Modal
-- 输入问题 → 实时流式回复（Markdown渲染）
-- 支持追问，历史记录可见
-- 点击"Save to Wiki"提炼知识为Wiki页面
-
-### 配置说明
-
-**基本配置：**
-- **界面语言**：默认英文，可切换中文
-- **对话历史上限**：限制对话轮数（默认10轮，推荐10-15轮）
-- **Wiki 文件夹**：存放生成的Wiki页面（默认 `wiki`）
-
-**对话查询特性：**
-- **ChatGPT风格界面**：800x600px对话Modal
-- **流式输出**：实时LLM回复，可视化反馈
-- **Markdown渲染**：完整Obsidian语法支持（[[wiki-links]]、callouts、代码块）
-- **多轮对话**：支持追问，无需重复打开Modal
-- **历史管理**：自动截断，避免超出token限制
-- **保存到Wiki**：将有价值对话提炼为结构化Wiki页面
+重复摄入同一源文件时，实体/概念页以增量方式合合新信息，摘要页会重新生成。
 
 ---
 
-## 🔧 命令列表
+## 命令列表
 
-| 命令 | 功能说明 |
-|------|---------|
-| **Ingest Sources** | 处理 `sources/` 文件夹 → 生成 Wiki 页面 |
-| **Ingest from Folder** | 选择任意文件夹 → 从现有笔记初始化 Wiki |
-| **Query Wiki** | 提问并获得综合答案（基于 Wiki 内容） |
+| 命令 | 说明 |
+|------|------|
+| **Ingest Sources** | 处理 `sources/` → 生成 Wiki 页面 |
+| **Ingest from Folder** | 选择任意文件夹 → 从现有笔记生成 Wiki |
+| **Query Wiki** | 基于 Wiki 的对话式问答，流式输出 |
 | **Lint Wiki** | 检测矛盾、过时信息、孤立页面 |
-| **Generate Index** | 手动生成 `wiki/index.md` |
+| **Generate Index** | 手动重新生成 `wiki/index.md` |
 
 ---
 
-## 💡 使用示例
+## 使用示例
 
-### 输入示例
-
-**源文件：** `sources/machine-learning.md`
+**输入：** `sources/machine-learning.md`
 
 ```markdown
 # Machine Learning
-
-Machine learning uses algorithms to learn from data...
+Machine learning uses algorithms to learn from data.
 
 ## Types
 - Supervised learning
@@ -209,171 +79,87 @@ Machine learning uses algorithms to learn from data...
 - Reinforcement learning
 ```
 
-### 输出结果
-
-**摘要页：** `wiki/sources/machine-learning.md`
+**输出 — 摘要页：** `wiki/sources/machine-learning.md`
 
 ```markdown
 # Machine Learning
+Core concepts and algorithms for learning from data.
 
-Machine learning 基础概念，涵盖监督学习、无监督学习、强化学习...
-
-## 核心概念
-- [[Supervised Learning]] - 从标注数据学习
-- [[Unsupervised Learning]] - 发现无标注数据中的模式
-- [[Reinforcement Learning]] - 通过交互学习
+## Key Concepts
+- [[Supervised Learning]] — Learning from labeled data
+- [[Unsupervised Learning]] — Discover patterns in unlabeled data
+- [[Reinforcement Learning]] — Learn through interaction
 ```
 
-**实体页：** `wiki/entities/supervised-learning.md`
+**输出 — 实体页：** `wiki/entities/supervised-learning.md`
 
 ```markdown
 # Supervised Learning
 
-## 定义
-监督学习是从标注数据中学习预测模型的机器学习方法。
+## Definition
+Supervised learning learns predictive models from labeled data.
 
-## 关键特征
-- 需要标注数据集
-- 常见算法：线性回归、决策树、神经网络
+## Key Features
+- Requires labeled dataset
+- Common algorithms: linear regression, decision trees, neural networks
 
-## 相关概念
+## Related Concepts
 - [[Machine Learning]]
 - [[Unsupervised Learning]]
 ```
 
 ---
 
-## ⚙️ 增量更新机制
+## 架构
 
-### 当前实现
+基于 Karpathy 的三层分离设计：
 
-**摄入同一源文件的影响：**
+```
+sources/     # 你的源文档（只读）
+  ↓ ingest
+wiki/        # LLM 生成的 Wiki 页面
+  ↓ query / maintain
+schema/      # 工作流配置（规划中）
+```
 
-| 页面类型 | 行为 | 说明 |
-|---------|------|------|
-| **摘要页** | ❌ 重新生成 | 每次摄入会覆盖旧的摘要页 |
-| **实体页** | ✅ 增量更新 | 合合新信息到现有页面 |
-| **概念页** | ✅ 增量更新 | 合合新信息到现有页面 |
-
-**最佳实践：**
-- ✅ 首次摄入新源文件 → 创建完整 Wiki
-- ✅ 源文件更新后重新摄入 → 实体/概念页智能合并
-- ⚠️ 避免无修改的重复摄入（浪费 API 费用）
-- 💡 如需重新生成摘要页，先手动删除旧摘要页
-
-**未来改进候选：**
-参见 [ROADMAP.md](ROADMAP.md) 的"智能摄入检测"章节。
+**生成的页面结构：**
+- `wiki/sources/文件名.md` — 源文件摘要
+- `wiki/entities/实体名.md` — 实体页（人物、组织、项目等）
+- `wiki/concepts/概念名.md` — 概念页（理论、方法、术语等）
+- `wiki/index.md` — 自动生成的索引
+- `wiki/log.md` — 操作日志
 
 ---
 
-## 🔒 安全说明
+## 常见问题
 
-### OpenAI Browser Environment
+**摄入提示"请先配置 API Key"** — 前往 设置 → LLM Wiki，填写 API Key，点击测试连接后保存。
 
-OpenAI SDK 需要 `dangerouslyAllowBrowser: true` 才能在 Obsidian 的 Electron 环境中运行。这是安全的，因为：
+**Wiki 页面显示为代码块** — v1.0.7+ 已修复，重新生成相应页面即可。
 
-- Obsidian 是**本地 Electron 应用**，不是浏览器
-- API Key 存储在**本地文件** `.obsidian/plugins/data.json`
-- 无跨域脚本攻击风险
-- 这是 Obsidian Plugin 开发的标准实践
+**中文文件名变成 `untitled-xxx`** — v1.0.3+ 已修复，现已完整支持 Unicode。
 
-### 推荐安全策略
-
-1. **使用本地模型**：Ollama 无需 API Key，完全本地运行
-2. **Anthropic**：无浏览器环境限制
-3. **API Key 管理**：定期更换 Key，避免泄露
+**JSON 解析失败 / "源文件分析失败"** — v1.0.8+ 已加入 LLM 修复回退。打开开发者工具（`Ctrl+Shift+I`）查看详细日志。
 
 ---
 
-## 🗺️ 功能规划
+## 贡献指南
 
-参见 [ROADMAP.md](ROADMAP.md) 了解未来规划：
+1. Fork 本仓库
+2. 创建功能分支：`git checkout -b feature/你的功能`
+3. 提交更改：`git commit -m 'feat: 添加某功能'`
+4. 推送分支并提交 Pull Request
 
-- 智能摄入检测（避免重复处理）
-- 多语言支持
-- 知识图谱导出
-- Schema 工作流配置
-- 协作编辑支持
-
----
-
-## 🐛 故障排查
-
-### 常见问题
-
-#### 1. 摄入失败："请先配置 API Key"
-
-**原因：** LLM Client 未初始化
-
-**解决：**
-- Settings → LLM Wiki → 填写 API Key
-- 点击"测试连接"验证
-- 点击"保存设置"
-
-#### 2. 生成的 Wiki 页面显示为代码块
-
-**原因：** LLM 返回的内容被 `\`\`\`markdown\`\`\`` 包裹
-
-**解决：** 已在 v1.0.7+ 修复，使用 `cleanMarkdownResponse()` 自动移除代码块标记
-
-#### 3. 中文文件名变成 `untitled-xxx`
-
-**原因：** slugify 函数不支持中文
-
-**解决：** 已在 v1.0.3+ 修复，支持完整 Unicode 字符（中文、日文、韩文）
-
-#### 4. JSON 解析失败："源文件分析失败"
-
-**原因：** LLM 返回的 JSON 格式异常
-
-**解决：** 已在 v1.0.8+ 增强 JSON 解析：
-- 清理 markdown 包裹
-- 提取 JSON 对象
-- 修复常见格式问题（尾随逗号）
-- 详细日志追踪解析过程
-
-**调试：** 打开开发者工具（View → Toggle Developer Tools）查看详细日志
+请使用 TypeScript 编写，遵循项目现有代码风格，并同步更新 `manifest.json`、`package.json` 和 `versions.json` 中的版本号。
 
 ---
 
-## 🤝 贡献指南
+## 许可证
 
-欢迎贡献！请遵循以下流程：
+MIT License — 详见 [LICENSE](LICENSE)。
 
-1. Fork 项目
-2. 创建功能分支：`git checkout -b feature/amazing-feature`
-3. 提交更改：`git commit -m 'feat: add amazing feature'`
-4. 推送分支：`git push origin feature/amazing-feature`
-5. 提交 Pull Request
+## 致谢
 
-**开发规范：**
-- TypeScript 编写，遵循项目代码风格
-- 添加必要的日志和错误处理
-- 更新版本号（manifest.json、package.json、versions.json）
-- 提交 Git 记录（参考现有 commit 格式）
-
----
-
-## 📄 许可证
-
-MIT License - 详见 [LICENSE](LICENSE)
-
----
-
-## 🙏 致谢
-
-- **概念来源：** [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+- **概念来源：** [Andrej Karpathy 的 LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — 本插件的原始构想
 - **开发平台：** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
 - **LLM SDK：** Anthropic SDK、OpenAI SDK
-
----
-
-## 📞 支持
-
-- 📖 [文档](docs/)
-- 🐛 [问题反馈](https://github.com/green-dalii/obsidian-llm-wiki/issues)
-- 💬 [讨论](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
-
----
-
-**快速链接：** [English](README.md) | [功能规划](ROADMAP.md) | [变更日志](CHANGELOG.md) | [许可证](LICENSE)
