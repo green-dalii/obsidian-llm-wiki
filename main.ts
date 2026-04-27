@@ -504,6 +504,11 @@ interface LLMWikiSettings {
   availableModels?: string[]; // Dynamically fetched model list (temporary, not persisted)
   useCustomModel?: boolean; // Whether to use custom model name (instead of dropdown)
   maxConversationHistory: number; // Max conversation rounds (avoid token overflow)
+  queryHistory?: Array<{ // Persisted Query Wiki conversation history
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+  }>;
 }
 
 const DEFAULT_SETTINGS: LLMWikiSettings = {
@@ -515,7 +520,8 @@ const DEFAULT_SETTINGS: LLMWikiSettings = {
   language: 'en', // Default: English (international users)
   availableModels: [],
   useCustomModel: false,
-  maxConversationHistory: 10, // Default: 10 rounds (20 messages)
+  maxConversationHistory: 30, // Default: 30 rounds (60 messages)
+  queryHistory: [] // Initialize empty query history
 }
 
 // ==================== Internationalization Text System ====================
@@ -618,11 +624,12 @@ const TEXTS = {
     queryModalClearButton: 'Clear History',
     queryModalHistoryCount: 'Conversation history: {}/{} rounds',
     queryModalStreaming: 'Streaming...',
+    queryModalHint: '💡 Queries based on Wiki content. Click "Save to Wiki" to extract valuable conversations as Wiki pages.',
 
     // Settings
     maxConversationHistoryName: 'Max Conversation History',
     maxConversationHistoryDesc: 'Limit conversation messages to avoid token overflow',
-    maxConversationHistoryHint: 'Recommended: 10-15 rounds',
+    maxConversationHistoryHint: 'Recommended: not exceed 50 rounds',
 
     // LLM Language Hint
     llmLanguageHint: 'Please answer in English.'
@@ -724,11 +731,12 @@ const TEXTS = {
     queryModalClearButton: '清空历史',
     queryModalHistoryCount: '对话历史: {}/{} 轮',
     queryModalStreaming: '流式生成中...',
+    queryModalHint: '💡 查询基于Wiki内容。点击"保存到Wiki"可将有价值对话提炼为Wiki页面。',
 
     // Settings
     maxConversationHistoryName: '对话历史上限',
     maxConversationHistoryDesc: '限制对话消息数，避免超出LLM token限制',
-    maxConversationHistoryHint: '推荐：10-15轮',
+    maxConversationHistoryHint: '推荐：不超过50轮',
 
     // LLM Language Hint
     llmLanguageHint: '请用中文回答。'
@@ -2218,7 +2226,10 @@ class QueryModal extends Modal {
   constructor(app: App, plugin: LLMWikiPlugin) {
     super(app);
     this.plugin = plugin;
-    this.history = { messages: [] };
+    // Load persisted history from settings
+    this.history = {
+      messages: plugin.settings.queryHistory || []
+    };
     this.isStreaming = false;
     this.accumulatedResponse = '';
     this.currentResponseDiv = null;
@@ -2251,6 +2262,14 @@ class QueryModal extends Modal {
       }
     });
     header.setText(texts.queryModalTitle);
+
+    // Hint text below header
+    const hintText = container.createDiv({
+      attr: {
+        style: 'background: #fff3e0; padding: 8px 16px; font-size: 13px; color: #666; flex-shrink: 0;'
+      }
+    });
+    hintText.setText(texts.queryModalHint);
 
     // History container (scrollable)
     this.historyContainer = container.createDiv({
@@ -2350,6 +2369,11 @@ class QueryModal extends Modal {
 
   onClose() {
     const { contentEl } = this;
+
+    // Save history to settings before closing
+    this.plugin.settings.queryHistory = this.history.messages;
+    this.plugin.saveSettings();
+
     contentEl.empty();
   }
 
@@ -2373,13 +2397,15 @@ class QueryModal extends Modal {
     this.limitHistory();
 
     // 4. Create streaming response container
-    this.currentResponseDiv = this.historyContainer.createDiv({
+    const wrapperDiv = this.historyContainer.createDiv({
       attr: {
-        style: 'margin-bottom: 16px;'
+        style: 'margin-bottom: 16px; display: flex; justify-content: flex-start;'
       }
-    }).createDiv({
+    });
+
+    this.currentResponseDiv = wrapperDiv.createDiv({
       attr: {
-        style: 'background: white; padding: 12px 16px; border-radius: 12px; border: 2px solid #4caf50;'
+        style: 'background: white; padding: 12px 16px; border-radius: 12px 12px 12px 0; border: 1px solid #e0e0e0; max-width: 80%;'
       }
     });
 
@@ -2504,22 +2530,24 @@ class QueryModal extends Modal {
 
     const messageWrapper = this.historyContainer.createDiv({
       attr: {
-        style: 'margin-bottom: 16px;'
+        style: role === 'user'
+          ? 'margin-bottom: 16px; display: flex; justify-content: flex-end;'
+          : 'margin-bottom: 16px; display: flex; justify-content: flex-start;'
       }
     });
 
     const messageBubble = messageWrapper.createDiv({
       attr: {
         style: role === 'user'
-          ? 'background: #e3f2fd; padding: 12px 16px; border-radius: 12px; max-width: 80%;'
-          : 'background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e0e0e0;'
+          ? 'background: #2196f3; color: white; padding: 12px 16px; border-radius: 12px 12px 0 12px; max-width: 80%;'
+          : 'background: white; padding: 12px 16px; border-radius: 12px 12px 12px 0; border: 1px solid #e0e0e0; max-width: 80%;'
       }
     });
 
     const roleLabel = messageBubble.createEl('strong', {
       text: role === 'user' ? '👤 You:' : '🤖 Wiki:',
       attr: {
-        style: role === 'user' ? 'color: #1976d2;' : 'color: #4caf50;'
+        style: role === 'user' ? 'color: white;' : 'color: #4caf50;'
       }
     });
 
@@ -2593,11 +2621,24 @@ class QueryModal extends Modal {
     this.history.messages = [];
     this.historyContainer.empty();
 
+    // Clear persisted history in settings
+    this.plugin.settings.queryHistory = [];
+    this.plugin.saveSettings();
+
     new Notice(
       this.plugin.settings.language === 'en'
         ? 'History cleared'
         : '历史已清空',
       2000
+    );
+
+    // Update count display
+    const texts = TEXTS[this.plugin.settings.language];
+    const maxRounds = this.plugin.settings.maxConversationHistory;
+    this.historyCountDisplay.setText(
+      texts.queryModalHistoryCount
+        .replace('{}', '0')
+        .replace('{}', maxRounds.toString())
     );
   }
 
