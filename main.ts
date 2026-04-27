@@ -1222,7 +1222,7 @@ export default class LLMWikiPlugin extends Plugin {
     console.log('调用 LLM 分析源文件...');
 
     try {
-      const response = await this.llmClient.createMessage({
+      const response = await this.llmClient!.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }]
@@ -1299,7 +1299,7 @@ export default class LLMWikiPlugin extends Plugin {
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
       .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '));
 
-    const pageContent = await this.llmClient.createMessage({
+    const pageContent = await this.llmClient!.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }]
@@ -1340,7 +1340,7 @@ export default class LLMWikiPlugin extends Plugin {
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', entity.type);
 
-    const pageContent = await this.llmClient.createMessage({
+    const pageContent = await this.llmClient!.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }]
@@ -1381,7 +1381,7 @@ export default class LLMWikiPlugin extends Plugin {
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', concept.type);
 
-    const pageContent = await this.llmClient.createMessage({
+    const pageContent = await this.llmClient!.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }]
@@ -1415,7 +1415,7 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
 请更新该页面，添加新信息，但不要删除现有内容。使用双向链接语法 [[页面名]]。
 只输出更新后的完整页面内容，不要其他文字。`;
 
-    const updatedContent = await this.llmClient.createMessage({
+    const updatedContent = await this.llmClient!.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }]
@@ -1617,7 +1617,7 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
 ## 其他建议
 - [其他维护建议]`;
 
-      const report = await this.llmClient.createMessage({
+      const report = await this.llmClient!.createMessage({
         model: this.settings.model,
         max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }]
@@ -1741,7 +1741,7 @@ ${conversationText}
 - 不要用："对话总结 - ${actualDate}"（通用且无法检索）
 - 标题应反映实际讨论主题，便于日后检索`;
 
-    const analysis = await this.llmClient.createMessage({
+    const analysis = await this.llmClient!.createMessage({
       model: this.settings.model,
       max_tokens: 5000,
       messages: [{
@@ -2104,7 +2104,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
         .setName(this.getText('selectModelName'))
         .setDesc(this.getText('selectModelDesc').replace('{}', this.tempSettings.availableModels.length.toString()))
         .addDropdown(dropdown => {
-          this.tempSettings.availableModels.forEach(model => {
+          (this.tempSettings.availableModels || []).forEach(model => {
             dropdown.addOption(model, model);
           });
           dropdown.addOption('__custom__', this.getText('customInputOption'));
@@ -2214,7 +2214,7 @@ class LLMWikiSettingTab extends PluginSettingTab {
 
     // ===== Query Configuration =====
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
-    containerEl.createEl('h3', { text: TEXTS[this.plugin.settings.language].language === 'en'
+    containerEl.createEl('h3', { text: this.plugin.settings.language === 'en'
       ? 'Wiki Query Configuration'
       : 'Wiki 查询配置'
     });
