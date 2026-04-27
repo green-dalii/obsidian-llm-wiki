@@ -2096,10 +2096,123 @@ class QueryModal extends Modal {
   }
 
   onOpen() {
-    // Will be implemented in Task 6
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl('h2', { text: 'Query Modal (Coming Soon)' });
+    const texts = TEXTS[this.plugin.settings.language];
+
+    // Modal styling (ChatGPT-style dimensions)
+    this.modalEl.style.width = '800px';
+    this.modalEl.style.height = '600px';
+
+    // Create container with flex layout
+    const container = contentEl.createDiv({
+      attr: {
+        style: 'display: flex; flex-direction: column; height: 100%;'
+      }
+    });
+
+    // Header
+    const header = container.createDiv({
+      attr: {
+        style: 'background: #4caf50; color: white; padding: 12px; font-weight: bold; font-size: 16px;'
+      }
+    });
+    header.setText(texts.queryModalTitle);
+
+    // History container (scrollable)
+    this.historyContainer = container.createDiv({
+      attr: {
+        style: 'flex: 1; overflow-y: auto; padding: 16px; background: #f9f9f9;'
+      }
+    });
+
+    // Render existing history (if any)
+    this.history.messages.forEach(msg => {
+      this.renderHistoryMessage(msg.role, msg.content);
+    });
+
+    // Fixed bottom input area
+    const inputContainer = container.createDiv({
+      attr: {
+        style: 'border-top: 2px solid #ddd; padding: 16px; background: white;'
+      }
+    });
+
+    // Textarea input
+    this.inputArea = inputContainer.createEl('textarea', {
+      attr: {
+        placeholder: texts.queryModalPlaceholder,
+        rows: '3',
+        style: 'width: 100%; resize: none; font-size: 14px; padding: 8px;'
+      }
+    });
+
+    // Enter key to send
+    this.inputArea.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter' && !evt.shiftKey) {
+        evt.preventDefault();
+        if (this.inputArea.value.trim() && !this.isStreaming) {
+          this.sendMessage(this.inputArea.value);
+          this.inputArea.value = '';
+        }
+      }
+    });
+
+    // Button row
+    const buttonRow = inputContainer.createDiv({
+      attr: {
+        style: 'display: flex; gap: 8px; margin-top: 8px;'
+      }
+    });
+
+    // Send button
+    buttonRow.createEl('button', {
+      text: texts.queryModalSendButton,
+      attr: {
+        style: 'flex: 2; background: #2196f3; color: white; padding: 8px; cursor: pointer; border: none; border-radius: 4px;'
+      }
+    }).addEventListener('click', () => {
+      if (this.inputArea.value.trim() && !this.isStreaming) {
+        this.sendMessage(this.inputArea.value);
+        this.inputArea.value = '';
+      }
+    });
+
+    // Save to Wiki button
+    buttonRow.createEl('button', {
+      text: texts.queryModalSaveButton,
+      attr: {
+        style: 'flex: 1; background: #4caf50; color: white; padding: 8px; cursor: pointer; border: none; border-radius: 4px;'
+      }
+    }).addEventListener('click', () => {
+      if (this.history.messages.length > 0) {
+        this.saveToWiki();
+      }
+    });
+
+    // Clear history button
+    buttonRow.createEl('button', {
+      text: texts.queryModalClearButton,
+      attr: {
+        style: 'background: #999; color: white; padding: 8px; cursor: pointer; border: none; border-radius: 4px;'
+      }
+    }).addEventListener('click', () => {
+      this.clearHistory();
+    });
+
+    // History count display
+    this.historyCountDisplay = inputContainer.createDiv({
+      attr: {
+        style: 'margin-top: 8px; font-size: 11px; color: #999;'
+      }
+    });
+    const currentRounds = Math.floor(this.history.messages.length / 2);
+    const maxRounds = this.plugin.settings.maxConversationHistory;
+    this.historyCountDisplay.setText(
+      texts.queryModalHistoryCount
+        .replace('{}', currentRounds.toString())
+        .replace('{}', maxRounds.toString())
+    );
   }
 
   onClose() {
@@ -2111,7 +2224,44 @@ class QueryModal extends Modal {
   async sendMessage(userMessage: string) {}
   streamResponse(chunk: string) {}
   renderMarkdownContent(content: string, container: HTMLElement) {}
-  renderHistoryMessage(role: 'user' | 'assistant', content: string) {}
+  renderHistoryMessage(role: 'user' | 'assistant', content: string) {
+    const texts = TEXTS[this.plugin.settings.language];
+
+    const messageWrapper = this.historyContainer.createDiv({
+      attr: {
+        style: 'margin-bottom: 16px;'
+      }
+    });
+
+    const messageBubble = messageWrapper.createDiv({
+      attr: {
+        style: role === 'user'
+          ? 'background: #e3f2fd; padding: 12px 16px; border-radius: 12px; max-width: 80%;'
+          : 'background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e0e0e0;'
+      }
+    });
+
+    const roleLabel = messageBubble.createEl('strong', {
+      text: role === 'user' ? '👤 You:' : '🤖 Wiki:',
+      attr: {
+        style: role === 'user' ? 'color: #1976d2;' : 'color: #4caf50;'
+      }
+    });
+
+    const contentDiv = messageBubble.createDiv({
+      attr: {
+        style: 'margin-top: 8px;'
+      }
+    });
+
+    if (role === 'assistant') {
+      // Render Markdown for assistant messages
+      this.renderMarkdownContent(content, contentDiv);
+    } else {
+      // Plain text for user messages
+      contentDiv.setText(content);
+    }
+  }
   limitHistory() {}
   async saveToWiki() {}
   clearHistory() {}
