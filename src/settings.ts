@@ -43,20 +43,22 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     containerEl.createEl('h2', { text: this.getText('pluginTitle') });
 
     const introDiv = containerEl.createDiv({ cls: 'llm-wiki-intro' });
-    introDiv.createEl('p', {
-      text: this.getText('pluginIntro'),
-      attr: { style: 'margin-bottom: 10px; font-size: 14px;' }
-    });
-    introDiv.createEl('p', {
-      text: `${this.getText('conceptOrigin')} [Andrej Karpathy's LLM Wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)`,
-      attr: { style: 'margin-bottom: 15px; font-size: 13px; color: #666;' }
-    });
 
-    // Intro paragraph — what this plugin does
-    introDiv.createEl('p', {
-      text: this.getText('introParagraph'),
+    // Merged intro paragraph with Karpathy link
+    const introP = introDiv.createEl('p', {
       attr: { style: 'margin-bottom: 12px; font-size: 14px; line-height: 1.6;' }
     });
+
+    const linkText = this.getText('karpathyLinkText');
+    const fullIntro = this.getText('pluginIntro');
+    const parts = fullIntro.split('{{link}}');
+
+    introP.createEl('span', { text: parts[0] });
+    introP.createEl('a', {
+      text: linkText,
+      href: 'https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f',
+    });
+    introP.createEl('span', { text: parts[1] });
 
     // How It Works
     introDiv.createEl('p', {

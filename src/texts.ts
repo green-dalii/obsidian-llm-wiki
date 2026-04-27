@@ -4,12 +4,11 @@ export const TEXTS = {
   en: {
     // Plugin Info
     pluginTitle: 'Karpathy LLM Wiki Settings',
-    pluginIntro: 'This plugin implements Karpathy\'s LLM Wiki concept for Obsidian.',
-    conceptOrigin: 'Concept Origin:',
+    pluginIntro: 'This plugin implements {{link}} concept for Obsidian. It reads your notes, uses AI to extract entities and concepts, and builds a structured, interlinked Wiki in your vault.',
+    karpathyLinkText: "Andrej Karpathy's LLM Wiki",
 
     // Features Section
     featuresTitle: 'How It Works',
-    introParagraph: 'LLM Wiki reads your notes, uses AI to extract entities and concepts, and builds a structured, interlinked Wiki in your vault.',
     workflow1Title: '1. Ingest',
     workflow1Desc: 'Select a note — AI extracts entities, concepts, and relationships into Wiki pages.',
     workflow2Title: '2. Query',
@@ -149,12 +148,11 @@ export const TEXTS = {
   zh: {
     // 插件信息
     pluginTitle: 'Karpathy LLM Wiki 设置',
-    pluginIntro: '本插件为 Obsidian 实现 Karpathy 的 LLM Wiki 概念。',
-    conceptOrigin: '概念来源：',
+    pluginIntro: '本插件为 Obsidian 实现了 {{link}} 概念。它读取你的笔记，用 AI 提取实体和概念，在 Vault 中构建结构化、互联的知识库。',
+    karpathyLinkText: 'Andrej Karpathy 的 LLM Wiki',
 
     // 功能部分
     featuresTitle: '使用方式',
-    introParagraph: 'LLM Wiki 读取你的笔记，用 AI 提取实体和概念，在 Vault 中构建结构化、互联的知识库。',
     workflow1Title: '1. 摄入 (Ingest)',
     workflow1Desc: '选择笔记 → AI 提取实体、概念、关系 → 生成 Wiki 页面。',
     workflow2Title: '2. 查询 (Query)',
