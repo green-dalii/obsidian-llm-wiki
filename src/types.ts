@@ -75,12 +75,38 @@ export interface LLMWikiSettings {
   useCustomModel?: boolean;
   maxConversationHistory: number;
   queryHistory?: QueryHistoryMessage[];
+
+  // Schema
+  enableSchema: boolean;
+
+  // Auto-maintenance
+  autoWatchSources: boolean;
+  autoWatchMode: 'notify' | 'auto';
+  autoWatchDebounceMs: number;
+  periodicLint: 'off' | 'hourly' | 'daily';
+  startupCheck: boolean;
 }
 
 export interface QueryHistoryMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+}
+
+// Schema types
+
+export interface WikiSchema {
+  version: number;
+  last_updated: string;
+  auto_suggestion_count: number;
+  body: string;
+}
+
+export interface SchemaSuggestion {
+  timestamp: string;
+  source: string;
+  changes_needed: boolean;
+  suggestions: string;
 }
 
 // LLM Client interface
@@ -218,5 +244,15 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   availableModels: [],
   useCustomModel: false,
   maxConversationHistory: 30,
-  queryHistory: []
+  queryHistory: [],
+
+  // Schema
+  enableSchema: true,
+
+  // Auto-maintenance
+  autoWatchSources: false,
+  autoWatchMode: 'notify',
+  autoWatchDebounceMs: 5000,
+  periodicLint: 'off',
+  startupCheck: false,
 };

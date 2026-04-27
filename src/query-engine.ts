@@ -247,6 +247,13 @@ export class QueryModal extends Modal {
   renderMarkdownContent(content: string, container: HTMLElement) {
     container.empty();
 
+    // TODO: Internal wiki-links ([[wiki/entities/...]]) rendered in the modal are not clickable.
+    // Two likely causes:
+    // 1. sourcePath '' means relative links without wiki/ prefix won't resolve correctly.
+    //    Fix: set sourcePath to `this.plugin.settings.wikiFolder`.
+    // 2. Modal DOM context may block .internal-link click events from propagating to Obsidian's handlers.
+    //    Fix: after MarkdownRenderer.render(), querySelectorAll('.internal-link') and add
+    //    click listeners that call this.app.workspace.openLinkText(href, sourcePath).
     MarkdownRenderer.render(
       this.app,
       content,

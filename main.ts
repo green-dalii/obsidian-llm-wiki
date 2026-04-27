@@ -13,20 +13,47 @@ import { LLMWikiSettingTab } from './src/settings';
 import { WikiEngine } from './src/wiki-engine';
 import { QueryModal } from './src/query-engine';
 import { FileSuggestModal, FolderSuggestModal, LintReportModal } from './src/modals';
+import { SchemaManager } from './src/schema-manager';
+import { AutoMaintainManager } from './src/auto-maintain';
 export default class LLMWikiPlugin extends Plugin {
   settings: LLMWikiSettings;
   llmClient: LLMClient | null = null;
   wikiEngine: WikiEngine;
+  schemaManager: SchemaManager;
+  autoMaintainManager: AutoMaintainManager;
 
   async onload() {
     await this.loadSettings();
     this.initializeLLMClient();
 
-    this.wikiEngine = new WikiEngine(
+    this.schemaManager = new SchemaManager(
       this.app,
       this.settings,
       () => this.llmClient
     );
+
+    this.wikiEngine = new WikiEngine(
+      this.app,
+      this.settings,
+      () => this.llmClient,
+      this.schemaManager
+    );
+
+    this.autoMaintainManager = new AutoMaintainManager(
+      this.app,
+      this.settings,
+      this.wikiEngine,
+      this
+    );
+
+    // Initialize auto-maintenance features based on settings
+    if (this.settings.autoWatchSources) {
+      this.autoMaintainManager.startWatching();
+    }
+    this.autoMaintainManager.schedulePeriodicLint();
+    if (this.settings.startupCheck) {
+      this.autoMaintainManager.runStartupCheck();
+    }
 
     // 注册命令
     this.addCommand({
@@ -59,6 +86,12 @@ export default class LLMWikiPlugin extends Plugin {
       callback: () => this.wikiEngine.generateIndexFromEngine()
     });
 
+    this.addCommand({
+      id: 'suggest-schema-update',
+      name: 'Suggest Schema Updates (建议 Schema 更新)',
+      callback: () => this.suggestSchemaUpdate()
+    });
+
     // 设置面板
     this.addSettingTab(new LLMWikiSettingTab(this.app, this));
 
@@ -66,6 +99,7 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   onunload() {
+    this.autoMaintainManager?.stop();
     console.debug('LLM Wiki Plugin unloaded');
   }
 
@@ -76,8 +110,17 @@ export default class LLMWikiPlugin extends Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     this.initializeLLMClient();
+    this.schemaManager?.invalidateCache();
     if (this.wikiEngine) {
       this.wikiEngine.settings = this.settings;
+    }
+    // Sync auto-maintain features with updated settings
+    if (this.autoMaintainManager) {
+      this.autoMaintainManager.stop();
+      if (this.settings.autoWatchSources) {
+        this.autoMaintainManager.startWatching();
+      }
+      this.autoMaintainManager.schedulePeriodicLint();
     }
   }
 
@@ -238,12 +281,32 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
       });
 
       const cleanedReport = cleanMarkdownResponse(report);
-      new LintReportModal(this.app, cleanedReport).open();
+      new LintReportModal(this.app, cleanedReport, () => this.suggestSchemaUpdate()).open();
       new Notice('维护完成');
 
     } catch (error) {
       new Notice('维护失败');
       console.error(error);
+    }
+  }
+
+  async suggestSchemaUpdate() {
+    if (!this.llmClient) {
+      new Notice(TEXTS[this.settings.language].errorNoApiKey);
+      return;
+    }
+
+    new Notice('正在分析 Wiki 并生成 Schema 建议...');
+    try {
+      const result = await this.schemaManager.suggestSchemaUpdate('Wiki lint analysis');
+      if (result?.changes_needed) {
+        new Notice('Schema 建议已生成，请查看 wiki/schema/suggestions.md', 8000);
+      } else {
+        new Notice('未检测到 Schema 需要更新。', 5000);
+      }
+    } catch (error) {
+      console.error('Schema suggestion failed:', error);
+      new Notice('Schema 建议生成失败');
     }
   }
 

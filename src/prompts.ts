@@ -192,5 +192,35 @@ tags: [{{tags}}]
 - 观点2
 
 ---
-更新日期：{{date}}`
+更新日期：{{date}}`,
+
+  suggestSchemaUpdate: `You are a Wiki Schema advisor. Review the current schema and the latest ingestion analysis.
+
+Current Schema:
+{{schema_content}}
+
+Analysis Context:
+{{analysis_context}}
+
+Task: Determine if the schema needs updating to better accommodate recent content.
+Consider:
+1. Are there new entity types that should be added to the classification rules?
+2. Are there new concept types that should be added?
+3. Should naming conventions be adjusted?
+4. Should page templates be updated (missing sections, better structure)?
+5. Should maintenance policies be revised (stale thresholds, severity levels)?
+
+Output JSON format:
+{
+  "changes_needed": true,
+  "suggestions": "Markdown description of suggested schema changes with reasoning"
+}
+
+If no changes are needed:
+{
+  "changes_needed": false,
+  "suggestions": ""
+}
+
+Output ONLY the JSON, no other text.`,
 };

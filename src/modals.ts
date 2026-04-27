@@ -61,10 +61,12 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 
 export class LintReportModal extends Modal {
   report: string;
+  onSuggestSchema?: () => void;
 
-  constructor(app: App, report: string) {
+  constructor(app: App, report: string, onSuggestSchema?: () => void) {
     super(app);
     this.report = report;
+    this.onSuggestSchema = onSuggestSchema;
   }
 
   onOpen() {
@@ -73,6 +75,19 @@ export class LintReportModal extends Modal {
       text: this.report,
       attr: { style: 'white-space: pre-wrap; max-height: 60vh; overflow-y: auto;' }
     });
+
+    if (this.onSuggestSchema) {
+      const buttonRow = this.contentEl.createDiv({
+        attr: { style: 'margin-top: 16px; text-align: right;' }
+      });
+      buttonRow.createEl('button', {
+        text: 'Suggest Schema Updates',
+        cls: 'mod-cta'
+      }).addEventListener('click', () => {
+        this.onSuggestSchema?.();
+        this.close();
+      });
+    }
   }
 
   onClose() {

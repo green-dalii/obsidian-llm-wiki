@@ -11,22 +11,26 @@ import {
 } from './types';
 import { PROMPTS } from './prompts';
 import { slugify, parseJsonResponse, cleanMarkdownResponse } from './utils';
+import { SchemaManager } from './schema-manager';
 
 export class WikiEngine {
   private app: App;
   settings: LLMWikiSettings;
   private llmClient: LLMClient | null;
   private getLLMClient: () => LLMClient | null;
+  private schemaManager: SchemaManager;
 
   constructor(
     app: App,
     settings: LLMWikiSettings,
-    getLLMClient: () => LLMClient | null
+    getLLMClient: () => LLMClient | null,
+    schemaManager: SchemaManager
   ) {
     this.app = app;
     this.settings = settings;
     this.llmClient = null;
     this.getLLMClient = getLLMClient;
+    this.schemaManager = schemaManager;
   }
 
   private get client(): LLMClient {
@@ -108,6 +112,9 @@ export class WikiEngine {
         // 文件夹已存在
       }
     }
+
+    // Schema folder + default config
+    await this.schemaManager.ensureSchemaExists();
   }
 
   async analyzeSource(file: TFile): Promise<SourceAnalysis | null> {
@@ -129,9 +136,11 @@ export class WikiEngine {
     console.debug('调用 LLM 分析源文件...');
 
     try {
+      const schemaContext = await this.schemaManager.getSchemaContext();
       const response = await this.client.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
+        system: schemaContext || undefined,
         messages: [{ role: 'user', content: prompt }]
       });
 
@@ -208,9 +217,11 @@ export class WikiEngine {
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
       .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '));
 
+    const schemaContext = await this.schemaManager.getSchemaContext();
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
+      system: schemaContext || undefined,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -246,9 +257,11 @@ export class WikiEngine {
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', entity.type);
 
+    const schemaContext = await this.schemaManager.getSchemaContext();
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
+      system: schemaContext || undefined,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -285,9 +298,11 @@ export class WikiEngine {
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', concept.type);
 
+    const schemaContext = await this.schemaManager.getSchemaContext();
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
+      system: schemaContext || undefined,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -324,9 +339,11 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
 请更新该页面，添加新信息，但不要删除现有内容。使用双向链接语法 [[页面名]]。
 只输出更新后的完整页面内容，不要其他文字。`;
 
+    const schemaContext = await this.schemaManager.getSchemaContext();
     const updatedContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
+      system: schemaContext || undefined,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -399,6 +416,10 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
       return null;
     }
     return null;
+  }
+
+  async regenerateDefaultSchema(): Promise<void> {
+    await this.schemaManager.regenerateDefaultSchema();
   }
 
   async generateIndexFromEngine() {
@@ -588,9 +609,11 @@ ${conversationText}
 - 如果没有实体/概念，用空数组[]（绝不能省略字段）
 - 名称应简短且便于[[wiki-links]]引用（根据Wiki索引判断合适的命名方式）`;
 
+    const schemaContext = await this.schemaManager.getSchemaContext();
     const analysis = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 5000,
+      system: schemaContext || undefined,
       messages: [{
         role: 'user',
         content: analysisPrompt
