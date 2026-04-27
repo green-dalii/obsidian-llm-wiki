@@ -60,7 +60,16 @@ interface LLMClient {
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
   }): Promise<string>;
 
-  listModels?(): Promise<string[]>; // 可选：获取可用模型列表
+  // Optional streaming method (backward compatible)
+  createMessageStream?(params: {
+    model: string;
+    max_tokens: number;
+    messages: Array<{role: 'user' | 'assistant'; content: string}>;
+    language: 'en' | 'zh';
+    onChunk: (chunk: string) => void;
+  }): Promise<string>;
+
+  listModels?(): Promise<string[]>; // Optional: get available models list
 }
 
 class AnthropicClient implements LLMClient {
