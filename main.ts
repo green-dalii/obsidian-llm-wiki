@@ -449,16 +449,24 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
 
     // 5. Create entity pages (reuse existing logic)
     for (const entity of parsed.entities) {
-      await this.wikiEngine.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug } as any);
+      const entityPage = await this.wikiEngine.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug } as any);
+      if (entityPage) {
+        parsed.created_pages.push(entityPage);
+      }
     }
 
     // 6. Create concept pages (reuse existing logic)
     for (const concept of parsed.concepts) {
-      await this.wikiEngine.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug } as any);
+      const conceptPage = await this.wikiEngine.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug } as any);
+      if (conceptPage) {
+        parsed.created_pages.push(conceptPage);
+      }
     }
 
     // 7. Update index and log
     await this.wikiEngine.generateIndexFromEngine();
+    parsed.contradictions = parsed.contradictions || [];
+    await this.wikiEngine.updateLog('conversation', parsed);
 
     console.log('=== Conversation extraction complete ===');
     console.log('Created pages:', parsed.created_pages);
@@ -1041,7 +1049,7 @@ class QueryModal extends Modal {
       // 1. Read index.md
       const indexPath = `${this.plugin.settings.wikiFolder}/index.md`;
       console.log('[步骤1] 读取index.md路径:', indexPath);
-      const indexContent = await this.plugin.tryReadFile(indexPath);
+      const indexContent = await this.plugin.wikiEngine.tryReadFile(indexPath);
       console.log('[步骤1] index.md内容:', indexContent ? '已读取' : '不存在');
 
       if (!indexContent) {
@@ -1233,7 +1241,7 @@ ${indexContent}
 
       console.log(`[加载页面] 完整路径: "${pagePath}"`);
 
-      const content = await this.plugin.tryReadFile(pagePath);
+      const content = await this.plugin.wikiEngine.tryReadFile(pagePath);
       console.log(`[加载页面] 文件是否存在: ${content ? '是' : '否'}`);
 
       if (content) {
