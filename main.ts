@@ -2518,10 +2518,14 @@ class QueryModal extends Modal {
     container.empty();
 
     // Use Obsidian's built-in MarkdownRenderer
+    // Provide wiki/index.md as sourcePath so [[wiki-links]] resolve correctly
+    // All links like [[entities/page]] will resolve to wiki/entities/page.md
+    const wikiIndexPath = `${this.plugin.settings.wikiFolder}/index.md`;
+
     MarkdownRenderer.renderMarkdown(
       content,
       container,
-      '',
+      wikiIndexPath,
       this.plugin
     );
   }
