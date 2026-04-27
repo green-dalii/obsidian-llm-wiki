@@ -2760,12 +2760,22 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : 'No directly rele
 
 Instructions:
 - Answer based on the Wiki pages above (not general knowledge)
-- Cite sources with [[wiki-links]] using FULL paths from vault root
-- Link format MUST include wiki folder prefix: [[${this.plugin.settings.wikiFolder}/entities/page-name]]
-- Examples of CORRECT links: [[wiki/entities/太阳化忌]], [[wiki/concepts/机器学习]], [[wiki/sources/研究笔记]]
-- Examples of WRONG links: [[太阳化忌]], [[entities/太阳化忌]] (missing wiki/ prefix)
-- If Wiki lacks relevant information, acknowledge it and suggest ingesting more sources
-- Respond in the same language as the user's question`
+- Use ONLY Obsidian's wiki-link syntax: [[wiki/entities/page-name]] (NOT HTML links)
+- Link format MUST include wiki folder: [[${this.plugin.settings.wikiFolder}/entities/page-name]]
+
+CRITICAL RULES:
+✅ CORRECT: [[wiki/entities/太阳化忌]], [[wiki/concepts/机器学习]]
+❌ WRONG: <a href="...">, [link text](url), [[太阳化忌]], [[entities/太阳化忌]]
+- Obsidian wiki-links use DOUBLE brackets: [[path]]
+- NO HTML: Never use <a href="...">text</a>
+- NO Markdown external links: Never use [text](url)
+- Include wiki/ prefix: Links must start with [[wiki/...
+
+If Wiki lacks relevant information:
+- Acknowledge it and suggest ingesting more sources
+- Do NOT make up information outside Wiki
+
+Respond in the same language as the user's question`
         : `你是Wiki助手，拥有结构化知识库的访问权限。
 
 Wiki索引：
@@ -2776,12 +2786,22 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找
 
 指令：
 - 基于上述Wiki页面内容回答问题（而非通用知识）
-- 引用页面时使用vault根路径的完整[[wiki-links]]格式
-- 链接格式必须包含wiki文件夹前缀：[[wiki/entities/页面名]] 或 [[wiki/concepts/页面名]]
-- 正确链接示例：[[wiki/entities/太阳化忌]], [[wiki/concepts/机器学习]]
-- 错误链接示例：[[太阳化忌]], [[entities/太阳化忌]]（缺少wiki/前缀）
-- 如果Wiki缺少相关信息，请如实说明并建议摄入更多源文件
-- 请用与用户提问相同的语言回答`;
+- 使用Obsidian特有的双向链接语法：[[wiki/entities/页面名]]（不是HTML链接）
+- 链接格式必须包含wiki文件夹：[[${this.plugin.settings.wikiFolder}/entities/页面名]]
+
+关键规则：
+✅ 正确：[[wiki/entities/太阳化忌]], [[wiki/concepts/机器学习]]
+❌ 错误：<a href="...">, [链接文字](url), [[太阳化忌]], [[entities/太阳化忌]]
+- Obsidian双向链接使用双层方括号：[[路径]]
+- 禁止HTML：绝不使用<a href="...">文字</a>
+- 禁止Markdown外链：绝不使用[文字](url)
+- 包含wiki/前缀：链接必须以[[wiki/开头
+
+如果Wiki缺少相关信息：
+- 如实说明并建议摄入更多源文件
+- 不要编造Wiki之外的信息
+
+请用与用户提问相同的语言回答`;
 
       console.log('[步骤4] Wiki上下文构建完成');
       console.log('[步骤4] 上下文长度:', wikiContext.length);
