@@ -2589,14 +2589,14 @@ class QueryModal extends Modal {
     container.empty();
 
     // Use Obsidian's built-in MarkdownRenderer
-    // Provide wiki/index.md as sourcePath so [[wiki-links]] resolve correctly
-    // All links like [[entities/page]] will resolve to wiki/entities/page.md
-    const wikiIndexPath = `${this.plugin.settings.wikiFolder}/index.md`;
+    // sourcePath: '' (vault root) - links must include full path from vault root
+    // Link format: [[wiki/entities/page]] or [[wiki/concepts/page]]
+    // This ensures links resolve to actual files regardless of wiki folder location
 
     MarkdownRenderer.renderMarkdown(
       content,
       container,
-      wikiIndexPath,
+      '',  // Vault root - links resolve from vault root
       this.plugin
     );
   }
@@ -2760,7 +2760,10 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : 'No directly rele
 
 Instructions:
 - Answer based on the Wiki pages above (not general knowledge)
-- Cite sources with [[wiki-links]] when referencing specific pages
+- Cite sources with [[wiki-links]] using FULL paths from vault root
+- Link format MUST include wiki folder prefix: [[${this.plugin.settings.wikiFolder}/entities/page-name]]
+- Examples of CORRECT links: [[wiki/entities/太阳化忌]], [[wiki/concepts/机器学习]], [[wiki/sources/研究笔记]]
+- Examples of WRONG links: [[太阳化忌]], [[entities/太阳化忌]] (missing wiki/ prefix)
 - If Wiki lacks relevant information, acknowledge it and suggest ingesting more sources
 - Respond in the same language as the user's question`
         : `你是Wiki助手，拥有结构化知识库的访问权限。
@@ -2773,7 +2776,10 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找
 
 指令：
 - 基于上述Wiki页面内容回答问题（而非通用知识）
-- 引用具体页面时使用[[wiki-links]]格式
+- 引用页面时使用vault根路径的完整[[wiki-links]]格式
+- 链接格式必须包含wiki文件夹前缀：[[wiki/entities/页面名]] 或 [[wiki/concepts/页面名]]
+- 正确链接示例：[[wiki/entities/太阳化忌]], [[wiki/concepts/机器学习]]
+- 错误链接示例：[[太阳化忌]], [[entities/太阳化忌]]（缺少wiki/前缀）
 - 如果Wiki缺少相关信息，请如实说明并建议摄入更多源文件
 - 请用与用户提问相同的语言回答`;
 
@@ -2897,7 +2903,12 @@ ${indexContent}
       if (content) {
         console.log(`[加载页面] 内容长度: ${content.length}`);
         console.log(`[加载页面] 内容前100字符: ${content.substring(0, 100)}`);
-        pages.push(`## ${title}\n\n${content}`);
+        // Display full vault path in title so LLM knows correct link format
+        // title可能是 "entities/page", 显示为 "wiki/entities/page"
+        const displayTitle = title.startsWith(this.plugin.settings.wikiFolder + '/')
+          ? title
+          : `${this.plugin.settings.wikiFolder}/${title}`;
+        pages.push(`## ${displayTitle}\n\n${content}`);
       } else {
         console.warn(`[加载页面] 无法读取页面: ${pagePath}`);
       }
