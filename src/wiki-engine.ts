@@ -14,7 +14,7 @@ import { slugify, parseJsonResponse, cleanMarkdownResponse } from './utils';
 
 export class WikiEngine {
   private app: App;
-  private settings: LLMWikiSettings;
+  settings: LLMWikiSettings;
   private llmClient: LLMClient | null;
   private getLLMClient: () => LLMClient | null;
 
@@ -140,7 +140,14 @@ export class WikiEngine {
 
       console.log('LLM 响应长度:', response.length);
 
-      const analysisData = parseJsonResponse(response);
+      const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
+        const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
+        return await this.client.createMessage({
+          model: this.settings.model,
+          max_tokens: 4000,
+          messages: [{ role: 'user', content: repairPrompt }]
+        });
+      });
 
       if (!analysisData) {
         console.error('❌ JSON 解析失败，返回 null');
@@ -586,7 +593,14 @@ ${conversationText}
       }]
     });
 
-    const parsed = parseJsonResponse(analysis);
+    const parsed = await parseJsonResponse(analysis, async (malformedJson: string) => {
+      const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
+      return await this.client.createMessage({
+        model: this.settings.model,
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: repairPrompt }]
+      });
+    });
     if (!parsed) {
       throw new Error('Conversation analysis JSON parsing failed');
     }

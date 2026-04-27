@@ -45,7 +45,10 @@ export function slugify(text: string): string {
   return finalSlug;
 }
 
-export function parseJsonResponse(response: string): any {
+export async function parseJsonResponse(
+  response: string,
+  repairFn?: (malformedJson: string) => Promise<string>
+): Promise<any> {
   console.log('parseJsonResponse 开始解析...');
   console.log('响应长度:', response.length);
 
@@ -103,7 +106,21 @@ export function parseJsonResponse(response: string): any {
       }
     }
 
-    // Step 5: If all attempts fail, return null
+    // Step 5: Try LLM-based repair if available
+    if (repairFn) {
+      const brokenJson = jsonMatch ? jsonMatch[0] : cleaned;
+      console.log('尝试 LLM 修复 JSON，长度:', brokenJson.length);
+      try {
+        const repaired = await repairFn(brokenJson);
+        const result = JSON.parse(repaired.trim());
+        console.log('✅ LLM 修复后解析成功');
+        return result;
+      } catch (repairError) {
+        console.error('LLM 修复后解析仍失败:', repairError);
+      }
+    }
+
+    // Step 6: If all attempts fail, return null
     console.error('❌ JSON 解析完全失败');
     console.log('完整响应内容:', response);
     return null;
@@ -156,6 +173,16 @@ export function cleanMarkdownResponse(response: string): string {
 
   console.log('cleanMarkdownResponse 输出长度:', cleaned.length);
   console.log('前50字符:', cleaned.substring(0, 50));
+
+  // Ensure frontmatter starts at position 0 for Obsidian to parse it
+  // LLM may preface content with explanatory text before the --- delimiter
+  if (!cleaned.startsWith('---')) {
+    const fmStart = cleaned.indexOf('\n---\n');
+    if (fmStart !== -1) {
+      cleaned = cleaned.substring(fmStart + 1);
+      console.log('已移除前置文本，frontmatter 现在从位置0开始');
+    }
+  }
 
   return cleaned.trim();
 }
