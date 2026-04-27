@@ -2221,9 +2221,143 @@ class QueryModal extends Modal {
   }
 
   // Placeholder methods (implemented in Tasks 6-7)
-  async sendMessage(userMessage: string) {}
-  streamResponse(chunk: string) {}
-  renderMarkdownContent(content: string, container: HTMLElement) {}
+  async sendMessage(userMessage: string) {
+    if (!userMessage.trim() || this.isStreaming) return;
+
+    const texts = TEXTS[this.plugin.settings.language];
+
+    // 1. Add user message to history
+    this.history.messages.push({
+      role: 'user',
+      content: userMessage,
+      timestamp: Date.now()
+    });
+
+    // 2. Render user message
+    this.renderHistoryMessage('user', userMessage);
+
+    // 3. Limit history length
+    this.limitHistory();
+
+    // 4. Create streaming response container
+    this.currentResponseDiv = this.historyContainer.createDiv({
+      attr: {
+        style: 'margin-bottom: 16px;'
+      }
+    }).createDiv({
+      attr: {
+        style: 'background: white; padding: 12px 16px; border-radius: 12px; border: 2px solid #4caf50;'
+      }
+    });
+
+    this.currentResponseDiv.createEl('strong', {
+      text: '🤖 Wiki:',
+      attr: {
+        style: 'color: #4caf50;'
+      }
+    });
+
+    const contentDiv = this.currentResponseDiv.createDiv({
+      attr: {
+        style: 'margin-top: 8px;'
+      }
+    });
+
+    // Streaming indicator
+    const streamingIndicator = this.currentResponseDiv.createDiv({
+      text: texts.queryModalStreaming,
+      attr: {
+        style: 'font-size: 11px; color: #4caf50; margin-top: 4px;'
+      }
+    });
+
+    this.isStreaming = true;
+    this.accumulatedResponse = '';
+
+    // 5. Build LLM messages (convert history format)
+    const llmMessages = this.history.messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+    // 6. Call streaming API
+    try {
+      // Check if streaming is supported
+      if (this.plugin.llmClient?.createMessageStream) {
+        const fullResponse = await this.plugin.llmClient.createMessageStream({
+          model: this.plugin.settings.model,
+          max_tokens: 3000,
+          messages: llmMessages,
+          language: this.plugin.settings.language,
+          onChunk: (chunk) => {
+            this.accumulatedResponse += chunk;
+            this.renderMarkdownContent(this.accumulatedResponse, contentDiv);
+          }
+        });
+
+        // 7. Add to history
+        this.history.messages.push({
+          role: 'assistant',
+          content: fullResponse,
+          timestamp: Date.now()
+        });
+
+        // Remove streaming indicator
+        streamingIndicator.remove();
+        this.currentResponseDiv.style.border = '1px solid #e0e0e0';
+
+      } else {
+        // Fallback to non-streaming
+        const response = await this.plugin.llmClient!.createMessage({
+          model: this.plugin.settings.model,
+          max_tokens: 3000,
+          messages: llmMessages
+        });
+
+        this.history.messages.push({
+          role: 'assistant',
+          content: response,
+          timestamp: Date.now()
+        });
+
+        this.renderMarkdownContent(response, contentDiv);
+        streamingIndicator.remove();
+      }
+
+    } catch (error: any) {
+      console.error('Query failed:', error);
+      contentDiv.setText(`Error: ${error.message}`);
+      streamingIndicator.remove();
+    }
+
+    this.isStreaming = false;
+    this.currentResponseDiv = null;
+
+    // Update history count display
+    const currentRounds = Math.floor(this.history.messages.length / 2);
+    const maxRounds = this.plugin.settings.maxConversationHistory;
+    this.historyCountDisplay.setText(
+      texts.queryModalHistoryCount
+        .replace('{}', currentRounds.toString())
+        .replace('{}', maxRounds.toString())
+    );
+  }
+  streamResponse(chunk: string) {
+    // Accumulate and render (already handled in sendMessage)
+    this.accumulatedResponse += chunk;
+  }
+
+  renderMarkdownContent(content: string, container: HTMLElement) {
+    container.empty();
+
+    // Use Obsidian's built-in MarkdownRenderer
+    MarkdownRenderer.renderMarkdown(
+      content,
+      container,
+      '',
+      this.plugin
+    );
+  }
   renderHistoryMessage(role: 'user' | 'assistant', content: string) {
     const texts = TEXTS[this.plugin.settings.language];
 
@@ -2262,9 +2396,50 @@ class QueryModal extends Modal {
       contentDiv.setText(content);
     }
   }
-  limitHistory() {}
+  limitHistory() {
+    const texts = TEXTS[this.plugin.settings.language];
+    const max = this.plugin.settings.maxConversationHistory;
+    const totalMessages = this.history.messages.length;
+
+    if (totalMessages > max * 2) {
+      const keepCount = max * 2;
+      this.history.messages = this.history.messages.slice(-keepCount);
+
+      new Notice(
+        this.plugin.settings.language === 'en'
+          ? `History truncated to last ${max} rounds`
+          : `历史已截断至最近${max}轮对话`,
+        3000
+      );
+
+      // Re-render history container
+      this.historyContainer.empty();
+      this.history.messages.forEach(msg => {
+        this.renderHistoryMessage(msg.role, msg.content);
+      });
+    }
+  }
   async saveToWiki() {}
-  clearHistory() {}
+  clearHistory() {
+    this.history.messages = [];
+    this.historyContainer.empty();
+
+    new Notice(
+      this.plugin.settings.language === 'en'
+        ? 'History cleared'
+        : '历史已清空',
+      2000
+    );
+
+    // Update count display
+    const texts = TEXTS[this.plugin.settings.language];
+    const maxRounds = this.plugin.settings.maxConversationHistory;
+    this.historyCountDisplay.setText(
+      texts.queryModalHistoryCount
+        .replace('{}', '0')
+        .replace('{}', maxRounds.toString())
+    );
+  }
 }
 
 class LintReportModal extends Modal {
