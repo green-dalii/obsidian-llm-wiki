@@ -54,9 +54,11 @@ interface WikiPage {
 // ==================== 统一 LLM 客户端接口 ====================
 
 interface LLMClient {
+  // Core message creation (with system parameter support)
   createMessage(params: {
     model: string;
     max_tokens: number;
+    system?: string; // System prompt (independent parameter for Anthropic)
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
   }): Promise<string>;
 
@@ -64,6 +66,7 @@ interface LLMClient {
   createMessageStream?(params: {
     model: string;
     max_tokens: number;
+    system?: string; // System prompt for streaming
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     language: 'en' | 'zh';
     onChunk: (chunk: string) => void;
@@ -82,9 +85,16 @@ class AnthropicClient implements LLMClient {
   async createMessage(params: {
     model: string;
     max_tokens: number;
+    system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
   }): Promise<string> {
-    const response = await this.client.messages.create(params);
+    // Anthropic API: system is independent parameter, not in messages
+    const response = await this.client.messages.create({
+      model: params.model,
+      max_tokens: params.max_tokens,
+      system: params.system || undefined, // Pass system prompt if provided
+      messages: params.messages
+    });
     return response.content[0].type === 'text' ? response.content[0].text : '';
   }
 
@@ -92,22 +102,26 @@ class AnthropicClient implements LLMClient {
   async createMessageStream(params: {
     model: string;
     max_tokens: number;
+    system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     language: 'en' | 'zh';
     onChunk: (chunk: string) => void;
   }): Promise<string> {
-    // Add auto-language detection instruction
-    const messagesWithLanguageHint = [
-      ...params.messages,
-      {
-        role: 'user',
-        content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
-      }
-    ];
+    // Build messages with language hint (only if no system prompt)
+    const messagesWithLanguageHint = params.system
+      ? params.messages // System prompt already contains instructions
+      : [
+        ...params.messages,
+        {
+          role: 'user',
+          content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
+        }
+      ];
 
     const stream = await this.client.messages.stream({
       model: params.model,
       max_tokens: params.max_tokens,
+      system: params.system || undefined, // Pass system prompt
       messages: messagesWithLanguageHint as any
     });
 
@@ -154,12 +168,21 @@ class OpenAIClient implements LLMClient {
   async createMessage(params: {
     model: string;
     max_tokens: number;
+    system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
   }): Promise<string> {
+    // OpenAI API: system message goes in messages array with role='system'
+    const messagesWithSystem = params.system
+      ? [
+        { role: 'system', content: params.system } as OpenAI.Chat.Completions.ChatCompletionMessageParam,
+        ...params.messages
+      ]
+      : params.messages;
+
     const response = await this.client.chat.completions.create({
       model: params.model,
       max_tokens: params.max_tokens,
-      messages: params.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+      messages: messagesWithSystem as OpenAI.Chat.Completions.ChatCompletionMessageParam[]
     });
     return response.choices[0]?.message?.content || '';
   }
@@ -168,22 +191,29 @@ class OpenAIClient implements LLMClient {
   async createMessageStream(params: {
     model: string;
     max_tokens: number;
+    system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     language: 'en' | 'zh';
     onChunk: (chunk: string) => void;
   }): Promise<string> {
-    const messagesWithLanguageHint = [
-      ...params.messages,
-      {
-        role: 'user',
-        content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
-      }
-    ];
+    // Build messages: system first, then conversation history
+    const messagesWithSystemAndLanguage = params.system
+      ? [
+        { role: 'system', content: params.system } as OpenAI.Chat.Completions.ChatCompletionMessageParam,
+        ...params.messages
+      ]
+      : [
+        ...params.messages,
+        {
+          role: 'user',
+          content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
+        }
+      ];
 
     const stream = await this.client.chat.completions.create({
       model: params.model,
       max_tokens: params.max_tokens,
-      messages: messagesWithLanguageHint as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+      messages: messagesWithSystemAndLanguage as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       stream: true
     });
 
@@ -2504,28 +2534,24 @@ class QueryModal extends Modal {
     this.isStreaming = true;
     this.accumulatedResponse = '';
 
-    // 5. Build LLM messages with Wiki context
+    // 5. Build Wiki context as system prompt
     const wikiContext = await this.buildWikiContext(userMessage);
 
-    const llmMessages = [
-      {
-        role: 'system',
-        content: wikiContext
-      },
-      ...this.history.messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }))
-    ];
+    // Conversation history (only user/assistant messages)
+    const conversationMessages = this.history.messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
 
-    // 6. Call streaming API
+    // 6. Call streaming API with system prompt
     try {
       // Check if streaming is supported
       if (this.plugin.llmClient?.createMessageStream) {
         const fullResponse = await this.plugin.llmClient.createMessageStream({
           model: this.plugin.settings.model,
           max_tokens: 3000,
-          messages: llmMessages,
+          system: wikiContext, // System prompt (independent parameter)
+          messages: conversationMessages, // Only conversation history
           language: this.plugin.settings.language,
           onChunk: (chunk) => {
             this.accumulatedResponse += chunk;
@@ -2549,7 +2575,8 @@ class QueryModal extends Modal {
         const response = await this.plugin.llmClient!.createMessage({
           model: this.plugin.settings.model,
           max_tokens: 3000,
-          messages: llmMessages
+          system: wikiContext, // System prompt
+          messages: conversationMessages // Only conversation history
         });
 
         this.history.messages.push({
