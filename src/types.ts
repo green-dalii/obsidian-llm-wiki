@@ -98,5 +98,89 @@ export interface LLMClient {
     onChunk: (chunk: string) => void;
   }): Promise<string>;
 
-  listModels?(): Promise<string[];
+  listModels?(): Promise<string[]>;
 }
+
+// Predefined LLM provider configurations
+
+export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
+  anthropic: {
+    id: 'anthropic',
+    name: 'Anthropic (Claude)',
+    baseUrl: '',
+    defaultModel: 'claude-sonnet-4-6',
+    apiKeyPlaceholder: 'sk-ant-...',
+    requiresBaseUrl: false
+  },
+  openai: {
+    id: 'openai',
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    defaultModel: 'gpt-4o',
+    apiKeyPlaceholder: 'sk-...',
+    requiresBaseUrl: false
+  },
+  deepseek: {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-chat',
+    apiKeyPlaceholder: 'sk-...',
+    requiresBaseUrl: false
+  },
+  kimi: {
+    id: 'kimi',
+    name: 'Kimi (Moonshot)',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    defaultModel: 'moonshot-v1-8k',
+    apiKeyPlaceholder: 'sk-...',
+    requiresBaseUrl: false
+  },
+  glm: {
+    id: 'glm',
+    name: 'GLM (智谱AI)',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultModel: 'glm-4',
+    apiKeyPlaceholder: '...',
+    requiresBaseUrl: false
+  },
+  openrouter: {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    defaultModel: 'openai/gpt-4o',
+    apiKeyPlaceholder: 'sk-or-...',
+    requiresBaseUrl: false
+  },
+  ollama: {
+    id: 'ollama',
+    name: 'Ollama (本地)',
+    baseUrl: 'http://localhost:11434/v1',
+    defaultModel: 'llama3',
+    apiKeyPlaceholder: 'ollama (无需Key)',
+    requiresBaseUrl: false
+  },
+  custom: {
+    id: 'custom',
+    name: '自定义 OpenAI 兼容',
+    baseUrl: '',
+    defaultModel: '',
+    apiKeyPlaceholder: 'API Key',
+    requiresBaseUrl: true
+  }
+};
+
+// Default plugin settings
+
+export const DEFAULT_SETTINGS: LLMWikiSettings = {
+  provider: 'anthropic',
+  apiKey: '',
+  baseUrl: '',
+  model: 'claude-sonnet-4-6',
+  wikiFolder: 'wiki',
+  language: 'en',
+  availableModels: [],
+  useCustomModel: false,
+  maxConversationHistory: 30,
+  queryHistory: []
+};
