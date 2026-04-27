@@ -1617,11 +1617,16 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
 
     console.log('=== Starting conversation extraction ===');
 
+    // Get actual system date
+    const actualDate = new Date().toISOString().split('T')[0];
+    console.log('[系统时间]', actualDate);
+
     // 1. Format conversation to structured text
     const conversationText = this.formatConversation(history);
 
-    // 2. LLM analysis (similar to analyzeSource)
-    const analysisPrompt = `You are a Wiki knowledge extraction assistant.
+    // 2. LLM analysis (generate semantic title, extract knowledge)
+    const analysisPrompt = this.settings.language === 'en'
+      ? `You are a Wiki knowledge extraction assistant.
 
 User conversation with AI:
 ${conversationText}
@@ -1633,9 +1638,11 @@ Focus on:
 2. Identifying core concepts and entities discussed
 3. Summarizing conversation topic and conclusions
 
+Actual conversation date: ${actualDate} (use this, do not generate date yourself)
+
 Output JSON format:
 {
-  "source_title": "Conversation Summary - YYYY-MM-DD",
+  "source_title": "Semantic Topic Title (no date, describe the discussion topic)",
   "summary": "Conversation topic summary",
   "entities": [
     {
@@ -1655,7 +1662,54 @@ Output JSON format:
   "key_points": ["Point 1", "Point 2"],
   "created_pages": [],
   "updated_pages": []
-}`;
+}
+
+Important:
+- source_title should be semantic and descriptive, like: "Relationship Analysis of 太阳化忌 and 太阳化禄"
+- NOT like: "Conversation Summary - ${actualDate}" (generic and unsearchable)
+- Title should reflect the actual discussion topic for easy future retrieval`
+      : `你是Wiki知识提取助手。
+
+用户与AI的对话：
+${conversationText}
+
+将此对话转化为结构化Wiki页面。
+
+重点：
+1. 提取关键知识点（非完整对话日志）
+2. 识别讨论的核心概念和实体
+3. 总结对话主题和结论
+
+实际对话日期：${actualDate}（请使用此日期，不要自己生成）
+
+输出JSON格式：
+{
+  "source_title": "语义化主题标题（不含日期，描述讨论主题）",
+  "summary": "对话主题总结",
+  "entities": [
+    {
+      "name": "实体名称",
+      "type": "person|organization|project|other",
+      "summary": "实体信息总结"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "概念名称",
+      "type": "theory|method|technology|term|other",
+      "summary": "概念定义",
+      "related_concepts": ["相关概念1", "相关概念2"]
+    }
+  ],
+  "key_points": ["要点1", "要点2"],
+  "created_pages": [],
+  "updated_pages": []
+}
+
+重要：
+- source_title应该语义化且描述性，如："太阳化忌与太阳化禄的关系分析"
+- 不要用："对话总结 - ${actualDate}"（通用且无法检索）
+- 标题应反映实际讨论主题，便于日后检索`;
 
     const analysis = await this.llmClient.createMessage({
       model: this.settings.model,
@@ -1672,31 +1726,35 @@ Output JSON format:
       throw new Error('Conversation analysis JSON parsing failed');
     }
 
-    console.log('Conversation analysis result:', parsed);
+    console.log('[LLM分析结果]', parsed);
+    console.log('[生成的标题]', parsed.source_title);
 
-    // 4. Create conversation summary page
+    // 4. Create conversation summary page with semantic filename
     await this.ensureWikiStructure();
-    const date = new Date().toISOString().split('T')[0];
-    const summaryPath = `${this.settings.wikiFolder}/sources/conversation-${date}.md`;
+
+    // Generate semantic filename from title
+    const semanticSlug = slugify(parsed.source_title);
+    const summaryPath = `${this.settings.wikiFolder}/sources/${semanticSlug}.md`;
+    console.log('[语义化文件路径]', summaryPath);
 
     const summaryContent = `# ${parsed.source_title}
 
-> **Conversation Date**: ${date}
-> **Conversation Type**: User Query Extraction
+> **对话日期**: ${actualDate}
+> **对话类型**: 用户查询提炼
 
-## Conversation Topic
+## 对话主题
 
 ${parsed.summary}
 
-## Key Points
+## 关键要点
 
 ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
 
-## Related Entities
+## 相关实体
 
 ${parsed.entities.map((e: any) => `- [[entities/${slugify(e.name)}|${e.name}]] - ${e.summary}`).join('\n')}
 
-## Related Concepts
+## 相关概念
 
 ${parsed.concepts.map((c: any) => `- [[concepts/${slugify(c.name)}|${c.name}]] - ${c.summary}`).join('\n')}
 `;
@@ -1706,12 +1764,12 @@ ${parsed.concepts.map((c: any) => `- [[concepts/${slugify(c.name)}|${c.name}]] -
 
     // 5. Create entity pages (reuse existing logic)
     for (const entity of parsed.entities) {
-      await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: `conversation-${date}` } as any);
+      await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug } as any);
     }
 
     // 6. Create concept pages (reuse existing logic)
     for (const concept of parsed.concepts) {
-      await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: `conversation-${date}` } as any);
+      await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug } as any);
     }
 
     // 7. Update index and log
