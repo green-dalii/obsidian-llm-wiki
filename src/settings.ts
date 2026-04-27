@@ -114,7 +114,6 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       });
 
     // 2. API Key Input
-    const providerConfig = PREDEFINED_PROVIDERS[this.tempSettings.provider];
     const isOllama = this.tempSettings.provider === 'ollama';
 
     if (!isOllama) {
