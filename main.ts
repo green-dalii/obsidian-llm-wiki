@@ -2065,53 +2065,56 @@ class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
   }
 }
 
+// ==================== Conversational Query Modal ====================
+
 class QueryModal extends Modal {
-  onSubmit: (query: string) => void;
+  plugin: LLMWikiPlugin;
+  history: {
+    messages: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+      timestamp: number;
+    }>;
+  };
+  isStreaming: boolean;
+  accumulatedResponse: string;
+  currentResponseDiv: HTMLElement | null;
+  historyContainer: HTMLElement;
+  inputArea: HTMLTextAreaElement;
+  historyCountDisplay: HTMLElement;
 
-  constructor(app: App, onSubmit: (query: string) => void) {
+  constructor(app: App, plugin: LLMWikiPlugin) {
     super(app);
-    this.onSubmit = onSubmit;
+    this.plugin = plugin;
+    this.history = { messages: [] };
+    this.isStreaming = false;
+    this.accumulatedResponse = '';
+    this.currentResponseDiv = null;
+    this.historyContainer = null as any;
+    this.inputArea = null as any;
+    this.historyCountDisplay = null as any;
   }
 
   onOpen() {
+    // Will be implemented in Task 6
     const { contentEl } = this;
-    contentEl.createEl('h2', { text: '查询 Wiki' });
-
-    const input = contentEl.createEl('textarea', {
-      attr: { rows: '5', style: 'width: 100%' }
-    });
-
-    contentEl.createEl('button', { text: '查询' })
-      .addEventListener('click', () => {
-        this.onSubmit(input.value);
-        this.close();
-      });
+    contentEl.empty();
+    contentEl.createEl('h2', { text: 'Query Modal (Coming Soon)' });
   }
 
   onClose() {
-    this.contentEl.empty();
-  }
-}
-
-class AnswerModal extends Modal {
-  answer: string;
-
-  constructor(app: App, answer: string) {
-    super(app);
-    this.answer = answer;
+    const { contentEl } = this;
+    contentEl.empty();
   }
 
-  onOpen() {
-    this.contentEl.createEl('h2', { text: '回答' });
-    this.contentEl.createEl('div', {
-      text: this.answer,
-      attr: { style: 'white-space: pre-wrap; max-height: 60vh; overflow-y: auto;' }
-    });
-  }
-
-  onClose() {
-    this.contentEl.empty();
-  }
+  // Placeholder methods (implemented in Tasks 6-7)
+  async sendMessage(userMessage: string) {}
+  streamResponse(chunk: string) {}
+  renderMarkdownContent(content: string, container: HTMLElement) {}
+  renderHistoryMessage(role: 'user' | 'assistant', content: string) {}
+  limitHistory() {}
+  async saveToWiki() {}
+  clearHistory() {}
 }
 
 class LintReportModal extends Modal {
