@@ -1528,44 +1528,12 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
 
   async queryWiki() {
     if (!this.llmClient) {
-      new Notice('请先配置 API Key');
+      new Notice(TEXTS[this.settings.language].errorNoApiKey);
       return;
     }
 
-    new QueryModal(this.app, async (query) => {
-      try {
-        new Notice('正在查询 Wiki...');
-
-        const indexPath = `${this.settings.wikiFolder}/index.md`;
-        const indexContent = await this.tryReadFile(indexPath) || '';
-
-        const prompt = `你是一个 Wiki 知识库查询助手。
-
-Wiki 索引：
-${indexContent}
-
-用户问题：${query}
-
-请：
-1. 根据索引定位相关页面
-2. 综合这些页面的信息回答问题
-3. 在回答中引用来源页面 [[页面名]]
-4. 如果答案有价值，建议将其保存为新 Wiki 页面`;
-
-        const answer = await this.llmClient.createMessage({
-          model: this.settings.model,
-          max_tokens: 3000,
-          messages: [{ role: 'user', content: prompt }]
-        });
-
-        const cleanedAnswer = cleanMarkdownResponse(answer);
-        new AnswerModal(this.app, cleanedAnswer).open();
-
-      } catch (error) {
-        new Notice('查询失败');
-        console.error(error);
-      }
-    }).open();
+    // Open new conversational QueryModal
+    new QueryModal(this.app, this).open();
   }
 
   async lintWiki() {
