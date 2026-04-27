@@ -39,7 +39,7 @@
 4. 点击 **获取模型列表** 填充模型下拉框，或手动输入模型名
 5. 点击 **测试连接**，然后 **保存设置**
 
-**Ollama 本地模型（无需 API Key）：** 安装 [Ollama](https://ollama.com)，拉取模型（如 `ollama pull qwen2`），在 Provider 下拉选择 "Ollama (本地)"。
+**Ollama 本地模型（无需 API Key）：** 安装 [Ollama](https://ollama.com)，拉取模型（如 `ollama pull qwen3`），在 Provider 下拉选择 "Ollama (本地)"。
 
 ### 使用方式
 

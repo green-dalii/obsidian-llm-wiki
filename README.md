@@ -39,7 +39,7 @@
 4. Click **Fetch Models** to populate the model dropdown, or type a model name manually
 5. Click **Test Connection**, then **Save Settings**
 
-**Ollama (local, no API key):** Install [Ollama](https://ollama.com), pull a model (`ollama pull llama3`), select "Ollama (Local)" in the provider dropdown.
+**Ollama (local, no API key):** Install [Ollama](https://ollama.com), pull a model (`ollama pull gemma3`), select "Ollama (Local)" in the provider dropdown.
 
 > See [README_CN.md](README_CN.md) for provider-specific instructions in Chinese.
 
