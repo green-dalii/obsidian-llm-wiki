@@ -2106,6 +2106,41 @@ class LLMWikiSettingTab extends PluginSettingTab {
         .onChange((value) => {
           this.tempSettings.wikiFolder = value;
         }));
+
+    // ===== Query Configuration =====
+    containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
+    containerEl.createEl('h3', { text: TEXTS[this.plugin.settings.language].language === 'en'
+      ? 'Wiki Query Configuration'
+      : 'Wiki 查询配置'
+    });
+
+    new Setting(containerEl)
+      .setName(this.getText('maxConversationHistoryName'))
+      .setDesc(this.getText('maxConversationHistoryDesc'))
+      .addText(text => text
+        .setValue(this.tempSettings.maxConversationHistory.toString())
+        .setPlaceholder('10')
+        .onChange((value) => {
+          const parsed = parseInt(value);
+          if (parsed >= 1 && parsed <= 50) {
+            this.tempSettings.maxConversationHistory = parsed;
+          } else {
+            new Notice(
+              this.plugin.settings.language === 'en'
+                ? 'Please enter a number between 1-50'
+                : '请输入1-50之间的数字',
+              3000
+            );
+          }
+        }));
+
+    // Hint text
+    containerEl.createEl('p', {
+      text: this.getText('maxConversationHistoryHint'),
+      attr: {
+        style: 'color: #999; font-size: 11px; margin: 5px 0;'
+      }
+    });
   }
 }
 
