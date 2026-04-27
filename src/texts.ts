@@ -8,7 +8,7 @@ export const TEXTS = {
     conceptOrigin: 'Concept Origin:',
 
     // Features Section
-    featuresTitle: 'Features',
+    featuresTitle: 'Core Features',
     feature1: 'Multi-Provider LLM Support',
     feature2: 'Intelligent Source Ingestion',
     feature3: 'Bidirectional Wiki Links',
@@ -16,48 +16,79 @@ export const TEXTS = {
     feature5: 'Wiki Query Assistant',
     feature6: 'Auto Wiki Maintenance',
 
-    // Provider Settings
-    providerSection: 'LLM Provider Configuration',
-    providerLabel: 'LLM Provider',
-    providerAnthropic: 'Anthropic (Claude)',
-    providerOpenAI: 'OpenAI / OpenAI Compatible',
-    providerDeepSeek: 'DeepSeek',
-    providerKimi: 'Kimi (Moonshot)',
-    providerGLM: 'GLM (Zhipu AI)',
-    providerOllama: 'Ollama (Local)',
-    providerCustom: 'Custom OpenAI-Compatible',
-
-    apiKeyLabel: 'API Key',
-    apiKeyPlaceholder: 'Enter your API key',
-    baseUrlLabel: 'Base URL (Optional)',
-    baseUrlPlaceholder: 'Custom endpoint URL',
-    baseUrlHint: 'Override default API endpoint',
-
-    modelLabel: 'Model',
-    modelPlaceholder: 'Select or enter model name',
-    customModelOption: 'Use Custom Model Name',
-    customModelPlaceholder: 'Enter custom model name',
-
-    testConnectionButton: 'Test Connection',
-    fetchModelsButton: 'Fetch Available Models',
-    saveSettingsButton: 'Save Settings',
-    resetButton: 'Reset to Default',
-
-    connectionSuccess: 'Connection successful!',
-    connectionFailed: 'Connection failed: ',
-    modelsFetched: 'Available models fetched successfully',
-    modelsFetchFailed: 'Failed to fetch models: ',
-    settingsSaved: 'Settings saved successfully!',
-
-    // Wiki Settings
-    wikiSection: 'Wiki Configuration',
-    languageLabel: 'Interface Language',
+    // Language Switcher
+    languageTitle: 'Interface Language',
+    languageDesc: 'Select your preferred language for settings panel',
     languageEn: 'English',
     languageZh: 'Chinese (中文)',
-    sourceFolderLabel: 'Source Folder',
-    sourceFolderPlaceholder: 'sources',
-    wikiFolderLabel: 'Wiki Folder',
+
+    // Status
+    statusTitle: 'LLM Client Status',
+    statusInitialized: 'Initialized',
+    statusNotInitialized: 'Not initialized',
+    currentProvider: 'Current Provider',
+
+    // Provider Configuration
+    providerSection: 'LLM Provider Configuration',
+    providerName: 'LLM Provider',
+    providerDesc: 'Select predefined provider or custom OpenAI-compatible service',
+
+    // API Key
+    apiKeyName: 'API Key',
+    apiKeyDesc: 'Enter your API key from provider',
+    apiKeyPlaceholder: 'Enter API Key',
+
+    // Base URL
+    baseUrlName: 'API Base URL',
+    baseUrlDescCustom: 'Required: Custom OpenAI-compatible endpoint',
+    baseUrlDescOverride: 'Optional: Override preset Base URL',
+
+    // Ollama Hint
+    ollamaHint: 'Ollama runs locally, no API Key required',
+
+    // Model Selection
+    modelSection: 'Model Selection',
+    fetchModelsName: 'Fetch Available Models',
+    fetchModelsDesc: 'Get latest model list from Provider API',
+    fetchModelsButton: 'Fetch Models',
+    fetchingModels: 'Fetching...',
+    fetchSuccess: 'Success! {} models available',
+    fetchFailed: 'Failed or empty list, please input model name manually',
+    fetchNotSupported: 'Provider doesn\'t support model list query',
+
+    selectModelName: 'Select Model',
+    selectModelDesc: 'Choose from {} available models',
+    customInputOption: 'Custom input...',
+    customInputHint: 'To use other models, select "Custom input..."',
+
+    modelName: 'Model Name',
+    modelDescCustom: 'Using custom model (click above button to re-fetch list)',
+    modelDescRecommended: 'Recommended: {}',
+    modelDescManual: 'Manually input model name',
+
+    switchToDropdown: 'Switch to Dropdown Selection',
+    useDropdownButton: 'Use Dropdown',
+
+    // Test & Save
+    testConnectionName: 'Test Connection',
+    testConnectionDesc: 'Validate configuration can successfully call LLM API',
+    testButton: 'Test Connection',
+    testing: 'Testing...',
+
+    saveSettingsName: 'Save Settings',
+    saveSettingsDesc: 'Save current configuration',
+    saveButton: 'Save Settings',
+    savedNotice: 'Settings saved!',
+
+    // Wiki Folder
+    wikiSection: 'Wiki Folder Configuration',
+    wikiFolderName: 'Wiki Folder',
+    wikiFolderDesc: 'Location for generated Wiki pages',
     wikiFolderPlaceholder: 'wiki',
+
+    // Errors
+    errorNoApiKey: 'Please configure API Key first',
+    errorFetchFailed: 'Failed: {}',
 
     // Query Settings
     querySectionTitle: 'Wiki Query Configuration',
@@ -74,10 +105,9 @@ export const TEXTS = {
     queryModalClearButton: 'Clear History',
     queryModalHistoryCount: 'Conversation history: {}/{} rounds',
     queryModalStreaming: 'Streaming...',
-    queryModalHint: '💡 Queries based on Wiki content. Click "Save to Wiki" to extract valuable conversations as Wiki pages.',
+    queryModalHint: 'Queries based on Wiki content. Click "Save to Wiki" to extract valuable conversations as Wiki pages.',
 
     // Error Messages
-    errorNoApiKey: 'Please configure API Key first',
     errorLLMClientNotInit: 'LLM Client not initialized. Please save settings.',
     errorIngestFailed: 'Ingest failed: ',
     errorQueryFailed: 'Query failed: ',
@@ -108,9 +138,11 @@ export const TEXTS = {
     openaiSDK: 'OpenAI SDK',
 
     // Other
-    customInputOption: 'Custom (enter manually)',
     availableModelsLoading: 'Loading available models...',
     noModelsAvailable: 'No models available',
+
+    // LLM Language Hint
+    llmLanguageHint: 'Please answer in English.',
   },
 
   zh: {
@@ -120,7 +152,7 @@ export const TEXTS = {
     conceptOrigin: '概念来源：',
 
     // 功能部分
-    featuresTitle: '功能特性',
+    featuresTitle: '核心功能',
     feature1: '多 Provider LLM 支持',
     feature2: '智能源文件摄入',
     feature3: '双向 Wiki 链接',
@@ -128,48 +160,79 @@ export const TEXTS = {
     feature5: 'Wiki 查询助手',
     feature6: '自动 Wiki 维护',
 
+    // 语言切换
+    languageTitle: '界面语言',
+    languageDesc: '选择设置面板的显示语言',
+    languageEn: 'English (英文)',
+    languageZh: '中文',
+
+    // 状态
+    statusTitle: 'LLM Client 状态',
+    statusInitialized: '已初始化',
+    statusNotInitialized: '未初始化',
+    currentProvider: '当前提供商',
+
     // Provider 设置
     providerSection: 'LLM Provider 配置',
-    providerLabel: 'LLM Provider',
-    providerAnthropic: 'Anthropic (Claude)',
-    providerOpenAI: 'OpenAI / OpenAI 兼容',
-    providerDeepSeek: 'DeepSeek',
-    providerKimi: 'Kimi (Moonshot)',
-    providerGLM: 'GLM (智谱 AI)',
-    providerOllama: 'Ollama (本地)',
-    providerCustom: '自定义 OpenAI 兼容',
+    providerName: 'LLM Provider',
+    providerDesc: '选择预定义提供商或自定义 OpenAI 兼容服务',
 
-    apiKeyLabel: 'API Key',
-    apiKeyPlaceholder: '输入你的 API Key',
-    baseUrlLabel: 'Base URL (可选)',
-    baseUrlPlaceholder: '自定义 endpoint URL',
-    baseUrlHint: '覆盖默认 API endpoint',
+    // API Key
+    apiKeyName: 'API Key',
+    apiKeyDesc: '输入提供商的 API Key',
+    apiKeyPlaceholder: '输入 API Key',
 
-    modelLabel: '模型',
-    modelPlaceholder: '选择或输入模型名称',
-    customModelOption: '使用自定义模型名称',
-    customModelPlaceholder: '输入自定义模型名称',
+    // Base URL
+    baseUrlName: 'API Base URL',
+    baseUrlDescCustom: '必填：自定义 OpenAI 兼容服务的 endpoint',
+    baseUrlDescOverride: '可选：覆盖预设的 Base URL',
 
-    testConnectionButton: '测试连接',
-    fetchModelsButton: '获取可用模型',
-    saveSettingsButton: '保存设置',
-    resetButton: '重置为默认',
+    // Ollama 提示
+    ollamaHint: 'Ollama 本地运行，无需 API Key',
 
-    connectionSuccess: '连接成功！',
-    connectionFailed: '连接失败：',
-    modelsFetched: '可用模型获取成功',
-    modelsFetchFailed: '获取模型失败：',
-    settingsSaved: '设置保存成功！',
+    // 模型选择
+    modelSection: '模型选择',
+    fetchModelsName: '获取可用模型',
+    fetchModelsDesc: '从 Provider API 获取最新的模型列表',
+    fetchModelsButton: '获取模型列表',
+    fetchingModels: '获取中...',
+    fetchSuccess: '获取成功！共 {} 个可用模型',
+    fetchFailed: '获取失败或列表为空，请手动输入模型名称',
+    fetchNotSupported: '该 Provider 不支持模型列表查询',
 
-    // Wiki 设置
-    wikiSection: 'Wiki 配置',
-    languageLabel: '界面语言',
-    languageEn: '英文 (English)',
-    languageZh: '中文',
-    sourceFolderLabel: '源文件文件夹',
-    sourceFolderPlaceholder: 'sources',
-    wikiFolderLabel: 'Wiki 文件夹',
+    selectModelName: '选择模型',
+    selectModelDesc: '从 {} 个可用模型中选择',
+    customInputOption: '自定义输入...',
+    customInputHint: '如需使用其他模型，请选择"自定义输入..."',
+
+    modelName: '模型名称',
+    modelDescCustom: '当前使用自定义模型（可重新获取列表）',
+    modelDescRecommended: '推荐：{}',
+    modelDescManual: '手动输入模型名称',
+
+    switchToDropdown: '切换到下拉选择',
+    useDropdownButton: '使用下拉选择',
+
+    // 测试 & 保存
+    testConnectionName: '测试连接',
+    testConnectionDesc: '验证配置能否成功调用 LLM API',
+    testButton: '测试连接',
+    testing: '测试中...',
+
+    saveSettingsName: '保存设置',
+    saveSettingsDesc: '保存当前配置',
+    saveButton: '保存设置',
+    savedNotice: '设置已保存！',
+
+    // Wiki 文件夹
+    wikiSection: 'Wiki 文件夹配置',
+    wikiFolderName: 'Wiki 文件夹',
+    wikiFolderDesc: '存放生成的 Wiki 页面',
     wikiFolderPlaceholder: 'wiki',
+
+    // 错误
+    errorNoApiKey: '请先配置 API Key',
+    errorFetchFailed: '获取失败：{}',
 
     // Query 设置
     querySectionTitle: 'Wiki 查询配置',
@@ -186,10 +249,9 @@ export const TEXTS = {
     queryModalClearButton: '清空历史',
     queryModalHistoryCount: '对话历史: {}/{} 轮',
     queryModalStreaming: '流式生成中...',
-    queryModalHint: '💡 查询基于Wiki内容。点击"保存到Wiki"可将有价值对话提炼为Wiki页面。',
+    queryModalHint: '查询基于Wiki内容。点击"保存到Wiki"可将有价值对话提炼为Wiki页面。',
 
     // 错误消息
-    errorNoApiKey: '请先配置 API Key',
     errorLLMClientNotInit: 'LLM Client 未初始化。请保存设置。',
     errorIngestFailed: '摄入失败：',
     errorQueryFailed: '查询失败：',
@@ -220,8 +282,10 @@ export const TEXTS = {
     openaiSDK: 'OpenAI SDK',
 
     // 其他
-    customInputOption: '自定义（手动输入）',
     availableModelsLoading: '加载可用模型...',
     noModelsAvailable: '无可用模型',
+
+    // LLM 语言提示
+    llmLanguageHint: '请用中文回答。',
   }
 };
