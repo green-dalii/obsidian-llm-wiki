@@ -51,10 +51,14 @@ export interface WikiPage {
 
 export interface ProviderConfig {
   id: string;
-  name: string;
+  name: string; // Deprecated: use nameEn/nameZh instead
+  nameEn: string; // English provider name
+  nameZh: string; // Chinese provider name
   baseUrl: string;
   defaultModel: string;
   apiKeyPlaceholder: string;
+  apiKeyPlaceholderEn?: string; // English placeholder
+  apiKeyPlaceholderZh?: string; // Chinese placeholder
   requiresBaseUrl: boolean;
 }
 
@@ -107,65 +111,97 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
   anthropic: {
     id: 'anthropic',
     name: 'Anthropic (Claude)',
+    nameEn: 'Anthropic (Claude)',
+    nameZh: 'Anthropic (Claude)',
     baseUrl: '',
     defaultModel: 'claude-sonnet-4-6',
     apiKeyPlaceholder: 'sk-ant-...',
+    apiKeyPlaceholderEn: 'sk-ant-...',
+    apiKeyPlaceholderZh: 'sk-ant-...',
     requiresBaseUrl: false
   },
   openai: {
     id: 'openai',
     name: 'OpenAI',
+    nameEn: 'OpenAI',
+    nameZh: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
     defaultModel: 'gpt-4o',
     apiKeyPlaceholder: 'sk-...',
+    apiKeyPlaceholderEn: 'sk-...',
+    apiKeyPlaceholderZh: 'sk-...',
     requiresBaseUrl: false
   },
   deepseek: {
     id: 'deepseek',
     name: 'DeepSeek',
+    nameEn: 'DeepSeek',
+    nameZh: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
     defaultModel: 'deepseek-chat',
     apiKeyPlaceholder: 'sk-...',
+    apiKeyPlaceholderEn: 'sk-...',
+    apiKeyPlaceholderZh: 'sk-...',
     requiresBaseUrl: false
   },
   kimi: {
     id: 'kimi',
     name: 'Kimi (Moonshot)',
+    nameEn: 'Kimi (Moonshot)',
+    nameZh: 'Kimi (Moonshot)',
     baseUrl: 'https://api.moonshot.cn/v1',
     defaultModel: 'moonshot-v1-8k',
     apiKeyPlaceholder: 'sk-...',
+    apiKeyPlaceholderEn: 'sk-...',
+    apiKeyPlaceholderZh: 'sk-...',
     requiresBaseUrl: false
   },
   glm: {
     id: 'glm',
     name: 'GLM (智谱AI)',
+    nameEn: 'GLM (Zhipu AI)',
+    nameZh: 'GLM (智谱AI)',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     defaultModel: 'glm-4',
     apiKeyPlaceholder: '...',
+    apiKeyPlaceholderEn: '...',
+    apiKeyPlaceholderZh: '...',
     requiresBaseUrl: false
   },
   openrouter: {
     id: 'openrouter',
     name: 'OpenRouter',
+    nameEn: 'OpenRouter',
+    nameZh: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
     defaultModel: 'openai/gpt-4o',
     apiKeyPlaceholder: 'sk-or-...',
+    apiKeyPlaceholderEn: 'sk-or-...',
+    apiKeyPlaceholderZh: 'sk-or-...',
     requiresBaseUrl: false
   },
   ollama: {
     id: 'ollama',
     name: 'Ollama (本地)',
+    nameEn: 'Ollama (Local)',
+    nameZh: 'Ollama (本地)',
     baseUrl: 'http://localhost:11434/v1',
     defaultModel: 'llama3',
     apiKeyPlaceholder: 'ollama (无需Key)',
+    apiKeyPlaceholderEn: 'ollama (no Key required)',
+    apiKeyPlaceholderZh: 'ollama (无需Key)',
     requiresBaseUrl: false
   },
   custom: {
     id: 'custom',
     name: '自定义 OpenAI 兼容',
+    nameEn: 'Custom OpenAI-Compatible',
+    nameZh: '自定义 OpenAI 兼容',
     baseUrl: '',
     defaultModel: '',
     apiKeyPlaceholder: 'API Key',
+    apiKeyPlaceholderEn: 'API Key',
+    apiKeyPlaceholderZh: 'API Key',
     requiresBaseUrl: true
   }
 };

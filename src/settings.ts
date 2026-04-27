@@ -74,7 +74,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     // ===== Status Display =====
     const statusDiv = containerEl.createDiv({ cls: 'llm-wiki-status' });
     const clientStatus = this.plugin.llmClient ? this.getText('statusInitialized') : this.getText('statusNotInitialized');
-    const currentProvider = PREDEFINED_PROVIDERS[this.tempSettings.provider]?.name || 'Custom';
+    const providerConfig = PREDEFINED_PROVIDERS[this.tempSettings.provider];
+    const currentProvider = providerConfig
+      ? (this.tempSettings.language === 'en' ? providerConfig.nameEn : providerConfig.nameZh)
+      : 'Custom';
     statusDiv.createEl('p', {
       text: `${this.getText('statusTitle')}: ${clientStatus} | ${this.getText('currentProvider')}: ${currentProvider}`,
       attr: { style: 'margin-top: 20px; margin-bottom: 20px; font-weight: bold; font-size: 14px;' }
@@ -89,7 +92,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       .setDesc(this.getText('providerDesc'))
       .addDropdown(dropdown => {
         Object.values(PREDEFINED_PROVIDERS).forEach(config => {
-          dropdown.addOption(config.id, config.name);
+          const displayName = this.tempSettings.language === 'en'
+            ? config.nameEn
+            : config.nameZh;
+          dropdown.addOption(config.id, displayName);
         });
         dropdown.setValue(this.tempSettings.provider);
         dropdown.onChange((value) => {
