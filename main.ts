@@ -96,21 +96,19 @@ class AnthropicClient implements LLMClient {
     language: 'en' | 'zh';
     onChunk: (chunk: string) => void;
   }): Promise<string> {
-    // Add language instruction
-    const messagesWithLanguage = [
+    // Add auto-language detection instruction
+    const messagesWithLanguageHint = [
       ...params.messages,
       {
         role: 'user',
-        content: params.language === 'en'
-          ? 'Please answer in English.'
-          : '请用中文回答。'
+        content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
       }
     ];
 
     const stream = await this.client.messages.stream({
       model: params.model,
       max_tokens: params.max_tokens,
-      messages: messagesWithLanguage as any
+      messages: messagesWithLanguageHint as any
     });
 
     let fullResponse = '';
@@ -174,20 +172,18 @@ class OpenAIClient implements LLMClient {
     language: 'en' | 'zh';
     onChunk: (chunk: string) => void;
   }): Promise<string> {
-    const messagesWithLanguage = [
+    const messagesWithLanguageHint = [
       ...params.messages,
       {
         role: 'user',
-        content: params.language === 'en'
-          ? 'Please answer in English.'
-          : '请用中文回答。'
+        content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
       }
     ];
 
     const stream = await this.client.chat.completions.create({
       model: params.model,
       max_tokens: params.max_tokens,
-      messages: messagesWithLanguage as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+      messages: messagesWithLanguageHint as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
       stream: true
     });
 
