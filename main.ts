@@ -2387,7 +2387,35 @@ class QueryModal extends Modal {
       });
     }
   }
-  async saveToWiki() {}
+  async saveToWiki() {
+    if (this.history.messages.length === 0) return;
+
+    const texts = TEXTS[this.plugin.settings.language];
+    new Notice(
+      this.plugin.settings.language === 'en'
+        ? 'Saving conversation to Wiki...'
+        : '正在保存对话到Wiki...',
+      3000
+    );
+
+    try {
+      await this.plugin.ingestConversation(this.history);
+      new Notice(
+        this.plugin.settings.language === 'en'
+          ? 'Conversation saved to Wiki!'
+          : '对话已保存到Wiki！',
+        5000
+      );
+    } catch (error: any) {
+      console.error('Save failed:', error);
+      new Notice(
+        this.plugin.settings.language === 'en'
+          ? `Save failed: ${error.message}`
+          : `保存失败: ${error.message}`,
+        8000
+      );
+    }
+  }
   clearHistory() {
     this.history.messages = [];
     this.historyContainer.empty();
