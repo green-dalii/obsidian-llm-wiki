@@ -1599,7 +1599,140 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
     }
   }
 
-  // 测试 LLM Provider 连接
+  // Convert conversation to Wiki knowledge
+  async ingestConversation(history: {
+    messages: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+      timestamp: number;
+    }>;
+  }): Promise<void> {
+    if (!this.llmClient) {
+      throw new Error('LLM Client not initialized');
+    }
+
+    console.log('=== Starting conversation extraction ===');
+
+    // 1. Format conversation to structured text
+    const conversationText = this.formatConversation(history);
+
+    // 2. LLM analysis (similar to analyzeSource)
+    const analysisPrompt = `You are a Wiki knowledge extraction assistant.
+
+User conversation with AI:
+${conversationText}
+
+Convert this conversation into structured Wiki pages.
+
+Focus on:
+1. Extracting key knowledge points (not full conversation log)
+2. Identifying core concepts and entities discussed
+3. Summarizing conversation topic and conclusions
+
+Output JSON format:
+{
+  "source_title": "Conversation Summary - YYYY-MM-DD",
+  "summary": "Conversation topic summary",
+  "entities": [
+    {
+      "name": "Entity Name",
+      "type": "person|organization|project|other",
+      "summary": "Entity information summary"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "Concept Name",
+      "type": "theory|method|technology|term|other",
+      "summary": "Concept definition",
+      "related_concepts": ["Related Concept 1", "Related Concept 2"]
+    }
+  ],
+  "key_points": ["Point 1", "Point 2"],
+  "created_pages": [],
+  "updated_pages": []
+}`;
+
+    const analysis = await this.llmClient.createMessage({
+      model: this.settings.model,
+      max_tokens: 5000,
+      messages: [{
+        role: 'user',
+        content: analysisPrompt
+      }]
+    });
+
+    // 3. Parse JSON
+    const parsed = parseJsonResponse(analysis);
+    if (!parsed) {
+      throw new Error('Conversation analysis JSON parsing failed');
+    }
+
+    console.log('Conversation analysis result:', parsed);
+
+    // 4. Create conversation summary page
+    await this.ensureWikiStructure();
+    const date = new Date().toISOString().split('T')[0];
+    const summaryPath = `${this.settings.wikiFolder}/sources/conversation-${date}.md`;
+
+    const summaryContent = `# ${parsed.source_title}
+
+> **Conversation Date**: ${date}
+> **Conversation Type**: User Query Extraction
+
+## Conversation Topic
+
+${parsed.summary}
+
+## Key Points
+
+${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
+
+## Related Entities
+
+${parsed.entities.map((e: any) => `- [[entities/${slugify(e.name)}|${e.name}]] - ${e.summary}`).join('\n')}
+
+## Related Concepts
+
+${parsed.concepts.map((c: any) => `- [[concepts/${slugify(c.name)}|${c.name}]] - ${c.summary}`).join('\n')}
+`;
+
+    await this.createOrUpdateFile(summaryPath, summaryContent);
+    parsed.created_pages.push(summaryPath);
+
+    // 5. Create entity pages (reuse existing logic)
+    for (const entity of parsed.entities) {
+      await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: `conversation-${date}` } as any);
+    }
+
+    // 6. Create concept pages (reuse existing logic)
+    for (const concept of parsed.concepts) {
+      await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: `conversation-${date}` } as any);
+    }
+
+    // 7. Update index and log
+    await this.generateIndex();
+
+    console.log('=== Conversation extraction complete ===');
+    console.log('Created pages:', parsed.created_pages);
+  }
+
+  // Helper: format conversation history to text
+  formatConversation(history: {
+    messages: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+      timestamp: number;
+    }>;
+  }): string {
+    return history.messages.map(msg => {
+      const role = msg.role === 'user' ? '👤 User' : '🤖 Wiki';
+      const time = new Date(msg.timestamp).toLocaleTimeString();
+      return `### ${role} (${time})\n\n${msg.content}\n\n---\n`;
+    }).join('\n');
+  }
+
+  // Test LLM Provider connection
   async testLLMConnection(): Promise<{ success: boolean; message: string }> {
     console.log('测试 LLM 连接...');
     console.log('当前配置:', {
