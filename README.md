@@ -27,7 +27,13 @@
 
 ### Installation
 
-**Manual (recommended):** Download `main.js`, `manifest.json`, `styles.css` from [Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases), copy to `.obsidian/plugins/llm-wiki/`, enable in Settings → Community plugins.
+**Manual (recommended):**
+
+1. Download `main.js`, `manifest.json`, `styles.css` from [Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases)
+2. In Obsidian, go to Settings → Community plugins. On the **Installed plugins** tab, click the folder icon to open your plugins directory
+3. Create a folder named `llm-wiki`, drop the three files inside
+4. Back in Obsidian, click the refresh icon — **Karpathy LLM Wiki** will appear under Installed plugins
+5. Toggle it on to enable
 
 **Development:** `git clone`, `pnpm install`, `pnpm build`.
 

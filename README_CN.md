@@ -27,7 +27,13 @@
 
 ### 安装
 
-**手动安装（推荐）：** 从 [Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases) 下载 `main.js`、`manifest.json`、`styles.css`，复制到 `.obsidian/plugins/llm-wiki/`，在 设置 → 第三方插件 中启用。
+**手动安装（推荐）：**
+
+1. 从 [Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases) 下载 `main.js`、`manifest.json`、`styles.css`
+2. 在 Obsidian 中打开 设置 → 第三方插件，在 **已安装插件** 标签页点击文件夹图标，打开插件目录
+3. 新建一个 `llm-wiki` 文件夹，将三个文件放入其中
+4. 回到 Obsidian，点击刷新图标 — **Karpathy LLM Wiki** 会出现在已安装插件列表中
+5. 打开开关启用
 
 **开发构建：** `git clone` 后执行 `pnpm install` 和 `pnpm build`。
 
