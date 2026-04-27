@@ -2,7 +2,7 @@
 
 > 🤖 Karpathy 的 LLM Wiki 完整实现 - 多页面知识生成系统
 
-**作者:** green-dalii | **版本:** 1.1.0 | **状态:** 生产可用
+**作者:** green-dalii | **版本:** 1.2.0 | **状态:** 生产可用
 
 [English](README.md) | 中文文档
 

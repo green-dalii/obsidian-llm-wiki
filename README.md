@@ -236,4 +236,4 @@ We deeply thank **Andrej Karpathy** for sharing this innovative concept and insp
 
 ---
 
-**Version**: 1.0.8 | **Status**: Production Ready | **Author**: green-dalii
+**Version**: 1.2.0 | **Status**: Production Ready | **Author**: green-dalii
