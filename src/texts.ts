@@ -64,6 +64,7 @@ export const TEXTS = {
     maxConversationHistoryName: 'Max Conversation History',
     maxConversationHistoryDesc: 'Limit conversation messages to avoid token overflow',
     maxConversationHistoryHint: 'Recommended: not exceed 50 rounds',
+    numberRangeValidation: 'Please enter a number between 1-50',
 
     // Query Modal UI
     queryModalTitle: 'Query Wiki - Conversational Query',
@@ -175,6 +176,7 @@ export const TEXTS = {
     maxConversationHistoryName: '对话历史上限',
     maxConversationHistoryDesc: '限制对话消息数，避免超出LLM token限制',
     maxConversationHistoryHint: '推荐：不超过50轮',
+    numberRangeValidation: '请输入1-50之间的数字',
 
     // Query Modal UI
     queryModalTitle: 'Query Wiki - 对话式查询',

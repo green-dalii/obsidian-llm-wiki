@@ -323,11 +323,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
 
     // ===== Query Configuration =====
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
-    containerEl.createEl('h3', {
-      text: this.plugin.settings.language === 'en'
-        ? 'Wiki Query Configuration'
-        : 'Wiki 查询配置'
-    });
+    containerEl.createEl('h3', { text: this.getText('querySectionTitle') });
 
     new Setting(containerEl)
       .setName(this.getText('maxConversationHistoryName'))
@@ -340,12 +336,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           if (parsed >= 1 && parsed <= 50) {
             this.tempSettings.maxConversationHistory = parsed;
           } else {
-            new Notice(
-              this.plugin.settings.language === 'en'
-                ? 'Please enter a number between 1-50'
-                : '请输入1-50之间的数字',
-              3000
-            );
+            new Notice(this.getText('numberRangeValidation'), 3000);
           }
         }));
 
