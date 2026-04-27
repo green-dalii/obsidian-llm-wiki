@@ -1,6 +1,7 @@
 // Settings panel UI for LLM Wiki Plugin
 
 import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
+import OpenAI from 'openai';
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings } from './types';
 import { TEXTS } from './texts';
@@ -172,23 +173,17 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           button.setDisabled(true);
 
           try {
-            // Temporarily initialize client to fetch models
-            let tempClient: any;
             const apiKey = isOllama ? 'ollama' : this.tempSettings.apiKey.trim();
             const baseUrl = this.tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
 
             if (this.tempSettings.provider === 'anthropic') {
-              const Anthropic = require('@anthropic-ai/sdk').default;
-              tempClient = new Anthropic({ apiKey: this.tempSettings.apiKey.trim() });
-              // Anthropic doesn't have listModels API, return preset list
               this.tempSettings.availableModels = [
                 'claude-sonnet-4-6',
                 'claude-opus-4-7',
                 'claude-haiku-4-5-20251001'
               ];
             } else {
-              const OpenAI = require('openai').default;
-              tempClient = new OpenAI({
+              const tempClient = new OpenAI({
                 apiKey,
                 baseURL: baseUrl || 'https://api.openai.com/v1',
                 dangerouslyAllowBrowser: true

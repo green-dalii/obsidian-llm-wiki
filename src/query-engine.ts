@@ -3,6 +3,7 @@
 import { App, Modal, Notice, MarkdownRenderer } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { TEXTS } from './texts';
+import { parseJsonResponse } from './utils';
 
 export class QueryModal extends Modal {
   plugin: LLMWikiPlugin;
@@ -272,10 +273,6 @@ export class QueryModal extends Modal {
         .replace('{}', currentRounds.toString())
         .replace('{}', maxRounds.toString())
     );
-  }
-
-  streamResponse(chunk: string) {
-    this.accumulatedResponse += chunk;
   }
 
   renderMarkdownContent(content: string, container: HTMLElement) {
@@ -564,16 +561,8 @@ ${indexContent}
 
       console.log('[LLM响应] 原始响应:', response);
 
-      const cleanedResponse = response.trim();
-      const jsonMatch = cleanedResponse.match(/\{[^}]*"relevant_pages"[^}]*\}/);
-
-      if (!jsonMatch) {
-        console.error('[解析失败] 未找到JSON对象');
-        return [];
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
-      const pages = parsed.relevant_pages || [];
+      const parsed = await parseJsonResponse(response);
+      const pages = parsed?.relevant_pages || [];
 
       console.log('[解析成功] 页面列表:', pages);
       return pages;

@@ -1,6 +1,6 @@
 // Wiki Engine - Core Wiki ingestion and management logic
 
-import { App, TFile, Notice, TFolder } from 'obsidian';
+import { App, TFile, Notice } from 'obsidian';
 import {
   LLMWikiSettings,
   LLMClient,
@@ -33,10 +33,6 @@ export class WikiEngine {
     const c = this.getLLMClient();
     if (!c) throw new Error('LLM Client not initialized');
     return c;
-  }
-
-  async selectSourceToIngest(getFileCallback: (file: TFile) => void) {
-    // Delegate to plugin's modal logic
   }
 
   async ingestSource(file: TFile) {
