@@ -2406,11 +2406,19 @@ class QueryModal extends Modal {
     this.isStreaming = true;
     this.accumulatedResponse = '';
 
-    // 5. Build LLM messages (convert history format)
-    const llmMessages = this.history.messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
+    // 5. Build LLM messages with Wiki context
+    const wikiContext = await this.buildWikiContext(userMessage);
+
+    const llmMessages = [
+      {
+        role: 'system',
+        content: wikiContext
+      },
+      ...this.history.messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
+    ];
 
     // 6. Call streaming API
     try {
@@ -2590,15 +2598,119 @@ class QueryModal extends Modal {
         : '历史已清空',
       2000
     );
+  }
 
-    // Update count display
-    const texts = TEXTS[this.plugin.settings.language];
-    const maxRounds = this.plugin.settings.maxConversationHistory;
-    this.historyCountDisplay.setText(
-      texts.queryModalHistoryCount
-        .replace('{}', '0')
-        .replace('{}', maxRounds.toString())
-    );
+  async buildWikiContext(userMessage: string): Promise<string> {
+    try {
+      // 1. Read index.md
+      const indexPath = `${this.plugin.settings.wikiFolder}/index.md`;
+      const indexContent = await this.plugin.tryReadFile(indexPath);
+
+      if (!indexContent) {
+        return this.plugin.settings.language === 'en'
+          ? 'You are a Wiki assistant. The Wiki is empty. Please answer based on your knowledge and suggest the user ingest sources first.'
+          : '你是Wiki助手。Wiki目前为空。请基于你的知识回答，并建议用户先摄入源文件。';
+      }
+
+      // 2. Search for relevant pages based on user query
+      const relevantPages = await this.searchRelevantPages(userMessage, indexContent);
+
+      // 3. Load relevant page content
+      const pagesContent = await this.loadRelevantPages(relevantPages);
+
+      // 4. Build Wiki context system message
+      const wikiContext = this.plugin.settings.language === 'en'
+        ? `You are a Wiki assistant with access to a structured knowledge base.
+
+Wiki Index:
+${indexContent}
+
+Relevant Pages:
+${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : 'No directly relevant pages found.'}
+
+Instructions:
+- Answer based on the Wiki knowledge above
+- Cite sources with [[wiki-links]] when referencing Wiki pages
+- If Wiki lacks relevant information, acknowledge it and suggest ingesting more sources
+- Respond in the same language as the user's question`
+        : `你是Wiki助手，拥有结构化知识库的访问权限。
+
+Wiki索引：
+${indexContent}
+
+相关页面：
+${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未找到直接相关的页面。'}
+
+指令：
+- 基于上述Wiki知识回答问题
+- 引用Wiki页面时使用[[wiki-links]]格式
+- 如果Wiki缺少相关信息，请如实说明并建议摄入更多源文件
+- 请用与用户提问相同的语言回答`;
+
+      return wikiContext;
+    } catch (error: any) {
+      console.error('Failed to build Wiki context:', error);
+      return this.plugin.settings.language === 'en'
+        ? 'You are a Wiki assistant. Failed to load Wiki context. Please answer based on your knowledge.'
+        : '你是Wiki助手。加载Wiki上下文失败。请基于你的知识回答。';
+    }
+  }
+
+  async searchRelevantPages(query: string, indexContent: string): Promise<string[]> {
+    // Extract all page entries from index.md
+    const pageEntries = indexContent.match(/- \[\[([^\]]+)\]\]/g) || [];
+
+    if (pageEntries.length === 0) {
+      return [];
+    }
+
+    // Simple keyword matching: query words vs page title/summary
+    const queryKeywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 2);
+
+    const scoredPages = pageEntries.map(entry => {
+      const titleMatch = entry.match(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/);
+      const title = titleMatch ? titleMatch[1] : '';
+
+      // Extract summary (text after ' - ' if exists)
+      const summaryMatch = entry.match(/\]\] - (.+)$/);
+      const summary = summaryMatch ? summaryMatch[1] : '';
+
+      // Calculate relevance score
+      let score = 0;
+      for (const keyword of queryKeywords) {
+        if (title.toLowerCase().includes(keyword)) score += 2;
+        if (summary.toLowerCase().includes(keyword)) score += 1;
+      }
+
+      return { title, score };
+    });
+
+    // Sort by score, take top 3 pages
+    const topPages = scoredPages
+      .filter(p => p.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(p => p.title);
+
+    return topPages;
+  }
+
+  async loadRelevantPages(pageTitles: string[]): Promise<string[]> {
+    const pages: string[] = [];
+
+    for (const title of pageTitles) {
+      // Handle both "entities/page-name" and "page-name" formats
+      const pagePath = title.includes('/')
+        ? `${this.plugin.settings.wikiFolder}/${title}.md`
+        : `${this.plugin.settings.wikiFolder}/${title}.md`;
+
+      const content = await this.plugin.tryReadFile(pagePath);
+      if (content) {
+        pages.push(`## ${title}\n\n${content}`);
+      }
+    }
+
+    return pages;
   }
 }
 
