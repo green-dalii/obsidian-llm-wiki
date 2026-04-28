@@ -68,37 +68,37 @@ export default class LLMWikiPlugin extends Plugin {
     // 注册命令
     this.addCommand({
       id: 'ingest-source',
-      name: 'Ingest single source (摄入单个源文件)',
+      name: 'Ingest single source',
       callback: () => this.selectSourceToIngest()
     });
 
     this.addCommand({
       id: 'ingest-folder',
-      name: 'Ingest from folder (从文件夹批量摄入)',
+      name: 'Ingest from folder',
       callback: () => this.selectFolderToIngest()
     });
 
     this.addCommand({
       id: 'query-wiki',
-      name: 'Query wiki (查询 wiki)',
+      name: 'Query wiki',
       callback: () => this.queryWiki()
     });
 
     this.addCommand({
       id: 'lint-wiki',
-      name: 'Lint wiki (维护 wiki)',
+      name: 'Lint wiki',
       callback: () => this.lintWiki()
     });
 
     this.addCommand({
       id: 'regenerate-index',
-      name: 'Regenerate index (重新生成索引)',
+      name: 'Regenerate index',
       callback: () => this.wikiEngine.generateIndexFromEngine()
     });
 
     this.addCommand({
       id: 'suggest-schema-update',
-      name: 'Suggest schema updates (建议 Schema 更新)',
+      name: 'Suggest schema updates',
       callback: () => this.suggestSchemaUpdate()
     });
 
