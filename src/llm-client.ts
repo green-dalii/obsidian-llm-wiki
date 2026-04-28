@@ -101,7 +101,7 @@ export class OpenAIClient implements LLMClient {
     const response = await this.client.chat.completions.create({
       model: params.model,
       max_tokens: params.max_tokens,
-      messages: messagesWithSystem as OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+      messages: messagesWithSystem
     });
     return response.choices[0]?.message?.content || '';
   }

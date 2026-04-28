@@ -77,7 +77,7 @@ export async function parseJsonResponse(
 
     // Step 2: Try direct parsing
     try {
-      const result = JSON.parse(cleaned);
+      const result = JSON.parse(cleaned) as Record<string, unknown>;
       console.debug('✅ 直接解析成功');
       return result;
     } catch {
@@ -89,7 +89,7 @@ export async function parseJsonResponse(
     if (jsonMatch) {
       console.debug('找到 JSON 对象，长度:', jsonMatch[0].length);
       try {
-        const result = JSON.parse(jsonMatch[0]);
+        const result = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
         console.debug('✅ 提取后解析成功');
         return result;
       } catch (extractError) {
@@ -100,7 +100,7 @@ export async function parseJsonResponse(
         // Remove trailing commas
         let fixedJson = jsonMatch[0].replace(/,\s*\}/g, '}').replace(/,\s*\]/g, ']');
         try {
-          const result = JSON.parse(fixedJson);
+          const result = JSON.parse(fixedJson) as Record<string, unknown>;
           console.debug('✅ 修复后解析成功');
           return result;
         } catch (fixError) {
@@ -115,7 +115,7 @@ export async function parseJsonResponse(
       console.debug('尝试 LLM 修复 JSON，长度:', brokenJson.length);
       try {
         const repaired = await repairFn(brokenJson);
-        const result = JSON.parse(repaired.trim());
+        const result = JSON.parse(repaired.trim()) as Record<string, unknown>;
         console.debug('✅ LLM 修复后解析成功');
         return result;
       } catch (repairError) {

@@ -162,7 +162,7 @@ export class QueryModal extends Modal {
     });
 
     this.currentResponseDiv.createEl('strong', {
-      text: '🤖 wiki:',
+      text: 'Wiki:',
       cls: 'llm-wiki-query-response-strong'
     });
 
