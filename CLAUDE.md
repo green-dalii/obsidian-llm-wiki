@@ -2,7 +2,7 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2025-04-26
+**Last Updated:** 2026-04-29
 
 ---
 
@@ -199,6 +199,157 @@ Per the [official PR template](https://raw.githubusercontent.com/obsidianmd/obsi
 - ✅ **Async operations:** Use async/await, avoid blocking UI
 - ✅ **Batch processing:** Process multiple files with progress tracking
 - ✅ **Error recovery:** Catch errors without crashing plugin
+
+### Automated Code Review (ObsidianReviewBot) — Required Rules
+
+The bot runs `eslint-plugin-obsidianmd` on every PR. These are the most common rejection reasons, ordered by frequency:
+
+#### 1. Sentence Case for UI Text (`ui/sentence-case`)
+**All user-facing text MUST use sentence case.** Only the first word and proper nouns are capitalized.
+```typescript
+// ❌ Wrong
+new Notice('Please Configure API Key First');
+new Notice('请输入 API Key');  // mixed Chinese-English also flagged
+
+// ✅ Correct
+new Notice('Please configure API key first');
+new Notice(TEXTS[this.settings.language].errorNoApiKey);  // use i18n system
+```
+**Rule:** Never hardcode Chinese strings. Always use `TEXTS[this.settings.language].xxx`.
+
+#### 2. Promise Handling (`no-floating-promises`)
+**Promises must be awaited, `.catch()`'d, or explicitly `void`'d.**
+```typescript
+// ❌ Wrong
+this.autoMaintainManager.runStartupCheck();  // returns Promise, not handled
+
+// ✅ Correct
+void this.autoMaintainManager.runStartupCheck();  // fire-and-forget
+await this.autoMaintainManager.runStartupCheck();  // awaited
+```
+
+#### 3. Promise in Void Callback (`no-misused-promises`)
+**Callbacks expecting `void` must not return a Promise.**
+```typescript
+// ❌ Wrong
+button.onClick(() => this.asyncMethod());  // returns Promise
+
+// ✅ Correct
+button.onClick(() => { void this.asyncMethod(); });
+```
+
+#### 4. No `console.log` — Only `console.debug/warn/error`
+```typescript
+// ❌ Wrong
+console.log('debug info');
+
+// ✅ Correct
+console.debug('debug info');  // only these 3 methods allowed
+```
+
+#### 5. No `any` Type (`no-explicit-any`)
+```typescript
+// ❌ Wrong
+function process(data: any) { }
+catch (error: any) { }
+
+// ✅ Correct
+function process(data: unknown) { }
+catch (error) { /* implicit unknown */ }
+```
+
+#### 6. Unnecessary Type Assertions
+```typescript
+// ❌ Wrong
+const file = vault.getAbstractFileByPath(path) as TFile;
+
+// ✅ Correct
+const file = vault.getAbstractFileByPath(path);
+if (file instanceof TFile) { /* narrowed safely */ }
+```
+
+#### 7. Use `Setting().setHeading()` not HTML Elements
+```typescript
+// ❌ Wrong
+containerEl.createEl('h2', { text: 'Section Title' });
+
+// ✅ Correct
+new Setting(containerEl).setName('Section Title').setHeading();
+```
+
+#### 8. No Inline Styles — Use CSS Classes
+```typescript
+// ❌ Wrong
+element.style.display = 'none';
+element.style.width = '100%';
+
+// ✅ Correct
+element.addClass('llm-wiki-hidden');
+```
+
+#### 9. Async Methods Must Use `await`
+```typescript
+// ❌ Wrong
+private async hasChanges(): Promise<boolean> {
+  return this.files.length > 0;  // no await — remove async!
+}
+
+// ✅ Correct
+private hasChanges(): boolean {
+  return this.files.length > 0;
+}
+```
+
+#### 10. Use `Vault#configDir` not Hardcoded `.obsidian`
+```typescript
+// ❌ Wrong
+const configPath = '.obsidian/plugins/...';
+
+// ✅ Correct
+const configPath = this.app.vault.configDir + '/plugins/...';
+```
+
+#### 11. Avoid Deprecated APIs
+```typescript
+// ❌ Wrong
+MarkdownRenderer.renderMarkdown(...);  // deprecated
+
+// ✅ Correct
+MarkdownRenderer.render(...);  // current API
+```
+
+#### 12. Plugin Instance as Component (Memory Leak Risk)
+```typescript
+// ❌ Wrong
+MarkdownRenderer.render(app, content, container, '', this);  // plugin 'this' too long-lived
+
+// ✅ Correct
+MarkdownRenderer.render(app, content, container, '', component);  // use proper Component
+```
+
+#### 13. Command Names Must Not Include Plugin Name
+```typescript
+// ❌ Wrong (plugin name already shown in UI)
+name: 'LLM Wiki: Ingest source'
+
+// ✅ Correct
+name: 'Ingest single source'
+```
+
+#### 14. No `v` Prefix on Version Tags
+- `1.4.0` ✅
+- `v1.4.0` ❌
+
+#### 15. Plugin Description Rules
+- Must NOT contain "Obsidian" word
+- Must end with `.`, `?`, or `!`
+- Must match between `manifest.json` and PR description
+
+#### Local Validation
+```bash
+pnpm lint  # runs eslint-plugin-obsidianmd on src/
+```
+**Always run `pnpm lint` before pushing.** If it passes, the bot will pass (for code issues). PR metadata issues (template, description mismatch) are separate.
 
 ---
 
