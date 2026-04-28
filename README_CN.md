@@ -57,11 +57,11 @@
 
 | 模型 | 上下文窗口 | 推荐理由 |
 |------|-----------|----------|
-| **DeepSeek V4** | **1M tokens** | **首选推荐 — 100万上下文 + 极低价格，中文能力出色，最适合构建大型 Wiki** |
-| **Gemini 3.1 Pro** | **1M+ tokens** | **最大上下文窗口，推理能力强（ARC-AGI-2 77.1%），适合超大型 Wiki** |
-| **Claude Opus 4.7** | **200K tokens** | **最强推理和指令遵循能力，适合复杂多页面综合** |
-| **Claude Sonnet 4.6** | 200K tokens | 速度、成本与质量的良好平衡，适合中型 Wiki |
-| **GPT-5.4** | 400K+ tokens | OpenAI 最新旗舰模型，综合表现优秀 |
+| **DeepSeek V4** | 1M tokens | **首选推荐 — 极低价格，中文能力出色，最适合构建大型 Wiki** |
+| **Gemini 3.1 Pro** | 1M+ tokens | **最大上下文窗口，推理能力强（ARC-AGI-2 77.1%），适合超大型 Wiki** |
+| **Claude Opus 4.7** | 1M tokens | **最强智能体编程和推理能力，适合复杂多页面综合** |
+| **GPT-5.5** | 1M tokens | **OpenAI 最新旗舰（2026年4月），AI 智能指数榜首，知识工作表现出色** |
+| **Claude Sonnet 4.6** | 1M tokens | 速度、成本与质量的良好平衡，适合中型 Wiki |
 
 对于本地模型（Ollama）：上下文窗口通常较小（8K-128K），建议限制 Wiki 规模，或使用云端 Provider 做摄入 + 本地模型做查询。
 

@@ -59,11 +59,11 @@ This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not
 
 | Model | Context Window | Why |
 |-------|---------------|-----|
-| **DeepSeek V4** | **1M tokens** | **Best value — 1M context at ultra-low pricing. Ideal for large Wikis. Strong Chinese support.** |
-| **Gemini 3.1 Pro** | **1M+ tokens** | **Largest context window, strong reasoning (ARC-AGI-2 77.1%). Excellent for very large Wikis.** |
-| **Claude Opus 4.7** | **200K tokens** | **Strongest reasoning and instruction-following. Best for complex multi-page synthesis.** |
-| **Claude Sonnet 4.6** | 200K tokens | Great balance of speed, cost, and quality for mid-size Wikis |
-| **GPT-5.4** | 400K+ tokens | Latest OpenAI flagship, solid all-around option |
+| **DeepSeek V4** | 1M tokens | **Best value — ultra-low pricing, strong Chinese support. Ideal for large Wikis.** |
+| **Gemini 3.1 Pro** | 1M+ tokens | **Largest context window. Strong reasoning (ARC-AGI-2 77.1%). Excellent for very large Wikis.** |
+| **Claude Opus 4.7** | 1M tokens | **Strongest agentic coding and reasoning. Best for complex multi-page synthesis.** |
+| **GPT-5.5** | 1M tokens | **Latest OpenAI flagship (Apr 2026). Top AI intelligence index. Excellent for knowledge work.** |
+| **Claude Sonnet 4.6** | 1M tokens | Great balance of speed, cost, and quality for mid-size Wikis |
 
 For local models (Ollama): context windows are typically smaller (8K–128K). Consider limiting Wiki scope or using a cloud provider for ingestion + local model for query.
 
