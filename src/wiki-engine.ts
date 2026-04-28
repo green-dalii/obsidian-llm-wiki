@@ -58,6 +58,8 @@ export class WikiEngine {
     console.debug('源文件:', file.path);
     this.onProgress?.(`Analyzing: ${file.basename}`);
 
+    const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
+
     try {
       await this.ensureWikiStructure();
 
@@ -69,37 +71,93 @@ export class WikiEngine {
 
       const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
       let step = 1;
+
+      // Summary
       this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
+      await this.apiDelay();
       const summaryPage = await this.createSummaryPage(file, analysis);
       analysis.created_pages.push(summaryPage);
 
+      // Entities — tolerate individual failures
       for (const entity of analysis.entities) {
         step++;
         this.onProgress?.(`[${step}/${totalSteps}] Entity: ${entity.name}`);
-        const entityPage = await this.createOrUpdateEntityPage(entity, analysis, file);
-        if (entityPage) {
-          analysis.created_pages.push(entityPage);
+        await this.apiDelay();
+        try {
+          const entityPage = await this.createOrUpdateEntityPage(entity, analysis, file);
+          if (entityPage) {
+            analysis.created_pages.push(entityPage);
+          }
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.error(`Entity "${entity.name}" failed:`, reason);
+          failedItems.push({ type: 'entity', name: entity.name, reason });
+
+          // Auto-retry once
+          try {
+            await this.apiDelay(2000);
+            const retryPage = await this.createOrUpdateEntityPage(entity, analysis, file);
+            if (retryPage) {
+              analysis.created_pages.push(retryPage);
+              console.debug(`Entity "${entity.name}" recovered on retry`);
+              failedItems.pop();
+            }
+          } catch {
+            console.error(`Entity "${entity.name}" retry also failed`);
+          }
         }
       }
 
+      // Concepts — tolerate individual failures
       for (const concept of analysis.concepts) {
         step++;
         this.onProgress?.(`[${step}/${totalSteps}] Concept: ${concept.name}`);
-        const conceptPage = await this.createOrUpdateConceptPage(concept, analysis, file);
-        if (conceptPage) {
-          analysis.created_pages.push(conceptPage);
+        await this.apiDelay();
+        try {
+          const conceptPage = await this.createOrUpdateConceptPage(concept, analysis, file);
+          if (conceptPage) {
+            analysis.created_pages.push(conceptPage);
+          }
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.error(`Concept "${concept.name}" failed:`, reason);
+          failedItems.push({ type: 'concept', name: concept.name, reason });
+
+          // Auto-retry once
+          try {
+            await this.apiDelay(2000);
+            const retryPage = await this.createOrUpdateConceptPage(concept, analysis, file);
+            if (retryPage) {
+              analysis.created_pages.push(retryPage);
+              console.debug(`Concept "${concept.name}" recovered on retry`);
+              failedItems.pop();
+            }
+          } catch {
+            console.error(`Concept "${concept.name}" retry also failed`);
+          }
         }
       }
 
+      // Related pages — tolerate individual failures
       for (const relatedPageName of analysis.related_pages) {
         step++;
         this.onProgress?.(`[${step}/${totalSteps}] Updating: ${relatedPageName}`);
-        await this.updateRelatedPage(relatedPageName, analysis);
-        analysis.updated_pages.push(relatedPageName);
+        await this.apiDelay();
+        try {
+          await this.updateRelatedPage(relatedPageName, analysis);
+          analysis.updated_pages.push(relatedPageName);
+        } catch (error) {
+          console.error(`Related page "${relatedPageName}" update failed, continuing...`, error);
+        }
       }
 
+      // Contradictions
       for (const contradiction of analysis.contradictions) {
-        await this.noteContradiction(contradiction);
+        try {
+          await this.noteContradiction(contradiction);
+        } catch {
+          // non-critical
+        }
       }
 
       step++;
@@ -107,18 +165,52 @@ export class WikiEngine {
       await this.generateIndexFromEngine();
       await this.updateLog('ingest', analysis);
 
-      const message = `摄入成功: 创建 ${analysis.created_pages.length} 页, 更新 ${analysis.updated_pages.length} 页`;
+      // Detailed summary report
+      const created = analysis.created_pages.length;
+      const updated = analysis.updated_pages.length;
+      const failed = failedItems.length;
+
+      let message = `摄入完成: 创建 ${created} 页, 更新 ${updated} 页`;
+      if (failed > 0) {
+        message += `, ${failed} 项失败`;
+      }
       console.debug('=== 摄入流程完成 ===');
       console.debug(message);
-      new Notice(message, 5000);
+      new Notice(message, failed > 0 ? 10000 : 5000);
+
+      if (failedItems.length > 0) {
+        console.warn('失败项目:', failedItems);
+        const detailList = failedItems
+          .slice(0, 5)
+          .map(f => `  - ${f.type === 'entity' ? '实体' : '概念'}: ${f.name}`)
+          .join('\n');
+        const more = failedItems.length > 5 ? `\n  ...及其他 ${failedItems.length - 5} 项` : '';
+        new Notice(
+          `以下项目未能摄入:\n${detailList}${more}\n\n建议：稍后重新摄入此文件，或检查 API 提供商配额`,
+          15000
+        );
+      }
 
     } catch (error) {
       console.error('=== 摄入流程失败 ===');
       console.error('错误:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      new Notice(`摄入失败: ${errorMsg}`, 8000);
+
+      // If we had partial progress, don't lose that info
+      if (analysis?.created_pages.length || analysis?.updated_pages.length) {
+        new Notice(
+          `摄入部分成功但最终失败: ${errorMsg}\n已创建 ${analysis.created_pages.length} 页, 更新 ${analysis.updated_pages.length} 页。\n稍后重新摄入此文件以拾取剩余内容。`,
+          15000
+        );
+      } else {
+        new Notice(`摄入失败: ${errorMsg}`, 8000);
+      }
       throw error;
     }
+  }
+
+  private async apiDelay(ms?: number): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, ms || 300));
   }
 
   async ensureWikiStructure() {
@@ -750,16 +842,26 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
     parsed.created_pages.push(summaryPath);
 
     for (const entity of parsed.entities) {
-      const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug });
-      if (entityPage) {
-        parsed.created_pages.push(entityPage);
+      await this.apiDelay();
+      try {
+        const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug });
+        if (entityPage) {
+          parsed.created_pages.push(entityPage);
+        }
+      } catch (error) {
+        console.error(`Conversation entity "${entity.name}" failed:`, error);
       }
     }
 
     for (const concept of parsed.concepts) {
-      const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug });
-      if (conceptPage) {
-        parsed.created_pages.push(conceptPage);
+      await this.apiDelay();
+      try {
+        const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug });
+        if (conceptPage) {
+          parsed.created_pages.push(conceptPage);
+        }
+      } catch (error) {
+        console.error(`Conversation concept "${concept.name}" failed:`, error);
       }
     }
 
