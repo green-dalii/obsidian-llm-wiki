@@ -98,10 +98,10 @@ export class AutoMaintainManager {
 
     if (delay <= 0) {
       // Max wait exceeded, process immediately
-      this.processBatch();
+      void this.processBatch();
     } else {
       this.debounceTimer = window.setTimeout(
-        () => this.processBatch(),
+        () => { void this.processBatch(); },
         delay
       );
     }
@@ -110,7 +110,7 @@ export class AutoMaintainManager {
   markRecentWrite(path: string): void {
     this.recentWrites.add(path);
     // Auto-expire after 120 seconds (covers slow LLM responses)
-    setTimeout(() => {
+    activeWindow.setTimeout(() => {
       this.recentWrites.delete(path);
     }, 120000);
   }
@@ -186,13 +186,15 @@ export class AutoMaintainManager {
         : 7 * 24 * 60 * 60 * 1000;
 
     this.lintIntervalId = this.plugin.registerInterval(
-      window.setInterval(async () => {
-        console.debug('AutoMaintain: Periodic lint tick...');
-        try {
-          await this.runLint();
-        } catch (error) {
-          console.error('Scheduled lint failed:', error);
-        }
+      window.setInterval(() => {
+        void (async () => {
+          console.debug('AutoMaintain: Periodic lint tick...');
+          try {
+            await this.runLint();
+          } catch (error) {
+            console.error('Scheduled lint failed:', error);
+          }
+        })();
       }, intervalMs)
     );
 
@@ -214,7 +216,7 @@ export class AutoMaintainManager {
       return;
     }
 
-    new Notice('Running scheduled Wiki lint...', 3000);
+    new Notice('Running scheduled wiki lint...', 3000);
     this.lastLintTimestamp = Date.now();
 
     if (this.lintCallback) {
@@ -250,7 +252,7 @@ export class AutoMaintainManager {
 
   async runStartupCheck(): Promise<void> {
     // Wait for vault to settle after startup
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => activeWindow.setTimeout(resolve, 3000));
 
     const pages = this.wikiEngine.getExistingWikiPages();
     const entities = pages.filter(p => p.path.includes('/entities/')).length;

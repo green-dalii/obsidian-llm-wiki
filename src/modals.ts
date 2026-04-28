@@ -72,7 +72,7 @@ export class LintReportModal extends Modal {
 
   onOpen() {
     this.contentEl.createEl('h2', { text: 'Wiki 维护报告' });
-    this.contentEl.createEl('div', {
+    this.contentEl.createDiv({
       text: this.report,
       attr: { style: 'white-space: pre-wrap; max-height: 60vh; overflow-y: auto;' }
     });
@@ -82,7 +82,7 @@ export class LintReportModal extends Modal {
         attr: { style: 'margin-top: 16px; text-align: right;' }
       });
       buttonRow.createEl('button', {
-        text: 'Suggest Schema Updates',
+        text: 'Suggest schema updates',
         cls: 'mod-cta'
       }).addEventListener('click', () => {
         this.onSuggestSchema?.();

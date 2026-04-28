@@ -1,6 +1,6 @@
 // Wiki Engine - Core Wiki ingestion and management logic
 
-import { App, TFile, Notice } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import {
   LLMWikiSettings,
   LLMClient,
@@ -177,7 +177,7 @@ export class WikiEngine {
       // Detailed summary report
       const created = analysis.created_pages.length;
       const updated = analysis.updated_pages.length;
-      const failed = failedItems.length;
+      const _failed = failedItems.length;
 
       console.debug('=== 摄入流程完成 ===');
       console.debug(`摄入完成: 创建 ${created} 页, 更新 ${updated} 页`);
@@ -210,7 +210,7 @@ export class WikiEngine {
   }
 
   private async apiDelay(ms?: number): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, ms || 300));
+    await new Promise(resolve => activeWindow.setTimeout(resolve, ms || 300));
   }
 
   async ensureWikiStructure() {
@@ -349,7 +349,7 @@ export class WikiEngine {
     return path;
   }
 
-  async createOrUpdateEntityPage(entity: EntityInfo, analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<string | null> {
+  async createOrUpdateEntityPage(entity: EntityInfo, _analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<string | null> {
     if (!entity.name || entity.name.trim().length === 0) {
       console.warn('实体名称为空，跳过创建');
       return null;
@@ -389,7 +389,7 @@ export class WikiEngine {
     return path;
   }
 
-  async createOrUpdateConceptPage(concept: ConceptInfo, analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<string | null> {
+  async createOrUpdateConceptPage(concept: ConceptInfo, _analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<string | null> {
     if (!concept.name || concept.name.trim().length === 0) {
       console.warn('概念名称为空，跳过创建');
       return null;
@@ -508,7 +508,7 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
 
         if (errorMsg.includes('File already exists') || errorMsg.includes('already exists')) {
           console.debug('文件已存在异常，等待100ms后重试:', path);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => activeWindow.setTimeout(resolve, 100));
           continue;
         } else {
           console.error('无法处理的错误:', path, error);

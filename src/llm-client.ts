@@ -127,7 +127,7 @@ export class OpenAIClient implements LLMClient {
       const response = await this.client.chat.completions.create({
         model: params.model,
         max_tokens: params.max_tokens,
-        messages: messagesWithSystem as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+        messages: messagesWithSystem,
         ...(params.response_format ? { response_format: params.response_format } : {})
       });
       return response.choices[0]?.message?.content || '';
@@ -135,7 +135,7 @@ export class OpenAIClient implements LLMClient {
       if (this.isNetworkError(error) && attempt < 3) {
         const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
         console.warn(`Network error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(resolve => activeWindow.setTimeout(resolve, delay));
         return this.createMessageWithRetry(params, attempt + 1);
       }
       throw error;
@@ -186,7 +186,7 @@ export class OpenAIClient implements LLMClient {
       if (this.isNetworkError(error) && attempt < 3) {
         const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
         console.warn(`Stream network error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(resolve => activeWindow.setTimeout(resolve, delay));
         return this.createMessageStreamWithRetry(params, attempt + 1);
       }
       throw error;

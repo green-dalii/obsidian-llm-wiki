@@ -1,6 +1,6 @@
 // Settings panel UI for LLM Wiki Plugin
 
-import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, TFile } from 'obsidian';
 import OpenAI from 'openai';
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings } from './types';
@@ -54,12 +54,12 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     const fullIntro = this.getText('pluginIntro');
     const parts = fullIntro.split('{{link}}');
 
-    introP.createEl('span', { text: parts[0] });
+    introP.createSpan({ text: parts[0] });
     introP.createEl('a', {
       text: linkText,
       href: 'https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f',
     });
-    introP.createEl('span', { text: parts[1] });
+    introP.createSpan({ text: parts[1] });
 
     // How It Works
     introDiv.createEl('p', {
@@ -73,7 +73,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         text: this.getText(`workflow${i}Title`),
         attr: { style: 'font-size: 13px;' }
       });
-      item.createEl('span', {
+      item.createSpan({
         text: ` — ${this.getText(`workflow${i}Desc`)}`,
         attr: { style: 'font-size: 13px; color: #666;' }
       });
@@ -372,10 +372,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .onClick(() => {
           const schemaPath = `${this.tempSettings.wikiFolder}/schema/config.md`;
           const file = this.app.vault.getAbstractFileByPath(schemaPath);
-          if (file) {
-            this.app.workspace.getLeaf().openFile(file as any);
+          if (file instanceof TFile) {
+            void this.app.workspace.getLeaf().openFile(file);
           } else {
-            new Notice('Schema file not found. Enable Schema to create it.', 5000);
+            new Notice('Schema file not found. Enable schema to create it.', 5000);
           }
         }));
 

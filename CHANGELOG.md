@@ -5,23 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.2-beta] - 2026-04-28
+## [1.4.0] - 2026-04-28
 
 ### Added
 - **JSON Output Mode**: forced `response_format: { type: "json_object" }` for all JSON-expected LLM calls (DeepSeek/OpenAI), eliminating malformed JSON at the source
 - **Ingestion Report Modal**: structured report window after each ingest showing created/updated pages, failed items, contradictions found
 - **Progress Notification Lifecycle**: `onDone` callback ensures progress Toast auto-dismisses when ingestion completes
+- **Schema Layer**: `schema/config.md` — the third layer from Karpathy's design. Human-editable config that governs LLM operation on the Wiki
+- **Auto-Maintenance**: file watcher + periodic lint + startup check (all default OFF)
+- **Schema Selective Injection**: `getSchemaContext(task)` clips Schema to relevant sections per task
+- **Hierarchical Index**: LLM-generated tree-structured index grouped by type, flat fallback for large wikis
+- **Schema Suggestion Command**: LLM analyzes Wiki health and proposes schema improvements
+
+### Changed
+- **i18n Completion**: Settings panel fully supports English/Chinese
+- **Module Architecture**: extracted schema-manager + auto-maintain modules
+- **minAppVersion**: 0.15.0 → 1.4.0 to match actual API usage
+- **TypeScript**: 4.7.4 → 5.9.3
+- **UI Text**: pure English per Obsidian sentence case guidelines
 
 ### Fixed
-- **Network Resilience**: added 5-min timeout + exponential backoff retry (max 3) in OpenAIClient for transient connection errors
-- **API Throttling**: 300ms delay between LLM calls to prevent `ERR_CONNECTION_CLOSED` from DeepSeek
-- **Fault Tolerance**: per-entity/concept try-catch with auto-retry; single page failure no longer aborts entire ingestion
-- **JSON Parsing Robustness**: state-machine-based content-quote escaping + LLM repair pipeline; handles unescaped quotes, trailing commas, missing commas
-- **Frontmatter Wikilinks**: source file references in generated pages now use `[[path]]` format for clickable Obsidian links
-- **Index Generation Hang**: large wikis (>25 pages) bypass LLM and use fast flat index; `max_tokens` 2000→4000; error logging restored
+- **Network Resilience**: 5-min timeout + exponential backoff retry (max 3) for transient connection errors
+- **API Throttling**: 300ms delay between LLM calls
+- **Fault Tolerance**: per-entity/concept try-catch with auto-retry; single page failure no longer aborts ingestion
+- **JSON Parsing Robustness**: state-machine content-quote escaping + LLM repair pipeline
+- **Frontmatter Wikilinks**: source references use `[[path]]` format
+- **Index Generation Hang**: large wikis bypass LLM with flat index; `max_tokens` 2000→4000
 - **ReferenceError `analysis`**: variable scoping fix in `ingestSource` catch block
+- **Obsidian Review Compliance**: installed eslint-plugin-obsidianmd, fixed all lint issues (sentence case, API version, types)
 
-### Next — Phase 2 (v1.4.0)
+### Next — Phase 2 (v1.5.0)
 - **User Feedback Loop**: detect `frontmatter.reviewed: true` and preserve manual edits during re-ingestion
 - **Multi-Source Knowledge Fusion**: LLM-powered diff-and-merge when multiple sources mention the same entity
 

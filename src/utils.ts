@@ -63,7 +63,7 @@ export async function parseJsonResponse(
 
     // Step 2: Fast path — direct parse
     try {
-      return JSON.parse(cleaned);
+      return JSON.parse(cleaned) as Record<string, unknown>;
     } catch {
       // fall through
     }
@@ -75,7 +75,7 @@ export async function parseJsonResponse(
     // Step 4: Deterministic fixes for common, unambiguous patterns
     const deterministic = fixCommonJsonIssues(candidate);
     try {
-      return JSON.parse(deterministic);
+      return JSON.parse(deterministic) as Record<string, unknown>;
     } catch (detError) {
       console.debug('标准修复未成功，交由 LLM 处理:', String(detError).slice(0, 80));
     }
@@ -90,7 +90,7 @@ export async function parseJsonResponse(
           .trim();
         // Run deterministic fixes on LLM output as well (belt and suspenders)
         const final = fixCommonJsonIssues(cleanedLlm);
-        return JSON.parse(final);
+        return JSON.parse(final) as Record<string, unknown>;
       } catch (llmError) {
         console.error('LLM 修复也未成功:', String(llmError).slice(0, 80));
       }
