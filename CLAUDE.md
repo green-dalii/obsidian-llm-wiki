@@ -167,6 +167,21 @@ function createEntityPage(entity: any) {
 
 ## 🔧 Obsidian Plugin Guidelines Compliance
 
+### Official Submission Checklist (PR Template)
+
+Per the [official PR template](https://raw.githubusercontent.com/obsidianmd/obsidian-releases/refs/heads/master/.github/PULL_REQUEST_TEMPLATE/plugin.md):
+
+1. **Release assets as individual files** — `main.js` (required), `manifest.json` (required), `styles.css` (optional). Never only inside source archives.
+2. **Version tag NO `v` prefix** — `manifest.json` version must match GitHub Release tag exactly. `1.2.0` ✅, `v1.2.0` ❌
+3. **Plugin ID consistency** — `manifest.json` `id` must match `community-plugins.json` `id` exactly
+4. **README** — Must explain purpose and usage
+5. **LICENSE** — Must exist in repo
+6. **Third-party code attribution** — Respect original license, credit in README
+7. **Testing** — Test on Windows, macOS, Linux (Android/iOS if applicable)
+8. **Developer Policies** — Comply with https://docs.obsidian.md/Developer+policies
+9. **Plugin Guidelines** — Read https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines and self-review common mistakes
+10. **Maintenance commitment** — Ongoing support, bug fixes, or find successor / delist
+
 ### Required Practices
 
 **Plugin Safety:**
@@ -217,15 +232,17 @@ function createEntityPage(entity: any) {
    git commit -m "chore: bump version to 1.0.9"
    ```
 
-3. **Create Git tag:**
+3. **Create Git tag (NO `v` prefix — Obsidian requirement):**
    ```bash
-   git tag v1.0.9
-   git push origin v1.0.9
+   git tag 1.0.9
+   git push origin 1.0.9
    ```
 
 4. **Create GitHub Release:**
-   - Tag: `v1.0.9`
-   - Upload: `main.js`, `manifest.json`, `styles.css`
+   - Tag: `1.0.9` (no `v` prefix)
+   - Title: `1.0.9 - Brief description`
+   - Upload as individual files: `main.js`, `manifest.json`, `styles.css`
+   - Do NOT only include source archives (`.zip`, `.tar.gz`)
 
 ---
 
@@ -353,9 +370,13 @@ Before each commit, verify:
 
 ---
 
-## 🚀 Release Process
+## 🚀 Release Process (Automated via GitHub Actions)
 
-### Step-by-Step Release Workflow
+> This is the ONLY release mechanism. Never manually upload release assets.
+> Workflow: `.github/workflows/release.yml` | Trigger: tag push
+> Precondition: Settings → Actions → General → Read and write permissions (already configured)
+
+### Step-by-Step
 
 1. **Finalize Code:**
    ```bash
@@ -386,26 +407,30 @@ Before each commit, verify:
    git add .
    git commit -m "chore: bump version to 1.0.9
 
-   Release v1.0.9 with new features:
+   Release 1.0.9 with new features:
    - Dynamic model list fetching
    - Enhanced JSON parsing
 
    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
    ```
 
-5. **Create Git Tag:**
+5. **Create Git Tag (NO `v` prefix — Obsidian requirement):**
    ```bash
-   git tag v1.0.9
+   git tag -a 1.0.9 -m "1.0.9"
    git push origin main
-   git push origin v1.0.9
+   git push origin 1.0.9
    ```
+   - This triggers `.github/workflows/release.yml` automatically
 
-6. **Create GitHub Release:**
-   - Go to GitHub → Releases → Draft new release
-   - Tag: `v1.0.9`
-   - Title: `v1.0.9 - Feature description`
-   - Upload: `main.js`, `manifest.json`, `styles.css`
-   - Publish
+6. **GitHub Actions creates draft release:**
+   - Go to GitHub → **Actions** tab, wait for workflow to finish
+   - Go to **Releases** → find the draft release created by the workflow
+   - Edit release: add release notes, verify `main.js`/`manifest.json`/`styles.css` are attached
+   - Select **Publish release**
+
+7. **After publishing:**
+   - If first release: [Submit your plugin](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin)
+   - If update: Users can update to the latest version
 
 ---
 

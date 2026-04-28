@@ -96,7 +96,7 @@ export class QueryModal extends Modal {
       cls: 'llm-wiki-query-send-btn'
     }).addEventListener('click', () => {
       if (this.inputArea.value.trim() && !this.isStreaming) {
-        this.sendMessage(this.inputArea.value);
+        void this.sendMessage(this.inputArea.value);
         this.inputArea.value = '';
       }
     });
@@ -248,6 +248,7 @@ export class QueryModal extends Modal {
     container.empty();
 
     const sourcePath = this.plugin.settings.wikiFolder;
+
 
     void MarkdownRenderer.render(
       this.app,

@@ -115,7 +115,7 @@ export class WikiEngine {
       try {
         await this.app.vault.createFolder(folder);
         console.debug('创建文件夹:', folder);
-      } catch (_e) {
+      } catch {
         // 文件夹已存在
       }
     }

@@ -1,4 +1,4 @@
-import { App, Plugin, Notice } from 'obsidian';
+import { Plugin, Notice } from 'obsidian';
 
 import {
   PREDEFINED_PROVIDERS,
@@ -77,13 +77,13 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: 'query-wiki',
-      name: 'Query wiki (查询 Wiki)',
+      name: 'Query wiki (查询 wiki)',
       callback: () => this.queryWiki()
     });
 
     this.addCommand({
       id: 'lint-wiki',
-      name: 'Lint wiki (维护 Wiki)',
+      name: 'Lint wiki (维护 wiki)',
       callback: () => this.lintWiki()
     });
 
@@ -163,7 +163,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   selectSourceToIngest() {
     if (!this.llmClient) {
-      new Notice('⚠️ Please configure API key first (请先配置 API key)');
+      new Notice('Please configure api key first (请先配置 api key)');
       return;
     }
 
@@ -174,7 +174,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   selectFolderToIngest() {
     if (!this.llmClient) {
-      new Notice('⚠️ Please configure API key first (请先配置 API key)');
+      new Notice('Please configure api key first (请先配置 api key)');
       return;
     }
 

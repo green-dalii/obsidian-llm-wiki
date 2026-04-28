@@ -6,7 +6,33 @@
 
 **Author:** Greener-Dalii | **Version:** 1.3.1
 
-[English](README.md) | [中文文档](README_CN.md)
+[English](README.md) | [中文文档](README_CN.md) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+
+---
+
+## What is LLM-Wiki?
+
+You write. AI organizes. You ask. That's it.
+
+**The problem.** Your notes are a goldmine — people, concepts, ideas, connections. But right now they're just files in folders. Finding what relates to what means searching, tagging, and hoping you remember the thread.
+
+**The fix.** [Andrej Karpathy suggested](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) something elegant: treat your notes as raw material, and let an LLM do the architect work. It reads what you write, pulls out entities and concepts, and weaves them into a structured Wiki — complete with `[[bidirectional links]]`, an auto-generated index, and a chat interface that answers questions from *your* knowledge.
+
+**So you don't have to be the librarian.** No deciding what deserves a page. No maintaining cross-links. No wondering if something is out of date. Drop notes into `sources/` and the LLM reads, extracts, writes, links, and even flags contradictions — while you stay in flow.
+
+**And it's not another chatbot.** ChatGPT knows the internet. LLM-Wiki knows *you* — or rather, what you've taught it. Every answer carries `[[wiki-links]]` back into your knowledge graph. Every response is a trailhead, not a dead end.
+
+---
+
+## Why Obsidian + LLM-Wiki?
+
+Obsidian is brilliant at linked thinking. But there's a catch: you're the one doing all the linking.
+
+LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it with you. Add a note about a new concept — it finds the connections you'd miss. Ask a question — it walks your own knowledge graph and brings back answers with citations.
+
+- **Your Graph View comes alive.** New notes don't just sit there — they sprout links to entities, concepts, and sources. The graph grows organically, not manually.
+- **Your notes learn to talk back.** Search becomes conversation. "What did I write about X?" becomes a dialogue, with streaming responses and `[[wiki-links]]` as breadcrumbs.
+- **Obsidian becomes a thinking partner.** It stops being a cabinet for notes and starts being something that helps you *think* — surfacing connections, spotting gaps, remembering what you forgot you knew.
 
 ---
 
@@ -177,6 +203,8 @@ schema/      # Workflow configuration (planned)
 4. Push and open a Pull Request
 
 Use TypeScript, follow existing code style, and update version numbers in `manifest.json`, `package.json`, and `versions.json`.
+
+Questions, ideas, or want to share how you use LLM-Wiki? Join the [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions).
 
 ---
 
