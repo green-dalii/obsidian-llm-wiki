@@ -78,7 +78,7 @@ export const PROMPTS = {
 ---
 type: entity
 created: {{date}}
-sources: [{{source_file}}]
+sources: ["[[{{source_file}}]]"]
 tags: [{{tags}}]
 ---
 
@@ -86,7 +86,7 @@ tags: [{{tags}}]
 
 ## 基本信息
 - 类型：{{entity_type}}
-- 来源：{{source_file}}
+- 来源：[[{{source_file}}]]
 
 ## 描述
 [实体的详细描述，包含双向链接]
@@ -123,7 +123,7 @@ tags: [{{tags}}]
 ---
 type: concept
 created: {{date}}
-sources: [{{source_file}}]
+sources: ["[[{{source_file}}]]"]
 tags: [{{tags}}]
 ---
 
@@ -166,14 +166,14 @@ tags: [{{tags}}]
 ---
 type: source
 created: {{date}}
-source_file: {{source_file}}
+source_file: "[[{{source_file}}]]"
 tags: [{{tags}}]
 ---
 
 # {{source_title}} - 摘要
 
 ## 来源
-- 原始文件：{{source_file}}
+- 原始文件：[[{{source_file}}]]
 - 摄入日期：{{date}}
 
 ## 核心内容
@@ -192,5 +192,55 @@ tags: [{{tags}}]
 - 观点2
 
 ---
-更新日期：{{date}}`
+更新日期：{{date}}`,
+
+  suggestSchemaUpdate: `You are a Wiki Schema advisor. Review the current schema and the latest ingestion analysis.
+
+Current Schema:
+{{schema_content}}
+
+Analysis Context:
+{{analysis_context}}
+
+Task: Determine if the schema needs updating to better accommodate recent content.
+Consider:
+1. Are there new entity types that should be added to the classification rules?
+2. Are there new concept types that should be added?
+3. Should naming conventions be adjusted?
+4. Should page templates be updated (missing sections, better structure)?
+5. Should maintenance policies be revised (stale thresholds, severity levels)?
+
+Output JSON format:
+{
+  "changes_needed": true,
+  "suggestions": "Markdown description of suggested schema changes with reasoning"
+}
+
+If no changes are needed:
+{
+  "changes_needed": false,
+  "suggestions": ""
+}
+
+Output ONLY the JSON, no other text.`,
+
+  generateHierarchicalIndex: `You are a Wiki librarian organizing a knowledge index.
+
+Below is a list of all Wiki pages with their summaries:
+
+{{page_list}}
+
+Wiki Structure guidelines:
+{{wiki_structure}}
+
+Create a hierarchical, importance-ranked index in Markdown. Follow these rules:
+
+1. **Group by type**: Entities, Concepts, Sources — each as a top-level section
+2. **Hierarchy within groups**: Show parent-child relationships. If Concept A is a sub-concept of Concept B, indent it under B
+3. **Importance ranking**: More important pages (more linked, more foundational) come first within each group
+4. **Link format**: Use [[wiki/type/page-name|Display Name]] for every page reference
+5. **Short annotations**: Add a one-line summary in Chinese or English (match the page's language) after each link
+6. **Statistics**: End with a summary line showing page counts per category
+
+Output ONLY the Markdown index content, no introductory or concluding text.`,
 };

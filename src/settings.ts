@@ -1,6 +1,6 @@
 // Settings panel UI for LLM Wiki Plugin
 
-import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, TFile } from 'obsidian';
 import OpenAI from 'openai';
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings } from './types';
@@ -351,5 +351,120 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         style: 'color: #999; font-size: 11px; margin: 5px 0;'
       }
     });
+
+    // ===== Schema Configuration =====
+    containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
+    new Setting(containerEl).setName(this.getText('schemaSection')).setHeading();
+
+    new Setting(containerEl)
+      .setName(this.getText('enableSchemaName'))
+      .setDesc(this.getText('enableSchemaDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.enableSchema)
+        .onChange((value) => {
+          this.tempSettings.enableSchema = value;
+        }));
+
+    new Setting(containerEl)
+      .setName(this.getText('viewSchemaButton'))
+      .addButton(button => button
+        .setButtonText(this.getText('viewSchemaButton'))
+        .onClick(() => {
+          const schemaPath = `${this.tempSettings.wikiFolder}/schema/config.md`;
+          const file = this.app.vault.getAbstractFileByPath(schemaPath);
+          if (file instanceof TFile) {
+            void this.app.workspace.getLeaf().openFile(file);
+          } else {
+            new Notice('Schema file not found. Enable schema to create it.', 5000);
+          }
+        }));
+
+    new Setting(containerEl)
+      .setName(this.getText('regenerateSchemaButton'))
+      .addButton(button => button
+        .setButtonText(this.getText('regenerateSchemaButton'))
+        .onClick(async () => {
+          await this.plugin.wikiEngine.regenerateDefaultSchema();
+          new Notice(this.getText('schemaRegeneratedNotice'), 3000);
+        }));
+
+    // ===== Auto Maintenance =====
+    containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
+    new Setting(containerEl).setName(this.getText('autoMaintainSection')).setHeading();
+
+    // Beta badge
+    const betaDiv = containerEl.createDiv({
+      attr: {
+        style: 'background: #e8f0fe; border: 1px solid #4285f4; border-radius: 6px; padding: 8px 14px; margin-bottom: 12px; font-size: 12px; line-height: 1.5; color: #174ea6; font-weight: 500;'
+      }
+    });
+    betaDiv.setText('🧪 ' + this.getText('autoMaintainBetaBadge'));
+
+    // Cost warning banner
+    const warningDiv = containerEl.createDiv({
+      attr: {
+        style: 'background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.5; color: #664d03;'
+      }
+    });
+    warningDiv.setText(this.getText('autoMaintainCostWarning'));
+
+    new Setting(containerEl)
+      .setName(this.getText('autoWatchName'))
+      .setDesc(this.getText('autoWatchDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.autoWatchSources)
+        .onChange((value) => {
+          this.tempSettings.autoWatchSources = value;
+          this.display();
+        }));
+
+    if (this.tempSettings.autoWatchSources) {
+      new Setting(containerEl)
+        .setName(this.getText('autoWatchModeName'))
+        .setDesc(this.getText('autoWatchModeDesc'))
+        .addDropdown(dropdown => {
+          dropdown.addOption('notify', this.getText('watchModeNotify'));
+          dropdown.addOption('auto', this.getText('watchModeAuto'));
+          dropdown.setValue(this.tempSettings.autoWatchMode);
+          dropdown.onChange((value: 'notify' | 'auto') => {
+            this.tempSettings.autoWatchMode = value;
+          });
+        });
+
+      new Setting(containerEl)
+        .setName(this.getText('autoWatchDebounceName'))
+        .setDesc(this.getText('autoWatchDebounceDesc'))
+        .addText(text => text
+          .setValue(this.tempSettings.autoWatchDebounceMs.toString())
+          .onChange((value) => {
+            const parsed = parseInt(value);
+            if (parsed >= 1000 && parsed <= 60000) {
+              this.tempSettings.autoWatchDebounceMs = parsed;
+            }
+          }));
+    }
+
+    new Setting(containerEl)
+      .setName(this.getText('periodicLintName'))
+      .setDesc(this.getText('periodicLintDesc'))
+      .addDropdown(dropdown => {
+        dropdown.addOption('off', this.getText('periodicLintOff'));
+        dropdown.addOption('hourly', this.getText('periodicLintHourly'));
+        dropdown.addOption('daily', this.getText('periodicLintDaily'));
+        dropdown.addOption('weekly', this.getText('periodicLintWeekly'));
+        dropdown.setValue(this.tempSettings.periodicLint);
+        dropdown.onChange((value: 'off' | 'hourly' | 'daily' | 'weekly') => {
+          this.tempSettings.periodicLint = value;
+        });
+      });
+
+    new Setting(containerEl)
+      .setName(this.getText('startupCheckName'))
+      .setDesc(this.getText('startupCheckDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.startupCheck)
+        .onChange((value) => {
+          this.tempSettings.startupCheck = value;
+        }));
   }
 }

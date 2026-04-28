@@ -1,32 +1,58 @@
 // Wiki Engine - Core Wiki ingestion and management logic
 
-import { App, TFile, Notice } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import {
   LLMWikiSettings,
   LLMClient,
   SourceAnalysis,
   EntityInfo,
   ConceptInfo,
-  ContradictionInfo
+  ContradictionInfo,
+  IngestReport
 } from './types';
 import { PROMPTS } from './prompts';
 import { slugify, parseJsonResponse, cleanMarkdownResponse } from './utils';
+import { SchemaManager } from './schema-manager';
 
 export class WikiEngine {
   private app: App;
   settings: LLMWikiSettings;
   private llmClient: LLMClient | null;
   private getLLMClient: () => LLMClient | null;
+  private schemaManager: SchemaManager;
+  private onFileWrite: ((path: string) => void) | null;
+  private onProgress: ((message: string) => void) | null;
+  private onDone: ((report: IngestReport) => void) | null;
 
   constructor(
     app: App,
     settings: LLMWikiSettings,
-    getLLMClient: () => LLMClient | null
+    getLLMClient: () => LLMClient | null,
+    schemaManager: SchemaManager,
+    onFileWrite?: (path: string) => void,
+    onProgress?: (message: string) => void,
+    onDone?: (report: IngestReport) => void
   ) {
     this.app = app;
     this.settings = settings;
     this.llmClient = null;
     this.getLLMClient = getLLMClient;
+    this.schemaManager = schemaManager;
+    this.onFileWrite = onFileWrite || null;
+    this.onProgress = onProgress || null;
+    this.onDone = onDone || null;
+  }
+
+  setFileWriteCallback(cb: (path: string) => void): void {
+    this.onFileWrite = cb;
+  }
+
+  setProgressCallback(cb: (message: string) => void): void {
+    this.onProgress = cb;
+  }
+
+  setDoneCallback(cb: ((report: IngestReport) => void) | null): void {
+    this.onDone = cb;
   }
 
   private get client(): LLMClient {
@@ -38,58 +64,153 @@ export class WikiEngine {
   async ingestSource(file: TFile) {
     console.debug('=== 开始摄入流程 ===');
     console.debug('源文件:', file.path);
-    new Notice(`正在摄入: ${file.basename}...`);
+    this.onProgress?.(`Analyzing: ${file.basename}`);
+
+    const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
+    let analysis: SourceAnalysis | null = null;
 
     try {
       await this.ensureWikiStructure();
 
-      const analysis = await this.analyzeSource(file);
+      analysis = await this.analyzeSource(file);
       if (!analysis) {
         throw new Error('源文件分析失败');
       }
       console.debug('分析结果:', JSON.stringify(analysis, null, 2));
 
+      const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
+      let step = 1;
+
+      // Summary
+      this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
+      await this.apiDelay();
       const summaryPage = await this.createSummaryPage(file, analysis);
       analysis.created_pages.push(summaryPage);
 
+      // Entities — tolerate individual failures
       for (const entity of analysis.entities) {
-        const entityPage = await this.createOrUpdateEntityPage(entity, analysis, file);
-        if (entityPage) {
-          analysis.created_pages.push(entityPage);
+        step++;
+        this.onProgress?.(`[${step}/${totalSteps}] Entity: ${entity.name}`);
+        await this.apiDelay();
+        try {
+          const entityPage = await this.createOrUpdateEntityPage(entity, analysis, file);
+          if (entityPage) {
+            analysis.created_pages.push(entityPage);
+          }
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.error(`Entity "${entity.name}" failed:`, reason);
+          failedItems.push({ type: 'entity', name: entity.name, reason });
+
+          // Auto-retry once
+          try {
+            await this.apiDelay(2000);
+            const retryPage = await this.createOrUpdateEntityPage(entity, analysis, file);
+            if (retryPage) {
+              analysis.created_pages.push(retryPage);
+              console.debug(`Entity "${entity.name}" recovered on retry`);
+              failedItems.pop();
+            }
+          } catch {
+            console.error(`Entity "${entity.name}" retry also failed`);
+          }
         }
       }
 
+      // Concepts — tolerate individual failures
       for (const concept of analysis.concepts) {
-        const conceptPage = await this.createOrUpdateConceptPage(concept, analysis, file);
-        if (conceptPage) {
-          analysis.created_pages.push(conceptPage);
+        step++;
+        this.onProgress?.(`[${step}/${totalSteps}] Concept: ${concept.name}`);
+        await this.apiDelay();
+        try {
+          const conceptPage = await this.createOrUpdateConceptPage(concept, analysis, file);
+          if (conceptPage) {
+            analysis.created_pages.push(conceptPage);
+          }
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.error(`Concept "${concept.name}" failed:`, reason);
+          failedItems.push({ type: 'concept', name: concept.name, reason });
+
+          // Auto-retry once
+          try {
+            await this.apiDelay(2000);
+            const retryPage = await this.createOrUpdateConceptPage(concept, analysis, file);
+            if (retryPage) {
+              analysis.created_pages.push(retryPage);
+              console.debug(`Concept "${concept.name}" recovered on retry`);
+              failedItems.pop();
+            }
+          } catch {
+            console.error(`Concept "${concept.name}" retry also failed`);
+          }
         }
       }
 
+      // Related pages — tolerate individual failures
       for (const relatedPageName of analysis.related_pages) {
-        await this.updateRelatedPage(relatedPageName, analysis);
-        analysis.updated_pages.push(relatedPageName);
+        step++;
+        this.onProgress?.(`[${step}/${totalSteps}] Updating: ${relatedPageName}`);
+        await this.apiDelay();
+        try {
+          await this.updateRelatedPage(relatedPageName, analysis);
+          analysis.updated_pages.push(relatedPageName);
+        } catch (error) {
+          console.error(`Related page "${relatedPageName}" update failed, continuing...`, error);
+        }
       }
 
+      // Contradictions
       for (const contradiction of analysis.contradictions) {
-        await this.noteContradiction(contradiction);
+        try {
+          await this.noteContradiction(contradiction);
+        } catch {
+          // non-critical
+        }
       }
 
+      step++;
+      this.onProgress?.(`[${step}/${totalSteps}] Generating index...`);
       await this.generateIndexFromEngine();
       await this.updateLog('ingest', analysis);
 
-      const message = `摄入成功: 创建 ${analysis.created_pages.length} 页, 更新 ${analysis.updated_pages.length} 页`;
+      // Detailed summary report
+      const created = analysis.created_pages.length;
+      const updated = analysis.updated_pages.length;
+      const _failed = failedItems.length;
+
       console.debug('=== 摄入流程完成 ===');
-      console.debug(message);
-      new Notice(message, 5000);
+      console.debug(`摄入完成: 创建 ${created} 页, 更新 ${updated} 页`);
+
+      this.onDone?.({
+        sourceFile: file.path,
+        createdPages: analysis.created_pages,
+        updatedPages: analysis.updated_pages,
+        failedItems,
+        contradictionsFound: analysis.contradictions.length,
+        success: true
+      });
 
     } catch (error) {
       console.error('=== 摄入流程失败 ===');
       console.error('错误:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      new Notice(`摄入失败: ${errorMsg}`, 8000);
+
+      this.onDone?.({
+        sourceFile: file.path,
+        createdPages: analysis?.created_pages || [],
+        updatedPages: analysis?.updated_pages || [],
+        failedItems,
+        contradictionsFound: analysis?.contradictions?.length || 0,
+        success: false,
+        errorMessage: errorMsg
+      });
       throw error;
     }
+  }
+
+  private async apiDelay(ms?: number): Promise<void> {
+    await new Promise(resolve => activeWindow.setTimeout(resolve, ms || 300));
   }
 
   async ensureWikiStructure() {
@@ -108,6 +229,9 @@ export class WikiEngine {
         // 文件夹已存在
       }
     }
+
+    // Schema folder + default config
+    await this.schemaManager.ensureSchemaExists();
   }
 
   async analyzeSource(file: TFile): Promise<SourceAnalysis | null> {
@@ -129,10 +253,13 @@ export class WikiEngine {
     console.debug('调用 LLM 分析源文件...');
 
     try {
+      const schemaContext = await this.schemaManager.getSchemaContext('analyze');
       const response = await this.client.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }]
+        system: schemaContext || undefined,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
       });
 
       console.debug('LLM 响应长度:', response.length);
@@ -142,7 +269,8 @@ export class WikiEngine {
         return await this.client.createMessage({
           model: this.settings.model,
           max_tokens: 4000,
-          messages: [{ role: 'user', content: repairPrompt }]
+          messages: [{ role: 'user', content: repairPrompt }],
+          response_format: { type: 'json_object' }
         });
       }) as SourceAnalysis | null;
 
@@ -208,9 +336,11 @@ export class WikiEngine {
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
       .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '));
 
+    const schemaContext = await this.schemaManager.getSchemaContext('summary');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
+      system: schemaContext || undefined,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -246,9 +376,11 @@ export class WikiEngine {
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', entity.type);
 
+    const schemaContext = await this.schemaManager.getSchemaContext('entity');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
+      system: schemaContext || undefined,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -285,9 +417,11 @@ export class WikiEngine {
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', concept.type);
 
+    const schemaContext = await this.schemaManager.getSchemaContext('concept');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
+      system: schemaContext || undefined,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -324,9 +458,11 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
 请更新该页面，添加新信息，但不要删除现有内容。使用双向链接语法 [[页面名]]。
 只输出更新后的完整页面内容，不要其他文字。`;
 
+    const schemaContext = await this.schemaManager.getSchemaContext('related');
     const updatedContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
+      system: schemaContext || undefined,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -357,11 +493,13 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
           console.debug(`尝试 ${attempt + 1}: 文件已存在，更新:`, path);
           await this.app.vault.modify(file, content);
           console.debug('更新成功:', path);
+          this.onFileWrite?.(path);
           return;
         } else {
           console.debug(`尝试 ${attempt + 1}: 文件不存在，创建:`, path);
           await this.app.vault.create(path, content);
           console.debug('创建成功:', path);
+          this.onFileWrite?.(path);
           return;
         }
       } catch (error) {
@@ -401,34 +539,90 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
     return null;
   }
 
+  async regenerateDefaultSchema(): Promise<void> {
+    await this.schemaManager.regenerateDefaultSchema();
+  }
+
   async generateIndexFromEngine() {
     await this.ensureWikiStructure();
 
     const entities = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/entities/`));
-
     const concepts = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/concepts/`));
-
     const sources = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/sources/`));
 
-    let indexContent = `# Wiki 索引\n\n`;
-    indexContent += `> 自动生成的知识库目录，按类型分类\n\n`;
+    // Build page list with summaries
+    const pageEntries: string[] = [];
+    for (const file of [...entities, ...concepts, ...sources]) {
+      const summary = await this.getPageSummary(file);
+      const pageType = file.path.includes('/entities/') ? 'Entity' :
+                       file.path.includes('/concepts/') ? 'Concept' : 'Source';
+      pageEntries.push(`- [${pageType}] ${file.basename}: ${summary} (path: ${file.path})`);
+    }
 
-    indexContent += `## 实体 (Entities)\n\n`;
+    if (pageEntries.length === 0) {
+      const indexPath = `${this.settings.wikiFolder}/index.md`;
+      await this.createOrUpdateFile(indexPath, `# Wiki Index\n\n> No pages yet. Ingest sources to populate the Wiki.\n`);
+      return;
+    }
+
+    // For large wikis, skip the LLM and use the fast flat index.
+    // The LLM call with a very long prompt is prone to timeouts and the
+    // result is not materially better for directories with many pages.
+    if (pageEntries.length > 25) {
+      console.debug(`Wiki has ${pageEntries.length} pages, using flat index (bypassing LLM)`);
+      await this.generateFlatIndex(entities, concepts, sources);
+      return;
+    }
+
+    const wikiStructure = this.settings.enableSchema
+      ? await this.schemaManager.getSchemaContext('index')
+      : '';
+
+    const prompt = PROMPTS.generateHierarchicalIndex
+      .replace('{{page_list}}', pageEntries.join('\n'))
+      .replace('{{wiki_structure}}', wikiStructure || 'Standard Wiki structure (entities/, concepts/, sources/)');
+
+    try {
+      const indexContent = await this.client.createMessage({
+        model: this.settings.model,
+        max_tokens: 4000,
+        system: wikiStructure || undefined,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      const cleaned = cleanMarkdownResponse(indexContent);
+      const indexPath = `${this.settings.wikiFolder}/index.md`;
+      await this.createOrUpdateFile(indexPath, cleaned);
+    } catch (err) {
+      console.warn('LLM index generation failed, using flat index:', err instanceof Error ? err.message : String(err));
+      await this.generateFlatIndex(entities, concepts, sources);
+    }
+  }
+
+  private async generateFlatIndex(
+    entities: TFile[],
+    concepts: TFile[],
+    sources: TFile[]
+  ): Promise<void> {
+    let indexContent = `# Wiki Index\n\n`;
+    indexContent += `> Auto-generated knowledge base directory\n\n`;
+
+    indexContent += `## Entities\n\n`;
     for (const file of entities) {
       const summary = await this.getPageSummary(file);
       indexContent += `- [[entities/${file.basename}|${file.basename}]] - ${summary}\n`;
     }
 
-    indexContent += `\n## 概念 (Concepts)\n\n`;
+    indexContent += `\n## Concepts\n\n`;
     for (const file of concepts) {
       const summary = await this.getPageSummary(file);
       indexContent += `- [[concepts/${file.basename}|${file.basename}]] - ${summary}\n`;
     }
 
-    indexContent += `\n## 源文件 (Sources)\n\n`;
+    indexContent += `\n## Sources\n\n`;
     for (const file of sources) {
       indexContent += `- [[sources/${file.basename}|${file.basename}]]\n`;
     }
@@ -588,13 +782,16 @@ ${conversationText}
 - 如果没有实体/概念，用空数组[]（绝不能省略字段）
 - 名称应简短且便于[[wiki-links]]引用（根据Wiki索引判断合适的命名方式）`;
 
+    const schemaContext = await this.schemaManager.getSchemaContext('conversation');
     const analysis = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 5000,
+      system: schemaContext || undefined,
       messages: [{
         role: 'user',
         content: analysisPrompt
-      }]
+      }],
+      response_format: { type: 'json_object' }
     });
 
     const parsed = await parseJsonResponse(analysis, async (malformedJson: string) => {
@@ -602,7 +799,8 @@ ${conversationText}
       return await this.client.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
-        messages: [{ role: 'user', content: repairPrompt }]
+        messages: [{ role: 'user', content: repairPrompt }],
+        response_format: { type: 'json_object' }
       });
     }) as SourceAnalysis | null;
     if (!parsed) {
@@ -656,16 +854,26 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
     parsed.created_pages.push(summaryPath);
 
     for (const entity of parsed.entities) {
-      const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug });
-      if (entityPage) {
-        parsed.created_pages.push(entityPage);
+      await this.apiDelay();
+      try {
+        const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug });
+        if (entityPage) {
+          parsed.created_pages.push(entityPage);
+        }
+      } catch (error) {
+        console.error(`Conversation entity "${entity.name}" failed:`, error);
       }
     }
 
     for (const concept of parsed.concepts) {
-      const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug });
-      if (conceptPage) {
-        parsed.created_pages.push(conceptPage);
+      await this.apiDelay();
+      try {
+        const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug });
+        if (conceptPage) {
+          parsed.created_pages.push(conceptPage);
+        }
+      } catch (error) {
+        console.error(`Conversation concept "${concept.name}" failed:`, error);
       }
     }
 

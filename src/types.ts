@@ -75,12 +75,50 @@ export interface LLMWikiSettings {
   useCustomModel?: boolean;
   maxConversationHistory: number;
   queryHistory?: QueryHistoryMessage[];
+
+  // Schema
+  enableSchema: boolean;
+
+  // Auto-maintenance
+  autoWatchSources: boolean;
+  autoWatchMode: 'notify' | 'auto';
+  autoWatchDebounceMs: number;
+  periodicLint: 'off' | 'hourly' | 'daily' | 'weekly';
+  startupCheck: boolean;
 }
 
 export interface QueryHistoryMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+}
+
+// Schema types
+
+export interface WikiSchema {
+  version: number;
+  last_updated: string;
+  auto_suggestion_count: number;
+  body: string;
+}
+
+export interface SchemaSuggestion {
+  timestamp: string;
+  source: string;
+  changes_needed: boolean;
+  suggestions: string;
+}
+
+// Ingestion report passed to onDone callback
+
+export interface IngestReport {
+  sourceFile: string;
+  createdPages: string[];
+  updatedPages: string[];
+  failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }>;
+  contradictionsFound: number;
+  success: boolean;
+  errorMessage?: string;
 }
 
 // LLM Client interface
@@ -91,6 +129,7 @@ export interface LLMClient {
     max_tokens: number;
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
+    response_format?: { type: 'json_object' };
   }): Promise<string>;
 
   createMessageStream?(params: {
@@ -218,5 +257,15 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   availableModels: [],
   useCustomModel: false,
   maxConversationHistory: 30,
-  queryHistory: []
+  queryHistory: [],
+
+  // Schema
+  enableSchema: true,
+
+  // Auto-maintenance
+  autoWatchSources: false,
+  autoWatchMode: 'notify',
+  autoWatchDebounceMs: 5000,
+  periodicLint: 'off',
+  startupCheck: false,
 };

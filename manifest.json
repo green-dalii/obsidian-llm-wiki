@@ -1,7 +1,7 @@
 {
   "id": "llm-wiki",
   "name": "Karpathy LLM Wiki",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "minAppVersion": "1.4.0",
   "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation with entity/concept pages and conversational query.",
   "author": "Greener-Dalii",

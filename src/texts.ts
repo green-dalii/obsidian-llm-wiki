@@ -143,6 +143,42 @@ export const TEXTS = {
 
     // LLM Language Hint
     llmLanguageHint: 'Please answer in English.',
+
+    // Schema Configuration
+    schemaSection: 'Schema Configuration',
+    enableSchemaName: 'Enable Schema',
+    enableSchemaDesc: 'Generate and inject schema/config.md into all LLM prompts for structured Wiki output',
+    viewSchemaButton: 'View / Edit Schema',
+    regenerateSchemaButton: 'Regenerate Default Schema',
+    schemaRegeneratedNotice: 'Default schema regenerated.',
+
+    // Auto Maintenance
+    autoMaintainSection: 'Auto Maintenance',
+    autoMaintainBetaBadge: 'BETA — Experimental feature. May have issues. Recommended for advanced users only.',
+    autoWatchName: 'Watch Sources Folder',
+    autoWatchDesc: 'Automatically detect changes in sources/ and notify or auto-ingest',
+    autoWatchModeName: 'Watch Mode',
+    autoWatchModeDesc: '"Notify Only" shows a prompt. "Auto Ingest" processes silently.',
+    watchModeNotify: 'Notify Only',
+    watchModeAuto: 'Auto Ingest',
+    autoWatchDebounceName: 'Debounce Delay (ms)',
+    autoWatchDebounceDesc: 'Wait time before triggering ingest after a file change (1000-60000)',
+    periodicLintName: 'Periodic Lint',
+    periodicLintDesc: 'Run LLM lint on schedule, only when source files have changed since last check',
+    periodicLintOff: 'Off',
+    periodicLintHourly: 'Hourly',
+    periodicLintDaily: 'Daily',
+    periodicLintWeekly: 'Weekly',
+    startupCheckName: 'Startup Health Check',
+    startupCheckDesc: 'Scan wiki health when plugin loads',
+    suggestSchemaCommand: 'Suggest Schema Updates',
+    autoMaintainCostWarning: '⚠️ Cost Notice: Auto-maintenance features consume API tokens. "Auto Ingest" triggers LLM calls on every source file change. "Periodic Lint" runs LLM health checks on schedule (only when source changes are detected). Configure carefully to avoid unexpected charges.',
+
+    // Notices
+    startupCheckSummary: 'Wiki has {pages} pages ({entities} entities, {concepts} concepts, {sources} sources)',
+    watchIngestNotice: '{count} file(s) changed in sources/. Run "Ingest Sources" to process.',
+    autoIngestRunning: 'Auto-ingesting {count} changed file(s)...',
+    autoIngestComplete: 'Auto-ingest complete: {success} succeeded, {fail} failed',
   },
 
   zh: {
@@ -287,5 +323,41 @@ export const TEXTS = {
 
     // LLM 语言提示
     llmLanguageHint: '请用中文回答。',
+
+    // Schema 配置
+    schemaSection: 'Schema 配置',
+    enableSchemaName: '启用 Schema',
+    enableSchemaDesc: '生成 schema/config.md 并注入到所有 LLM 提示词中，指导 Wiki 结构化输出',
+    viewSchemaButton: '查看 / 编辑 Schema',
+    regenerateSchemaButton: '重新生成默认 Schema',
+    schemaRegeneratedNotice: '默认 Schema 已重新生成。',
+
+    // 自动维护
+    autoMaintainSection: '自动维护',
+    autoMaintainBetaBadge: 'BETA 测试 — 实验性功能，可能存在问题，仅建议高级用户使用。',
+    autoWatchName: '监听 Sources 文件夹',
+    autoWatchDesc: '自动检测 sources/ 中的文件变更，通知或自动摄入',
+    autoWatchModeName: '监听模式',
+    autoWatchModeDesc: '"仅通知"显示提示。"自动摄入"静默处理。',
+    watchModeNotify: '仅通知',
+    watchModeAuto: '自动摄入',
+    autoWatchDebounceName: '防抖延迟 (ms)',
+    autoWatchDebounceDesc: '文件变更后等待多久触发摄入 (1000-60000)',
+    periodicLintName: '定时维护',
+    periodicLintDesc: '定期检查 Wiki 健康状况，有源文件变更时才执行 LLM 维护',
+    periodicLintOff: '关闭',
+    periodicLintHourly: '每小时',
+    periodicLintDaily: '每天',
+    periodicLintWeekly: '每周',
+    startupCheckName: '启动健康检查',
+    startupCheckDesc: '插件加载时扫描 Wiki 健康状况',
+    suggestSchemaCommand: '建议 Schema 更新',
+    autoMaintainCostWarning: '⚠️ 费用提醒：自动维护功能会消耗 API Token。"自动摄入"模式在每次源文件变更时触发 LLM 调用。"定时维护"定期运行 LLM 健康检查（仅在有新变更时执行）。请谨慎配置以避免意外费用。',
+
+    // 通知
+    startupCheckSummary: 'Wiki 共 {pages} 页（{entities} 个实体、{concepts} 个概念、{sources} 个来源）',
+    watchIngestNotice: 'sources/ 中有 {count} 个文件变更。请执行"摄入源文件"处理。',
+    autoIngestRunning: '正在自动摄入 {count} 个变更文件...',
+    autoIngestComplete: '自动摄入完成：成功 {success}，失败 {fail}',
   }
 };

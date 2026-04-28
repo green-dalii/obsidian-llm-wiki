@@ -4,7 +4,7 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Author:** Greener-Dalii | **Version:** 1.2.0
+**Author:** Greener-Dalii | **Version:** 1.3.1
 
 [English](README.md) | [中文文档](README_CN.md) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
@@ -74,6 +74,24 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 **Ollama (local, no API key):** Install [Ollama](https://ollama.com), pull a model (`ollama pull gemma4`), select "Ollama (Local)" in the provider dropdown.
 
 > See [README_CN.md](README_CN.md) for provider-specific instructions in Chinese.
+
+### Model Selection Guide
+
+This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not chunked RAG retrieval**. Long-context models are strongly recommended — the larger your Wiki grows, the more context the LLM needs to maintain cross-page consistency and answer questions accurately.
+
+> Why not RAG/embeddings? Karpathy's [original critique](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) argues that RAG fragments knowledge and breaks the LLM's ability to reason across the full knowledge graph. A single long-context LLM call over the relevant Wiki pages preserves relational understanding.
+
+**Top recommendations:**
+
+| Model | Context Window | Why |
+|-------|---------------|-----|
+| **DeepSeek V4** | 1M tokens | **Best value — ultra-low pricing, strong Chinese support. Ideal for large Wikis.** |
+| **Gemini 3.1 Pro** | 1M+ tokens | **Largest context window. Strong reasoning (ARC-AGI-2 77.1%). Excellent for very large Wikis.** |
+| **Claude Opus 4.7** | 1M tokens | **Strongest agentic coding and reasoning. Best for complex multi-page synthesis.** |
+| **GPT-5.5** | 1M tokens | **Latest OpenAI flagship (Apr 2026). Top AI intelligence index. Excellent for knowledge work.** |
+| **Claude Sonnet 4.6** | 1M tokens | Great balance of speed, cost, and quality for mid-size Wikis |
+
+For local models (Ollama): context windows are typically smaller (8K–128K). Consider limiting Wiki scope or using a cloud provider for ingestion + local model for query.
 
 ### Usage
 

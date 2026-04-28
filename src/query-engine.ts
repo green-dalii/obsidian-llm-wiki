@@ -247,13 +247,31 @@ export class QueryModal extends Modal {
   renderMarkdownContent(content: string, container: HTMLElement) {
     container.empty();
 
+    const sourcePath = this.plugin.settings.wikiFolder;
+
+
     void MarkdownRenderer.render(
       this.app,
       content,
       container,
-      '',
+      sourcePath,
       this
     );
+
+    // Bind click handlers on wiki-links so they work inside the Modal.
+    // Obsidian's global delegated handler on document.body may not see
+    // events from Modal DOM, so we attach per-link listeners manually.
+    container.querySelectorAll('.internal-link').forEach(link => {
+      const el = link as HTMLAnchorElement;
+      const href = el.getAttribute('data-href') || el.getAttribute('href');
+      if (!href) return;
+
+      el.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        void this.app.workspace.openLinkText(href, sourcePath);
+      });
+    });
   }
 
   renderHistoryMessage(role: 'user' | 'assistant', content: string) {
@@ -514,7 +532,8 @@ ${indexContent}
       const response = await this.plugin.llmClient!.createMessage({
         model: this.plugin.settings.model,
         max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
       });
 
       console.debug('[LLM响应] 原始响应:', response);
