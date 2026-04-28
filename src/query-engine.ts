@@ -81,7 +81,7 @@ export class QueryModal extends Modal {
       if (evt.key === 'Enter' && !evt.shiftKey) {
         evt.preventDefault();
         if (this.inputArea.value.trim() && !this.isStreaming) {
-          this.sendMessage(this.inputArea.value);
+          void this.sendMessage(this.inputArea.value);
           this.inputArea.value = '';
         }
       }
@@ -106,7 +106,7 @@ export class QueryModal extends Modal {
       cls: 'llm-wiki-query-save-btn'
     }).addEventListener('click', () => {
       if (this.history.messages.length > 0) {
-        this.saveToWiki();
+        void this.saveToWiki();
       }
     });
 
@@ -133,7 +133,7 @@ export class QueryModal extends Modal {
     const { contentEl } = this;
 
     this.plugin.settings.queryHistory = this.history.messages;
-    this.plugin.saveSettings();
+    void this.plugin.saveSettings();
 
     contentEl.empty();
   }
@@ -162,7 +162,7 @@ export class QueryModal extends Modal {
     });
 
     this.currentResponseDiv.createEl('strong', {
-      text: '🤖 Wiki:',
+      text: '🤖 wiki:',
       cls: 'llm-wiki-query-response-strong'
     });
 
@@ -247,24 +247,33 @@ export class QueryModal extends Modal {
   renderMarkdownContent(content: string, container: HTMLElement) {
     container.empty();
 
-    // TODO: Internal wiki-links ([[wiki/entities/...]]) rendered in the modal are not clickable.
-    // Two likely causes:
-    // 1. sourcePath '' means relative links without wiki/ prefix won't resolve correctly.
-    //    Fix: set sourcePath to `this.plugin.settings.wikiFolder`.
-    // 2. Modal DOM context may block .internal-link click events from propagating to Obsidian's handlers.
-    //    Fix: after MarkdownRenderer.render(), querySelectorAll('.internal-link') and add
-    //    click listeners that call this.app.workspace.openLinkText(href, sourcePath).
-    MarkdownRenderer.render(
+    const sourcePath = this.plugin.settings.wikiFolder;
+
+    void MarkdownRenderer.render(
       this.app,
       content,
       container,
-      '',
-      this.plugin
+      sourcePath,
+      this
     );
+
+    // Bind click handlers on wiki-links so they work inside the Modal.
+    // Obsidian's global delegated handler on document.body may not see
+    // events from Modal DOM, so we attach per-link listeners manually.
+    container.querySelectorAll('.internal-link').forEach(link => {
+      const el = link as HTMLAnchorElement;
+      const href = el.getAttribute('data-href') || el.getAttribute('href');
+      if (!href) return;
+
+      el.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.app.workspace.openLinkText(href, sourcePath);
+      });
+    });
   }
 
   renderHistoryMessage(role: 'user' | 'assistant', content: string) {
-    const texts = TEXTS[this.plugin.settings.language];
 
     const messageWrapper = this.historyContainer.createDiv({
       cls: ['llm-wiki-query-message-wrapper', role === 'user' ? 'llm-wiki-query-message-wrapper-user' : 'llm-wiki-query-message-wrapper-assistant']
@@ -293,7 +302,6 @@ export class QueryModal extends Modal {
   }
 
   limitHistory() {
-    const texts = TEXTS[this.plugin.settings.language];
     const max = this.plugin.settings.maxConversationHistory;
     const totalMessages = this.history.messages.length;
 
@@ -318,7 +326,6 @@ export class QueryModal extends Modal {
   async saveToWiki() {
     if (this.history.messages.length === 0) return;
 
-    const texts = TEXTS[this.plugin.settings.language];
     new Notice(
       this.plugin.settings.language === 'en'
         ? 'Saving conversation to Wiki...'
@@ -351,7 +358,7 @@ export class QueryModal extends Modal {
     this.historyContainer.empty();
 
     this.plugin.settings.queryHistory = [];
-    this.plugin.saveSettings();
+    void this.plugin.saveSettings();
 
     new Notice(
       this.plugin.settings.language === 'en'

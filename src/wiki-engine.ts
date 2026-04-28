@@ -19,18 +19,25 @@ export class WikiEngine {
   private llmClient: LLMClient | null;
   private getLLMClient: () => LLMClient | null;
   private schemaManager: SchemaManager;
+  private onFileWrite: ((path: string) => void) | null;
 
   constructor(
     app: App,
     settings: LLMWikiSettings,
     getLLMClient: () => LLMClient | null,
-    schemaManager: SchemaManager
+    schemaManager: SchemaManager,
+    onFileWrite?: (path: string) => void
   ) {
     this.app = app;
     this.settings = settings;
     this.llmClient = null;
     this.getLLMClient = getLLMClient;
     this.schemaManager = schemaManager;
+    this.onFileWrite = onFileWrite || null;
+  }
+
+  setFileWriteCallback(cb: (path: string) => void): void {
+    this.onFileWrite = cb;
   }
 
   private get client(): LLMClient {
@@ -108,7 +115,7 @@ export class WikiEngine {
       try {
         await this.app.vault.createFolder(folder);
         console.debug('创建文件夹:', folder);
-      } catch (error) {
+      } catch (_e) {
         // 文件夹已存在
       }
     }
@@ -374,11 +381,13 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
           console.debug(`尝试 ${attempt + 1}: 文件已存在，更新:`, path);
           await this.app.vault.modify(file, content);
           console.debug('更新成功:', path);
+          this.onFileWrite?.(path);
           return;
         } else {
           console.debug(`尝试 ${attempt + 1}: 文件不存在，创建:`, path);
           await this.app.vault.create(path, content);
           console.debug('创建成功:', path);
+          this.onFileWrite?.(path);
           return;
         }
       } catch (error) {

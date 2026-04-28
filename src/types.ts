@@ -83,7 +83,7 @@ export interface LLMWikiSettings {
   autoWatchSources: boolean;
   autoWatchMode: 'notify' | 'auto';
   autoWatchDebounceMs: number;
-  periodicLint: 'off' | 'hourly' | 'daily';
+  periodicLint: 'off' | 'hourly' | 'daily' | 'weekly';
   startupCheck: boolean;
 }
 

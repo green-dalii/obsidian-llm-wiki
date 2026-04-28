@@ -46,7 +46,7 @@ export class AnthropicClient implements LLMClient {
       model: params.model,
       max_tokens: params.max_tokens,
       system: params.system || undefined,
-      messages: messagesWithLanguageHint as any
+      messages: messagesWithLanguageHint as Anthropic.MessageParam[]
     });
 
     let fullResponse = '';

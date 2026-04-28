@@ -14,9 +14,13 @@ export class AutoMaintainManager {
   private debounceTimer: number | null = null;
   private pendingFiles: Map<string, TFile> = new Map();
   private recentWrites: Set<string> = new Set();
+  private firstChangeTimestamp = 0;
+  private readonly MAX_DEBOUNCE_MS = 60000; // Hard cap to prevent indefinite delay
 
   // Periodic lint state
   private lintIntervalId: number | null = null;
+  private lastLintTimestamp = 0;
+  private lintCallback: (() => Promise<void>) | null = null;
 
   // Whether watchers are currently active
   private watching = false;
@@ -26,12 +30,14 @@ export class AutoMaintainManager {
     app: App,
     settings: LLMWikiSettings,
     wikiEngine: WikiEngine,
-    plugin: Plugin
+    plugin: Plugin,
+    lintCallback?: () => Promise<void>
   ) {
     this.app = app;
     this.settings = settings;
     this.wikiEngine = wikiEngine;
     this.plugin = plugin;
+    this.lintCallback = lintCallback || null;
   }
 
   // === File Watcher ===
@@ -73,26 +79,54 @@ export class AutoMaintainManager {
     // Add to pending batch
     this.pendingFiles.set(file.path, file);
 
+    // Track first change for max-debounce cap
+    if (this.firstChangeTimestamp === 0) {
+      this.firstChangeTimestamp = Date.now();
+    }
+
+    // Calculate delay with max-debounce hard cap
+    const elapsed = Date.now() - this.firstChangeTimestamp;
+    const delay = Math.max(0, Math.min(
+      this.settings.autoWatchDebounceMs,
+      this.MAX_DEBOUNCE_MS - elapsed
+    ));
+
     // Reset debounce timer
     if (this.debounceTimer !== null) {
       window.clearTimeout(this.debounceTimer);
     }
-    this.debounceTimer = window.setTimeout(
-      () => this.processBatch(),
-      this.settings.autoWatchDebounceMs
-    );
+
+    if (delay <= 0) {
+      // Max wait exceeded, process immediately
+      this.processBatch();
+    } else {
+      this.debounceTimer = window.setTimeout(
+        () => this.processBatch(),
+        delay
+      );
+    }
   }
 
   markRecentWrite(path: string): void {
     this.recentWrites.add(path);
-    // Auto-expire after 30 seconds (long enough for any ingest pipeline)
+    // Auto-expire after 120 seconds (covers slow LLM responses)
     setTimeout(() => {
       this.recentWrites.delete(path);
-    }, 30000);
+    }, 120000);
+  }
+
+  // Register a write that auto-maintain should not re-trigger on.
+  // Called externally (e.g. from wiki-engine callbacks) for files
+  // created outside the watcher→ingest flow (like ingestConversation).
+  watchWrite(path: string): void {
+    if (path.startsWith(`${this.settings.wikiFolder}/sources/`)) {
+      this.markRecentWrite(path);
+    }
   }
 
   private async processBatch(): Promise<void> {
     this.debounceTimer = null;
+    this.firstChangeTimestamp = 0;
     const files = Array.from(this.pendingFiles.values());
     this.pendingFiles.clear();
 
@@ -136,6 +170,7 @@ export class AutoMaintainManager {
       window.clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+    this.firstChangeTimestamp = 0;
   }
 
   // === Periodic Lint ===
@@ -146,15 +181,14 @@ export class AutoMaintainManager {
 
     const intervalMs = this.settings.periodicLint === 'hourly'
       ? 60 * 60 * 1000
-      : 24 * 60 * 60 * 1000;
+      : this.settings.periodicLint === 'daily'
+        ? 24 * 60 * 60 * 1000
+        : 7 * 24 * 60 * 60 * 1000;
 
     this.lintIntervalId = this.plugin.registerInterval(
       window.setInterval(async () => {
-        console.debug('AutoMaintain: Running scheduled lint...');
-        new Notice('Running scheduled Wiki lint...', 3000);
+        console.debug('AutoMaintain: Periodic lint tick...');
         try {
-          // Call the lint function — note: this depends on the plugin method
-          // We access it via the wikiEngine's app
           await this.runLint();
         } catch (error) {
           console.error('Scheduled lint failed:', error);
@@ -173,43 +207,43 @@ export class AutoMaintainManager {
   }
 
   private async runLint(): Promise<void> {
-    const pages = this.wikiEngine.getExistingWikiPages();
-    const indexPath = `${this.settings.wikiFolder}/index.md`;
-    const indexContent = await this.wikiEngine.tryReadFile(indexPath);
+    // Check if any source files have changed since last lint
+    const hasChanges = await this.hasSourceFilesChanged();
+    if (!hasChanges && this.lastLintTimestamp > 0) {
+      console.debug('AutoMaintain: No source changes since last lint, skipping');
+      return;
+    }
 
-    const pagesList = pages.map(p => `- [[${p.title}]]`).join('\n');
+    new Notice('Running scheduled Wiki lint...', 3000);
+    this.lastLintTimestamp = Date.now();
 
-    const prompt = `你是一个 Wiki 维护者。请检查以下 Wiki 的健康状况。
+    if (this.lintCallback) {
+      await this.lintCallback();
+    } else {
+      // Fallback: lightweight page count if no callback provided
+      const pages = this.wikiEngine.getExistingWikiPages();
+      const entities = pages.filter(p => p.path.includes('/entities/')).length;
+      const concepts = pages.filter(p => p.path.includes('/concepts/')).length;
+      const sources = pages.filter(p => p.path.includes('/sources/')).length;
 
-Wiki 索引：
-${indexContent || '无索引'}
+      new Notice(
+        `Wiki lint: ${pages.length} pages (${entities} entities, ${concepts} concepts, ${sources} sources)`,
+        5000
+      );
+    }
+  }
 
-所有 Wiki 页面：
-${pagesList}
+  private async hasSourceFilesChanged(): Promise<boolean> {
+    const sourcesPrefix = `${this.settings.wikiFolder}/sources/`;
+    const allFiles = this.app.vault.getMarkdownFiles();
+    const sourceFiles = allFiles.filter(f => f.path.startsWith(sourcesPrefix));
 
-请从以下方面检查：
-1. 矛盾：页面间是否存在相互矛盾的信息？
-2. 过时：是否有信息明显过时？
-3. 孤立页面：哪些页面没有被其他页面引用？
-4. 缺失页面：哪些被 [[链接]] 但还不存在的页面？
-5. 断链：哪些链接指向了不存在的页面？
-6. 空洞内容：哪些页面的内容过于简短？
-
-请用中文以 Markdown 格式输出报告。`;
-
-    // Direct LLM call through wikiEngine — we use the same pattern as the plugin's lintWiki
-    // Since we don't have direct access to the plugin method, we use the engine's own tooling
-
-    // The lint is best done through the plugin's own lintWiki method.
-    // For now, this is a lightweight check that doesn't call LLM.
-    const entities = pages.filter(p => p.path.includes('/entities/')).length;
-    const concepts = pages.filter(p => p.path.includes('/concepts/')).length;
-    const sources = pages.filter(p => p.path.includes('/sources/')).length;
-
-    new Notice(
-      `Wiki lint complete: ${pages.length} pages (${entities} entities, ${concepts} concepts, ${sources} sources)`,
-      5000
-    );
+    for (const file of sourceFiles) {
+      if (file.stat.mtime > this.lastLintTimestamp) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // === Startup Check ===

@@ -154,6 +154,7 @@ export const TEXTS = {
 
     // Auto Maintenance
     autoMaintainSection: 'Auto Maintenance',
+    autoMaintainBetaBadge: 'BETA — Experimental feature. May have issues. Recommended for advanced users only.',
     autoWatchName: 'Watch Sources Folder',
     autoWatchDesc: 'Automatically detect changes in sources/ and notify or auto-ingest',
     autoWatchModeName: 'Watch Mode',
@@ -163,13 +164,15 @@ export const TEXTS = {
     autoWatchDebounceName: 'Debounce Delay (ms)',
     autoWatchDebounceDesc: 'Wait time before triggering ingest after a file change (1000-60000)',
     periodicLintName: 'Periodic Lint',
-    periodicLintDesc: 'Run lint on a schedule to catch issues automatically',
+    periodicLintDesc: 'Run LLM lint on schedule, only when source files have changed since last check',
     periodicLintOff: 'Off',
     periodicLintHourly: 'Hourly',
     periodicLintDaily: 'Daily',
+    periodicLintWeekly: 'Weekly',
     startupCheckName: 'Startup Health Check',
     startupCheckDesc: 'Scan wiki health when plugin loads',
     suggestSchemaCommand: 'Suggest Schema Updates',
+    autoMaintainCostWarning: '⚠️ Cost Notice: Auto-maintenance features consume API tokens. "Auto Ingest" triggers LLM calls on every source file change. "Periodic Lint" runs LLM health checks on schedule (only when source changes are detected). Configure carefully to avoid unexpected charges.',
 
     // Notices
     startupCheckSummary: 'Wiki has {pages} pages ({entities} entities, {concepts} concepts, {sources} sources)',
@@ -331,6 +334,7 @@ export const TEXTS = {
 
     // 自动维护
     autoMaintainSection: '自动维护',
+    autoMaintainBetaBadge: 'BETA 测试 — 实验性功能，可能存在问题，仅建议高级用户使用。',
     autoWatchName: '监听 Sources 文件夹',
     autoWatchDesc: '自动检测 sources/ 中的文件变更，通知或自动摄入',
     autoWatchModeName: '监听模式',
@@ -340,13 +344,15 @@ export const TEXTS = {
     autoWatchDebounceName: '防抖延迟 (ms)',
     autoWatchDebounceDesc: '文件变更后等待多久触发摄入 (1000-60000)',
     periodicLintName: '定时维护',
-    periodicLintDesc: '定期检查 Wiki 健康状况',
+    periodicLintDesc: '定期检查 Wiki 健康状况，有源文件变更时才执行 LLM 维护',
     periodicLintOff: '关闭',
     periodicLintHourly: '每小时',
     periodicLintDaily: '每天',
+    periodicLintWeekly: '每周',
     startupCheckName: '启动健康检查',
     startupCheckDesc: '插件加载时扫描 Wiki 健康状况',
     suggestSchemaCommand: '建议 Schema 更新',
+    autoMaintainCostWarning: '⚠️ 费用提醒：自动维护功能会消耗 API Token。"自动摄入"模式在每次源文件变更时触发 LLM 调用。"定时维护"定期运行 LLM 健康检查（仅在有新变更时执行）。请谨慎配置以避免意外费用。',
 
     // 通知
     startupCheckSummary: 'Wiki 共 {pages} 页（{entities} 个实体、{concepts} 个概念、{sources} 个来源）',

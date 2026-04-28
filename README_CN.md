@@ -4,7 +4,7 @@
 
 > 基于 [Andrej Karpathy 的 LLM Wiki 概念](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 实现的知识库生成系统，自动从笔记中提取实体与概念，构建互联的 Wiki 页面。
 
-**作者:** Greener-Dalii | **版本:** 1.2.0
+**作者:** Greener-Dalii | **版本:** 1.3.1
 
 [English](README.md) | [中文文档](README_CN.md)
 
@@ -45,7 +45,25 @@
 4. 点击 **获取模型列表** 填充模型下拉框，或手动输入模型名
 5. 点击 **测试连接**，然后 **保存设置**
 
-**Ollama 本地模型（无需 API Key）：** 安装 [Ollama](https://ollama.com)，拉取模型（如 `ollama pull qwen3`），在 Provider 下拉选择 "Ollama (本地)"。
+**Ollama 本地模型（无需 API Key）：** 安装 [Ollama](https://ollama.com)，拉取模型（如 `ollama pull qwen3.5:latest`），在 Provider 下拉选择 "Ollama (本地)"。
+
+### 模型选择建议
+
+本插件遵循 Karpathy 的核心理念：**将完整 Wiki 上下文直接喂给 LLM，而非切成碎片做 RAG 检索**。强烈推荐选择长上下文窗口的模型——Wiki 越大，LLM 越需要足够的上下文来保持跨页面一致性和准确回答。
+
+> 为什么不使用 RAG/嵌入向量？Karpathy 在[原始构想](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)中指出，RAG 将知识碎片化，破坏了 LLM 在完整知识图谱上的推理能力。一次长上下文 LLM 调用能更好地理解页面之间的关联。
+
+**重点推荐：**
+
+| 模型 | 上下文窗口 | 推荐理由 |
+|------|-----------|----------|
+| **DeepSeek V4** | **1M tokens** | **首选推荐 — 100万上下文 + 极低价格，中文能力出色，最适合构建大型 Wiki** |
+| **Gemini 3.1 Pro** | **1M+ tokens** | **最大上下文窗口，推理能力强（ARC-AGI-2 77.1%），适合超大型 Wiki** |
+| **Claude Opus 4.7** | **200K tokens** | **最强推理和指令遵循能力，适合复杂多页面综合** |
+| **Claude Sonnet 4.6** | 200K tokens | 速度、成本与质量的良好平衡，适合中型 Wiki |
+| **GPT-5.4** | 400K+ tokens | OpenAI 最新旗舰模型，综合表现优秀 |
+
+对于本地模型（Ollama）：上下文窗口通常较小（8K-128K），建议限制 Wiki 规模，或使用云端 Provider 做摄入 + 本地模型做查询。
 
 ### 使用方式
 

@@ -11,9 +11,12 @@ export function slugify(text: string): string {
   const trimmed = text.trim();
   console.debug('trim 后:', trimmed, '长度:', trimmed.length);
 
-  // Step 1: Remove filesystem-unsupported characters + special symbols
-  // Keep only: Chinese characters, English letters, numbers, dash, underscore
-  const afterRemoveInvalid = trimmed.replace(/[\x00-\x1f]/g, '').replace(/[/\\:*?"<>|、，。；：！？（）【】《》]/g, '');
+  // Step 1: Remove ASCII control characters (char code < 32) and filesystem-unsafe symbols
+  const afterRemoveInvalid = trimmed
+    .split('')
+    .filter(c => c.charCodeAt(0) >= 32)
+    .join('')
+    .replace(/[/\\:*?"<>|、，。；：！？（）【】《》]/g, '');
   console.debug('移除无效字符和特殊符号后:', afterRemoveInvalid, '长度:', afterRemoveInvalid.length);
 
   if (afterRemoveInvalid.length === 0) {
@@ -77,7 +80,7 @@ export async function parseJsonResponse(
       const result = JSON.parse(cleaned);
       console.debug('✅ 直接解析成功');
       return result;
-    } catch (directError) {
+    } catch (_directError) {
       console.warn('直接解析失败，尝试提取 JSON 对象');
     }
 

@@ -392,6 +392,22 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
     new Setting(containerEl).setName(this.getText('autoMaintainSection')).setHeading();
 
+    // Beta badge
+    const betaDiv = containerEl.createDiv({
+      attr: {
+        style: 'background: #e8f0fe; border: 1px solid #4285f4; border-radius: 6px; padding: 8px 14px; margin-bottom: 12px; font-size: 12px; line-height: 1.5; color: #174ea6; font-weight: 500;'
+      }
+    });
+    betaDiv.setText('🧪 ' + this.getText('autoMaintainBetaBadge'));
+
+    // Cost warning banner
+    const warningDiv = containerEl.createDiv({
+      attr: {
+        style: 'background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.5; color: #664d03;'
+      }
+    });
+    warningDiv.setText(this.getText('autoMaintainCostWarning'));
+
     new Setting(containerEl)
       .setName(this.getText('autoWatchName'))
       .setDesc(this.getText('autoWatchDesc'))
@@ -435,8 +451,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         dropdown.addOption('off', this.getText('periodicLintOff'));
         dropdown.addOption('hourly', this.getText('periodicLintHourly'));
         dropdown.addOption('daily', this.getText('periodicLintDaily'));
+        dropdown.addOption('weekly', this.getText('periodicLintWeekly'));
         dropdown.setValue(this.tempSettings.periodicLint);
-        dropdown.onChange((value: 'off' | 'hourly' | 'daily') => {
+        dropdown.onChange((value: 'off' | 'hourly' | 'daily' | 'weekly') => {
           this.tempSettings.periodicLint = value;
         });
       });
