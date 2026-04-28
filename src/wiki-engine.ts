@@ -177,7 +177,6 @@ export class WikiEngine {
       // Detailed summary report
       const created = analysis.created_pages.length;
       const updated = analysis.updated_pages.length;
-      const _failed = failedItems.length;
 
       console.debug('=== 摄入流程完成 ===');
       console.debug(`摄入完成: 创建 ${created} 页, 更新 ${updated} 页`);

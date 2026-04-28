@@ -210,7 +210,7 @@ export class AutoMaintainManager {
 
   private async runLint(): Promise<void> {
     // Check if any source files have changed since last lint
-    const hasChanges = await this.hasSourceFilesChanged();
+    const hasChanges = this.hasSourceFilesChanged();
     if (!hasChanges && this.lastLintTimestamp > 0) {
       console.debug('AutoMaintain: No source changes since last lint, skipping');
       return;
@@ -235,7 +235,7 @@ export class AutoMaintainManager {
     }
   }
 
-  private async hasSourceFilesChanged(): Promise<boolean> {
+  private hasSourceFilesChanged(): boolean {
     const sourcesPrefix = `${this.settings.wikiFolder}/sources/`;
     const allFiles = this.app.vault.getMarkdownFiles();
     const sourceFiles = allFiles.filter(f => f.path.startsWith(sourcesPrefix));

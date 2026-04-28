@@ -179,6 +179,16 @@ export const TEXTS = {
     watchIngestNotice: '{count} file(s) changed in sources/. Run "Ingest Sources" to process.',
     autoIngestRunning: 'Auto-ingesting {count} changed file(s)...',
     autoIngestComplete: 'Auto-ingest complete: {success} succeeded, {fail} failed',
+    lintWikiStart: 'Starting wiki lint...',
+    lintWikiComplete: 'Wiki lint complete',
+    lintWikiFailed: 'Wiki lint failed',
+    analyzingSchema: 'Analyzing Wiki and generating schema suggestions...',
+    schemaSuggestionGenerated: 'Schema suggestions generated, see wiki/schema/suggestions.md',
+    noSchemaUpdateNeeded: 'No schema updates needed.',
+    schemaSuggestionFailed: 'Schema suggestion failed',
+    selectFolderNoMdFiles: 'No Markdown files in folder: {path}',
+    batchIngestComplete: 'Batch ingest complete: {success}/{total} succeeded, {fail} failed',
+    batchIngestFailedFiles: 'Failed files:',
   },
 
   zh: {
@@ -359,5 +369,15 @@ export const TEXTS = {
     watchIngestNotice: 'sources/ 中有 {count} 个文件变更。请执行"摄入源文件"处理。',
     autoIngestRunning: '正在自动摄入 {count} 个变更文件...',
     autoIngestComplete: '自动摄入完成：成功 {success}，失败 {fail}',
+    lintWikiStart: '开始维护 wiki...',
+    lintWikiComplete: '维护完成',
+    lintWikiFailed: '维护失败',
+    analyzingSchema: '正在分析 Wiki 并生成 Schema 建议...',
+    schemaSuggestionGenerated: 'Schema 建议已生成，请查看 wiki/schema/suggestions.md',
+    noSchemaUpdateNeeded: '未检测到 Schema 需要更新。',
+    schemaSuggestionFailed: 'Schema 建议生成失败',
+    selectFolderNoMdFiles: '文件夹 {path} 中没有 Markdown 文件',
+    batchIngestComplete: '批量摄入完成: 成功 {success}/{total}, 失败 {fail}',
+    batchIngestFailedFiles: '失败的文件:',
   }
 };

@@ -62,7 +62,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
     this.autoMaintainManager.schedulePeriodicLint();
     if (this.settings.startupCheck) {
-      this.autoMaintainManager.runStartupCheck();
+      void this.autoMaintainManager.runStartupCheck();
     }
 
     // 注册命令
@@ -207,7 +207,8 @@ export default class LLMWikiPlugin extends Plugin {
         .filter(f => f.path.startsWith(folder.path));
 
       if (files.length === 0) {
-        new Notice(`文件夹 ${folder.path} 中没有 Markdown 文件`);
+        const msg = TEXTS[this.settings.language].selectFolderNoMdFiles.replace('{path}', folder.path);
+        new Notice(msg);
         return;
       }
 
@@ -242,13 +243,18 @@ export default class LLMWikiPlugin extends Plugin {
       this.dismissProgress();
 
       // Batch summary
-      const summary = `批量摄入完成: 成功 ${successCount}/${totalFiles}, 失败 ${failedCount}`;
+      const texts = TEXTS[this.settings.language];
+      const summary = texts.batchIngestComplete
+        .replace('{success}', successCount.toString())
+        .replace('{total}', totalFiles.toString())
+        .replace('{fail}', failedCount.toString());
       new Notice(summary, 10000);
       console.debug(summary);
 
       if (failedFiles.length > 0) {
         console.debug('失败的文件列表:', failedFiles);
-        new Notice(`失败的文件:\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? '\n...' : ''}`, 15000);
+        const failedNotice = `${texts.batchIngestFailedFiles}\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? '\n...' : ''}`;
+        new Notice(failedNotice, 15000);
       }
     })().catch(e => console.error(e));
     }).open();
@@ -265,11 +271,11 @@ export default class LLMWikiPlugin extends Plugin {
 
   async lintWiki() {
     if (!this.llmClient) {
-      new Notice('请先配置 API key');
+      new Notice(TEXTS[this.settings.language].errorNoApiKey);
       return;
     }
 
-    new Notice('开始维护 wiki...');
+    new Notice(TEXTS[this.settings.language].lintWikiStart);
 
     try {
       const wikiFiles = this.wikiEngine.getExistingWikiPages();
@@ -317,11 +323,11 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
       });
 
       const cleanedReport = cleanMarkdownResponse(report);
-      new LintReportModal(this.app, cleanedReport, () => this.suggestSchemaUpdate()).open();
-      new Notice('维护完成');
+      new LintReportModal(this.app, cleanedReport, () => { void this.suggestSchemaUpdate(); }).open();
+      new Notice(TEXTS[this.settings.language].lintWikiComplete);
 
     } catch (error) {
-      new Notice('维护失败');
+      new Notice(TEXTS[this.settings.language].lintWikiFailed);
       console.error(error);
     }
   }
@@ -332,17 +338,17 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
       return;
     }
 
-    new Notice('正在分析 Wiki 并生成 Schema 建议...');
+    new Notice(TEXTS[this.settings.language].analyzingSchema);
     try {
       const result = await this.schemaManager.suggestSchemaUpdate('Wiki lint analysis');
       if (result?.changes_needed) {
-        new Notice('Schema 建议已生成，请查看 wiki/schema/suggestions.md', 8000);
+        new Notice(TEXTS[this.settings.language].schemaSuggestionGenerated, 8000);
       } else {
-        new Notice('未检测到 Schema 需要更新。', 5000);
+        new Notice(TEXTS[this.settings.language].noSchemaUpdateNeeded, 5000);
       }
     } catch (error) {
       console.error('Schema suggestion failed:', error);
-      new Notice('Schema 建议生成失败');
+      new Notice(TEXTS[this.settings.language].schemaSuggestionFailed);
     }
   }
 
