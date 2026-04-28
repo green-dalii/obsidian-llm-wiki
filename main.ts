@@ -21,6 +21,7 @@ export default class LLMWikiPlugin extends Plugin {
   wikiEngine: WikiEngine;
   schemaManager: SchemaManager;
   autoMaintainManager: AutoMaintainManager;
+  private progressNotice: Notice | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -36,7 +37,9 @@ export default class LLMWikiPlugin extends Plugin {
       this.app,
       this.settings,
       () => this.llmClient,
-      this.schemaManager
+      this.schemaManager,
+      (path: string) => this.autoMaintainManager.watchWrite(path),
+      (msg: string) => this.showProgress(msg)
     );
 
     this.autoMaintainManager = new AutoMaintainManager(
@@ -49,9 +52,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     // Wire write-notification callback to prevent watcher loops:
     // every file wiki-engine writes to sources/ is marked as a recent write
-    this.wikiEngine.setFileWriteCallback(
-      (path: string) => this.autoMaintainManager.watchWrite(path)
-    );
+    // (wired via constructor above)
 
     // Initialize auto-maintenance features based on settings
     if (this.settings.autoWatchSources) {
@@ -159,6 +160,21 @@ export default class LLMWikiPlugin extends Plugin {
     }
   }
 
+  private showProgress(msg: string): void {
+    if (this.progressNotice) {
+      this.progressNotice.setMessage(msg);
+    } else {
+      this.progressNotice = new Notice(msg, 0);
+    }
+  }
+
+  private dismissProgress(): void {
+    if (this.progressNotice) {
+      this.progressNotice.hide();
+      this.progressNotice = null;
+    }
+  }
+
   // ==================== 核心功能实现 ====================
 
   selectSourceToIngest() {
@@ -193,24 +209,25 @@ export default class LLMWikiPlugin extends Plugin {
       let failedCount = 0;
       const failedFiles: string[] = [];
 
-      new Notice(`开始批量摄入 ${totalFiles} 个文件...`, 10000);
+      this.showProgress(`[0/${totalFiles}] Starting...`);
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const progress = `(${i + 1}/${totalFiles})`;
 
         try {
-          console.debug(`${progress} 开始摄入: ${file.path}`);
+          this.showProgress(`[${i + 1}/${totalFiles}] ${file.basename}`);
+          console.debug(`(${i + 1}/${totalFiles}) 开始摄入: ${file.path}`);
           await this.wikiEngine.ingestSource(file);
           successCount++;
-          console.debug(`${progress} 摄入成功: ${file.path}`);
+          console.debug(`(${i + 1}/${totalFiles}) 摄入成功: ${file.path}`);
         } catch (error) {
           failedCount++;
           failedFiles.push(file.path);
-          console.error(`${progress} 摄入失败: ${file.path}`, error);
-          new Notice(`${progress} 摄入失败: ${file.basename}`, 3000);
+          console.error(`(${i + 1}/${totalFiles}) 摄入失败: ${file.path}`, error);
         }
       }
+
+      this.dismissProgress();
 
       // 最终统计报告
       const summary = `批量摄入完成: 成功 ${successCount}/${totalFiles}, 失败 ${failedCount}`;

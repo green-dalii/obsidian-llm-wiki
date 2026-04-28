@@ -223,4 +223,24 @@ If no changes are needed:
 }
 
 Output ONLY the JSON, no other text.`,
+
+  generateHierarchicalIndex: `You are a Wiki librarian organizing a knowledge index.
+
+Below is a list of all Wiki pages with their summaries:
+
+{{page_list}}
+
+Wiki Structure guidelines:
+{{wiki_structure}}
+
+Create a hierarchical, importance-ranked index in Markdown. Follow these rules:
+
+1. **Group by type**: Entities, Concepts, Sources — each as a top-level section
+2. **Hierarchy within groups**: Show parent-child relationships. If Concept A is a sub-concept of Concept B, indent it under B
+3. **Importance ranking**: More important pages (more linked, more foundational) come first within each group
+4. **Link format**: Use [[wiki/type/page-name|Display Name]] for every page reference
+5. **Short annotations**: Add a one-line summary in Chinese or English (match the page's language) after each link
+6. **Statistics**: End with a summary line showing page counts per category
+
+Output ONLY the Markdown index content, no introductory or concluding text.`,
 };

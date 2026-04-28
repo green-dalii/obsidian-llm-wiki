@@ -8,6 +8,20 @@ import { parseJsonResponse } from './utils';
 const SCHEMA_FILENAME = 'schema/config.md';
 const SUGGESTIONS_FILENAME = 'schema/suggestions.md';
 
+export type SchemaTask = 'analyze' | 'summary' | 'entity' | 'concept' | 'related' | 'conversation' | 'index' | 'lint' | 'full';
+
+const TASK_SECTIONS: Record<SchemaTask, string[]> = {
+  analyze: ['Wiki Structure', 'Classification Rules', 'Naming Conventions'],
+  summary: ['Wiki Structure', 'Classification Rules'],
+  entity: ['Entity Page Template', 'Naming Conventions', 'Classification Rules'],
+  concept: ['Concept Page Template', 'Naming Conventions', 'Classification Rules'],
+  related: ['Naming Conventions', 'Classification Rules'],
+  conversation: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules'],
+  index: ['Wiki Structure'],
+  lint: ['Maintenance Policies'],
+  full: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules', 'Maintenance Policies'],
+};
+
 function buildDefaultSchemaBody(): string {
   return `# Wiki Schema Configuration
 
@@ -84,20 +98,57 @@ export class SchemaManager {
     this.cachedBody = null;
   }
 
-  async getSchemaContext(): Promise<string> {
+  async getSchemaContext(task: SchemaTask = 'full'): Promise<string> {
     if (!this.settings.enableSchema) return '';
 
     const schema = await this.loadSchema();
     if (!schema || !schema.body.trim()) return '';
 
     const body = schema.body.trim();
+    const selectedBody = this.selectSections(body, task);
+
+    if (!selectedBody.trim()) return '';
 
     return `You are operating with the following Wiki Schema configuration.
 Follow these rules when creating, updating, or analyzing Wiki pages.
 
 --- BEGIN SCHEMA ---
-${body}
+${selectedBody}
 --- END SCHEMA ---`;
+  }
+
+  private selectSections(body: string, task: SchemaTask): string {
+    if (task === 'full') return body;
+
+    const wanted = TASK_SECTIONS[task];
+    const sections = this.parseSections(body);
+
+    const selected = sections.filter(s => wanted.includes(s.heading));
+    return selected.map(s => `## ${s.heading}\n${s.content}`).join('\n\n');
+  }
+
+  private parseSections(body: string): Array<{ heading: string; content: string }> {
+    const result: Array<{ heading: string; content: string }> = [];
+    const lines = body.split('\n');
+    let currentHeading = '';
+    let currentContent: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith('## ')) {
+        if (currentHeading) {
+          result.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
+        }
+        currentHeading = line.substring(3).trim();
+        currentContent = [];
+      } else if (currentHeading) {
+        currentContent.push(line);
+      }
+    }
+    if (currentHeading) {
+      result.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
+    }
+
+    return result;
   }
 
   async loadSchema(): Promise<WikiSchema | null> {

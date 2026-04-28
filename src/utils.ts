@@ -177,13 +177,25 @@ export function cleanMarkdownResponse(response: string): string {
   console.debug('cleanMarkdownResponse 输出长度:', cleaned.length);
   console.debug('前50字符:', cleaned.substring(0, 50));
 
-  // Ensure frontmatter starts at position 0 for Obsidian to parse it
-  // LLM may preface content with explanatory text before the --- delimiter
+  // Ensure frontmatter starts at position 0 for Obsidian to parse it.
+  // LLM may omit the opening --- or preface content with explanatory text.
   if (!cleaned.startsWith('---')) {
-    const fmStart = cleaned.indexOf('\n---\n');
-    if (fmStart !== -1) {
-      cleaned = cleaned.substring(fmStart + 1);
-      console.debug('已移除前置文本，frontmatter 现在从位置0开始');
+    const fmEnd = cleaned.indexOf('\n---\n');
+    if (fmEnd !== -1) {
+      const beforeFm = cleaned.substring(0, fmEnd);
+      // Check if it looks like frontmatter: key:value lines, no markdown headings
+      const looksLikeFrontmatter =
+        beforeFm.includes(':') &&
+        !beforeFm.startsWith('#') &&
+        !beforeFm.startsWith('```') &&
+        beforeFm.split('\n').filter(l => l.trim()).every(l => l.includes(':') || l.trim() === '');
+      if (looksLikeFrontmatter) {
+        cleaned = '---\n' + cleaned;
+        console.debug('已添加缺失的开头 ---');
+      } else {
+        cleaned = cleaned.substring(fmEnd + 1);
+        console.debug('已移除 frontmatter 前的前置文本');
+      }
     }
   }
 

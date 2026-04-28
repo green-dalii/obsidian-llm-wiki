@@ -20,13 +20,15 @@ export class WikiEngine {
   private getLLMClient: () => LLMClient | null;
   private schemaManager: SchemaManager;
   private onFileWrite: ((path: string) => void) | null;
+  private onProgress: ((message: string) => void) | null;
 
   constructor(
     app: App,
     settings: LLMWikiSettings,
     getLLMClient: () => LLMClient | null,
     schemaManager: SchemaManager,
-    onFileWrite?: (path: string) => void
+    onFileWrite?: (path: string) => void,
+    onProgress?: (message: string) => void
   ) {
     this.app = app;
     this.settings = settings;
@@ -34,10 +36,15 @@ export class WikiEngine {
     this.getLLMClient = getLLMClient;
     this.schemaManager = schemaManager;
     this.onFileWrite = onFileWrite || null;
+    this.onProgress = onProgress || null;
   }
 
   setFileWriteCallback(cb: (path: string) => void): void {
     this.onFileWrite = cb;
+  }
+
+  setProgressCallback(cb: (message: string) => void): void {
+    this.onProgress = cb;
   }
 
   private get client(): LLMClient {
@@ -49,7 +56,7 @@ export class WikiEngine {
   async ingestSource(file: TFile) {
     console.debug('=== 开始摄入流程 ===');
     console.debug('源文件:', file.path);
-    new Notice(`正在摄入: ${file.basename}...`);
+    this.onProgress?.(`Analyzing: ${file.basename}`);
 
     try {
       await this.ensureWikiStructure();
@@ -60,10 +67,15 @@ export class WikiEngine {
       }
       console.debug('分析结果:', JSON.stringify(analysis, null, 2));
 
+      const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
+      let step = 1;
+      this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
       const summaryPage = await this.createSummaryPage(file, analysis);
       analysis.created_pages.push(summaryPage);
 
       for (const entity of analysis.entities) {
+        step++;
+        this.onProgress?.(`[${step}/${totalSteps}] Entity: ${entity.name}`);
         const entityPage = await this.createOrUpdateEntityPage(entity, analysis, file);
         if (entityPage) {
           analysis.created_pages.push(entityPage);
@@ -71,6 +83,8 @@ export class WikiEngine {
       }
 
       for (const concept of analysis.concepts) {
+        step++;
+        this.onProgress?.(`[${step}/${totalSteps}] Concept: ${concept.name}`);
         const conceptPage = await this.createOrUpdateConceptPage(concept, analysis, file);
         if (conceptPage) {
           analysis.created_pages.push(conceptPage);
@@ -78,6 +92,8 @@ export class WikiEngine {
       }
 
       for (const relatedPageName of analysis.related_pages) {
+        step++;
+        this.onProgress?.(`[${step}/${totalSteps}] Updating: ${relatedPageName}`);
         await this.updateRelatedPage(relatedPageName, analysis);
         analysis.updated_pages.push(relatedPageName);
       }
@@ -86,6 +102,8 @@ export class WikiEngine {
         await this.noteContradiction(contradiction);
       }
 
+      step++;
+      this.onProgress?.(`[${step}/${totalSteps}] Generating index...`);
       await this.generateIndexFromEngine();
       await this.updateLog('ingest', analysis);
 
@@ -143,7 +161,7 @@ export class WikiEngine {
     console.debug('调用 LLM 分析源文件...');
 
     try {
-      const schemaContext = await this.schemaManager.getSchemaContext();
+      const schemaContext = await this.schemaManager.getSchemaContext('analyze');
       const response = await this.client.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
@@ -224,7 +242,7 @@ export class WikiEngine {
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
       .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '));
 
-    const schemaContext = await this.schemaManager.getSchemaContext();
+    const schemaContext = await this.schemaManager.getSchemaContext('summary');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
@@ -264,7 +282,7 @@ export class WikiEngine {
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', entity.type);
 
-    const schemaContext = await this.schemaManager.getSchemaContext();
+    const schemaContext = await this.schemaManager.getSchemaContext('entity');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
@@ -305,7 +323,7 @@ export class WikiEngine {
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', concept.type);
 
-    const schemaContext = await this.schemaManager.getSchemaContext();
+    const schemaContext = await this.schemaManager.getSchemaContext('concept');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
@@ -346,7 +364,7 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
 请更新该页面，添加新信息，但不要删除现有内容。使用双向链接语法 [[页面名]]。
 只输出更新后的完整页面内容，不要其他文字。`;
 
-    const schemaContext = await this.schemaManager.getSchemaContext();
+    const schemaContext = await this.schemaManager.getSchemaContext('related');
     const updatedContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
@@ -436,29 +454,73 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
 
     const entities = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/entities/`));
-
     const concepts = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/concepts/`));
-
     const sources = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/sources/`));
 
-    let indexContent = `# Wiki 索引\n\n`;
-    indexContent += `> 自动生成的知识库目录，按类型分类\n\n`;
+    // Build page list with summaries
+    const pageEntries: string[] = [];
+    for (const file of [...entities, ...concepts, ...sources]) {
+      const summary = await this.getPageSummary(file);
+      const pageType = file.path.includes('/entities/') ? 'Entity' :
+                       file.path.includes('/concepts/') ? 'Concept' : 'Source';
+      pageEntries.push(`- [${pageType}] ${file.basename}: ${summary} (path: ${file.path})`);
+    }
 
-    indexContent += `## 实体 (Entities)\n\n`;
+    if (pageEntries.length === 0) {
+      const indexPath = `${this.settings.wikiFolder}/index.md`;
+      await this.createOrUpdateFile(indexPath, `# Wiki Index\n\n> No pages yet. Ingest sources to populate the Wiki.\n`);
+      return;
+    }
+
+    const wikiStructure = this.settings.enableSchema
+      ? await this.schemaManager.getSchemaContext('index')
+      : '';
+
+    const prompt = PROMPTS.generateHierarchicalIndex
+      .replace('{{page_list}}', pageEntries.join('\n'))
+      .replace('{{wiki_structure}}', wikiStructure || 'Standard Wiki structure (entities/, concepts/, sources/)');
+
+    try {
+      const indexContent = await this.client.createMessage({
+        model: this.settings.model,
+        max_tokens: 2000,
+        system: wikiStructure || undefined,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      const cleaned = cleanMarkdownResponse(indexContent);
+      const indexPath = `${this.settings.wikiFolder}/index.md`;
+      await this.createOrUpdateFile(indexPath, cleaned);
+    } catch (_e) {
+      // Fallback: flat index if LLM fails
+      console.warn('LLM index generation failed, using flat index');
+      await this.generateFlatIndex(entities, concepts, sources);
+    }
+  }
+
+  private async generateFlatIndex(
+    entities: TFile[],
+    concepts: TFile[],
+    sources: TFile[]
+  ): Promise<void> {
+    let indexContent = `# Wiki Index\n\n`;
+    indexContent += `> Auto-generated knowledge base directory\n\n`;
+
+    indexContent += `## Entities\n\n`;
     for (const file of entities) {
       const summary = await this.getPageSummary(file);
       indexContent += `- [[entities/${file.basename}|${file.basename}]] - ${summary}\n`;
     }
 
-    indexContent += `\n## 概念 (Concepts)\n\n`;
+    indexContent += `\n## Concepts\n\n`;
     for (const file of concepts) {
       const summary = await this.getPageSummary(file);
       indexContent += `- [[concepts/${file.basename}|${file.basename}]] - ${summary}\n`;
     }
 
-    indexContent += `\n## 源文件 (Sources)\n\n`;
+    indexContent += `\n## Sources\n\n`;
     for (const file of sources) {
       indexContent += `- [[sources/${file.basename}|${file.basename}]]\n`;
     }
@@ -618,7 +680,7 @@ ${conversationText}
 - 如果没有实体/概念，用空数组[]（绝不能省略字段）
 - 名称应简短且便于[[wiki-links]]引用（根据Wiki索引判断合适的命名方式）`;
 
-    const schemaContext = await this.schemaManager.getSchemaContext();
+    const schemaContext = await this.schemaManager.getSchemaContext('conversation');
     const analysis = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 5000,
