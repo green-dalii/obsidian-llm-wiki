@@ -370,9 +370,13 @@ Before each commit, verify:
 
 ---
 
-## 🚀 Release Process
+## 🚀 Release Process (Automated via GitHub Actions)
 
-### Step-by-Step Release Workflow
+> This is the ONLY release mechanism. Never manually upload release assets.
+> Workflow: `.github/workflows/release.yml` | Trigger: tag push
+> Precondition: Settings → Actions → General → Read and write permissions (already configured)
+
+### Step-by-Step
 
 1. **Finalize Code:**
    ```bash
