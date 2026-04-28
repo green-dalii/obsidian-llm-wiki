@@ -113,7 +113,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   selectSourceToIngest() {
     if (!this.llmClient) {
-      new Notice('Please configure api key first (请先配置 api key)');
+      new Notice('Please configure API key first');
       return;
     }
 
@@ -124,7 +124,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   selectFolderToIngest() {
     if (!this.llmClient) {
-      new Notice('Please configure api key first (请先配置 api key)');
+      new Notice('Please configure API key first');
       return;
     }
 
