@@ -80,7 +80,7 @@ export async function parseJsonResponse(
       const result = JSON.parse(cleaned);
       console.debug('✅ 直接解析成功');
       return result;
-    } catch (_directError) {
+    } catch {
       console.warn('直接解析失败，尝试提取 JSON 对象');
     }
 
