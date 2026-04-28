@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Index Generation Hang**: large wikis (>25 pages) bypass LLM and use fast flat index; `max_tokens` 2000→4000; error logging restored
 - **ReferenceError `analysis`**: variable scoping fix in `ingestSource` catch block
 
+### Next — Phase 2 (v1.4.0)
+- **User Feedback Loop**: detect `frontmatter.reviewed: true` and preserve manual edits during re-ingestion
+- **Multi-Source Knowledge Fusion**: LLM-powered diff-and-merge when multiple sources mention the same entity
+
 ## [1.3.0] - 2026-04-28
 
 ### Added
