@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - 2026-04-28
+## [1.4.0] - 2026-04-29
+
+### Fixed (2026-04-29 bot re-scan)
+- **Promise handling**: void fire-and-forget `runStartupCheck()`, wrap async callback in `suggestSchemaUpdate`
+- **Sentence case + i18n**: all hardcoded Chinese Notice strings converted to `TEXTS[].xxx` (10 new i18n keys)
+- **async without await**: `hasSourceFilesChanged()` de-async'd (was synchronous)
+- **Unused variable**: removed `_failed` in wiki-engine.ts
 
 ### Added
 - **JSON Output Mode**: forced `response_format: { type: "json_object" }` for all JSON-expected LLM calls (DeepSeek/OpenAI), eliminating malformed JSON at the source

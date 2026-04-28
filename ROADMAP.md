@@ -2,13 +2,13 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.3.2-beta | **Updated:** 2026-04-28
+**Version:** 1.4.0 | **Updated:** 2026-04-29
 
 ---
 
 ## Current Status
 
-### Implemented (v1.3.x branch)
+### Implemented (v1.4.0)
 
 **Core Features**
 - Multi LLM Provider support (Anthropic, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, Custom)
@@ -33,7 +33,7 @@
 
 ---
 
-## Short-term Planning (v1.4.x)
+## Short-term Planning (v1.5.x)
 
 ### Priority: High
 
@@ -99,10 +99,11 @@
 
 | Version | Target | Key Features | Status |
 |---------|--------|-------------|--------|
-| **v1.3.2-beta** | 2026-04 | Phase 1 optimizations + robustness fixes | Current |
-| **v1.4.0** | TBD | Multi-source fusion + user feedback loop | Planning |
+| **v1.3.2-beta** | 2026-04 | Phase 1 optimizations + robustness fixes | Done |
+| **v1.4.0** | 2026-04 | Schema layer, auto-maintenance, ESLint compliance, bot review | Current |
+| **v1.5.0** | TBD | Multi-source fusion + user feedback loop | Planning |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
 ---
 
-**Last Updated:** 2026-04-28 | **Maintainer:** Greener-Dalii
+**Last Updated:** 2026-04-29 | **Maintainer:** Greener-Dalii
