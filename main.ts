@@ -1,4 +1,4 @@
-import { App, Plugin, Notice } from 'obsidian';
+import { Plugin, Notice } from 'obsidian';
 
 import {
   PREDEFINED_PROVIDERS,
@@ -31,31 +31,31 @@ export default class LLMWikiPlugin extends Plugin {
     // 注册命令
     this.addCommand({
       id: 'ingest-source',
-      name: 'Ingest Single Source (摄入单个源文件)',
+      name: 'Ingest single source (摄入单个源文件)',
       callback: () => this.selectSourceToIngest()
     });
 
     this.addCommand({
       id: 'ingest-folder',
-      name: 'Ingest from Folder (从文件夹批量摄入)',
+      name: 'Ingest from folder (从文件夹批量摄入)',
       callback: () => this.selectFolderToIngest()
     });
 
     this.addCommand({
       id: 'query-wiki',
-      name: 'Query Wiki (查询 Wiki)',
+      name: 'Query wiki (查询 Wiki)',
       callback: () => this.queryWiki()
     });
 
     this.addCommand({
       id: 'lint-wiki',
-      name: 'Lint Wiki (维护 Wiki)',
+      name: 'Lint wiki (维护 Wiki)',
       callback: () => this.lintWiki()
     });
 
     this.addCommand({
       id: 'regenerate-index',
-      name: 'Regenerate Index (重新生成索引)',
+      name: 'Regenerate index (重新生成索引)',
       callback: () => this.wikiEngine.generateIndexFromEngine()
     });
 
@@ -113,7 +113,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   selectSourceToIngest() {
     if (!this.llmClient) {
-      new Notice('⚠️ Please configure API Key first (请先配置 API Key)');
+      new Notice('⚠️ Please configure API key first (请先配置 API key)');
       return;
     }
 
@@ -124,7 +124,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   selectFolderToIngest() {
     if (!this.llmClient) {
-      new Notice('⚠️ Please configure API Key first (请先配置 API Key)');
+      new Notice('⚠️ Please configure API key first (请先配置 API key)');
       return;
     }
 
@@ -186,11 +186,11 @@ export default class LLMWikiPlugin extends Plugin {
 
   async lintWiki() {
     if (!this.llmClient) {
-      new Notice('请先配置 API Key');
+      new Notice('请先配置 API key');
       return;
     }
 
-    new Notice('开始维护 Wiki...');
+    new Notice('开始维护 wiki...');
 
     try {
       const wikiFiles = this.wikiEngine.getExistingWikiPages();

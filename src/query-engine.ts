@@ -81,7 +81,7 @@ export class QueryModal extends Modal {
       if (evt.key === 'Enter' && !evt.shiftKey) {
         evt.preventDefault();
         if (this.inputArea.value.trim() && !this.isStreaming) {
-          this.sendMessage(this.inputArea.value);
+          void this.sendMessage(this.inputArea.value);
           this.inputArea.value = '';
         }
       }
@@ -106,7 +106,7 @@ export class QueryModal extends Modal {
       cls: 'llm-wiki-query-save-btn'
     }).addEventListener('click', () => {
       if (this.history.messages.length > 0) {
-        this.saveToWiki();
+        void this.saveToWiki();
       }
     });
 
@@ -133,7 +133,7 @@ export class QueryModal extends Modal {
     const { contentEl } = this;
 
     this.plugin.settings.queryHistory = this.history.messages;
-    this.plugin.saveSettings();
+    void this.plugin.saveSettings();
 
     contentEl.empty();
   }
@@ -162,7 +162,7 @@ export class QueryModal extends Modal {
     });
 
     this.currentResponseDiv.createEl('strong', {
-      text: '🤖 Wiki:',
+      text: '🤖 wiki:',
       cls: 'llm-wiki-query-response-strong'
     });
 
@@ -247,17 +247,16 @@ export class QueryModal extends Modal {
   renderMarkdownContent(content: string, container: HTMLElement) {
     container.empty();
 
-    MarkdownRenderer.render(
+    void MarkdownRenderer.render(
       this.app,
       content,
       container,
       '',
-      this.plugin
+      this
     );
   }
 
   renderHistoryMessage(role: 'user' | 'assistant', content: string) {
-    const texts = TEXTS[this.plugin.settings.language];
 
     const messageWrapper = this.historyContainer.createDiv({
       cls: ['llm-wiki-query-message-wrapper', role === 'user' ? 'llm-wiki-query-message-wrapper-user' : 'llm-wiki-query-message-wrapper-assistant']
@@ -286,7 +285,6 @@ export class QueryModal extends Modal {
   }
 
   limitHistory() {
-    const texts = TEXTS[this.plugin.settings.language];
     const max = this.plugin.settings.maxConversationHistory;
     const totalMessages = this.history.messages.length;
 
@@ -311,7 +309,6 @@ export class QueryModal extends Modal {
   async saveToWiki() {
     if (this.history.messages.length === 0) return;
 
-    const texts = TEXTS[this.plugin.settings.language];
     new Notice(
       this.plugin.settings.language === 'en'
         ? 'Saving conversation to Wiki...'
@@ -344,7 +341,7 @@ export class QueryModal extends Modal {
     this.historyContainer.empty();
 
     this.plugin.settings.queryHistory = [];
-    this.plugin.saveSettings();
+    void this.plugin.saveSettings();
 
     new Notice(
       this.plugin.settings.language === 'en'
