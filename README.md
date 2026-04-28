@@ -4,7 +4,7 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Author:** Greener-Dalii | **Version:** 1.3.1
+**Author:** Greener-Dalii | **Version:** 1.4.0
 
 [English](README.md) | [中文文档](README_CN.md) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
@@ -40,12 +40,12 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 
 - **Multi-Provider LLM Support** — Anthropic (Claude), OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, and custom OpenAI-compatible endpoints
 - **Internationalization** — English and Chinese UI (default: English)
-- **Intelligent Ingestion** — Auto-extract entities and concepts from source notes, generate structured Wiki pages
-- **Bidirectional Links** — Native Obsidian `[[wiki-links]]` across all generated pages
-- **Knowledge Graph** — Visualize entity/concept relationships in Obsidian's Graph View
+- **Schema Layer** — Structured configuration (`wiki/schema/config.md`) injected into all LLM prompts for consistent, high-quality Wiki output
+- **Intelligent Ingestion** — Auto-extract entities and concepts from source notes, generate structured Wiki pages with bidirectional `[[wiki-links]]`
 - **Conversational Query** — ChatGPT-style dialog with streaming Markdown responses, multi-turn history, and optional Wiki saving
-- **Auto Maintenance** — Lint for contradictions, stale info, and orphaned pages
-- **Auto Index** — `index.md` and `log.md` maintained automatically
+- **Auto Maintenance** — File watcher for automatic ingestion, periodic lint scheduling (hourly/daily/weekly), startup health check
+- **Knowledge Graph** — Visualize entity/concept relationships in Obsidian's Graph View
+- **Auto Index** — `index.md` and `log.md` maintained automatically with hierarchical (by-tag) organization
 
 ---
 
@@ -86,9 +86,9 @@ This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not
 | Model | Context Window | Why |
 |-------|---------------|-----|
 | **DeepSeek V4** | 1M tokens | **Best value — ultra-low pricing, strong Chinese support. Ideal for large Wikis.** |
-| **Gemini 3.1 Pro** | 1M+ tokens | **Largest context window. Strong reasoning (ARC-AGI-2 77.1%). Excellent for very large Wikis.** |
+| **Gemini 3.1 Pro** | 1M+ tokens | **Largest context window. Strong reasoning. Excellent for very large Wikis.** |
 | **Claude Opus 4.7** | 1M tokens | **Strongest agentic coding and reasoning. Best for complex multi-page synthesis.** |
-| **GPT-5.5** | 1M tokens | **Latest OpenAI flagship (Apr 2026). Top AI intelligence index. Excellent for knowledge work.** |
+| **GPT-5.5** | 1M tokens | **Latest OpenAI flagship. Top AI intelligence index. Excellent for knowledge work.** |
 | **Claude Sonnet 4.6** | 1M tokens | Great balance of speed, cost, and quality for mid-size Wikis |
 
 For local models (Ollama): context windows are typically smaller (8K–128K). Consider limiting Wiki scope or using a cloud provider for ingestion + local model for query.
@@ -109,11 +109,12 @@ Re-ingesting the same source does incremental updates on entity/concept pages (n
 
 | Command | Description |
 |---------|-------------|
-| **Ingest Sources** | Process `sources/` → generate Wiki pages |
-| **Ingest from Folder** | Select any folder → generate Wiki from existing notes |
-| **Query Wiki** | Conversational Q&A over your Wiki, with streaming |
-| **Lint Wiki** | Detect contradictions, stale info, orphaned pages |
-| **Generate Index** | Manually regenerate `wiki/index.md` |
+| **Ingest single source** | Select a note → generate Wiki pages |
+| **Ingest from folder** | Select any folder → batch generate Wiki from existing notes |
+| **Query wiki** | Conversational Q&A over your Wiki, with streaming |
+| **Lint wiki** | Detect contradictions, stale info, orphaned pages |
+| **Regenerate index** | Manually rebuild `wiki/index.md` |
+| **Suggest schema updates** | LLM analyzes Wiki and proposes schema improvements |
 
 ---
 
@@ -171,7 +172,7 @@ sources/     # Your source documents (read-only)
   ↓ ingest
 wiki/        # LLM-generated Wiki pages
   ↓ query / maintain
-schema/      # Workflow configuration (planned)
+schema/      # Wiki structure configuration (naming, templates, categories)
 ```
 
 **Generated pages:**
