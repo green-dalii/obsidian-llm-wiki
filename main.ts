@@ -4,7 +4,8 @@ import {
   PREDEFINED_PROVIDERS,
   DEFAULT_SETTINGS,
   LLMWikiSettings,
-  LLMClient
+  LLMClient,
+  IngestReport
 } from './src/types';
 import { AnthropicClient, OpenAIClient } from './src/llm-client';
 import { TEXTS } from './src/texts';
@@ -12,7 +13,7 @@ import { cleanMarkdownResponse } from './src/utils';
 import { LLMWikiSettingTab } from './src/settings';
 import { WikiEngine } from './src/wiki-engine';
 import { QueryModal } from './src/query-engine';
-import { FileSuggestModal, FolderSuggestModal, LintReportModal } from './src/modals';
+import { FileSuggestModal, FolderSuggestModal, LintReportModal, IngestReportModal } from './src/modals';
 import { SchemaManager } from './src/schema-manager';
 import { AutoMaintainManager } from './src/auto-maintain';
 export default class LLMWikiPlugin extends Plugin {
@@ -39,7 +40,8 @@ export default class LLMWikiPlugin extends Plugin {
       () => this.llmClient,
       this.schemaManager,
       (path: string) => this.autoMaintainManager.watchWrite(path),
-      (msg: string) => this.showProgress(msg)
+      (msg: string) => this.showProgress(msg),
+      (report: IngestReport) => this.onIngestDone(report)
     );
 
     this.autoMaintainManager = new AutoMaintainManager(
@@ -175,6 +177,11 @@ export default class LLMWikiPlugin extends Plugin {
     }
   }
 
+  private onIngestDone(report: IngestReport): void {
+    this.dismissProgress();
+    new IngestReportModal(this.app, report).open();
+  }
+
   // ==================== 核心功能实现 ====================
 
   selectSourceToIngest() {
@@ -209,6 +216,9 @@ export default class LLMWikiPlugin extends Plugin {
       let failedCount = 0;
       const failedFiles: string[] = [];
 
+      // Suppress per-file modal + progress dismissal during batch
+      this.wikiEngine.setDoneCallback(() => {});
+
       this.showProgress(`[0/${totalFiles}] Starting...`);
 
       for (let i = 0; i < files.length; i++) {
@@ -218,7 +228,6 @@ export default class LLMWikiPlugin extends Plugin {
           this.showProgress(`[${i + 1}/${totalFiles}] ${file.basename}`);
           console.debug(`(${i + 1}/${totalFiles}) 开始摄入: ${file.path}`);
           await this.wikiEngine.ingestSource(file);
-          successCount++;
           console.debug(`(${i + 1}/${totalFiles}) 摄入成功: ${file.path}`);
         } catch (error) {
           failedCount++;
@@ -227,9 +236,12 @@ export default class LLMWikiPlugin extends Plugin {
         }
       }
 
+      // Restore single-file report callback
+      this.wikiEngine.setDoneCallback((report: IngestReport) => this.onIngestDone(report));
+
       this.dismissProgress();
 
-      // 最终统计报告
+      // Batch summary
       const summary = `批量摄入完成: 成功 ${successCount}/${totalFiles}, 失败 ${failedCount}`;
       new Notice(summary, 10000);
       console.debug(summary);

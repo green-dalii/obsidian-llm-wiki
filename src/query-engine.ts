@@ -532,7 +532,8 @@ ${indexContent}
       const response = await this.plugin.llmClient!.createMessage({
         model: this.plugin.settings.model,
         max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
       });
 
       console.debug('[LLM响应] 原始响应:', response);

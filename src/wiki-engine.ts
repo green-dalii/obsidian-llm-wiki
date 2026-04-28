@@ -7,7 +7,8 @@ import {
   SourceAnalysis,
   EntityInfo,
   ConceptInfo,
-  ContradictionInfo
+  ContradictionInfo,
+  IngestReport
 } from './types';
 import { PROMPTS } from './prompts';
 import { slugify, parseJsonResponse, cleanMarkdownResponse } from './utils';
@@ -21,6 +22,7 @@ export class WikiEngine {
   private schemaManager: SchemaManager;
   private onFileWrite: ((path: string) => void) | null;
   private onProgress: ((message: string) => void) | null;
+  private onDone: ((report: IngestReport) => void) | null;
 
   constructor(
     app: App,
@@ -28,7 +30,8 @@ export class WikiEngine {
     getLLMClient: () => LLMClient | null,
     schemaManager: SchemaManager,
     onFileWrite?: (path: string) => void,
-    onProgress?: (message: string) => void
+    onProgress?: (message: string) => void,
+    onDone?: (report: IngestReport) => void
   ) {
     this.app = app;
     this.settings = settings;
@@ -37,6 +40,7 @@ export class WikiEngine {
     this.schemaManager = schemaManager;
     this.onFileWrite = onFileWrite || null;
     this.onProgress = onProgress || null;
+    this.onDone = onDone || null;
   }
 
   setFileWriteCallback(cb: (path: string) => void): void {
@@ -45,6 +49,10 @@ export class WikiEngine {
 
   setProgressCallback(cb: (message: string) => void): void {
     this.onProgress = cb;
+  }
+
+  setDoneCallback(cb: ((report: IngestReport) => void) | null): void {
+    this.onDone = cb;
   }
 
   private get client(): LLMClient {
@@ -59,11 +67,12 @@ export class WikiEngine {
     this.onProgress?.(`Analyzing: ${file.basename}`);
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
+    let analysis: SourceAnalysis | null = null;
 
     try {
       await this.ensureWikiStructure();
 
-      const analysis = await this.analyzeSource(file);
+      analysis = await this.analyzeSource(file);
       if (!analysis) {
         throw new Error('源文件分析失败');
       }
@@ -170,41 +179,32 @@ export class WikiEngine {
       const updated = analysis.updated_pages.length;
       const failed = failedItems.length;
 
-      let message = `摄入完成: 创建 ${created} 页, 更新 ${updated} 页`;
-      if (failed > 0) {
-        message += `, ${failed} 项失败`;
-      }
       console.debug('=== 摄入流程完成 ===');
-      console.debug(message);
-      new Notice(message, failed > 0 ? 10000 : 5000);
+      console.debug(`摄入完成: 创建 ${created} 页, 更新 ${updated} 页`);
 
-      if (failedItems.length > 0) {
-        console.warn('失败项目:', failedItems);
-        const detailList = failedItems
-          .slice(0, 5)
-          .map(f => `  - ${f.type === 'entity' ? '实体' : '概念'}: ${f.name}`)
-          .join('\n');
-        const more = failedItems.length > 5 ? `\n  ...及其他 ${failedItems.length - 5} 项` : '';
-        new Notice(
-          `以下项目未能摄入:\n${detailList}${more}\n\n建议：稍后重新摄入此文件，或检查 API 提供商配额`,
-          15000
-        );
-      }
+      this.onDone?.({
+        sourceFile: file.path,
+        createdPages: analysis.created_pages,
+        updatedPages: analysis.updated_pages,
+        failedItems,
+        contradictionsFound: analysis.contradictions.length,
+        success: true
+      });
 
     } catch (error) {
       console.error('=== 摄入流程失败 ===');
       console.error('错误:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // If we had partial progress, don't lose that info
-      if (analysis?.created_pages.length || analysis?.updated_pages.length) {
-        new Notice(
-          `摄入部分成功但最终失败: ${errorMsg}\n已创建 ${analysis.created_pages.length} 页, 更新 ${analysis.updated_pages.length} 页。\n稍后重新摄入此文件以拾取剩余内容。`,
-          15000
-        );
-      } else {
-        new Notice(`摄入失败: ${errorMsg}`, 8000);
-      }
+      this.onDone?.({
+        sourceFile: file.path,
+        createdPages: analysis?.created_pages || [],
+        updatedPages: analysis?.updated_pages || [],
+        failedItems,
+        contradictionsFound: analysis?.contradictions?.length || 0,
+        success: false,
+        errorMessage: errorMsg
+      });
       throw error;
     }
   }
@@ -258,7 +258,8 @@ export class WikiEngine {
         model: this.settings.model,
         max_tokens: 4000,
         system: schemaContext || undefined,
-        messages: [{ role: 'user', content: prompt }]
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
       });
 
       console.debug('LLM 响应长度:', response.length);
@@ -268,7 +269,8 @@ export class WikiEngine {
         return await this.client.createMessage({
           model: this.settings.model,
           max_tokens: 4000,
-          messages: [{ role: 'user', content: repairPrompt }]
+          messages: [{ role: 'user', content: repairPrompt }],
+          response_format: { type: 'json_object' }
         });
       }) as SourceAnalysis | null;
 
@@ -566,6 +568,15 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
       return;
     }
 
+    // For large wikis, skip the LLM and use the fast flat index.
+    // The LLM call with a very long prompt is prone to timeouts and the
+    // result is not materially better for directories with many pages.
+    if (pageEntries.length > 25) {
+      console.debug(`Wiki has ${pageEntries.length} pages, using flat index (bypassing LLM)`);
+      await this.generateFlatIndex(entities, concepts, sources);
+      return;
+    }
+
     const wikiStructure = this.settings.enableSchema
       ? await this.schemaManager.getSchemaContext('index')
       : '';
@@ -577,7 +588,7 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
     try {
       const indexContent = await this.client.createMessage({
         model: this.settings.model,
-        max_tokens: 2000,
+        max_tokens: 4000,
         system: wikiStructure || undefined,
         messages: [{ role: 'user', content: prompt }]
       });
@@ -585,9 +596,8 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
       const cleaned = cleanMarkdownResponse(indexContent);
       const indexPath = `${this.settings.wikiFolder}/index.md`;
       await this.createOrUpdateFile(indexPath, cleaned);
-    } catch (_e) {
-      // Fallback: flat index if LLM fails
-      console.warn('LLM index generation failed, using flat index');
+    } catch (err) {
+      console.warn('LLM index generation failed, using flat index:', err instanceof Error ? err.message : String(err));
       await this.generateFlatIndex(entities, concepts, sources);
     }
   }
@@ -780,7 +790,8 @@ ${conversationText}
       messages: [{
         role: 'user',
         content: analysisPrompt
-      }]
+      }],
+      response_format: { type: 'json_object' }
     });
 
     const parsed = await parseJsonResponse(analysis, async (malformedJson: string) => {
@@ -788,7 +799,8 @@ ${conversationText}
       return await this.client.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
-        messages: [{ role: 'user', content: repairPrompt }]
+        messages: [{ role: 'user', content: repairPrompt }],
+        response_format: { type: 'json_object' }
       });
     }) as SourceAnalysis | null;
     if (!parsed) {

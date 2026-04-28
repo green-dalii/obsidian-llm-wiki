@@ -2,90 +2,84 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.2.0 | **Updated:** 2026-04-27
+**Version:** 1.3.2-beta | **Updated:** 2026-04-28
 
 ---
 
 ## Current Status
 
-### Implemented
+### Implemented (v1.3.x branch)
 
 **Core Features**
 - Multi LLM Provider support (Anthropic, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, Custom)
 - Dynamic model list fetching (real-time from API)
 - Intelligent ingestion: automatic entity/concept extraction and Wiki page generation
 - Bidirectional links: native Obsidian `[[wiki-links]]` syntax
-- Knowledge graph visualization (via Obsidian Graph View)
-- Conversational Query: ChatGPT-style dialog with streaming Markdown, multi-turn history, Wiki saving
-- Auto maintenance: manual lint for contradictions, stale info, orphaned pages
-- Auto-generated index (`index.md`) and log (`log.md`)
-- Internationalization: English and Chinese UI (default: English)
+- Conversational Query: ChatGPT-style dialog with streaming Markdown
+- Schema layer: `schema/config.md` with selective injection per task
+- Auto-maintenance: file watcher + periodic lint + startup check (all default OFF)
+- Hierarchical index: LLM-generated tree structure with flat fallback for large wikis
+- Ingestion report modal with detailed statistics
 
 **Quality / Engineering**
-- Full Unicode filename support (Chinese, Japanese, Korean)
-- Enhanced JSON parsing with LLM-based repair fallback
-- Modular architecture (main.ts split into llm-client, wiki-engine, query-engine, settings, modals, utils, types, texts)
-- Code quality: no `any` types, no inline styles, Obsidian API compliance (ESLint clean)
-- Dynamic settings UI with language switcher
+- JSON Output Mode (`response_format: json_object`) for reliable structured responses
+- Network resilience: timeout + exponential backoff retry
+- API throttling with fault tolerance (per-item try-catch + auto-retry)
+- State-machine JSON repair + LLM fallback for malformed responses
+- Full Unicode filename support
+- Modular architecture (9 focused modules)
+- Internationalization: English/Chinese UI
+- Code quality: no `any` types, Obsidian API compliance
 
 ---
 
-## Short-term Planning (v1.3.x)
+## Short-term Planning (v1.4.x)
 
 ### Priority: High
 
-#### 1. Schema Workflow Configuration
+#### 1. Multi-Source Knowledge Fusion
 
-**Goal:** Implement the missing third layer from Karpathy's design — a config file that governs how the LLM operates on the Wiki.
-
-**Scope:**
-- `schema/config.md` — human + LLM co-edited config defining wiki structure, naming conventions, page templates
-- Prompt injection: Schema content fed to LLM during ingest, query, and lint operations
-- Template enforcement: Entity/concept pages generated according to Schema-defined sections
-
-**Challenges:**
-- Balancing flexibility with usability
-- Co-evolution workflow (how user edits schema, how LLM suggests schema changes)
-- Backward compatibility with existing Wiki pages
-
-#### 2. Automated Maintenance (File Watcher + Periodic Tasks)
-
-**Goal:** Evolve from manual-only maintenance to automatic triggers.
+**Goal:** When two sources mention the same entity, intelligently merge rather than append.
 
 **Scope:**
-- **File watcher:** Listen to `vault.on('modify')` / `vault.on('create')` on `sources/` directory → auto-ingest changed files
-- **Periodic lint:** Use `setInterval` to run lint on a configurable schedule (hourly/daily)
-- **Startup check:** On plugin load, optionally scan Wiki health and notify
-- **User control:** Toggle on/off per automation feature in settings; auto-ingest can be "notify only" or "auto-run"
+- LLM-powered diff-and-merge when updating existing pages
+- Detect contradictions vs complementary information
+- Preserve existing page structure while enriching content
 
-**API foundation (all available in Obsidian v1.12.x):**
-- `vault.on('create' | 'modify' | 'delete' | 'rename')` — file change triggers
-- `metadataCache.on('changed' | 'resolved')` — content indexing events
-- `workspace.on('file-open')` — user activity context
-- `window.setInterval` / `window.setTimeout` — periodic execution
+**Files:** `wiki-engine.ts` (createOrUpdateEntityPage, createOrUpdateConceptPage)
 
-**Challenges:**
-- API cost control (rate limiting, debouncing auto-ingest)
-- Graceful degradation when LLM is unavailable
-- Avoiding ingest loops (plugin-generated wiki pages must not trigger re-ingest)
+#### 2. User Feedback Loop
+
+**Goal:** Protect manual edits from being overwritten by subsequent ingestion.
+
+**Scope:**
+- Detect `frontmatter.reviewed: true` flag on Wiki pages
+- When updating reviewed pages, LLM preserves human edits
+- Compare mtime vs ctime to detect manual modifications
+
+**Files:** `wiki-engine.ts` (page update methods), `prompts.ts` (update prompts)
 
 ---
 
 ### Priority: Medium
 
-#### 3. Smart Ingestion Detection
+#### 3. Contradiction Tracking & Resolution
 
-Avoid redundant ingestion, save API costs, protect manual edits.
+**Goal:** Systematic contradiction management with a state machine.
 
-- Compare source mtime with last ingest timestamp
-- Ask user before re-ingesting unchanged files
-- Incremental summary updates (merge, not overwrite)
+**Scope:**
+- `wiki/contradictions/` directory with status tracking
+- State machine: detected → in_review → resolved/suppressed
+- Lint re-checks resolved contradictions for recurrence
 
-#### 4. Error Recovery
+#### 4. Smart Conversation Saving
 
-- Retry with auto-skip on already-processed files
-- Save ingestion progress for resume after interruption
-- Detailed failure diagnostics
+**Goal:** Avoid redundant Wiki entries when saving conversations.
+
+**Scope:**
+- Compare conversation content with existing Wiki pages before saving
+- Extract only incremental knowledge
+- Reduce API costs and Wiki clutter
 
 ---
 
@@ -93,10 +87,11 @@ Avoid redundant ingestion, save API costs, protect manual edits.
 
 | Feature | Description |
 |---------|-------------|
+| **Wiki Page Version History** | Diff summaries in log.md on each update |
+| **Wiki Health Dashboard** | Obsidian custom view with page growth, link density, contradiction trends |
 | **Wiki Content Export** | GraphML, JSON, static site formats |
 | **Agent Mode** | Full auto-maintain lifecycle, proactive suggestions |
 | **Multi-modal Support** | Images, PDF, audio/video knowledge extraction |
-| **Collaborative Wiki** | Multi-user editing, Git/Sync integration |
 
 ---
 
@@ -104,14 +99,10 @@ Avoid redundant ingestion, save API costs, protect manual edits.
 
 | Version | Target | Key Features | Status |
 |---------|--------|-------------|--------|
-| **v1.2.0** | 2026-04 | Modular refactor, ESLint compliance, i18n | Submitted for review |
-| **v1.3.0** | TBD | Schema layer + automated maintenance | Planning |
+| **v1.3.2-beta** | 2026-04 | Phase 1 optimizations + robustness fixes | Current |
+| **v1.4.0** | TBD | Multi-source fusion + user feedback loop | Planning |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
 ---
 
-## Contributing
-
-See [GitHub Issues](https://github.com/green-dalii/obsidian-llm-wiki/issues) for current priorities.
-
-**Last Updated:** 2026-04-27 | **Maintainer:** Greener-Dalii
+**Last Updated:** 2026-04-28 | **Maintainer:** Greener-Dalii

@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2-beta] - 2026-04-28
+
+### Added
+- **JSON Output Mode**: forced `response_format: { type: "json_object" }` for all JSON-expected LLM calls (DeepSeek/OpenAI), eliminating malformed JSON at the source
+- **Ingestion Report Modal**: structured report window after each ingest showing created/updated pages, failed items, contradictions found
+- **Progress Notification Lifecycle**: `onDone` callback ensures progress Toast auto-dismisses when ingestion completes
+
+### Fixed
+- **Network Resilience**: added 5-min timeout + exponential backoff retry (max 3) in OpenAIClient for transient connection errors
+- **API Throttling**: 300ms delay between LLM calls to prevent `ERR_CONNECTION_CLOSED` from DeepSeek
+- **Fault Tolerance**: per-entity/concept try-catch with auto-retry; single page failure no longer aborts entire ingestion
+- **JSON Parsing Robustness**: state-machine-based content-quote escaping + LLM repair pipeline; handles unescaped quotes, trailing commas, missing commas
+- **Frontmatter Wikilinks**: source file references in generated pages now use `[[path]]` format for clickable Obsidian links
+- **Index Generation Hang**: large wikis (>25 pages) bypass LLM and use fast flat index; `max_tokens` 2000→4000; error logging restored
+- **ReferenceError `analysis`**: variable scoping fix in `ingestSource` catch block
+
+## [1.3.0] - 2026-04-28
+
+### Added
+- **Schema Layer**: `schema/config.md` — the missing third layer from Karpathy's design. Human-editable config that governs LLM operation on the Wiki (naming conventions, page templates, classification rules)
+- **Auto-Maintenance**: file watcher + periodic lint + startup check. All default OFF to avoid surprise API costs
+- **Schema Selective Injection**: `getSchemaContext(task)` clips Schema to relevant sections per task, saving ~70% token overhead
+- **Hierarchical Index**: LLM-generated tree-structured index grouped by type with importance ranking, flat fallback for large wikis
+- **Schema Suggestion Command**: LLM analyzes Wiki health and proposes schema improvements saved to `schema/suggestions.md`
+
+### Changed
+- **i18n Completion**: Settings panel fully supports English/Chinese with `TEXTS` constant system (65+ keys)
+- **Module Architecture**: extracted schema-manager + auto-maintain modules; main.ts from 2987→305 lines
+
 ## [1.2.0] - 2026-04-27
 
 ### Changed

@@ -109,6 +109,18 @@ export interface SchemaSuggestion {
   suggestions: string;
 }
 
+// Ingestion report passed to onDone callback
+
+export interface IngestReport {
+  sourceFile: string;
+  createdPages: string[];
+  updatedPages: string[];
+  failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }>;
+  contradictionsFound: number;
+  success: boolean;
+  errorMessage?: string;
+}
+
 // LLM Client interface
 
 export interface LLMClient {
@@ -117,6 +129,7 @@ export interface LLMClient {
     max_tokens: number;
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
+    response_format?: { type: 'json_object' };
   }): Promise<string>;
 
   createMessageStream?(params: {

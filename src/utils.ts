@@ -52,87 +52,135 @@ export async function parseJsonResponse(
   response: string,
   repairFn?: (malformedJson: string) => Promise<string>
 ): Promise<Record<string, unknown> | null> {
-  console.debug('parseJsonResponse 开始解析...');
-  console.debug('响应长度:', response.length);
+  console.debug('parseJsonResponse 开始解析... 响应长度:', response.length);
 
   try {
-    // Step 1: Clean possible markdown wrapping
+    // Step 1: Strip markdown code fences (regex — handles standard wrapping)
     let cleaned = response.trim();
-
-    // Remove opening ```json or ``` markers
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.replace(/^```(?:json|markdown|md)?\s*\n?/, '');
-      console.debug('移除开头的代码块标记');
-    }
-
-    // Remove closing ``` markers
-    if (cleaned.endsWith('```')) {
-      cleaned = cleaned.replace(/\n?```$/, '');
-      console.debug('移除结尾的代码块标记');
-    }
-
+    cleaned = cleaned.replace(/^```(?:json|markdown|md)?\s*\n?/, '');
+    cleaned = cleaned.replace(/\n?```$/, '');
     cleaned = cleaned.trim();
-    console.debug('清理后长度:', cleaned.length);
-    console.debug('前100字符:', cleaned.substring(0, 100));
 
-    // Step 2: Try direct parsing
+    // Step 2: Fast path — direct parse
     try {
-      const result = JSON.parse(cleaned);
-      console.debug('✅ 直接解析成功');
-      return result;
+      return JSON.parse(cleaned);
     } catch {
-      console.warn('直接解析失败，尝试提取 JSON 对象');
+      // fall through
     }
 
-    // Step 3: Extract JSON object (may be surrounded by other text)
+    // Step 3: Extract the outermost { … } object (regex)
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      console.debug('找到 JSON 对象，长度:', jsonMatch[0].length);
-      try {
-        const result = JSON.parse(jsonMatch[0]);
-        console.debug('✅ 提取后解析成功');
-        return result;
-      } catch (extractError) {
-        console.error('提取后解析失败:', extractError);
-        console.debug('提取的 JSON 前200字符:', jsonMatch[0].substring(0, 200));
+    const candidate = jsonMatch ? jsonMatch[0] : cleaned;
 
-        // Step 4: Try to fix common JSON format issues
-        // Remove trailing commas
-        let fixedJson = jsonMatch[0].replace(/,\s*\}/g, '}').replace(/,\s*\]/g, ']');
-        try {
-          const result = JSON.parse(fixedJson);
-          console.debug('✅ 修复后解析成功');
-          return result;
-        } catch (fixError) {
-          console.error('修复后解析失败:', fixError);
-        }
-      }
+    // Step 4: Deterministic fixes for common, unambiguous patterns
+    const deterministic = fixCommonJsonIssues(candidate);
+    try {
+      return JSON.parse(deterministic);
+    } catch (detError) {
+      console.debug('标准修复未成功，交由 LLM 处理:', String(detError).slice(0, 80));
     }
 
-    // Step 5: Try LLM-based repair if available
+    // Step 5: LLM repair — handles structural / ambiguous issues
     if (repairFn) {
-      const brokenJson = jsonMatch ? jsonMatch[0] : cleaned;
-      console.debug('尝试 LLM 修复 JSON，长度:', brokenJson.length);
       try {
-        const repaired = await repairFn(brokenJson);
-        const result = JSON.parse(repaired.trim());
-        console.debug('✅ LLM 修复后解析成功');
-        return result;
-      } catch (repairError) {
-        console.error('LLM 修复后解析仍失败:', repairError);
+        const repaired = await repairFn(candidate);
+        const cleanedLlm = repaired.trim()
+          .replace(/^```(?:json)?\s*\n?/, '')
+          .replace(/\n?```$/, '')
+          .trim();
+        // Run deterministic fixes on LLM output as well (belt and suspenders)
+        const final = fixCommonJsonIssues(cleanedLlm);
+        return JSON.parse(final);
+      } catch (llmError) {
+        console.error('LLM 修复也未成功:', String(llmError).slice(0, 80));
       }
     }
 
-    // Step 6: If all attempts fail, return null
-    console.error('❌ JSON 解析完全失败');
-    console.debug('完整响应内容:', response);
+    console.error('❌ JSON 解析完全失败 (长度 %d)', response.length);
     return null;
-
   } catch (error) {
     console.error('parseJsonResponse 异常:', error);
-    console.debug('原始响应:', response);
     return null;
   }
+}
+
+// ---------- deterministic repair helpers ----------
+
+function fixCommonJsonIssues(json: string): string {
+  // (a) trailing commas before } or ]
+  let fixed = json.replace(/,\s*\}/g, '}').replace(/,\s*\]/g, ']');
+
+  // (b) unescaped content-quotes via state machine (fast, deterministic)
+  fixed = escapeContentQuotes(fixed);
+
+  // (c) missing comma between adjacent strings on separate lines
+  //     "..." \n "..."  →  "...,\n"..."
+  fixed = fixed.replace(/"\s*\n\s*"/g, '",\n"');
+
+  // (a) again in case the above fixes introduced trailing commas
+  fixed = fixed.replace(/,\s*\}/g, '}').replace(/,\s*\]/g, ']');
+
+  return fixed;
+}
+
+function escapeContentQuotes(json: string): string {
+  // State machine: track whether we're inside a string.
+  // When we encounter " inside a string, peek ahead.
+  //  - followed by : , } ] or end-of-input → structural close
+  //  - otherwise → content quote → escape as \"
+  const out: string[] = [];
+  let inString = false;
+  let i = 0;
+
+  while (i < json.length) {
+    const ch = json[i];
+
+    // backslash inside string → copy the escape sequence literally
+    if (ch === '\\' && inString) {
+      out.push(ch);
+      i++;
+      if (i < json.length) out.push(json[i]);
+      i++;
+      continue;
+    }
+
+    if (!inString && ch === '"') {
+      inString = true;
+      out.push(ch);
+      i++;
+      continue;
+    }
+
+    if (inString && ch === '"') {
+      // peek at the next significant character
+      let peek = i + 1;
+      while (peek < json.length && isJsonWhitespace(json[peek])) peek++;
+      const nextCh = peek < json.length ? json[peek] : '';
+
+      if (
+        nextCh === ':' || nextCh === ',' || nextCh === '}' || nextCh === ']' ||
+        peek >= json.length
+      ) {
+        // structural close
+        inString = false;
+        out.push(ch);
+      } else {
+        // content quote
+        out.push('\\"');
+      }
+      i++;
+      continue;
+    }
+
+    out.push(ch);
+    i++;
+  }
+
+  return out.join('');
+}
+
+function isJsonWhitespace(ch: string): boolean {
+  return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
 }
 
 export function cleanMarkdownResponse(response: string): string {

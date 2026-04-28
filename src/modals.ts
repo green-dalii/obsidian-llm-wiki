@@ -1,6 +1,7 @@
 // Reusable UI modals for the LLM Wiki Plugin
 
 import { App, TFile, TFolder, Modal, FuzzySuggestModal } from 'obsidian';
+import { IngestReport } from './types';
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   onSelect: (file: TFile) => void;
@@ -88,6 +89,77 @@ export class LintReportModal extends Modal {
         this.close();
       });
     }
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+export class IngestReportModal extends Modal {
+  private report: IngestReport;
+
+  constructor(app: App, report: IngestReport) {
+    super(app);
+    this.report = report;
+  }
+
+  onOpen() {
+    const { sourceFile, createdPages, updatedPages, failedItems, contradictionsFound, success, errorMessage } = this.report;
+
+    const statusEmoji = success ? '✅' : '⚠️';
+    this.contentEl.createEl('h2', { text: `${statusEmoji} 摄入报告` });
+
+    // Source file
+    this.contentEl.createEl('p', { text: `源文件：${sourceFile}` });
+
+    // Stats
+    const statsEl = this.contentEl.createDiv({ attr: { style: 'margin: 12px 0;' } });
+    statsEl.createEl('p', { text: `创建页面：${createdPages.length}` });
+    statsEl.createEl('p', { text: `更新页面：${updatedPages.length}` });
+    if (contradictionsFound > 0) {
+      statsEl.createEl('p', { text: `发现矛盾：${contradictionsFound}` });
+    }
+
+    // Created pages
+    if (createdPages.length > 0) {
+      this.contentEl.createEl('h3', { text: '已创建' });
+      const list = this.contentEl.createEl('ul');
+      for (const page of createdPages) {
+        list.createEl('li', { text: page });
+      }
+    }
+
+    // Updated pages
+    if (updatedPages.length > 0) {
+      this.contentEl.createEl('h3', { text: '已更新' });
+      const list = this.contentEl.createEl('ul');
+      for (const page of updatedPages) {
+        list.createEl('li', { text: page });
+      }
+    }
+
+    // Failed items
+    if (failedItems.length > 0) {
+      this.contentEl.createEl('h3', { text: '⚠️ 未能摄入' });
+      const list = this.contentEl.createEl('ul');
+      for (const item of failedItems) {
+        const typeLabel = item.type === 'entity' ? '实体' : '概念';
+        list.createEl('li', { text: `[${typeLabel}] ${item.name} — ${item.reason}` });
+      }
+    }
+
+    // Error
+    if (errorMessage) {
+      this.contentEl.createEl('p', {
+        text: `错误详情：${errorMessage}`,
+        attr: { style: 'color: var(--text-error); margin-top: 12px;' }
+      });
+    }
+
+    // Close button
+    const btnRow = this.contentEl.createDiv({ attr: { style: 'margin-top: 16px; text-align: right;' } });
+    btnRow.createEl('button', { text: '关闭' }).addEventListener('click', () => this.close());
   }
 
   onClose() {

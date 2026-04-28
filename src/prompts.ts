@@ -78,7 +78,7 @@ export const PROMPTS = {
 ---
 type: entity
 created: {{date}}
-sources: [{{source_file}}]
+sources: ["[[{{source_file}}]]"]
 tags: [{{tags}}]
 ---
 
@@ -86,7 +86,7 @@ tags: [{{tags}}]
 
 ## 基本信息
 - 类型：{{entity_type}}
-- 来源：{{source_file}}
+- 来源：[[{{source_file}}]]
 
 ## 描述
 [实体的详细描述，包含双向链接]
@@ -123,7 +123,7 @@ tags: [{{tags}}]
 ---
 type: concept
 created: {{date}}
-sources: [{{source_file}}]
+sources: ["[[{{source_file}}]]"]
 tags: [{{tags}}]
 ---
 
@@ -166,14 +166,14 @@ tags: [{{tags}}]
 ---
 type: source
 created: {{date}}
-source_file: {{source_file}}
+source_file: "[[{{source_file}}]]"
 tags: [{{tags}}]
 ---
 
 # {{source_title}} - 摘要
 
 ## 来源
-- 原始文件：{{source_file}}
+- 原始文件：[[{{source_file}}]]
 - 摄入日期：{{date}}
 
 ## 核心内容

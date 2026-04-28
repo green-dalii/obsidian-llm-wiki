@@ -65,14 +65,14 @@ Pages in \`concepts/\` should follow this structure:
 export class SchemaManager {
   private app: App;
   private settings: LLMWikiSettings;
-  private getLLMClient: () => { createMessage(params: { model: string; max_tokens: number; system?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> }): Promise<string> } | null;
+  private getLLMClient: () => { createMessage(params: { model: string; max_tokens: number; system?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }>; response_format?: { type: 'json_object' } }): Promise<string> } | null;
   private cachedBody: string | null = null;
   private cacheValid = false;
 
   constructor(
     app: App,
     settings: LLMWikiSettings,
-    getLLMClient: () => { createMessage(params: { model: string; max_tokens: number; system?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> }): Promise<string> } | null
+    getLLMClient: () => { createMessage(params: { model: string; max_tokens: number; system?: string; messages: Array<{ role: 'user' | 'assistant'; content: string }>; response_format?: { type: 'json_object' } }): Promise<string> } | null
   ) {
     this.app = app;
     this.settings = settings;
@@ -246,7 +246,8 @@ ${body}`;
       const response = await this.client.createMessage({
         model: this.settings.model,
         max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
       });
 
       const parsed = await parseJsonResponse(response) as { changes_needed?: boolean; suggestions?: string } | null;

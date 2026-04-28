@@ -14,6 +14,7 @@ export class AnthropicClient implements LLMClient {
     max_tokens: number;
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
+    response_format?: { type: 'json_object' };
   }): Promise<string> {
     const response = await this.client.messages.create({
       model: params.model,
@@ -92,6 +93,7 @@ export class OpenAIClient implements LLMClient {
     max_tokens: number;
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
+    response_format?: { type: 'json_object' };
   }): Promise<string> {
     return this.createMessageWithRetry(params);
   }
@@ -112,6 +114,7 @@ export class OpenAIClient implements LLMClient {
     max_tokens: number;
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
+    response_format?: { type: 'json_object' };
   }, attempt = 0): Promise<string> {
     const messagesWithSystem = params.system
       ? [
@@ -124,7 +127,8 @@ export class OpenAIClient implements LLMClient {
       const response = await this.client.chat.completions.create({
         model: params.model,
         max_tokens: params.max_tokens,
-        messages: messagesWithSystem as OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+        messages: messagesWithSystem as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+        ...(params.response_format ? { response_format: params.response_format } : {})
       });
       return response.choices[0]?.message?.content || '';
     } catch (error) {
