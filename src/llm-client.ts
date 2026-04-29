@@ -1,7 +1,125 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+import { requestUrl } from 'obsidian';
 import { LLMClient } from './types';
 
+export class AnthropicCompatibleClient implements LLMClient {
+  private apiKey: string;
+  private baseUrl: string;
+  private apiVersion: string;
+
+  constructor(apiKey: string, baseUrl: string) {
+    this.apiKey = apiKey;
+    // Normalize: strip trailing /v1 and trailing slashes
+    this.baseUrl = baseUrl.replace(/\/v1\/?$/, '').replace(/\/+$/, '') + '/v1';
+    this.apiVersion = '2023-06-01';
+  }
+
+  private extractText(content: Array<{ type: string; text?: string }>): string {
+    const textBlock = content.find(c => c.type === 'text');
+    return textBlock?.text || '';
+  }
+
+  async createMessage(params: {
+    model: string;
+    max_tokens: number;
+    system?: string;
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    response_format?: { type: 'json_object' };
+  }): Promise<string> {
+    const body: Record<string, unknown> = {
+      model: params.model,
+      max_tokens: params.max_tokens,
+      messages: params.messages
+    };
+    if (params.system) body.system = params.system;
+
+    const response = await requestUrl({
+      url: this.baseUrl + '/messages',
+      method: 'POST',
+      headers: {
+        'x-api-key': this.apiKey,
+        'Anthropic-Version': this.apiVersion,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = response.json as {
+      content?: Array<{ type: string; text?: string }>;
+      error?: { message: string };
+    };
+
+    if (data.error) throw new Error(data.error.message);
+    return this.extractText(data.content || []);
+  }
+
+  async createMessageStream(params: {
+    model: string;
+    max_tokens: number;
+    system?: string;
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    language: 'en' | 'zh';
+    onChunk: (chunk: string) => void;
+  }): Promise<string> {
+    const messages = params.system ? params.messages : [
+      ...params.messages,
+      {
+        role: 'user',
+        content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
+      }
+    ];
+
+    const body: Record<string, unknown> = {
+      model: params.model,
+      max_tokens: params.max_tokens,
+      messages,
+      stream: true
+    };
+    if (params.system) body.system = params.system;
+
+    const response = await requestUrl({
+      url: this.baseUrl + '/messages',
+      method: 'POST',
+      headers: {
+        'x-api-key': this.apiKey,
+        'Anthropic-Version': this.apiVersion,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    // Parse SSE events from response body
+    const responseText = response.text;
+    let fullText = '';
+    const events = responseText.split('\n\n');
+    for (const event of events) {
+      if (!event.trim()) continue;
+      const dataLine = event.split('\n')
+        .find(line => line.startsWith('data: '));
+      if (!dataLine) continue;
+      try {
+        const parsed = JSON.parse(dataLine.slice(6)) as {
+          type?: string;
+          delta?: { type?: string; text?: string };
+        };
+        if (parsed.type === 'content_block_delta' &&
+            parsed.delta?.type === 'text_delta' &&
+            parsed.delta.text) {
+          fullText += parsed.delta.text;
+          params.onChunk(parsed.delta.text);
+        }
+      } catch {
+        // Skip malformed JSON in SSE
+      }
+    }
+    return fullText;
+  }
+
+  listModels(): Promise<string[]> {
+    return Promise.resolve([]);
+  }
+}
 export class AnthropicClient implements LLMClient {
   private client: Anthropic;
 
@@ -25,7 +143,8 @@ export class AnthropicClient implements LLMClient {
       system: params.system || undefined,
       messages: params.messages
     });
-    return response.content[0].type === 'text' ? response.content[0].text : '';
+    const textBlock = response.content.find(c => c.type === 'text');
+    return textBlock && 'text' in textBlock ? textBlock.text : '';
   }
 
   async createMessageStream(params: {
@@ -65,16 +184,12 @@ export class AnthropicClient implements LLMClient {
   }
 
   listModels(): Promise<string[]> {
-    try {
-      return Promise.resolve([
-        'claude-sonnet-4-6',
-        'claude-opus-4-7',
-        'claude-haiku-4-5-20251001'
-      ]);
-    } catch (error) {
-      console.error('Anthropic 模型列表获取失败:', error);
-      return Promise.resolve([]);
-    }
+    // Anthropic SDK v0.24.x has no models.list(); return curated defaults
+    return Promise.resolve([
+      'claude-sonnet-4-6',
+      'claude-opus-4-7',
+      'claude-haiku-4-5-20251001'
+    ]);
   }
 }
 

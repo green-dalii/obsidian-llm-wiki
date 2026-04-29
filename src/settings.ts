@@ -1,6 +1,6 @@
 // Settings panel UI for LLM Wiki Plugin
 
-import { App, PluginSettingTab, Setting, Notice, TFile } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl } from 'obsidian';
 import OpenAI from 'openai';
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings } from './types';
@@ -174,11 +174,72 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             const baseUrl = this.tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
 
             if (this.tempSettings.provider === 'anthropic' || this.tempSettings.provider === 'anthropic-compatible') {
-              this.tempSettings.availableModels = [
-                'claude-sonnet-4-6',
-                'claude-opus-4-7',
-                'claude-haiku-4-5-20251001'
-              ];
+              if (this.tempSettings.provider === 'anthropic-compatible' && this.tempSettings.baseUrl?.trim()) {
+                // Try to fetch models from the custom endpoint
+                // Anthropic API: GET {baseURL}/v1/models, auth: x-api-key
+                // Also support OpenAI-compatible proxies: GET {baseURL}/models, auth: Bearer
+                const rawBase = this.tempSettings.baseUrl.trim();
+                // Normalize: strip trailing /v1 for consistent path construction
+                const cleanBase = rawBase.replace(/\/v1\/?$/, '').replace(/\/+$/, '');
+                const modelsUrl = cleanBase + '/v1/models';
+                try {
+                  const response = await requestUrl({
+                    url: modelsUrl,
+                    headers: {
+                      'x-api-key': apiKey,
+                      'Anthropic-Version': '2023-06-01'
+                    }
+                  });
+                  if (response.status >= 200 && response.status < 300) {
+                    const data = response.json as { data?: Array<{ id: string }> };
+                    if (data.data?.length) {
+                      this.tempSettings.availableModels = data.data
+                        .map(m => m.id)
+                        .filter(id => !id.includes(':') && !id.includes('/'))
+                        .sort();
+                    } else {
+                      throw new Error('empty model list');
+                    }
+                  } else {
+                    throw new Error(`HTTP ${response.status}`);
+                  }
+                } catch (fetchErr) {
+                  console.debug('Anthropic Compatible model fetch via /v1/models failed:', fetchErr);
+                  // Fallback: try /models without /v1 prefix (OpenAI-compatible proxy)
+                  try {
+                    const altUrl = cleanBase + '/models';
+                    const altResponse = await requestUrl({
+                      url: altUrl,
+                      headers: { 'Authorization': `Bearer ${apiKey}` }
+                    });
+                    if (altResponse.status >= 200 && altResponse.status < 300) {
+                      const altData = altResponse.json as { data?: Array<{ id: string }> };
+                      if (altData.data?.length) {
+                        this.tempSettings.availableModels = altData.data
+                          .map(m => m.id)
+                          .filter(id => !id.includes(':') && !id.includes('/'))
+                          .sort();
+                      } else {
+                        throw new Error('empty model list');
+                      }
+                    } else {
+                      throw new Error(`HTTP ${altResponse.status}`);
+                    }
+                  } catch (altErr) {
+                    console.debug('Anthropic Compatible model fetch via /models also failed:', altErr);
+                    // No hardcoded defaults — incompatible with non-Claude endpoints
+                    this.tempSettings.availableModels = [];
+                    this.tempSettings.useCustomModel = true;
+                  }
+                }
+              } else {
+                // Native Anthropic: use hardcoded list (API has no standard models endpoint)
+                this.tempSettings.availableModels = [
+                  'claude-sonnet-4-6',
+                  'claude-opus-4-7',
+                  'claude-haiku-4-5-20251001'
+                ];
+              }
             } else {
               const tempClient = new OpenAI({
                 apiKey,

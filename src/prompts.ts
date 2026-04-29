@@ -318,26 +318,6 @@ If no changes are needed:
 
 Output ONLY the JSON, no other text.`,
 
-  generateHierarchicalIndex: `You are a Wiki librarian organizing a knowledge index.
-
-Below is a list of all Wiki pages with their summaries:
-
-{{page_list}}
-
-Wiki Structure guidelines:
-{{wiki_structure}}
-
-Create a hierarchical, importance-ranked index in Markdown. Follow these rules:
-
-1. **Group by type**: Entities, Concepts, Sources — each as a top-level section
-2. **Hierarchy within groups**: Show parent-child relationships. If Concept A is a sub-concept of Concept B, indent it under B
-3. **Importance ranking**: More important pages (more linked, more foundational) come first within each group
-4. **Link format**: Use [[wiki/type/page-name|Display Name]] for every page reference
-5. **Short annotations**: Add a one-line summary in Chinese or English (match the page's language) after each link
-6. **Statistics**: End with a summary line showing page counts per category
-
-Output ONLY the Markdown index content, no introductory or concluding text.`,
-
   // Multi-Source Knowledge Fusion: structured merge analysis
   // Called before page generation when a page already exists with substantial content.
   mergeAnalysis: `你是一个 Wiki 知识融合分析器。对比现有 Wiki 页面内容和新源文件信息，输出结构化合并策略。
@@ -385,4 +365,112 @@ Output ONLY the Markdown index content, no introductory or concluding text.`,
 - 只输出 JSON，不要其他内容
 - 现有内容中的观点优先于新信息（除非新信息明显更准确）
 - 不要删除或改写现有内容的任何部分`,
+
+  evaluateConversationValue: `你是 Wiki 知识评估助手。判断以下对话是否包含值得保存到 Wiki 的实质性知识。
+
+对话内容：
+{{conversation}}
+
+判断标准：
+- 包含具体的概念解释、分析或事实性信息（非简单闲聊）
+- 对话内容可提炼为结构化的 Wiki 条目
+- 信息具有参考价值，未来可能被再次查阅
+
+输出 JSON 格式：
+{"valuable": true/false, "reason": "判断理由（一句话）"}`,
+
+  dedupCheck: `你是 Wiki 知识去重助手。判断对话内容是否已被现有 Wiki 页面覆盖。
+
+现有 Wiki 页面索引：
+{{wiki_index}}
+
+对话摘要：
+{{conversation_summary}}
+
+任务：
+1. 分析对话涉及的知识主题
+2. 判断这些主题是否已存在于上述 Wiki 页面中
+3. 如果全部主题已被覆盖（语义相同或高度相似），标记为 fully_redundant
+4. 如果部分主题是新的，标记为 partially_new 并列出新主题
+
+输出 JSON 格式：
+{"status": "fully_redundant|partially_new|entirely_new", "new_topics": ["新主题1"], "redundant_topics": ["已覆盖主题1"], "reason": "判断理由（一句话）"}`,
+
+  resolveContradiction: `你是 Wiki 矛盾解决助手。根据矛盾记录和受影响页面内容，生成修复后的页面。
+
+受影响页面内容：
+{{existing_content}}
+
+矛盾记录：
+{{contradiction_content}}
+
+任务：
+1. 分析矛盾的双方观点
+2. 调和矛盾：保留正确的信息，标注疑似的错误信息
+3. 如果是事实性矛盾，选择更可靠或更新的来源
+4. 如果是视角差异，保留双方观点并注明不同立场
+
+重要规则：
+- 不要删除任何现有内容
+- 在受影响页面末尾添加 "## 已解决矛盾" 章节，说明处理方式和理由
+- 保持页面整体结构不变，只在矛盾相关部分进行调整
+- 输出完整的修复后页面内容（不要只输出修改部分）
+- 不要输出任何解释性文字，直接输出 Markdown 格式的页面内容`,
+
+  fixDeadLink: `你是 Wiki 断链修复助手。分析断链并根据情况修复。
+
+断链来源页面：
+{{source_content}}
+
+断链目标（链接文本）：
+{{target_name}}
+
+Wiki 现有页面列表：
+{{existing_pages}}
+
+任务：
+1. 在现有页面列表中搜索与目标相似度最高的页面（判断语义相似）
+2. 如果找到匹配页面：输出正确的 [[wiki/entities/page-name]] 或 [[wiki/concepts/page-name]] 链接
+3. 如果未找到匹配：输出适合作为新页面标题的简洁名称
+
+输出 JSON 格式：
+{"action": "correct|create_stub", "correct_link": "修正后的链接（action=correct时）", "stub_title": "新页面标题（action=create_stub时）", "stub_type": "entity|concept", "reason": "判断理由（一句话）"}`,
+
+  fillEmptyPage: `你是 Wiki 页面扩充助手。为以下内容不足的 Wiki 页面生成内容。
+
+页面路径：{{page_path}}
+页面类型（entities/concepts/sources）：{{page_type}}
+
+现有内容：
+{{existing_content}}
+
+Wiki 索引（参考背景）：
+{{wiki_index}}
+
+任务：
+1. 根据页面类型和标题生成合适的内容（150-300字）
+2. entities 类型：描述该实体的定义、相关背景、与其他实体的关系
+3. concepts 类型：解释该概念的定义、应用场景、相关概念
+4. sources 类型：总结该来源的核心观点和贡献
+5. 使用 [[wiki-links]] 链接到相关页面
+6. 保留现有内容的任何 frontmatter 和已有文字
+
+输出格式：直接输出完整的 Markdown 页面内容（不要输出解释文字）`,
+
+  linkOrphanPage: `你是 Wiki 链接修复助手。为孤立页面在相关页面中建立反向链接。
+
+孤立页面：
+{{orphan_content}}
+
+Wiki 索引：
+{{wiki_index}}
+
+任务：
+1. 分析孤立页面的主题
+2. 从 Wiki 索引中选出 1-3 个与此页面最相关的现有页面
+3. 为每个相关页面生成建议添加的链接文本（一句话描述 + [[wiki-link]]）
+
+输出 JSON 格式：
+{"related_pages": [{"page_path": "wiki/entities/xxx.md", "link_text": "描述此关联的一句话", "link_target": "[[entities/orphan-name]]"}], "reason": "关联理由"}`,
+
 };

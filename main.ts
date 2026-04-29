@@ -7,13 +7,13 @@ import {
   LLMClient,
   IngestReport
 } from './src/types';
-import { AnthropicClient, OpenAIClient } from './src/llm-client';
+import { AnthropicClient, AnthropicCompatibleClient, OpenAIClient } from './src/llm-client';
 import { TEXTS } from './src/texts';
 import { cleanMarkdownResponse } from './src/utils';
 import { LLMWikiSettingTab } from './src/settings';
 import { WikiEngine } from './src/wiki-engine';
 import { QueryModal } from './src/query-engine';
-import { FileSuggestModal, FolderSuggestModal, LintReportModal, IngestReportModal } from './src/modals';
+import { FileSuggestModal, FolderSuggestModal, LintReportModal, IngestReportModal, LintFixCallbacks, LintCounts } from './src/modals';
 import { SchemaManager } from './src/schema-manager';
 import { AutoMaintainManager } from './src/auto-maintain';
 export default class LLMWikiPlugin extends Plugin {
@@ -93,7 +93,18 @@ export default class LLMWikiPlugin extends Plugin {
     this.addCommand({
       id: 'regenerate-index',
       name: 'Regenerate index',
-      callback: () => this.wikiEngine.generateIndexFromEngine()
+      callback: () => {
+        void (async () => {
+          new Notice('Regenerating index...');
+          try {
+            await this.wikiEngine.generateIndexFromEngine();
+            new Notice('Index regenerated successfully.');
+          } catch (err) {
+            console.error('Regenerate index failed:', err);
+            new Notice(`Failed to regenerate index: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        })();
+      }
     });
 
     this.addCommand({
@@ -144,12 +155,17 @@ export default class LLMWikiPlugin extends Plugin {
     try {
       const providerConfig = PREDEFINED_PROVIDERS[this.settings.provider];
 
-      if (this.settings.provider === 'anthropic' || this.settings.provider === 'anthropic-compatible') {
-        // Anthropic SDK — official or compatible with custom base URL
-        const baseUrl = this.settings.provider === 'anthropic-compatible'
-          ? this.settings.baseUrl?.trim() || undefined
-          : undefined;
-        this.llmClient = new AnthropicClient(this.settings.apiKey.trim(), baseUrl);
+      if (this.settings.provider === 'anthropic') {
+        // Native Anthropic SDK
+        this.llmClient = new AnthropicClient(this.settings.apiKey.trim());
+      } else if (this.settings.provider === 'anthropic-compatible') {
+        // requestUrl-based client to bypass CORS
+        const baseUrl = this.settings.baseUrl?.trim();
+        if (baseUrl) {
+          this.llmClient = new AnthropicCompatibleClient(this.settings.apiKey.trim(), baseUrl);
+        } else {
+          this.llmClient = new AnthropicClient(this.settings.apiKey.trim());
+        }
       } else {
         // 其他提供商都使用 OpenAI SDK（兼容接口）
         const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
@@ -380,6 +396,42 @@ export default class LLMWikiPlugin extends Plugin {
         progReport += `✅ 程序检测未发现断链、空洞或孤立页面。\n\n`;
       }
 
+      // ---- 2.5 Contradiction scanning ----
+      const openContradictions = await this.wikiEngine.getOpenContradictions();
+      let contradictionsReport = '';
+
+      // Process review_ok contradictions (user-approved auto-fix)
+      const reviewOkItems = openContradictions.filter(c => c.status === 'review_ok');
+      for (const c of reviewOkItems) {
+        try {
+          await this.wikiEngine.resolveContradiction(c.path);
+          await this.wikiEngine.updateContradictionStatus(c.path, 'resolved');
+          console.debug('Auto-resolved contradiction:', c.path);
+        } catch (error) {
+          console.error('Failed to resolve contradiction:', c.path, error);
+          await this.wikiEngine.updateContradictionStatus(c.path, 'pending_fix');
+        }
+      }
+
+      // Re-read after processing review_ok items
+      const remaining = await this.wikiEngine.getOpenContradictions();
+      if (remaining.length > 0) {
+        contradictionsReport = `## 矛盾 (程序检测)\n\n`;
+        contradictionsReport += `- 开放矛盾：${remaining.length} 个`;
+        const resolvedCount = openContradictions.length - remaining.length;
+        if (resolvedCount > 0) {
+          contradictionsReport += `（本次自动修复 ${resolvedCount} 个）`;
+        }
+        contradictionsReport += '\n';
+        for (const c of remaining) {
+          const relPath = c.path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+          const statusLabel = c.status === 'detected' ? '待处理' :
+                              c.status === 'pending_fix' ? '待修复' : c.status;
+          contradictionsReport += `- [${statusLabel}] [[${relPath}]] — ${c.claim.substring(0, 80)}\n`;
+        }
+        contradictionsReport += '\n';
+      }
+
       // ---- 3. LLM analysis with page contents ----
       const indexContent = await this.wikiEngine.tryReadFile(`${this.settings.wikiFolder}/index.md`) || '';
 
@@ -422,9 +474,68 @@ ${progReport || '程序检测未发现问题'}
       const cleanedLLM = cleanMarkdownResponse(llmReport);
 
       // ---- 4. Combine and display ----
-      const fullReport = `# Wiki 维护报告\n\n> 共 ${wikiFiles.length} 个 Wiki 页面\n\n${progReport}${cleanedLLM.startsWith('##') ? '' : '## LLM 分析\n\n'}${cleanedLLM}`;
+      const fullReport = `# Wiki 维护报告\n\n> 共 ${wikiFiles.length} 个 Wiki 页面\n\n${progReport}${contradictionsReport}${cleanedLLM.startsWith('##') ? '' : '## LLM 分析\n\n'}${cleanedLLM}`;
 
-      new LintReportModal(this.app, fullReport, () => { void this.suggestSchemaUpdate(); }).open();
+      const counts: LintCounts = {
+        deadLinks: deadLinks.length,
+        emptyPages: emptyPages.length,
+        orphans: orphans.length
+      };
+
+      const fixCallbacks: LintFixCallbacks = {
+        onFixDeadLinks: deadLinks.length > 0 ? () => {
+          void (async () => {
+            let fixed = 0;
+            for (const dl of deadLinks) {
+              fixed++;
+              new Notice(`Fixing dead links: ${fixed}/${deadLinks.length}...`);
+              try {
+                const sourcePath = `${this.settings.wikiFolder}/${dl.source}.md`;
+                const result = await this.wikiEngine.fixDeadLink(sourcePath, dl.target);
+                console.debug(`Dead link fix: ${dl.source} -> ${dl.target}: ${result}`);
+              } catch (e) {
+                console.error(`Failed to fix dead link: ${dl.source} -> ${dl.target}`, e);
+              }
+            }
+            new Notice(`Dead link fix complete. Fixed ${fixed} items.`);
+          })();
+        } : undefined,
+        onFillEmptyPages: emptyPages.length > 0 ? () => {
+          void (async () => {
+            let filled = 0;
+            for (const ep of emptyPages) {
+              filled++;
+              new Notice(`Expanding empty pages: ${filled}/${emptyPages.length}...`);
+              try {
+                const pagePath = `${this.settings.wikiFolder}/${ep}.md`;
+                await this.wikiEngine.fillEmptyPage(pagePath);
+              } catch (e) {
+                console.error(`Failed to expand empty page: ${ep}`, e);
+              }
+            }
+            new Notice(`Page expansion complete. Filled ${filled} pages.`);
+          })();
+        } : undefined,
+        onLinkOrphans: orphans.length > 0 ? () => {
+          void (async () => {
+            let linked = 0;
+            for (const op of orphans) {
+              linked++;
+              new Notice(`Linking orphans: ${linked}/${orphans.length}...`);
+              try {
+                const orphanPath = `${this.settings.wikiFolder}/${op}.md`;
+                await this.wikiEngine.linkOrphanPage(orphanPath);
+              } catch (e) {
+                console.error(`Failed to link orphan: ${op}`, e);
+              }
+            }
+            new Notice(`Orphan linking complete. Linked ${linked} pages.`);
+          })();
+        } : undefined,
+        onAnalyzeSchema: () => { void this.suggestSchemaUpdate(); }
+      };
+
+      new LintReportModal(this.app, fullReport, fixCallbacks, counts).open();
       new Notice(TEXTS[this.settings.language].lintWikiComplete);
 
     } catch (error) {
@@ -477,11 +588,15 @@ ${progReport || '程序检测未发现问题'}
       let testClient: LLMClient;
       const providerConfig = PREDEFINED_PROVIDERS[this.settings.provider];
 
-      if (this.settings.provider === 'anthropic' || this.settings.provider === 'anthropic-compatible') {
-        const testBaseUrl = this.settings.provider === 'anthropic-compatible'
-          ? this.settings.baseUrl?.trim() || undefined
-          : undefined;
-        testClient = new AnthropicClient(this.settings.apiKey.trim(), testBaseUrl);
+      if (this.settings.provider === 'anthropic') {
+        testClient = new AnthropicClient(this.settings.apiKey.trim());
+      } else if (this.settings.provider === 'anthropic-compatible') {
+        const testBaseUrl = this.settings.baseUrl?.trim();
+        if (testBaseUrl) {
+          testClient = new AnthropicCompatibleClient(this.settings.apiKey.trim(), testBaseUrl);
+        } else {
+          testClient = new AnthropicClient(this.settings.apiKey.trim());
+        }
       } else {
         const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
         const apiKey = isOllama ? 'ollama' : this.settings.apiKey.trim();

@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-04-30
+
+### Fixed
+- **Query Wiki page loading**: LLM-returned paths with `wiki/` prefix (e.g., `wiki/entities/xxx`) no longer produce invalid `wiki/wiki/entities/xxx.md` paths; prefix is now stripped automatically
+- **Regenerate index command**: added proper async handling, progress Notice, and error feedback (was silently failing with no user indication)
+- **Index format inconsistency**: removed LLM-dependent hierarchical index generation; `generateIndexFromEngine` now uses deterministic `generateFlatIndex` for all cases, producing consistent Obsidian-compatible Markdown
+- **Anthropic Compatible CORS**: new `AnthropicCompatibleClient` uses Obsidian `requestUrl` instead of SDK to avoid `X-Stainless-*` headers causing preflight rejection by third-party providers
+- **Anthropic Compatible model fetching**: corrected endpoint URL (`/v1/models`), auth header (`x-api-key`), and fallback behavior (custom input instead of hardcoded Claude defaults)
+
+### Added
+- **MiniMax provider**: predefined provider with `MiniMax-M2.7` default model
+- **Lint AI Auto-Fix**: `fixDeadLink`, `fillEmptyPage`, `linkOrphanPage` with per-item action buttons in LintReportModal
+- **Stub→fillEmptyPage chaining**: `fixDeadLink` creates stub page then immediately expands with real content
+
+### Changed
+- **Provider list reordered**: OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, MiniMax, Kimi, GLM, Ollama, Custom, Anthropic Compatible
+- **Provider names standardized**: all use English sentence case with `nameZh` for Chinese
+- **Index generation simplified**: removed `generateHierarchicalIndex` prompt; index is always deterministic flat format
+
+## [1.6.0] - 2026-04-29
+
+### Added
+- **Query-to-Wiki Feedback**: `SuggestSaveModal` on query modal close with 3-stage value assessment
+- **Semantic Dedup on Save**: LLM compares conversation against existing Wiki before saving to Wiki
+- **Contradiction State Machine**: `detected → review_ok → resolved` (AI fix) or `detected → pending_fix` (manual)
+- **Conversational Ingest**: `ingestConversation()` extracts entities/concepts from chat history
+- **Anthropic Compatible provider**: custom Anthropic-compatible endpoints (e.g., MiniMax, MiMo)
+- **Google Gemini provider**: via OpenAI-compatible endpoint
+
+### Changed
+- **Multi-Source Knowledge Fusion**: enhanced LLM-powered merge analysis when multiple sources mention the same entity
+- **User Feedback Loop**: `reviewed: true` frontmatter protects manual edits from overwrite during re-ingestion
+
 ## [1.4.0] - 2026-04-29
 
 ### Fixed (2026-04-29 bot re-scan)

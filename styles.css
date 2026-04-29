@@ -187,3 +187,23 @@
   color: #4caf50;
   margin-top: 4px;
 }
+
+/* Suggest Save Modal (post-query feedback) */
+.llm-wiki-suggest-save-modal {
+  padding: 20px;
+}
+
+.llm-wiki-suggest-save-modal h3 {
+  margin-bottom: 12px;
+}
+
+.llm-wiki-suggest-save-modal p {
+  margin-bottom: 20px;
+  color: var(--text-muted);
+}
+
+.llm-wiki-suggest-save-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}

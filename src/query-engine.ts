@@ -3,7 +3,77 @@
 import { App, Modal, Notice, MarkdownRenderer } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { TEXTS } from './texts';
+import { PROMPTS } from './prompts';
 import { parseJsonResponse } from './utils';
+
+// ---- Suggest Save Modal (post-query feedback) ----
+
+class SuggestSaveModal extends Modal {
+  private plugin: LLMWikiPlugin;
+  private history: {
+    messages: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+      timestamp: number;
+    }>;
+  };
+
+  constructor(
+    app: App,
+    plugin: LLMWikiPlugin,
+    history: { messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }> }
+  ) {
+    super(app);
+    this.plugin = plugin;
+    this.history = history;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    const texts = TEXTS[this.plugin.settings.language];
+
+    contentEl.addClass('llm-wiki-suggest-save-modal');
+
+    contentEl.createEl('h3', { text: texts.querySuggestSaveTitle });
+    contentEl.createEl('p', { text: texts.querySuggestSaveDesc });
+
+    const buttonRow = contentEl.createDiv({ cls: 'llm-wiki-suggest-save-buttons' });
+
+    buttonRow.createEl('button', { text: texts.querySuggestSaveYes, cls: 'mod-cta' })
+      .addEventListener('click', () => {
+        this.close();
+        void this.doSave();
+      });
+
+    buttonRow.createEl('button', { text: texts.querySuggestSaveNo })
+      .addEventListener('click', () => {
+        this.close();
+      });
+  }
+
+  private async doSave(): Promise<void> {
+    const texts = TEXTS[this.plugin.settings.language];
+    const progressNotice = new Notice(texts.savingToWiki, 0);
+
+    try {
+      await this.plugin.wikiEngine.ingestConversation(this.history);
+      progressNotice.hide();
+      new Notice(texts.saveToWikiSuccess, 5000);
+    } catch (error) {
+      progressNotice.hide();
+      console.error('Save failed:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      new Notice(`Save failed: ${errorMsg}`, 8000);
+    }
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
+}
+
+// ---- Query Modal ----
 
 export class QueryModal extends Modal {
   plugin: LLMWikiPlugin;
@@ -135,7 +205,49 @@ export class QueryModal extends Modal {
     this.plugin.settings.queryHistory = this.history.messages;
     void this.plugin.saveSettings();
 
+    // Evaluate conversation value for potential Wiki save
+    void this.evaluateAndSuggestSave();
+
     contentEl.empty();
+  }
+
+  private evaluateAndSuggestSave(): void {
+    const assistantMessages = this.history.messages.filter(m => m.role === 'assistant');
+    const rounds = assistantMessages.length;
+    const assistantChars = assistantMessages.reduce((sum, m) => sum + m.content.length, 0);
+
+    if (rounds < 1) return;
+
+    if (assistantChars > 500) {
+      new SuggestSaveModal(this.app, this.plugin, this.history).open();
+    } else if (assistantChars >= 300) {
+      void this.evaluateWithLLM();
+    }
+    // < 300 chars: skip
+  }
+
+  private async evaluateWithLLM(): Promise<void> {
+    if (!this.plugin.llmClient) return;
+
+    try {
+      const conversationText = this.plugin.wikiEngine.formatConversation(this.history);
+      const prompt = PROMPTS.evaluateConversationValue
+        .replace('{{conversation}}', conversationText.substring(0, 3000));
+
+      const response = await this.plugin.llmClient.createMessage({
+        model: this.plugin.settings.model,
+        max_tokens: 100,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
+      });
+
+      const parsed = await parseJsonResponse(response) as { valuable?: boolean } | null;
+      if (parsed?.valuable) {
+        new SuggestSaveModal(this.app, this.plugin, this.history).open();
+      }
+    } catch {
+      // LLM evaluation failed, skip suggestion
+    }
   }
 
   async sendMessage(userMessage: string) {
@@ -556,10 +668,14 @@ ${indexContent}
 
     const pages: string[] = [];
 
+    const wikiPrefix = this.plugin.settings.wikiFolder + '/';
+
     for (const title of pageTitles) {
       console.debug(`[加载页面] 处理标题: "${title}"`);
 
-      const pagePath = `${this.plugin.settings.wikiFolder}/${title}.md`;
+      // Strip wiki folder prefix if LLM returned it (e.g., "wiki/entities/xxx" → "entities/xxx")
+      const normalizedTitle = title.startsWith(wikiPrefix) ? title.slice(wikiPrefix.length) : title;
+      const pagePath = `${this.plugin.settings.wikiFolder}/${normalizedTitle}.md`;
 
       console.debug(`[加载页面] 完整路径: "${pagePath}"`);
 
@@ -569,9 +685,7 @@ ${indexContent}
       if (content) {
         console.debug(`[加载页面] 内容长度: ${content.length}`);
         console.debug(`[加载页面] 内容前100字符: ${content.substring(0, 100)}`);
-        const displayTitle = title.startsWith(this.plugin.settings.wikiFolder + '/')
-          ? title
-          : `${this.plugin.settings.wikiFolder}/${title}`;
+        const displayTitle = `${this.plugin.settings.wikiFolder}/${normalizedTitle}`;
         pages.push(`## ${displayTitle}\n\n${content}`);
       } else {
         console.warn(`[加载页面] 无法读取页面: ${pagePath}`);

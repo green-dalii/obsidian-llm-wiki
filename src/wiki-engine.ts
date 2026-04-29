@@ -749,6 +749,175 @@ ${contradiction.source_page}
     return results;
   }
 
+  async updateContradictionStatus(filePath: string, newStatus: string): Promise<void> {
+    const content = await this.tryReadFile(filePath);
+    if (!content) {
+      console.debug('Contradiction file not found:', filePath);
+      return;
+    }
+    const updated = content.replace(
+      /^status:\s*\S+/m,
+      `status: ${newStatus}`
+    );
+    if (newStatus === 'resolved') {
+      const resolvedDate = new Date().toISOString().split('T')[0];
+      if (updated.includes('resolved:')) {
+        const final = updated.replace(/^resolved:\s*\S*/m, `resolved: ${resolvedDate}`);
+        await this.createOrUpdateFile(filePath, final);
+      } else {
+        const final = updated.replace(
+          /^(detected:\s*\S+)/m,
+          `$1\nresolved: ${resolvedDate}`
+        );
+        await this.createOrUpdateFile(filePath, final);
+      }
+    } else {
+      await this.createOrUpdateFile(filePath, updated);
+    }
+    console.debug(`Contradiction status updated: ${filePath} → ${newStatus}`);
+  }
+
+  async resolveContradiction(contradictionPath: string): Promise<void> {
+    const contradictionContent = await this.tryReadFile(contradictionPath);
+    if (!contradictionContent) throw new Error('Contradiction file not found');
+
+    const fm = parseFrontmatter(contradictionContent);
+    const sourcePage = (fm?.source_page as string) || '';
+    const pagePath = sourcePage.replace(/\[\[(.+)\]\]/, `${this.settings.wikiFolder}/$1.md`);
+
+    const existingContent = await this.tryReadFile(pagePath);
+    if (!existingContent) throw new Error('Affected wiki page not found');
+
+    const prompt = PROMPTS.resolveContradiction
+      .replace('{{existing_content}}', existingContent.substring(0, 6000))
+      .replace('{{contradiction_content}}', contradictionContent.substring(0, 3000));
+
+    const fixedContent = await this.client.createMessage({
+      model: this.settings.model,
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const cleaned = cleanMarkdownResponse(fixedContent);
+    await this.createOrUpdateFile(pagePath, cleaned);
+    console.debug('Contradiction resolved:', contradictionPath);
+  }
+
+  // ---- Lint Fix Methods ----
+
+  async fixDeadLink(sourcePath: string, targetName: string): Promise<string> {
+    const existingPages = this.getExistingWikiPages();
+    const pagesList = existingPages.map(p => `- ${p.wikiLink}`).join('\n');
+    const sourceContent = await this.tryReadFile(sourcePath) || '(empty)';
+
+    const prompt = PROMPTS.fixDeadLink
+      .replace('{{source_content}}', sourceContent.substring(0, 2000))
+      .replace('{{target_name}}', targetName)
+      .replace('{{existing_pages}}', pagesList.substring(0, 3000));
+
+    const response = await this.client.createMessage({
+      model: this.settings.model,
+      max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' }
+    });
+
+    const result = await parseJsonResponse(response) as {
+      action?: string; correct_link?: string; stub_title?: string; stub_type?: string;
+    } | null;
+
+    if (result?.action === 'correct' && result.correct_link) {
+      // Fix the link in source page
+      const oldLink = new RegExp(`\\[\\[${targetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\]`, 'g');
+      const updatedContent = sourceContent.replace(oldLink, result.correct_link);
+      await this.createOrUpdateFile(sourcePath, updatedContent);
+      return `corrected: ${result.correct_link}`;
+    }
+
+    if (result?.action === 'create_stub' && result.stub_title) {
+      const stubType = result.stub_type || 'entity';
+      const stubPath = `${this.settings.wikiFolder}/${stubType}s/${slugify(result.stub_title)}.md`;
+      const stubContent = `---
+type: ${stubType}
+created: ${new Date().toISOString().split('T')[0]}
+---
+# ${result.stub_title}
+
+> Auto-generated stub page — referenced by [[${sourcePath.replace(this.settings.wikiFolder + '/', '').replace('.md', '')}]].
+`;
+      await this.createOrUpdateFile(stubPath, stubContent);
+      // Expand the stub with AI-generated content immediately
+      await this.fillEmptyPage(stubPath);
+      return `stub created and expanded: ${stubPath}`;
+    }
+
+    return 'no action taken';
+  }
+
+  async fillEmptyPage(pagePath: string): Promise<void> {
+    const existingContent = await this.tryReadFile(pagePath);
+    if (!existingContent) return;
+
+    const pageType = pagePath.includes('/entities/') ? 'entities' :
+                     pagePath.includes('/concepts/') ? 'concepts' : 'sources';
+    const indexPath = `${this.settings.wikiFolder}/index.md`;
+    const wikiIndex = await this.tryReadFile(indexPath) || '';
+
+    const prompt = PROMPTS.fillEmptyPage
+      .replace('{{page_path}}', pagePath)
+      .replace('{{page_type}}', pageType)
+      .replace('{{existing_content}}', existingContent)
+      .replace('{{wiki_index}}', wikiIndex.substring(0, 2000));
+
+    const filledContent = await this.client.createMessage({
+      model: this.settings.model,
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const cleaned = cleanMarkdownResponse(filledContent);
+    await this.createOrUpdateFile(pagePath, cleaned);
+  }
+
+  async linkOrphanPage(orphanPath: string): Promise<void> {
+    const orphanContent = await this.tryReadFile(orphanPath);
+    if (!orphanContent) return;
+
+    const indexPath = `${this.settings.wikiFolder}/index.md`;
+    const wikiIndex = await this.tryReadFile(indexPath) || '';
+
+    const prompt = PROMPTS.linkOrphanPage
+      .replace('{{orphan_content}}', orphanContent.substring(0, 2000))
+      .replace('{{wiki_index}}', wikiIndex.substring(0, 3000));
+
+    const response = await this.client.createMessage({
+      model: this.settings.model,
+      max_tokens: 800,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' }
+    });
+
+    const result = await parseJsonResponse(response) as {
+      related_pages?: Array<{ page_path: string; link_text: string; link_target: string }>;
+    } | null;
+
+    if (!result?.related_pages?.length) return;
+
+    for (const related of result.related_pages) {
+      const fullPath = related.page_path.startsWith(this.settings.wikiFolder)
+        ? related.page_path : `${this.settings.wikiFolder}/${related.page_path}`;
+      const relatedContent = await this.tryReadFile(fullPath);
+      if (!relatedContent) continue;
+
+      if (!relatedContent.includes(related.link_target)) {
+        const section = relatedContent.includes('## 相关页面')
+          ? '' : '\n\n## 相关页面';
+        const updated = relatedContent + `${section}\n- ${related.link_text} ${related.link_target}`;
+        await this.createOrUpdateFile(fullPath, updated);
+      }
+    }
+  }
+
   async createOrUpdateFile(path: string, content: string): Promise<void> {
     console.debug('createOrUpdateFile:', path);
 
@@ -819,53 +988,15 @@ ${contradiction.source_page}
     const sources = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/sources/`));
 
-    // Build page list with summaries
-    const pageEntries: string[] = [];
-    for (const file of [...entities, ...concepts, ...sources]) {
-      const summary = await this.getPageSummary(file);
-      const pageType = file.path.includes('/entities/') ? 'Entity' :
-                       file.path.includes('/concepts/') ? 'Concept' : 'Source';
-      pageEntries.push(`- [${pageType}] ${file.basename}: ${summary} (path: ${file.path})`);
-    }
+    const totalPages = entities.length + concepts.length + sources.length;
 
-    if (pageEntries.length === 0) {
+    if (totalPages === 0) {
       const indexPath = `${this.settings.wikiFolder}/index.md`;
       await this.createOrUpdateFile(indexPath, `# Wiki Index\n\n> No pages yet. Ingest sources to populate the Wiki.\n`);
       return;
     }
 
-    // For large wikis, skip the LLM and use the fast flat index.
-    // The LLM call with a very long prompt is prone to timeouts and the
-    // result is not materially better for directories with many pages.
-    if (pageEntries.length > 25) {
-      console.debug(`Wiki has ${pageEntries.length} pages, using flat index (bypassing LLM)`);
-      await this.generateFlatIndex(entities, concepts, sources);
-      return;
-    }
-
-    const wikiStructure = this.settings.enableSchema
-      ? await this.schemaManager.getSchemaContext('index')
-      : '';
-
-    const prompt = PROMPTS.generateHierarchicalIndex
-      .replace('{{page_list}}', pageEntries.join('\n'))
-      .replace('{{wiki_structure}}', wikiStructure || 'Standard Wiki structure (entities/, concepts/, sources/)');
-
-    try {
-      const indexContent = await this.client.createMessage({
-        model: this.settings.model,
-        max_tokens: 4000,
-        system: wikiStructure || undefined,
-        messages: [{ role: 'user', content: prompt }]
-      });
-
-      const cleaned = cleanMarkdownResponse(indexContent);
-      const indexPath = `${this.settings.wikiFolder}/index.md`;
-      await this.createOrUpdateFile(indexPath, cleaned);
-    } catch (err) {
-      console.warn('LLM index generation failed, using flat index:', err instanceof Error ? err.message : String(err));
-      await this.generateFlatIndex(entities, concepts, sources);
-    }
+    await this.generateFlatIndex(entities, concepts, sources);
   }
 
   private async generateFlatIndex(
@@ -944,6 +1075,25 @@ ${contradiction.source_page}
     console.debug('[Wiki索引]', existingWikiIndex ? '已读取' : '为空');
 
     const conversationText = this.formatConversation(history);
+
+    // Dedup pre-check: skip if conversation is fully covered by existing Wiki
+    if (existingWikiIndex !== 'Wiki is empty') {
+      this.onProgress?.('Checking for existing knowledge...');
+      try {
+        const dedupResult = await this.checkDedup(existingWikiIndex, conversationText);
+        if (dedupResult === 'fully_redundant') {
+          console.debug('Conversation fully covered by existing Wiki, skipping save');
+          this.onProgress?.(
+            this.settings.language === 'en'
+              ? 'This knowledge already exists in Wiki'
+              : '此对话知识点已存在于 Wiki 中'
+          );
+          return;
+        }
+      } catch (error) {
+        console.debug('Dedup check failed, proceeding with save:', error);
+      }
+    }
 
     const analysisPrompt = this.settings.language === 'en'
       ? `You are a Wiki knowledge extraction assistant.
@@ -1177,5 +1327,22 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
       const time = new Date(msg.timestamp).toLocaleTimeString();
       return `### ${role} (${time})\n\n${msg.content}\n\n---\n`;
     }).join('\n');
+  }
+
+  private async checkDedup(wikiIndex: string, conversationText: string): Promise<string> {
+    const summary = conversationText.substring(0, 1500);
+    const prompt = PROMPTS.dedupCheck
+      .replace('{{wiki_index}}', wikiIndex.substring(0, 3000))
+      .replace('{{conversation_summary}}', summary);
+
+    const response = await this.client.createMessage({
+      model: this.settings.model,
+      max_tokens: 200,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' }
+    });
+
+    const parsed = await parseJsonResponse(response) as { status?: string } | null;
+    return parsed?.status || 'entirely_new';
   }
 }

@@ -192,6 +192,12 @@ export const TEXTS = {
 
     // User Feedback Loop
     reviewedPagePreserved: 'Preserving user-reviewed content for: {}',
+
+    // Query-to-Wiki feedback
+    querySuggestSaveTitle: 'Save to Wiki?',
+    querySuggestSaveDesc: 'This conversation contains valuable knowledge. Save it to your Wiki?',
+    querySuggestSaveYes: 'Save',
+    querySuggestSaveNo: 'Dismiss',
   },
 
   zh: {
@@ -385,5 +391,11 @@ export const TEXTS = {
 
     // 用户反馈闭环
     reviewedPagePreserved: '已保留用户审阅内容: {}',
+
+    // Query 回流
+    querySuggestSaveTitle: '保存到 Wiki？',
+    querySuggestSaveDesc: '此对话包含有价值的知识点，是否保存到 Wiki？',
+    querySuggestSaveYes: '保存',
+    querySuggestSaveNo: '忽略',
   }
 };

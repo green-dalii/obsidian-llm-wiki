@@ -2,24 +2,42 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.4.1 | **Updated:** 2026-04-29
+**Version:** 1.6.1 | **Updated:** 2026-04-30
 
 ---
 
 ## Current Status
 
-### Implemented (v1.4.0)
+### Implemented (v1.6.1)
 
 **Core Features**
-- Multi LLM Provider support (Anthropic, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, Custom)
+- Multi LLM Provider support (Anthropic, OpenAI, Gemini, OpenRouter, DeepSeek, MiniMax, Kimi, GLM, Ollama, Custom, Anthropic Compatible)
 - Dynamic model list fetching (real-time from API)
 - Intelligent ingestion: automatic entity/concept extraction and Wiki page generation
 - Bidirectional links: native Obsidian `[[wiki-links]]` syntax
 - Conversational Query: ChatGPT-style dialog with streaming Markdown
 - Schema layer: `schema/config.md` with selective injection per task
 - Auto-maintenance: file watcher + periodic lint + startup check (all default OFF)
-- Hierarchical index: LLM-generated tree structure with flat fallback for large wikis
+- Deterministic flat index: consistent Obsidian-compatible format across ingest and regeneration
 - Ingestion report modal with detailed statistics
+- Multi-Source Knowledge Fusion: LLM-powered merge analysis on page update
+- User Feedback Loop: `reviewed: true` frontmatter protects manual edits from overwrite
+
+**v1.6.0 — Knowledge Compounding (✅ code complete)**
+- Query-to-Wiki Feedback: SuggestSaveModal on query close, 3-stage value assessment
+- Semantic Dedup on Save: LLM compares conversation against existing Wiki before saving
+- Contradiction State Machine: detected → review_ok → resolved (AI fix); detected → pending_fix (manual)
+- Lint AI Auto-Fix: fixDeadLink, fillEmptyPage, linkOrphanPage with LintReportModal action buttons
+- Stub-then-fill chaining: fixDeadLink creates stub then immediately expands with content
+- Conversational Ingest: `ingestConversation()` extracts knowledge from chat history
+
+**v1.6.1 — Quality Update (✅ released)**
+- Query Wiki path normalization (wiki/ prefix stripping)
+- Regenerate index: proper async + Notice feedback
+- Index format: deterministic flat, removed LLM dependency
+- Anthropic Compatible: CORS fix, model fetching fix
+- MiniMax predefined provider
+- Lint AI per-item fix buttons
 
 **Quality / Engineering**
 - JSON Output Mode (`response_format: json_object`) for reliable structured responses
@@ -29,101 +47,45 @@
 - Full Unicode filename support
 - Modular architecture (9 focused modules)
 - Internationalization: English/Chinese UI
-- Code quality: no `any` types, Obsidian API compliance
+- Code quality: no `any` types, ESLint/obsidianmd compliance
 
 ---
 
-## Short-term Planning (v1.5.x)
+## Quality Update Phase (current)
 
-### Priority: High
+> Addressing existing feature defects and quality gaps. No new features.
 
-#### 1. Multi-Source Knowledge Fusion
+### Completed fixes
+- **Stub→fillEmptyPage chaining** — fixDeadLink `create_stub` now calls `fillEmptyPage` immediately, preventing stubs from becoming empty-page lint warnings
+- **Query Wiki path normalization** — LLM-returned paths with `wiki/` prefix are now stripped automatically, fixing page content loading failures
+- **Regenerate index reliability** — proper async handling, progress Notice, error feedback; was silently failing
+- **Index format unification** — removed LLM-dependent hierarchical index; always uses deterministic flat format
+- **Anthropic Compatible CORS** — new `AnthropicCompatibleClient` uses `requestUrl` to avoid SDK `X-Stainless-*` headers
+- **Anthropic Compatible model fetching** — corrected URL, auth header, and fallback behavior
+- **MiniMax provider** — added as predefined provider
+- **Lint AI Auto-Fix** — per-item fix buttons in LintReportModal
 
-**Goal:** When two sources mention the same entity, intelligently merge rather than append.
+### Active investigation
+- **Long source entity/concept under-extraction** — output token limit bottleneck analysis
 
-**Scope:**
-- LLM-powered diff-and-merge when updating existing pages
-- Detect contradictions vs complementary information
-- Preserve existing page structure while enriching content
-- Two-step merge analysis for substantial pages (>300 chars)
+### Known gaps (from Karpathy audit 2026-04-29)
 
-**Files:** `wiki-engine.ts` (createOrUpdateEntityPage, createOrUpdateConceptPage), `prompts.ts` (mergeAnalysis)
-**Status:** ✅ Implemented (v1.4.1)
-
-#### 2. User Feedback Loop
-
-**Goal:** Protect manual edits from being overwritten by subsequent ingestion.
-
-**Scope:**
-- Detect `frontmatter.reviewed: true` flag on Wiki pages
-- When updating reviewed pages, LLM preserves human edits
-- Preserve `reviewed: true` tag after regeneration
-
-**Files:** `wiki-engine.ts` (page update methods), `prompts.ts` (preserve prompts), `utils.ts` (frontmatter parser)
-**Status:** ✅ Implemented (v1.4.1)
-
----
-
-### Priority: Medium
-
-#### 3. Contradiction Tracking & Resolution
-
-**Goal:** Systematic contradiction management with a state machine.
-
-**Scope:**
-- `wiki/contradictions/` directory with status tracking
-- State machine: detected → in_review → resolved/suppressed
-- Lint re-checks resolved contradictions for recurrence
-
-#### 4. Smart Conversation Saving
-
-**Goal:** Avoid redundant Wiki entries when saving conversations.
-
-**Scope:**
-- Compare conversation content with existing Wiki pages before saving
-- Extract only incremental knowledge
-- Reduce API costs and Wiki clutter
+| # | Gap | Severity |
+|---|-----|----------|
+| 1 | Lint: no stale-claim detection ("superseded by newer sources") | Medium |
+| 2 | Lint: no missing-important-page detection | Medium |
+| 3 | Lint: no suggested-questions output | Low |
+| 4 | Lint: batch fix without per-item review (weakens human-in-the-loop) | Medium |
+| 5 | Ingest: no interactive "discuss key takeaways with user" before writing | Medium |
+| 6 | Query: output format limited to markdown (no tables/slides/charts) | Low |
+| 7 | Schema: rules-engine based, not co-evolved LLM instruction doc | Low |
+| 8 | Long source analysis: max_tokens: 4000 bottleneck limits entity/concept count | High |
 
 ---
 
-## Karpathy-Aligned Planning (v1.6.x – v1.8.x)
+## Karpathy-Aligned Planning (v1.7.x – v1.8.x)
 
 > Based on re-reading Karpathy's [original LLM Wiki vision](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and auditing the plugin against his core principles.
-
-### v1.6.0 — Knowledge Compounding
-
-**Goal:** Make every Wiki query a source of lasting knowledge, not a one-shot consumer.
-
-Karpathy: *"Good answers can be filed back into the wiki as new pages, so explorations compound alongside ingested sources."*
-
-#### 5. Query-to-Wiki Feedback
-
-**Scope:**
-- After closing the Query modal, evaluate whether the conversation contains valuable knowledge
-- If substantive (≥ 2 turns, > 500 chars total), prompt: "This conversation contains valuable insights. Save to Wiki?"
-- Bridge the gap between query (consumption) and ingest (production)
-
-**Files:** `src/query-engine.ts`
-
-#### 6. Deduplication on Save
-
-**Scope:**
-- Before saving a conversation to Wiki, compare against existing Wiki pages via index
-- Only extract genuinely new knowledge not already covered
-- If fully covered, notify: "This knowledge already exists in Wiki"
-
-**Files:** `src/wiki-engine.ts`, `src/prompts.ts`
-
-#### 7. Contradiction State Machine
-
-**Scope:**
-- Lifecycle: `detected → in_review → resolved | suppressed`
-- Lint scans `wiki/contradictions/` for open items, includes in lint report
-- Users manage status by editing frontmatter `status` field
-
-**Files:** `src/wiki-engine.ts`, `main.ts`
-
----
 
 ### v1.7.0 — Conversational Ingest
 
@@ -131,9 +93,7 @@ Karpathy: *"Good answers can be filed back into the wiki as new pages, so explor
 
 Karpathy: *"I like to do them one at a time, and be involved myself. I like to discuss what to file, then file it."*
 
-#### 8. Ingest Wizard
-
-**Scope:**
+#### 1. Ingest Wizard
 - New `IngestWizardModal` — step-by-step guided ingest
 - Step 1: LLM analyzes source, presents extracted entities/concepts for user review
 - Step 2: User edits/adds/removes items (checkboxes + edit)
@@ -142,27 +102,23 @@ Karpathy: *"I like to do them one at a time, and be involved myself. I like to d
 
 **Files:** `src/ingest-wizard.ts` (new), `src/wiki-engine.ts`, `main.ts`
 
+#### 2. Lint Per-Item Review
+- Replace batch fix with per-item preview + confirm
+- Show LLM fix proposal before applying
+- Align with human-in-the-loop principle
+
 ---
 
 ### v1.8.0 — Experience Polish
 
-#### 9. Proactive Schema Suggestions
-
-**Scope:**
+#### 3. Proactive Schema Suggestions
 - After ingest, check if new entity/concept types fall outside schema categories
-- If so, suggest running "Suggest Schema Updates" (do not auto-modify)
+- Suggest running "Analyze Schema" (do not auto-modify)
 
-**Files:** `src/wiki-engine.ts`, `src/schema-manager.ts`
-
-#### 10. Output Format Diversity
-
+#### 4. Output Format Diversity
 Karpathy: *"comparison tables, slide decks (Marp), charts"*
-
-**Scope:**
 - Optimize query prompts for structured table output
 - "Export as Marp" button in Query modal
-
-**Files:** `src/query-engine.ts`, `src/prompts.ts`
 
 ---
 
@@ -182,11 +138,10 @@ Karpathy: *"comparison tables, slide decks (Marp), charts"*
 
 | Version | Target | Key Features | Status |
 |---------|--------|-------------|--------|
-| **v1.3.2-beta** | 2026-04 | Phase 1 optimizations + robustness fixes | Done |
-| **v1.4.0** | 2026-04 | Schema layer, auto-maintenance, ESLint compliance, bot review | Done |
-| **v1.5.0** | 2026-04 | Multi-source fusion, user feedback loop, contradiction tracking foundation | In Progress (testing) |
-| **v1.6.0** | TBD | Query-to-Wiki feedback, dedup save, contradiction state machine | Planned |
-| **v1.7.0** | TBD | Conversational ingest wizard | Planned |
+| **v1.4.0** | 2026-04 | Schema layer, auto-maintenance, ESLint compliance, bot review | Released |
+| **v1.5.0** | 2026-04 | Multi-source fusion, user feedback loop, contradiction tracking foundation | Code complete |
+| **v1.6.0** | 2026-04 | Query-to-Wiki feedback, dedup save, contradiction state machine, lint AI auto-fix | Code complete |
+| **v1.7.0** | TBD | Conversational ingest wizard, lint per-item review | Planned |
 | **v1.8.0** | TBD | Proactive schema suggestions, output diversity | Planned |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 

@@ -6,6 +6,17 @@
 
 ---
 
+## ⚠️ Current Phase: Quality Update
+
+**No new features.** Focus: fixing existing feature defects, quality gaps, and Karpathy-alignment issues identified in the 2026-04-29 audit. All v1.6.0 code is complete on `feature/schema-auto-maintain`; pending user testing.
+
+Active items:
+- Long source entity/concept under-extraction (max_tokens bottleneck)
+- Lint batch fix without per-item review (human-in-the-loop)
+- Various Karpathy gaps (see ROADMAP.md for full list)
+
+---
+
 ## ⚠️ Branch Policy
 
 **main branch is frozen.** The v1.2.0 PR passed Obsidian Bot automated review and is queued for human review (since 2026-04-29). Until approved:

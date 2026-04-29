@@ -60,15 +60,30 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
   }
 }
 
+export interface LintFixCallbacks {
+  onFixDeadLinks?: () => void;
+  onFillEmptyPages?: () => void;
+  onLinkOrphans?: () => void;
+  onAnalyzeSchema?: () => void;
+}
+
+export interface LintCounts {
+  deadLinks: number;
+  emptyPages: number;
+  orphans: number;
+}
+
 export class LintReportModal extends Modal {
   report: string;
-  onSuggestSchema?: () => void;
+  fixCallbacks: LintFixCallbacks;
+  counts: LintCounts;
   private renderComponent: Component | null = null;
 
-  constructor(app: App, report: string, onSuggestSchema?: () => void) {
+  constructor(app: App, report: string, fixCallbacks: LintFixCallbacks, counts: LintCounts) {
     super(app);
     this.report = report;
-    this.onSuggestSchema = onSuggestSchema;
+    this.fixCallbacks = fixCallbacks;
+    this.counts = counts;
   }
 
   onOpen() {
@@ -77,19 +92,59 @@ export class LintReportModal extends Modal {
     this.renderComponent.load();
 
     const reportDiv = contentEl.createDiv({
-      attr: { style: 'max-height: 60vh; overflow-y: auto; padding: 8px 0;' }
+      attr: { style: 'max-height: 50vh; overflow-y: auto; padding: 8px 0;' }
     });
     void MarkdownRenderer.render(this.app, this.report, reportDiv, '', this.renderComponent);
 
-    if (this.onSuggestSchema) {
-      const buttonRow = contentEl.createDiv({
-        attr: { style: 'margin-top: 16px; text-align: right;' }
-      });
+    // Action buttons
+    const actionSection = contentEl.createDiv({
+      attr: { style: 'margin-top: 16px; border-top: 1px solid var(--background-modifier-border); padding-top: 12px;' }
+    });
+
+    actionSection.createEl('p', {
+      text: 'Actions (each calls AI):',
+      attr: { style: 'font-weight: bold; margin-bottom: 8px;' }
+    });
+
+    const buttonRow = actionSection.createDiv({
+      attr: { style: 'display: flex; flex-wrap: wrap; gap: 8px;' }
+    });
+
+    if (this.counts.deadLinks > 0 && this.fixCallbacks.onFixDeadLinks) {
       buttonRow.createEl('button', {
-        text: 'Suggest schema updates',
+        text: `Fix Dead Links (${this.counts.deadLinks})`,
         cls: 'mod-cta'
       }).addEventListener('click', () => {
-        this.onSuggestSchema?.();
+        this.fixCallbacks.onFixDeadLinks?.();
+        this.close();
+      });
+    }
+
+    if (this.counts.emptyPages > 0 && this.fixCallbacks.onFillEmptyPages) {
+      buttonRow.createEl('button', {
+        text: `Expand Empty Pages (${this.counts.emptyPages})`,
+        cls: 'mod-cta'
+      }).addEventListener('click', () => {
+        this.fixCallbacks.onFillEmptyPages?.();
+        this.close();
+      });
+    }
+
+    if (this.counts.orphans > 0 && this.fixCallbacks.onLinkOrphans) {
+      buttonRow.createEl('button', {
+        text: `Link Orphan Pages (${this.counts.orphans})`,
+        cls: 'mod-cta'
+      }).addEventListener('click', () => {
+        this.fixCallbacks.onLinkOrphans?.();
+        this.close();
+      });
+    }
+
+    if (this.fixCallbacks.onAnalyzeSchema) {
+      buttonRow.createEl('button', {
+        text: 'Analyze schema',
+      }).addEventListener('click', () => {
+        this.fixCallbacks.onAnalyzeSchema?.();
         this.close();
       });
     }
