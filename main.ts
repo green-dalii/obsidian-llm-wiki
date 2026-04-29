@@ -120,7 +120,7 @@ export default class LLMWikiPlugin extends Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     this.initializeLLMClient();
-    this.schemaManager?.invalidateCache();
+    this.schemaManager?.updateSettings(this.settings);
     if (this.wikiEngine) {
       this.wikiEngine.settings = this.settings;
     }
@@ -144,9 +144,12 @@ export default class LLMWikiPlugin extends Plugin {
     try {
       const providerConfig = PREDEFINED_PROVIDERS[this.settings.provider];
 
-      if (this.settings.provider === 'anthropic') {
-        // Anthropic 使用自己的 SDK
-        this.llmClient = new AnthropicClient(this.settings.apiKey.trim());
+      if (this.settings.provider === 'anthropic' || this.settings.provider === 'anthropic-compatible') {
+        // Anthropic SDK — official or compatible with custom base URL
+        const baseUrl = this.settings.provider === 'anthropic-compatible'
+          ? this.settings.baseUrl?.trim() || undefined
+          : undefined;
+        this.llmClient = new AnthropicClient(this.settings.apiKey.trim(), baseUrl);
       } else {
         // 其他提供商都使用 OpenAI SDK（兼容接口）
         const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
@@ -278,52 +281,150 @@ export default class LLMWikiPlugin extends Plugin {
     new Notice(TEXTS[this.settings.language].lintWikiStart);
 
     try {
-      const wikiFiles = this.wikiEngine.getExistingWikiPages();
+      const wikiFiles = this.app.vault.getMarkdownFiles()
+        .filter(f => f.path.startsWith(this.settings.wikiFolder) &&
+                     !f.path.includes('index.md') &&
+                     !f.path.includes('log.md'));
+
+      // ---- 1. Programmatic checks ----
+
+      // Collect all page contents and titles
+      const pageMap = new Map<string, { path: string; content: string; basename: string }>();
+      for (const file of wikiFiles) {
+        const content = await this.app.vault.read(file);
+        pageMap.set(file.path, { path: file.path, content, basename: file.basename });
+      }
+
+      // Build set of all known page targets for dead-link detection
+      const knownTargets = new Set<string>();
+      for (const { path, basename } of pageMap.values()) {
+        knownTargets.add(basename);
+        // Also add relative path (e.g. "entities/SomeName")
+        const relPath = path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+        knownTargets.add(relPath);
+      }
+
+      // Dead links: parse all [[...]] and check against known targets
+      const deadLinks: Array<{ source: string; target: string }> = [];
+      const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
+      for (const { path, content } of pageMap.values()) {
+        let match: RegExpExecArray | null;
+        while ((match = linkRegex.exec(content)) !== null) {
+          const target = match[1].trim();
+          if (!knownTargets.has(target)) {
+            deadLinks.push({
+              source: path.replace(this.settings.wikiFolder + '/', '').replace('.md', ''),
+              target
+            });
+          }
+        }
+        linkRegex.lastIndex = 0;
+      }
+
+      // Empty / near-empty pages
+      const emptyPages: string[] = [];
+      for (const { path, content } of pageMap.values()) {
+        const textBody = content.replace(/---[\s\S]*?---/, '').replace(/[#*\-\s\n]/g, '').trim();
+        if (textBody.length < 50) {
+          emptyPages.push(path.replace(this.settings.wikiFolder + '/', '').replace('.md', ''));
+        }
+      }
+
+      // Orphan pages (no incoming links from other wiki pages)
+      const incomingLinks = new Map<string, string[]>();
+      for (const { path, content } of pageMap.values()) {
+        const sourceRel = path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+        let match: RegExpExecArray | null;
+        while ((match = linkRegex.exec(content)) !== null) {
+          const target = match[1].trim();
+          if (!incomingLinks.has(target)) incomingLinks.set(target, []);
+          incomingLinks.get(target)!.push(sourceRel);
+        }
+        linkRegex.lastIndex = 0;
+      }
+      const orphans: string[] = [];
+      for (const { path, basename } of pageMap.values()) {
+        const relPath = path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+        const hasIncoming = incomingLinks.has(basename) || incomingLinks.has(relPath);
+        if (!hasIncoming) {
+          orphans.push(relPath);
+        }
+      }
+
+      // ---- 2. Build programmatic findings report ----
+      let progReport = '';
+      if (deadLinks.length > 0) {
+        progReport += `## 断链 (程序检测)\n\n`;
+        const showDead = deadLinks.slice(0, 20);
+        for (const dl of showDead) {
+          progReport += `- [[${dl.source}]] → **${dl.target}** (页面不存在)\n`;
+        }
+        if (deadLinks.length > 20) progReport += `- ... 共 ${deadLinks.length} 处断链\n`;
+        progReport += '\n';
+      }
+      if (emptyPages.length > 0) {
+        progReport += `## 空洞页面 (程序检测)\n\n`;
+        for (const ep of emptyPages) {
+          progReport += `- [[${ep}]] — 内容不足 50 字符\n`;
+        }
+        progReport += '\n';
+      }
+      if (orphans.length > 0) {
+        progReport += `## 孤立页面 (程序检测)\n\n`;
+        for (const op of orphans) {
+          progReport += `- [[${op}]] — 无其他 Wiki 页面链接至此\n`;
+        }
+        progReport += '\n';
+      }
+      if (!deadLinks.length && !emptyPages.length && !orphans.length) {
+        progReport += `✅ 程序检测未发现断链、空洞或孤立页面。\n\n`;
+      }
+
+      // ---- 3. LLM analysis with page contents ----
       const indexContent = await this.wikiEngine.tryReadFile(`${this.settings.wikiFolder}/index.md`) || '';
 
-      const prompt = `你是一个 Wiki 维护助手。请检查以下 Wiki 的健康状况。
+      // Send a representative sample of page contents (up to ~6000 chars)
+      let contentSample = '';
+      const samplePages = wikiFiles.slice(0, 8);
+      for (const file of samplePages) {
+        const info = pageMap.get(file.path);
+        if (info) {
+          const body = info.content.substring(0, 600);
+          contentSample += `\n### ${info.basename}\n${body}\n`;
+        }
+      }
+
+      const prompt = `你是一个 Wiki 维护助手。请基于以下信息检查 Wiki 的健康状况。
 
 Wiki 索引：
 ${indexContent}
 
-Wiki 页面列表：
-${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
+Wiki 页面内容样本（共 ${wikiFiles.length} 页，展示 ${samplePages.length} 页）：
+${contentSample}
 
-请检查：
-1. 矛盾 - 页面间内容矛盾
-2. 过时 - 声明可能已过时
-3. 孤立 - 无入链的孤立页面
-4. 缺失 - 重要概念缺少独立页面
-5. 断链 - 双向链接指向不存在的页面
-6. 空洞 - 页面内容不足
+程序检测结果（已验证，请勿重复报告）：
+${progReport || '程序检测未发现问题'}
 
-输出格式：
-## 矛盾
-- [列出发现的矛盾]
+请检查以下方面（跳过程序已检测的断链/空洞/孤立）：
+1. **矛盾** — 不同页面对同一事实的说法是否矛盾
+2. **过时** — 是否有声明明显过时
+3. **缺失** — 哪些重要概念缺少独立页面
+4. **结构** — 页面结构是否合理，交叉引用是否充分
 
-## 过时内容
-- [列出过时的声明]
+输出格式：使用 Markdown，以 "## LLM 分析" 开头。每个发现用一行 "- [具体问题]"。如无问题则写 "✅ 未发现明显问题。"`;
 
-## 孤立页面
-- [列出孤立页面]
-
-## 缺失页面
-- [建议创建的页面]
-
-## 断链
-- [列出断开的链接]
-
-## 其他建议
-- [其他维护建议]`;
-
-      const report = await this.llmClient.createMessage({
+      const llmReport = await this.llmClient.createMessage({
         model: this.settings.model,
-        max_tokens: 2000,
+        max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }]
       });
 
-      const cleanedReport = cleanMarkdownResponse(report);
-      new LintReportModal(this.app, cleanedReport, () => { void this.suggestSchemaUpdate(); }).open();
+      const cleanedLLM = cleanMarkdownResponse(llmReport);
+
+      // ---- 4. Combine and display ----
+      const fullReport = `# Wiki 维护报告\n\n> 共 ${wikiFiles.length} 个 Wiki 页面\n\n${progReport}${cleanedLLM.startsWith('##') ? '' : '## LLM 分析\n\n'}${cleanedLLM}`;
+
+      new LintReportModal(this.app, fullReport, () => { void this.suggestSchemaUpdate(); }).open();
       new Notice(TEXTS[this.settings.language].lintWikiComplete);
 
     } catch (error) {
@@ -376,8 +477,11 @@ ${wikiFiles.map(p => `- [[${p.title}]]`).join('\n')}
       let testClient: LLMClient;
       const providerConfig = PREDEFINED_PROVIDERS[this.settings.provider];
 
-      if (this.settings.provider === 'anthropic') {
-        testClient = new AnthropicClient(this.settings.apiKey.trim());
+      if (this.settings.provider === 'anthropic' || this.settings.provider === 'anthropic-compatible') {
+        const testBaseUrl = this.settings.provider === 'anthropic-compatible'
+          ? this.settings.baseUrl?.trim() || undefined
+          : undefined;
+        testClient = new AnthropicClient(this.settings.apiKey.trim(), testBaseUrl);
       } else {
         const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
         const apiKey = isOllama ? 'ollama' : this.settings.apiKey.trim();

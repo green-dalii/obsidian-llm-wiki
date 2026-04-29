@@ -1,6 +1,6 @@
 // Reusable UI modals for the LLM Wiki Plugin
 
-import { App, TFile, TFolder, Modal, FuzzySuggestModal } from 'obsidian';
+import { App, TFile, TFolder, Modal, FuzzySuggestModal, MarkdownRenderer, Component } from 'obsidian';
 import { IngestReport } from './types';
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
@@ -63,6 +63,7 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 export class LintReportModal extends Modal {
   report: string;
   onSuggestSchema?: () => void;
+  private renderComponent: Component | null = null;
 
   constructor(app: App, report: string, onSuggestSchema?: () => void) {
     super(app);
@@ -71,14 +72,17 @@ export class LintReportModal extends Modal {
   }
 
   onOpen() {
-    this.contentEl.createEl('h2', { text: 'Wiki 维护报告' });
-    this.contentEl.createDiv({
-      text: this.report,
-      attr: { style: 'white-space: pre-wrap; max-height: 60vh; overflow-y: auto;' }
+    const { contentEl } = this;
+    this.renderComponent = new Component();
+    this.renderComponent.load();
+
+    const reportDiv = contentEl.createDiv({
+      attr: { style: 'max-height: 60vh; overflow-y: auto; padding: 8px 0;' }
     });
+    void MarkdownRenderer.render(this.app, this.report, reportDiv, '', this.renderComponent);
 
     if (this.onSuggestSchema) {
-      const buttonRow = this.contentEl.createDiv({
+      const buttonRow = contentEl.createDiv({
         attr: { style: 'margin-top: 16px; text-align: right;' }
       });
       buttonRow.createEl('button', {
@@ -92,6 +96,7 @@ export class LintReportModal extends Modal {
   }
 
   onClose() {
+    this.renderComponent?.unload();
     this.contentEl.empty();
   }
 }

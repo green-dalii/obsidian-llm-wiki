@@ -123,44 +123,9 @@ Reviewed-by: Username <email@example.com>
 
 ## 🎯 Code Quality Standards
 
-### TypeScript Best Practices
-
-**Type Safety:**
-- ✅ **Avoid `any`:** Use explicit types or `unknown` with type guards
-- ✅ **Interface definitions:** Define clear interfaces for data structures
-- ✅ **Return types:** Always annotate function return types
-- ✅ **Null checks:** Use `?.` optional chaining and `??` nullish coalescing
-
-**Example:**
-```typescript
-// ✅ Good
-interface EntityInfo {
-  name: string;
-  type: 'person' | 'organization' | 'other';
-  summary: string;
-}
-
-function createEntityPage(entity: EntityInfo): Promise<string | null> {
-  if (!entity?.name?.trim()) {
-    return null;
-  }
-  // ...
-}
-
-// ❌ Bad
-function createEntityPage(entity: any) {
-  if (!entity.name) {
-    return null;
-  }
-  // ...
-}
-```
-
-**Naming Conventions:**
-- ✅ **Classes:** PascalCase (`LLMWikiPlugin`, `AnthropicClient`)
-- ✅ **Functions:** camelCase (`createOrUpdateFile`, `slugify`)
-- ✅ **Constants:** UPPER_SNAKE_CASE or camelCase (`PROMPTS`, `DEFAULT_SETTINGS`)
-- ✅ **Interfaces:** PascalCase with descriptive names (`LLMClient`, `SourceAnalysis`)
+- **No `any`:** Use explicit types or `unknown` with type guards
+- **Null checks:** Use `?.` optional chaining and `??` nullish coalescing
+- **Naming:** PascalCase classes, camelCase functions, UPPER_SNAKE_CASE constants
 - ✅ **Booleans:** Prefix with `is/has/can` (`isValid`, `hasContent`, `canIngest`)
 
 ---
@@ -399,123 +364,17 @@ pnpm lint  # runs eslint-plugin-obsidianmd on src/
 
 ## 📖 Documentation Standards
 
-### README Requirements
+- **README:** English primary, version number, features, install steps, usage examples, troubleshooting
+- **CHANGELOG:** Keep a Changelog format, group by Added/Changed/Fixed/Removed, ISO dates
+- **Commit messages:** English + conventional commits (`feat:`, `fix:`, `docs:`, `chore:`)
 
-**Structure:**
-1. **Project Title** - Clear, descriptive
-2. **Quick Summary** - One-sentence description
-3. **Features** - Bullet list of core features
-4. **Installation** - Step-by-step guide
-5. **Usage** - Examples with screenshots/videos
-6. **Configuration** - Settings panel explanation
-7. **Troubleshooting** - Common issues and fixes
-8. **Contributing** - Contribution workflow
-9. **License** - MIT License link
-10. **Acknowledgments** - Credit original concept authors
+## ✅ Pre-Commit Checklist
 
-**Quality Checklist:**
-- ✅ English language (primary README.md)
-- ✅ Clear installation steps (manual + development)
-- ✅ Usage examples with input/output
-- ✅ Screenshots or diagrams (if applicable)
-- ✅ Link to documentation (docs/ folder)
-- ✅ License file linked
-- ✅ Acknowledgments section with original concept link
-
-### CHANGELOG Requirements
-
-**Format:**
-```markdown
-## [1.0.9] - 2025-04-27
-
-### Added
-- Feature description
-
-### Changed
-- Change description
-
-### Fixed
-- Bug fix description
-
-### Removed
-- Deprecated feature removal
-```
-
-**Rules:**
-- ✅ English language
-- ✅ Date in ISO format (YYYY-MM-DD)
-- ✅ Group changes by type (Added/Changed/Fixed/Removed)
-- ✅ Reference GitHub issues (e.g., "Fixes #42")
-
----
-
-## 🤝 Open Source Best Practices
-
-### Attribution Requirements
-
-**Must Include:**
-- ✅ **Original concept:** Link to Karpathy's gist in README Acknowledgments
-- ✅ **Dependencies:** Credit Anthropic SDK, OpenAI SDK, Obsidian API
-- ✅ **License:** MIT License with proper copyright year
-- ✅ **Author:** Your GitHub username in manifest.json and README
-
-**Example Acknowledgments Section:**
-```markdown
-## Acknowledgments & Credits
-
-### Concept Origin
-This project implements **Karpathy's LLM Wiki** concept:
-- [Andrej Karpathy's LLM Wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-
-We thank **Andrej Karpathy** for sharing this innovative idea.
-
-### Technology Stack
-- [Obsidian Plugin API](https://docs.obsidian.md/)
-- [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-typescript)
-```
-
-### Repository Standards
-
-**Required Files:**
-- ✅ `.gitignore` - Exclude `node_modules/`, `main.js`, `.DS_Store`
-- ✅ `LICENSE` - MIT License (or Apache 2.0, GPL)
-- ✅ `README.md` - English documentation
-- ✅ `manifest.json` - Obsidian plugin metadata
-- ✅ `package.json` - Node.js package metadata
-- ✅ `versions.json` - Obsidian version compatibility map
-
-**Recommended Files:**
-- ⚠️ `CHANGELOG.md` - Version history
-- ⚠️ `ROADMAP.md` - Future planning
-- ⚠️ `docs/` - Detailed documentation
-- ⚠️ `SECURITY.md` - Security policy
-
----
-
-## ✅ Quality Checklist (Pre-Commit)
-
-Before each commit, verify:
-
-**Code Quality:**
-- ✅ TypeScript compiles without errors
-- ✅ No `any` types (use explicit types)
-- ✅ Error handling with try/catch + Notice
-- ✅ Console logs for debugging (not excessive)
-
-**Documentation:**
-- ✅ README.md updated (if feature changed)
-- ✅ CHANGELOG.md updated (new version entry)
-- ✅ Version numbers synchronized (manifest/package/versions)
-
-**Git Standards:**
-- ✅ Commit message in English
-- ✅ Conventional commit format (`feat:`, `fix:`, etc.)
-- ✅ No large files committed (main.js in .gitignore)
-- ✅ No sensitive data (API keys, passwords)
-
-**Testing:**
-- ✅ Plugin loads in Obsidian
-- ✅ Settings panel works
+- `pnpm build` passes
+- `pnpm lint` passes (0 errors)
+- Version numbers synced: `manifest.json` + `package.json` + `versions.json`
+- CHANGELOG + README updated if features changed
+- Commit message in English, conventional format
 - ✅ Core commands execute successfully
 - ✅ Error messages are user-friendly
 

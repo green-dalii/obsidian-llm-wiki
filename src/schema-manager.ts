@@ -98,6 +98,11 @@ export class SchemaManager {
     this.cachedBody = null;
   }
 
+  updateSettings(settings: LLMWikiSettings): void {
+    this.settings = settings;
+    this.invalidateCache();
+  }
+
   async getSchemaContext(task: SchemaTask = 'full'): Promise<string> {
     if (!this.settings.enableSchema) return '';
 

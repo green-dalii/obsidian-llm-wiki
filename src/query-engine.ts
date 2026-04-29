@@ -327,22 +327,23 @@ export class QueryModal extends Modal {
   async saveToWiki() {
     if (this.history.messages.length === 0) return;
 
-    new Notice(
-      this.plugin.settings.language === 'en'
-        ? 'Saving conversation to Wiki...'
-        : '正在保存对话到Wiki...',
-      3000
-    );
+    const texts = TEXTS[this.plugin.settings.language];
+    const progressNotice = new Notice(texts.savingToWiki, 0);
+
+    // Wire progress callback to update the sticky notice
+    const origProgress = this.plugin.wikiEngine.onProgress;
+    this.plugin.wikiEngine.setProgressCallback((msg: string) => {
+      progressNotice.setMessage(msg);
+    });
 
     try {
       await this.plugin.wikiEngine.ingestConversation(this.history);
-      new Notice(
-        this.plugin.settings.language === 'en'
-          ? 'Conversation saved to Wiki!'
-          : '对话已保存到Wiki！',
-        5000
-      );
+      progressNotice.hide();
+      this.plugin.wikiEngine.setProgressCallback(origProgress);
+      new Notice(texts.saveToWikiSuccess, 5000);
     } catch (error) {
+      progressNotice.hide();
+      this.plugin.wikiEngine.setProgressCallback(origProgress);
       console.error('Save failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
       new Notice(

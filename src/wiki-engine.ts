@@ -81,10 +81,19 @@ export class WikiEngine {
       const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
       let step = 1;
 
+      // Pre-compute planned page paths for summary linking
+      const plannedPaths: string[] = [];
+      for (const entity of analysis.entities) {
+        plannedPaths.push(`${this.settings.wikiFolder}/entities/${slugify(entity.name)}.md`);
+      }
+      for (const concept of analysis.concepts) {
+        plannedPaths.push(`${this.settings.wikiFolder}/concepts/${slugify(concept.name)}.md`);
+      }
+
       // Summary
       this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
       await this.apiDelay();
-      const summaryPage = await this.createSummaryPage(file, analysis);
+      const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths);
       analysis.created_pages.push(summaryPage);
 
       // Entities — tolerate individual failures
@@ -241,7 +250,7 @@ export class WikiEngine {
     console.debug('文件内容长度:', content.length);
 
     const existingPages = this.getExistingWikiPages();
-    const existingPagesList = existingPages.map(p => `- [[${p.title}]]`).join('\n');
+    const existingPagesList = existingPages.map(p => `- ${p.wikiLink}`).join('\n');
     console.debug('现有 Wiki 页面数量:', existingPages.length);
 
     const prompt = PROMPTS.analyzeSource
@@ -310,27 +319,78 @@ export class WikiEngine {
     }
   }
 
-  getExistingWikiPages(): {path: string, title: string}[] {
+  getExistingWikiPages(): {path: string, title: string, wikiLink: string}[] {
     const wikiFiles = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(this.settings.wikiFolder) &&
                    !f.path.includes('index.md') &&
                    !f.path.includes('log.md'));
 
-    return wikiFiles.map(f => ({
-      path: f.path,
-      title: f.basename
-    }));
+    return wikiFiles.map(f => {
+      const relPath = f.path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+      return {
+        path: f.path,
+        title: f.basename,
+        wikiLink: `[[${relPath}|${f.basename}]]`
+      };
+    });
   }
 
-  async createSummaryPage(file: TFile, analysis: SourceAnalysis): Promise<string> {
+  private buildPagesListForPrompt(includePaths: string[] = []): string {
+    const allPages = this.getExistingWikiPages();
+    const MAX_PAGES = 50;
+    let pages = allPages;
+    let truncated = false;
+    if (allPages.length > MAX_PAGES) {
+      // Prioritize pages from same category (entities/concepts) based on the extra paths
+      const hasEntityExtra = includePaths.some(p => p.includes('/entities/'));
+      const hasConceptExtra = includePaths.some(p => p.includes('/concepts/'));
+      if (hasEntityExtra && !hasConceptExtra) {
+        pages = allPages.filter(p => p.path.includes('/entities/')).slice(0, MAX_PAGES);
+      } else if (hasConceptExtra && !hasEntityExtra) {
+        pages = allPages.filter(p => p.path.includes('/concepts/')).slice(0, MAX_PAGES);
+      } else {
+        pages = allPages.slice(0, MAX_PAGES);
+      }
+      truncated = true;
+    }
+    const list = pages.map(p => `- ${p.wikiLink}`).join('\n');
+    let result = list;
+    if (includePaths.length > 0) {
+      const newPages = includePaths.map(p => {
+        const relPath = p.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+        const name = relPath.split('/').pop() || relPath;
+        return `- [[${relPath}|${name}]]`;
+      }).filter(entry => !list.includes(entry));
+      if (newPages.length > 0) {
+        result = list + '\n' + newPages.join('\n');
+      }
+    }
+    if (truncated) {
+      result += `\n（Wiki 共 ${allPages.length} 页，仅展示前 ${MAX_PAGES} 页。完整索引见 index.md）`;
+    }
+    return result;
+  }
+
+  async createSummaryPage(file: TFile, analysis: SourceAnalysis, plannedPaths: string[] = []): Promise<string> {
     const slug = slugify(file.basename);
     const path = `${this.settings.wikiFolder}/sources/${slug}.md`;
     const content = await this.app.vault.read(file);
+
+    const createdPagesList = plannedPaths.length > 0
+      ? plannedPaths.map(p => {
+          const relPath = p.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+          const name = relPath.split('/').pop() || relPath;
+          return `- [[${relPath}|${name}]]`;
+        }).join('\n')
+      : analysis.entities.map(e => `- [[entities/${slugify(e.name)}|${e.name}]]`).join('\n') +
+        '\n' +
+        analysis.concepts.map(c => `- [[concepts/${slugify(c.name)}|${c.name}]]`).join('\n');
 
     const prompt = PROMPTS.generateSummaryPage
       .replace('{{source_title}}', analysis.source_title)
       .replace('{{content}}', content.substring(0, 500))
       .replace('{{analysis}}', JSON.stringify(analysis))
+      .replace('{{created_pages_list}}', createdPagesList || '（暂无）')
       .replace(/{{source_file}}/g, file.path)
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
       .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '));
@@ -348,7 +408,7 @@ export class WikiEngine {
     return path;
   }
 
-  async createOrUpdateEntityPage(entity: EntityInfo, _analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<string | null> {
+  async createOrUpdateEntityPage(entity: EntityInfo, _analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }, extraPagePaths: string[] = []): Promise<string | null> {
     if (!entity.name || entity.name.trim().length === 0) {
       console.warn('实体名称为空，跳过创建');
       return null;
@@ -370,6 +430,7 @@ export class WikiEngine {
       .replace('{{entity_type}}', entity.type)
       .replace('{{entity_summary}}', entity.summary)
       .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || '无具体提及')
+      .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_content}}', existingContent || '暂无相关内容')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
@@ -388,7 +449,7 @@ export class WikiEngine {
     return path;
   }
 
-  async createOrUpdateConceptPage(concept: ConceptInfo, _analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<string | null> {
+  async createOrUpdateConceptPage(concept: ConceptInfo, _analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }, extraPagePaths: string[] = []): Promise<string | null> {
     if (!concept.name || concept.name.trim().length === 0) {
       console.warn('概念名称为空，跳过创建');
       return null;
@@ -410,6 +471,7 @@ export class WikiEngine {
       .replace('{{concept_type}}', concept.type)
       .replace('{{concept_summary}}', concept.summary)
       .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || '无具体提及')
+      .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || '无相关概念')
       .replace('{{related_content}}', existingContent || '暂无相关内容')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
@@ -667,6 +729,7 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
     }
 
     console.debug('=== Starting conversation extraction ===');
+    this.onProgress?.('Analyzing conversation...');
 
     const actualDate = new Date().toISOString().split('T')[0];
     console.debug('[系统时间]', actualDate);
@@ -809,6 +872,7 @@ ${conversationText}
     console.debug('[LLM分析结果]', parsed);
     console.debug('[生成的标题]', parsed.source_title);
 
+    this.onProgress?.('Creating summary page...');
     await this.ensureWikiStructure();
 
     const semanticSlug = slugify(parsed.source_title);
@@ -852,10 +916,20 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
     await this.createOrUpdateFile(summaryPath, summaryContent);
     parsed.created_pages.push(summaryPath);
 
+    // Build planned paths so entity/concept pages can link to each other
+    const convPlannedPaths: string[] = [summaryPath];
+    for (const entity of parsed.entities) {
+      convPlannedPaths.push(`${this.settings.wikiFolder}/entities/${slugify(entity.name)}.md`);
+    }
+    for (const concept of parsed.concepts) {
+      convPlannedPaths.push(`${this.settings.wikiFolder}/concepts/${slugify(concept.name)}.md`);
+    }
+
     for (const entity of parsed.entities) {
       await this.apiDelay();
+      this.onProgress?.(`Saving entity: ${entity.name}`);
       try {
-        const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug });
+        const entityPage = await this.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug }, convPlannedPaths);
         if (entityPage) {
           parsed.created_pages.push(entityPage);
         }
@@ -866,8 +940,9 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
 
     for (const concept of parsed.concepts) {
       await this.apiDelay();
+      this.onProgress?.(`Saving concept: ${concept.name}`);
       try {
-        const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug });
+        const conceptPage = await this.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug }, convPlannedPaths);
         if (conceptPage) {
           parsed.created_pages.push(conceptPage);
         }
@@ -876,6 +951,7 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
       }
     }
 
+    this.onProgress?.('Generating index...');
     await this.generateIndexFromEngine();
     parsed.contradictions = parsed.contradictions || [];
     await this.updateLog('conversation', parsed);

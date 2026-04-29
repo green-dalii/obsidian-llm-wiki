@@ -159,6 +159,18 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholderZh: 'sk-ant-...',
     requiresBaseUrl: false
   },
+  'anthropic-compatible': {
+    id: 'anthropic-compatible',
+    name: 'Anthropic 兼容',
+    nameEn: 'Anthropic Compatible',
+    nameZh: 'Anthropic 兼容',
+    baseUrl: '',
+    defaultModel: 'claude-sonnet-4-6',
+    apiKeyPlaceholder: 'API Key',
+    apiKeyPlaceholderEn: 'API Key',
+    apiKeyPlaceholderZh: 'API Key',
+    requiresBaseUrl: true
+  },
   openai: {
     id: 'openai',
     name: 'OpenAI',
@@ -217,6 +229,18 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-or-...',
     apiKeyPlaceholderEn: 'sk-or-...',
     apiKeyPlaceholderZh: 'sk-or-...',
+    requiresBaseUrl: false
+  },
+  gemini: {
+    id: 'gemini',
+    name: 'Google Gemini',
+    nameEn: 'Google Gemini',
+    nameZh: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    defaultModel: 'gemini-2.5-pro',
+    apiKeyPlaceholder: 'AIza...',
+    apiKeyPlaceholderEn: 'AIza...',
+    apiKeyPlaceholderZh: 'AIza...',
     requiresBaseUrl: false
   },
   ollama: {

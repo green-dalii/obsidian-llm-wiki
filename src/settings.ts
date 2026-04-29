@@ -142,10 +142,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     }
 
     // 3. Base URL
-    if (this.tempSettings.provider === 'custom' || (providerConfig && this.tempSettings.baseUrl !== providerConfig.baseUrl)) {
+    if (this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible' || (providerConfig && this.tempSettings.baseUrl !== providerConfig.baseUrl)) {
       new Setting(containerEl)
         .setName(this.getText('baseUrlName'))
-        .setDesc(this.tempSettings.provider === 'custom'
+        .setDesc(this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible'
           ? this.getText('baseUrlDescCustom')
           : this.getText('baseUrlDescOverride'))
         .addText(text => text
@@ -173,7 +173,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             const apiKey = isOllama ? 'ollama' : this.tempSettings.apiKey.trim();
             const baseUrl = this.tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
 
-            if (this.tempSettings.provider === 'anthropic') {
+            if (this.tempSettings.provider === 'anthropic' || this.tempSettings.provider === 'anthropic-compatible') {
               this.tempSettings.availableModels = [
                 'claude-sonnet-4-6',
                 'claude-opus-4-7',

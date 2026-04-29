@@ -5,8 +5,11 @@ import { LLMClient } from './types';
 export class AnthropicClient implements LLMClient {
   private client: Anthropic;
 
-  constructor(apiKey: string) {
-    this.client = new Anthropic({ apiKey });
+  constructor(apiKey: string, baseUrl?: string) {
+    this.client = new Anthropic({
+      apiKey,
+      ...(baseUrl ? { baseURL: baseUrl } : {})
+    });
   }
 
   async createMessage(params: {

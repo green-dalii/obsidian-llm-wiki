@@ -38,7 +38,7 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 
 ## Features
 
-- **Multi-Provider LLM Support** — Anthropic (Claude), OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, and custom OpenAI-compatible endpoints
+- **Multi-Provider LLM Support** — Anthropic (Claude), Anthropic Compatible (Coding Plan), Google Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, and custom OpenAI-compatible endpoints
 - **Internationalization** — English and Chinese UI (default: English)
 - **Schema Layer** — Structured configuration (`wiki/schema/config.md`) injected into all LLM prompts for consistent, high-quality Wiki output
 - **Intelligent Ingestion** — Auto-extract entities and concepts from source notes, generate structured Wiki pages with bidirectional `[[wiki-links]]`
@@ -66,7 +66,7 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 ### Configure an LLM Provider
 
 1. Open Settings → Karpathy LLM Wiki
-2. Pick a provider from the dropdown (Anthropic, OpenAI, DeepSeek, Kimi, GLM, Ollama, OpenRouter, or custom)
+2. Pick a provider from the dropdown (Anthropic, Anthropic Compatible, Google Gemini, OpenAI, DeepSeek, Kimi, GLM, Ollama, OpenRouter, or custom)
 3. Enter your API key (not needed for Ollama)
 4. Click **Fetch Models** to populate the model dropdown, or type a model name manually
 5. Click **Test Connection**, then **Save Settings**
@@ -92,6 +92,8 @@ This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not
 | **Claude Sonnet 4.6** | 1M tokens | Great balance of speed, cost, and quality for mid-size Wikis |
 
 For local models (Ollama): context windows are typically smaller (8K–128K). Consider limiting Wiki scope or using a cloud provider for ingestion + local model for query.
+
+**Anthropic Compatible (Coding Plan):** If your provider offers an Anthropic-compatible API endpoint (common with Coding Plan subscriptions), select "Anthropic Compatible" and enter your provider's Base URL and API Key. Uses the same Claude models via the Anthropic SDK format.
 
 ### Usage
 
