@@ -189,6 +189,9 @@ export const TEXTS = {
     selectFolderNoMdFiles: 'No Markdown files in folder: {path}',
     batchIngestComplete: 'Batch ingest complete: {success}/{total} succeeded, {fail} failed',
     batchIngestFailedFiles: 'Failed files:',
+
+    // User Feedback Loop
+    reviewedPagePreserved: 'Preserving user-reviewed content for: {}',
   },
 
   zh: {
@@ -379,5 +382,8 @@ export const TEXTS = {
     selectFolderNoMdFiles: '文件夹 {path} 中没有 Markdown 文件',
     batchIngestComplete: '批量摄入完成: 成功 {success}/{total}, 失败 {fail}',
     batchIngestFailedFiles: '失败的文件:',
+
+    // 用户反馈闭环
+    reviewedPagePreserved: '已保留用户审阅内容: {}',
   }
 };

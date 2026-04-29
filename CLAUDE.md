@@ -6,6 +6,37 @@
 
 ---
 
+## ⚠️ Branch Policy
+
+**main branch is frozen.** The v1.2.0 PR passed Obsidian Bot automated review and is queued for human review (since 2026-04-29). Until approved:
+
+- **Do NOT** push any code to the main branch
+- **All development** stays on `feature/schema-auto-maintain`
+- Merging to main must wait until Obsidian human review is complete
+
+---
+
+## 📋 Karpathy Philosophy Compliance
+
+All features must align with [Karpathy's original LLM Wiki vision](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
+
+- **Knowledge compounds** — query results should flow back into the wiki; every exploration leaves lasting value
+- **Human-in-the-loop** — LLM suggests, user decides. Never auto-modify schema, never overwrite reviewed pages
+- **Three-layer architecture** — Sources (read-only) → Wiki (LLM-generated) → Schema (co-evolved)
+- **Incremental accumulation** — wiki is a persistent, compounding artifact, not a one-shot consumer
+
+## 📦 Development Workflow
+
+After completing each Phase, execute in order:
+1. `pnpm lint` + `pnpm build` pass
+2. Obsidian Bot audit against all 15 rules
+3. Update docs (README/ROADMAP) and memory
+4. Notify user with manual testing steps, wait for approval
+5. Commit to Git only after user confirms
+6. Proceed to next Phase
+
+---
+
 ## 🌍 Internationalization Standards
 
 ### Language Requirements

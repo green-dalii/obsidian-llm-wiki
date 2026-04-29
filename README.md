@@ -42,6 +42,7 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 - **Internationalization** — English and Chinese UI (default: English)
 - **Schema Layer** — Structured configuration (`wiki/schema/config.md`) injected into all LLM prompts for consistent, high-quality Wiki output
 - **Intelligent Ingestion** — Auto-extract entities and concepts from source notes, generate structured Wiki pages with bidirectional `[[wiki-links]]`
+- **Smart Knowledge Fusion** — When updating existing pages, LLM analyzes new vs. existing content, detects duplicates and contradictions, and performs structured incremental merge
 - **Conversational Query** — ChatGPT-style dialog with streaming Markdown responses, multi-turn history, and optional Wiki saving
 - **Auto Maintenance** — File watcher for automatic ingestion, periodic lint scheduling (hourly/daily/weekly), startup health check
 - **Knowledge Graph** — Visualize entity/concept relationships in Obsidian's Graph View
@@ -104,6 +105,19 @@ For local models (Ollama): context windows are typically smaller (8K–128K). Co
 | **Query Wiki** | `Cmd+P` → "Query Wiki" — ask questions, get streaming answers with `[[wiki-links]]` |
 
 Re-ingesting the same source does incremental updates on entity/concept pages (new info merged in). Summary pages are regenerated.
+
+**User Feedback Loop (reviewed pages):** Add `reviewed: true` to a Wiki page's frontmatter to mark it as manually reviewed. When re-ingesting, the plugin preserves all user-edited content and only appends new, non-duplicate information. This protects your manual edits from being overwritten by LLM regeneration.
+
+```markdown
+---
+type: entity
+created: 2026-04-29
+reviewed: true
+---
+
+# Supervised Learning
+Your carefully curated content here...
+```
 
 ---
 

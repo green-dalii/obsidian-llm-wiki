@@ -11,7 +11,7 @@ import {
   IngestReport
 } from './types';
 import { PROMPTS } from './prompts';
-import { slugify, parseJsonResponse, cleanMarkdownResponse } from './utils';
+import { slugify, parseJsonResponse, cleanMarkdownResponse, parseFrontmatter, preserveFrontmatterReviewTag } from './utils';
 import { SchemaManager } from './schema-manager';
 
 export class WikiEngine {
@@ -424,14 +424,44 @@ export class WikiEngine {
     console.debug('目标路径:', path);
 
     const existingContent = await this.tryReadFile(path);
+    const isReviewed = existingContent ? parseFrontmatter(existingContent)?.reviewed === true : false;
+    if (isReviewed) {
+      console.debug('Entity page has reviewed: true, using preserve mode:', path);
+    }
 
-    const prompt = PROMPTS.generateEntityPage
+    // Multi-source fusion: run merge analysis for substantial existing pages
+    let mergeStrategy = '新建页面，无需合并。';
+    if (existingContent && !isReviewed && existingContent.length > this.MERGE_CONTENT_THRESHOLD) {
+      try {
+        console.debug('Running merge analysis for existing entity page:', path);
+        const mergeAnalysis = await this.analyzeMerge(entity.name, 'entity', existingContent, entity);
+        mergeStrategy = this.buildMergeStrategyText(mergeAnalysis);
+        if (mergeAnalysis.contradictions.length > 0) {
+          for (const c of mergeAnalysis.contradictions) {
+            _analysis.contradictions.push({
+              claim: c.claim,
+              source_page: `[[entities/${slug}]]`,
+              contradicted_by: c.existing_claim,
+              resolution: c.resolution
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Merge analysis failed, falling back to simple merge:', error);
+        mergeStrategy = '**合并策略：** 合并新信息，不要删除旧内容。在现有章节中适当位置插入新信息。';
+      }
+    } else if (existingContent && !isReviewed) {
+      mergeStrategy = '**合并策略：** 合并新信息，不要删除旧内容。';
+    }
+
+    const prompt = (isReviewed ? PROMPTS.preserveReviewedEntityPage : PROMPTS.generateEntityPage)
       .replace('{{entity_name}}', entity.name)
       .replace('{{entity_type}}', entity.type)
       .replace('{{entity_summary}}', entity.summary)
       .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || '无具体提及')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_content}}', existingContent || '暂无相关内容')
+      .replace('{{merge_strategy}}', mergeStrategy)
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', entity.type);
@@ -445,7 +475,8 @@ export class WikiEngine {
     });
 
     const cleanedContent = cleanMarkdownResponse(pageContent);
-    await this.createOrUpdateFile(path, cleanedContent);
+    const finalContent = existingContent ? preserveFrontmatterReviewTag(existingContent, cleanedContent) : cleanedContent;
+    await this.createOrUpdateFile(path, finalContent);
     return path;
   }
 
@@ -465,8 +496,37 @@ export class WikiEngine {
     console.debug('目标路径:', path);
 
     const existingContent = await this.tryReadFile(path);
+    const isReviewed = existingContent ? parseFrontmatter(existingContent)?.reviewed === true : false;
+    if (isReviewed) {
+      console.debug('Concept page has reviewed: true, using preserve mode:', path);
+    }
 
-    const prompt = PROMPTS.generateConceptPage
+    // Multi-source fusion: run merge analysis for substantial existing pages
+    let mergeStrategy = '新建页面，无需合并。';
+    if (existingContent && !isReviewed && existingContent.length > this.MERGE_CONTENT_THRESHOLD) {
+      try {
+        console.debug('Running merge analysis for existing concept page:', path);
+        const mergeAnalysis = await this.analyzeMerge(concept.name, 'concept', existingContent, concept);
+        mergeStrategy = this.buildMergeStrategyText(mergeAnalysis);
+        if (mergeAnalysis.contradictions.length > 0) {
+          for (const c of mergeAnalysis.contradictions) {
+            _analysis.contradictions.push({
+              claim: c.claim,
+              source_page: `[[concepts/${slug}]]`,
+              contradicted_by: c.existing_claim,
+              resolution: c.resolution
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Merge analysis failed, falling back to simple merge:', error);
+        mergeStrategy = '**合并策略：** 合并新信息，不要删除旧内容。在现有章节中适当位置插入新信息。';
+      }
+    } else if (existingContent && !isReviewed) {
+      mergeStrategy = '**合并策略：** 合并新信息，不要删除旧内容。';
+    }
+
+    const prompt = (isReviewed ? PROMPTS.preserveReviewedConceptPage : PROMPTS.generateConceptPage)
       .replace('{{concept_name}}', concept.name)
       .replace('{{concept_type}}', concept.type)
       .replace('{{concept_summary}}', concept.summary)
@@ -474,6 +534,7 @@ export class WikiEngine {
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || '无相关概念')
       .replace('{{related_content}}', existingContent || '暂无相关内容')
+      .replace('{{merge_strategy}}', mergeStrategy)
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', concept.type);
@@ -487,7 +548,8 @@ export class WikiEngine {
     });
 
     const cleanedContent = cleanMarkdownResponse(pageContent);
-    await this.createOrUpdateFile(path, cleanedContent);
+    const finalContent = existingContent ? preserveFrontmatterReviewTag(existingContent, cleanedContent) : cleanedContent;
+    await this.createOrUpdateFile(path, finalContent);
     return path;
   }
 
@@ -531,6 +593,68 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
     await this.createOrUpdateFile(page.path, cleanedContent);
   }
 
+  // ---- Multi-Source Knowledge Fusion helpers ----
+
+  private readonly MERGE_CONTENT_THRESHOLD = 300;
+
+  private async analyzeMerge(
+    pageName: string,
+    pageType: 'entity' | 'concept',
+    existingContent: string,
+    newInfo: EntityInfo | ConceptInfo
+  ): Promise<{ merge_items: Array<{ content: string; classification: string; target_section: string; reason: string }>; contradictions: Array<{ claim: string; existing_claim: string; resolution: string }>; merge_summary: string }> {
+    const prompt = PROMPTS.mergeAnalysis
+      .replace('{{page_name}}', pageName)
+      .replace('entity 或 concept', pageType)
+      .replace('{{existing_content}}', existingContent)
+      .replace('{{new_info}}', JSON.stringify(newInfo, null, 2));
+
+    const response = await this.client.createMessage({
+      model: this.settings.model,
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' }
+    });
+
+    const parsed = await parseJsonResponse(response) as {
+      merge_items?: Array<{ content: string; classification: string; target_section: string; reason: string }>;
+      contradictions?: Array<{ claim: string; existing_claim: string; resolution: string }>;
+      merge_summary?: string;
+    } | null;
+
+    return {
+      merge_items: parsed?.merge_items || [],
+      contradictions: parsed?.contradictions || [],
+      merge_summary: parsed?.merge_summary || 'No merge analysis available'
+    };
+  }
+
+  private buildMergeStrategyText(analysis: { merge_items: Array<{ content: string; classification: string; target_section: string; reason: string }>; merge_summary: string }): string {
+    const newItems = analysis.merge_items.filter(i => i.classification === 'new' || i.classification === 'complementary');
+    const dupCount = analysis.merge_items.filter(i => i.classification === 'duplicate').length;
+    const contraCount = analysis.merge_items.filter(i => i.classification === 'contradictory').length;
+
+    let text = `**合并策略（来自多源融合分析）：**\n`;
+    text += `${analysis.merge_summary}\n\n`;
+
+    if (newItems.length > 0) {
+      text += `**新增信息（${newItems.length} 条）：**\n`;
+      for (const item of newItems) {
+        text += `- [${item.classification}] ${item.content}（插入位置：${item.target_section}）\n`;
+      }
+    }
+
+    if (dupCount > 0) {
+      text += `\n**重复信息（${dupCount} 条）：** 跳过，不添加。\n`;
+    }
+
+    if (contraCount > 0) {
+      text += `\n**矛盾信息（${contraCount} 条）：** 已标记，保留现有内容，在页面末尾记录矛盾。\n`;
+    }
+
+    return text;
+  }
+
   async noteContradiction(contradiction: ContradictionInfo) {
     const pagePath = contradiction.source_page.replace(/\[\[(.+)\]\]/, `${this.settings.wikiFolder}/$1.md`);
 
@@ -542,6 +666,87 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
     const contradictionNote = `\n\n## ⚠️ 潜在矛盾\n\n**来源**：${contradiction.claim}\n\n**现有观点**：${contradiction.contradicted_by}\n\n**解决建议**：${contradiction.resolution}\n\n---\n*标记日期：${new Date().toISOString().split('T')[0]}*`;
 
     await this.createOrUpdateFile(pagePath, existingContent + contradictionNote);
+
+    // Track in contradictions directory
+    await this.trackContradiction(contradiction);
+  }
+
+  // ---- Contradiction Tracking ----
+
+  private async trackContradiction(contradiction: ContradictionInfo): Promise<void> {
+    const contradictionsDir = `${this.settings.wikiFolder}/contradictions`;
+    try {
+      await this.app.vault.createFolder(contradictionsDir);
+    } catch {
+      // folder already exists
+    }
+
+    const date = new Date().toISOString().split('T')[0];
+    const claimSlug = slugify(contradiction.claim.substring(0, 50));
+    const filePath = `${contradictionsDir}/${claimSlug}-${date}.md`;
+
+    // Skip if this exact contradiction file already exists
+    if (await this.tryReadFile(filePath)) {
+      console.debug('Contradiction already tracked:', filePath);
+      return;
+    }
+
+    const pageRelPath = contradiction.source_page.replace(/\[\[(.+)\]\]/, '$1');
+    const content = `---
+status: detected
+detected: ${date}
+source_page: "[[${pageRelPath}]]"
+---
+
+# Contradiction: ${contradiction.claim.substring(0, 60)}
+
+## New Claim
+${contradiction.claim}
+
+## Existing Knowledge
+${contradiction.contradicted_by}
+
+## Resolution Suggestion
+${contradiction.resolution}
+
+## Source Page
+${contradiction.source_page}
+
+---
+*Auto-detected on ${date}*
+`;
+
+    await this.createOrUpdateFile(filePath, content);
+    console.debug('Contradiction tracked:', filePath);
+  }
+
+  async getOpenContradictions(): Promise<Array<{ path: string; status: string; claim: string; sourcePage: string }>> {
+    const contradictionsDir = `${this.settings.wikiFolder}/contradictions`;
+    const files = this.app.vault.getMarkdownFiles()
+      .filter(f => f.path.startsWith(contradictionsDir));
+
+    const results: Array<{ path: string; status: string; claim: string; sourcePage: string }> = [];
+
+    for (const file of files) {
+      const content = await this.app.vault.read(file);
+      const fm = parseFrontmatter(content);
+      const status = (fm?.status as string) || 'detected';
+
+      if (status === 'resolved' || status === 'suppressed') continue;
+
+      // Extract claim from content
+      const claimMatch = content.match(/## New Claim\n(.+?)(?:\n|$)/);
+      const sourceMatch = content.match(/## Source Page\n(.+?)(?:\n|$)/);
+
+      results.push({
+        path: file.path,
+        status,
+        claim: claimMatch?.[1]?.trim() || file.basename,
+        sourcePage: sourceMatch?.[1]?.trim() || ''
+      });
+    }
+
+    return results;
   }
 
   async createOrUpdateFile(path: string, content: string): Promise<void> {

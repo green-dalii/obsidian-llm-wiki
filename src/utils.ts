@@ -183,6 +183,48 @@ function isJsonWhitespace(ch: string): boolean {
   return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
 }
 
+export interface FrontmatterData {
+  reviewed?: boolean;
+  type?: string;
+  created?: string;
+  [key: string]: unknown;
+}
+
+export function parseFrontmatter(content: string): FrontmatterData | null {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return null;
+
+  const result: FrontmatterData = {};
+  for (const line of match[1].split('\n')) {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx === -1) continue;
+    const key = line.substring(0, colonIdx).trim();
+    const value = line.substring(colonIdx + 1).trim();
+    if (key === 'reviewed') {
+      result.reviewed = value === 'true';
+    } else if (key === 'type') {
+      result.type = value;
+    } else if (key === 'created') {
+      result.created = value;
+    }
+  }
+  return result;
+}
+
+export function preserveFrontmatterReviewTag(originalContent: string, newContent: string): string {
+  const origFm = parseFrontmatter(originalContent);
+  if (!origFm?.reviewed) return newContent;
+
+  // If the new content does not already have reviewed: true, inject it
+  if (newContent.startsWith('---')) {
+    const endIdx = newContent.indexOf('\n---', 3);
+    if (endIdx !== -1 && !newContent.substring(0, endIdx).includes('reviewed:')) {
+      return newContent.substring(0, endIdx) + '\nreviewed: true' + newContent.substring(endIdx);
+    }
+  }
+  return newContent;
+}
+
 export function cleanMarkdownResponse(response: string): string {
   console.debug('cleanMarkdownResponse 输入长度:', response.length);
 

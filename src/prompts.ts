@@ -71,10 +71,12 @@ export const PROMPTS = {
 **现有 Wiki 中相关内容：**
 {{related_content}}
 
+{{merge_strategy}}
+
 **任务要求：**
 1. 创建实体页面，包含基本信息和关键信息
 2. 引用其他页面时，必须使用上面"现有 Wiki 页面"列表中提供的完整路径格式（如 [[entities/Page-Name|Page Name]]）
-3. 如果 Wiki 中已有该实体，合并新信息，不要删除旧内容
+3. 如果 Wiki 中已有该实体，使用上面的合并策略进行智能合并
 4. 保持客观、准确、简洁
 
 **输出格式：**
@@ -103,6 +105,91 @@ tags: [{{tags}}]
 ---
 更新日期：{{date}}`,
 
+  // Variant used when the existing page has `reviewed: true` in frontmatter.
+  // The LLM must treat the human-edited content as authoritative and only
+  // append genuinely new information from the latest source.
+  preserveReviewedEntityPage: `你是一个 Wiki 知识库维护者。以下实体页面已被用户手动审阅（reviewed: true）。
+
+**⚠️ 重要：用户审阅的内容必须完整保留，不得删除或改写。**
+
+**实体信息（来自新源文件）：**
+- 名称：{{entity_name}}
+- 类型：{{entity_type}}
+- 摘要：{{entity_summary}}
+- 在源中的提及：{{mentions}}
+
+**现有 Wiki 页面（引用时必须使用以下完整路径）：**
+{{existing_pages}}
+
+**用户已审阅的现有页面内容（必须完整保留）：**
+{{related_content}}
+
+**任务要求：**
+1. **完整保留**用户审阅过的所有内容，不得删除或改写任何段落
+2. 只在页面末尾的"新信息"部分添加来自新源文件的、与现有内容不重复的信息
+3. 如果新信息与现有内容重复或矛盾，不要添加，保持用户原有版本
+4. frontmatter 中必须保留 reviewed: true
+5. 引用其他页面时，使用上面列表中的完整路径格式
+
+**输出格式：**
+---
+type: entity
+created: {{date}}
+sources: ["[[{{source_file}}]]"]
+tags: [{{tags}}]
+reviewed: true
+---
+
+[完整保留用户审阅的现有内容]
+
+## 新信息（{{date}}）
+[仅添加不重复的新信息，如无新信息则写"无新增信息"]
+
+---
+更新日期：{{date}}`,
+
+  // Variant used when the existing concept page has `reviewed: true` in frontmatter.
+  preserveReviewedConceptPage: `你是一个 Wiki 知识库维护者。以下概念页面已被用户手动审阅（reviewed: true）。
+
+**⚠️ 重要：用户审阅的内容必须完整保留，不得删除或改写。**
+
+**概念信息（来自新源文件）：**
+- 名称：{{concept_name}}
+- 类型：{{concept_type}}
+- 摘要：{{concept_summary}}
+- 在源中的提及：{{mentions}}
+- 相关概念：{{related_concepts}}
+
+**现有 Wiki 页面（引用时必须使用以下完整路径）：**
+{{existing_pages}}
+
+**用户已审阅的现有页面内容（必须完整保留）：**
+{{related_content}}
+
+**任务要求：**
+1. **完整保留**用户审阅过的所有内容，不得删除或改写任何段落
+2. 只在页面末尾的"新信息"部分添加来自新源文件的、与现有内容不重复的信息
+3. 如果新信息与现有内容重复或矛盾，不要添加，保持用户原有版本
+4. frontmatter 中必须保留 reviewed: true
+5. 引用其他页面时，使用上面列表中的完整路径格式
+
+**输出格式：**
+---
+type: concept
+created: {{date}}
+sources: ["[[{{source_file}}]]"]
+tags: [{{tags}}]
+reviewed: true
+---
+
+[完整保留用户审阅的现有内容]
+
+## 新信息（{{date}}）
+[仅添加不重复的新信息，如无新信息则写"无新增信息"]
+
+---
+更新日期：{{date}}`,
+
   generateConceptPage: `你是一个 Wiki 知识库维护者。请为以下概念创建一个 Wiki 页面。
 
 **概念信息：**
@@ -118,10 +205,12 @@ tags: [{{tags}}]
 **现有 Wiki 中相关内容：**
 {{related_content}}
 
+{{merge_strategy}}
+
 **任务要求：**
 1. 创建概念页面，包含定义、特点、应用等
 2. 引用其他页面时，必须使用上面"现有 Wiki 页面"列表中提供的完整路径格式（如 [[concepts/Page-Name|Page Name]]）
-3. 如果 Wiki 中已有该概念，合并新信息，不要删除旧内容
+3. 如果 Wiki 中已有该概念，使用上面的合并策略进行智能合并
 4. 保持客观、准确、简洁
 
 **输出格式：**
@@ -248,4 +337,52 @@ Create a hierarchical, importance-ranked index in Markdown. Follow these rules:
 6. **Statistics**: End with a summary line showing page counts per category
 
 Output ONLY the Markdown index content, no introductory or concluding text.`,
+
+  // Multi-Source Knowledge Fusion: structured merge analysis
+  // Called before page generation when a page already exists with substantial content.
+  mergeAnalysis: `你是一个 Wiki 知识融合分析器。对比现有 Wiki 页面内容和新源文件信息，输出结构化合并策略。
+
+**页面名称：** {{page_name}}
+**页面类型：** entity 或 concept
+
+**现有页面内容：**
+{{existing_content}}
+
+**新源文件提取的信息：**
+{{new_info}}
+
+**任务：**
+1. 逐条对比新信息与现有内容
+2. 将每条新信息分类为：
+   - "new" — 完全新的信息，现有页面中没有
+   - "duplicate" — 与现有内容重复，不需要添加
+   - "complementary" — 补充现有内容（同一话题的额外细节）
+   - "contradictory" — 与现有内容矛盾
+3. 对于 "complementary" 信息，指定应插入现有页面的哪个章节之后
+4. 对于 "contradictory" 信息，记录具体矛盾点
+
+输出 JSON 格式：
+{
+  "merge_items": [
+    {
+      "content": "新信息的具体内容",
+      "classification": "new|duplicate|complementary|contradictory",
+      "target_section": "应插入的章节名（仅 new 和 complementary 需要）",
+      "reason": "分类理由（一句话）"
+    }
+  ],
+  "contradictions": [
+    {
+      "claim": "新信息声称的内容",
+      "existing_claim": "现有页面中矛盾的内容",
+      "resolution": "建议处理方式"
+    }
+  ],
+  "merge_summary": "合并策略总结（一句话）"
+}
+
+规则：
+- 只输出 JSON，不要其他内容
+- 现有内容中的观点优先于新信息（除非新信息明显更准确）
+- 不要删除或改写现有内容的任何部分`,
 };
