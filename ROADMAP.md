@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.6.1 | **Updated:** 2026-04-30
+**Version:** 1.6.2 | **Updated:** 2026-05-01
 
 ---
 
@@ -39,6 +39,12 @@
 - MiniMax predefined provider
 - Lint AI per-item fix buttons
 
+**v1.6.2 — Extraction Scale Up (✅ released)**
+- Iterative batch extraction: analyzeSource loops in batches of 20 entities/concepts per LLM call with already_extracted dedup, eliminating max_tokens bottleneck for long sources
+- Extraction granularity setting: Fine/Standard/Coarse dropdown controls extraction thoroughness
+- JSON output enforcement: Anthropic prefill technique (append assistant `{`), OpenAI native `response_format: { type: 'json_object' }`
+- analyzeSource max_tokens: 4000 → 16000
+
 **Quality / Engineering**
 - JSON Output Mode (`response_format: json_object`) for reliable structured responses
 - Network resilience: timeout + exponential backoff retry
@@ -56,6 +62,7 @@
 > Addressing existing feature defects and quality gaps. No new features.
 
 ### Completed fixes
+- **Long source entity/concept under-extraction** — iterative batch extraction with dedup, granularity control, and max_tokens raised to 16000
 - **Stub→fillEmptyPage chaining** — fixDeadLink `create_stub` now calls `fillEmptyPage` immediately, preventing stubs from becoming empty-page lint warnings
 - **Query Wiki path normalization** — LLM-returned paths with `wiki/` prefix are now stripped automatically, fixing page content loading failures
 - **Regenerate index reliability** — proper async handling, progress Notice, error feedback; was silently failing
@@ -64,9 +71,7 @@
 - **Anthropic Compatible model fetching** — corrected URL, auth header, and fallback behavior
 - **MiniMax provider** — added as predefined provider
 - **Lint AI Auto-Fix** — per-item fix buttons in LintReportModal
-
-### Active investigation
-- **Long source entity/concept under-extraction** — output token limit bottleneck analysis
+- **JSON output enforcement** — provider-specific JSON modes (Anthropic prefill, OpenAI native)
 
 ### Known gaps (from Karpathy audit 2026-04-29)
 
@@ -79,7 +84,7 @@
 | 5 | Ingest: no interactive "discuss key takeaways with user" before writing | Medium |
 | 6 | Query: output format limited to markdown (no tables/slides/charts) | Low |
 | 7 | Schema: rules-engine based, not co-evolved LLM instruction doc | Low |
-| 8 | Long source analysis: max_tokens: 4000 bottleneck limits entity/concept count | High |
+| 8 | Long source analysis: max_tokens: 4000 bottleneck limits entity/concept count | ✅ Fixed (v1.6.2) |
 
 ---
 
@@ -141,10 +146,12 @@ Karpathy: *"comparison tables, slide decks (Marp), charts"*
 | **v1.4.0** | 2026-04 | Schema layer, auto-maintenance, ESLint compliance, bot review | Released |
 | **v1.5.0** | 2026-04 | Multi-source fusion, user feedback loop, contradiction tracking foundation | Code complete |
 | **v1.6.0** | 2026-04 | Query-to-Wiki feedback, dedup save, contradiction state machine, lint AI auto-fix | Code complete |
+| **v1.6.1** | 2026-05 | Quality fixes, MiniMax provider, Anthropic Compatible CORS | Released |
+| **v1.6.2** | 2026-05 | Iterative batch extraction, granularity control, JSON output enforcement | Released |
 | **v1.7.0** | TBD | Conversational ingest wizard, lint per-item review | Planned |
 | **v1.8.0** | TBD | Proactive schema suggestions, output diversity | Planned |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
 ---
 
-**Last Updated:** 2026-04-29 | **Maintainer:** Greener-Dalii
+**Last Updated:** 2026-05-01 | **Maintainer:** Greener-Dalii
