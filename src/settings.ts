@@ -128,12 +128,14 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       new Setting(containerEl)
         .setName(this.getText('apiKeyName'))
         .setDesc(this.getText('apiKeyDesc'))
-        .addText(text => text
-          .setPlaceholder(this.getText('apiKeyPlaceholder'))
-          .setValue(this.tempSettings.apiKey)
-          .onChange((value) => {
-            this.tempSettings.apiKey = value;
-          }));
+        .addText(text => {
+          text.setPlaceholder(this.getText('apiKeyPlaceholder'))
+            .setValue(this.tempSettings.apiKey)
+            .onChange((value) => {
+              this.tempSettings.apiKey = value;
+            });
+          text.inputEl.type = 'password';
+        });
     } else {
       containerEl.createEl('p', {
         text: this.getText('ollamaHint'),

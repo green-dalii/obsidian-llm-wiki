@@ -15,7 +15,7 @@ export interface SourceAnalysis {
 
 export interface EntityInfo {
   name: string;
-  type: 'person' | 'organization' | 'project' | 'location' | 'other';
+  type: 'person' | 'organization' | 'project' | 'product' | 'event' | 'location' | 'artifact' | 'other';
   summary: string;
   mentions_in_source: string[];
 }
@@ -124,6 +124,7 @@ export interface IngestReport {
   contradictionsFound: number;
   success: boolean;
   errorMessage?: string;
+  elapsedSeconds?: number;
 }
 
 // LLM Client interface
@@ -135,6 +136,7 @@ export interface LLMClient {
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
+    cacheBreakpoint?: number;
   }): Promise<string>;
 
   createMessageStream?(params: {

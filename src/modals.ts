@@ -2,6 +2,7 @@
 
 import { App, TFile, TFolder, Modal, FuzzySuggestModal, MarkdownRenderer, Component } from 'obsidian';
 import { IngestReport } from './types';
+import { TEXTS } from './texts';
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   onSelect: (file: TFile) => void;
@@ -158,20 +159,37 @@ export class LintReportModal extends Modal {
 
 export class IngestReportModal extends Modal {
   private report: IngestReport;
+  private language: 'en' | 'zh';
 
-  constructor(app: App, report: IngestReport) {
+  constructor(app: App, report: IngestReport, language: 'en' | 'zh' = 'en') {
     super(app);
     this.report = report;
+    this.language = language;
+  }
+
+  private t(key: string): string {
+    const texts = TEXTS[this.language];
+    return (texts as Record<string, string>)[key] || TEXTS.en[key as keyof typeof TEXTS.en] || key;
   }
 
   onOpen() {
-    const { sourceFile, createdPages, updatedPages, failedItems, contradictionsFound, success, errorMessage } = this.report;
+    const { sourceFile, createdPages, updatedPages, failedItems, contradictionsFound, success, errorMessage, elapsedSeconds } = this.report;
 
     const statusEmoji = success ? '✅' : '⚠️';
     this.contentEl.createEl('h2', { text: `${statusEmoji} 摄入报告` });
 
     // Source file
     this.contentEl.createEl('p', { text: `源文件：${sourceFile}` });
+
+    // Elapsed time
+    if (elapsedSeconds !== undefined) {
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const seconds = elapsedSeconds % 60;
+      const timeStr = minutes > 0
+        ? `${minutes} 分 ${seconds} 秒`
+        : `${seconds} 秒`;
+      this.contentEl.createEl('p', { text: `${this.t('ingestReportElapsedTime')}：${timeStr}` });
+    }
 
     // Stats
     const statsEl = this.contentEl.createDiv({ attr: { style: 'margin: 12px 0;' } });
@@ -207,6 +225,10 @@ export class IngestReportModal extends Modal {
         const typeLabel = item.type === 'entity' ? '实体' : '概念';
         list.createEl('li', { text: `[${typeLabel}] ${item.name} — ${item.reason}` });
       }
+      this.contentEl.createEl('p', {
+        text: this.t('ingestReportFailedGuidance'),
+        attr: { style: 'color: var(--text-muted); margin-top: 8px; font-size: 13px;' }
+      });
     }
 
     // Error

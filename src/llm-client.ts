@@ -53,7 +53,12 @@ export class AnthropicCompatibleClient implements LLMClient {
     };
 
     if (data.error) throw new Error(data.error.message);
-    return this.extractText(data.content || []);
+    let text = this.extractText(data.content || []);
+    // Safety: if prefill { was stripped by the provider, restore it
+    if (params.response_format?.type === 'json_object' && text.length > 0 && text[0] !== '{') {
+      text = '{' + text;
+    }
+    return text;
   }
 
   async createMessageStream(params: {
@@ -138,19 +143,42 @@ export class AnthropicClient implements LLMClient {
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
+    cacheBreakpoint?: number;
   }): Promise<string> {
-    const messages = params.response_format?.type === 'json_object'
-      ? [...params.messages, { role: 'assistant' as const, content: '{' }]
-      : params.messages;
+    // Support prompt caching: split first user message at cacheBreakpoint
+    const messages = params.messages.map((msg, idx) => {
+      if (idx === 0 && msg.role === 'user' && params.cacheBreakpoint &&
+          params.cacheBreakpoint > 0 && params.cacheBreakpoint < msg.content.length) {
+        const cached = msg.content.substring(0, params.cacheBreakpoint);
+        const rest = msg.content.substring(params.cacheBreakpoint);
+        return {
+          role: 'user' as const,
+          content: [
+            { type: 'text' as const, text: cached, cache_control: { type: 'ephemeral' as const } },
+            { type: 'text' as const, text: rest }
+          ]
+        };
+      }
+      return msg;
+    });
+
+    const finalMessages = params.response_format?.type === 'json_object'
+      ? [...messages, { role: 'assistant' as const, content: '{' }]
+      : messages;
 
     const response = await this.client.messages.create({
       model: params.model,
       max_tokens: params.max_tokens,
       system: params.system || undefined,
-      messages
+      messages: finalMessages
     });
     const textBlock = response.content.find(c => c.type === 'text');
-    return textBlock && 'text' in textBlock ? textBlock.text : '';
+    let text = textBlock && 'text' in textBlock ? textBlock.text : '';
+    // Safety: if prefill { was stripped by the provider, restore it
+    if (params.response_format?.type === 'json_object' && text.length > 0 && text[0] !== '{') {
+      text = '{' + text;
+    }
+    return text;
   }
 
   async createMessageStream(params: {

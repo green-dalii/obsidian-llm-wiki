@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4] - 2026-05-02
+
+### Added
+- **Prompt caching for Anthropic**: static prompt prefix (source content + existing pages) cached via `cache_control: { type: 'ephemeral' }`, reducing redundant token processing across batches
+- **Entity type expansion**: added `product`, `event`, `artifact` entity types; now 8 types (was 5) to improve entity recognition coverage
+- **Entity extraction balance guidance**: prompt now emphasizes extracting important entities even with low mention frequency, preventing sparse-but-critical entities from being overlooked
+- **Ingestion report enhancements**: elapsed time display (formatted as "X min Y sec"), failed-item guidance text suggesting manual page creation or granularity reduction
+- **Extraction granularity cost labeling**: setting dropdown and description now show relative cost/effect (token consumption and page count) for Fine/Standard/Coarse
+- **API Key password masking**: settings input now uses password field type (dots)
+
+### Changed
+- **JSON parsing**: complete rewrite with dual-layer architecture — Layer 1 normalizer (fences, `{{`/missing `{` correction, "after JSON" truncation) + Layer 2 extractor (brace counting, greedy regex fallback, LLM repair)
+- **Summary quality**: entity/concept summaries upgraded from 1 sentence to 2-4 sentences with richer detail
+- **Prefill safety**: both `AnthropicClient` and `AnthropicCompatibleClient` now detect and recover from prefill `{` being stripped by the provider
+
+### Fixed
+- **`{{` (double brace) JSON parse failures**: normalizer dedupes prefill echo before parsing
+- **"after JSON at position N" parse failures**: normalizer extracts valid JSON prefix when trailing content exists
+- **`source_title` missing validation**: prompt now explicitly requires `source_title`; code falls back to file basename if still omitted
+
 ## [1.6.3] - 2026-05-01
 
 ### Added

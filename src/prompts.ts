@@ -15,9 +15,10 @@ export const PROMPTS = {
 {{granularity_instruction}}
 
 **任务要求：**
-1. 从源文件中提取尚未被列出过的实体和概念
+0. 输出源文件标题（source_title）和 100-200 字的源文件摘要（summary）。仅在第一轮输出这两个字段
+1. 从源文件中提取尚未被列出过的实体和概念。注意：实体不限于高频出现的人或组织——仅在文中出现一次的重要人物、产品、事件、数据集、代码库等也应提取。不要因为某个实体提及次数少就忽略它，关键看其在文中的重要性而非频次
 2. 本次最多输出 {{batch_size}} 个条目（实体+概念合计）。如果源文件中值得提取的剩余条目不足 {{batch_size}} 个，只输出实际存在的条目
-3. 给每个条目写一句话摘要（用于后续页面生成），并注明在源中的具体提及
+3. 给每个条目写 2-4 句话的摘要（用于后续页面生成），涵盖：该条目是什么、在源中的重要性、关键属性或论点。务必充分详细，让后续页面生成有足够信息。同时注明在源中的具体提及
 4. 识别与现有 Wiki 的矛盾或冲突（仅在第一轮输出 contradictions）
 5. 找出相关的现有 Wiki 页面（仅在第一轮输出 related_pages）
 6. 生成源文件关键要点（仅在第一轮输出 key_points）
@@ -29,8 +30,8 @@ export const PROMPTS = {
   "entities": [
     {
       "name": "实体名称",
-      "type": "person|organization|project|location|other",
-      "summary": "该实体的一句话描述",
+      "type": "person|organization|project|product|event|location|artifact|other",
+      "summary": "该实体的简洁但内容丰富的2-4句话描述，涵盖身份、重要性和关键属性",
       "mentions_in_source": ["该实体在源中的具体提及"]
     }
   ],
@@ -38,7 +39,7 @@ export const PROMPTS = {
     {
       "name": "概念名称",
       "type": "theory|method|technology|term|other",
-      "summary": "该概念的一句话描述",
+      "summary": "该概念的简洁但内容丰富的2-4句话描述，涵盖定义、重要性和与源中其他概念的关系",
       "mentions_in_source": ["该概念在源中的具体提及"],
       "related_concepts": ["相关概念名称"]
     }
@@ -54,6 +55,16 @@ export const PROMPTS = {
   "related_pages": ["相关的现有 Wiki 页面名称"],
   "key_points": ["关键要点1", "关键要点2"]
 }
+
+**实体识别指南：**
+- person：个人（作者、研究者、历史人物等）
+- organization：组织/机构（公司、学校、团队、部门等）
+- project：项目/计划/倡议
+- product：产品/工具/软件/服务/著作
+- event：事件/会议/里程碑/历史事件
+- location：地点/区域/地理概念
+- artifact：文档/数据集/代码库/标准/协议等具体产出物
+- other：其他不适合归入概念类的具体存在
 
 **重要规则：**
 - 只输出 JSON，不要其他内容

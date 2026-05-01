@@ -155,10 +155,10 @@ export const TEXTS = {
     // Extraction Settings
     extractionSectionTitle: 'Extraction',
     extractionGranularityName: 'Extraction Granularity',
-    extractionGranularityDesc: 'Controls how many entities and concepts are extracted from sources',
-    extractionGranularityFine: 'Fine — extract all, including edge mentions',
-    extractionGranularityStandard: 'Standard — core + significant entities/concepts',
-    extractionGranularityCoarse: 'Coarse — only the most central entities/concepts',
+    extractionGranularityDesc: 'Controls how many entities/concepts are extracted. Higher granularity = more pages created, more API tokens consumed.',
+    extractionGranularityFine: 'Fine — extract all including edge mentions (most pages, highest token cost)',
+    extractionGranularityStandard: 'Standard — core + significant entities/concepts (balanced)',
+    extractionGranularityCoarse: 'Coarse — only the most central entities/concepts (fewest pages, lowest token cost)',
 
     // Auto Maintenance
     autoMaintainSection: 'Auto Maintenance',
@@ -206,6 +206,10 @@ export const TEXTS = {
     querySuggestSaveDesc: 'This conversation contains valuable knowledge. Save it to your Wiki?',
     querySuggestSaveYes: 'Save',
     querySuggestSaveNo: 'Dismiss',
+
+    // Ingestion Report
+    ingestReportElapsedTime: 'Elapsed time',
+    ingestReportFailedGuidance: 'These items could not be automatically created. You can manually create the corresponding pages, or lower the extraction granularity and re-ingest the source file.',
   },
 
   zh: {
@@ -362,10 +366,10 @@ export const TEXTS = {
     // 知识提取
     extractionSectionTitle: '知识提取',
     extractionGranularityName: '提取颗粒度',
-    extractionGranularityDesc: '控制从源文件中提取多少实体和概念',
-    extractionGranularityFine: '精细 — 提取全部，包括边缘提及',
-    extractionGranularityStandard: '标准 — 核心 + 重要实体/概念',
-    extractionGranularityCoarse: '粗放 — 仅提取最核心的实体/概念',
+    extractionGranularityDesc: '控制从源文件中提取实体/概念的数量。颗粒度越高，生成页面越多，API Token 消耗越大。',
+    extractionGranularityFine: '精细 — 提取全部包括边缘提及（页面最多、Token 消耗最高）',
+    extractionGranularityStandard: '标准 — 核心 + 重要实体/概念（均衡）',
+    extractionGranularityCoarse: '粗放 — 仅提取最核心的实体/概念（页面最少、Token 消耗最低）',
 
     // 自动维护
     autoMaintainSection: '自动维护',
@@ -413,5 +417,9 @@ export const TEXTS = {
     querySuggestSaveDesc: '此对话包含有价值的知识点，是否保存到 Wiki？',
     querySuggestSaveYes: '保存',
     querySuggestSaveNo: '忽略',
+
+    // 摄入报告
+    ingestReportElapsedTime: '耗时',
+    ingestReportFailedGuidance: '这些条目未能自动创建。您可手动创建对应页面，或降低提取颗粒度后重新摄入源文件。',
   }
 };

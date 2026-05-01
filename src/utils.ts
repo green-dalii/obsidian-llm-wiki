@@ -55,53 +55,164 @@ export async function parseJsonResponse(
   console.debug('parseJsonResponse 开始解析... 响应长度:', response.length);
 
   try {
-    // Step 1: Strip markdown code fences (regex — handles standard wrapping)
-    let cleaned = response.trim();
-    cleaned = cleaned.replace(/^```(?:json|markdown|md)?\s*\n?/, '');
-    cleaned = cleaned.replace(/\n?```$/, '');
-    cleaned = cleaned.trim();
+    // ===== Layer 1: Response Normalization =====
+    // Normalize the raw response text before attempting JSON extraction.
+    // Handles: markdown fences, prefill artifacts ({{ or missing {), trailing content.
 
-    // Step 2: Fast path — direct parse
-    try {
-      return JSON.parse(cleaned) as Record<string, unknown>;
-    } catch {
-      // fall through
-    }
+    let normalized = response.trim();
 
-    // Step 3: Extract the outermost { … } object (regex)
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    const candidate = jsonMatch ? jsonMatch[0] : cleaned;
+    // Step 1.1: Strip markdown code fences
+    normalized = normalized.replace(/^```(?:json|markdown|md)?\s*\n?/, '');
+    normalized = normalized.replace(/\n?```$/, '');
+    normalized = normalized.trim();
 
-    // Step 4: Deterministic fixes for common, unambiguous patterns
-    const deterministic = fixCommonJsonIssues(candidate);
-    try {
-      return JSON.parse(deterministic) as Record<string, unknown>;
-    } catch (detError) {
-      console.debug('标准修复未成功，交由 LLM 处理:', String(detError).slice(0, 80));
-    }
+    // Step 1.2: Prefill artifact correction
+    // Prefill technique may result in:
+    //   (a) {{...}  → model echoed the prefill { and also started with { → double brace
+    //   (b) "...}"  → provider stripped the prefill → missing opening brace
 
-    // Step 5: LLM repair — handles structural / ambiguous issues
-    if (repairFn) {
+    if (normalized.startsWith('{{')) {
+      // Remove the first { (prefill echo)
+      normalized = normalized.substring(1);
+      console.debug('检测到双括号 {{，去除多余的前导 {');
+    } else if (normalized.length > 0 && normalized[0] !== '{') {
+      // Try prepending { and parse (prefill stripped by provider)
+      const withBrace = '{' + normalized;
       try {
-        const repaired = await repairFn(candidate);
-        const cleanedLlm = repaired.trim()
-          .replace(/^```(?:json)?\s*\n?/, '')
-          .replace(/\n?```$/, '')
-          .trim();
-        // Run deterministic fixes on LLM output as well (belt and suspenders)
-        const final = fixCommonJsonIssues(cleanedLlm);
-        return JSON.parse(final) as Record<string, unknown>;
-      } catch (llmError) {
-        console.error('LLM 修复也未成功:', String(llmError).slice(0, 80));
+        console.debug('首字符非 {，补回前导 { 后解析成功');
+        return JSON.parse(withBrace) as Record<string, unknown>;
+      } catch {
+        // Not a simple missing brace issue, continue normal flow
+        console.debug('补回前导 { 后仍失败，继续后续流程');
       }
     }
 
+    // Step 1.3: Trailing content detection via "after JSON at position N"
+    // If JSON.parse reports position N, the prefix 0..N-1 is valid JSON.
+    try {
+      return JSON.parse(normalized) as Record<string, unknown>;
+    } catch (directError) {
+      const msg = directError instanceof SyntaxError ? directError.message : '';
+      const afterMatch = msg.match(/after JSON at position (\d+)/);
+      if (afterMatch) {
+        const endPos = parseInt(afterMatch[1], 10);
+        const prefix = normalized.substring(0, endPos);
+        console.debug('检测到 JSON 后有额外内容 (position %d)，提取前缀 (长度 %d)', endPos, prefix.length);
+        try {
+          console.debug('前缀解析成功');
+          return JSON.parse(prefix) as Record<string, unknown>;
+        } catch {
+          console.debug('前缀解析失败，继续后续步骤');
+        }
+      }
+    }
+
+    // ===== Layer 2: JSON Extraction =====
+    // Extract JSON from normalized text using multiple strategies.
+
+    // Step 2.1: Brace counting (precise extraction)
+    const firstBrace = normalized.indexOf('{');
+    if (firstBrace !== -1) {
+      const balanced = extractBalancedJson(normalized, firstBrace);
+      if (balanced) {
+        const fixed = fixCommonJsonIssues(balanced);
+        try {
+          return JSON.parse(fixed) as Record<string, unknown>;
+        } catch (braceError) {
+          console.debug('括号计数提取修复未成功:', String(braceError).slice(0, 80));
+        }
+
+        // LLM repair on balanced extraction
+        if (repairFn) {
+          try {
+            const repaired = await repairFn(balanced);
+            const cleanedLlm = repaired.trim()
+              .replace(/^```(?:json)?\s*\n?/, '')
+              .replace(/\n?```$/, '')
+              .trim();
+            const final = fixCommonJsonIssues(cleanedLlm);
+            return JSON.parse(final) as Record<string, unknown>;
+          } catch (llmError) {
+            console.error('LLM 修复也未成功 (括号计数):', String(llmError).slice(0, 80));
+          }
+        }
+      }
+    }
+
+    // Step 2.2: Greedy regex fallback (handles trailing text without embedded braces)
+    const jsonMatch = normalized.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const candidate = jsonMatch[0];
+      const fixed = fixCommonJsonIssues(candidate);
+      try {
+        return JSON.parse(fixed) as Record<string, unknown>;
+      } catch (regexError) {
+        console.debug('贪婪正则提取修复未成功:', String(regexError).slice(0, 80));
+      }
+
+      if (repairFn) {
+        try {
+          const repaired = await repairFn(candidate);
+          const cleanedLlm = repaired.trim()
+            .replace(/^```(?:json)?\s*\n?/, '')
+            .replace(/\n?```$/, '')
+            .trim();
+          const final = fixCommonJsonIssues(cleanedLlm);
+          return JSON.parse(final) as Record<string, unknown>;
+        } catch (llmError) {
+          console.error('LLM 修复也未成功 (贪婪正则):', String(llmError).slice(0, 80));
+        }
+      }
+    }
+
+    // Step 2.3: Diagnostic logging on total failure
     console.error('❌ JSON 解析完全失败 (长度 %d)', response.length);
+    console.error('规范化后开头200字符:', normalized.substring(0, 200));
+    console.error('规范化后结尾200字符:', normalized.substring(Math.max(0, normalized.length - 200)));
     return null;
+
   } catch (error) {
     console.error('parseJsonResponse 异常:', error);
     return null;
   }
+}
+
+/** Extract the first balanced {…} JSON object via brace counting. */
+function extractBalancedJson(text: string, startPos: number): string | null {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startPos; i < text.length; i++) {
+    const ch = text[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        return text.substring(startPos, i + 1);
+      }
+    }
+  }
+
+  return null;
 }
 
 // ---------- deterministic repair helpers ----------

@@ -198,7 +198,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   private onIngestDone(report: IngestReport): void {
     this.dismissProgress();
-    new IngestReportModal(this.app, report).open();
+    new IngestReportModal(this.app, report, this.settings.language).open();
   }
 
   // ==================== 核心功能实现 ====================

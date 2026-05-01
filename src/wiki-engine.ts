@@ -64,6 +64,7 @@ export class WikiEngine {
   async ingestSource(file: TFile) {
     console.debug('=== 开始摄入流程 ===');
     console.debug('源文件:', file.path);
+    const startTime = Date.now();
     this.onProgress?.(`Analyzing: ${file.basename}`);
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
@@ -196,7 +197,8 @@ export class WikiEngine {
         updatedPages: analysis.updated_pages,
         failedItems,
         contradictionsFound: analysis.contradictions.length,
-        success: true
+        success: true,
+        elapsedSeconds: Math.round((Date.now() - startTime) / 1000)
       });
 
     } catch (error) {
@@ -211,7 +213,8 @@ export class WikiEngine {
         failedItems,
         contradictionsFound: analysis?.contradictions?.length || 0,
         success: false,
-        errorMessage: errorMsg
+        errorMessage: errorMsg,
+        elapsedSeconds: Math.round((Date.now() - startTime) / 1000)
       });
       throw error;
     }
@@ -280,6 +283,18 @@ export class WikiEngine {
       coarse: '仅提取源文件中最核心的实体和概念——那些没有它们就无法理解本文的条目。严格控制数量，宁缺毋滥。'
     };
 
+    // Build the static prefix once — everything before {{batch_context}}
+    // with source content and existing pages substituted.  This prefix is
+    // identical across all batches, making it the ideal cache anchor.
+    const templateUntouched = PROMPTS.analyzeSource
+      .replace('{{content}}', content)
+      .replace('{{existing_pages}}', existingPagesList);
+    const batchMarker = '{{batch_context}}';
+    const markerIdx = templateUntouched.indexOf(batchMarker);
+    const staticPrefix = templateUntouched.substring(0, markerIdx);
+    // Suffix template (after {{batch_context}}) — variable part replaced per batch
+    const suffixTemplate = templateUntouched.substring(markerIdx + batchMarker.length);
+
     for (let batchNum = 0; batchNum < MAX_BATCHES; batchNum++) {
       const isFirstBatch = batchNum === 0;
 
@@ -292,15 +307,13 @@ export class WikiEngine {
         batchContext = `这是第 ${batchNum + 1} 轮提取。以下条目已被提取，请勿重复：\n${nameList}\n\n从源文件的剩余内容中提取下一批最重要的实体和概念。如果剩余内容中没有值得提取的条目，entities 和 concepts 返回空数组 []。`;
       }
 
-      const prompt = PROMPTS.analyzeSource
-        .replace('{{content}}', content)
-        .replace('{{existing_pages}}', existingPagesList)
-        .replace('{{batch_context}}', batchContext)
+      const prompt = staticPrefix + batchContext + suffixTemplate
         .replace('{{granularity_instruction}}', granularityInstructions[granularity])
         .replace(/{{batch_size}}/g, String(currentBatchSize));
 
       console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] 发起LLM调用 (batch_size=${currentBatchSize})...`);
       console.debug(`[Batch ${batchNum + 1}] Prompt长度:`, prompt.length);
+      this.onProgress?.(`Analyzing batch ${batchNum + 1}...`);
 
       try {
         const schemaContext = await this.schemaManager.getSchemaContext('analyze');
@@ -309,10 +322,12 @@ export class WikiEngine {
           max_tokens: MAX_TOKENS,
           system: schemaContext || undefined,
           messages: [{ role: 'user', content: prompt }],
-          response_format: { type: 'json_object' }
+          response_format: { type: 'json_object' },
+          cacheBreakpoint: staticPrefix.length
         });
 
         console.debug(`[Batch ${batchNum + 1}] 响应长度:`, response.length);
+        this.onProgress?.(`Analyzed batch ${batchNum + 1}, processing...`);
 
         const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
           const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
@@ -332,16 +347,18 @@ export class WikiEngine {
 
         // First batch: capture metadata
         if (isFirstBatch) {
-          if (!analysisData.source_title || !analysisData.entities || !analysisData.concepts) {
-            console.error('❌ 第一轮缺少必要字段:', {
-              source_title: !!analysisData.source_title,
+          if (!analysisData.entities || !analysisData.concepts) {
+            console.error('❌ 第一轮缺少必要字段 (entities/concepts):', {
               entities: !!analysisData.entities,
               concepts: !!analysisData.concepts
             });
             return null;
           }
+          if (!analysisData.source_title) {
+            console.debug('第一轮缺少 source_title，使用文件名作为回退:', file.basename);
+          }
           firstBatchData = analysisData;
-          sourceTitle = analysisData.source_title;
+          sourceTitle = analysisData.source_title || file.basename;
           sourceSummary = analysisData.summary || '';
           contradictions = analysisData.contradictions || [];
           relatedPages = analysisData.related_pages || [];
