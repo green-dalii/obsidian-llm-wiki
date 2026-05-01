@@ -253,70 +253,172 @@ export class WikiEngine {
     const existingPagesList = existingPages.map(p => `- ${p.wikiLink}`).join('\n');
     console.debug('现有 Wiki 页面数量:', existingPages.length);
 
-    const prompt = PROMPTS.analyzeSource
-      .replace('{{content}}', content)
-      .replace('{{existing_pages}}', existingPagesList);
+    // Iterative batch extraction parameters
+    const BATCH_SIZE = 20; // entities + concepts per batch
+    const MAX_BATCHES = Math.max(1, Math.ceil(content.length / 500));
 
-    console.debug('Prompt 长度:', prompt.length);
-    console.debug('调用 LLM 分析源文件...');
+    const allEntities: EntityInfo[] = [];
+    const allConcepts: ConceptInfo[] = [];
+    const extractedNames = new Set<string>();
 
-    try {
-      const schemaContext = await this.schemaManager.getSchemaContext('analyze');
-      const response = await this.client.createMessage({
-        model: this.settings.model,
-        max_tokens: 4000,
-        system: schemaContext || undefined,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' }
-      });
+    let sourceTitle = '';
+    let sourceSummary = '';
+    let contradictions: ContradictionInfo[] = [];
+    let relatedPages: string[] = [];
+    let keyPoints: string[] = [];
+    let firstBatchData: Partial<SourceAnalysis> | null = null;
+    let finalBatchNum = 0;
 
-      console.debug('LLM 响应长度:', response.length);
+    // Build granularity instruction
+    const granularity = this.settings.extractionGranularity || 'standard';
+    const granularityInstructions: Record<string, string> = {
+      fine: '提取源文件中所有值得记录的实体和概念，包括仅提及一次或边缘性的内容。尽量充分利用本次的 {{batch_size}} 个条目限额。',
+      standard: '提取源文件中重要和中等重要的实体和概念。忽略仅在文中一笔带过的次要内容。',
+      coarse: '仅提取源文件中最核心的实体和概念——那些没有它们就无法理解本文的条目。严格控制数量，宁缺毋滥。'
+    };
 
-      const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
-        const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
-        return await this.client.createMessage({
+    for (let batchNum = 0; batchNum < MAX_BATCHES; batchNum++) {
+      const isFirstBatch = batchNum === 0;
+
+      // Build batch context (what's already extracted)
+      let batchContext: string;
+      if (isFirstBatch) {
+        batchContext = '这是第一轮提取，请从源文件中提取最重要的实体和概念。';
+      } else {
+        const nameList = [...extractedNames].map(n => `"${n}"`).join(', ');
+        batchContext = `这是第 ${batchNum + 1} 轮提取。以下条目已被提取，请勿重复：\n${nameList}\n\n从源文件的剩余内容中提取下一批最重要的实体和概念。如果剩余内容中没有值得提取的条目，entities 和 concepts 返回空数组 []。`;
+      }
+
+      const prompt = PROMPTS.analyzeSource
+        .replace('{{content}}', content)
+        .replace('{{existing_pages}}', existingPagesList)
+        .replace('{{batch_context}}', batchContext)
+        .replace('{{granularity_instruction}}', granularityInstructions[granularity])
+        .replace(/{{batch_size}}/g, String(BATCH_SIZE));
+
+      console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] 发起LLM调用...`);
+      console.debug(`[Batch ${batchNum + 1}] Prompt长度:`, prompt.length);
+
+      try {
+        const schemaContext = await this.schemaManager.getSchemaContext('analyze');
+        const response = await this.client.createMessage({
           model: this.settings.model,
-          max_tokens: 4000,
-          messages: [{ role: 'user', content: repairPrompt }],
+          max_tokens: 16000,
+          system: schemaContext || undefined,
+          messages: [{ role: 'user', content: prompt }],
           response_format: { type: 'json_object' }
         });
-      }) as SourceAnalysis | null;
 
-      if (!analysisData) {
-        console.error('❌ JSON 解析失败，返回 null');
-        return null;
+        console.debug(`[Batch ${batchNum + 1}] 响应长度:`, response.length);
+
+        const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
+          const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
+          return await this.client.createMessage({
+            model: this.settings.model,
+            max_tokens: 16000,
+            messages: [{ role: 'user', content: repairPrompt }],
+            response_format: { type: 'json_object' }
+          });
+        }) as Partial<SourceAnalysis> | null;
+
+        if (!analysisData) {
+          console.error(`[Batch ${batchNum + 1}] JSON 解析失败，跳过此批次`);
+          if (isFirstBatch) return null;
+          break; // non-first batch: keep what we have
+        }
+
+        // First batch: capture metadata
+        if (isFirstBatch) {
+          if (!analysisData.source_title || !analysisData.entities || !analysisData.concepts) {
+            console.error('❌ 第一轮缺少必要字段:', {
+              source_title: !!analysisData.source_title,
+              entities: !!analysisData.entities,
+              concepts: !!analysisData.concepts
+            });
+            return null;
+          }
+          firstBatchData = analysisData;
+          sourceTitle = analysisData.source_title;
+          sourceSummary = analysisData.summary || '';
+          contradictions = analysisData.contradictions || [];
+          relatedPages = analysisData.related_pages || [];
+          keyPoints = analysisData.key_points || [];
+        }
+
+        // Deduplicate (code-level safety net)
+        const newEntities = (analysisData.entities || []).filter(e => {
+          if (!e.name?.trim()) return false;
+          if (extractedNames.has(e.name.trim().toLowerCase())) return false;
+          return true;
+        });
+
+        const newConcepts = (analysisData.concepts || []).filter(c => {
+          if (!c.name?.trim()) return false;
+          if (extractedNames.has(c.name.trim().toLowerCase())) return false;
+          return true;
+        });
+
+        // Track names
+        for (const e of newEntities) extractedNames.add(e.name.trim().toLowerCase());
+        for (const c of newConcepts) extractedNames.add(c.name.trim().toLowerCase());
+
+        allEntities.push(...newEntities);
+        allConcepts.push(...newConcepts);
+
+        const batchTotal = newEntities.length + newConcepts.length;
+        console.debug(`[Batch ${batchNum + 1}] 新增: ${newEntities.length} entities, ${newConcepts.length} concepts (扣除重复后 ${batchTotal})`);
+        console.debug(`[Batch ${batchNum + 1}] 累计: ${allEntities.length} entities, ${allConcepts.length} concepts`);
+
+        // Stop conditions
+        const rawTotal = (analysisData.entities || []).length + (analysisData.concepts || []).length;
+        finalBatchNum = batchNum + 1;
+
+        if (rawTotal === 0) {
+          console.debug(`[Batch ${batchNum + 1}] LLM返回空数组，停止迭代`);
+          break;
+        }
+
+        if (rawTotal < BATCH_SIZE) {
+          console.debug(`[Batch ${batchNum + 1}] 返回条目 ${rawTotal} < ${BATCH_SIZE}，判断已穷尽，停止迭代`);
+          break;
+        }
+
+      } catch (error) {
+        console.error(`[Batch ${batchNum + 1}] 调用失败:`, error);
+        if (isFirstBatch) {
+          console.error('❌ 第一轮失败，无法继续');
+          return null;
+        }
+        console.warn(`[Batch ${batchNum + 1}] 非第一轮失败，保留已提取的 ${allEntities.length + allConcepts.length} 个条目`);
+        break;
       }
+    }
 
-      console.debug('✅ JSON 解析成功');
-
-      const requiredFields: (keyof SourceAnalysis)[] = ['source_title', 'summary', 'entities', 'concepts'];
-      const missingFields = requiredFields.filter(field => !analysisData[field]);
-
-      if (missingFields.length > 0) {
-        console.error('❌ 缺少必要字段:', missingFields);
-        return null;
-      }
-
-      console.debug('✅ 所有必要字段存在');
-
-      const analysis: SourceAnalysis = {
-        ...analysisData,
-        source_file: file.path,
-        created_pages: [],
-        updated_pages: []
-      };
-
-      console.debug('分析完成:');
-      console.debug('  - 实体数量:', analysis.entities.length);
-      console.debug('  - 概念数量:', analysis.concepts.length);
-      console.debug('  - 相关页面:', analysis.related_pages?.length || 0);
-
-      return analysis;
-
-    } catch (error) {
-      console.error('❌ analyzeSource 异常:', error);
+    if (!firstBatchData && allEntities.length === 0 && allConcepts.length === 0) {
       return null;
     }
+
+    const analysis: SourceAnalysis = {
+      source_file: file.path,
+      source_title: sourceTitle || firstBatchData?.source_title || file.basename,
+      summary: sourceSummary || (firstBatchData as SourceAnalysis)?.summary || '',
+      entities: allEntities,
+      concepts: allConcepts,
+      contradictions: contradictions,
+      related_pages: relatedPages,
+      key_points: keyPoints,
+      created_pages: [],
+      updated_pages: []
+    };
+
+    console.debug('=== 迭代提取完成 ===');
+    console.debug('  - 总轮次:', finalBatchNum);
+    console.debug('  - 实体数量:', allEntities.length);
+    console.debug('  - 概念数量:', allConcepts.length);
+    console.debug('  - 去重名称:', extractedNames.size);
+
+    return analysis;
+
   }
 
   getExistingWikiPages(): {path: string, title: string, wikiLink: string}[] {

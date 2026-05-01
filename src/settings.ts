@@ -449,6 +449,23 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           new Notice(this.getText('schemaRegeneratedNotice'), 3000);
         }));
 
+    // ===== Extraction Settings =====
+    containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
+    new Setting(containerEl).setName(this.getText('extractionSectionTitle')).setHeading();
+
+    new Setting(containerEl)
+      .setName(this.getText('extractionGranularityName'))
+      .setDesc(this.getText('extractionGranularityDesc'))
+      .addDropdown(dropdown => {
+        dropdown.addOption('fine', this.getText('extractionGranularityFine'));
+        dropdown.addOption('standard', this.getText('extractionGranularityStandard'));
+        dropdown.addOption('coarse', this.getText('extractionGranularityCoarse'));
+        dropdown.setValue(this.tempSettings.extractionGranularity || 'standard');
+        dropdown.onChange(async (value: string) => {
+          this.tempSettings.extractionGranularity = value as 'fine' | 'standard' | 'coarse';
+        });
+      });
+
     // ===== Auto Maintenance =====
     containerEl.createEl('hr', { attr: { style: 'margin: 30px 0;' } });
     new Setting(containerEl).setName(this.getText('autoMaintainSection')).setHeading();

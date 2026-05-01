@@ -30,7 +30,9 @@ export class AnthropicCompatibleClient implements LLMClient {
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
-      messages: params.messages
+      messages: params.response_format?.type === 'json_object'
+        ? [...params.messages, { role: 'assistant', content: '{' }]
+        : params.messages
     };
     if (params.system) body.system = params.system;
 
@@ -137,11 +139,15 @@ export class AnthropicClient implements LLMClient {
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
   }): Promise<string> {
+    const messages = params.response_format?.type === 'json_object'
+      ? [...params.messages, { role: 'assistant' as const, content: '{' }]
+      : params.messages;
+
     const response = await this.client.messages.create({
       model: params.model,
       max_tokens: params.max_tokens,
       system: params.system || undefined,
-      messages: params.messages
+      messages
     });
     const textBlock = response.content.find(c => c.type === 'text');
     return textBlock && 'text' in textBlock ? textBlock.text : '';

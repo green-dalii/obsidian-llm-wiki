@@ -152,6 +152,14 @@ export const TEXTS = {
     regenerateSchemaButton: 'Regenerate Default Schema',
     schemaRegeneratedNotice: 'Default schema regenerated.',
 
+    // Extraction Settings
+    extractionSectionTitle: 'Extraction',
+    extractionGranularityName: 'Extraction Granularity',
+    extractionGranularityDesc: 'Controls how many entities and concepts are extracted from sources',
+    extractionGranularityFine: 'Fine — extract all, including edge mentions',
+    extractionGranularityStandard: 'Standard — core + significant entities/concepts',
+    extractionGranularityCoarse: 'Coarse — only the most central entities/concepts',
+
     // Auto Maintenance
     autoMaintainSection: 'Auto Maintenance',
     autoMaintainBetaBadge: 'BETA — Experimental feature. May have issues. Recommended for advanced users only.',
@@ -350,6 +358,14 @@ export const TEXTS = {
     viewSchemaButton: '查看 / 编辑 Schema',
     regenerateSchemaButton: '重新生成默认 Schema',
     schemaRegeneratedNotice: '默认 Schema 已重新生成。',
+
+    // 知识提取
+    extractionSectionTitle: '知识提取',
+    extractionGranularityName: '提取颗粒度',
+    extractionGranularityDesc: '控制从源文件中提取多少实体和概念',
+    extractionGranularityFine: '精细 — 提取全部，包括边缘提及',
+    extractionGranularityStandard: '标准 — 核心 + 重要实体/概念',
+    extractionGranularityCoarse: '粗放 — 仅提取最核心的实体/概念',
 
     // 自动维护
     autoMaintainSection: '自动维护',

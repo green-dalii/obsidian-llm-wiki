@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-05-01
+
+### Added
+- **Iterative batch extraction**: `analyzeSource` now extracts entities/concepts in batches of 20, preventing the `max_tokens` bottleneck that limited extraction from long sources (e.g., 700-line paper → 8 entities was capped by single-batch token limit)
+- **Extraction granularity setting**: new `Fine / Standard / Coarse` dropdown in settings panel controls extraction thoroughness
+- **JSON output enforcement**: `AnthropicClient` and `AnthropicCompatibleClient` now use prefill technique (append assistant `{`) to force JSON-structured responses; `OpenAIClient` uses native `response_format: { type: 'json_object' }`
+
+### Changed
+- `analyzeSource` `max_tokens`: 4000 → 16000 (immediate relief for single-batch extraction limit)
+
 ## [1.6.1] - 2026-04-30
 
 ### Fixed

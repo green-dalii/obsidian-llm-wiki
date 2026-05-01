@@ -64,6 +64,8 @@ export interface ProviderConfig {
 
 // Plugin settings
 
+export type ExtractionGranularity = 'fine' | 'standard' | 'coarse';
+
 export interface LLMWikiSettings {
   provider: string;
   apiKey: string;
@@ -78,6 +80,9 @@ export interface LLMWikiSettings {
 
   // Schema
   enableSchema: boolean;
+
+  // Extraction
+  extractionGranularity: ExtractionGranularity;
 
   // Auto-maintenance
   autoWatchSources: boolean;
@@ -297,6 +302,9 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
 
   // Schema
   enableSchema: true,
+
+  // Extraction
+  extractionGranularity: 'standard',
 
   // Auto-maintenance
   autoWatchSources: false,

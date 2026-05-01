@@ -9,17 +9,23 @@ export const PROMPTS = {
 **现有 Wiki 页面列表：**
 {{existing_pages}}
 
-**任务要求：**
-1. 提取关键实体（人名、组织、项目、地点等）
-2. 提取核心概念（理论、方法、技术、术语等）
-3. 识别与现有 Wiki 的矛盾或冲突
-4. 找出相关的现有 Wiki 页面
-5. 生成简洁摘要
+{{batch_context}}
 
-**输出格式（JSON）：**
+**提取范围：**
+{{granularity_instruction}}
+
+**任务要求：**
+1. 从源文件中提取尚未被列出过的实体和概念
+2. 本次最多输出 {{batch_size}} 个条目（实体+概念合计）。如果源文件中值得提取的剩余条目不足 {{batch_size}} 个，只输出实际存在的条目
+3. 给每个条目写一句话摘要（用于后续页面生成），并注明在源中的具体提及
+4. 识别与现有 Wiki 的矛盾或冲突（仅在第一轮输出 contradictions）
+5. 找出相关的现有 Wiki 页面（仅在第一轮输出 related_pages）
+6. 生成源文件关键要点（仅在第一轮输出 key_points）
+
+**输出格式（严格 JSON，只输出 JSON，不要解释文字）：**
 {
   "source_title": "源文件标题",
-  "summary": "100-200字的摘要",
+  "summary": "100-200字的源文件摘要（仅第一轮输出，之后省略）",
   "entities": [
     {
       "name": "实体名称",
@@ -55,7 +61,8 @@ export const PROMPTS = {
 - 每个实体和概念都应该在 Wiki 中有独立页面
 - 矛盾检测要仔细对比现有内容
 - related_pages 应是现有 Wiki 中实际存在的页面
-- 输出必须是有效 JSON 格式`,
+- 输出必须是有效 JSON 格式
+- 不要重复"已提取列表"中的任何条目。如果源文件没有更多未提取的条目，entities 和 concepts 返回空数组 []`,
 
   generateEntityPage: `你是一个 Wiki 知识库维护者。请为以下实体创建一个 Wiki 页面。
 
