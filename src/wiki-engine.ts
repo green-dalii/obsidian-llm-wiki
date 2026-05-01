@@ -254,7 +254,10 @@ export class WikiEngine {
     console.debug('现有 Wiki 页面数量:', existingPages.length);
 
     // Iterative batch extraction parameters
-    const BATCH_SIZE = 20; // entities + concepts per batch
+    const MAX_TOKENS = 16000;
+    const INITIAL_BATCH_SIZE = 20;
+    const MIN_BATCH_SIZE = 5;
+    let currentBatchSize = INITIAL_BATCH_SIZE;
     const MAX_BATCHES = Math.max(1, Math.ceil(content.length / 500));
 
     const allEntities: EntityInfo[] = [];
@@ -294,16 +297,16 @@ export class WikiEngine {
         .replace('{{existing_pages}}', existingPagesList)
         .replace('{{batch_context}}', batchContext)
         .replace('{{granularity_instruction}}', granularityInstructions[granularity])
-        .replace(/{{batch_size}}/g, String(BATCH_SIZE));
+        .replace(/{{batch_size}}/g, String(currentBatchSize));
 
-      console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] 发起LLM调用...`);
+      console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] 发起LLM调用 (batch_size=${currentBatchSize})...`);
       console.debug(`[Batch ${batchNum + 1}] Prompt长度:`, prompt.length);
 
       try {
         const schemaContext = await this.schemaManager.getSchemaContext('analyze');
         const response = await this.client.createMessage({
           model: this.settings.model,
-          max_tokens: 16000,
+          max_tokens: MAX_TOKENS,
           system: schemaContext || undefined,
           messages: [{ role: 'user', content: prompt }],
           response_format: { type: 'json_object' }
@@ -315,7 +318,7 @@ export class WikiEngine {
           const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
           return await this.client.createMessage({
             model: this.settings.model,
-            max_tokens: 16000,
+            max_tokens: MAX_TOKENS,
             messages: [{ role: 'user', content: repairPrompt }],
             response_format: { type: 'json_object' }
           });
@@ -369,6 +372,14 @@ export class WikiEngine {
         console.debug(`[Batch ${batchNum + 1}] 新增: ${newEntities.length} entities, ${newConcepts.length} concepts (扣除重复后 ${batchTotal})`);
         console.debug(`[Batch ${batchNum + 1}] 累计: ${allEntities.length} entities, ${allConcepts.length} concepts`);
 
+        // Adaptive batch_size: if output approaches 70% of max_tokens, shrink next batch
+        const RESPONSE_FULLNESS_THRESHOLD = MAX_TOKENS * 0.7;
+        if (response.length > RESPONSE_FULLNESS_THRESHOLD && currentBatchSize > MIN_BATCH_SIZE) {
+          const prevSize = currentBatchSize;
+          currentBatchSize = Math.max(MIN_BATCH_SIZE, Math.floor(currentBatchSize * 0.75));
+          console.debug(`[Batch ${batchNum + 1}] 响应长度 ${response.length} 超过阈值 ${Math.round(RESPONSE_FULLNESS_THRESHOLD)}，batch_size: ${prevSize} → ${currentBatchSize}`);
+        }
+
         // Stop conditions
         const rawTotal = (analysisData.entities || []).length + (analysisData.concepts || []).length;
         finalBatchNum = batchNum + 1;
@@ -378,8 +389,8 @@ export class WikiEngine {
           break;
         }
 
-        if (rawTotal < BATCH_SIZE) {
-          console.debug(`[Batch ${batchNum + 1}] 返回条目 ${rawTotal} < ${BATCH_SIZE}，判断已穷尽，停止迭代`);
+        if (rawTotal < currentBatchSize) {
+          console.debug(`[Batch ${batchNum + 1}] 返回条目 ${rawTotal} < ${currentBatchSize}，判断已穷尽，停止迭代`);
           break;
         }
 

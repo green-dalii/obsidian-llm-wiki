@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2026-05-01
+
+### Added
+- **Adaptive batch_size**: when a batch response length exceeds 70% of `max_tokens` (16000 → ~11200 chars), the next batch automatically shrinks by 25% (floor: 5 items) to prevent output truncation. This balances extraction efficiency with output token headroom.
+
 ## [1.6.2] - 2026-05-01
 
 ### Added
