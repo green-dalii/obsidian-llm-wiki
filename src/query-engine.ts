@@ -3,6 +3,7 @@
 import { App, Modal, Notice, MarkdownRenderer } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { TEXTS } from './texts';
+import { WIKI_LANGUAGES } from './types';
 import { PROMPTS } from './prompts';
 import { parseJsonResponse } from './utils';
 
@@ -502,9 +503,9 @@ export class QueryModal extends Modal {
 
       if (!indexContent) {
         console.debug('[步骤1] Wiki为空，返回提示');
-        return this.plugin.settings.language === 'en'
-          ? 'You are a Wiki assistant. The Wiki is empty. Please answer based on your knowledge and suggest the user ingest sources first.'
-          : '你是Wiki助手。Wiki目前为空。请基于你的知识回答，并建议用户先摄入源文件。';
+        const lang = this.plugin.settings.wikiLanguage || 'en';
+        const langName = WIKI_LANGUAGES[lang] || lang;
+        return `IMPORTANT: You MUST write ALL responses in ${langName}.\n\nYou are a Wiki assistant. The Wiki is empty. Please answer based on your knowledge and suggest the user ingest sources first.`;
       }
 
       console.debug('[步骤2] 让LLM选择相关页面...');
@@ -518,8 +519,12 @@ export class QueryModal extends Modal {
         console.debug(`[步骤3] 页面${i+1}内容长度:`, content.length);
       });
 
-      const wikiContext = this.plugin.settings.language === 'en'
-        ? `You are a Wiki assistant with access to a structured knowledge base.
+      const lang = this.plugin.settings.wikiLanguage || 'en';
+      const langName = WIKI_LANGUAGES[lang] || lang;
+      const langDirective = `IMPORTANT: You MUST write ALL responses in ${langName}. Every answer, explanation, and label must be in ${langName}.`;
+      const wikiContext = `${langDirective}
+
+You are a Wiki assistant with access to a structured knowledge base.
 
 Wiki Index:
 ${indexContent}
@@ -533,8 +538,8 @@ Instructions:
 - Link format MUST include wiki folder: [[${this.plugin.settings.wikiFolder}/entities/page-name]]
 
 CRITICAL RULES:
-✅ CORRECT: [[wiki/entities/太阳化忌]], [[wiki/concepts/机器学习]]
-❌ WRONG: <a href="...">, [link text](url), [[太阳化忌]], [[entities/太阳化忌]]
+✅ CORRECT: [[wiki/entities/example-page]], [[wiki/concepts/example-concept]]
+❌ WRONG: <a href="...">, [link text](url), [[example-page]], [[entities/example-page]]
 - Obsidian wiki-links use DOUBLE brackets: [[path]]
 - NO HTML: Never use <a href="...">text</a>
 - NO Markdown external links: Never use [text](url)
@@ -544,50 +549,23 @@ If Wiki lacks relevant information:
 - Acknowledge it and suggest ingesting more sources
 - Do NOT make up information outside Wiki
 
-Respond in the same language as the user's question`
-        : `你是Wiki助手，拥有结构化知识库的访问权限。
-
-Wiki索引：
-${indexContent}
-
-相关Wiki页面（已加载完整内容）：
-${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : '未在Wiki中找到直接相关的页面。'}
-
-指令：
-- 基于上述Wiki页面内容回答问题（而非通用知识）
-- 使用Obsidian特有的双向链接语法：[[wiki/entities/页面名]]（不是HTML链接）
-- 链接格式必须包含wiki文件夹：[[${this.plugin.settings.wikiFolder}/entities/页面名]]
-
-关键规则：
-✅ 正确：[[wiki/entities/太阳化忌]], [[wiki/concepts/机器学习]]
-❌ 错误：<a href="...">, [链接文字](url), [[太阳化忌]], [[entities/太阳化忌]]
-- Obsidian双向链接使用双层方括号：[[路径]]
-- 禁止HTML：绝不使用<a href="...">文字</a>
-- 禁止Markdown外链：绝不使用[文字](url)
-- 包含wiki/前缀：链接必须以[[wiki/开头
-
-如果Wiki缺少相关信息：
-- 如实说明并建议摄入更多源文件
-- 不要编造Wiki之外的信息
-
-请用与用户提问相同的语言回答`;
+Respond in ${langName}`;
 
       console.debug('[步骤4] Wiki上下文构建完成');
       console.debug('[步骤4] 上下文长度:', wikiContext.length);
       return wikiContext;
     } catch (error) {
       console.error('[错误] buildWikiContext失败:', error);
-      return this.plugin.settings.language === 'en'
-        ? 'You are a Wiki assistant. Failed to load Wiki context. Please answer based on your knowledge.'
-        : '你是Wiki助手。加载Wiki上下文失败。请基于你的知识回答。';
+      const lang2 = this.plugin.settings.wikiLanguage || 'en';
+      const langName2 = WIKI_LANGUAGES[lang2] || lang2;
+      return `IMPORTANT: You MUST write ALL responses in ${langName2}.\n\nYou are a Wiki assistant. Failed to load Wiki context. Please answer based on your knowledge.`;
     }
   }
 
   async selectRelevantPagesWithLLM(query: string, indexContent: string): Promise<string[]> {
     console.debug('=== LLM选择相关页面开始 ===');
 
-    const prompt = this.plugin.settings.language === 'en'
-      ? `You are a Wiki page selector. Given a user query and the Wiki index, select the most relevant pages.
+    const prompt = `You are a Wiki page selector. Given a user query and the Wiki index, select the most relevant pages.
 
 User Query: "${query}"
 
@@ -612,33 +590,7 @@ Output Format (strict JSON):
 Important:
 - Output ONLY the JSON object, no other text
 - Page paths should match the format in Wiki links: "entities/name", "concepts/name", "sources/name"
-- If no pages are relevant, output: {"relevant_pages": []}`
-      : `你是Wiki页面选择器。根据用户问题和Wiki索引，选择最相关的页面。
-
-用户问题："${query}"
-
-Wiki索引：
-${indexContent}
-
-任务：
-1. 阅读上述Wiki索引
-2. 识别与用户问题最相关的页面
-3. 考虑页面标题、摘要和语义相关性
-4. 选择最相关的3-5个页面
-
-输出格式（严格JSON）：
-{
-  "relevant_pages": [
-    "entities/页面名称1",
-    "concepts/页面名称2",
-    "sources/页面名称3"
-  ]
-}
-
-重要：
-- 仅输出JSON对象，不要有其他文本
-- 页面路径格式应与Wiki链接一致："entities/名称"、"concepts/名称"、"sources/名称"
-- 如果没有相关页面，输出：{"relevant_pages": []}`;
+- If no pages are relevant, output: {"relevant_pages": []}`;
 
     try {
       console.debug('[LLM调用] 发送选择请求...');

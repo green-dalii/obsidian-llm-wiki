@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.6.4 | **Updated:** 2026-05-02
+**Version:** 1.6.5 | **Updated:** 2026-05-03
 
 ---
 
@@ -48,13 +48,14 @@
 **v1.6.3 — Adaptive Batch Size (✅ released)**
 - Adaptive batch_size: when batch response exceeds 70% of max_tokens (16000), next batch shrinks 25% (floor: 5) to prevent output truncation
 
-**v1.6.4 — Quality & Robustness (✅ code complete)**
-- Dual-layer JSON parsing: Layer 1 normalizer + Layer 2 extractor with brace counting, deterministic fixes, LLM repair
-- Anthropic prompt caching: cache_control ephemeral on static prompt prefix; only variable batch context changes per call
-- Entity extraction balance: 8 entity types (was 5), guidance to not overlook low-frequency but important entities
-- Ingestion report: elapsed time, failed-item guidance text
-- Granularity cost labeling in settings
-- API Key password masking
+**v1.6.5 — Wiki Output Language (✅ code complete)**
+- Wiki output language dropdown: 8 languages + custom input, independent of UI language
+- System prompt language directive: `buildWikiLanguageDirective()` injects per-task language instruction
+- All LLM-facing prompts converted to English (granularity, batch, merge, templates, labels)
+- Belt-and-suspenders: language hint appended to analyzeSource user prompt for double reinforcement
+- Query engine language alignment via system prompt
+- Removed "artifact" entity type (too vague)
+- Backward-compatible migration from `language` to `wikiLanguage`
 
 **Quality / Engineering**
 - JSON Output Mode (`response_format: json_object`) for reliable structured responses
@@ -161,10 +162,11 @@ Karpathy: *"comparison tables, slide decks (Marp), charts"*
 | **v1.6.2** | 2026-05 | Iterative batch extraction, granularity control, JSON output enforcement | Released |
 | **v1.6.3** | 2026-05 | Adaptive batch_size | Released |
 | **v1.6.4** | 2026-05 | Dual-layer JSON parsing, Anthropic prompt caching, entity extraction balance, ingestion report, granularity cost labeling | Code complete |
+| **v1.6.5** | 2026-05 | Wiki output language (8 languages + custom), English LLM prompts, system prompt language directive, artifact removal | Code complete |
 | **v1.7.0** | TBD | Conversational ingest wizard, lint per-item review | Planned |
 | **v1.8.0** | TBD | Proactive schema suggestions, output diversity | Planned |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
 ---
 
-**Last Updated:** 2026-05-02 | **Maintainer:** Greener-Dalii
+**Last Updated:** 2026-05-03 | **Maintainer:** Greener-Dalii

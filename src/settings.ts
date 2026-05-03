@@ -3,7 +3,7 @@
 import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl } from 'obsidian';
 import OpenAI from 'openai';
 import LLMWikiPlugin from '../main';
-import { PREDEFINED_PROVIDERS, LLMWikiSettings } from './types';
+import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES } from './types';
 import { TEXTS } from './texts';
 
 export class LLMWikiSettingTab extends PluginSettingTab {
@@ -39,6 +39,47 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           this.display();
         });
       });
+
+    // ===== Wiki Output Language =====
+    new Setting(containerEl)
+      .setName(this.getText('wikiLanguageName'))
+      .setDesc(this.getText('wikiLanguageDesc'))
+      .addDropdown(dropdown => {
+        for (const [key, label] of Object.entries(WIKI_LANGUAGES)) {
+          dropdown.addOption(key, label);
+        }
+        dropdown.addOption('__custom__', this.getText('customWikiLanguageOption'));
+        const currentLang = this.tempSettings.wikiLanguage;
+        if (currentLang && WIKI_LANGUAGES[currentLang]) {
+          dropdown.setValue(currentLang);
+        } else if (currentLang) {
+          dropdown.setValue('__custom__');
+        } else {
+          dropdown.setValue('en');
+        }
+        dropdown.onChange((value: string) => {
+          if (value === '__custom__') {
+            this.tempSettings.useCustomWikiLanguage = true;
+          } else {
+            this.tempSettings.wikiLanguage = value;
+            this.tempSettings.useCustomWikiLanguage = false;
+          }
+          this.display();
+        });
+      });
+
+    if (this.tempSettings.useCustomWikiLanguage) {
+      new Setting(containerEl)
+        .setName(this.getText('wikiLanguageName') + ' (Custom)')
+        .setDesc(this.getText('customWikiLanguageHint'))
+        .addText(text => text
+          .setPlaceholder(this.getText('customWikiLanguagePlaceholder'))
+          .setValue(this.tempSettings.wikiLanguage && !WIKI_LANGUAGES[this.tempSettings.wikiLanguage]
+            ? this.tempSettings.wikiLanguage : '')
+          .onChange((value) => {
+            this.tempSettings.wikiLanguage = value.trim();
+          }));
+    }
 
     // ===== Plugin Introduction =====
     new Setting(containerEl).setName(this.getText('pluginTitle')).setHeading();

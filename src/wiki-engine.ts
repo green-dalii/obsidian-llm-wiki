@@ -8,11 +8,13 @@ import {
   EntityInfo,
   ConceptInfo,
   ContradictionInfo,
-  IngestReport
+  IngestReport,
+  WIKI_LANGUAGES
 } from './types';
 import { PROMPTS } from './prompts';
+import { TEXTS } from './texts';
 import { slugify, parseJsonResponse, cleanMarkdownResponse, parseFrontmatter, preserveFrontmatterReviewTag } from './utils';
-import { SchemaManager } from './schema-manager';
+import { SchemaManager, SchemaTask } from './schema-manager';
 
 export class WikiEngine {
   private app: App;
@@ -53,6 +55,23 @@ export class WikiEngine {
 
   setDoneCallback(cb: ((report: IngestReport) => void) | null): void {
     this.onDone = cb;
+  }
+
+  private buildWikiLanguageDirective(): string {
+    const lang = this.settings.wikiLanguage || 'en';
+    const langName = WIKI_LANGUAGES[lang] || lang;
+    return `IMPORTANT: You MUST write ALL content in ${langName}. Every page title, summary, description, and label must be in ${langName}. Do NOT output any content in other languages.`;
+  }
+
+  private async buildSystemPrompt(task: SchemaTask): Promise<string | undefined> {
+    const parts: string[] = [];
+    const langDirective = this.buildWikiLanguageDirective();
+    if (langDirective) parts.push(langDirective);
+    if (this.settings.enableSchema) {
+      const schemaContext = await this.schemaManager.getSchemaContext(task);
+      if (schemaContext) parts.push(schemaContext);
+    }
+    return parts.length > 0 ? parts.join('\n\n') : undefined;
   }
 
   private get client(): LLMClient {
@@ -278,9 +297,9 @@ export class WikiEngine {
     // Build granularity instruction
     const granularity = this.settings.extractionGranularity || 'standard';
     const granularityInstructions: Record<string, string> = {
-      fine: '提取源文件中所有值得记录的实体和概念，包括仅提及一次或边缘性的内容。尽量充分利用本次的 {{batch_size}} 个条目限额。',
-      standard: '提取源文件中重要和中等重要的实体和概念。忽略仅在文中一笔带过的次要内容。',
-      coarse: '仅提取源文件中最核心的实体和概念——那些没有它们就无法理解本文的条目。严格控制数量，宁缺毋滥。'
+      fine: 'Extract ALL entities and concepts worth recording from the source, including those mentioned only once or tangentially. Make full use of the {{batch_size}} item quota for this round.',
+      standard: 'Extract important and moderately important entities and concepts from the source. Ignore minor items mentioned only in passing.',
+      coarse: 'Extract only the most essential entities and concepts from the source — those without which the text cannot be understood. Strictly limit quantity; quality over quantity.'
     };
 
     // Build the static prefix once — everything before {{batch_context}}
@@ -301,27 +320,30 @@ export class WikiEngine {
       // Build batch context (what's already extracted)
       let batchContext: string;
       if (isFirstBatch) {
-        batchContext = '这是第一轮提取，请从源文件中提取最重要的实体和概念。';
+        batchContext = 'This is the first extraction round. Extract the most important entities and concepts from the source.';
       } else {
         const nameList = [...extractedNames].map(n => `"${n}"`).join(', ');
-        batchContext = `这是第 ${batchNum + 1} 轮提取。以下条目已被提取，请勿重复：\n${nameList}\n\n从源文件的剩余内容中提取下一批最重要的实体和概念。如果剩余内容中没有值得提取的条目，entities 和 concepts 返回空数组 []。`;
+        batchContext = `This is round ${batchNum + 1} of extraction. The following items have already been extracted — do NOT repeat them:\n${nameList}\n\nExtract the next batch of most important entities and concepts from the remaining content. If no more items are worth extracting, return empty arrays [] for entities and concepts.`;
       }
 
       const prompt = staticPrefix + batchContext + suffixTemplate
         .replace('{{granularity_instruction}}', granularityInstructions[granularity])
         .replace(/{{batch_size}}/g, String(currentBatchSize));
 
+      // Reinforce language directive at end of user prompt (belt-and-suspenders with system prompt)
+      const langHint = `\n\nCRITICAL LANGUAGE REQUIREMENT: All entity names, concept names, summaries, descriptions, and key points in your JSON output MUST be written in ${WIKI_LANGUAGES[this.settings.wikiLanguage || 'en'] || this.settings.wikiLanguage || 'English'}. Do NOT output any content in other languages.`;
+      const finalPrompt = prompt + langHint;
+
       console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] 发起LLM调用 (batch_size=${currentBatchSize})...`);
       console.debug(`[Batch ${batchNum + 1}] Prompt长度:`, prompt.length);
       this.onProgress?.(`Analyzing batch ${batchNum + 1}...`);
 
       try {
-        const schemaContext = await this.schemaManager.getSchemaContext('analyze');
         const response = await this.client.createMessage({
           model: this.settings.model,
           max_tokens: MAX_TOKENS,
-          system: schemaContext || undefined,
-          messages: [{ role: 'user', content: prompt }],
+          system: await this.buildSystemPrompt('analyze'),
+          messages: [{ role: 'user', content: finalPrompt }],
           response_format: { type: 'json_object' },
           cacheBreakpoint: staticPrefix.length
         });
@@ -334,6 +356,7 @@ export class WikiEngine {
           return await this.client.createMessage({
             model: this.settings.model,
             max_tokens: MAX_TOKENS,
+            system: await this.buildSystemPrompt('analyze'),
             messages: [{ role: 'user', content: repairPrompt }],
             response_format: { type: 'json_object' }
           });
@@ -496,7 +519,7 @@ export class WikiEngine {
       }
     }
     if (truncated) {
-      result += `\n（Wiki 共 ${allPages.length} 页，仅展示前 ${MAX_PAGES} 页。完整索引见 index.md）`;
+      result += `\n(Wiki has ${allPages.length} pages total; showing first ${MAX_PAGES}. See index.md for the full list.)`;
     }
     return result;
   }
@@ -520,16 +543,15 @@ export class WikiEngine {
       .replace('{{source_title}}', analysis.source_title)
       .replace('{{content}}', content.substring(0, 500))
       .replace('{{analysis}}', JSON.stringify(analysis))
-      .replace('{{created_pages_list}}', createdPagesList || '（暂无）')
+      .replace('{{created_pages_list}}', createdPagesList || '(none)')
       .replace(/{{source_file}}/g, file.path)
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
       .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '));
 
-    const schemaContext = await this.schemaManager.getSchemaContext('summary');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
-      system: schemaContext || undefined,
+      system: await this.buildSystemPrompt('summary'),
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -560,7 +582,7 @@ export class WikiEngine {
     }
 
     // Multi-source fusion: run merge analysis for substantial existing pages
-    let mergeStrategy = '新建页面，无需合并。';
+    let mergeStrategy = 'New page, no merge needed.';
     if (existingContent && !isReviewed && existingContent.length > this.MERGE_CONTENT_THRESHOLD) {
       try {
         console.debug('Running merge analysis for existing entity page:', path);
@@ -578,29 +600,28 @@ export class WikiEngine {
         }
       } catch (error) {
         console.error('Merge analysis failed, falling back to simple merge:', error);
-        mergeStrategy = '**合并策略：** 合并新信息，不要删除旧内容。在现有章节中适当位置插入新信息。';
+        mergeStrategy = '**Merge strategy:** Integrate new information without deleting existing content. Insert new information into appropriate sections of existing content.';
       }
     } else if (existingContent && !isReviewed) {
-      mergeStrategy = '**合并策略：** 合并新信息，不要删除旧内容。';
+      mergeStrategy = '**Merge strategy:** Integrate new information without deleting existing content.';
     }
 
     const prompt = (isReviewed ? PROMPTS.preserveReviewedEntityPage : PROMPTS.generateEntityPage)
       .replace('{{entity_name}}', entity.name)
       .replace('{{entity_type}}', entity.type)
       .replace('{{entity_summary}}', entity.summary)
-      .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || '无具体提及')
+      .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || 'No specific mentions')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
-      .replace('{{related_content}}', existingContent || '暂无相关内容')
+      .replace('{{related_content}}', existingContent || 'No existing content')
       .replace('{{merge_strategy}}', mergeStrategy)
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', entity.type);
 
-    const schemaContext = await this.schemaManager.getSchemaContext('entity');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
-      system: schemaContext || undefined,
+      system: await this.buildSystemPrompt('entity'),
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -632,7 +653,7 @@ export class WikiEngine {
     }
 
     // Multi-source fusion: run merge analysis for substantial existing pages
-    let mergeStrategy = '新建页面，无需合并。';
+    let mergeStrategy = 'New page, no merge needed.';
     if (existingContent && !isReviewed && existingContent.length > this.MERGE_CONTENT_THRESHOLD) {
       try {
         console.debug('Running merge analysis for existing concept page:', path);
@@ -650,30 +671,29 @@ export class WikiEngine {
         }
       } catch (error) {
         console.error('Merge analysis failed, falling back to simple merge:', error);
-        mergeStrategy = '**合并策略：** 合并新信息，不要删除旧内容。在现有章节中适当位置插入新信息。';
+        mergeStrategy = '**Merge strategy:** Integrate new information without deleting existing content. Insert new information into appropriate sections of existing content.';
       }
     } else if (existingContent && !isReviewed) {
-      mergeStrategy = '**合并策略：** 合并新信息，不要删除旧内容。';
+      mergeStrategy = '**Merge strategy:** Integrate new information without deleting existing content.';
     }
 
     const prompt = (isReviewed ? PROMPTS.preserveReviewedConceptPage : PROMPTS.generateConceptPage)
       .replace('{{concept_name}}', concept.name)
       .replace('{{concept_type}}', concept.type)
       .replace('{{concept_summary}}', concept.summary)
-      .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || '无具体提及')
+      .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || 'No specific mentions')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
-      .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || '无相关概念')
-      .replace('{{related_content}}', existingContent || '暂无相关内容')
+      .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || 'No related concepts')
+      .replace('{{related_content}}', existingContent || 'No existing content')
       .replace('{{merge_strategy}}', mergeStrategy)
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', concept.type);
 
-    const schemaContext = await this.schemaManager.getSchemaContext('concept');
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 1500,
-      system: schemaContext || undefined,
+      system: await this.buildSystemPrompt('concept'),
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -700,22 +720,21 @@ export class WikiEngine {
 
     const existingContent = await this.app.vault.read(abstractFile);
 
-    const prompt = `现有 Wiki 页面：${pageName}
+    const prompt = `Existing Wiki page: ${pageName}
 
-现有内容：
+Existing content:
 ${existingContent}
 
-新源文件提供了关于 ${pageName} 的新信息：
-${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName) || '无直接相关信息')}
+The new source file provides additional information about ${pageName}:
+${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName) || 'No directly relevant information')}
 
-请更新该页面，添加新信息，但不要删除现有内容。使用双向链接语法 [[页面名]]。
-只输出更新后的完整页面内容，不要其他文字。`;
+Update the page by adding the new information without deleting existing content. Use wiki-link syntax [[page-name]].
+Output ONLY the complete updated page content, no other text.`;
 
-    const schemaContext = await this.schemaManager.getSchemaContext('related');
     const updatedContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
-      system: schemaContext || undefined,
+      system: await this.buildSystemPrompt('related'),
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -735,13 +754,14 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
   ): Promise<{ merge_items: Array<{ content: string; classification: string; target_section: string; reason: string }>; contradictions: Array<{ claim: string; existing_claim: string; resolution: string }>; merge_summary: string }> {
     const prompt = PROMPTS.mergeAnalysis
       .replace('{{page_name}}', pageName)
-      .replace('entity 或 concept', pageType)
+      .replace('entity or concept', pageType)
       .replace('{{existing_content}}', existingContent)
       .replace('{{new_info}}', JSON.stringify(newInfo, null, 2));
 
     const response = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
+      system: await this.buildSystemPrompt('full'),
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' }
     });
@@ -764,22 +784,22 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
     const dupCount = analysis.merge_items.filter(i => i.classification === 'duplicate').length;
     const contraCount = analysis.merge_items.filter(i => i.classification === 'contradictory').length;
 
-    let text = `**合并策略（来自多源融合分析）：**\n`;
+    let text = `**Merge Strategy (from multi-source fusion analysis):**\n`;
     text += `${analysis.merge_summary}\n\n`;
 
     if (newItems.length > 0) {
-      text += `**新增信息（${newItems.length} 条）：**\n`;
+      text += `**New information (${newItems.length} items):**\n`;
       for (const item of newItems) {
-        text += `- [${item.classification}] ${item.content}（插入位置：${item.target_section}）\n`;
+        text += `- [${item.classification}] ${item.content} (insert at: ${item.target_section})\n`;
       }
     }
 
     if (dupCount > 0) {
-      text += `\n**重复信息（${dupCount} 条）：** 跳过，不添加。\n`;
+      text += `\n**Duplicate information (${dupCount} items):** Skipped, not added.\n`;
     }
 
     if (contraCount > 0) {
-      text += `\n**矛盾信息（${contraCount} 条）：** 已标记，保留现有内容，在页面末尾记录矛盾。\n`;
+      text += `\n**Contradictory information (${contraCount} items):** Flagged; existing content preserved, contradiction noted at page end.\n`;
     }
 
     return text;
@@ -793,7 +813,7 @@ ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.co
       return;
     }
 
-    const contradictionNote = `\n\n## ⚠️ 潜在矛盾\n\n**来源**：${contradiction.claim}\n\n**现有观点**：${contradiction.contradicted_by}\n\n**解决建议**：${contradiction.resolution}\n\n---\n*标记日期：${new Date().toISOString().split('T')[0]}*`;
+    const contradictionNote = `\n\n## ⚠️ Potential Contradiction\n\n**Source claim**: ${contradiction.claim}\n\n**Existing view**: ${contradiction.contradicted_by}\n\n**Resolution suggestion**: ${contradiction.resolution}\n\n---\n*Flagged: ${new Date().toISOString().split('T')[0]}*`;
 
     await this.createOrUpdateFile(pagePath, existingContent + contradictionNote);
 
@@ -925,6 +945,7 @@ ${contradiction.source_page}
     const fixedContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 4000,
+      system: await this.buildSystemPrompt('full'),
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -948,6 +969,7 @@ ${contradiction.source_page}
     const response = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 300,
+      system: await this.buildSystemPrompt('lint'),
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' }
     });
@@ -1002,6 +1024,7 @@ created: ${new Date().toISOString().split('T')[0]}
     const filledContent = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 2000,
+      system: await this.buildSystemPrompt('full'),
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -1023,6 +1046,7 @@ created: ${new Date().toISOString().split('T')[0]}
     const response = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 800,
+      system: await this.buildSystemPrompt('lint'),
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' }
     });
@@ -1040,8 +1064,8 @@ created: ${new Date().toISOString().split('T')[0]}
       if (!relatedContent) continue;
 
       if (!relatedContent.includes(related.link_target)) {
-        const section = relatedContent.includes('## 相关页面')
-          ? '' : '\n\n## 相关页面';
+        const section = relatedContent.includes('## Related Pages')
+          ? '' : '\n\n## Related Pages';
         const updated = relatedContent + `${section}\n- ${related.link_text} ${related.link_target}`;
         await this.createOrUpdateFile(fullPath, updated);
       }
@@ -1134,22 +1158,26 @@ created: ${new Date().toISOString().split('T')[0]}
     concepts: TFile[],
     sources: TFile[]
   ): Promise<void> {
+    const lang = this.settings.wikiLanguage || 'en';
+    type LangKey = keyof typeof TEXTS.en.indexLabels;
+    const langKey: LangKey = (lang in TEXTS.en.indexLabels) ? lang as LangKey : 'en';
+    const labels = TEXTS.en.indexLabels[langKey];
     let indexContent = `# Wiki Index\n\n`;
-    indexContent += `> Auto-generated knowledge base directory\n\n`;
+    indexContent += `> ${labels.subtitle}\n\n`;
 
-    indexContent += `## Entities\n\n`;
+    indexContent += `## ${labels.entities}\n\n`;
     for (const file of entities) {
       const summary = await this.getPageSummary(file);
       indexContent += `- [[entities/${file.basename}|${file.basename}]] - ${summary}\n`;
     }
 
-    indexContent += `\n## Concepts\n\n`;
+    indexContent += `\n## ${labels.concepts}\n\n`;
     for (const file of concepts) {
       const summary = await this.getPageSummary(file);
       indexContent += `- [[concepts/${file.basename}|${file.basename}]] - ${summary}\n`;
     }
 
-    indexContent += `\n## Sources\n\n`;
+    indexContent += `\n## ${labels.sources}\n\n`;
     for (const file of sources) {
       indexContent += `- [[sources/${file.basename}|${file.basename}]]\n`;
     }
@@ -1161,25 +1189,29 @@ created: ${new Date().toISOString().split('T')[0]}
   async getPageSummary(file: TFile): Promise<string> {
     const content = await this.app.vault.read(file);
     const lines = content.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('---'));
-    return lines[0]?.substring(0, 100) || '暂无摘要';
+    return lines[0]?.substring(0, 100) || 'No summary';
   }
 
   async updateLog(operation: string, analysis: SourceAnalysis) {
     const logPath = `${this.settings.wikiFolder}/log.md`;
     const date = new Date().toISOString().split('T')[0];
+    const lang = this.settings.wikiLanguage || 'en';
+    type LogLangKey = keyof typeof TEXTS.en.logLabels;
+    const langKey: LogLangKey = (lang in TEXTS.en.logLabels) ? lang as LogLangKey : 'en';
+    const labels = TEXTS.en.logLabels[langKey];
 
     let entry = `\n\n## [${date}] ${operation} | ${analysis.source_title}\n\n`;
-    entry += `**创建页面**：${analysis.created_pages.map(p => `[[${p.replace(this.settings.wikiFolder + '/', '')}]]`).join(', ')}\n\n`;
-    entry += `**更新页面**：${analysis.updated_pages.map(p => `[[${p}]]`).join(', ')}\n\n`;
+    entry += `**${labels.createdPages}**：${analysis.created_pages.map(p => `[[${p.replace(this.settings.wikiFolder + '/', '')}]]`).join(', ')}\n\n`;
+    entry += `**${labels.updatedPages}**：${analysis.updated_pages.map(p => `[[${p}]]`).join(', ')}\n\n`;
 
     if (analysis.contradictions.length > 0) {
-      entry += `**发现矛盾**：\n`;
+      entry += `**${labels.contradictionsFound}**：\n`;
       for (const c of analysis.contradictions) {
         entry += `- ${c.claim} vs ${c.source_page}\n`;
       }
     }
 
-    const existingLog = await this.tryReadFile(logPath) || `# Wiki 操作日志\n\n`;
+    const existingLog = await this.tryReadFile(logPath) || `# Wiki ${lang === 'zh' ? '操作日志' : 'Operation Log'}\n\n`;
     await this.createOrUpdateFile(logPath, existingLog + entry);
   }
 
@@ -1213,11 +1245,7 @@ created: ${new Date().toISOString().split('T')[0]}
         const dedupResult = await this.checkDedup(existingWikiIndex, conversationText);
         if (dedupResult === 'fully_redundant') {
           console.debug('Conversation fully covered by existing Wiki, skipping save');
-          this.onProgress?.(
-            this.settings.language === 'en'
-              ? 'This knowledge already exists in Wiki'
-              : '此对话知识点已存在于 Wiki 中'
-          );
+          this.onProgress?.('This knowledge already exists in Wiki');
           return;
         }
       } catch (error) {
@@ -1225,8 +1253,7 @@ created: ${new Date().toISOString().split('T')[0]}
       }
     }
 
-    const analysisPrompt = this.settings.language === 'en'
-      ? `You are a Wiki knowledge extraction assistant.
+    const analysisPrompt = `You are a Wiki knowledge extraction assistant.
 
 Existing Wiki Index (use this as reference for entity/concept names):
 ${existingWikiIndex}
@@ -1276,64 +1303,12 @@ CRITICAL RULES:
 - concept.name: Same principle - reference Wiki index for concept names
 - mentions_in_source: REQUIRED field - list actual mentions in conversation text
 - If no entities/concepts found, use empty arrays [] (never omit the field)
-- Names should be suitable for [[wiki-links]] referencing (judge appropriate naming based on Wiki index)`
-      : `你是Wiki知识提取助手。
+- Names should be suitable for [[wiki-links]] referencing (judge appropriate naming based on Wiki index)`;
 
-现有Wiki索引（作为实体/概念名称参考）：
-${existingWikiIndex}
-
-用户与AI的对话：
-${conversationText}
-
-将此对话转化为结构化Wiki页面。
-
-重点：
-1. 提取关键知识点（非完整对话日志）
-2. 识别讨论的核心概念和实体
-3. 总结对话主题和结论
-4. 实体/概念名称应尽量匹配现有Wiki页面
-
-实际对话日期：${actualDate}（请使用此日期，不要自己生成）
-
-输出JSON格式：
-{
-  "source_title": "语义化主题标题（不含日期，描述讨论主题）",
-  "summary": "对话主题总结",
-  "entities": [
-    {
-      "name": "简短引用名称",
-      "type": "person|organization|project|other",
-      "summary": "实体信息总结",
-      "mentions_in_source": ["在对话中的具体提及"]
-    }
-  ],
-  "concepts": [
-    {
-      "name": "概念名称",
-      "type": "theory|method|technology|term|other",
-      "summary": "概念定义",
-      "mentions_in_source": ["在对话中的具体提及"],
-      "related_concepts": ["相关概念1", "相关概念2"]
-    }
-  ],
-  "key_points": ["要点1", "要点2"],
-  "created_pages": [],
-  "updated_pages": []
-}
-
-关键规则：
-- source_title：语义化标题，描述讨论主题（不要用日期作为标题）
-- entity.name：从Wiki索引中选择或提取合适名称（与现有Wiki保持一致，便于双向链接引用）
-- concept.name：同理，参考Wiki索引中的概念名称
-- mentions_in_source：必填字段 - 列出在对话中的具体提及内容
-- 如果没有实体/概念，用空数组[]（绝不能省略字段）
-- 名称应简短且便于[[wiki-links]]引用（根据Wiki索引判断合适的命名方式）`;
-
-    const schemaContext = await this.schemaManager.getSchemaContext('conversation');
     const analysis = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 5000,
-      system: schemaContext || undefined,
+      system: await this.buildSystemPrompt('conversation'),
       messages: [{
         role: 'user',
         content: analysisPrompt
@@ -1346,6 +1321,7 @@ ${conversationText}
       return await this.client.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
+        system: await this.buildSystemPrompt('conversation'),
         messages: [{ role: 'user', content: repairPrompt }],
         response_format: { type: 'json_object' }
       });
@@ -1374,29 +1350,29 @@ tags: [${tags}]
 
 # ${parsed.source_title}
 
-## 来源
-- 对话日期：${actualDate}
-- 来源类型：用户查询提炼
-- 语义路径：[[${summaryPath.replace(this.settings.wikiFolder + '/', '')}]]
+## Source
+- Conversation date: ${actualDate}
+- Source type: User query extraction
+- Semantic path: [[${summaryPath.replace(this.settings.wikiFolder + '/', '')}]]
 
-## 核心内容
+## Core Content
 
 ${parsed.summary}
 
-## 关键实体
+## Key Entities
 
 ${parsed.entities.map(e => `- [[entities/${slugify(e.name)}|${e.name}]] - ${e.summary}`).join('\n')}
 
-## 关键概念
+## Key Concepts
 
 ${parsed.concepts.map(c => `- [[concepts/${slugify(c.name)}|${c.name}]] - ${c.summary}`).join('\n')}
 
-## 主要观点
+## Main Points
 
 ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
 
 ---
-更新日期：${actualDate}`;
+Updated: ${actualDate}`;
 
     await this.createOrUpdateFile(summaryPath, summaryContent);
     parsed.created_pages.push(summaryPath);
@@ -1468,6 +1444,7 @@ ${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
     const response = await this.client.createMessage({
       model: this.settings.model,
       max_tokens: 200,
+      system: await this.buildSystemPrompt('conversation'),
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' }
     });

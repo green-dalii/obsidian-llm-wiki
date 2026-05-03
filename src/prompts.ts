@@ -1,103 +1,102 @@
 // LLM prompt templates for Wiki operations
 
 export const PROMPTS = {
-  analyzeSource: `你是一个 Wiki 知识库维护者。请分析以下源文件，并以 JSON 格式输出结构化分析结果。
+  analyzeSource: `You are a Wiki knowledge base maintainer. Analyze the following source file and output structured JSON.
 
-**源文件内容：**
+**Source File Content:**
 {{content}}
 
-**现有 Wiki 页面列表：**
+**Existing Wiki Page List:**
 {{existing_pages}}
 
 {{batch_context}}
 
-**提取范围：**
+**Extraction Scope:**
 {{granularity_instruction}}
 
-**任务要求：**
-0. 输出源文件标题（source_title）和 100-200 字的源文件摘要（summary）。仅在第一轮输出这两个字段
-1. 从源文件中提取尚未被列出过的实体和概念。注意：实体不限于高频出现的人或组织——仅在文中出现一次的重要人物、产品、事件、数据集、代码库等也应提取。不要因为某个实体提及次数少就忽略它，关键看其在文中的重要性而非频次
-2. 本次最多输出 {{batch_size}} 个条目（实体+概念合计）。如果源文件中值得提取的剩余条目不足 {{batch_size}} 个，只输出实际存在的条目
-3. 给每个条目写 2-4 句话的摘要（用于后续页面生成），涵盖：该条目是什么、在源中的重要性、关键属性或论点。务必充分详细，让后续页面生成有足够信息。同时注明在源中的具体提及
-4. 识别与现有 Wiki 的矛盾或冲突（仅在第一轮输出 contradictions）
-5. 找出相关的现有 Wiki 页面（仅在第一轮输出 related_pages）
-6. 生成源文件关键要点（仅在第一轮输出 key_points）
+**Task Requirements:**
+0. Output the source file title (source_title) and a 100-200 word source summary (summary). Only output these two fields in the first round
+1. Extract entities and concepts from the source file that have not already been extracted. Note: Entities are not limited to frequently mentioned people or organizations — important figures, products, events, datasets, codebases etc. that appear only once should also be extracted. Do not skip an entity just because it has few mentions; judge by its importance in the text, not its frequency
+2. Output at most {{batch_size}} items (entities + concepts total) this round. If fewer than {{batch_size}} remaining items are worth extracting, output only what actually exists
+3. Write a 2-4 sentence summary for each item (for downstream page generation), covering: what it is, its importance in the source, key attributes or arguments. Be thorough — provide enough information for downstream page generation. Also note specific mentions in the source
+4. Identify contradictions or conflicts with the existing Wiki (only output contradictions in the first round)
+5. Identify related existing Wiki pages (only output related_pages in the first round)
+6. Generate key points from the source file (only output key_points in the first round)
 
-**输出格式（严格 JSON，只输出 JSON，不要解释文字）：**
+**Output Format (strict JSON, output only JSON, no explanatory text):**
 {
-  "source_title": "源文件标题",
-  "summary": "100-200字的源文件摘要（仅第一轮输出，之后省略）",
+  "source_title": "Source file title",
+  "summary": "100-200 word source summary (first round only, omitted thereafter)",
   "entities": [
     {
-      "name": "实体名称",
-      "type": "person|organization|project|product|event|location|artifact|other",
-      "summary": "该实体的简洁但内容丰富的2-4句话描述，涵盖身份、重要性和关键属性",
-      "mentions_in_source": ["该实体在源中的具体提及"]
+      "name": "Entity name",
+      "type": "person|organization|project|product|event|location|other",
+      "summary": "A concise but informative 2-4 sentence description covering identity, importance, and key attributes",
+      "mentions_in_source": ["Specific mention of this entity in the source"]
     }
   ],
   "concepts": [
     {
-      "name": "概念名称",
+      "name": "Concept name",
       "type": "theory|method|technology|term|other",
-      "summary": "该概念的简洁但内容丰富的2-4句话描述，涵盖定义、重要性和与源中其他概念的关系",
-      "mentions_in_source": ["该概念在源中的具体提及"],
-      "related_concepts": ["相关概念名称"]
+      "summary": "A concise but informative 2-4 sentence description covering definition, importance, and relationship to other concepts in the source",
+      "mentions_in_source": ["Specific mention of this concept in the source"],
+      "related_concepts": ["Related concept names"]
     }
   ],
   "contradictions": [
     {
-      "claim": "源文件声称的内容",
-      "source_page": "矛盾的现有 Wiki 页面 [[page-name]]",
-      "contradicted_by": "该页面声称的内容",
-      "resolution": "建议的解决方式"
+      "claim": "What the source file claims",
+      "source_page": "Conflicting existing Wiki page [[page-name]]",
+      "contradicted_by": "What that page claims",
+      "resolution": "Suggested resolution"
     }
   ],
-  "related_pages": ["相关的现有 Wiki 页面名称"],
-  "key_points": ["关键要点1", "关键要点2"]
+  "related_pages": ["Related existing Wiki page names"],
+  "key_points": ["Key point 1", "Key point 2"]
 }
 
-**实体识别指南：**
-- person：个人（作者、研究者、历史人物等）
-- organization：组织/机构（公司、学校、团队、部门等）
-- project：项目/计划/倡议
-- product：产品/工具/软件/服务/著作
-- event：事件/会议/里程碑/历史事件
-- location：地点/区域/地理概念
-- artifact：文档/数据集/代码库/标准/协议等具体产出物
-- other：其他不适合归入概念类的具体存在
+**Entity Recognition Guide:**
+- person: individual (author, researcher, historical figure, etc.)
+- organization: organization/institution (company, school, team, department, etc.)
+- project: project/initiative/program
+- product: product/tool/software/service/publication
+- event: event/conference/milestone/historical occurrence
+- location: place/region/geographic concept
+- other: other concrete entities not fitting the concept category
 
-**重要规则：**
-- 只输出 JSON，不要其他内容
-- 实体和概念名称使用英文或中文，但保持一致
-- 每个实体和概念都应该在 Wiki 中有独立页面
-- 矛盾检测要仔细对比现有内容
-- related_pages 应是现有 Wiki 中实际存在的页面
-- 输出必须是有效 JSON 格式
-- 不要重复"已提取列表"中的任何条目。如果源文件没有更多未提取的条目，entities 和 concepts 返回空数组 []`,
+**Important Rules:**
+- Output ONLY JSON, nothing else
+- Entity and concept names should use the wiki's configured output language, and be consistent
+- Each entity and concept should have its own independent Wiki page
+- Carefully compare against existing content when detecting contradictions
+- related_pages should be pages that actually exist in the current Wiki
+- Output must be valid JSON format
+- Do NOT repeat any item already in the "extracted list". If no unextracted items remain in the source, return empty arrays [] for entities and concepts`,
 
-  generateEntityPage: `你是一个 Wiki 知识库维护者。请为以下实体创建一个 Wiki 页面。
+  generateEntityPage: `You are a Wiki knowledge base maintainer. Create a Wiki page for the following entity.
 
-**实体信息：**
-- 名称：{{entity_name}}
-- 类型：{{entity_type}}
-- 摘要：{{entity_summary}}
-- 在源中的提及：{{mentions}}
+**Entity Information:**
+- Name: {{entity_name}}
+- Type: {{entity_type}}
+- Summary: {{entity_summary}}
+- Mentions in source: {{mentions}}
 
-**现有 Wiki 页面（引用时必须使用以下完整路径）：**
+**Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}
 
-**现有 Wiki 中相关内容：**
+**Existing Related Content in Wiki:**
 {{related_content}}
 
 {{merge_strategy}}
 
-**任务要求：**
-1. 创建实体页面，包含基本信息和关键信息
-2. 引用其他页面时，必须使用上面"现有 Wiki 页面"列表中提供的完整路径格式（如 [[entities/Page-Name|Page Name]]）
-3. 如果 Wiki 中已有该实体，使用上面的合并策略进行智能合并
-4. 保持客观、准确、简洁
+**Task Requirements:**
+1. Create an entity page with basic and key information
+2. When referencing other pages, use the exact full path format from the "Existing Wiki Pages" list above (e.g. [[entities/Page-Name|Page Name]])
+3. If the entity already exists in the Wiki, use the merge strategy above for intelligent merging
+4. Be objective, accurate, and concise
 
-**输出格式：**
+**Output Format:**
 ---
 type: entity
 created: {{date}}
@@ -107,49 +106,49 @@ tags: [{{tags}}]
 
 # {{entity_name}}
 
-## 基本信息
-- 类型：{{entity_type}}
-- 来源：[[{{source_file}}]]
+## Basic Information
+- Type: {{entity_type}}
+- Source: [[{{source_file}}]]
 
-## 描述
-[实体的详细描述，包含双向链接]
+## Description
+[Detailed description of the entity with bidirectional links]
 
-## 相关内容
-[引用相关概念和实体，使用上述列表中的完整路径]
+## Related Content
+[Reference related concepts and entities using full paths from the list above]
 
-## 在源中的提及
-- [具体提及内容]
+## Mentions in Source
+- [Specific mention content]
 
 ---
-更新日期：{{date}}`,
+Updated: {{date}}`,
 
   // Variant used when the existing page has `reviewed: true` in frontmatter.
   // The LLM must treat the human-edited content as authoritative and only
   // append genuinely new information from the latest source.
-  preserveReviewedEntityPage: `你是一个 Wiki 知识库维护者。以下实体页面已被用户手动审阅（reviewed: true）。
+  preserveReviewedEntityPage: `You are a Wiki knowledge base maintainer. The following entity page has been manually reviewed by the user (reviewed: true).
 
-**⚠️ 重要：用户审阅的内容必须完整保留，不得删除或改写。**
+**⚠️ Important: User-reviewed content must be fully preserved. Do NOT delete or rewrite.**
 
-**实体信息（来自新源文件）：**
-- 名称：{{entity_name}}
-- 类型：{{entity_type}}
-- 摘要：{{entity_summary}}
-- 在源中的提及：{{mentions}}
+**Entity Information (from new source file):**
+- Name: {{entity_name}}
+- Type: {{entity_type}}
+- Summary: {{entity_summary}}
+- Mentions in source: {{mentions}}
 
-**现有 Wiki 页面（引用时必须使用以下完整路径）：**
+**Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}
 
-**用户已审阅的现有页面内容（必须完整保留）：**
+**User-Reviewed Existing Page Content (MUST be fully preserved):**
 {{related_content}}
 
-**任务要求：**
-1. **完整保留**用户审阅过的所有内容，不得删除或改写任何段落
-2. 只在页面末尾的"新信息"部分添加来自新源文件的、与现有内容不重复的信息
-3. 如果新信息与现有内容重复或矛盾，不要添加，保持用户原有版本
-4. frontmatter 中必须保留 reviewed: true
-5. 引用其他页面时，使用上面列表中的完整路径格式
+**Task Requirements:**
+1. **Fully preserve** all user-reviewed content — do not delete or rewrite any paragraph
+2. Only add non-duplicate information from the new source at the end in a "New Information" section
+3. If new information duplicates or contradicts existing content, do NOT add it; keep the user's version
+4. The frontmatter MUST retain reviewed: true
+5. When referencing other pages, use the full path format from the list above
 
-**输出格式：**
+**Output Format:**
 ---
 type: entity
 created: {{date}}
@@ -158,40 +157,40 @@ tags: [{{tags}}]
 reviewed: true
 ---
 
-[完整保留用户审阅的现有内容]
+[Fully preserve user-reviewed existing content here]
 
-## 新信息（{{date}}）
-[仅添加不重复的新信息，如无新信息则写"无新增信息"]
+## New Information ({{date}})
+[Only add non-duplicate new information; write "No new information" if none]
 
 ---
-更新日期：{{date}}`,
+Updated: {{date}}`,
 
   // Variant used when the existing concept page has `reviewed: true` in frontmatter.
-  preserveReviewedConceptPage: `你是一个 Wiki 知识库维护者。以下概念页面已被用户手动审阅（reviewed: true）。
+  preserveReviewedConceptPage: `You are a Wiki knowledge base maintainer. The following concept page has been manually reviewed by the user (reviewed: true).
 
-**⚠️ 重要：用户审阅的内容必须完整保留，不得删除或改写。**
+**⚠️ Important: User-reviewed content must be fully preserved. Do NOT delete or rewrite.**
 
-**概念信息（来自新源文件）：**
-- 名称：{{concept_name}}
-- 类型：{{concept_type}}
-- 摘要：{{concept_summary}}
-- 在源中的提及：{{mentions}}
-- 相关概念：{{related_concepts}}
+**Concept Information (from new source file):**
+- Name: {{concept_name}}
+- Type: {{concept_type}}
+- Summary: {{concept_summary}}
+- Mentions in source: {{mentions}}
+- Related concepts: {{related_concepts}}
 
-**现有 Wiki 页面（引用时必须使用以下完整路径）：**
+**Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}
 
-**用户已审阅的现有页面内容（必须完整保留）：**
+**User-Reviewed Existing Page Content (MUST be fully preserved):**
 {{related_content}}
 
-**任务要求：**
-1. **完整保留**用户审阅过的所有内容，不得删除或改写任何段落
-2. 只在页面末尾的"新信息"部分添加来自新源文件的、与现有内容不重复的信息
-3. 如果新信息与现有内容重复或矛盾，不要添加，保持用户原有版本
-4. frontmatter 中必须保留 reviewed: true
-5. 引用其他页面时，使用上面列表中的完整路径格式
+**Task Requirements:**
+1. **Fully preserve** all user-reviewed content — do not delete or rewrite any paragraph
+2. Only add non-duplicate information from the new source at the end in a "New Information" section
+3. If new information duplicates or contradicts existing content, do NOT add it; keep the user's version
+4. The frontmatter MUST retain reviewed: true
+5. When referencing other pages, use the full path format from the list above
 
-**输出格式：**
+**Output Format:**
 ---
 type: concept
 created: {{date}}
@@ -200,38 +199,38 @@ tags: [{{tags}}]
 reviewed: true
 ---
 
-[完整保留用户审阅的现有内容]
+[Fully preserve user-reviewed existing content here]
 
-## 新信息（{{date}}）
-[仅添加不重复的新信息，如无新信息则写"无新增信息"]
+## New Information ({{date}})
+[Only add non-duplicate new information; write "No new information" if none]
 
 ---
-更新日期：{{date}}`,
+Updated: {{date}}`,
 
-  generateConceptPage: `你是一个 Wiki 知识库维护者。请为以下概念创建一个 Wiki 页面。
+  generateConceptPage: `You are a Wiki knowledge base maintainer. Create a Wiki page for the following concept.
 
-**概念信息：**
-- 名称：{{concept_name}}
-- 类型：{{concept_type}}
-- 摘要：{{concept_summary}}
-- 在源中的提及：{{mentions}}
-- 相关概念：{{related_concepts}}
+**Concept Information:**
+- Name: {{concept_name}}
+- Type: {{concept_type}}
+- Summary: {{concept_summary}}
+- Mentions in source: {{mentions}}
+- Related concepts: {{related_concepts}}
 
-**现有 Wiki 页面（引用时必须使用以下完整路径）：**
+**Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}
 
-**现有 Wiki 中相关内容：**
+**Existing Related Content in Wiki:**
 {{related_content}}
 
 {{merge_strategy}}
 
-**任务要求：**
-1. 创建概念页面，包含定义、特点、应用等
-2. 引用其他页面时，必须使用上面"现有 Wiki 页面"列表中提供的完整路径格式（如 [[concepts/Page-Name|Page Name]]）
-3. 如果 Wiki 中已有该概念，使用上面的合并策略进行智能合并
-4. 保持客观、准确、简洁
+**Task Requirements:**
+1. Create a concept page including definition, characteristics, and applications
+2. When referencing other pages, use the exact full path format from the "Existing Wiki Pages" list above (e.g. [[concepts/Page-Name|Page Name]])
+3. If the concept already exists in the Wiki, use the merge strategy above for intelligent merging
+4. Be objective, accurate, and concise
 
-**输出格式：**
+**Output Format:**
 ---
 type: concept
 created: {{date}}
@@ -241,42 +240,42 @@ tags: [{{tags}}]
 
 # {{concept_name}}
 
-## 定义
-[概念的清晰定义]
+## Definition
+[Clear definition of the concept]
 
-## 关键特征
-- 特征1
-- 特征2
+## Key Characteristics
+- Characteristic 1
+- Characteristic 2
 
-## 应用场景
-[概念的应用场景]
+## Applications
+[Application scenarios for the concept]
 
-## 相关概念
-[引用相关概念，使用上述列表中的完整路径]
+## Related Concepts
+[Reference related concepts using full paths from the list above]
 
-## 相关实体
-[引用相关实体，使用上述列表中的完整路径]
+## Related Entities
+[Reference related entities using full paths from the list above]
 
 ---
-更新日期：{{date}}`,
+Updated: {{date}}`,
 
-  generateSummaryPage: `你是一个 Wiki 知识库维护者。请为以下源文件创建摘要页面。
+  generateSummaryPage: `You are a Wiki knowledge base maintainer. Create a summary page for the following source file.
 
-**源文件信息：**
-- 标题：{{source_title}}
-- 内容：{{content}}
-- 分析结果：{{analysis}}
+**Source File Information:**
+- Title: {{source_title}}
+- Content: {{content}}
+- Analysis Results: {{analysis}}
 
-**所有已创建的 Wiki 页面（引用时必须使用以下完整路径）：**
+**All Created Wiki Pages (use these exact full paths when referencing):**
 {{created_pages_list}}
 
-**任务要求：**
-1. 创建简洁的摘要页面
-2. 引用实体和概念时，必须使用上面"所有已创建的 Wiki 页面"列表中提供的完整路径格式
-3. 突出关键要点
-4. 保持客观、准确
+**Task Requirements:**
+1. Create a concise summary page
+2. When referencing entities and concepts, use the exact full path format from the "All Created Wiki Pages" list above
+3. Highlight key points
+4. Be objective and accurate
 
-**输出格式：**
+**Output Format:**
 ---
 type: source
 created: {{date}}
@@ -284,27 +283,27 @@ source_file: "[[{{source_file}}]]"
 tags: [{{tags}}]
 ---
 
-# {{source_title}} - 摘要
+# {{source_title}} - Summary
 
-## 来源
-- 原始文件：[[{{source_file}}]]
-- 摄入日期：{{date}}
+## Source
+- Original file: [[{{source_file}}]]
+- Ingested: {{date}}
 
-## 核心内容
-[100-200字的摘要，包含双向链接]
+## Core Content
+[100-200 word summary with bidirectional links]
 
-## 关键实体
-[引用实体，使用上述列表中的完整路径]
+## Key Entities
+[Reference entities using full paths from the list above]
 
-## 关键概念
-[引用概念，使用上述列表中的完整路径]
+## Key Concepts
+[Reference concepts using full paths from the list above]
 
-## 主要观点
-- 观点1
-- 观点2
+## Main Points
+- Point 1
+- Point 2
 
 ---
-更新日期：{{date}}`,
+Updated: {{date}}`,
 
   suggestSchemaUpdate: `You are a Wiki Schema advisor. Review the current schema and the latest ingestion analysis.
 
@@ -338,157 +337,157 @@ Output ONLY the JSON, no other text.`,
 
   // Multi-Source Knowledge Fusion: structured merge analysis
   // Called before page generation when a page already exists with substantial content.
-  mergeAnalysis: `你是一个 Wiki 知识融合分析器。对比现有 Wiki 页面内容和新源文件信息，输出结构化合并策略。
+  mergeAnalysis: `You are a Wiki knowledge fusion analyzer. Compare existing Wiki page content with new source file information, and output a structured merge strategy.
 
-**页面名称：** {{page_name}}
-**页面类型：** entity 或 concept
+**Page Name:** {{page_name}}
+**Page Type:** entity or concept
 
-**现有页面内容：**
+**Existing Page Content:**
 {{existing_content}}
 
-**新源文件提取的信息：**
+**New Information from Source File:**
 {{new_info}}
 
-**任务：**
-1. 逐条对比新信息与现有内容
-2. 将每条新信息分类为：
-   - "new" — 完全新的信息，现有页面中没有
-   - "duplicate" — 与现有内容重复，不需要添加
-   - "complementary" — 补充现有内容（同一话题的额外细节）
-   - "contradictory" — 与现有内容矛盾
-3. 对于 "complementary" 信息，指定应插入现有页面的哪个章节之后
-4. 对于 "contradictory" 信息，记录具体矛盾点
+**Task:**
+1. Compare each piece of new information against the existing content
+2. Classify each piece of new information as:
+   - "new" — completely new information not in the existing page
+   - "duplicate" — duplicates existing content; no need to add
+   - "complementary" — supplements existing content (additional detail on the same topic)
+   - "contradictory" — contradicts existing content
+3. For "complementary" information, specify which section of the existing page it should be inserted after
+4. For "contradictory" information, document the specific contradiction
 
-输出 JSON 格式：
+Output JSON format:
 {
   "merge_items": [
     {
-      "content": "新信息的具体内容",
+      "content": "Specific content of the new information",
       "classification": "new|duplicate|complementary|contradictory",
-      "target_section": "应插入的章节名（仅 new 和 complementary 需要）",
-      "reason": "分类理由（一句话）"
+      "target_section": "Section name to insert after (only for new and complementary)",
+      "reason": "Reason for classification (one sentence)"
     }
   ],
   "contradictions": [
     {
-      "claim": "新信息声称的内容",
-      "existing_claim": "现有页面中矛盾的内容",
-      "resolution": "建议处理方式"
+      "claim": "What the new information claims",
+      "existing_claim": "Contradictory content in the existing page",
+      "resolution": "Suggested resolution"
     }
   ],
-  "merge_summary": "合并策略总结（一句话）"
+  "merge_summary": "Merge strategy summary (one sentence)"
 }
 
-规则：
-- 只输出 JSON，不要其他内容
-- 现有内容中的观点优先于新信息（除非新信息明显更准确）
-- 不要删除或改写现有内容的任何部分`,
+Rules:
+- Output ONLY JSON, nothing else
+- Existing content takes priority over new information (unless the new information is clearly more accurate)
+- Do NOT delete or rewrite any part of the existing content`,
 
-  evaluateConversationValue: `你是 Wiki 知识评估助手。判断以下对话是否包含值得保存到 Wiki 的实质性知识。
+  evaluateConversationValue: `You are a Wiki knowledge evaluation assistant. Determine whether the following conversation contains substantive knowledge worth saving to the Wiki.
 
-对话内容：
+Conversation Content:
 {{conversation}}
 
-判断标准：
-- 包含具体的概念解释、分析或事实性信息（非简单闲聊）
-- 对话内容可提炼为结构化的 Wiki 条目
-- 信息具有参考价值，未来可能被再次查阅
+Evaluation Criteria:
+- Contains specific concept explanations, analysis, or factual information (not just casual chat)
+- The conversation content can be distilled into structured Wiki entries
+- The information has reference value and may be consulted again in the future
 
-输出 JSON 格式：
-{"valuable": true/false, "reason": "判断理由（一句话）"}`,
+Output JSON format:
+{"valuable": true/false, "reason": "Reason for judgment (one sentence)"}`,
 
-  dedupCheck: `你是 Wiki 知识去重助手。判断对话内容是否已被现有 Wiki 页面覆盖。
+  dedupCheck: `You are a Wiki knowledge deduplication assistant. Determine whether the conversation content is already covered by existing Wiki pages.
 
-现有 Wiki 页面索引：
+Existing Wiki Page Index:
 {{wiki_index}}
 
-对话摘要：
+Conversation Summary:
 {{conversation_summary}}
 
-任务：
-1. 分析对话涉及的知识主题
-2. 判断这些主题是否已存在于上述 Wiki 页面中
-3. 如果全部主题已被覆盖（语义相同或高度相似），标记为 fully_redundant
-4. 如果部分主题是新的，标记为 partially_new 并列出新主题
+Task:
+1. Analyze the knowledge topics covered in the conversation
+2. Determine whether these topics already exist in the above Wiki pages
+3. If all topics are already covered (semantically identical or highly similar), mark as fully_redundant
+4. If some topics are new, mark as partially_new and list the new topics
 
-输出 JSON 格式：
-{"status": "fully_redundant|partially_new|entirely_new", "new_topics": ["新主题1"], "redundant_topics": ["已覆盖主题1"], "reason": "判断理由（一句话）"}`,
+Output JSON format:
+{"status": "fully_redundant|partially_new|entirely_new", "new_topics": ["new topic 1"], "redundant_topics": ["covered topic 1"], "reason": "Reason for judgment (one sentence)"}`,
 
-  resolveContradiction: `你是 Wiki 矛盾解决助手。根据矛盾记录和受影响页面内容，生成修复后的页面。
+  resolveContradiction: `You are a Wiki contradiction resolution assistant. Generate a repaired page based on the contradiction record and affected page content.
 
-受影响页面内容：
+Affected Page Content:
 {{existing_content}}
 
-矛盾记录：
+Contradiction Record:
 {{contradiction_content}}
 
-任务：
-1. 分析矛盾的双方观点
-2. 调和矛盾：保留正确的信息，标注疑似的错误信息
-3. 如果是事实性矛盾，选择更可靠或更新的来源
-4. 如果是视角差异，保留双方观点并注明不同立场
+Task:
+1. Analyze both sides of the contradiction
+2. Reconcile: preserve correct information, annotate suspected incorrect information
+3. For factual contradictions, choose the more reliable or newer source
+4. For perspective differences, preserve both viewpoints and note the different standpoints
 
-重要规则：
-- 不要删除任何现有内容
-- 在受影响页面末尾添加 "## 已解决矛盾" 章节，说明处理方式和理由
-- 保持页面整体结构不变，只在矛盾相关部分进行调整
-- 输出完整的修复后页面内容（不要只输出修改部分）
-- 不要输出任何解释性文字，直接输出 Markdown 格式的页面内容`,
+Important Rules:
+- Do NOT delete any existing content
+- Add a "## Resolved Contradictions" section at the end of the affected page, explaining the resolution approach and reasoning
+- Keep the overall page structure intact; only adjust contradiction-related parts
+- Output the complete repaired page content (not just the modified parts)
+- Do NOT output any explanatory text; directly output Markdown-formatted page content`,
 
-  fixDeadLink: `你是 Wiki 断链修复助手。分析断链并根据情况修复。
+  fixDeadLink: `You are a Wiki dead link repair assistant. Analyze the dead link and repair it based on the situation.
 
-断链来源页面：
+Dead Link Source Page:
 {{source_content}}
 
-断链目标（链接文本）：
+Dead Link Target (link text):
 {{target_name}}
 
-Wiki 现有页面列表：
+Existing Wiki Page List:
 {{existing_pages}}
 
-任务：
-1. 在现有页面列表中搜索与目标相似度最高的页面（判断语义相似）
-2. 如果找到匹配页面：输出正确的 [[wiki/entities/page-name]] 或 [[wiki/concepts/page-name]] 链接
-3. 如果未找到匹配：输出适合作为新页面标题的简洁名称
+Task:
+1. Search the existing page list for the page most similar to the target (based on semantic similarity)
+2. If a matching page is found: output the correct [[entities/page-name]] or [[concepts/page-name]] link
+3. If no match is found: output a concise name suitable as a new page title
 
-输出 JSON 格式：
-{"action": "correct|create_stub", "correct_link": "修正后的链接（action=correct时）", "stub_title": "新页面标题（action=create_stub时）", "stub_type": "entity|concept", "reason": "判断理由（一句话）"}`,
+Output JSON format:
+{"action": "correct|create_stub", "correct_link": "Corrected link (when action=correct)", "stub_title": "New page title (when action=create_stub)", "stub_type": "entity|concept", "reason": "Reason for judgment (one sentence)"}`,
 
-  fillEmptyPage: `你是 Wiki 页面扩充助手。为以下内容不足的 Wiki 页面生成内容。
+  fillEmptyPage: `You are a Wiki page expansion assistant. Generate content for the following under-populated Wiki page.
 
-页面路径：{{page_path}}
-页面类型（entities/concepts/sources）：{{page_type}}
+Page Path: {{page_path}}
+Page Type (entities/concepts/sources): {{page_type}}
 
-现有内容：
+Existing Content:
 {{existing_content}}
 
-Wiki 索引（参考背景）：
+Wiki Index (background reference):
 {{wiki_index}}
 
-任务：
-1. 根据页面类型和标题生成合适的内容（150-300字）
-2. entities 类型：描述该实体的定义、相关背景、与其他实体的关系
-3. concepts 类型：解释该概念的定义、应用场景、相关概念
-4. sources 类型：总结该来源的核心观点和贡献
-5. 使用 [[wiki-links]] 链接到相关页面
-6. 保留现有内容的任何 frontmatter 和已有文字
+Task:
+1. Generate appropriate content (150-300 words) based on the page type and title
+2. entities type: describe the entity's definition, relevant background, and relationships with other entities
+3. concepts type: explain the concept's definition, application scenarios, and related concepts
+4. sources type: summarize the source's core viewpoints and contributions
+5. Use [[wiki-links]] to link to related pages
+6. Preserve any existing frontmatter and text
 
-输出格式：直接输出完整的 Markdown 页面内容（不要输出解释文字）`,
+Output format: directly output the complete Markdown page content (do not output explanatory text)`,
 
-  linkOrphanPage: `你是 Wiki 链接修复助手。为孤立页面在相关页面中建立反向链接。
+  linkOrphanPage: `You are a Wiki link repair assistant. Establish backlinks to an orphan page from relevant pages.
 
-孤立页面：
+Orphan Page:
 {{orphan_content}}
 
-Wiki 索引：
+Wiki Index:
 {{wiki_index}}
 
-任务：
-1. 分析孤立页面的主题
-2. 从 Wiki 索引中选出 1-3 个与此页面最相关的现有页面
-3. 为每个相关页面生成建议添加的链接文本（一句话描述 + [[wiki-link]]）
+Task:
+1. Analyze the orphan page's topic
+2. Select 1-3 most relevant existing pages from the Wiki index
+3. For each relevant page, generate a suggested link text (one sentence description + wiki-link)
 
-输出 JSON 格式：
-{"related_pages": [{"page_path": "wiki/entities/xxx.md", "link_text": "描述此关联的一句话", "link_target": "[[entities/orphan-name]]"}], "reason": "关联理由"}`,
+Output JSON format:
+{"related_pages": [{"page_path": "wiki/entities/xxx.md", "link_text": "One sentence describing this connection", "link_target": "[[entities/orphan-name]]"}], "reason": "Connection rationale"}`,
 
 };

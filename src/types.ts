@@ -15,7 +15,7 @@ export interface SourceAnalysis {
 
 export interface EntityInfo {
   name: string;
-  type: 'person' | 'organization' | 'project' | 'product' | 'event' | 'location' | 'artifact' | 'other';
+  type: 'person' | 'organization' | 'project' | 'product' | 'event' | 'location' | 'other';
   summary: string;
   mentions_in_source: string[];
 }
@@ -73,6 +73,8 @@ export interface LLMWikiSettings {
   model: string;
   wikiFolder: string;
   language: 'en' | 'zh';
+  wikiLanguage: string;
+  useCustomWikiLanguage?: boolean;
   availableModels?: string[];
   useCustomModel?: boolean;
   maxConversationHistory: number;
@@ -150,6 +152,19 @@ export interface LLMClient {
 
   listModels?(): Promise<string[]>;
 }
+
+// Wiki output language options
+
+export const WIKI_LANGUAGES: Record<string, string> = {
+  'en': 'English',
+  'zh': '中文',
+  'ja': '日本語',
+  'ko': '한국어',
+  'de': 'Deutsch',
+  'fr': 'Français',
+  'es': 'Español',
+  'pt': 'Português',
+};
 
 // Predefined LLM provider configurations
 
@@ -297,6 +312,8 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   model: 'claude-sonnet-4-6',
   wikiFolder: 'wiki',
   language: 'en',
+  wikiLanguage: 'en',
+  useCustomWikiLanguage: false,
   availableModels: [],
   useCustomModel: false,
   maxConversationHistory: 30,

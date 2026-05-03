@@ -125,7 +125,14 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const savedData = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
+
+    // Backward compatibility: if wikiLanguage was never set, inherit from existing language setting
+    if (savedData && !savedData.wikiLanguage) {
+      this.settings.wikiLanguage = this.settings.language;
+      await this.saveData(this.settings);
+    }
   }
 
   async saveSettings() {

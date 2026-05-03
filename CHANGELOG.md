@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.5] - 2026-05-03
+
+### Added
+- **Wiki Output Language**: 8-language dropdown (`en`/`zh`/`ja`/`ko`/`de`/`fr`/`es`/`pt`) with custom input fallback; Wiki content language is now independent of UI language via `wikiLanguage` setting
+
+### Changed
+- **System prompt language directive architecture**: `buildWikiLanguageDirective()` injects `IMPORTANT: You MUST write ALL content in <language>` at the beginning of every LLM system prompt, governing all page titles, summaries, descriptions, and labels
+- **All LLM-facing prompts converted to English**: granularity instructions, batch context, merge strategies, page templates, contradiction notes, and index labels are now in English — using the standard LLM training pattern of "English instruction + target language output" to prevent user-prompt language from overriding the system directive
+- **Belt-and-suspenders language reinforcement**: `finalPrompt` appends a `CRITICAL LANGUAGE REQUIREMENT` hint at the end of the analyzeSource user prompt, ensuring the language directive is present in both system and user prompts
+- **Query engine language alignment**: `buildWikiContext()` now emits language directive in system prompt; Chinese examples replaced with English
+- **Backward-compatible migration**: existing installations with `wikiLanguage` not set inherit from `language` setting automatically
+
+### Removed
+- **"artifact" entity type**: removed from entity extraction (`person|organization|project|product|event|location|other`); type was too vague and produced hollow/generic pages
+
 ## [1.6.4] - 2026-05-02
 
 ### Added
