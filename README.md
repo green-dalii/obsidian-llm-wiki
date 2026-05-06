@@ -4,7 +4,7 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Author:** Greener-Dalii | **Version:** 1.4.0
+**Author:** Greener-Dalii | **Version:** 1.7.0
 
 [English](README.md) | [中文文档](README_CN.md) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
@@ -39,11 +39,17 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 ## Features
 
 - **Multi-Provider LLM Support** — Anthropic (Claude), Anthropic Compatible (Coding Plan), Google Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, and custom OpenAI-compatible endpoints
+- **Wiki Output Language** — 8-language output (EN/ZH/JA/KO/DE/FR/ES/PT) independent of UI language, with custom input fallback
 - **Internationalization** — English and Chinese UI (default: English)
 - **Schema Layer** — Structured configuration (`wiki/schema/config.md`) injected into all LLM prompts for consistent, high-quality Wiki output
 - **Intelligent Ingestion** — Auto-extract entities and concepts from source notes, generate structured Wiki pages with bidirectional `[[wiki-links]]`
+- **Content Truncation Protection** — 8000 max_tokens for all page generation, `stop_reason`/`finish_reason` detection with automatic retry at 2x tokens across all LLM providers
+- **Iterative Batch Extraction** — Batched entity/concept extraction with adaptive batch sizing eliminates the max_tokens bottleneck for long sources
 - **Smart Knowledge Fusion** — When updating existing pages, LLM analyzes new vs. existing content, detects duplicates and contradictions, and performs structured incremental merge
 - **Conversational Query** — ChatGPT-style dialog with streaming Markdown responses, multi-turn history, and optional Wiki saving
+- **Query-to-Wiki Feedback** — 3-stage value assessment on query close with semantic dedup before saving conversations to Wiki
+- **Lint AI Auto-Fix** — Per-item fix buttons for dead links, empty pages, and orphan pages in LintReportModal
+- **Contradiction State Machine** — `detected → review_ok → resolved` (AI fix) or `detected → pending_fix` (manual)
 - **Auto Maintenance** — File watcher for automatic ingestion, periodic lint scheduling (hourly/daily/weekly), startup health check
 - **Knowledge Graph** — Visualize entity/concept relationships in Obsidian's Graph View
 - **Auto Index** — `index.md` and `log.md` maintained automatically with hierarchical (by-tag) organization
@@ -190,6 +196,8 @@ wiki/        # LLM-generated Wiki pages
   ↓ query / maintain
 schema/      # Wiki structure configuration (naming, templates, categories)
 ```
+
+**Modular codebase** (`src/`): `wiki/` (engine, query, ingest, lint, page-factory), `schema/` (schema-manager, auto-maintain), `ui/` (settings, modals), plus shared `llm-client.ts`, `prompts.ts`, `texts.ts` (i18n).
 
 **Generated pages:**
 - `wiki/sources/filename.md` — Source summary
