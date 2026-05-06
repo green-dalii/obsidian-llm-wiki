@@ -504,7 +504,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         dropdown.addOption('standard', this.getText('extractionGranularityStandard'));
         dropdown.addOption('coarse', this.getText('extractionGranularityCoarse'));
         dropdown.setValue(this.tempSettings.extractionGranularity || 'standard');
-        dropdown.onChange(async (value: string) => {
+        dropdown.onChange((value: string) => {
           this.tempSettings.extractionGranularity = value as 'fine' | 'standard' | 'coarse';
         });
       });
