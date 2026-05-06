@@ -66,43 +66,44 @@ export default class LLMWikiPlugin extends Plugin {
       void this.autoMaintainManager.runStartupCheck();
     }
 
-    // 注册命令
+    // Register commands (names use i18n — won't update until plugin reload)
+    const t = TEXTS[this.settings.language];
     this.addCommand({
       id: 'ingest-source',
-      name: 'Ingest single source',
+      name: t.cmdIngestSource,
       callback: () => this.selectSourceToIngest()
     });
 
     this.addCommand({
       id: 'ingest-folder',
-      name: 'Ingest from folder',
+      name: t.cmdIngestFolder,
       callback: () => this.selectFolderToIngest()
     });
 
     this.addCommand({
       id: 'query-wiki',
-      name: 'Query wiki',
+      name: t.cmdQueryWiki,
       callback: () => this.queryWiki()
     });
 
     this.addCommand({
       id: 'lint-wiki',
-      name: 'Lint wiki',
+      name: t.cmdLintWiki,
       callback: () => this.lintWiki()
     });
 
     this.addCommand({
       id: 'regenerate-index',
-      name: 'Regenerate index',
+      name: t.cmdRegenerateIndex,
       callback: () => {
         void (async () => {
-          new Notice('Regenerating index...');
+          new Notice(t.cmdRegenerateIndex + '...');
           try {
             await this.wikiEngine.generateIndexFromEngine();
-            new Notice('Index regenerated successfully.');
+            new Notice(t.cmdRegenerateIndex + ' ' + 'completed.');
           } catch (err) {
             console.error('Regenerate index failed:', err);
-            new Notice(`Failed to regenerate index: ${err instanceof Error ? err.message : String(err)}`);
+            new Notice(`Failed: ${err instanceof Error ? err.message : String(err)}`);
           }
         })();
       }
@@ -110,7 +111,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addCommand({
       id: 'suggest-schema-update',
-      name: 'Suggest schema updates',
+      name: t.cmdSuggestSchema,
       callback: () => this.suggestSchemaUpdate()
     });
 
@@ -213,7 +214,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   selectSourceToIngest() {
     if (!this.llmClient) {
-      new Notice('Please configure API key first');
+      new Notice(TEXTS[this.settings.language].errorNoApiKey);
       return;
     }
 
@@ -224,7 +225,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   selectFolderToIngest() {
     if (!this.llmClient) {
-      new Notice('Please configure API key first');
+      new Notice(TEXTS[this.settings.language].errorNoApiKey);
       return;
     }
 
@@ -240,12 +241,12 @@ export default class LLMWikiPlugin extends Plugin {
       }
 
       const totalFiles = files.length;
-      let successCount = 0;
-      let failedCount = 0;
-      const failedFiles: string[] = [];
+      const reports: IngestReport[] = [];
 
-      // Suppress per-file modal + progress dismissal during batch
-      this.wikiEngine.setDoneCallback(() => {});
+      // Collect per-file reports for aggregated summary
+      this.wikiEngine.setDoneCallback((report: IngestReport) => {
+        reports.push(report);
+      });
 
       this.showProgress(`[0/${totalFiles}] Starting...`);
 
@@ -258,30 +259,45 @@ export default class LLMWikiPlugin extends Plugin {
           await this.wikiEngine.ingestSource(file);
           console.debug(`(${i + 1}/${totalFiles}) 摄入成功: ${file.path}`);
         } catch (error) {
-          failedCount++;
-          failedFiles.push(file.path);
           console.error(`(${i + 1}/${totalFiles}) 摄入失败: ${file.path}`, error);
         }
       }
 
-      // Restore single-file report callback
+      // Restore normal single-file report callback
       this.wikiEngine.setDoneCallback((report: IngestReport) => this.onIngestDone(report));
 
       this.dismissProgress();
 
-      // Batch summary
-      const texts = TEXTS[this.settings.language];
-      const summary = texts.batchIngestComplete
-        .replace('{success}', successCount.toString())
-        .replace('{total}', totalFiles.toString())
-        .replace('{fail}', failedCount.toString());
-      new Notice(summary, 10000);
-      console.debug(summary);
+      // Aggregate reports
+      if (reports.length > 0) {
+        const allCreated = [...new Set(reports.flatMap(r => r.createdPages))];
+        const allUpdated = [...new Set(reports.flatMap(r => r.updatedPages))];
+        const totalEntities = reports.reduce((sum, r) => sum + r.entitiesCreated, 0);
+        const totalConcepts = reports.reduce((sum, r) => sum + r.conceptsCreated, 0);
+        const totalContradictions = reports.reduce((sum, r) => sum + r.contradictionsFound, 0);
+        const totalElapsed = reports.reduce((sum, r) => sum + (r.elapsedSeconds || 0), 0);
+        const allFailedItems = reports.flatMap(r => r.failedItems);
+        const allSuccess = reports.every(r => r.success);
 
-      if (failedFiles.length > 0) {
-        console.debug('失败的文件列表:', failedFiles);
-        const failedNotice = `${texts.batchIngestFailedFiles}\n${failedFiles.slice(0, 5).join('\n')}${failedFiles.length > 5 ? '\n...' : ''}`;
-        new Notice(failedNotice, 15000);
+        const aggregated: IngestReport = {
+          sourceFile: `${reports.length} files from ${folder.path}`,
+          createdPages: allCreated,
+          updatedPages: allUpdated,
+          entitiesCreated: totalEntities,
+          conceptsCreated: totalConcepts,
+          failedItems: allFailedItems,
+          contradictionsFound: totalContradictions,
+          success: allSuccess,
+          elapsedSeconds: totalElapsed
+        };
+
+        new IngestReportModal(this.app, aggregated, this.settings.language).open();
+      } else {
+        const texts = TEXTS[this.settings.language];
+        new Notice(texts.batchIngestComplete
+          .replace('{success}', '0')
+          .replace('{total}', String(totalFiles))
+          .replace('{fail}', String(totalFiles)), 10000);
       }
     })().catch(e => console.error(e));
     }).open();
@@ -316,24 +332,30 @@ export default class LLMWikiPlugin extends Plugin {
 
       // Build knownTargets from ALL vault markdown files — wikilinks can point
       // anywhere in the vault, not just inside the wiki folder.
+      // Also build a case-folded set for macOS case-insensitive matching.
       const allVaultFiles = this.app.vault.getMarkdownFiles();
       const knownTargets = new Set<string>();
+      const knownTargetsLower = new Set<string>();
       for (const file of allVaultFiles) {
         const nameWithoutExt = file.basename.replace('.md', '');
-        knownTargets.add(file.basename);
-        knownTargets.add(nameWithoutExt);
+        const addTarget = (t: string) => {
+          knownTargets.add(t);
+          knownTargetsLower.add(t.toLowerCase());
+        };
+        addTarget(file.basename);
+        addTarget(nameWithoutExt);
 
         // Register vault-relative path (with and without .md)
         const relPath = file.path.replace('.md', '');
-        knownTargets.add(relPath);
-        knownTargets.add(file.path);
+        addTarget(relPath);
+        addTarget(file.path);
 
         // Register all sub-path suffixes so partial-path wikilinks also match
         const parts = relPath.split('/');
         for (let i = 1; i < parts.length; i++) {
           const subPath = parts.slice(i).join('/');
-          knownTargets.add(subPath);
-          knownTargets.add(subPath + '.md');
+          addTarget(subPath);
+          addTarget(subPath + '.md');
         }
       }
 
@@ -351,7 +373,8 @@ export default class LLMWikiPlugin extends Plugin {
         let match: RegExpExecArray | null;
         while ((match = linkRegex.exec(content)) !== null) {
           const target = match[1].trim();
-          if (!knownTargets.has(target)) {
+          // Exact match first, then case-insensitive (macOS uses case-insensitive FS)
+          if (!knownTargets.has(target) && !knownTargetsLower.has(target.toLowerCase())) {
             deadLinks.push({
               source: path.replace(this.settings.wikiFolder + '/', '').replace('.md', ''),
               target
@@ -363,10 +386,12 @@ export default class LLMWikiPlugin extends Plugin {
 
       // Empty / near-empty pages (Bug 1 fix: uses isPageEmpty which properly strips
       // blockquotes, wiki-links, and other non-substantive markdown syntax)
-      const emptyPages: string[] = [];
+      // Store BOTH path and content so fix callbacks can pass content directly —
+      // avoids re-resolving path→TFile which can fail on vault cache inconsistency.
+      const emptyPages: Array<{path: string, content: string}> = [];
       for (const { path, content } of pageMap.values()) {
         if (isPageEmpty(content)) {
-          emptyPages.push(path.replace(this.settings.wikiFolder + '/', '').replace('.md', ''));
+          emptyPages.push({path, content});
         }
       }
 
@@ -396,37 +421,40 @@ export default class LLMWikiPlugin extends Plugin {
         }
         const hasIncoming = forms.some(f => incomingLinks.has(f));
         if (!hasIncoming) {
-          orphans.push(relPath);
+          orphans.push(path);
         }
       }
 
       // ---- 2. Build programmatic findings report ----
+      const t = TEXTS[this.settings.language];
       let progReport = '';
       if (deadLinks.length > 0) {
-        progReport += `## 断链 (程序检测)\n\n`;
+        progReport += `## ${t.lintDeadLinkSection}\n\n`;
         const showDead = deadLinks.slice(0, 20);
         for (const dl of showDead) {
-          progReport += `- [[${dl.source}]] → **${dl.target}** (页面不存在)\n`;
+          progReport += t.lintDeadLinkItem.replace('{source}', dl.source).replace('{target}', dl.target) + '\n';
         }
-        if (deadLinks.length > 20) progReport += `- ... 共 ${deadLinks.length} 处断链\n`;
+        if (deadLinks.length > 20) progReport += t.lintDeadLinkMore.replace('{count}', String(deadLinks.length)) + '\n';
         progReport += '\n';
       }
       if (emptyPages.length > 0) {
-        progReport += `## 空洞页面 (程序检测)\n\n`;
+        progReport += `## ${t.lintEmptyPageSection}\n\n`;
         for (const ep of emptyPages) {
-          progReport += `- [[${ep}]] — 内容不足 50 字符\n`;
+          const epRel = ep.path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+          progReport += t.lintEmptyPageItem.replace('{page}', epRel) + '\n';
         }
         progReport += '\n';
       }
       if (orphans.length > 0) {
-        progReport += `## 孤立页面 (程序检测)\n\n`;
+        progReport += `## ${t.lintOrphanSection}\n\n`;
         for (const op of orphans) {
-          progReport += `- [[${op}]] — 无其他 Wiki 页面链接至此\n`;
+          const opRel = op.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+          progReport += t.lintOrphanItem.replace('{page}', opRel) + '\n';
         }
         progReport += '\n';
       }
       if (!deadLinks.length && !emptyPages.length && !orphans.length) {
-        progReport += `✅ 程序检测未发现断链、空洞或孤立页面。\n\n`;
+        progReport += `${t.lintNoIssuesFound}\n\n`;
       }
 
       // ---- 2.5 Contradiction scanning ----
@@ -449,18 +477,21 @@ export default class LLMWikiPlugin extends Plugin {
       // Re-read after processing review_ok items
       const remaining = await this.wikiEngine.getOpenContradictions();
       if (remaining.length > 0) {
-        contradictionsReport = `## 矛盾 (程序检测)\n\n`;
-        contradictionsReport += `- 开放矛盾：${remaining.length} 个`;
+        contradictionsReport = `## ${t.lintContradictionSection}\n\n`;
+        contradictionsReport += `- ${t.lintContradictionOpen.replace('{count}', String(remaining.length))}`;
         const resolvedCount = openContradictions.length - remaining.length;
         if (resolvedCount > 0) {
-          contradictionsReport += `（本次自动修复 ${resolvedCount} 个）`;
+          contradictionsReport += ` ${t.lintContradictionAutoFixed.replace('{count}', String(resolvedCount))}`;
         }
         contradictionsReport += '\n';
         for (const c of remaining) {
           const relPath = c.path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
-          const statusLabel = c.status === 'detected' ? '待处理' :
-                              c.status === 'pending_fix' ? '待修复' : c.status;
-          contradictionsReport += `- [${statusLabel}] [[${relPath}]] — ${c.claim.substring(0, 80)}\n`;
+          const statusLabel = c.status === 'detected' ? t.lintContradictionStatusDetected :
+                              c.status === 'pending_fix' ? t.lintContradictionStatusPendingFix : c.status;
+          contradictionsReport += t.lintContradictionItem
+            .replace('{status}', statusLabel)
+            .replace('{page}', relPath)
+            .replace('{claim}', c.claim.substring(0, 80)) + '\n';
         }
         contradictionsReport += '\n';
       }
@@ -479,24 +510,12 @@ export default class LLMWikiPlugin extends Plugin {
         }
       }
 
-      const prompt = `你是一个 Wiki 维护助手。请基于以下信息检查 Wiki 的健康状况。
-
-Wiki 索引：
-${indexContent}
-
-Wiki 页面内容样本（共 ${wikiFiles.length} 页，展示 ${samplePages.length} 页）：
-${contentSample}
-
-程序检测结果（已验证，请勿重复报告）：
-${progReport || '程序检测未发现问题'}
-
-请检查以下方面（跳过程序已检测的断链/空洞/孤立）：
-1. **矛盾** — 不同页面对同一事实的说法是否矛盾
-2. **过时** — 是否有声明明显过时
-3. **缺失** — 哪些重要概念缺少独立页面
-4. **结构** — 页面结构是否合理，交叉引用是否充分
-
-输出格式：使用 Markdown，以 "## LLM 分析" 开头。每个发现用一行 "- [具体问题]"。如无问题则写 "✅ 未发现明显问题。"`;
+      const prompt = t.lintAnalysisPrompt
+        .replace('{index}', indexContent)
+        .replace('{total}', String(wikiFiles.length))
+        .replace('{sample}', String(samplePages.length))
+        .replace('{contentSample}', contentSample)
+        .replace('{progReport}', progReport || 'No issues detected by programmatic checks.');
 
       const llmReport = await this.llmClient.createMessage({
         model: this.settings.model,
@@ -507,7 +526,7 @@ ${progReport || '程序检测未发现问题'}
       const cleanedLLM = cleanMarkdownResponse(llmReport);
 
       // ---- 4. Combine and display ----
-      const fullReport = `# Wiki 维护报告\n\n> 共 ${wikiFiles.length} 个 Wiki 页面\n\n${progReport}${contradictionsReport}${cleanedLLM.startsWith('##') ? '' : '## LLM 分析\n\n'}${cleanedLLM}`;
+      const fullReport = `# ${t.lintReportTitle}\n\n> ${t.lintReportPageCount.replace('{count}', String(wikiFiles.length))}\n\n${progReport}${contradictionsReport}${cleanedLLM.startsWith('##') ? '' : t.lintLLMAnalysisHeading + '\n\n'}${cleanedLLM}`;
 
       const counts: LintCounts = {
         deadLinks: deadLinks.length,
@@ -528,57 +547,89 @@ ${progReport || '程序检测未发现问题'}
             });
 
             let fixed = 0;
+            const results: string[] = [];
             for (const dl of unique) {
-              new Notice(`Fixing dead links: ${fixed}/${unique.length}...`);
+              new Notice(t.lintFixProgress.replace('{current}', String(fixed)).replace('{total}', String(unique.length)));
               try {
                 const sourcePath = `${this.settings.wikiFolder}/${dl.source}.md`;
                 const result = await this.wikiEngine.fixDeadLink(sourcePath, dl.target);
                 console.debug(`Dead link fix: ${dl.source} -> ${dl.target}: ${result}`);
-                if (!result.includes('no action taken')) fixed++;
+                if (!result.includes(t.lintFixNoAction)) {
+                  fixed++;
+                  results.push(`- [[${dl.source}]]: \`[[${dl.target}]]\` → ${result}`);
+                }
               } catch (e) {
                 console.error(`Failed to fix dead link: ${dl.source} -> ${dl.target}`, e);
               }
             }
-            new Notice(`Dead link fix complete. Fixed ${fixed}/${unique.length} items.`);
+            new Notice(t.lintFixDeadComplete.replace('{fixed}', String(fixed)).replace('{total}', String(unique.length)));
+            if (fixed > 0) {
+              await this.wikiEngine.generateIndexFromEngine();
+              const details = results.join('\n');
+              await this.wikiEngine.logLintFix('Fix Dead Links', details);
+              new Notice(t.lintFixIndexUpdated);
+            }
           })();
         } : undefined,
         onFillEmptyPages: emptyPages.length > 0 ? () => {
           void (async () => {
             let filled = 0;
+            const results: string[] = [];
             for (let i = 0; i < emptyPages.length; i++) {
-              new Notice(`Expanding empty pages: ${i + 1}/${emptyPages.length}...`);
+              const ep = emptyPages[i];
+              new Notice(t.lintFillProgress.replace('{current}', String(i + 1)).replace('{total}', String(emptyPages.length)));
               try {
-                const pagePath = `${this.settings.wikiFolder}/${emptyPages[i]}.md`;
-                await this.wikiEngine.fillEmptyPage(pagePath);
+                const summary = await this.wikiEngine.fillEmptyPage(ep.path, ep.content);
                 filled++;
+                results.push(`- ${summary}`);
               } catch (e) {
-                console.error(`Failed to expand empty page: ${emptyPages[i]}`, e);
-                new Notice(`Failed to expand: ${emptyPages[i]}`);
+                console.error(`Failed to expand empty page: ${ep.path}`, e);
+                new Notice(t.lintFillFailed.replace('{page}', ep.path));
               }
             }
-            new Notice(`Page expansion complete. Filled ${filled}/${emptyPages.length} pages.`);
+            new Notice(t.lintFillComplete.replace('{filled}', String(filled)).replace('{total}', String(emptyPages.length)));
+            if (filled > 0) {
+              await this.wikiEngine.generateIndexFromEngine();
+              const details = results.join('\n');
+              await this.wikiEngine.logLintFix('Expand Empty Pages', details);
+              new Notice(t.lintFixIndexUpdated);
+            }
           })();
         } : undefined,
         onLinkOrphans: orphans.length > 0 ? () => {
           void (async () => {
             let linked = 0;
+            const results: string[] = [];
             for (const op of orphans) {
               linked++;
-              new Notice(`Linking orphans: ${linked}/${orphans.length}...`);
+              new Notice(t.lintLinkProgress.replace('{current}', String(linked)).replace('{total}', String(orphans.length)));
               try {
-                const orphanPath = `${this.settings.wikiFolder}/${op}.md`;
-                await this.wikiEngine.linkOrphanPage(orphanPath);
+                const linkedPages = await this.wikiEngine.linkOrphanPage(op);
+                const opRel = op.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+                if (linkedPages.length > 0) {
+                  results.push(`- [[${opRel}]] linked from: ${linkedPages.map(p => `[[${p}]]`).join(', ')}`);
+                } else {
+                  results.push(`- [[${opRel}]]: no suitable linking targets found`);
+                }
               } catch (e) {
                 console.error(`Failed to link orphan: ${op}`, e);
               }
             }
-            new Notice(`Orphan linking complete. Linked ${linked} pages.`);
+            new Notice(t.lintLinkComplete.replace('{linked}', String(linked)));
+            if (results.length > 0) {
+              await this.wikiEngine.generateIndexFromEngine();
+              const details = results.join('\n');
+              await this.wikiEngine.logLintFix('Link Orphan Pages', details);
+              new Notice(t.lintFixIndexUpdated);
+            }
           })();
         } : undefined,
         onAnalyzeSchema: () => { void this.suggestSchemaUpdate(); }
       };
 
-      new LintReportModal(this.app, fullReport, fixCallbacks, counts).open();
+      new LintReportModal(this.app, fullReport, fixCallbacks, counts, this.settings.language).open();
+      // Always regenerate index after lint — the report reflects current state
+      await this.wikiEngine.generateIndexFromEngine();
       new Notice(TEXTS[this.settings.language].lintWikiComplete);
 
     } catch (error) {

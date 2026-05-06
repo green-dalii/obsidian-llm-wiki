@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-05-06
+
+### Added
+- **Content truncation protection**: all page-generation `max_tokens` raised from 1500/2000 → 8000 (entity, concept, summary, fillEmptyPage, updateRelatedPage); Anthropic `stop_reason` and OpenAI `finish_reason` detection with automatic retry at 2x tokens (cap 16000) across all 3 LLM clients
+- **Entity/concept breakdown in ingest reports**: `IngestReport` now includes `entitiesCreated` / `conceptsCreated` counts, displayed in `IngestReportModal`
+- **Batch ingest aggregated report**: folder ingest collects per-file reports and shows a single merged `IngestReportModal` at completion
+
+### Fixed
+- **`fillEmptyPage` persistent "file not found"**: pre-read content now passed directly from lint phase to fix callback, bypassing string→TFile resolution entirely; empty-string content (zero-byte files) handled correctly
+- **Frontmatter `updated` date**: `normalizeFrontmatterDates()` replaces LLM-generated dates with current date before write, preventing chronology breaks
+- **Lint report always in Chinese**: `lintWiki()` now uses `TEXTS` i18n system with dynamic language lookup
+- **Command palette always in English**: all `addCommand` names now use `TEXTS` i18n system
+- **Lint fix log entries meaningless**: `logLintFix` now records per-item details (specific page, before/after, what changed) instead of bare counts
+- **Entity name translation in source extraction**: prompt now enforces preserving original source language for entity/concept names
+- **slugify punctuation**: added `,()'` to filename filter for cleaner Obsidian-compatible filenames
+
+### Changed
+- `fixDeadLink` max_tokens: 300 → 8000 (consistent with page generation)
+- Batch ingest: suppressed per-file modals replaced with aggregated results report
+
 ## [1.6.5] - 2026-05-03
 
 ### Added

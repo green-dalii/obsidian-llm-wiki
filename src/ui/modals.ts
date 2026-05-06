@@ -78,19 +78,23 @@ export class LintReportModal extends Modal {
   report: string;
   fixCallbacks: LintFixCallbacks;
   counts: LintCounts;
+  private language: 'en' | 'zh';
   private renderComponent: Component | null = null;
 
-  constructor(app: App, report: string, fixCallbacks: LintFixCallbacks, counts: LintCounts) {
+  constructor(app: App, report: string, fixCallbacks: LintFixCallbacks, counts: LintCounts, language: 'en' | 'zh' = 'en') {
     super(app);
     this.report = report;
     this.fixCallbacks = fixCallbacks;
     this.counts = counts;
+    this.language = language;
   }
 
   onOpen() {
     const { contentEl } = this;
     this.renderComponent = new Component();
     this.renderComponent.load();
+
+    const t = TEXTS[this.language];
 
     const reportDiv = contentEl.createDiv({
       attr: { style: 'max-height: 50vh; overflow-y: auto; padding: 8px 0;' }
@@ -103,7 +107,7 @@ export class LintReportModal extends Modal {
     });
 
     actionSection.createEl('p', {
-      text: 'Actions (each calls AI):',
+      text: t.lintModalActionsTitle,
       attr: { style: 'font-weight: bold; margin-bottom: 8px;' }
     });
 
@@ -113,7 +117,7 @@ export class LintReportModal extends Modal {
 
     if (this.counts.deadLinks > 0 && this.fixCallbacks.onFixDeadLinks) {
       buttonRow.createEl('button', {
-        text: `Fix Dead Links (${this.counts.deadLinks})`,
+        text: t.lintModalFixDeadLinks.replace('{count}', String(this.counts.deadLinks)),
         cls: 'mod-cta'
       }).addEventListener('click', () => {
         this.fixCallbacks.onFixDeadLinks?.();
@@ -123,7 +127,7 @@ export class LintReportModal extends Modal {
 
     if (this.counts.emptyPages > 0 && this.fixCallbacks.onFillEmptyPages) {
       buttonRow.createEl('button', {
-        text: `Expand Empty Pages (${this.counts.emptyPages})`,
+        text: t.lintModalExpandEmpty.replace('{count}', String(this.counts.emptyPages)),
         cls: 'mod-cta'
       }).addEventListener('click', () => {
         this.fixCallbacks.onFillEmptyPages?.();
@@ -133,7 +137,7 @@ export class LintReportModal extends Modal {
 
     if (this.counts.orphans > 0 && this.fixCallbacks.onLinkOrphans) {
       buttonRow.createEl('button', {
-        text: `Link Orphan Pages (${this.counts.orphans})`,
+        text: t.lintModalLinkOrphans.replace('{count}', String(this.counts.orphans)),
         cls: 'mod-cta'
       }).addEventListener('click', () => {
         this.fixCallbacks.onLinkOrphans?.();
@@ -143,7 +147,7 @@ export class LintReportModal extends Modal {
 
     if (this.fixCallbacks.onAnalyzeSchema) {
       buttonRow.createEl('button', {
-        text: 'Analyze schema',
+        text: t.lintModalAnalyzeSchema,
       }).addEventListener('click', () => {
         this.fixCallbacks.onAnalyzeSchema?.();
         this.close();
@@ -173,35 +177,39 @@ export class IngestReportModal extends Modal {
   }
 
   onOpen() {
-    const { sourceFile, createdPages, updatedPages, failedItems, contradictionsFound, success, errorMessage, elapsedSeconds } = this.report;
+    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, elapsedSeconds } = this.report;
 
     const statusEmoji = success ? '✅' : '⚠️';
-    this.contentEl.createEl('h2', { text: `${statusEmoji} 摄入报告` });
+    this.contentEl.createEl('h2', { text: `${statusEmoji} ${this.t('ingestReportTitle')}` });
 
     // Source file
-    this.contentEl.createEl('p', { text: `源文件：${sourceFile}` });
+    this.contentEl.createEl('p', { text: `${this.t('ingestReportSourceFile')}：${sourceFile}` });
 
     // Elapsed time
     if (elapsedSeconds !== undefined) {
       const minutes = Math.floor(elapsedSeconds / 60);
       const seconds = elapsedSeconds % 60;
       const timeStr = minutes > 0
-        ? `${minutes} 分 ${seconds} 秒`
-        : `${seconds} 秒`;
+        ? `${minutes} ${this.t('timeMinutes')} ${seconds} ${this.t('timeSeconds')}`
+        : `${seconds} ${this.t('timeSeconds')}`;
       this.contentEl.createEl('p', { text: `${this.t('ingestReportElapsedTime')}：${timeStr}` });
     }
 
     // Stats
     const statsEl = this.contentEl.createDiv({ attr: { style: 'margin: 12px 0;' } });
-    statsEl.createEl('p', { text: `创建页面：${createdPages.length}` });
-    statsEl.createEl('p', { text: `更新页面：${updatedPages.length}` });
+    const createdText = this.t('ingestReportCreatedPages').replace('{count}', String(createdPages.length));
+    const breakdown = entitiesCreated > 0 || conceptsCreated > 0
+      ? ` (${this.t('ingestReportEntitiesCount').replace('{count}', String(entitiesCreated))} + ${this.t('ingestReportConceptsCount').replace('{count}', String(conceptsCreated))})`
+      : '';
+    statsEl.createEl('p', { text: createdText + breakdown });
+    statsEl.createEl('p', { text: this.t('ingestReportUpdatedPages').replace('{count}', String(updatedPages.length)) });
     if (contradictionsFound > 0) {
-      statsEl.createEl('p', { text: `发现矛盾：${contradictionsFound}` });
+      statsEl.createEl('p', { text: this.t('ingestReportContradictionsFound').replace('{count}', String(contradictionsFound)) });
     }
 
     // Created pages
     if (createdPages.length > 0) {
-      this.contentEl.createEl('h3', { text: '已创建' });
+      this.contentEl.createEl('h3', { text: this.t('ingestReportCreated') });
       const list = this.contentEl.createEl('ul');
       for (const page of createdPages) {
         list.createEl('li', { text: page });
@@ -210,7 +218,7 @@ export class IngestReportModal extends Modal {
 
     // Updated pages
     if (updatedPages.length > 0) {
-      this.contentEl.createEl('h3', { text: '已更新' });
+      this.contentEl.createEl('h3', { text: this.t('ingestReportUpdated') });
       const list = this.contentEl.createEl('ul');
       for (const page of updatedPages) {
         list.createEl('li', { text: page });
@@ -219,10 +227,10 @@ export class IngestReportModal extends Modal {
 
     // Failed items
     if (failedItems.length > 0) {
-      this.contentEl.createEl('h3', { text: '⚠️ 未能摄入' });
+      this.contentEl.createEl('h3', { text: '⚠️ ' + this.t('ingestReportFailedTitle') });
       const list = this.contentEl.createEl('ul');
       for (const item of failedItems) {
-        const typeLabel = item.type === 'entity' ? '实体' : '概念';
+        const typeLabel = item.type === 'entity' ? this.t('ingestReportEntityType') : this.t('ingestReportConceptType');
         list.createEl('li', { text: `[${typeLabel}] ${item.name} — ${item.reason}` });
       }
       this.contentEl.createEl('p', {
@@ -234,14 +242,14 @@ export class IngestReportModal extends Modal {
     // Error
     if (errorMessage) {
       this.contentEl.createEl('p', {
-        text: `错误详情：${errorMessage}`,
+        text: `${this.t('ingestReportErrorDetail')}：${errorMessage}`,
         attr: { style: 'color: var(--text-error); margin-top: 12px;' }
       });
     }
 
     // Close button
     const btnRow = this.contentEl.createDiv({ attr: { style: 'margin-top: 16px; text-align: right;' } });
-    btnRow.createEl('button', { text: '关闭' }).addEventListener('click', () => this.close());
+    btnRow.createEl('button', { text: this.t('ingestReportClose') }).addEventListener('click', () => this.close());
   }
 
   onClose() {

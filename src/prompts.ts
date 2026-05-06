@@ -67,7 +67,7 @@ export const PROMPTS = {
 
 **Important Rules:**
 - Output ONLY JSON, nothing else
-- Entity and concept names should use the wiki's configured output language, and be consistent
+- Entity and concept "name" MUST use the original language from the source file — do NOT translate names. If the source uses English, names stay in English. Summaries and descriptions may follow the wiki's output language, but the name field must preserve the source's original terminology
 - Each entity and concept should have its own independent Wiki page
 - Carefully compare against existing content when detecting contradictions
 - related_pages should be pages that actually exist in the current Wiki

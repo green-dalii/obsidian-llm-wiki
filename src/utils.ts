@@ -16,7 +16,7 @@ export function slugify(text: string): string {
     .split('')
     .filter(c => c.charCodeAt(0) >= 32)
     .join('')
-    .replace(/[/\\:*?"<>|、，。；：！？（）【】《》]/g, '');
+    .replace(/[/\\:*?"<>|,()'、，。；：！？（）【】《》]/g, '');
   console.debug('移除无效字符和特殊符号后:', afterRemoveInvalid, '长度:', afterRemoveInvalid.length);
 
   if (afterRemoveInvalid.length === 0) {

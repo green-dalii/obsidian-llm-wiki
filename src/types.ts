@@ -124,6 +124,8 @@ export interface IngestReport {
   sourceFile: string;
   createdPages: string[];
   updatedPages: string[];
+  entitiesCreated: number;
+  conceptsCreated: number;
   failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }>;
   contradictionsFound: number;
   success: boolean;

@@ -2,14 +2,25 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.6.5 | **Updated:** 2026-05-03
+**Version:** 1.7.0 | **Updated:** 2026-05-06
 
 ---
 
 ## Current Status
 
-### Implemented (v1.6.1)
+### Implemented (v1.7.0) — Quality Milestone
 
+**Quality / Bugfixes**
+- **Content truncation protection**: all page-generation `max_tokens` raised from 1500/2000 → 8000; Anthropic `stop_reason` and OpenAI `finish_reason` detection with auto-retry (2x tokens, cap 16000) in all 3 LLM clients
+- **`fillEmptyPage` reliability fix**: pre-read content from lint phase passed directly (bypasses string→TFile resolution); empty-string content now handled correctly
+- **Frontmatter `updated` date normalization**: `normalizeFrontmatterDates()` replaces LLM-generated dates with current date before write
+- **Lint report i18n**: all hardcoded Chinese in `lintWiki()` replaced with `TEXTS` lookups; `LintReportModal` respects language setting
+- **Command palette i18n**: all `addCommand` names use `TEXTS` dynamic lookup instead of hardcoded English
+- **Batch ingest report**: folder ingest now collects per-file reports and shows aggregated `IngestReportModal` at end (was suppressed)
+- **Entity/concept breakdown**: `IngestReport` now includes `entitiesCreated` / `conceptsCreated` counts; displayed in report modal
+- **Lint fix log enrichment**: `logLintFix` now records per-item details (which page, what change, before/after), not just counts
+- **Entity name preservation**: prompt now enforces keeping original source language for entity/concept names (no translation)
+- **slugify improvement**: added `,()'` to punctuation filter for cleaner filenames
 **Core Features**
 - Multi LLM Provider support (Anthropic, OpenAI, Gemini, OpenRouter, DeepSeek, MiniMax, Kimi, GLM, Ollama, Custom, Anthropic Compatible)
 - Dynamic model list fetching (real-time from API)
@@ -100,11 +111,11 @@
 
 ---
 
-## Karpathy-Aligned Planning (v1.7.x – v1.8.x)
+## Karpathy-Aligned Planning (v1.8.x – v1.9.x)
 
 > Based on re-reading Karpathy's [original LLM Wiki vision](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and auditing the plugin against his core principles.
 
-### v1.7.0 — Conversational Ingest
+### v1.8.0 — Conversational Ingest
 
 **Goal:** Transform ingest from a black box into a collaborative process.
 

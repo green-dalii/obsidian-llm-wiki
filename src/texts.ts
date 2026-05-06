@@ -239,6 +239,73 @@ export const TEXTS = {
     // Ingestion Report
     ingestReportElapsedTime: 'Elapsed time',
     ingestReportFailedGuidance: 'These items could not be automatically created. You can manually create the corresponding pages, or lower the extraction granularity and re-ingest the source file.',
+
+    // Command Names (sentence case per Obsidian Bot rule 1)
+    cmdIngestSource: 'Ingest single source',
+    cmdIngestFolder: 'Ingest from folder',
+    cmdQueryWiki: 'Query wiki',
+    cmdLintWiki: 'Lint wiki',
+    cmdRegenerateIndex: 'Regenerate index',
+    cmdSuggestSchema: 'Suggest schema updates',
+
+    // Lint Report
+    lintReportTitle: 'Wiki lint report',
+    lintReportPageCount: 'Total {count} Wiki pages',
+    lintDeadLinkSection: 'Dead links (detected)',
+    lintEmptyPageSection: 'Empty pages (detected)',
+    lintOrphanSection: 'Orphan pages (detected)',
+    lintContradictionSection: 'Contradictions (detected)',
+    lintNoIssuesFound: 'No dead links, empty pages, or orphan pages detected by programmatic checks.',
+    lintDeadLinkItem: '- [[{source}]] → **{target}** (page does not exist)',
+    lintDeadLinkMore: '- ... {count} more dead links',
+    lintEmptyPageItem: '- [[{page}]] — less than 50 characters of substantive content',
+    lintOrphanItem: '- [[{page}]] — no other Wiki pages link here',
+    lintContradictionOpen: 'Open contradictions: {count}',
+    lintContradictionAutoFixed: '({count} auto-fixed this run)',
+    lintContradictionItem: '- [{status}] [[{page}]] — {claim}',
+    lintContradictionStatusDetected: 'Detected',
+    lintContradictionStatusPendingFix: 'Pending fix',
+    lintLLMAnalysisHeading: '## LLM analysis',
+
+    // Lint Analysis Prompt
+    lintAnalysisPrompt: 'You are a Wiki maintenance assistant. Check the Wiki health based on the following information.\n\nWiki Index:\n{index}\n\nWiki Page Content Sample ({total} pages total, showing {sample} pages):\n{contentSample}\n\nProgrammatic check results (already verified, do not repeat):\n{progReport}\n\nCheck the following aspects (skip dead links/empty/orphans already detected by programmatic checks):\n1. **Contradictions** — whether different pages contradict each other on the same facts\n2. **Staleness** — whether any claims are clearly outdated\n3. **Missing** — which important concepts lack standalone pages\n4. **Structure** — whether page structure is reasonable and cross-references are adequate\n\nOutput format: Use Markdown, starting with "## LLM analysis". Each finding on one line "- [specific issue]". If no issues, write "No obvious issues found."',
+
+    // Lint Fix Progress
+    lintFixProgress: 'Fixing dead links: {current}/{total}...',
+    lintFixDeadComplete: 'Dead link fix complete. Fixed {fixed}/{total} items.',
+    lintFillProgress: 'Expanding empty pages: {current}/{total}...',
+    lintFillComplete: 'Page expansion complete. Filled {filled}/{total} pages.',
+    lintFillFailed: 'Failed to expand: {page}',
+    lintLinkProgress: 'Linking orphans: {current}/{total}...',
+    lintLinkComplete: 'Orphan linking complete. Linked {linked} pages.',
+    lintFixNoAction: 'No action taken (no client)',
+    lintFixIndexUpdated: 'Wiki index and log updated.',
+
+    // Lint Report Modal
+    lintModalActionsTitle: 'Actions (each calls AI):',
+    lintModalFixDeadLinks: 'Fix dead links ({count})',
+    lintModalExpandEmpty: 'Expand empty pages ({count})',
+    lintModalLinkOrphans: 'Link orphan pages ({count})',
+    lintModalAnalyzeSchema: 'Analyze schema',
+
+    // Ingest Report Modal
+    ingestReportTitle: 'Ingest report',
+    ingestReportSourceFile: 'Source file',
+    ingestReportCreated: 'Created',
+    ingestReportUpdated: 'Updated',
+    ingestReportContradictions: 'Contradictions found',
+    ingestReportFailedTitle: 'Failed to ingest',
+    ingestReportErrorDetail: 'Error detail',
+    ingestReportClose: 'Close',
+    ingestReportCreatedPages: 'Created pages: {count}',
+    ingestReportUpdatedPages: 'Updated pages: {count}',
+    ingestReportEntitiesCount: '{count} entities',
+    ingestReportConceptsCount: '{count} concepts',
+    ingestReportContradictionsFound: 'Contradictions found: {count}',
+    ingestReportEntityType: 'Entity',
+    ingestReportConceptType: 'Concept',
+    timeMinutes: 'min',
+    timeSeconds: 'sec',
   },
 
   zh: {
@@ -479,5 +546,72 @@ export const TEXTS = {
     // 摄入报告
     ingestReportElapsedTime: '耗时',
     ingestReportFailedGuidance: '这些条目未能自动创建。您可手动创建对应页面，或降低提取颗粒度后重新摄入源文件。',
+
+    // 命令名称（sentence case 遵循 Obsidian Bot 规则）
+    cmdIngestSource: '摄入单个源文件',
+    cmdIngestFolder: '从文件夹摄入',
+    cmdQueryWiki: '查询 Wiki',
+    cmdLintWiki: '维护 Wiki',
+    cmdRegenerateIndex: '重新生成索引',
+    cmdSuggestSchema: '建议 Schema 更新',
+
+    // 维护报告
+    lintReportTitle: 'Wiki 维护报告',
+    lintReportPageCount: '共 {count} 个 Wiki 页面',
+    lintDeadLinkSection: '断链（程序检测）',
+    lintEmptyPageSection: '空洞页面（程序检测）',
+    lintOrphanSection: '孤立页面（程序检测）',
+    lintContradictionSection: '矛盾（程序检测）',
+    lintNoIssuesFound: '✅ 程序检测未发现断链、空洞或孤立页面。',
+    lintDeadLinkItem: '- [[{source}]] → **{target}**（页面不存在）',
+    lintDeadLinkMore: '- ... 共 {count} 处断链',
+    lintEmptyPageItem: '- [[{page}]] — 内容不足 50 字符',
+    lintOrphanItem: '- [[{page}]] — 无其他 Wiki 页面链接至此',
+    lintContradictionOpen: '开放矛盾：{count} 个',
+    lintContradictionAutoFixed: '（本次自动修复 {count} 个）',
+    lintContradictionItem: '- [{status}] [[{page}]] — {claim}',
+    lintContradictionStatusDetected: '待处理',
+    lintContradictionStatusPendingFix: '待修复',
+    lintLLMAnalysisHeading: '## LLM 分析',
+
+    // 维护分析 Prompt
+    lintAnalysisPrompt: '你是一个 Wiki 维护助手。请基于以下信息检查 Wiki 的健康状况。\n\nWiki 索引：\n{index}\n\nWiki 页面内容样本（共 {total} 页，展示 {sample} 页）：\n{contentSample}\n\n程序检测结果（已验证，请勿重复报告）：\n{progReport}\n\n请检查以下方面（跳过程序已检测的断链/空洞/孤立）：\n1. **矛盾** — 不同页面对同一事实的说法是否矛盾\n2. **过时** — 是否有声明明显过时\n3. **缺失** — 哪些重要概念缺少独立页面\n4. **结构** — 页面结构是否合理，交叉引用是否充分\n\n输出格式：使用 Markdown，以 "## LLM 分析" 开头。每个发现用一行 "- [具体问题]"。如无问题则写 "✅ 未发现明显问题。"',
+
+    // 维护修复进度
+    lintFixProgress: '修复断链中：{current}/{total}...',
+    lintFixDeadComplete: '断链修复完成。已修复 {fixed}/{total} 项。',
+    lintFillProgress: '扩充空洞页面中：{current}/{total}...',
+    lintFillComplete: '页面扩充完成。已填充 {filled}/{total} 页。',
+    lintFillFailed: '扩充失败：{page}',
+    lintLinkProgress: '链接孤立页面中：{current}/{total}...',
+    lintLinkComplete: '孤立页面链接完成。已链接 {linked} 页。',
+    lintFixNoAction: '未执行操作（无 client）',
+    lintFixIndexUpdated: 'Wiki 索引和日志已更新。',
+
+    // 维护报告弹窗
+    lintModalActionsTitle: '操作（均调用 AI）：',
+    lintModalFixDeadLinks: '修复断链（{count}）',
+    lintModalExpandEmpty: '扩充空洞页面（{count}）',
+    lintModalLinkOrphans: '链接孤立页面（{count}）',
+    lintModalAnalyzeSchema: '分析 Schema',
+
+    // 摄入报告弹窗
+    ingestReportTitle: '摄入报告',
+    ingestReportSourceFile: '源文件',
+    ingestReportCreated: '已创建',
+    ingestReportUpdated: '已更新',
+    ingestReportContradictions: '发现矛盾',
+    ingestReportFailedTitle: '未能摄入',
+    ingestReportErrorDetail: '错误详情',
+    ingestReportClose: '关闭',
+    ingestReportCreatedPages: '创建页面：{count}',
+    ingestReportUpdatedPages: '更新页面：{count}',
+    ingestReportEntitiesCount: '{count} 个实体',
+    ingestReportConceptsCount: '{count} 个概念',
+    ingestReportContradictionsFound: '发现矛盾：{count}',
+    ingestReportEntityType: '实体',
+    ingestReportConceptType: '概念',
+    timeMinutes: '分',
+    timeSeconds: '秒',
   }
 };

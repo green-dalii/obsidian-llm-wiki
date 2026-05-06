@@ -238,14 +238,18 @@ export class WikiEngine {
 
       const created = analysis.created_pages.length;
       const updated = analysis.updated_pages.length;
+      const entitiesCreated = analysis.created_pages.filter(p => p.includes('/entities/')).length;
+      const conceptsCreated = analysis.created_pages.filter(p => p.includes('/concepts/')).length;
 
       console.debug('=== 摄入流程完成 ===');
-      console.debug(`摄入完成: 创建 ${created} 页, 更新 ${updated} 页`);
+      console.debug(`摄入完成: 创建 ${created} 页 (${entitiesCreated} 实体 + ${conceptsCreated} 概念), 更新 ${updated} 页`);
 
       this.onDone?.({
         sourceFile: file.path,
         createdPages: analysis.created_pages,
         updatedPages: analysis.updated_pages,
+        entitiesCreated,
+        conceptsCreated,
         failedItems,
         contradictionsFound: analysis.contradictions.length,
         success: true,
@@ -257,10 +261,13 @@ export class WikiEngine {
       console.error('错误:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
 
+      const createdPages = analysis?.created_pages || [];
       this.onDone?.({
         sourceFile: file.path,
-        createdPages: analysis?.created_pages || [],
+        createdPages,
         updatedPages: analysis?.updated_pages || [],
+        entitiesCreated: createdPages.filter(p => p.includes('/entities/')).length,
+        conceptsCreated: createdPages.filter(p => p.includes('/concepts/')).length,
         failedItems,
         contradictionsFound: analysis?.contradictions?.length || 0,
         success: false,
@@ -323,7 +330,7 @@ export class WikiEngine {
 
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
-      max_tokens: 2000,
+      max_tokens: 8000,
       system: await this.buildSystemPrompt('summary'),
       messages: [{ role: 'user', content: finalPrompt }]
     });
@@ -357,6 +364,22 @@ export class WikiEngine {
         console.error(`尝试 ${attempt + 1} 失败:`, errorMsg);
 
         if (errorMsg.includes('File already exists') || errorMsg.includes('already exists')) {
+          // macOS Unicode normalization: getAbstractFileByPath returned null
+          // but vault.create detected the file (NFC vs NFD mismatch).
+          // Fall back to parent-directory listing to resolve the actual TFile.
+          let resolved = this.resolveFileInVault(path);
+          if (!resolved) {
+            const normalized = path.normalize();
+            const allFiles = this.app.vault.getMarkdownFiles();
+            resolved = allFiles.find(f => f.path.normalize() === normalized) || null;
+            if (resolved) console.debug('重试中通过全量扫描找到文件:', path);
+          }
+          if (resolved) {
+            await this.app.vault.modify(resolved, content);
+            console.debug('通过文件解析后更新成功:', path);
+            this.onFileWrite?.(path);
+            return;
+          }
           console.debug('文件已存在异常，等待100ms后重试:', path);
           await new Promise(resolve => activeWindow.setTimeout(resolve, 100));
           continue;
@@ -367,26 +390,82 @@ export class WikiEngine {
       }
     }
 
-    console.debug('3次尝试后，强制查找文件并更新:', path);
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (file instanceof TFile) {
+    // Final fallback: try directory listing + full markdown scan
+    console.debug('3次尝试后，通过目录列表查找文件:', path);
+    let file = this.resolveFileInVault(path);
+    if (!file) {
+      // Belt-and-suspenders: scan getMarkdownFiles() (same source of truth as lint)
+      const normalized = path.normalize();
+      const allFiles = this.app.vault.getMarkdownFiles();
+      file = allFiles.find(f => f.path.normalize() === normalized) || null;
+      if (file) console.debug('createOrUpdateFile: resolved via full scan:', path);
+    }
+    if (file) {
       await this.app.vault.modify(file, content);
       console.debug('最终更新成功:', path);
+      this.onFileWrite?.(path);
     } else {
       throw new Error(`无法创建或更新文件: ${path}`);
     }
   }
 
-  async tryReadFile(path: string): Promise<string | null> {
-    try {
-      const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof TFile) {
-        return await this.app.vault.read(file);
+  /** Resolve a vault path to TFile by listing parent directory children.
+   *  macOS APFS stores filenames in NFD; JavaScript strings are NFC.
+   *  When getAbstractFileByPath can't find a file that vault.create
+   *  detected as existing, this fallback resolves the mismatch.
+   *  Uses Unicode normalization so Chinese filenames compare correctly. */
+  private resolveFileInVault(path: string): TFile | null {
+    const lastSep = path.lastIndexOf('/');
+    if (lastSep === -1) return null;
+    const dirPath = path.substring(0, lastSep);
+    const baseName = path.substring(lastSep + 1).normalize();
+
+    const dir = this.app.vault.getAbstractFileByPath(dirPath);
+    if (dir && 'children' in dir) {
+      for (const child of dir.children) {
+        if (child instanceof TFile && child.name.normalize() === baseName) {
+          return child;
+        }
       }
-    } catch {
-      return null;
     }
     return null;
+  }
+
+  async tryReadFile(path: string): Promise<string | null> {
+    // Resolve the file using all available strategies.
+    // On macOS APFS, filenames are stored in NFD while JavaScript uses NFC,
+    // so getAbstractFileByPath may miss files with non-ASCII names.
+    let file: TFile | null = null;
+
+    try {
+      const direct = this.app.vault.getAbstractFileByPath(path);
+      if (direct instanceof TFile) file = direct;
+    } catch {
+      // getAbstractFileByPath can throw on malformed paths; ignore and try fallbacks
+    }
+
+    if (!file) {
+      file = this.resolveFileInVault(path);
+    }
+
+    if (!file) {
+      const normalized = path.normalize();
+      const allFiles = this.app.vault.getMarkdownFiles();
+      const matched = allFiles.find(f => f.path.normalize() === normalized);
+      if (matched) {
+        console.debug('tryReadFile: resolved via full scan:', path);
+        file = matched;
+      }
+    }
+
+    if (!file) {
+      console.debug('tryReadFile: all lookups failed for:', path);
+      return null;
+    }
+
+    // vault.read() exceptions are NOT caught — a file that exists but can't
+    // be read is a real error, not a "file not found" condition.
+    return await this.app.vault.read(file);
   }
 
   async regenerateDefaultSchema(): Promise<void> {
@@ -403,11 +482,11 @@ export class WikiEngine {
     return this.lintFixer.fixDeadLink(sourcePath, targetName);
   }
 
-  async fillEmptyPage(pagePath: string): Promise<void> {
-    return this.lintFixer.fillEmptyPage(pagePath);
+  async fillEmptyPage(pagePath: string, existingContent?: string): Promise<string> {
+    return this.lintFixer.fillEmptyPage(pagePath, existingContent);
   }
 
-  async linkOrphanPage(orphanPath: string): Promise<void> {
+  async linkOrphanPage(orphanPath: string): Promise<string[]> {
     return this.lintFixer.linkOrphanPage(orphanPath);
   }
 
@@ -520,6 +599,16 @@ export class WikiEngine {
       }
     }
 
+    const existingLog = await this.tryReadFile(logPath) || `# Wiki ${lang === 'zh' ? '操作日志' : 'Operation Log'}\n\n`;
+    await this.createOrUpdateFile(logPath, existingLog + entry);
+  }
+
+  /** Append a lint-fix entry to the operation log. */
+  async logLintFix(operation: string, details: string): Promise<void> {
+    const logPath = `${this.settings.wikiFolder}/log.md`;
+    const date = new Date().toISOString().split('T')[0];
+    const lang = this.settings.wikiLanguage || 'en';
+    const entry = `\n\n## [${date}] Lint Fix: ${operation}\n\n${details}\n`;
     const existingLog = await this.tryReadFile(logPath) || `# Wiki ${lang === 'zh' ? '操作日志' : 'Operation Log'}\n\n`;
     await this.createOrUpdateFile(logPath, existingLog + entry);
   }

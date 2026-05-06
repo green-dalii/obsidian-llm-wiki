@@ -49,11 +49,42 @@ export class AnthropicCompatibleClient implements LLMClient {
 
     const data = response.json as {
       content?: Array<{ type: string; text?: string }>;
+      stop_reason?: string;
       error?: { message: string };
     };
 
     if (data.error) throw new Error(data.error.message);
     let text = this.extractText(data.content || []);
+
+    // Detect truncation: retry once with double the token limit.
+    if (data.stop_reason === 'max_tokens') {
+      const retryTokens = Math.min(params.max_tokens * 2, 16000);
+      console.warn(
+        `Anthropic-compatible response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
+        `Retrying with ${retryTokens} tokens.`
+      );
+      const retryBody: Record<string, unknown> = {
+        ...body,
+        max_tokens: retryTokens
+      };
+      const retryResponse = await requestUrl({
+        url: this.baseUrl + '/messages',
+        method: 'POST',
+        headers: {
+          'x-api-key': this.apiKey,
+          'Anthropic-Version': this.apiVersion,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(retryBody)
+      });
+      const retryData = retryResponse.json as {
+        content?: Array<{ type: string; text?: string }>;
+        error?: { message: string };
+      };
+      if (retryData.error) throw new Error(retryData.error.message);
+      text = this.extractText(retryData.content || []);
+    }
+
     // Safety: if prefill { was stripped by the provider, restore it
     if (params.response_format?.type === 'json_object' && text.length > 0 && text[0] !== '{') {
       text = '{' + text;
@@ -174,6 +205,25 @@ export class AnthropicClient implements LLMClient {
     });
     const textBlock = response.content.find(c => c.type === 'text');
     let text = textBlock && 'text' in textBlock ? textBlock.text : '';
+
+    // Detect truncation: if the API stopped because it hit max_tokens,
+    // retry once with double the limit so the response completes.
+    if (response.stop_reason === 'max_tokens') {
+      const retryTokens = Math.min(params.max_tokens * 2, 16000);
+      console.warn(
+        `Anthropic response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
+        `Retrying with ${retryTokens} tokens.`
+      );
+      const retryResponse = await this.client.messages.create({
+        model: params.model,
+        max_tokens: retryTokens,
+        system: params.system || undefined,
+        messages: finalMessages
+      });
+      const retryBlock = retryResponse.content.find(c => c.type === 'text');
+      text = retryBlock && 'text' in retryBlock ? retryBlock.text : '';
+    }
+
     // Safety: if prefill { was stripped by the provider, restore it
     if (params.response_format?.type === 'json_object' && text.length > 0 && text[0] !== '{') {
       text = '{' + text;
@@ -282,7 +332,25 @@ export class OpenAIClient implements LLMClient {
         messages: messagesWithSystem,
         ...(params.response_format ? { response_format: params.response_format } : {})
       });
-      return response.choices[0]?.message?.content || '';
+      const text = response.choices[0]?.message?.content || '';
+
+      // Detect truncation: OpenAI returns finish_reason='length' when max_tokens hit.
+      if (response.choices[0]?.finish_reason === 'length') {
+        const retryTokens = Math.min(params.max_tokens * 2, 16000);
+        console.warn(
+          `OpenAI response truncated at ${params.max_tokens} tokens (finish_reason=length). ` +
+          `Retrying with ${retryTokens} tokens.`
+        );
+        const retryResponse = await this.client.chat.completions.create({
+          model: params.model,
+          max_tokens: retryTokens,
+          messages: messagesWithSystem,
+          ...(params.response_format ? { response_format: params.response_format } : {})
+        });
+        return retryResponse.choices[0]?.message?.content || text;
+      }
+
+      return text;
     } catch (error) {
       if (this.isNetworkError(error) && attempt < 3) {
         const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;

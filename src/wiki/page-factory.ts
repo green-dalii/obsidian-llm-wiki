@@ -128,7 +128,7 @@ export class PageFactory {
 
     const pageContent = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 1500,
+      max_tokens: 8000,
       system: await this.ctx.buildSystemPrompt('entity'),
       messages: [{ role: 'user', content: finalPrompt }]
     });
@@ -209,7 +209,7 @@ export class PageFactory {
 
     const pageContent = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 1500,
+      max_tokens: 8000,
       system: await this.ctx.buildSystemPrompt('concept'),
       messages: [{ role: 'user', content: finalPrompt }]
     });
@@ -253,7 +253,7 @@ Output ONLY the complete updated page content, no other text.`;
 
     const updatedContent = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 2000,
+      max_tokens: 8000,
       system: await this.ctx.buildSystemPrompt('related'),
       messages: [{ role: 'user', content: prompt }]
     });

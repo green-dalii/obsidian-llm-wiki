@@ -6,14 +6,16 @@
 
 ---
 
-## ⚠️ Current Phase: Quality Update (v1.6.7)
+## ⚠️ Current Phase: Quality Update (v1.7.0)
 
 **No new features.** Focus: bugfixing, module refactoring, and Karpathy-alignment. All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (v1.2.0 PR since 2026-04-29).
 
-Recently completed (v1.6.6-v1.6.7):
-- 4 bugfixes: stub page empty detection, fillEmptyPage silent failure, post-write verification, fallback stub expansion
-- Module extraction: wiki-engine.ts from 1645 → 526 lines, 7 focused sub-modules
-- Directory reorganization: `src/wiki/` (8 files), `src/schema/` (2), `src/ui/` (2), root shared (6)
+Recently completed (v1.7.0):
+- Content truncation protection: 8000 max_tokens + stop_reason/finish_reason detection + auto-retry
+- fillEmptyPage reliability: pre-read content bypasses string→TFile resolution
+- Batch ingest aggregated reports with entity/concept breakdown
+- Lint report & command palette i18n
+- Lint fix log enrichment with per-item details
 
 Active gaps:
 - Lint batch fix without per-item review (human-in-the-loop) — scheduled for v1.7.0
