@@ -3,8 +3,8 @@
 import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl } from 'obsidian';
 import OpenAI from 'openai';
 import LLMWikiPlugin from '../main';
-import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES } from './types';
-import { TEXTS } from './texts';
+import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES } from '../types';
+import { TEXTS } from '../texts';
 
 export class LLMWikiSettingTab extends PluginSettingTab {
   plugin: LLMWikiPlugin;

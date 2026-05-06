@@ -1,8 +1,8 @@
 // Auto Maintain Manager - File watcher, periodic lint, startup health check
 
 import { App, TAbstractFile, TFile, Notice, Plugin } from 'obsidian';
-import { LLMWikiSettings } from './types';
-import { WikiEngine } from './wiki-engine';
+import { LLMWikiSettings } from '../types';
+import { WikiEngine } from '../wiki/wiki-engine';
 
 export class AutoMaintainManager {
   private app: App;

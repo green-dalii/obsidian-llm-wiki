@@ -1,9 +1,9 @@
 // Schema Manager - Wiki Schema configuration layer (Karpathy's third layer)
 
 import { App, TFile } from 'obsidian';
-import { LLMWikiSettings, WikiSchema, SchemaSuggestion } from './types';
-import { PROMPTS } from './prompts';
-import { parseJsonResponse } from './utils';
+import { LLMWikiSettings, WikiSchema, SchemaSuggestion } from '../types';
+import { PROMPTS } from '../prompts';
+import { parseJsonResponse } from '../utils';
 
 const SCHEMA_FILENAME = 'schema/config.md';
 const SUGGESTIONS_FILENAME = 'schema/suggestions.md';

@@ -1,8 +1,8 @@
 // Reusable UI modals for the LLM Wiki Plugin
 
 import { App, TFile, TFolder, Modal, FuzzySuggestModal, MarkdownRenderer, Component } from 'obsidian';
-import { IngestReport } from './types';
-import { TEXTS } from './texts';
+import { IngestReport } from '../types';
+import { TEXTS } from '../texts';
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   onSelect: (file: TFile) => void;

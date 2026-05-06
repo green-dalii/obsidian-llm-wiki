@@ -2,10 +2,10 @@
 
 import { App, Modal, Notice, MarkdownRenderer } from 'obsidian';
 import LLMWikiPlugin from '../main';
-import { TEXTS } from './texts';
-import { WIKI_LANGUAGES } from './types';
-import { PROMPTS } from './prompts';
-import { parseJsonResponse } from './utils';
+import { TEXTS } from '../texts';
+import { WIKI_LANGUAGES } from '../types';
+import { PROMPTS } from '../prompts';
+import { parseJsonResponse } from '../utils';
 
 // ---- Suggest Save Modal (post-query feedback) ----
 
@@ -18,15 +18,18 @@ class SuggestSaveModal extends Modal {
       timestamp: number;
     }>;
   };
+  private reason: string;
 
   constructor(
     app: App,
     plugin: LLMWikiPlugin,
-    history: { messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }> }
+    history: { messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }> },
+    reason?: string
   ) {
     super(app);
     this.plugin = plugin;
     this.history = history;
+    this.reason = reason || '';
   }
 
   onOpen() {
@@ -37,6 +40,12 @@ class SuggestSaveModal extends Modal {
 
     contentEl.createEl('h3', { text: texts.querySuggestSaveTitle });
     contentEl.createEl('p', { text: texts.querySuggestSaveDesc });
+
+    if (this.reason) {
+      const reasonBox = contentEl.createDiv({ cls: 'llm-wiki-suggest-save-reason' });
+      reasonBox.createEl('strong', { text: 'Reason: ' });
+      reasonBox.createSpan({ text: this.reason });
+    }
 
     const buttonRow = contentEl.createDiv({ cls: 'llm-wiki-suggest-save-buttons' });
 
@@ -214,17 +223,10 @@ export class QueryModal extends Modal {
 
   private evaluateAndSuggestSave(): void {
     const assistantMessages = this.history.messages.filter(m => m.role === 'assistant');
-    const rounds = assistantMessages.length;
-    const assistantChars = assistantMessages.reduce((sum, m) => sum + m.content.length, 0);
+    if (assistantMessages.length < 1) return;
 
-    if (rounds < 1) return;
-
-    if (assistantChars > 500) {
-      new SuggestSaveModal(this.app, this.plugin, this.history).open();
-    } else if (assistantChars >= 300) {
-      void this.evaluateWithLLM();
-    }
-    // < 300 chars: skip
+    // Always use LLM to evaluate conversation value semantically
+    void this.evaluateWithLLM();
   }
 
   private async evaluateWithLLM(): Promise<void> {
@@ -237,14 +239,14 @@ export class QueryModal extends Modal {
 
       const response = await this.plugin.llmClient.createMessage({
         model: this.plugin.settings.model,
-        max_tokens: 100,
+        max_tokens: 150,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
       });
 
-      const parsed = await parseJsonResponse(response) as { valuable?: boolean } | null;
+      const parsed = await parseJsonResponse(response) as { valuable?: boolean; reason?: string } | null;
       if (parsed?.valuable) {
-        new SuggestSaveModal(this.app, this.plugin, this.history).open();
+        new SuggestSaveModal(this.app, this.plugin, this.history, parsed.reason || '').open();
       }
     } catch {
       // LLM evaluation failed, skip suggestion

@@ -2,18 +2,50 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-04-29
+**Last Updated:** 2026-05-06
 
 ---
 
-## ⚠️ Current Phase: Quality Update
+## ⚠️ Current Phase: Quality Update (v1.6.7)
 
-**No new features.** Focus: fixing existing feature defects, quality gaps, and Karpathy-alignment issues identified in the 2026-04-29 audit. All v1.6.0 code is complete on `feature/schema-auto-maintain`; pending user testing.
+**No new features.** Focus: bugfixing, module refactoring, and Karpathy-alignment. All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (v1.2.0 PR since 2026-04-29).
 
-Active items:
-- Long source entity/concept under-extraction (max_tokens bottleneck)
-- Lint batch fix without per-item review (human-in-the-loop)
-- Various Karpathy gaps (see ROADMAP.md for full list)
+Recently completed (v1.6.6-v1.6.7):
+- 4 bugfixes: stub page empty detection, fillEmptyPage silent failure, post-write verification, fallback stub expansion
+- Module extraction: wiki-engine.ts from 1645 → 526 lines, 7 focused sub-modules
+- Directory reorganization: `src/wiki/` (8 files), `src/schema/` (2), `src/ui/` (2), root shared (6)
+
+Active gaps:
+- Lint batch fix without per-item review (human-in-the-loop) — scheduled for v1.7.0
+- Ingest Wizard: conversational ingestion with user review — scheduled for v1.7.0
+- Stale-claim detection in lint — medium priority
+
+## 📁 Project Structure (v1.6.7+)
+
+```
+src/
+├── main.ts                         # Plugin entry shim → ../main.ts
+├── types.ts                        # Shared types + EngineContext
+├── utils.ts                        # Utilities (slugify, parseJson, etc.)
+├── prompts.ts                      # All LLM prompt templates
+├── texts.ts                        # i18n texts (8 languages)
+├── llm-client.ts                   # Anthropic/OpenAI/Ollama clients
+├── wiki/                           # Wiki engine + knowledge modules
+│   ├── wiki-engine.ts              # Orchestrator (526 lines)
+│   ├── query-engine.ts             # Conversational query
+│   ├── source-analyzer.ts          # Iterative batch extraction
+│   ├── page-factory.ts             # Entity/concept CRUD + merge
+│   ├── conversation-ingest.ts      # Chat → wiki knowledge + dedup
+│   ├── lint-fixes.ts               # Dead link fix, empty page fill, orphan link
+│   ├── contradictions.ts           # Contradiction detection/resolution
+│   └── system-prompts.ts           # Language directive + section labels
+├── schema/                         # Schema co-evolution
+│   ├── schema-manager.ts           # Schema CRUD + suggestions
+│   └── auto-maintain.ts            # File watcher + periodic lint
+└── ui/                             # User interface
+    ├── settings.ts                 # Settings panel
+    └── modals.ts                   # Lint/Ingest/Query modals
+```
 
 ---
 

@@ -106,17 +106,17 @@ tags: [{{tags}}]
 
 # {{entity_name}}
 
-## Basic Information
+## {{section_basic_information}}
 - Type: {{entity_type}}
 - Source: [[{{source_file}}]]
 
-## Description
+## {{section_description}}
 [Detailed description of the entity with bidirectional links]
 
-## Related Content
+## {{section_related_content}}
 [Reference related concepts and entities using full paths from the list above]
 
-## Mentions in Source
+## {{section_mentions_in_source}}
 - [Specific mention content]
 
 ---
@@ -159,7 +159,7 @@ reviewed: true
 
 [Fully preserve user-reviewed existing content here]
 
-## New Information ({{date}})
+## {{section_new_information}} ({{date}})
 [Only add non-duplicate new information; write "No new information" if none]
 
 ---
@@ -201,7 +201,7 @@ reviewed: true
 
 [Fully preserve user-reviewed existing content here]
 
-## New Information ({{date}})
+## {{section_new_information}} ({{date}})
 [Only add non-duplicate new information; write "No new information" if none]
 
 ---
@@ -240,20 +240,20 @@ tags: [{{tags}}]
 
 # {{concept_name}}
 
-## Definition
+## {{section_definition}}
 [Clear definition of the concept]
 
-## Key Characteristics
+## {{section_key_characteristics}}
 - Characteristic 1
 - Characteristic 2
 
-## Applications
+## {{section_applications}}
 [Application scenarios for the concept]
 
-## Related Concepts
+## {{section_related_concepts}}
 [Reference related concepts using full paths from the list above]
 
-## Related Entities
+## {{section_related_entities}}
 [Reference related entities using full paths from the list above]
 
 ---
@@ -285,20 +285,20 @@ tags: [{{tags}}]
 
 # {{source_title}} - Summary
 
-## Source
+## {{section_source}}
 - Original file: [[{{source_file}}]]
 - Ingested: {{date}}
 
-## Core Content
+## {{section_core_content}}
 [100-200 word summary with bidirectional links]
 
-## Key Entities
+## {{section_key_entities}}
 [Reference entities using full paths from the list above]
 
-## Key Concepts
+## {{section_key_concepts}}
 [Reference concepts using full paths from the list above]
 
-## Main Points
+## {{section_main_points}}
 - Point 1
 - Point 2
 
@@ -429,7 +429,7 @@ Task:
 
 Important Rules:
 - Do NOT delete any existing content
-- Add a "## Resolved Contradictions" section at the end of the affected page, explaining the resolution approach and reasoning
+- Add a "## {{section_resolved_contradictions}}" section at the end of the affected page, explaining the resolution approach and reasoning
 - Keep the overall page structure intact; only adjust contradiction-related parts
 - Output the complete repaired page content (not just the modified parts)
 - Do NOT output any explanatory text; directly output Markdown-formatted page content`,

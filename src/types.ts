@@ -1,5 +1,7 @@
 // Core Wiki data structures
 
+import { App } from 'obsidian';
+
 export interface SourceAnalysis {
   source_file: string;
   source_title: string;
@@ -165,6 +167,24 @@ export const WIKI_LANGUAGES: Record<string, string> = {
   'es': 'Español',
   'pt': 'Português',
 };
+
+// EngineContext — shared dependencies injected into extracted modules.
+// Defined as an interface so wiki-engine.ts can implement it once and
+// pass it to specialized sub-modules (lint-fixes, contradictions, etc.).
+
+export interface EngineContext {
+  app: App;
+  settings: LLMWikiSettings;
+  getClient: () => LLMClient | null;
+  createOrUpdateFile: (path: string, content: string) => Promise<void>;
+  tryReadFile: (path: string) => Promise<string | null>;
+  buildSystemPrompt: (task: string) => Promise<string | undefined>;
+  getSectionLabels: () => Record<string, string>;
+  getExistingWikiPages: () => Array<{path: string; title: string; wikiLink: string}>;
+  getSchemaContext: (task: string) => Promise<string | undefined>;
+  onFileWrite?: (path: string) => void;
+  onProgress?: (message: string) => void;
+}
 
 // Predefined LLM provider configurations
 

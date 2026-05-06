@@ -10,12 +10,13 @@ import {
 import { AnthropicClient, AnthropicCompatibleClient, OpenAIClient } from './src/llm-client';
 import { TEXTS } from './src/texts';
 import { cleanMarkdownResponse } from './src/utils';
-import { LLMWikiSettingTab } from './src/settings';
-import { WikiEngine } from './src/wiki-engine';
-import { QueryModal } from './src/query-engine';
-import { FileSuggestModal, FolderSuggestModal, LintReportModal, IngestReportModal, LintFixCallbacks, LintCounts } from './src/modals';
-import { SchemaManager } from './src/schema-manager';
-import { AutoMaintainManager } from './src/auto-maintain';
+import { isPageEmpty } from './src/wiki/lint-fixes';
+import { LLMWikiSettingTab } from './src/ui/settings';
+import { WikiEngine } from './src/wiki/wiki-engine';
+import { QueryModal } from './src/wiki/query-engine';
+import { FileSuggestModal, FolderSuggestModal, LintReportModal, IngestReportModal, LintFixCallbacks, LintCounts } from './src/ui/modals';
+import { SchemaManager } from './src/schema/schema-manager';
+import { AutoMaintainManager } from './src/schema/auto-maintain';
 export default class LLMWikiPlugin extends Plugin {
   settings: LLMWikiSettings;
   llmClient: LLMClient | null = null;
@@ -307,27 +308,43 @@ export default class LLMWikiPlugin extends Plugin {
       const wikiFiles = this.app.vault.getMarkdownFiles()
         .filter(f => f.path.startsWith(this.settings.wikiFolder) &&
                      !f.path.includes('index.md') &&
-                     !f.path.includes('log.md'));
+                     !f.path.includes('log.md') &&
+                     !f.path.includes('/schema/') &&
+                     !f.path.includes('/contradictions/'));
 
       // ---- 1. Programmatic checks ----
 
-      // Collect all page contents and titles
+      // Build knownTargets from ALL vault markdown files — wikilinks can point
+      // anywhere in the vault, not just inside the wiki folder.
+      const allVaultFiles = this.app.vault.getMarkdownFiles();
+      const knownTargets = new Set<string>();
+      for (const file of allVaultFiles) {
+        const nameWithoutExt = file.basename.replace('.md', '');
+        knownTargets.add(file.basename);
+        knownTargets.add(nameWithoutExt);
+
+        // Register vault-relative path (with and without .md)
+        const relPath = file.path.replace('.md', '');
+        knownTargets.add(relPath);
+        knownTargets.add(file.path);
+
+        // Register all sub-path suffixes so partial-path wikilinks also match
+        const parts = relPath.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          const subPath = parts.slice(i).join('/');
+          knownTargets.add(subPath);
+          knownTargets.add(subPath + '.md');
+        }
+      }
+
+      // Collect wiki pages (for scanning and page-level checks)
       const pageMap = new Map<string, { path: string; content: string; basename: string }>();
       for (const file of wikiFiles) {
         const content = await this.app.vault.read(file);
         pageMap.set(file.path, { path: file.path, content, basename: file.basename });
       }
 
-      // Build set of all known page targets for dead-link detection
-      const knownTargets = new Set<string>();
-      for (const { path, basename } of pageMap.values()) {
-        knownTargets.add(basename);
-        // Also add relative path (e.g. "entities/SomeName")
-        const relPath = path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
-        knownTargets.add(relPath);
-      }
-
-      // Dead links: parse all [[...]] and check against known targets
+      // Dead links: parse all [[...]] in wiki pages and check against ALL vault files
       const deadLinks: Array<{ source: string; target: string }> = [];
       const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
       for (const { path, content } of pageMap.values()) {
@@ -344,11 +361,11 @@ export default class LLMWikiPlugin extends Plugin {
         linkRegex.lastIndex = 0;
       }
 
-      // Empty / near-empty pages
+      // Empty / near-empty pages (Bug 1 fix: uses isPageEmpty which properly strips
+      // blockquotes, wiki-links, and other non-substantive markdown syntax)
       const emptyPages: string[] = [];
       for (const { path, content } of pageMap.values()) {
-        const textBody = content.replace(/---[\s\S]*?---/, '').replace(/[#*\-\s\n]/g, '').trim();
-        if (textBody.length < 50) {
+        if (isPageEmpty(content)) {
           emptyPages.push(path.replace(this.settings.wikiFolder + '/', '').replace('.md', ''));
         }
       }
@@ -368,7 +385,16 @@ export default class LLMWikiPlugin extends Plugin {
       const orphans: string[] = [];
       for (const { path, basename } of pageMap.values()) {
         const relPath = path.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
-        const hasIncoming = incomingLinks.has(basename) || incomingLinks.has(relPath);
+        const nameWithoutExt = basename.replace('.md', '');
+        // Check all possible forms: any of them might appear in incomingLinks
+        const forms = [basename, nameWithoutExt, relPath];
+        const parts = relPath.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          const subPath = parts.slice(i).join('/');
+          forms.push(subPath);
+          forms.push(subPath + '.md');
+        }
+        const hasIncoming = forms.some(f => incomingLinks.has(f));
         if (!hasIncoming) {
           orphans.push(relPath);
         }
@@ -492,35 +518,45 @@ ${progReport || '程序检测未发现问题'}
       const fixCallbacks: LintFixCallbacks = {
         onFixDeadLinks: deadLinks.length > 0 ? () => {
           void (async () => {
+            // Deduplicate: same source+target appears once per wikilink occurrence in page
+            const seen = new Set<string>();
+            const unique = deadLinks.filter(dl => {
+              const key = `${dl.source}::${dl.target}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+
             let fixed = 0;
-            for (const dl of deadLinks) {
-              fixed++;
-              new Notice(`Fixing dead links: ${fixed}/${deadLinks.length}...`);
+            for (const dl of unique) {
+              new Notice(`Fixing dead links: ${fixed}/${unique.length}...`);
               try {
                 const sourcePath = `${this.settings.wikiFolder}/${dl.source}.md`;
                 const result = await this.wikiEngine.fixDeadLink(sourcePath, dl.target);
                 console.debug(`Dead link fix: ${dl.source} -> ${dl.target}: ${result}`);
+                if (!result.includes('no action taken')) fixed++;
               } catch (e) {
                 console.error(`Failed to fix dead link: ${dl.source} -> ${dl.target}`, e);
               }
             }
-            new Notice(`Dead link fix complete. Fixed ${fixed} items.`);
+            new Notice(`Dead link fix complete. Fixed ${fixed}/${unique.length} items.`);
           })();
         } : undefined,
         onFillEmptyPages: emptyPages.length > 0 ? () => {
           void (async () => {
             let filled = 0;
-            for (const ep of emptyPages) {
-              filled++;
-              new Notice(`Expanding empty pages: ${filled}/${emptyPages.length}...`);
+            for (let i = 0; i < emptyPages.length; i++) {
+              new Notice(`Expanding empty pages: ${i + 1}/${emptyPages.length}...`);
               try {
-                const pagePath = `${this.settings.wikiFolder}/${ep}.md`;
+                const pagePath = `${this.settings.wikiFolder}/${emptyPages[i]}.md`;
                 await this.wikiEngine.fillEmptyPage(pagePath);
+                filled++;
               } catch (e) {
-                console.error(`Failed to expand empty page: ${ep}`, e);
+                console.error(`Failed to expand empty page: ${emptyPages[i]}`, e);
+                new Notice(`Failed to expand: ${emptyPages[i]}`);
               }
             }
-            new Notice(`Page expansion complete. Filled ${filled} pages.`);
+            new Notice(`Page expansion complete. Filled ${filled}/${emptyPages.length} pages.`);
           })();
         } : undefined,
         onLinkOrphans: orphans.length > 0 ? () => {

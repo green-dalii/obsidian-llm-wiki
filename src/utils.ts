@@ -68,14 +68,25 @@ export async function parseJsonResponse(
 
     // Step 1.2: Prefill artifact correction
     // Prefill technique may result in:
-    //   (a) {{...}  → model echoed the prefill { and also started with { → double brace
-    //   (b) "...}"  → provider stripped the prefill → missing opening brace
+    //   (a) {{...}   → model echoed the prefill { and also started with { → adjacent double brace
+    //   (b) {\n{...} → same but with whitespace/newline between braces → call it "loose prefill"
+    //   (c) "...}"   → provider stripped the prefill → missing opening brace
 
     if (normalized.startsWith('{{')) {
       // Remove the first { (prefill echo)
       normalized = normalized.substring(1);
       console.debug('检测到双括号 {{，去除多余的前导 {');
-    } else if (normalized.length > 0 && normalized[0] !== '{') {
+    } else if (normalized.length > 1 && normalized[0] === '{') {
+      // Check for "loose prefill": lone { on first line, then actual JSON starting with {
+      // OR the LLM wrapped output in a code fence after echoing the prefill {
+      const afterFirst = normalized.substring(1).trimStart();
+      if (afterFirst.startsWith('{') || afterFirst.startsWith('```')) {
+        normalized = afterFirst;
+        console.debug('检测到换行分隔的双括号 {\\n{，去除多余的前导 {');
+      }
+    }
+
+    if (normalized.length > 0 && normalized[0] !== '{') {
       // Try prepending { and parse (prefill stripped by provider)
       const withBrace = '{' + normalized;
       try {
