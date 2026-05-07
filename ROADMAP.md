@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.0 | **Updated:** 2026-05-06
+**Version:** 1.7.0 | **Updated:** 2026-05-07
 
 ---
 
@@ -115,9 +115,9 @@
 
 > Based on re-reading Karpathy's [original LLM Wiki vision](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and auditing the plugin against his core principles.
 
-### v1.8.0 — Conversational Ingest
+### v1.8.0 — Conversational Ingest + Web Clipper
 
-**Goal:** Transform ingest from a black box into a collaborative process.
+**Goal:** Transform ingest from a black box into a collaborative process, and integrate with Obsidian's native content capture.
 
 Karpathy: *"I like to do them one at a time, and be involved myself. I like to discuss what to file, then file it."*
 
@@ -130,7 +130,19 @@ Karpathy: *"I like to do them one at a time, and be involved myself. I like to d
 
 **Files:** `src/ingest-wizard.ts` (new), `src/wiki-engine.ts`, `main.ts`
 
-#### 2. Lint Per-Item Review
+#### 2. Web Clipper Integration
+Obsidian's official [Web Clipper](https://obsidian.md/clipper) plugin saves web content into a `Clippings/` folder by default — a natural, zero-friction content funnel for LLM Wiki. Instead of manually moving files to `sources/`, the plugin watches the Clippings folder and auto-ingests new clips.
+
+- **Settings toggle**: "Watch Clippings folder" checkbox + customizable folder path (default: `Clippings/`)
+- **Auto-ingest on new clip**: file watcher detects new `.md` files in the watched folder → triggers `ingestSource()` automatically
+- **Debounce**: reuse existing auto-maintain debounce logic; batch clips arriving within 30s into a single ingest run
+- **Per-clip notification**: brief Notice on ingest completion; detailed report in `log.md`
+- **Defaults OFF**: avoid surprise API costs for users unaware of the feature
+- **Karpathy alignment**: web clips are a primary source of real-world knowledge; auto-ingesting them keeps the Wiki growing organically without manual effort — "knowledge compounds" with zero friction
+
+**Files:** `src/schema/auto-maintain.ts` (extend), `src/ui/settings.ts` (toggle), `src/types.ts` (settings fields), `src/texts.ts` (i18n)
+
+#### 3. Lint Per-Item Review
 - Replace batch fix with per-item preview + confirm
 - Show LLM fix proposal before applying
 - Align with human-in-the-loop principle
@@ -139,11 +151,11 @@ Karpathy: *"I like to do them one at a time, and be involved myself. I like to d
 
 ### v1.8.0 — Experience Polish
 
-#### 3. Proactive Schema Suggestions
+#### 4. Proactive Schema Suggestions
 - After ingest, check if new entity/concept types fall outside schema categories
 - Suggest running "Analyze Schema" (do not auto-modify)
 
-#### 4. Output Format Diversity
+#### 5. Output Format Diversity
 Karpathy: *"comparison tables, slide decks (Marp), charts"*
 - Optimize query prompts for structured table output
 - "Export as Marp" button in Query modal
@@ -174,10 +186,11 @@ Karpathy: *"comparison tables, slide decks (Marp), charts"*
 | **v1.6.3** | 2026-05 | Adaptive batch_size | Released |
 | **v1.6.4** | 2026-05 | Dual-layer JSON parsing, Anthropic prompt caching, entity extraction balance, ingestion report, granularity cost labeling | Code complete |
 | **v1.6.5** | 2026-05 | Wiki output language (8 languages + custom), English LLM prompts, system prompt language directive, artifact removal | Code complete |
-| **v1.7.0** | TBD | Conversational ingest wizard, lint per-item review | Planned |
-| **v1.8.0** | TBD | Proactive schema suggestions, output diversity | Planned |
+| **v1.7.0** | 2026-05 | Quality milestone: truncation protection, fillEmptyPage fix, batch reports, i18n completion, module refactoring | Released |
+| **v1.8.0** | TBD | Conversational ingest wizard, Web Clipper integration, lint per-item review | Planned |
+| **v1.9.0** | TBD | Proactive schema suggestions, output diversity | Planned |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
 ---
 
-**Last Updated:** 2026-05-03 | **Maintainer:** Greener-Dalii
+**Last Updated:** 2026-05-07 | **Maintainer:** Greener-Dalii

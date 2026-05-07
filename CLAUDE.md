@@ -2,13 +2,13 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-06
+**Last Updated:** 2026-05-07
 
 ---
 
-## ⚠️ Current Phase: Quality Update (v1.7.0)
+## ⚠️ Current Phase: v1.7.0 QA Wrapping Up → v1.8.0 Planning
 
-**No new features.** Focus: bugfixing, module refactoring, and Karpathy-alignment. All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (v1.2.0 PR since 2026-04-29).
+**No new features in v1.7.x.** Focus: bugfixing, Bot review compliance. All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (PR #12344).
 
 Recently completed (v1.7.0):
 - Content truncation protection: 8000 max_tokens + stop_reason/finish_reason detection + auto-retry
@@ -16,11 +16,24 @@ Recently completed (v1.7.0):
 - Batch ingest aggregated reports with entity/concept breakdown
 - Lint report & command palette i18n
 - Lint fix log enrichment with per-item details
+- Bot review fix: removed unnecessary `async` from settings.ts dropdown callback
 
-Active gaps:
-- Lint batch fix without per-item review (human-in-the-loop) — scheduled for v1.7.0
-- Ingest Wizard: conversational ingestion with user review — scheduled for v1.7.0
+Active gaps (v1.7.x):
+- Lint batch fix without per-item review (human-in-the-loop)
+- Ingest Wizard: conversational ingestion with user review
 - Stale-claim detection in lint — medium priority
+
+### v1.8.0 — Web Clipper Integration (planned)
+
+**Obsidian Web Clipper** is the official first-party browser extension that saves web content into the vault (default: `Clippings/` folder). It is a natural content funnel for LLM Wiki.
+
+Proposed features:
+- **Clippings folder watcher**: new setting toggle to auto-watch `Clippings/` (or custom folder) for new clips
+- **Auto-ingest on clip**: when Web Clipper saves a new page, LLM Wiki detects it and triggers ingestion automatically
+- **Debounce protection**: reuse existing auto-maintain debounce logic to handle rapid multi-clip sessions
+- **Per-clip report**: each ingested clip shows a mini report (or aggregate if multiple clips in a session)
+
+This is additive — it leverages the existing file watcher + ingest pipeline. The setting defaults OFF to avoid surprise API costs.
 
 ## 📁 Project Structure (v1.6.7+)
 
