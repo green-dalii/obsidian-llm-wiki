@@ -24,6 +24,65 @@ const MERGE_CONTENT_THRESHOLD = 300;
 export class PageFactory {
   constructor(private ctx: EngineContext) {}
 
+  // Determine the actual file path for a new entity/concept, using slug-based
+  // matching first and falling back to LLM semantic resolution.
+  private async resolvePagePath(
+    name: string,
+    pageType: 'entity' | 'concept',
+    summary: string
+  ): Promise<string> {
+    const folder = pageType === 'entity' ? 'entities' : 'concepts';
+    const slug = slugify(name);
+    const slugPath = `${this.ctx.settings.wikiFolder}/${folder}/${slug}.md`;
+
+    // Fast path: exact slug match
+    const existing = await this.ctx.tryReadFile(slugPath);
+    if (existing !== null) return slugPath;
+
+    // Slow path: LLM semantic resolution against existing pages of the same type
+    try {
+      const allPages = getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+      const sameTypePages = allPages.filter(p => p.path.includes(`/${folder}/`));
+      if (sameTypePages.length === 0) return slugPath;
+
+      const pagesList = sameTypePages
+        .map(p => `- path: ${p.path}\n  title: ${p.title}`)
+        .join('\n');
+
+      const client = this.ctx.getClient();
+      if (!client) return slugPath;
+
+      const prompt = PROMPTS.resolveEntityDedup
+        .replace('{{entity_name}}', name)
+        .replace('{{entity_type}}', pageType)
+        .replace('{{entity_summary}}', summary.substring(0, 300))
+        .replace('{{page_type}}', pageType)
+        .replace('{{existing_pages}}', pagesList);
+
+      const response = await client.createMessage({
+        model: this.ctx.settings.model,
+        max_tokens: 300,
+        system: await this.ctx.buildSystemPrompt('full'),
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
+      });
+
+      const result = await parseJsonResponse(response) as {
+        match?: boolean;
+        path?: string | null;
+      } | null;
+
+      if (result?.match && result?.path) {
+        console.debug(`Entity resolution: "${name}" matched existing page "${result.path}"`);
+        return result.path;
+      }
+    } catch (error) {
+      console.debug(`Entity resolution for "${name}" failed, using slug path:`, error);
+    }
+
+    return slugPath;
+  }
+
   buildPagesListForPrompt(includePaths: string[] = []): string {
     const allPages = getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
     const MAX_PAGES = 50;
@@ -74,10 +133,8 @@ export class PageFactory {
     console.debug('entity.name:', entity.name);
     console.debug('类型:', entity.type);
 
-    const entitySlug = slugify(entity.name);
-    console.debug('生成的 slug:', entitySlug);
-    const path = `${this.ctx.settings.wikiFolder}/entities/${entitySlug}.md`;
-    console.debug('目标路径:', path);
+    const path = await this.resolvePagePath(entity.name, 'entity', entity.summary);
+    console.debug('解析后路径:', path);
 
     const existingContent = await this.ctx.tryReadFile(path);
     const isReviewed = existingContent ? parseFrontmatter(existingContent)?.reviewed === true : false;
@@ -95,7 +152,7 @@ export class PageFactory {
           for (const c of mergeAnalysis.contradictions) {
             _analysis.contradictions.push({
               claim: c.claim,
-              source_page: `[[entities/${entitySlug}]]`,
+              source_page: `[[${path.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '')}]]`,
               contradicted_by: c.existing_claim,
               resolution: c.resolution
             });
@@ -154,10 +211,8 @@ export class PageFactory {
     console.debug('concept.name:', concept.name);
     console.debug('类型:', concept.type);
 
-    const conceptSlug = slugify(concept.name);
-    console.debug('生成的 slug:', conceptSlug);
-    const path = `${this.ctx.settings.wikiFolder}/concepts/${conceptSlug}.md`;
-    console.debug('目标路径:', path);
+    const path = await this.resolvePagePath(concept.name, 'concept', concept.summary);
+    console.debug('解析后路径:', path);
 
     const existingContent = await this.ctx.tryReadFile(path);
     const isReviewed = existingContent ? parseFrontmatter(existingContent)?.reviewed === true : false;
@@ -175,7 +230,7 @@ export class PageFactory {
           for (const c of mergeAnalysis.contradictions) {
             _analysis.contradictions.push({
               claim: c.claim,
-              source_page: `[[concepts/${conceptSlug}]]`,
+              source_page: `[[${path.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '')}]]`,
               contradicted_by: c.existing_claim,
               resolution: c.resolution
             });

@@ -92,6 +92,7 @@ export interface LLMWikiSettings {
   autoWatchSources: boolean;
   autoWatchMode: 'notify' | 'auto';
   autoWatchDebounceMs: number;
+  watchedFolders: string[];
   periodicLint: 'off' | 'hourly' | 'daily' | 'weekly';
   startupCheck: boolean;
 }
@@ -351,6 +352,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   autoWatchSources: false,
   autoWatchMode: 'notify',
   autoWatchDebounceMs: 5000,
+  watchedFolders: [],
   periodicLint: 'off',
   startupCheck: false,
 };

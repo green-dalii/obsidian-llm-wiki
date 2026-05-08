@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-05-08
+
+### Added
+- **Multi-folder auto-watch**: `watchedFolders` array replaces single `watchedFolder`; users can watch any number of folders via "Add Folder" buttons in settings
+- **Web Clipper preset**: one-click button adds `Clippings/` folder to watch list for seamless web-clip auto-ingestion
+- **Semantic entity deduplication**: `resolvePagePath()` uses LLM fallback when slug matching fails, handling translations ("Tsinghua University" ↔ "清华大学"), abbreviations, and renamings
+- **Granularity-linked iteration caps**: `coarse`/`standard`/`fine` now control batch count (3/6/12), per-batch quota (10/20/30), and cumulative soft ceiling (20/50/unlimited) — prevents runaway extraction in standard mode
+- **Ingestion Notice feedback**: single-file and folder-ingest commands now show `Notice` with duration guidance so users know the operation is running
+- **Network error actionable messages**: after 3 retries, OpenAI client reports specific causes (VPN, SSL/TLS, firewall, incorrect URL) and suggests using "Test Connection"
+
+### Fixed
+- **Entity name translation leak**: `langHint` now excludes names from language requirement — entity/concept names preserve source language, summaries/descriptions follow `wikiLanguage`
+- **Premature iteration stop**: changed from `rawTotal < currentBatchSize` to `newTotal === 0` (post-deduplication), so legitimate duplicates no longer abort extraction early
+- **`fillEmptyPage` "file not found"**: pre-read content passed directly from lint phase to fix callback, bypassing string→TFile resolution entirely
+- **Settings `watchedFolders` array type migration**: older installs with string `watchedFolder` auto-reset to `[]` on load
+- **Auto-maintain settings sync**: `saveSettings()` now propagates settings reference to `autoMaintainManager`, fixing stale-folder bugs after settings changes
+- **Auto-maintain startup noise**: `workspace.onLayoutReady()` gates watcher registration, preventing false triggers from existing files on plugin load
+- **metadataCache duplicate events**: mtime-level deduplication (`lastSeenPaths`) prevents double-ingestion on external drag-drop
+
+### Changed
+- **analyzeSource prompt quality**: summary target 100-200 → 150-250 words; item summaries 2-4 → 4-6 sentences; `mentions_in_source` now requires 2-4 verbatim source quotes with surrounding context
+- **Expanded network error detection**: `ssl`, `tls`, `protocol_error` added to `isNetworkError()` regex
+
 ## [1.7.0] - 2026-05-06
 
 ### Added

@@ -6,7 +6,7 @@ import { WikiEngine } from '../wiki/wiki-engine';
 
 export class AutoMaintainManager {
   private app: App;
-  private settings: LLMWikiSettings;
+  settings: LLMWikiSettings;
   private wikiEngine: WikiEngine;
   private plugin: Plugin;
 
@@ -42,18 +42,43 @@ export class AutoMaintainManager {
 
   // === File Watcher ===
 
+  // Listen to four event types to cover all file-creation scenarios:
+  // - vault.on('create')  → new files within Obsidian (Cmd+N, right-click→New)
+  // - vault.on('rename')  → files MOVED into watched folder (drag in file explorer)
+  // - vault.on('modify')  → content changes in watched files
+  // - metadataCache.on('resolved') → external drag-drop, copy-paste from OS
+  // workspace.onLayoutReady prevents startup noise from existing files.
   startWatching(): void {
     if (this.watching) return;
 
-    this.plugin.registerEvent(
-      this.app.vault.on('create', (file: TAbstractFile) => this.onFileChanged(file))
-    );
-    this.plugin.registerEvent(
-      this.app.vault.on('modify', (file: TAbstractFile) => this.onFileChanged(file))
-    );
+    this.app.workspace.onLayoutReady(() => {
+      if (this.watching) return;
 
-    this.watching = true;
-    console.debug('AutoMaintain: File watcher started');
+      this.plugin.registerEvent(
+        this.app.vault.on('create', (file: TAbstractFile) => {
+          this.onFileChanged(file);
+        })
+      );
+      this.plugin.registerEvent(
+        this.app.vault.on('rename', (file: TAbstractFile, _oldPath: string) => {
+          this.onFileChanged(file);
+        })
+      );
+      this.plugin.registerEvent(
+        this.app.vault.on('modify', (file: TAbstractFile) => {
+          this.onFileChanged(file);
+        })
+      );
+      this.plugin.registerEvent(
+        this.app.metadataCache.on('resolved', (file: TFile) => {
+          this.onFileChanged(file);
+        })
+      );
+
+      this.watching = true;
+      console.debug('AutoMaintain: File watcher started (create+rename+modify+resolved)');
+      new Notice('Wiki: file watcher active — monitoring watched folders', 4000);
+    });
   }
 
   stopWatching(): void {
@@ -65,16 +90,48 @@ export class AutoMaintainManager {
     console.debug('AutoMaintain: File watcher stopped');
   }
 
+  // Check if a path falls within any watched folder
+  private isWatched(path: string): boolean {
+    if (this.settings.watchedFolders.length === 0) return false;
+    return this.settings.watchedFolders.some(folder => {
+      const prefix = folder.endsWith('/') ? folder : `${folder}/`;
+      return path.startsWith(prefix);
+    });
+  }
+
+  // Avoid re-processing on repeated metadataCache events for the same file version
+  private lastSeenPaths: Set<string> = new Set();
+
   private onFileChanged(file: TAbstractFile): void {
+    // metadataCache may fire with undefined during plugin load/unload lifecycle
+    if (!file) return;
+
+    console.debug(`[AutoMaintain] event: ${file.path}, TFile: ${file instanceof TFile}`);
+
     if (!(file instanceof TFile)) return;
     if (!file.path.endsWith('.md')) return;
 
-    // Only watch files in sources/ folder
-    const sourcesPrefix = `${this.settings.wikiFolder}/sources/`;
-    if (!file.path.startsWith(sourcesPrefix)) return;
+    if (!this.isWatched(file.path)) {
+      console.debug(`[AutoMaintain] SKIP: ${file.path} (not watched). Watched: ${JSON.stringify(this.settings.watchedFolders)}`);
+      return;
+    }
 
-    // Skip files we just wrote ourselves (ingest loop prevention)
-    if (this.recentWrites.has(file.path)) return;
+    if (this.recentWrites.has(file.path)) {
+      console.debug(`[AutoMaintain] SKIP: ${file.path} (recent write)`);
+      return;
+    }
+
+    // metadataCache may re-fire for the same file version; dedupe by mtime
+    const mtime = file.stat?.mtime || 0;
+    const fileKey = `${file.path}::${mtime}`;
+    if (this.lastSeenPaths.has(fileKey)) {
+      console.debug(`[AutoMaintain] SKIP: ${file.path} (same mtime already seen)`);
+      return;
+    }
+    this.lastSeenPaths.add(fileKey);
+    activeWindow.setTimeout(() => { this.lastSeenPaths.delete(fileKey); }, 600000);
+
+    console.debug(`[AutoMaintain] DETECTED: ${file.path}, pending: ${this.pendingFiles.size + 1}`);
 
     // Add to pending batch
     this.pendingFiles.set(file.path, file);
@@ -119,7 +176,7 @@ export class AutoMaintainManager {
   // Called externally (e.g. from wiki-engine callbacks) for files
   // created outside the watcher→ingest flow (like ingestConversation).
   watchWrite(path: string): void {
-    if (path.startsWith(`${this.settings.wikiFolder}/sources/`)) {
+    if (this.isWatched(path)) {
       this.markRecentWrite(path);
     }
   }
@@ -132,8 +189,7 @@ export class AutoMaintainManager {
 
     if (files.length === 0) return;
 
-    const sourcesPrefix = `${this.settings.wikiFolder}/sources/`;
-    const sourceFiles = files.filter(f => f.path.startsWith(sourcesPrefix));
+    const sourceFiles = files.filter(f => this.isWatched(f.path));
     if (sourceFiles.length === 0) return;
 
     if (this.settings.autoWatchMode === 'notify') {
@@ -236,9 +292,9 @@ export class AutoMaintainManager {
   }
 
   private hasSourceFilesChanged(): boolean {
-    const sourcesPrefix = `${this.settings.wikiFolder}/sources/`;
+    if (this.settings.watchedFolders.length === 0) return true; // no folders configured, always run
     const allFiles = this.app.vault.getMarkdownFiles();
-    const sourceFiles = allFiles.filter(f => f.path.startsWith(sourcesPrefix));
+    const sourceFiles = allFiles.filter(f => this.isWatched(f.path));
 
     for (const file of sourceFiles) {
       if (file.stat.mtime > this.lastLintTimestamp) {

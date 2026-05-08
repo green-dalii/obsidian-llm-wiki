@@ -358,6 +358,15 @@ export class OpenAIClient implements LLMClient {
         await new Promise(resolve => activeWindow.setTimeout(resolve, delay));
         return this.createMessageWithRetry(params, attempt + 1);
       }
+      // After all retries exhausted, throw with actionable context
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error(
+          `Network request failed after 3 retries: cannot reach the API endpoint. ` +
+          `Possible causes: (1) VPN or proxy blocking the connection, (2) SSL/TLS certificate issue (try restarting Obsidian), ` +
+          `(3) provider URL is incorrect or has changed, (4) firewall blocking outbound HTTPS. ` +
+          `Check your network and try the "Test Connection" button in Settings.`
+        );
+      }
       throw error;
     }
   }
@@ -416,7 +425,7 @@ export class OpenAIClient implements LLMClient {
   private isNetworkError(error: unknown): boolean {
     if (error instanceof TypeError && error.message === 'Failed to fetch') return true;
     const msg = error instanceof Error ? error.message : String(error);
-    return /network|fetch|econnrefused|econnreset|etimedout|abort|closed/i.test(msg);
+    return /network|fetch|econnrefused|econnreset|etimedout|abort|closed|ssl|tls|protocol_error/i.test(msg);
   }
 
   async listModels(): Promise<string[]> {

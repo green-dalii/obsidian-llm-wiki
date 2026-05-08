@@ -135,7 +135,7 @@ export class WikiEngine {
 
       analysis = await this.sourceAnalyzer.analyzeSource(file);
       if (!analysis) {
-        throw new Error('源文件分析失败');
+        throw new Error(`Source analysis failed for "${file.basename}". Check the developer console (Ctrl+Shift+I) for network or API errors. If you see SSL/network errors, verify your provider URL and network connection.`);
       }
       console.debug('分析结果:', JSON.stringify(analysis, null, 2));
 

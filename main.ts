@@ -130,15 +130,25 @@ export default class LLMWikiPlugin extends Plugin {
     const savedData = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
 
+    console.debug('loadSettings: loaded watchedFolders =', JSON.stringify(this.settings.watchedFolders));
+
     // Backward compatibility: if wikiLanguage was never set, inherit from existing language setting
     if (savedData && !savedData.wikiLanguage) {
       this.settings.wikiLanguage = this.settings.language;
       await this.saveData(this.settings);
     }
+
+    // Backward compat: ensure watchedFolders is an array (older versions had single watchedFolder string)
+    if (!Array.isArray(this.settings.watchedFolders)) {
+      this.settings.watchedFolders = [];
+      console.debug('loadSettings: watchedFolders was not an array, reset to []');
+    }
   }
 
   async saveSettings() {
+    console.debug('saveSettings: watchedFolders =', JSON.stringify(this.settings.watchedFolders));
     await this.saveData(this.settings);
+    console.debug('saveSettings: data saved to data.json');
     this.initializeLLMClient();
     this.schemaManager?.updateSettings(this.settings);
     if (this.wikiEngine) {
@@ -146,6 +156,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
     // Sync auto-maintain features with updated settings
     if (this.autoMaintainManager) {
+      this.autoMaintainManager.settings = this.settings;
       this.autoMaintainManager.stop();
       if (this.settings.autoWatchSources) {
         this.autoMaintainManager.startWatching();
@@ -219,6 +230,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
 
     new FileSuggestModal(this.app, (file) => {
+      new Notice(`Ingesting "${file.basename}" — this may take a while. Watch the wiki folder for new pages.`, 6000);
       this.wikiEngine.ingestSource(file).catch(e => console.error(e));
     }).open();
   }
@@ -249,6 +261,8 @@ export default class LLMWikiPlugin extends Plugin {
       });
 
       this.showProgress(`[0/${totalFiles}] Starting...`);
+
+      new Notice(`Ingesting ${totalFiles} file(s) from "${folder.name}" — this may take several minutes. A report will appear when complete.`, 8000);
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
