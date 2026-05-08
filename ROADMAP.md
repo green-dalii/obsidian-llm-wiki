@@ -164,7 +164,7 @@
 
 > Based on re-reading Karpathy's [original LLM Wiki vision](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and auditing the plugin against his core principles.
 
-### v1.8.0 — Conversational Ingest
+### v1.8.0 — Conversational Ingest + Experience Polish
 
 **Goal:** Transform ingest from a black box into a collaborative process.
 
@@ -183,22 +183,6 @@ Karpathy: *"I like to do them one at a time, and be involved myself. I like to d
 - Replace batch fix with per-item preview + confirm
 - Show LLM fix proposal before applying
 - Align with human-in-the-loop principle
-
-#### 3. Concurrent Page Generation (Ingest Acceleration)
-**Problem:** Long sources (50+ entities/concepts) take ~5-6 minutes with serial page generation
-
-**Solution:** Concurrent pool parallel (3-5 configurable)
-- `processBatch()` with `Promise.allSettled` for error isolation
-- 300ms delay between batches for API rate limit safety
-- Configurable concurrency: 1 (serial, default) to 5 (parallel)
-- Speed: ~3x faster (165s → 60s for 50 entities)
-- Safe for providers: Anthropic/DeepSeek (~10-20 req/s), OpenAI (~60 RPM)
-
-**Files:** `src/wiki/page-factory.ts`, `src/types.ts`, `src/ui/settings.ts`
-
----
-
-### v1.8.0 — Experience Polish
 
 #### 3. Proactive Schema Suggestions
 - After ingest, check if new entity/concept types fall outside schema categories
@@ -238,7 +222,8 @@ Karpathy: *"comparison tables, slide decks (Marp), charts"*
 | **v1.7.0** | 2026-05 | Content truncation protection, fillEmptyPage reliability, frontmatter normalization, lint/command i18n, batch ingest reports, entity/concept breakdown, slugify improvements | Released |
 | **v1.7.1** | 2026-05 | Multi-folder watch, Web Clipper preset, semantic deduplication, granularity-linked caps, ingestion Notices, actionable errors | Committed |
 | **v1.7.2** | 2026-05 | Programmatic frontmatter merge (sources append), intelligent content fusion, NO_NEW_CONTENT signal, reviewed page minimal-append | Committed |
-| **v1.8.0** | TBD | Ingest Wizard (conversational), lint per-item review, concurrent page generation, proactive schema, output diversity | Planned |
+| **v1.7.3** | 2026-05 | Ingestion acceleration (concurrent page generation), verbatim mentions, enhanced entity/concept relations, schema optimization | Released |
+| **v1.8.0** | TBD | Ingest Wizard (conversational), lint per-item review, proactive schema, output diversity | Planned |
 | **v1.9.0** | TBD | Wiki Health Dashboard, page version history | Planned |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
