@@ -167,6 +167,8 @@ export class PageFactory {
       .replace('{{entity_type}}', entity.type)
       .replace('{{entity_summary}}', entity.summary)
       .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || 'No specific mentions')
+      .replace('{{related_entities}}', entity.related_entities?.join(', ') || 'No related entities')
+      .replace('{{related_concepts}}', entity.related_concepts?.join(', ') || 'No related concepts')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_content}}', 'No existing content')
       .replace('{{merge_strategy}}', 'New page, no merge needed.')
@@ -207,6 +209,8 @@ export class PageFactory {
       .replace('{{new_source}}', sourceFile.basename)
       .replace('{{entity_summary}}', entity.summary)
       .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || '')
+      .replace('{{related_entities}}', entity.related_entities?.join(', ') || '')
+      .replace('{{related_concepts}}', entity.related_concepts?.join(', ') || '')
       .replace('{{key_details}}', entity.mentions_in_source?.slice(0, 2).join('; ') || '')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths));
 
@@ -329,6 +333,7 @@ export class PageFactory {
       .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || 'No specific mentions')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || 'No related concepts')
+      .replace('{{related_entities}}', concept.related_entities?.join(', ') || 'No related entities')
       .replace('{{related_content}}', 'No existing content')
       .replace('{{merge_strategy}}', 'New page, no merge needed.')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
@@ -369,6 +374,7 @@ export class PageFactory {
       .replace('{{concept_summary}}', concept.summary)
       .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || '')
       .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || '')
+      .replace('{{related_entities}}', concept.related_entities?.join(', ') || '')
       .replace('{{key_details}}', concept.mentions_in_source?.slice(0, 2).join('; ') || '')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths));
 

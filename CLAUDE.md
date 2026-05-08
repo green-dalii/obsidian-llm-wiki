@@ -2,24 +2,43 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-06
+**Last Updated:** 2026-05-08
 
 ---
 
-## ⚠️ Current Phase: Quality Update (v1.7.0)
+## Current Phase: Acceleration + Schema Enhancement (v1.7.3)
 
-**No new features.** Focus: bugfixing, module refactoring, and Karpathy-alignment. All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (v1.2.0 PR since 2026-04-29).
+**New features: Ingestion acceleration + Enhanced relationships + Schema optimization.**
 
-Recently completed (v1.7.0):
-- Content truncation protection: 8000 max_tokens + stop_reason/finish_reason detection + auto-retry
-- fillEmptyPage reliability: pre-read content bypasses string→TFile resolution
-- Batch ingest aggregated reports with entity/concept breakdown
-- Lint report & command palette i18n
-- Lint fix log enrichment with per-item details
+Recently completed (v1.7.3):
+- **Ingestion Parallel Acceleration**: Configurable page generation concurrency (1-5, default 1)
+- **Batch delay control**: 100-2000ms for API rate limit protection
+- **Verbatim mentions preservation**: Source quotes in original language
+- **Entity/Concept relationship enhancement**: Separate Related Entities/Concepts sections
+- **Schema template optimization**: Explicit structure rules and merge policies
+
+Recently completed (v1.7.2): All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (v1.2.0 PR since 2026-04-29).
+
+Recently completed (v1.7.0-1.7.2):
+- **v1.7.2 — Intelligent Multi-Source Merge (CRITICAL FIX)**:
+  - Programmatic frontmatter merge: sources[] deterministically appended (not overwritten), created preserved, updated refreshed, reviewed protected
+  - Intelligent body fusion: LLM merges new source following schema sections — no redundancy, contradictions preserved with attribution, bidirectional links maintained
+  - Reviewed page minimal-append mode: pages with `reviewed: true` get only genuinely new content appended
+  - NO_NEW_CONTENT signal: skip redundant updates when source adds nothing new
+- **v1.7.1 — Multi-Folder Watch & Granularity Control**:
+  - Multi-folder auto-watch: `watchedFolders` array with "Add Folder" UI, Web Clipper preset
+  - Granularity-linked iteration caps: coarse(3/10/20) / standard(6/20/50) / fine(12/30/unlimited)
+  - Semantic entity deduplication: LLM fallback for translations, abbreviations, renamings
+- **v1.7.0 — Content Truncation Protection & Quality**:
+  - 8000 max_tokens + stop_reason/finish_reason detection + auto-retry
+  - fillEmptyPage reliability: pre-read content bypasses string→TFile resolution
+  - Batch ingest aggregated reports with entity/concept breakdown
+  - Lint report & command palette i18n
+  - Lint fix log enrichment with per-item details
 
 Active gaps:
-- Lint batch fix without per-item review (human-in-the-loop) — scheduled for v1.7.0
-- Ingest Wizard: conversational ingestion with user review — scheduled for v1.7.0
+- Lint batch fix without per-item review (human-in-the-loop) — scheduled for v1.8.0
+- Ingest Wizard: conversational ingestion with user review — scheduled for v1.8.0
 - Stale-claim detection in lint — medium priority
 
 ## 📁 Project Structure (v1.6.7+)

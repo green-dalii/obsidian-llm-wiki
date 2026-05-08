@@ -20,9 +20,10 @@ export const PROMPTS = {
 2. Output at most {{batch_size}} items (entities + concepts total) this round
 3. Write a detailed, informative summary for each item (target 4-6 sentences). Include concrete information: what the entity/concept is, its role/significance in the source, key factual details, and how it relates to other items. Provide enough substance that the summary alone can seed a quality Wiki page
 4. For mentions_in_source: quote 2-4 verbatim sentences from the source where this entity/concept appears or is discussed. These quotes are critical — they provide the downstream page generator with source-grounded evidence. Include surrounding context, not just the name mention
-5. Identify contradictions or conflicts with the existing Wiki (only output contradictions in the first round)
-6. Identify related existing Wiki pages (only output related_pages in the first round)
-7. Generate key points from the source file (only output key_points in the first round)
+5. For related_entities and related_concepts: identify entities/concepts mentioned in the same context as this item. These should be other items extracted from this same source file
+6. Identify contradictions or conflicts with the existing Wiki (only output contradictions in the first round)
+7. Identify related existing Wiki pages (only output related_pages in the first round)
+8. Generate key points from the source file (only output key_points in the first round)
 
 **Output Format (strict JSON, output only JSON, no explanatory text):**
 {
@@ -33,7 +34,9 @@ export const PROMPTS = {
       "name": "Entity name — MUST be in the source's original language, NEVER translate",
       "type": "person|organization|project|product|event|location|other",
       "summary": "Detailed 4-6 sentence description with concrete facts: identity, role/significance, key attributes",
-      "mentions_in_source": ["Verbatim sentence from source: '...'.", "Another verbatim quote: '...'."]
+      "mentions_in_source": ["Verbatim sentence from source: '...'.", "Another verbatim quote: '...'."],
+      "related_entities": ["Related entity names from this source"],
+      "related_concepts": ["Related concept names from this source"]
     }
   ],
   "concepts": [
@@ -42,7 +45,8 @@ export const PROMPTS = {
       "type": "theory|method|technology|term|other",
       "summary": "Detailed 4-6 sentence description with concrete facts: definition, importance, relationships",
       "mentions_in_source": ["Verbatim sentence from source: '...'.", "Another verbatim quote: '...'."],
-      "related_concepts": ["Related concept names"]
+      "related_concepts": ["Related concept names from this source"],
+      "related_entities": ["Related entity names from this source"]
     }
   ],
   "contradictions": [
@@ -82,7 +86,9 @@ export const PROMPTS = {
 - Name: {{entity_name}}
 - Type: {{entity_type}}
 - Summary: {{entity_summary}}
-- Mentions in source: {{mentions}}
+- Mentions in source (VERBATIM — preserve original language): {{mentions}}
+- Related entities: {{related_entities}}
+- Related concepts: {{related_concepts}}
 
 **Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}
@@ -97,6 +103,7 @@ export const PROMPTS = {
 2. When referencing other pages, use the exact full path format from the "Existing Wiki Pages" list above (e.g. [[entities/Page-Name|Page Name]])
 3. If the entity already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
+5. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
 ---
@@ -115,11 +122,14 @@ tags: [{{tags}}]
 ## {{section_description}}
 [Detailed description of the entity with bidirectional links]
 
-## {{section_related_content}}
-[Reference related concepts and entities using full paths from the list above]
+## {{section_related_entities}}
+[Reference related entities using full paths from the list above]
+
+## {{section_related_concepts}}
+[Reference related concepts using full paths from the list above]
 
 ## {{section_mentions_in_source}}
-- [Specific mention content]
+- [Verbatim quote from source, preserved in original language. Translation optional in parentheses]
 
 ---
 Updated: {{date}}`,
@@ -215,8 +225,9 @@ Updated: {{date}}`,
 - Name: {{concept_name}}
 - Type: {{concept_type}}
 - Summary: {{concept_summary}}
-- Mentions in source: {{mentions}}
+- Mentions in source (VERBATIM — preserve original language): {{mentions}}
 - Related concepts: {{related_concepts}}
+- Related entities: {{related_entities}}
 
 **Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}
@@ -231,6 +242,7 @@ Updated: {{date}}`,
 2. When referencing other pages, use the exact full path format from the "Existing Wiki Pages" list above (e.g. [[concepts/Page-Name|Page Name]])
 3. If the concept already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
+5. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
 ---
@@ -257,6 +269,9 @@ tags: [{{tags}}]
 
 ## {{section_related_entities}}
 [Reference related entities using full paths from the list above]
+
+## {{section_mentions_in_source}}
+- [Verbatim quote from source, preserved in original language. Translation optional in parentheses]
 
 ---
 Updated: {{date}}`,
@@ -526,8 +541,9 @@ Do NOT create a new name — only match against the existing pages listed above.
 **Schema Rules (MUST follow this structure):**
 - ## Basic Information: Type, sources, key attributes
 - ## Description: Core definition and significance (3-6 sentences)
-- ## Related Content: Links to other pages, organized by relationship type
-- ## Mentions in Source: Chronological list of mentions with verbatim quotes
+- ## Related Entities: Links to related entities
+- ## Related Concepts: Links to related concepts
+- ## Mentions in Source: Chronological list of mentions with VERBATIM quotes in original language
 
 **Existing Page Content (the current version):**
 {{existing_body}}
@@ -535,49 +551,7 @@ Do NOT create a new name — only match against the existing pages listed above.
 **New Information from Source "{{new_source}}":**
 - Summary: {{entity_summary}}
 - Mentions in source: {{mentions}}
-- Key details: {{key_details}}
-
-**Available Wiki Pages for linking (use exact [[path|name]] format):**
-{{existing_pages}}
-
-**Integration Requirements:**
-1. STRUCTURE: Follow the schema sections exactly. If a section exists in the existing page, update it; if missing, create it.
-2. DESCRIPTION: Integrate new facts naturally into the Description section. Do NOT duplicate existing information. Merge overlapping facts into a coherent narrative.
-3. CONTRADICTIONS: If new information conflicts with existing content, preserve BOTH with clear attribution (e.g., "According to [[{{new_source}}]], ... However, earlier sources note...")
-4. MENTIONS: Append new mentions to "Mentions in Source" section. Each mention must include: source link + verbatim quote + context.
-5. LINKS: Use [[path|display]] format for all internal references. Verify paths exist in the available pages list.
-6. STYLE: Match the existing writing style, tone, and depth.
-7. NO REDUNDANCY: Do NOT restate facts already present in the existing page.
-
-**Output Format:**
-Output ONLY the body content (no frontmatter), with these sections:
-
-## Basic Information
-[Type, sources, key attributes — updated with new source]
-
-## Description
-[Integrated description — merge existing + new, no duplication, preserve contradictions with attribution]
-
-## Related Content
-[Updated links to relevant pages, organized by relationship]
-
-## Mentions in Source
-[ALL mentions — existing preserved, new ones appended with {{new_source}} attribution]`,
-
-  mergeConceptPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing concept page following the schema-defined structure.
-
-**Schema Rules (MUST follow this structure):**
-- ## Basic Information: Type, sources, definition
-- ## Description: Detailed explanation with examples (3-6 sentences)
-- ## Related Concepts: Connected concepts and relationships
-- ## Mentions in Source: Chronological list of mentions with verbatim quotes
-
-**Existing Page Content (the current version):**
-{{existing_body}}
-
-**New Information from Source "{{new_source}}":**
-- Summary: {{concept_summary}}
-- Mentions in source: {{mentions}}
+- Related entities: {{related_entities}}
 - Related concepts: {{related_concepts}}
 - Key details: {{key_details}}
 
@@ -585,11 +559,11 @@ Output ONLY the body content (no frontmatter), with these sections:
 {{existing_pages}}
 
 **Integration Requirements:**
-1. STRUCTURE: Follow the schema sections exactly. Update existing sections, create missing ones.
-2. DESCRIPTION: Integrate new understanding into the Description. Merge with existing content coherently.
-3. RELATED CONCEPTS: Update links — add new ones from this source, preserve existing ones.
-4. CONTRADICTIONS: If new info conflicts with existing, preserve both with attribution.
-5. MENTIONS: Append new mentions to "Mentions in Source" section with source attribution.
+1. STRUCTURE: Follow the schema sections exactly. If a section exists, update it; if missing, create it.
+2. DESCRIPTION: Integrate new facts naturally. Do NOT duplicate existing information.
+3. RELATED: Update "Related Entities" and "Related Concepts" sections with new relationships.
+4. CONTRADICTIONS: If new info conflicts with existing, preserve BOTH with clear attribution.
+5. MENTIONS: Append new mentions to "Mentions in Source". Preserve VERBATIM quotes in original language. Translation optional in parentheses.
 6. LINKS: Use [[path|display]] format. Verify paths exist.
 7. STYLE: Match existing writing style.
 8. NO REDUNDANCY: Do NOT restate existing facts.
@@ -598,16 +572,70 @@ Output ONLY the body content (no frontmatter), with these sections:
 Output ONLY the body content (no frontmatter):
 
 ## Basic Information
-[Type, sources, definition — updated]
+[Type, sources, key attributes — updated]
 
 ## Description
 [Integrated description — merge existing + new, no duplication]
 
+## Related Entities
+[Updated entity links]
+
 ## Related Concepts
-[Updated concept links, organized logically]
+[Updated concept links]
 
 ## Mentions in Source
-[ALL mentions — existing preserved, new ones appended]`,
+[ALL mentions — existing preserved, new appended with attribution. Verbatim quotes in original language]`,
+
+  mergeConceptPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing concept page following the schema-defined structure.
+
+**Schema Rules (MUST follow this structure):**
+- ## Basic Information: Type, sources, definition
+- ## Description: Detailed explanation with examples (3-6 sentences)
+- ## Related Concepts: Connected concepts using [[concepts/...]]
+- ## Related Entities: Connected entities using [[entities/...]]
+- ## Mentions in Source: VERBATIM quotes in original language with source attribution
+
+**Existing Page Content (the current version):**
+{{existing_body}}
+
+**New Information from Source "{{new_source}}":**
+- Summary: {{concept_summary}}
+- Mentions in source: {{mentions}}
+- Related concepts: {{related_concepts}}
+- Related entities: {{related_entities}}
+- Key details: {{key_details}}
+
+**Available Wiki Pages for linking (use exact [[path|name]] format):**
+{{existing_pages}}
+
+**Integration Requirements:**
+1. STRUCTURE: Follow the schema sections exactly. Update existing, create missing.
+2. DESCRIPTION: Integrate new understanding coherently with existing.
+3. RELATED CONCEPTS: Update links — add new ones, preserve existing.
+4. RELATED ENTITIES: Update links — add new ones from this source.
+5. CONTRADICTIONS: If new info conflicts, preserve both with attribution.
+6. MENTIONS: Append to "Mentions in Source". Preserve VERBATIM quotes in original language.
+7. LINKS: Use [[path|display]] format. Verify paths exist.
+8. STYLE: Match existing writing style.
+9. NO REDUNDANCY: Do NOT restate existing facts.
+
+**Output Format:**
+Output ONLY the body content (no frontmatter):
+
+## Basic Information
+[Type, sources, definition — updated]
+
+## Description
+[Integrated description — merge existing + new]
+
+## Related Concepts
+[Updated concept links]
+
+## Related Entities
+[Updated entity links]
+
+## Mentions in Source
+[ALL mentions — existing preserved, new appended. Verbatim quotes in original language]`,
 
   // Minimal append mode for reviewed pages: only add genuinely new information
   appendToReviewedPage: `You are a Wiki editor adding new information to a user-reviewed page. The existing content is AUTHORITATIVE and must be preserved exactly.

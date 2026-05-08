@@ -189,6 +189,15 @@ export const TEXTS = {
     extractionGranularityStandard: 'Standard — core + significant entities/concepts (balanced)',
     extractionGranularityCoarse: 'Coarse — only the most central entities/concepts (fewest pages, lowest token cost)',
 
+    // Ingestion Acceleration
+    accelerationSectionTitle: 'Ingestion Acceleration',
+    pageGenerationConcurrencyName: 'Page Generation Concurrency',
+    pageGenerationConcurrencyDesc: 'Number of pages to generate in parallel during single-source ingestion. Higher values speed up ingestion but increase API costs and may trigger rate limits.',
+    concurrencyValueSingular: '{} (serial — safest)',
+    concurrencyValuePlural: '{} (parallel)',
+    batchDelayName: 'Batch Delay (ms)',
+    batchDelayDesc: 'Delay between parallel batches to prevent API rate limiting (100-2000ms). Increase if you see 429 errors.',
+
     // Auto Maintenance
     autoMaintainSection: 'Auto Maintenance',
     autoMaintainBetaBadge: 'BETA — Experimental feature. May have issues. Recommended for advanced users only.',
@@ -502,6 +511,15 @@ export const TEXTS = {
     extractionGranularityFine: '精细 — 提取全部包括边缘提及（页面最多、Token 消耗最高）',
     extractionGranularityStandard: '标准 — 核心 + 重要实体/概念（均衡）',
     extractionGranularityCoarse: '粗放 — 仅提取最核心的实体/概念（页面最少、Token 消耗最低）',
+
+    // 摄入加速
+    accelerationSectionTitle: '摄入加速',
+    pageGenerationConcurrencyName: '页面生成并发度',
+    pageGenerationConcurrencyDesc: '单文件摄入时并行生成页面的数量。数值越高速度越快，但会增加 API 消耗并可能触发限流。',
+    concurrencyValueSingular: '{}（串行 — 最安全）',
+    concurrencyValuePlural: '{}（并行）',
+    batchDelayName: '批次延迟 (ms)',
+    batchDelayDesc: '并行批次间的延迟，防止 API 限流（100-2000ms）。如遇 429 错误请增大此值。',
 
     // 自动维护
     autoMaintainSection: '自动维护',

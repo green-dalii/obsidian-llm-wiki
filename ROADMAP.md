@@ -2,11 +2,59 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.0 | **Updated:** 2026-05-06
+**Version:** 1.7.3 | **Updated:** 2026-05-08
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.3) — Ingestion Acceleration + Schema Enhancement
+
+**Ingestion Parallel Acceleration**
+- **Single-source page generation concurrency**: Configurable 1-5 parallel pages (default 1 for safety), 3x speedup for 50+ entity sources
+- **Promise.allSettled error isolation**: Single page failure doesn't block batch; per-page retry with exponential backoff
+- **Batch delay control**: 100-2000ms configurable delay between batches for API rate limit protection
+- **Progress tracking**: Real-time batch completion logging with success/failure counts
+
+**Verbatim Mentions Preservation**
+- Source quotes in `mentions_in_source` preserved in original language
+- Optional translation in parentheses for wiki language different from source
+- LLM prompt explicitly instructs verbatim preservation with translation as add-on
+
+**Entity/Concept Relationship Enhancement**
+- Entity pages now have separate "Related Entities" and "Related Concepts" sections (was "Related Content")
+- Concept pages have both "Related Concepts" and "Related Entities" sections
+- Analysis phase extracts `related_entities` and `related_concepts` for both entity and concept objects
+- Page generation prompts updated to populate both sections
+
+**Schema Template Optimization**
+- Explicit section structure rules for entity and concept pages
+- Content guidelines: verbatim mentions requirement, naming conventions, link formats
+- Multi-source merge policies: sources array append, reviewed protection, NO_NEW_CONTENT signal
+- Classification rules with examples
+- Maintenance policies: stale thresholds, contradiction severity, orphan/missing definitions
+
+### Implemented (v1.7.2) — Intelligent Multi-Source Merge
+
+**Critical Fix: Multi-Source Knowledge Loss**
+- **Programmatic frontmatter merge**: `sources` array now deterministically appended (not overwritten), `created` preserved, `updated` refreshed, `reviewed` protected
+- **Intelligent content fusion**: LLM follows schema-defined sections to merge new source info into existing pages — no redundancy, contradictions preserved with attribution, bidirectional links maintained
+- **Reviewed page protection**: minimal append-only mode for pages with `reviewed: true`
+- **NO_NEW_CONTENT signal**: skip redundant updates when source adds nothing new
+- **New prompts**: `mergeEntityPage`, `mergeConceptPage`, `appendToReviewedPage`
+- **Schema task**: added `'merge'` type for selective schema injection during content fusion
+
+### Implemented (v1.7.1) — Multi-Folder Watch
+
+- **Multi-folder auto-watch**: `watchedFolders` array replaces single `watchedFolder`; "Add Folder" buttons in Settings
+- **Web Clipper preset**: one-click adds `Clippings/` folder for seamless web-clip auto-ingestion
+- **Semantic entity deduplication**: LLM semantic fallback when slug matching fails, handling translations, abbreviations, renamings
+- **Granularity-linked iteration caps**: coarse(3 batches/10 items/20 cap) / standard(6/20/50) / fine(12/30/unlimited)
+- **Ingestion Notice feedback**: Toast notifications for single-file and folder ingest
+- **Actionable network errors**: after 3 retries, report specific causes (VPN/SSL/firewall/URL)
+- **Entity name translation leak fix**: names preserve source language, only summaries follow wikiLanguage
+- **Premature stop fix**: `newTotal === 0` (post-dedup) vs `rawTotal < batchSize`
+- **settings backward compat**: old `watchedFolder` string auto-resets to `[]`
 
 ### Implemented (v1.7.0) — Quality Milestone
 
@@ -108,6 +156,7 @@
 | 6 | Query: output format limited to markdown (no tables/slides/charts) | Low |
 | 7 | Schema: rules-engine based, not co-evolved LLM instruction doc | Low |
 | 8 | Long source analysis: max_tokens: 4000 bottleneck limits entity/concept count | ✅ Fixed (v1.6.2) |
+| 9 | Ingest performance: serial page generation for 50+ entities | ✅ Fixed (v1.7.3) |
 
 ---
 
@@ -134,6 +183,18 @@ Karpathy: *"I like to do them one at a time, and be involved myself. I like to d
 - Replace batch fix with per-item preview + confirm
 - Show LLM fix proposal before applying
 - Align with human-in-the-loop principle
+
+#### 3. Concurrent Page Generation (Ingest Acceleration)
+**Problem:** Long sources (50+ entities/concepts) take ~5-6 minutes with serial page generation
+
+**Solution:** Concurrent pool parallel (3-5 configurable)
+- `processBatch()` with `Promise.allSettled` for error isolation
+- 300ms delay between batches for API rate limit safety
+- Configurable concurrency: 1 (serial, default) to 5 (parallel)
+- Speed: ~3x faster (165s → 60s for 50 entities)
+- Safe for providers: Anthropic/DeepSeek (~10-20 req/s), OpenAI (~60 RPM)
+
+**Files:** `src/wiki/page-factory.ts`, `src/types.ts`, `src/ui/settings.ts`
 
 ---
 
@@ -174,8 +235,11 @@ Karpathy: *"comparison tables, slide decks (Marp), charts"*
 | **v1.6.3** | 2026-05 | Adaptive batch_size | Released |
 | **v1.6.4** | 2026-05 | Dual-layer JSON parsing, Anthropic prompt caching, entity extraction balance, ingestion report, granularity cost labeling | Code complete |
 | **v1.6.5** | 2026-05 | Wiki output language (8 languages + custom), English LLM prompts, system prompt language directive, artifact removal | Code complete |
-| **v1.7.0** | TBD | Conversational ingest wizard, lint per-item review | Planned |
-| **v1.8.0** | TBD | Proactive schema suggestions, output diversity | Planned |
+| **v1.7.0** | 2026-05 | Content truncation protection, fillEmptyPage reliability, frontmatter normalization, lint/command i18n, batch ingest reports, entity/concept breakdown, slugify improvements | Released |
+| **v1.7.1** | 2026-05 | Multi-folder watch, Web Clipper preset, semantic deduplication, granularity-linked caps, ingestion Notices, actionable errors | Committed |
+| **v1.7.2** | 2026-05 | Programmatic frontmatter merge (sources append), intelligent content fusion, NO_NEW_CONTENT signal, reviewed page minimal-append | Committed |
+| **v1.8.0** | TBD | Ingest Wizard (conversational), lint per-item review, concurrent page generation, proactive schema, output diversity | Planned |
+| **v1.9.0** | TBD | Wiki Health Dashboard, page version history | Planned |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
 ---

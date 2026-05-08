@@ -155,59 +155,97 @@ export class WikiEngine {
       const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths);
       analysis.created_pages.push(summaryPage);
 
-      for (const entity of analysis.entities) {
-        step++;
-        this.onProgress?.(`[${step}/${totalSteps}] Entity: ${entity.name}`);
-        await this.apiDelay();
-        try {
-          const entityPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis, file);
-          if (entityPage) {
-            analysis.created_pages.push(entityPage);
-          }
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          console.error(`Entity "${entity.name}" failed:`, reason);
-          failedItems.push({ type: 'entity', name: entity.name, reason });
+      // Phase 2: Parallel page generation with concurrency control
+      const concurrency = this.settings.pageGenerationConcurrency ?? 1;
+      const batchDelay = this.settings.batchDelayMs ?? 300;
 
-          try {
-            await this.apiDelay(2000);
-            const retryPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis, file);
-            if (retryPage) {
-              analysis.created_pages.push(retryPage);
-              console.debug(`Entity "${entity.name}" recovered on retry`);
-              failedItems.pop();
+      // Prepare all page generation tasks
+      type PageGenTask = {
+        type: 'entity' | 'concept';
+        name: string;
+        index: number;
+      };
+
+      const tasks: PageGenTask[] = [
+        ...analysis.entities.map((e, i) => ({ type: 'entity' as const, name: e.name, index: i })),
+        ...analysis.concepts.map((c, i) => ({ type: 'concept' as const, name: c.name, index: i }))
+      ];
+
+      // Process in batches based on concurrency setting
+      for (let i = 0; i < tasks.length; i += concurrency) {
+        const batch = tasks.slice(i, i + concurrency);
+
+        // Execute batch with Promise.allSettled for error isolation
+        const batchResults = await Promise.allSettled(
+          batch.map(async (task) => {
+            step++;
+            this.onProgress?.(`[${step}/${totalSteps}] ${task.type === 'entity' ? 'Entity' : 'Concept'}: ${task.name}`);
+
+            if (task.type === 'entity') {
+              const entity = analysis.entities[task.index];
+              try {
+                const entityPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis, file);
+                if (entityPage) {
+                  analysis.created_pages.push(entityPage);
+                }
+                return { success: true as const, name: entity.name, type: 'entity' as const };
+              } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                console.error(`Entity "${entity.name}" failed:`, reason);
+                failedItems.push({ type: 'entity', name: entity.name, reason });
+
+                // Retry once
+                try {
+                  await this.apiDelay(2000);
+                  const retryPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis, file);
+                  if (retryPage) {
+                    analysis.created_pages.push(retryPage);
+                    console.debug(`Entity "${entity.name}" recovered on retry`);
+                    failedItems.pop();
+                  }
+                } catch {
+                  console.error(`Entity "${entity.name}" retry also failed`);
+                }
+                return { success: false as const, name: entity.name, type: 'entity' as const, reason };
+              }
+            } else {
+              const concept = analysis.concepts[task.index];
+              try {
+                const conceptPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis, file);
+                if (conceptPage) {
+                  analysis.created_pages.push(conceptPage);
+                }
+                return { success: true as const, name: concept.name, type: 'concept' as const };
+              } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                console.error(`Concept "${concept.name}" failed:`, reason);
+                failedItems.push({ type: 'concept', name: concept.name, reason });
+
+                // Retry once
+                try {
+                  await this.apiDelay(2000);
+                  const retryPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis, file);
+                  if (retryPage) {
+                    analysis.created_pages.push(retryPage);
+                    console.debug(`Concept "${concept.name}" recovered on retry`);
+                    failedItems.pop();
+                  }
+                } catch {
+                  console.error(`Concept "${concept.name}" retry also failed`);
+                }
+                return { success: false as const, name: concept.name, type: 'concept' as const, reason };
+              }
             }
-          } catch {
-            console.error(`Entity "${entity.name}" retry also failed`);
-          }
-        }
-      }
+          })
+        );
 
-      for (const concept of analysis.concepts) {
-        step++;
-        this.onProgress?.(`[${step}/${totalSteps}] Concept: ${concept.name}`);
-        await this.apiDelay();
-        try {
-          const conceptPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis, file);
-          if (conceptPage) {
-            analysis.created_pages.push(conceptPage);
-          }
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          console.error(`Concept "${concept.name}" failed:`, reason);
-          failedItems.push({ type: 'concept', name: concept.name, reason });
+        // Log batch summary
+        const succeeded = batchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+        console.debug(`Page generation batch ${Math.floor(i / concurrency) + 1}: ${succeeded}/${batch.length} succeeded`);
 
-          try {
-            await this.apiDelay(2000);
-            const retryPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis, file);
-            if (retryPage) {
-              analysis.created_pages.push(retryPage);
-              console.debug(`Concept "${concept.name}" recovered on retry`);
-              failedItems.pop();
-            }
-          } catch {
-            console.error(`Concept "${concept.name}" retry also failed`);
-          }
+        // API rate limit protection: delay between batches if there are more tasks
+        if (i + concurrency < tasks.length) {
+          await this.apiDelay(batchDelay);
         }
       }
 

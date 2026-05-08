@@ -20,6 +20,8 @@ export interface EntityInfo {
   type: 'person' | 'organization' | 'project' | 'product' | 'event' | 'location' | 'other';
   summary: string;
   mentions_in_source: string[];
+  related_entities?: string[];
+  related_concepts?: string[];
 }
 
 export interface ConceptInfo {
@@ -28,6 +30,7 @@ export interface ConceptInfo {
   summary: string;
   mentions_in_source: string[];
   related_concepts: string[];
+  related_entities?: string[];
 }
 
 export interface ContradictionInfo {
@@ -95,6 +98,10 @@ export interface LLMWikiSettings {
   watchedFolders: string[];
   periodicLint: 'off' | 'hourly' | 'daily' | 'weekly';
   startupCheck: boolean;
+
+  // Ingestion acceleration
+  pageGenerationConcurrency: number;
+  batchDelayMs: number;
 }
 
 export interface QueryHistoryMessage {
@@ -355,4 +362,8 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   watchedFolders: [],
   periodicLint: 'off',
   startupCheck: false,
+
+  // Ingestion acceleration (default: serial for safety)
+  pageGenerationConcurrency: 1,
+  batchDelayMs: 300,
 };

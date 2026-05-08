@@ -214,6 +214,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           });
         });
     } else {
+      const useDropdown = this.tempSettings.availableModels?.length > 0;
       new Setting(containerEl)
         .setName(this.getText('modelName'))
         .setDesc(this.tempSettings.availableModels?.length
@@ -222,10 +223,15 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .addText(text => text
           .setPlaceholder(providerConfig?.defaultModel || 'model-name')
           .setValue(this.tempSettings.model)
-          .onChange((value) => { this.tempSettings.model = value; }));
-      if (this.tempSettings.availableModels?.length) {
-        new Setting(containerEl).addButton(button => button.setButtonText(this.getText('useDropdownButton')).onClick(() => { this.tempSettings.useCustomModel = false; this.display(); }));
-      }
+          .onChange((value) => { this.tempSettings.model = value; }))
+        .addExtraButton(button => {
+          if (useDropdown) {
+            button
+              .setIcon('list')
+              .setTooltip(this.getText('useDropdownButton'))
+              .onClick(() => { this.tempSettings.useCustomModel = false; this.display(); });
+          }
+        });
     }
 
     // Test Connection
@@ -266,13 +272,26 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       .addDropdown(dropdown => {
         for (const [key, label] of Object.entries(WIKI_LANGUAGES)) dropdown.addOption(key, label);
         dropdown.addOption('__custom__', this.getText('customWikiLanguageOption'));
-        const currentLang = this.tempSettings.wikiLanguage;
-        if (currentLang && WIKI_LANGUAGES[currentLang]) dropdown.setValue(currentLang);
-        else if (currentLang) dropdown.setValue('__custom__');
-        else dropdown.setValue('en');
+        // Priority: if custom mode is active, show '__custom__' regardless of wikiLanguage value
+        if (this.tempSettings.useCustomWikiLanguage) {
+          dropdown.setValue('__custom__');
+        } else {
+          const currentLang = this.tempSettings.wikiLanguage;
+          if (currentLang && WIKI_LANGUAGES[currentLang]) dropdown.setValue(currentLang);
+          else if (currentLang) dropdown.setValue('__custom__');
+          else dropdown.setValue('en');
+        }
         dropdown.onChange((value: string) => {
-          if (value === '__custom__') { this.tempSettings.useCustomWikiLanguage = true; }
-          else { this.tempSettings.wikiLanguage = value; this.tempSettings.useCustomWikiLanguage = false; }
+          if (value === '__custom__') {
+            this.tempSettings.useCustomWikiLanguage = true;
+            // Keep existing wikiLanguage value for display in custom input, or clear if it was a standard language
+            if (WIKI_LANGUAGES[this.tempSettings.wikiLanguage || '']) {
+              this.tempSettings.wikiLanguage = '';
+            }
+          } else {
+            this.tempSettings.wikiLanguage = value;
+            this.tempSettings.useCustomWikiLanguage = false;
+          }
           this.display();
         });
       });
@@ -317,7 +336,38 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       });
 
     // ==========================================
-    // 6. Query
+    // 6. Ingestion Acceleration
+    // ==========================================
+    new Setting(containerEl).setName(this.getText('accelerationSectionTitle')).setHeading();
+
+    const concurrencyValue = this.tempSettings.pageGenerationConcurrency ?? 1;
+    const concurrencyLabel = concurrencyValue === 1
+      ? this.getText('concurrencyValueSingular').replace('{}', String(concurrencyValue))
+      : this.getText('concurrencyValuePlural').replace('{}', String(concurrencyValue));
+
+    new Setting(containerEl)
+      .setName(this.getText('pageGenerationConcurrencyName'))
+      .setDesc(this.getText('pageGenerationConcurrencyDesc') + ' ' + concurrencyLabel)
+      .addSlider(slider => slider
+        .setLimits(1, 5, 1)
+        .setValue(concurrencyValue)
+        .setDynamicTooltip()
+        .onChange((value) => {
+          this.tempSettings.pageGenerationConcurrency = value;
+          this.display();
+        }));
+
+    new Setting(containerEl)
+      .setName(this.getText('batchDelayName'))
+      .setDesc(this.getText('batchDelayDesc'))
+      .addSlider(slider => slider
+        .setLimits(100, 2000, 50)
+        .setValue(this.tempSettings.batchDelayMs ?? 300)
+        .setDynamicTooltip()
+        .onChange((value) => { this.tempSettings.batchDelayMs = value; }));
+
+    // ==========================================
+    // 7. Query
     // ==========================================
     new Setting(containerEl).setName(this.getText('querySectionTitle')).setHeading();
 

@@ -4,7 +4,7 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Author:** Greener-Dalii | **Version:** 1.7.0
+**Author:** Greener-Dalii | **Version:** 1.7.3
 
 [English](README.md) | [中文文档](README_CN.md) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
@@ -38,10 +38,13 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 
 ## Features
 
+- **Ingestion Acceleration** — Configurable parallel page generation (1-5 concurrency) with batch delay for rate limit protection. 3x speedup for sources with 50+ entities
+- **Verbatim Source Mentions** — Source quotes preserved in original language with optional translation in parentheses
+- **Enhanced Entity/Concept Relations** — Separate "Related Entities" and "Related Concepts" sections for bidirectional relationship tracking
 - **Multi-Provider LLM Support** — Anthropic (Claude), Anthropic Compatible (Coding Plan), Google Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, and custom OpenAI-compatible endpoints
 - **Wiki Output Language** — 8-language output (EN/ZH/JA/KO/DE/FR/ES/PT) independent of UI language, with custom input fallback
 - **Internationalization** — English and Chinese UI (default: English)
-- **Schema Layer** — Structured configuration (`wiki/schema/config.md`) injected into all LLM prompts for consistent, high-quality Wiki output
+- **Schema Layer** — Structured configuration (`wiki/schema/config.md`) with explicit section templates, merge policies, and content guidelines injected into all LLM prompts
 - **Intelligent Ingestion** — Auto-extract entities and concepts from source notes, generate structured Wiki pages with bidirectional `[[wiki-links]]`
 - **Content Truncation Protection** — 8000 max_tokens for all page generation, `stop_reason`/`finish_reason` detection with automatic retry at 2x tokens across all LLM providers
 - **Iterative Batch Extraction** — Batched entity/concept extraction with adaptive batch sizing eliminates the max_tokens bottleneck for long sources
@@ -112,7 +115,13 @@ For local models (Ollama): context windows are typically smaller (8K–128K). Co
 
 Re-ingesting the same source does incremental updates on entity/concept pages (new info merged in). Summary pages are regenerated.
 
-**User Feedback Loop (reviewed pages):** Add `reviewed: true` to a Wiki page's frontmatter to mark it as manually reviewed. When re-ingesting, the plugin preserves all user-edited content and only appends new, non-duplicate information. This protects your manual edits from being overwritten by LLM regeneration.
+**Ingestion Acceleration:** For sources with many entities (20+), enable parallel page generation in Settings → Ingestion Acceleration:
+- **Page Generation Concurrency**: 1 (serial, safest) to 5 (parallel, fastest). Start with 3 for most providers. Increase batch delay if you hit rate limits.
+- **Batch Delay**: 100-2000ms between parallel batches. Increase to 500ms+ for OpenAI (60 RPM limit) or if you see 429 errors.
+
+> **Safety note**: Parallel generation uses `Promise.allSettled` — if one page fails, others continue. Failed pages are retried individually with exponential backoff. Links to not-yet-created pages are valid Obsidian syntax (`[[entity-name]]`) and resolve automatically once the target page exists.
+
+**Source Mentions Preservation:** The "Mentions in Source" section preserves verbatim quotes from your original source. If your Wiki output language differs from the source language, translations appear in parentheses after the original text. This ensures traceability while maintaining readability.
 
 ```markdown
 ---
@@ -169,6 +178,12 @@ Core concepts and algorithms for learning from data.
 **Output — Entity:** `wiki/entities/supervised-learning.md`
 
 ```markdown
+---
+type: entity
+created: 2026-05-08
+sources: [[sources/machine-learning]]
+---
+
 # Supervised Learning
 
 ## Definition
@@ -179,8 +194,14 @@ Supervised learning learns predictive models from labeled data.
 - Common algorithms: linear regression, decision trees, neural networks
 
 ## Related Concepts
-- [[Machine Learning]]
-- [[Unsupervised Learning]]
+- [[Machine Learning]] — The broader field
+- [[Unsupervised Learning]] — Learning without labels
+
+## Related Entities
+- [[Arthur Samuel]] — Pioneer of machine learning
+
+## Mentions in Source
+- "Machine learning uses algorithms to learn from data."
 ```
 
 ---
