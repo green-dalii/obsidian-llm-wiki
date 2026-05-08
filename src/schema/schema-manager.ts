@@ -8,7 +8,7 @@ import { parseJsonResponse } from '../utils';
 const SCHEMA_FILENAME = 'schema/config.md';
 const SUGGESTIONS_FILENAME = 'schema/suggestions.md';
 
-export type SchemaTask = 'analyze' | 'summary' | 'entity' | 'concept' | 'related' | 'conversation' | 'index' | 'lint' | 'full';
+export type SchemaTask = 'analyze' | 'summary' | 'entity' | 'concept' | 'related' | 'conversation' | 'index' | 'lint' | 'merge' | 'full';
 
 const TASK_SECTIONS: Record<SchemaTask, string[]> = {
   analyze: ['Wiki Structure', 'Classification Rules', 'Naming Conventions'],
@@ -19,6 +19,7 @@ const TASK_SECTIONS: Record<SchemaTask, string[]> = {
   conversation: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules'],
   index: ['Wiki Structure'],
   lint: ['Maintenance Policies'],
+  merge: ['Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules'],
   full: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules', 'Maintenance Policies'],
 };
 

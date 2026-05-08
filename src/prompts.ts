@@ -518,4 +518,122 @@ Output JSON format:
 
 Do NOT create a new name — only match against the existing pages listed above.`,
 
+  // Intelligent content merge: LLM generates integrated body following schema structure,
+  // avoiding redundant restatement while preserving contradictions with attribution.
+  // Frontmatter is handled programmatically (sources appended, dates updated).
+  mergeEntityPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing page following the schema-defined structure.
+
+**Schema Rules (MUST follow this structure):**
+- ## Basic Information: Type, sources, key attributes
+- ## Description: Core definition and significance (3-6 sentences)
+- ## Related Content: Links to other pages, organized by relationship type
+- ## Mentions in Source: Chronological list of mentions with verbatim quotes
+
+**Existing Page Content (the current version):**
+{{existing_body}}
+
+**New Information from Source "{{new_source}}":**
+- Summary: {{entity_summary}}
+- Mentions in source: {{mentions}}
+- Key details: {{key_details}}
+
+**Available Wiki Pages for linking (use exact [[path|name]] format):**
+{{existing_pages}}
+
+**Integration Requirements:**
+1. STRUCTURE: Follow the schema sections exactly. If a section exists in the existing page, update it; if missing, create it.
+2. DESCRIPTION: Integrate new facts naturally into the Description section. Do NOT duplicate existing information. Merge overlapping facts into a coherent narrative.
+3. CONTRADICTIONS: If new information conflicts with existing content, preserve BOTH with clear attribution (e.g., "According to [[{{new_source}}]], ... However, earlier sources note...")
+4. MENTIONS: Append new mentions to "Mentions in Source" section. Each mention must include: source link + verbatim quote + context.
+5. LINKS: Use [[path|display]] format for all internal references. Verify paths exist in the available pages list.
+6. STYLE: Match the existing writing style, tone, and depth.
+7. NO REDUNDANCY: Do NOT restate facts already present in the existing page.
+
+**Output Format:**
+Output ONLY the body content (no frontmatter), with these sections:
+
+## Basic Information
+[Type, sources, key attributes — updated with new source]
+
+## Description
+[Integrated description — merge existing + new, no duplication, preserve contradictions with attribution]
+
+## Related Content
+[Updated links to relevant pages, organized by relationship]
+
+## Mentions in Source
+[ALL mentions — existing preserved, new ones appended with {{new_source}} attribution]`,
+
+  mergeConceptPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing concept page following the schema-defined structure.
+
+**Schema Rules (MUST follow this structure):**
+- ## Basic Information: Type, sources, definition
+- ## Description: Detailed explanation with examples (3-6 sentences)
+- ## Related Concepts: Connected concepts and relationships
+- ## Mentions in Source: Chronological list of mentions with verbatim quotes
+
+**Existing Page Content (the current version):**
+{{existing_body}}
+
+**New Information from Source "{{new_source}}":**
+- Summary: {{concept_summary}}
+- Mentions in source: {{mentions}}
+- Related concepts: {{related_concepts}}
+- Key details: {{key_details}}
+
+**Available Wiki Pages for linking (use exact [[path|name]] format):**
+{{existing_pages}}
+
+**Integration Requirements:**
+1. STRUCTURE: Follow the schema sections exactly. Update existing sections, create missing ones.
+2. DESCRIPTION: Integrate new understanding into the Description. Merge with existing content coherently.
+3. RELATED CONCEPTS: Update links — add new ones from this source, preserve existing ones.
+4. CONTRADICTIONS: If new info conflicts with existing, preserve both with attribution.
+5. MENTIONS: Append new mentions to "Mentions in Source" section with source attribution.
+6. LINKS: Use [[path|display]] format. Verify paths exist.
+7. STYLE: Match existing writing style.
+8. NO REDUNDANCY: Do NOT restate existing facts.
+
+**Output Format:**
+Output ONLY the body content (no frontmatter):
+
+## Basic Information
+[Type, sources, definition — updated]
+
+## Description
+[Integrated description — merge existing + new, no duplication]
+
+## Related Concepts
+[Updated concept links, organized logically]
+
+## Mentions in Source
+[ALL mentions — existing preserved, new ones appended]`,
+
+  // Minimal append mode for reviewed pages: only add genuinely new information
+  appendToReviewedPage: `You are a Wiki editor adding new information to a user-reviewed page. The existing content is AUTHORITATIVE and must be preserved exactly.
+
+**User-Reviewed Existing Content (MUST preserve completely):**
+{{existing_body}}
+
+**New Information from Source "{{new_source}}":**
+- Summary: {{entity_summary}}
+- Mentions: {{mentions}}
+- Key details: {{key_details}}
+
+**Task:**
+1. Compare new information against existing content
+2. If new info is COMPLETELY REDUNDANT with existing content → output "NO_NEW_CONTENT"
+3. If new info adds genuinely new facts → append them in a "New Information ({{new_source}})" section at the end
+4. DO NOT modify any existing content
+5. DO NOT remove or rewrite any existing sections
+
+**Output Format:**
+If no new content: output exactly "NO_NEW_CONTENT"
+
+If new content exists:
+[existing content preserved exactly]
+
+## New Information ({{new_source}})
+[Only genuinely new facts, written to match existing style]`,
+
 };

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-05-08
+
+### Fixed
+- **Critical: Multi-source knowledge loss on page update**
+  - Frontmatter `sources` array now programmatically appended (not overwritten) when updating existing pages
+  - `created` date preserved, `updated` date refreshed on each source addition
+  - `reviewed: true` flag preserved in frontmatter
+  - Sources maintain chronological order with deduplication
+
+### Changed
+- **Intelligent content merge architecture** (replaces simple overwrite)
+  - New pages: Full LLM-generated content with complete structure
+  - Existing pages: LLM performs intelligent body merge following schema-defined sections
+  - Reviewed pages: Minimal append-only mode preserving user edits
+  - `NO_NEW_CONTENT` signal allows skipping redundant updates when source adds nothing new
+- **New prompts**:
+  - `mergeEntityPage`: Schema-guided intelligent merge with contradiction preservation
+  - `mergeConceptPage`: Same for concept pages
+  - `appendToReviewedPage`: Minimal mode for user-reviewed content
+- **Schema task**: Added `'merge'` task type for selective schema injection during content fusion
+
+### Deprecated
+- Removed `preserveFrontmatterReviewTag()` (superseded by `mergeFrontmatter()`)
+- Removed old `analyzeMerge()` / `buildMergeStrategyText()` methods (superseded by new architecture)
+
 ## [1.7.1] - 2026-05-08
 
 ### Added

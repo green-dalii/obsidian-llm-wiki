@@ -13,13 +13,11 @@ import {
   slugify,
   cleanMarkdownResponse,
   parseFrontmatter,
-  preserveFrontmatterReviewTag,
+  mergeFrontmatter,
   parseJsonResponse,
 } from '../utils';
 import { applySectionLabels } from './system-prompts';
 import { getExistingWikiPages } from './lint-fixes';
-
-const MERGE_CONTENT_THRESHOLD = 300;
 
 export class PageFactory {
   constructor(private ctx: EngineContext) {}
@@ -125,58 +123,53 @@ export class PageFactory {
     extraPagePaths: string[] = []
   ): Promise<string | null> {
     if (!entity.name || entity.name.trim().length === 0) {
-      console.warn('实体名称为空，跳过创建');
+      console.warn('Entity name is empty, skipping creation');
       return null;
     }
 
-    console.debug('=== 创建实体页 ===');
+    console.debug('=== Creating/Updating Entity Page ===');
     console.debug('entity.name:', entity.name);
-    console.debug('类型:', entity.type);
+    console.debug('type:', entity.type);
 
     const path = await this.resolvePagePath(entity.name, 'entity', entity.summary);
-    console.debug('解析后路径:', path);
+    console.debug('Resolved path:', path);
 
     const existingContent = await this.ctx.tryReadFile(path);
-    const isReviewed = existingContent ? parseFrontmatter(existingContent)?.reviewed === true : false;
+
+    // New page: generate full content
+    if (!existingContent) {
+      return this.createNewEntityPage(entity, sourceFile, extraPagePaths, path);
+    }
+
+    const isReviewed = parseFrontmatter(existingContent)?.reviewed === true;
+
     if (isReviewed) {
-      console.debug('Entity page has reviewed: true, using preserve mode:', path);
+      // Reviewed page: minimal append only
+      console.debug('Entity page has reviewed: true, using minimal append mode:', path);
+      return this.appendToReviewedEntityPage(entity, sourceFile, existingContent, path);
     }
 
-    let mergeStrategy = 'New page, no merge needed.';
-    if (existingContent && !isReviewed && existingContent.length > MERGE_CONTENT_THRESHOLD) {
-      try {
-        console.debug('Running merge analysis for existing entity page:', path);
-        const mergeAnalysis = await this.analyzeMerge(entity.name, 'entity', existingContent, entity);
-        mergeStrategy = this.buildMergeStrategyText(mergeAnalysis);
-        if (mergeAnalysis.contradictions.length > 0) {
-          for (const c of mergeAnalysis.contradictions) {
-            _analysis.contradictions.push({
-              claim: c.claim,
-              source_page: `[[${path.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '')}]]`,
-              contradicted_by: c.existing_claim,
-              resolution: c.resolution
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Merge analysis failed, falling back to simple merge:', error);
-        mergeStrategy = '**Merge strategy:** Integrate new information without deleting existing content. Insert new information into appropriate sections of existing content.';
-      }
-    } else if (existingContent && !isReviewed) {
-      mergeStrategy = '**Merge strategy:** Integrate new information without deleting existing content.';
-    }
+    // Existing page: intelligent merge
+    return this.mergeEntityPage(entity, sourceFile, existingContent, extraPagePaths, path);
+  }
 
+  private async createNewEntityPage(
+    entity: EntityInfo,
+    sourceFile: TFile | { path: string; basename: string },
+    extraPagePaths: string[],
+    path: string
+  ): Promise<string | null> {
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
 
-    const prompt = (isReviewed ? PROMPTS.preserveReviewedEntityPage : PROMPTS.generateEntityPage)
+    const prompt = PROMPTS.generateEntityPage
       .replace('{{entity_name}}', entity.name)
       .replace('{{entity_type}}', entity.type)
       .replace('{{entity_summary}}', entity.summary)
       .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || 'No specific mentions')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
-      .replace('{{related_content}}', existingContent || 'No existing content')
-      .replace('{{merge_strategy}}', mergeStrategy)
+      .replace('{{related_content}}', 'No existing content')
+      .replace('{{merge_strategy}}', 'New page, no merge needed.')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', entity.type);
@@ -191,7 +184,94 @@ export class PageFactory {
     });
 
     const cleanedContent = cleanMarkdownResponse(pageContent);
-    const finalContent = existingContent ? preserveFrontmatterReviewTag(existingContent, cleanedContent) : cleanedContent;
+    await this.ctx.createOrUpdateFile(path, cleanedContent);
+    return path;
+  }
+
+  private async mergeEntityPage(
+    entity: EntityInfo,
+    sourceFile: TFile | { path: string; basename: string },
+    existingContent: string,
+    extraPagePaths: string[],
+    path: string
+  ): Promise<string | null> {
+    const client = this.ctx.getClient();
+    if (!client) throw new Error('LLM client not initialized');
+
+    // 1. Programmatic frontmatter merge
+    const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
+
+    // 2. LLM intelligent body merge
+    const prompt = PROMPTS.mergeEntityPage
+      .replace('{{existing_body}}', existingBody)
+      .replace('{{new_source}}', sourceFile.basename)
+      .replace('{{entity_summary}}', entity.summary)
+      .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || '')
+      .replace('{{key_details}}', entity.mentions_in_source?.slice(0, 2).join('; ') || '')
+      .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths));
+
+    const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
+
+    const mergedBody = await client.createMessage({
+      model: this.ctx.settings.model,
+      max_tokens: 8000,
+      system: await this.ctx.buildSystemPrompt('merge'),
+      messages: [{ role: 'user', content: finalPrompt }]
+    });
+
+    const cleanedBody = cleanMarkdownResponse(mergedBody);
+
+    // Check for NO_NEW_CONTENT signal
+    if (cleanedBody.trim() === 'NO_NEW_CONTENT') {
+      console.debug('Entity page merge returned NO_NEW_CONTENT, keeping existing:', path);
+      return path;
+    }
+
+    // 3. Assemble final content
+    const finalContent = `${frontmatter}\n\n${cleanedBody}`;
+    await this.ctx.createOrUpdateFile(path, finalContent);
+    return path;
+  }
+
+  private async appendToReviewedEntityPage(
+    entity: EntityInfo,
+    sourceFile: TFile | { path: string; basename: string },
+    existingContent: string,
+    path: string
+  ): Promise<string | null> {
+    const client = this.ctx.getClient();
+    if (!client) throw new Error('LLM client not initialized');
+
+    // 1. Programmatic frontmatter merge
+    const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
+
+    // 2. Minimal LLM check for genuinely new content
+    const prompt = PROMPTS.appendToReviewedPage
+      .replace('{{existing_body}}', existingBody)
+      .replace('{{new_source}}', sourceFile.basename)
+      .replace('{{entity_summary}}', entity.summary)
+      .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || '')
+      .replace('{{key_details}}', entity.mentions_in_source?.slice(0, 2).join('; ') || '');
+
+    const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
+
+    const newContent = await client.createMessage({
+      model: this.ctx.settings.model,
+      max_tokens: 4000,
+      system: await this.ctx.buildSystemPrompt('merge'),
+      messages: [{ role: 'user', content: finalPrompt }]
+    });
+
+    const cleanedContent = cleanMarkdownResponse(newContent);
+
+    // Check for NO_NEW_CONTENT signal
+    if (cleanedContent.trim() === 'NO_NEW_CONTENT') {
+      console.debug('Reviewed entity page has no new content, preserving existing:', path);
+      return path;
+    }
+
+    // 3. Assemble final content
+    const finalContent = `${frontmatter}\n\n${cleanedContent}`;
     await this.ctx.createOrUpdateFile(path, finalContent);
     return path;
   }
@@ -203,59 +283,54 @@ export class PageFactory {
     extraPagePaths: string[] = []
   ): Promise<string | null> {
     if (!concept.name || concept.name.trim().length === 0) {
-      console.warn('概念名称为空，跳过创建');
+      console.warn('Concept name is empty, skipping creation');
       return null;
     }
 
-    console.debug('=== 创建概念页 ===');
+    console.debug('=== Creating/Updating Concept Page ===');
     console.debug('concept.name:', concept.name);
-    console.debug('类型:', concept.type);
+    console.debug('type:', concept.type);
 
     const path = await this.resolvePagePath(concept.name, 'concept', concept.summary);
-    console.debug('解析后路径:', path);
+    console.debug('Resolved path:', path);
 
     const existingContent = await this.ctx.tryReadFile(path);
-    const isReviewed = existingContent ? parseFrontmatter(existingContent)?.reviewed === true : false;
+
+    // New page: generate full content
+    if (!existingContent) {
+      return this.createNewConceptPage(concept, sourceFile, extraPagePaths, path);
+    }
+
+    const isReviewed = parseFrontmatter(existingContent)?.reviewed === true;
+
     if (isReviewed) {
-      console.debug('Concept page has reviewed: true, using preserve mode:', path);
+      // Reviewed page: minimal append only
+      console.debug('Concept page has reviewed: true, using minimal append mode:', path);
+      return this.appendToReviewedConceptPage(concept, sourceFile, existingContent, path);
     }
 
-    let mergeStrategy = 'New page, no merge needed.';
-    if (existingContent && !isReviewed && existingContent.length > MERGE_CONTENT_THRESHOLD) {
-      try {
-        console.debug('Running merge analysis for existing concept page:', path);
-        const mergeAnalysis = await this.analyzeMerge(concept.name, 'concept', existingContent, concept);
-        mergeStrategy = this.buildMergeStrategyText(mergeAnalysis);
-        if (mergeAnalysis.contradictions.length > 0) {
-          for (const c of mergeAnalysis.contradictions) {
-            _analysis.contradictions.push({
-              claim: c.claim,
-              source_page: `[[${path.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '')}]]`,
-              contradicted_by: c.existing_claim,
-              resolution: c.resolution
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Merge analysis failed, falling back to simple merge:', error);
-        mergeStrategy = '**Merge strategy:** Integrate new information without deleting existing content. Insert new information into appropriate sections of existing content.';
-      }
-    } else if (existingContent && !isReviewed) {
-      mergeStrategy = '**Merge strategy:** Integrate new information without deleting existing content.';
-    }
+    // Existing page: intelligent merge
+    return this.mergeConceptPage(concept, sourceFile, existingContent, extraPagePaths, path);
+  }
 
+  private async createNewConceptPage(
+    concept: ConceptInfo,
+    sourceFile: TFile | { path: string; basename: string },
+    extraPagePaths: string[],
+    path: string
+  ): Promise<string | null> {
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
 
-    const prompt = (isReviewed ? PROMPTS.preserveReviewedConceptPage : PROMPTS.generateConceptPage)
+    const prompt = PROMPTS.generateConceptPage
       .replace('{{concept_name}}', concept.name)
       .replace('{{concept_type}}', concept.type)
       .replace('{{concept_summary}}', concept.summary)
       .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || 'No specific mentions')
       .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || 'No related concepts')
-      .replace('{{related_content}}', existingContent || 'No existing content')
-      .replace('{{merge_strategy}}', mergeStrategy)
+      .replace('{{related_content}}', 'No existing content')
+      .replace('{{merge_strategy}}', 'New page, no merge needed.')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
       .replace('{{source_file}}', sourceFile.path)
       .replace('{{tags}}', concept.type);
@@ -270,7 +345,95 @@ export class PageFactory {
     });
 
     const cleanedContent = cleanMarkdownResponse(pageContent);
-    const finalContent = existingContent ? preserveFrontmatterReviewTag(existingContent, cleanedContent) : cleanedContent;
+    await this.ctx.createOrUpdateFile(path, cleanedContent);
+    return path;
+  }
+
+  private async mergeConceptPage(
+    concept: ConceptInfo,
+    sourceFile: TFile | { path: string; basename: string },
+    existingContent: string,
+    extraPagePaths: string[],
+    path: string
+  ): Promise<string | null> {
+    const client = this.ctx.getClient();
+    if (!client) throw new Error('LLM client not initialized');
+
+    // 1. Programmatic frontmatter merge
+    const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
+
+    // 2. LLM intelligent body merge
+    const prompt = PROMPTS.mergeConceptPage
+      .replace('{{existing_body}}', existingBody)
+      .replace('{{new_source}}', sourceFile.basename)
+      .replace('{{concept_summary}}', concept.summary)
+      .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || '')
+      .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || '')
+      .replace('{{key_details}}', concept.mentions_in_source?.slice(0, 2).join('; ') || '')
+      .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths));
+
+    const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
+
+    const mergedBody = await client.createMessage({
+      model: this.ctx.settings.model,
+      max_tokens: 8000,
+      system: await this.ctx.buildSystemPrompt('merge'),
+      messages: [{ role: 'user', content: finalPrompt }]
+    });
+
+    const cleanedBody = cleanMarkdownResponse(mergedBody);
+
+    // Check for NO_NEW_CONTENT signal
+    if (cleanedBody.trim() === 'NO_NEW_CONTENT') {
+      console.debug('Concept page merge returned NO_NEW_CONTENT, keeping existing:', path);
+      return path;
+    }
+
+    // 3. Assemble final content
+    const finalContent = `${frontmatter}\n\n${cleanedBody}`;
+    await this.ctx.createOrUpdateFile(path, finalContent);
+    return path;
+  }
+
+  private async appendToReviewedConceptPage(
+    concept: ConceptInfo,
+    sourceFile: TFile | { path: string; basename: string },
+    existingContent: string,
+    path: string
+  ): Promise<string | null> {
+    const client = this.ctx.getClient();
+    if (!client) throw new Error('LLM client not initialized');
+
+    // 1. Programmatic frontmatter merge
+    const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
+
+    // 2. Minimal LLM check for genuinely new content
+    const prompt = PROMPTS.appendToReviewedPage
+      .replace('{{existing_body}}', existingBody)
+      .replace('{{new_source}}', sourceFile.basename)
+      .replace('{{entity_summary}}', concept.summary)
+      .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || '')
+      .replace('{{key_details}}', concept.mentions_in_source?.slice(0, 2).join('; ') || '');
+
+    const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
+
+    const newContent = await client.createMessage({
+      model: this.ctx.settings.model,
+      max_tokens: 4000,
+      system: await this.ctx.buildSystemPrompt('merge'),
+      messages: [{ role: 'user', content: finalPrompt }]
+    });
+
+    const cleanedContent = cleanMarkdownResponse(newContent);
+
+    // Check for NO_NEW_CONTENT signal
+    if (cleanedContent.trim() === 'NO_NEW_CONTENT') {
+      console.debug('Reviewed concept page has no new content, preserving existing:', path);
+      return path;
+    }
+
+    // 3. Assemble final content
+    const finalContent = `${frontmatter}\n\n${cleanedContent}`;
     await this.ctx.createOrUpdateFile(path, finalContent);
     return path;
   }
