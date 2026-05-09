@@ -1,6 +1,6 @@
 // Query Engine - Conversational Wiki Query Modal
 
-import { App, Modal, Notice, MarkdownRenderer } from 'obsidian';
+import { App, Modal, Notice, MarkdownRenderer, Component } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { TEXTS } from '../texts';
 import { WIKI_LANGUAGES } from '../types';
@@ -100,6 +100,7 @@ export class QueryModal extends Modal {
   historyContainer: HTMLElement;
   inputArea: HTMLTextAreaElement;
   historyCountDisplay: HTMLElement;
+  private renderComponent: Component;
 
   constructor(app: App, plugin: LLMWikiPlugin) {
     super(app);
@@ -113,6 +114,7 @@ export class QueryModal extends Modal {
     this.historyContainer = null as unknown as HTMLElement;
     this.inputArea = null as unknown as HTMLTextAreaElement;
     this.historyCountDisplay = null as unknown as HTMLElement;
+    this.renderComponent = new Component();
   }
 
   onOpen() {
@@ -370,7 +372,7 @@ export class QueryModal extends Modal {
       content,
       container,
       sourcePath,
-      this
+      this.renderComponent
     );
 
     // Bind click handlers on wiki-links so they work inside the Modal.
@@ -446,7 +448,7 @@ export class QueryModal extends Modal {
     const progressNotice = new Notice(texts.savingToWiki, 0);
 
     // Wire progress callback to update the sticky notice
-    const origProgress = this.plugin.wikiEngine.onProgress;
+    const origProgress = this.plugin.wikiEngine.getProgressCallback();
     this.plugin.wikiEngine.setProgressCallback((msg: string) => {
       progressNotice.setMessage(msg);
     });

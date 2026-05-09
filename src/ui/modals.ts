@@ -173,7 +173,7 @@ export class IngestReportModal extends Modal {
 
   private t(key: string): string {
     const texts = TEXTS[this.language];
-    return (texts as Record<string, string>)[key] || TEXTS.en[key as keyof typeof TEXTS.en] || key;
+    return (texts as unknown as Record<string, string>)[key] || (TEXTS.en as unknown as Record<string, string>)[key] || key;
   }
 
   onOpen() {

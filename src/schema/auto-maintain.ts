@@ -70,9 +70,9 @@ export class AutoMaintainManager {
         })
       );
       this.plugin.registerEvent(
-        this.app.metadataCache.on('resolved', (file: TFile) => {
+        this.app.metadataCache.on('resolved', ((file: TFile) => {
           this.onFileChanged(file);
-        })
+        }) as unknown as () => void)
       );
 
       this.watching = true;

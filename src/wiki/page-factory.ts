@@ -15,6 +15,7 @@ import {
   parseFrontmatter,
   mergeFrontmatter,
   parseJsonResponse,
+  enforceFrontmatterConstraints,
 } from '../utils';
 import { applySectionLabels } from './system-prompts';
 import { getExistingWikiPages } from './lint-fixes';
@@ -173,8 +174,7 @@ export class PageFactory {
       .replace('{{related_content}}', 'No existing content')
       .replace('{{merge_strategy}}', 'New page, no merge needed.')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
-      .replace('{{source_file}}', sourceFile.path)
-      .replace('{{tags}}', entity.type);
+      .replace('{{source_file}}', sourceFile.path);
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 
@@ -186,7 +186,8 @@ export class PageFactory {
     });
 
     const cleanedContent = cleanMarkdownResponse(pageContent);
-    await this.ctx.createOrUpdateFile(path, cleanedContent);
+    const enforcedContent = enforceFrontmatterConstraints(cleanedContent, 'entity');
+    await this.ctx.createOrUpdateFile(path, enforcedContent);
     return path;
   }
 
@@ -337,8 +338,7 @@ export class PageFactory {
       .replace('{{related_content}}', 'No existing content')
       .replace('{{merge_strategy}}', 'New page, no merge needed.')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
-      .replace('{{source_file}}', sourceFile.path)
-      .replace('{{tags}}', concept.type);
+      .replace('{{source_file}}', sourceFile.path);
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 
@@ -350,7 +350,8 @@ export class PageFactory {
     });
 
     const cleanedContent = cleanMarkdownResponse(pageContent);
-    await this.ctx.createOrUpdateFile(path, cleanedContent);
+    const enforcedContent = enforceFrontmatterConstraints(cleanedContent, 'concept');
+    await this.ctx.createOrUpdateFile(path, enforcedContent);
     return path;
   }
 

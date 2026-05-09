@@ -575,3 +575,97 @@ export function cleanMarkdownResponse(response: string): string {
 
   return cleaned.trim();
 }
+
+/**
+ * Enforce frontmatter type and tags constraints.
+ * - type: MUST be exactly "entity" or "concept" (based on page path)
+ * - tags: MUST be an array of valid subtypes (entity_type or concept_type)
+ *
+ * This is a safety net in case LLM doesn't follow the prompt instructions.
+ */
+export function enforceFrontmatterConstraints(content: string, pageType: 'entity' | 'concept' | 'source'): string {
+  if (!content.startsWith('---')) return content;
+
+  const fmEnd = content.indexOf('\n---\n', 3);
+  if (fmEnd === -1) return content;
+
+  const fmText = content.substring(3, fmEnd);
+  let body = content.substring(fmEnd + 5);
+
+  // Parse existing frontmatter
+  const lines = fmText.split('\n');
+  const newLines: string[] = [];
+  let typeLine = '';
+  let collectedTags: string[] = [];
+  let foundType = false;
+  let foundTags = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    if (line.startsWith('type:')) {
+      foundType = true;
+      const currentType = line.substring(5).trim();
+      // Force type to be entity/concept/source only
+      if (pageType === 'entity' || pageType === 'concept') {
+        typeLine = `type: ${pageType}`;
+        // Collect original type as a tag if it was a valid subtype
+        if (currentType && currentType !== 'entity' && currentType !== 'concept' && currentType !== pageType) {
+          collectedTags.push(currentType);
+        }
+      } else {
+        typeLine = `type: ${pageType}`;
+      }
+    } else if (line.startsWith('tags:')) {
+      foundTags = true;
+      // Collect existing tags from inline array format
+      const tagsValue = line.substring(5).trim();
+      if (tagsValue.startsWith('[') && tagsValue.endsWith(']')) {
+        const inner = tagsValue.slice(1, -1).trim();
+        if (inner) {
+          collectedTags.push(...inner.split(',').map(t => t.trim().replace(/^["']|["']$/g, '')));
+        }
+      }
+      // Handle YAML array continuation on next lines
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim().startsWith('- ')) {
+        const tagVal = lines[j].trim().substring(2).trim().replace(/^["']|["']$/g, '');
+        if (tagVal) collectedTags.push(tagVal);
+        j++;
+      }
+      if (j > i + 1) i = j - 1; // Skip processed lines
+    } else if (!line.startsWith('- ')) {
+      newLines.push(line);
+    }
+  }
+
+  // Rebuild frontmatter
+  const result: string[] = ['---'];
+
+  if (foundType) {
+    result.push(typeLine);
+  }
+
+  // Add other fields (preserving order)
+  for (const line of newLines) {
+    if (!line.startsWith('type:') && !line.startsWith('tags:')) {
+      result.push(line);
+    }
+  }
+
+  // Add tags line
+  if (foundTags || collectedTags.length > 0) {
+    // Remove duplicates and invalid values
+    const validTags = collectedTags.filter((v, i, a) => a.indexOf(v) === i && v && v !== pageType);
+    if (validTags.length > 0) {
+      result.push(`tags: [${validTags.join(', ')}]`);
+    } else {
+      result.push('tags: []');
+    }
+  }
+
+  result.push('---');
+
+  return result.join('\n') + body;
+}

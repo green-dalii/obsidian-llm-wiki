@@ -37,22 +37,28 @@ This file governs how the LLM builds and maintains your Wiki. Edit it freely.
 
 ## Entity Page Template
 Pages in \`entities/\` MUST follow this structure:
-- Frontmatter: type, created, sources (array), tags, reviewed (optional)
-- ## Basic Information: Type, source file link
-- ## Description: 3-6 sentences with concrete facts, bidirectional links
-- ## Related Entities: Links to related entities using [[entities/...]]
-- ## Related Concepts: Links to related concepts using [[concepts/...]]
-- ## Mentions in Source: Verbatim quotes (2-4) from source, preserved in original language
+
+**Frontmatter:** type, created, sources (array), tags, reviewed (optional)
+
+**Sections:**
+1. **Basic Information**: Type, source file link
+2. **Description**: 3-6 sentences with concrete facts, bidirectional links
+3. **Related Entities**: Links to related entities using [[entities/...]]
+4. **Related Concepts**: Links to related concepts using [[concepts/...]]
+5. **Mentions in Source**: Verbatim quotes (2-4) from source, preserved in original language
 
 ## Concept Page Template
 Pages in \`concepts/\` MUST follow this structure:
-- Frontmatter: type, created, sources (array), tags, reviewed (optional)
-- ## Definition: Clear, concise definition
-- ## Key Characteristics: Bullet list of defining traits
-- ## Applications: Real-world usage scenarios
-- ## Related Concepts: Links using [[concepts/...]]
-- ## Related Entities: Links using [[entities/...]]
-- ## Mentions in Source: Verbatim quotes (2-4) from source, preserved in original language
+
+**Frontmatter:** type, created, sources (array), tags, reviewed (optional)
+
+**Sections:**
+1. **Definition**: Clear, concise definition
+2. **Key Characteristics**: Bullet list of defining traits
+3. **Applications**: Real-world usage scenarios
+4. **Related Concepts**: Links using [[concepts/...]]
+5. **Related Entities**: Links using [[entities/...]]
+6. **Mentions in Source**: Verbatim quotes (2-4) from source, preserved in original language
 
 ## Naming Conventions
 - Filenames: lowercase-with-hyphens (slugified)

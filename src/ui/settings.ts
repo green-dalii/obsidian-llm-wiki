@@ -36,7 +36,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
   getText(key: string): string {
     const lang = this.tempSettings.language;
     const texts = TEXTS[lang];
-    return texts[key as keyof typeof texts] || TEXTS.en[key as keyof typeof TEXTS.en] || key;
+    return (texts as unknown as Record<string, string>)[key] || (TEXTS.en as unknown as Record<string, string>)[key] || key;
   }
 
   display() {
@@ -214,7 +214,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           });
         });
     } else {
-      const useDropdown = this.tempSettings.availableModels?.length > 0;
+      const useDropdown = (this.tempSettings.availableModels?.length ?? 0) > 0;
       new Setting(containerEl)
         .setName(this.getText('modelName'))
         .setDesc(this.tempSettings.availableModels?.length

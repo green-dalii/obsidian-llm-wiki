@@ -107,10 +107,10 @@ export const PROMPTS = {
 
 **Output Format:**
 ---
-type: entity
+type: entity  # MUST be exactly "entity" - do not change this value
 created: {{date}}
 sources: ["[[{{source_file}}]]"]
-tags: [{{tags}}]
+tags: [{{entity_type}}]  # Use entity_type (e.g., product, person, organization) as a tag
 ---
 
 # {{entity_name}}
@@ -246,10 +246,10 @@ Updated: {{date}}`,
 
 **Output Format:**
 ---
-type: concept
+type: concept  # MUST be exactly "concept" - do not change this value
 created: {{date}}
 sources: ["[[{{source_file}}]]"]
-tags: [{{tags}}]
+tags: [{{concept_type}}]  # Use concept_type (e.g., theory, method, technology) as a tag
 ---
 
 # {{concept_name}}
