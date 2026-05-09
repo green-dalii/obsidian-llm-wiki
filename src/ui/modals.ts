@@ -6,15 +6,17 @@ import { TEXTS } from '../texts';
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   onSelect: (file: TFile) => void;
+  private wikiFolder: string;
 
-  constructor(app: App, onSelect: (file: TFile) => void) {
+  constructor(app: App, wikiFolder: string, onSelect: (file: TFile) => void) {
     super(app);
+    this.wikiFolder = wikiFolder;
     this.onSelect = onSelect;
   }
 
   getItems(): TFile[] {
     return this.app.vault.getMarkdownFiles()
-      .filter(f => !f.path.startsWith('wiki') && !f.path.startsWith(this.app.vault.configDir));
+      .filter(f => !f.path.startsWith(this.wikiFolder) && !f.path.startsWith(this.app.vault.configDir));
   }
 
   getItemText(file: TFile): string {
@@ -28,9 +30,11 @@ export class FileSuggestModal extends FuzzySuggestModal<TFile> {
 
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
   onSelect: (folder: TFolder) => void;
+  private wikiFolder: string;
 
-  constructor(app: App, onSelect: (folder: TFolder) => void) {
+  constructor(app: App, wikiFolder: string, onSelect: (folder: TFolder) => void) {
     super(app);
+    this.wikiFolder = wikiFolder;
     this.onSelect = onSelect;
   }
 
@@ -39,7 +43,7 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     const root = this.app.vault.getRoot();
 
     const collect = (folder: TFolder) => {
-      if (!folder.path.startsWith(this.app.vault.configDir) && !folder.path.startsWith('wiki')) {
+      if (!folder.path.startsWith(this.app.vault.configDir) && !folder.path.startsWith(this.wikiFolder)) {
         folders.push(folder);
       }
       for (const child of folder.children) {

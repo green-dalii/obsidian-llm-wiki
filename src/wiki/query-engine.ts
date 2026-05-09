@@ -538,16 +538,16 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : 'No directly rele
 
 Instructions:
 - Answer based on the Wiki pages above (not general knowledge)
-- Use ONLY Obsidian's wiki-link syntax: [[wiki/entities/page-name]] (NOT HTML links)
+- Use ONLY Obsidian's wiki-link syntax: [[${this.plugin.settings.wikiFolder}/entities/page-name]] (NOT HTML links)
 - Link format MUST include wiki folder: [[${this.plugin.settings.wikiFolder}/entities/page-name]]
 
 CRITICAL RULES:
-✅ CORRECT: [[wiki/entities/example-page]], [[wiki/concepts/example-concept]]
+✅ CORRECT: [[${this.plugin.settings.wikiFolder}/entities/example-page]], [[${this.plugin.settings.wikiFolder}/concepts/example-concept]]
 ❌ WRONG: <a href="...">, [link text](url), [[example-page]], [[entities/example-page]]
 - Obsidian wiki-links use DOUBLE brackets: [[path]]
 - NO HTML: Never use <a href="...">text</a>
 - NO Markdown external links: Never use [text](url)
-- Include wiki/ prefix: Links must start with [[wiki/...
+- Include ${this.plugin.settings.wikiFolder}/ prefix: Links must start with [[${this.plugin.settings.wikiFolder}/...
 
 If Wiki lacks relevant information:
 - Acknowledge it and suggest ingesting more sources

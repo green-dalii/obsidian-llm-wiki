@@ -2,13 +2,21 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-08
+**Last Updated:** 2026-05-09
 
 ---
 
-## Current Phase: Acceleration + Schema Enhancement (v1.7.3)
+## Current Phase: Performance + Path Fixes (v1.7.6)
 
-**New features: Ingestion acceleration + Enhanced relationships + Schema optimization.**
+**New features: Related page parallelization + Hardcoded wiki path fixes.**
+
+Recently completed (v1.7.6):
+- **Related page update parallelization**: Stage 4 now uses configurable concurrency (reuses `pageGenerationConcurrency`), reducing related-page update time by up to 3x
+- **Hardcoded wiki path fixes**: `FileSuggestModal` and `FolderSuggestModal` now accept `wikiFolder` parameter; query-engine wiki-link format instructions now use `settings.wikiFolder` instead of hardcoded `wiki/`
+- **Promise.allSettled error isolation**: per-page retry with 2s delay on failure; batch-level delay control via `batchDelayMs`
+
+Recently completed (v1.7.5):
+- **TypeScript compilation fixes**: 20+ type errors resolved across wiki-engine.ts, query-engine.ts, auto-maintain.ts, modals.ts
 
 Recently completed (v1.7.3):
 - **Ingestion Parallel Acceleration**: Configurable page generation concurrency (1-5, default 1)

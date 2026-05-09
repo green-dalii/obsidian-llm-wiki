@@ -281,23 +281,69 @@ export class WikiEngine {
       const pageGenTime = Date.now() - pageGenStart;
       console.debug(`[耗时] 页面生成阶段完成: ${pageGenTime}ms (平均 ${Math.round(pageGenTime / pageGenCount)}ms/页)`);
 
-      // Stage 4: Related Pages Update
+      // Stage 4: Related Pages Update (并行化改造)
       const relatedStart = Date.now();
+      const relatedConcurrency = this.settings.pageGenerationConcurrency ?? 1;
+      const relatedDelay = this.settings.batchDelayMs ?? 300;
+
+      // 准备任务列表
+      const relatedTasks = analysis.related_pages.map((name, idx) => ({
+        name,
+        index: idx,
+        stepNum: step + idx + 1  // 计算每个任务的步骤编号
+      }));
+
       let relatedCount = 0;
-      for (const relatedPageName of analysis.related_pages) {
-        relatedCount++;
-        step++;
-        this.onProgress?.(`[${step}/${totalSteps}] Updating: ${relatedPageName}`);
-        await this.apiDelay();
-        try {
-          await this.pageFactory.updateRelatedPage(relatedPageName, analysis);
-          analysis.updated_pages.push(relatedPageName);
-        } catch (error) {
-          console.error(`Related page "${relatedPageName}" update failed, continuing...`, error);
+      const relatedTotal = relatedTasks.length;
+
+      // 分批并行处理
+      for (let i = 0; i < relatedTasks.length; i += relatedConcurrency) {
+        const batch = relatedTasks.slice(i, i + relatedConcurrency);
+
+        // 执行批次并行更新
+        const batchResults = await Promise.allSettled(
+          batch.map(async (task) => {
+            this.onProgress?.(`[${task.stepNum}/${totalSteps}] Updating: ${task.name}`);
+
+            try {
+              await this.pageFactory.updateRelatedPage(task.name, analysis!);
+              return { success: true as const, name: task.name };
+            } catch (error) {
+              const reason = error instanceof Error ? error.message : String(error);
+              console.error(`Related page "${task.name}" update failed:`, reason);
+
+              // 重试机制（与页面生成一致）
+              try {
+                await this.apiDelay(2000);
+                await this.pageFactory.updateRelatedPage(task.name, analysis!);
+                console.debug(`Related page "${task.name}" recovered on retry`);
+                return { success: true as const, name: task.name };
+              } catch (_retryError) {
+                console.error(`Related page "${task.name}" retry also failed`);
+                return { success: false as const, name: task.name, reason };
+              }
+            }
+          })
+        );
+
+        // 收集成功结果
+        batchResults.forEach((r, idx) => {
+          if (r.status === 'fulfilled' && r.value.success) {
+            analysis!.updated_pages.push(batch[idx].name);
+            relatedCount++;
+          }
+        });
+
+        // 批次间延迟（除最后一批）
+        if (i + relatedConcurrency < relatedTasks.length) {
+          await this.apiDelay(relatedDelay);
         }
       }
+
       const relatedTime = Date.now() - relatedStart;
-      console.debug(`[耗时] 相关页更新阶段: ${relatedTime}ms (${relatedCount} 页)`);
+      const relatedModeLabel = relatedConcurrency > 1 ? `并行(并发度:${relatedConcurrency})` : '串行';
+      console.debug(`[耗时] 相关页更新阶段完成: ${relatedTime}ms (${relatedModeLabel}, ${relatedCount}/${relatedTotal} 页成功)`);
+      step += relatedTotal;  // 更新step变量，确保后续阶段编号正确
 
       // Stage 5: Contradiction Recording
       const contradictionStart = Date.now();

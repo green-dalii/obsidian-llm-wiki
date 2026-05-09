@@ -443,7 +443,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           .setButtonText(this.getText('addWatchedFolderButton'))
           .setCta()
           .onClick(() => {
-            new FolderSuggestModal(this.app, (folder) => {
+            new FolderSuggestModal(this.app, this.tempSettings.wikiFolder, (folder) => {
               const folderPath = folder.path.endsWith('/') ? folder.path : `${folder.path}/`;
               if (!this.tempSettings.watchedFolders.includes(folderPath)) {
                 this.tempSettings.watchedFolders.push(folderPath);

@@ -229,7 +229,7 @@ export default class LLMWikiPlugin extends Plugin {
       return;
     }
 
-    new FileSuggestModal(this.app, (file) => {
+    new FileSuggestModal(this.app, this.settings.wikiFolder, (file) => {
       new Notice(`Ingesting "${file.basename}" — this may take a while. Watch the wiki folder for new pages.`, 6000);
       this.wikiEngine.ingestSource(file).catch(e => console.error(e));
     }).open();
@@ -241,7 +241,7 @@ export default class LLMWikiPlugin extends Plugin {
       return;
     }
 
-    new FolderSuggestModal(this.app, (folder) => {
+    new FolderSuggestModal(this.app, this.settings.wikiFolder, (folder) => {
       void (async () => {
       const files = this.app.vault.getMarkdownFiles()
         .filter(f => f.path.startsWith(folder.path));

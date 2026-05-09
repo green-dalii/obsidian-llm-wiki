@@ -2,11 +2,28 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.3 | **Updated:** 2026-05-08
+**Version:** 1.7.6 | **Updated:** 2026-05-09
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.6) — Related Page Parallelization + Path Fixes
+
+**Related Page Update Parallelization**
+- **Stage 4 parallel batch processing**: Related page updates now use configurable concurrency (reuses `pageGenerationConcurrency` setting), reducing update time by up to 3x
+- **Promise.allSettled error isolation**: single related-page failure doesn't block the batch; per-page retry with 2s delay on failure
+- **Batch-level delay control**: uses `batchDelayMs` setting between parallel batches for API rate limit protection
+- **Progress tracking**: per-page progress callbacks with real-time status
+
+**Hardcoded Wiki Path Fixes**
+- **`FileSuggestModal` / `FolderSuggestModal`**: Now accept `wikiFolder` constructor parameter instead of hardcoded `'wiki'` string
+- **`query-engine.ts`**: Wiki-link format instructions now use `settings.wikiFolder` dynamically instead of hardcoded `wiki/`
+- **All callers updated**: `main.ts` (2 sites), `settings.ts` (1 site) now pass `wikiFolder` to modal constructors
+
+### Implemented (v1.7.5) — TypeScript Compilation Fixes
+
+- **20+ TypeScript errors resolved**: Fixed `SchemaTask` type mismatches, null safety issues, `Component` parameter for `MarkdownRenderer.render()`, callback signatures, and i18n type assertions across 5 files
 
 ### Implemented (v1.7.3) — Ingestion Acceleration + Schema Enhancement
 
@@ -223,10 +240,12 @@ Karpathy: *"comparison tables, slide decks (Marp), charts"*
 | **v1.7.1** | 2026-05 | Multi-folder watch, Web Clipper preset, semantic deduplication, granularity-linked caps, ingestion Notices, actionable errors | Committed |
 | **v1.7.2** | 2026-05 | Programmatic frontmatter merge (sources append), intelligent content fusion, NO_NEW_CONTENT signal, reviewed page minimal-append | Committed |
 | **v1.7.3** | 2026-05 | Ingestion acceleration (concurrent page generation), verbatim mentions, enhanced entity/concept relations, schema optimization | Released |
+| **v1.7.5** | 2026-05 | TypeScript compilation fixes (20+ errors across 5 files) | Committed |
+| **v1.7.6** | 2026-05 | Related page parallelization, hardcoded wiki path fixes | In progress |
 | **v1.8.0** | TBD | Ingest Wizard (conversational), lint per-item review, proactive schema, output diversity | Planned |
 | **v1.9.0** | TBD | Wiki Health Dashboard, page version history | Planned |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
 ---
 
-**Last Updated:** 2026-05-03 | **Maintainer:** Greener-Dalii
+**Last Updated:** 2026-05-09 | **Maintainer:** Greener-Dalii

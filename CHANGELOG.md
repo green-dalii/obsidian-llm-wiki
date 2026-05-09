@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.6] - 2026-05-09
+
+### Added
+- **Related page update parallelization**: Stage 4 now processes related pages in configurable parallel batches using `Promise.allSettled` for error isolation
+  - Reuses existing `pageGenerationConcurrency` setting (1-5, default 1) for batch size control
+  - Reuses `batchDelayMs` setting for inter-batch API rate limit protection
+  - Per-page automatic retry with 2s delay on failure; single page failure doesn't block the batch
+  - Real-time progress tracking with per-page status callbacks
+
+### Fixed
+- **Hardcoded wiki folder paths**: Several UI components used hardcoded `'wiki'` string instead of the user-configurable `wikiFolder` setting
+  - `FileSuggestModal` and `FolderSuggestModal` now accept `wikiFolder` constructor parameter, correctly filtering wiki files from source selection
+  - `query-engine.ts` wiki-link format instructions now use `settings.wikiFolder` dynamically in LLM prompts (e.g., `[[myWiki/entities/...]]` instead of always `[[wiki/entities/...]]`)
+  - All 3 callers updated: `main.ts` (2 sites), `settings.ts` (1 site)
+
+---
+
 ## [1.7.5] - 2026-05-09
 
 ### Fixed
