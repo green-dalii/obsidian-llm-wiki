@@ -3,6 +3,7 @@
 import { App, TAbstractFile, TFile, Notice, Plugin } from 'obsidian';
 import { LLMWikiSettings } from '../types';
 import { WikiEngine } from '../wiki/wiki-engine';
+import { TEXTS } from '../texts';
 
 export class AutoMaintainManager {
   private app: App;
@@ -77,7 +78,8 @@ export class AutoMaintainManager {
 
       this.watching = true;
       console.debug('AutoMaintain: File watcher started (create+rename+modify+resolved)');
-      new Notice('Wiki: file watcher active — monitoring watched folders', 4000);
+      const texts = TEXTS[this.settings.language];
+      new Notice(texts.watcherActiveNotice, 4000);
     });
   }
 
@@ -192,13 +194,15 @@ export class AutoMaintainManager {
     const sourceFiles = files.filter(f => this.isWatched(f.path));
     if (sourceFiles.length === 0) return;
 
+    const texts = TEXTS[this.settings.language];
+
     if (this.settings.autoWatchMode === 'notify') {
       new Notice(
-        `Wiki: ${sourceFiles.length} file(s) changed in sources/. Run "Ingest Sources" to process.`,
+        texts.watchIngestNotice.replace('{count}', String(sourceFiles.length)),
         8000
       );
     } else {
-      new Notice(`Auto-ingesting ${sourceFiles.length} changed file(s)...`, 3000);
+      new Notice(texts.autoIngestRunning.replace('{count}', String(sourceFiles.length)), 3000);
 
       let successCount = 0;
       let failCount = 0;
@@ -215,7 +219,9 @@ export class AutoMaintainManager {
       }
 
       new Notice(
-        `Auto-ingest complete: ${successCount} succeeded, ${failCount} failed`,
+        texts.autoIngestComplete
+          .replace('{success}', String(successCount))
+          .replace('{fail}', String(failCount)),
         failCount > 0 ? 8000 : 5000
       );
     }
@@ -272,7 +278,8 @@ export class AutoMaintainManager {
       return;
     }
 
-    new Notice('Running scheduled wiki lint...', 3000);
+    const texts = TEXTS[this.settings.language];
+    new Notice(texts.scheduledLintRunning, 3000);
     this.lastLintTimestamp = Date.now();
 
     if (this.lintCallback) {
@@ -285,7 +292,11 @@ export class AutoMaintainManager {
       const sources = pages.filter(p => p.path.includes('/sources/')).length;
 
       new Notice(
-        `Wiki lint: ${pages.length} pages (${entities} entities, ${concepts} concepts, ${sources} sources)`,
+        texts.wikiLintStats
+          .replace('{pages}', String(pages.length))
+          .replace('{entities}', String(entities))
+          .replace('{concepts}', String(concepts))
+          .replace('{sources}', String(sources)),
         5000
       );
     }
@@ -310,6 +321,8 @@ export class AutoMaintainManager {
     // Wait for vault to settle after startup
     await new Promise(resolve => activeWindow.setTimeout(resolve, 3000));
 
+    const texts = TEXTS[this.settings.language];
+
     const pages = this.wikiEngine.getExistingWikiPages();
     const entities = pages.filter(p => p.path.includes('/entities/')).length;
     const concepts = pages.filter(p => p.path.includes('/concepts/')).length;
@@ -318,8 +331,14 @@ export class AutoMaintainManager {
     const indexPath = `${this.settings.wikiFolder}/index.md`;
     const hasIndex = await this.wikiEngine.tryReadFile(indexPath);
 
+    const indexStatus = hasIndex ? '' : ' — index.md missing';
     new Notice(
-      `Wiki health: ${pages.length} pages (${entities} entities, ${concepts} concepts, ${sources} sources)${hasIndex ? '' : ' — index.md missing'}`,
+      texts.wikiHealthStats
+        .replace('{pages}', String(pages.length))
+        .replace('{entities}', String(entities))
+        .replace('{concepts}', String(concepts))
+        .replace('{sources}', String(sources))
+        .replace('{indexStatus}', indexStatus),
       6000
     );
   }

@@ -186,7 +186,7 @@ ${selectedBody}
 
   async loadSchema(): Promise<WikiSchema | null> {
     if (this.cacheValid && this.cachedBody !== null) {
-      return { version: 0, last_updated: '', auto_suggestion_count: 0, body: this.cachedBody };
+      return { version: 0, updated: '', auto_suggestion_count: 0, body: this.cachedBody };
     }
 
     const path = this.getSchemaPath();
@@ -228,7 +228,7 @@ ${selectedBody}
     const body = buildDefaultSchemaBody();
     const content = `---
 version: 1
-last_updated: ${today}
+updated: ${today}
 auto_suggestion_count: 0
 ---
 
@@ -247,7 +247,7 @@ ${body}`;
     const body = buildDefaultSchemaBody();
     const content = `---
 version: 1
-last_updated: ${today}
+updated: ${today}
 auto_suggestion_count: 0
 ---
 
@@ -304,7 +304,7 @@ ${body}`;
 
   private parseConfigFile(content: string): WikiSchema {
     let version = 0;
-    let last_updated = '';
+    let updated = '';
     let auto_suggestion_count = 0;
     let body = content;
 
@@ -321,8 +321,8 @@ ${body}`;
 
             if (key === 'version') {
               version = parseInt(value) || 0;
-            } else if (key === 'last_updated') {
-              last_updated = value;
+            } else if (key === 'updated') {
+              updated = value;
             } else if (key === 'auto_suggestion_count') {
               auto_suggestion_count = parseInt(value) || 0;
             }
@@ -332,7 +332,7 @@ ${body}`;
       }
     }
 
-    return { version, last_updated, auto_suggestion_count, body };
+    return { version, updated, auto_suggestion_count, body };
   }
 
   private async appendSuggestion(suggestion: SchemaSuggestion): Promise<void> {

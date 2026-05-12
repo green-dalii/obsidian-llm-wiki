@@ -181,13 +181,21 @@ export class IngestReportModal extends Modal {
   }
 
   onOpen() {
-    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, elapsedSeconds } = this.report;
+    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, elapsedSeconds, skippedFiles, totalFilesInFolder } = this.report;
 
     const statusEmoji = success ? '✅' : '⚠️';
     this.contentEl.createEl('h2', { text: `${statusEmoji} ${this.t('ingestReportTitle')}` });
 
     // Source file
     this.contentEl.createEl('p', { text: `${this.t('ingestReportSourceFile')}：${sourceFile}` });
+
+    // Skipped files (batch ingest only)
+    if (skippedFiles !== undefined && skippedFiles > 0) {
+      this.contentEl.createEl('p', {
+        text: `${this.t('ingestReportSkippedFiles')}: ${skippedFiles}/${totalFilesInFolder || skippedFiles}`,
+        attr: { style: 'color: var(--text-muted); font-size: 13px;' }
+      });
+    }
 
     // Elapsed time
     if (elapsedSeconds !== undefined) {

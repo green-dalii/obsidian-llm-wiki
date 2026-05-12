@@ -2,13 +2,21 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-09
+**Last Updated:** 2026-05-12
 
 ---
 
-## Current Phase: Performance + Path Fixes (v1.7.6)
+## Current Phase: Save-to-Wiki Fixes + Smart Batch Skip (v1.7.7)
 
-**New features: Related page parallelization + Hardcoded wiki path fixes.**
+**New features: Conversation save quality improvements + Smart skip for batch ingestion.**
+
+Recently completed (v1.7.7):
+- **Conversation summary page LLM generation**: Query Wiki saved pages now use `generateSummaryPage` prompt (same as file ingestion), proper schema context, frontmatter `updated` field
+- **Duplicate save prompt fix**: Hash tracking prevents re-evaluation of unchanged conversations, `lastOfferedQueryHash` in settings
+- **Progress notice guarantee**: Save-to-wiki operations use try-finally cleanup, progress callback wired in both paths
+- **Conversation save report**: `ingestConversation()` returns `IngestReport` (unified with file ingestion), Notice shows entity/concept count
+- **Notice i18n compliance**: All Notice() calls respect Interface Language (7 new texts, auto-maintain/query/settings updated)
+- **Smart batch skip mechanism**: Folder ingestion checks `wiki/sources/${slug}.md` existence, skips already-ingested files, conservative fallback protects user edits, report shows skipped count
 
 Recently completed (v1.7.6):
 - **Related page update parallelization**: Stage 4 now uses configurable concurrency (reuses `pageGenerationConcurrency`), reducing related-page update time by up to 3x

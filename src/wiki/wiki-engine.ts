@@ -79,6 +79,7 @@ export class WikiEngine {
       getSchemaContext: t => this.schemaManager.getSchemaContext(t as SchemaTask),
       onFileWrite: path => this.onFileWrite?.(path),
       onProgress: msg => this.onProgress?.(msg),
+      onDone: report => this.onDone?.(report),
     };
 
     this.lintFixer = new LintFixer(ctx);
@@ -306,7 +307,7 @@ export class WikiEngine {
             this.onProgress?.(`[${task.stepNum}/${totalSteps}] Updating: ${task.name}`);
 
             try {
-              await this.pageFactory.updateRelatedPage(task.name, analysis!);
+              await this.pageFactory.updateRelatedPage(task.name, analysis!, file);
               return { success: true as const, name: task.name };
             } catch (error) {
               const reason = error instanceof Error ? error.message : String(error);
@@ -315,7 +316,7 @@ export class WikiEngine {
               // 重试机制（与页面生成一致）
               try {
                 await this.apiDelay(2000);
-                await this.pageFactory.updateRelatedPage(task.name, analysis!);
+                await this.pageFactory.updateRelatedPage(task.name, analysis!, file);
                 console.debug(`Related page "${task.name}" recovered on retry`);
                 return { success: true as const, name: task.name };
               } catch (_retryError) {
@@ -650,7 +651,7 @@ export class WikiEngine {
 
   // ---- Conversation ingestion delegation ----
 
-  async ingestConversation(history: ConversationHistory): Promise<void> {
+  async ingestConversation(history: ConversationHistory): Promise<IngestReport> {
     return this.conversationIngestor.ingestConversation(history);
   }
 

@@ -109,6 +109,7 @@ export const PROMPTS = {
 ---
 type: entity  # MUST be exactly "entity" - do not change this value
 created: {{date}}
+updated: {{date}}
 sources: ["[[{{source_file}}]]"]
 tags: [{{entity_type}}]  # Use entity_type (e.g., product, person, organization) as a tag
 ---
@@ -131,8 +132,7 @@ tags: [{{entity_type}}]  # Use entity_type (e.g., product, person, organization)
 ## {{section_mentions_in_source}}
 - [Verbatim quote from source, preserved in original language. Translation optional in parentheses]
 
----
-Updated: {{date}}`,
+---`,
 
   // Variant used when the existing page has `reviewed: true` in frontmatter.
   // The LLM must treat the human-edited content as authoritative and only
@@ -164,6 +164,7 @@ Updated: {{date}}`,
 ---
 type: entity
 created: {{date}}
+updated: {{date}}
 sources: ["[[{{source_file}}]]"]
 tags: [{{tags}}]
 reviewed: true
@@ -174,8 +175,7 @@ reviewed: true
 ## {{section_new_information}} ({{date}})
 [Only add non-duplicate new information; write "No new information" if none]
 
----
-Updated: {{date}}`,
+---`,
 
   // Variant used when the existing concept page has `reviewed: true` in frontmatter.
   preserveReviewedConceptPage: `You are a Wiki knowledge base maintainer. The following concept page has been manually reviewed by the user (reviewed: true).
@@ -206,6 +206,7 @@ Updated: {{date}}`,
 ---
 type: concept
 created: {{date}}
+updated: {{date}}
 sources: ["[[{{source_file}}]]"]
 tags: [{{tags}}]
 reviewed: true
@@ -216,8 +217,7 @@ reviewed: true
 ## {{section_new_information}} ({{date}})
 [Only add non-duplicate new information; write "No new information" if none]
 
----
-Updated: {{date}}`,
+---`,
 
   generateConceptPage: `You are a Wiki knowledge base maintainer. Create a Wiki page for the following concept.
 
@@ -248,6 +248,7 @@ Updated: {{date}}`,
 ---
 type: concept  # MUST be exactly "concept" - do not change this value
 created: {{date}}
+updated: {{date}}
 sources: ["[[{{source_file}}]]"]
 tags: [{{concept_type}}]  # Use concept_type (e.g., theory, method, technology) as a tag
 ---
@@ -273,8 +274,7 @@ tags: [{{concept_type}}]  # Use concept_type (e.g., theory, method, technology) 
 ## {{section_mentions_in_source}}
 - [Verbatim quote from source, preserved in original language. Translation optional in parentheses]
 
----
-Updated: {{date}}`,
+---`,
 
   generateSummaryPage: `You are a Wiki knowledge base maintainer. Create a summary page for the following source file.
 
@@ -296,6 +296,7 @@ Updated: {{date}}`,
 ---
 type: source
 created: {{date}}
+updated: {{date}}
 source_file: "[[{{source_file}}]]"
 tags: [{{tags}}]
 ---
@@ -319,8 +320,7 @@ tags: [{{tags}}]
 - Point 1
 - Point 2
 
----
-Updated: {{date}}`,
+---`,
 
   suggestSchemaUpdate: `You are a Wiki Schema advisor. Review the current schema and the latest ingestion analysis.
 

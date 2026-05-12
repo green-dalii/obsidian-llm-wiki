@@ -458,10 +458,20 @@ export function mergeFrontmatter(
   }
 
   // Merge sources array deterministically (programmatic, not LLM)
+  const normalizeSourcePath = (s: string): string => {
+    const trimmed = s.trim();
+    if (trimmed.startsWith('[[') && trimmed.endsWith(']]')) {
+      return trimmed.slice(2, -2).trim();
+    }
+    return trimmed;
+  };
   const existingSources = Array.isArray(fm.sources) ? fm.sources : [];
-  const sourceSet = new Set(existingSources);
+  const sourceSet = new Set<string>();
+  for (const s of existingSources) {
+    sourceSet.add(normalizeSourcePath(String(s)));
+  }
   sourceSet.add(newSourcePath);
-  const mergedSources = Array.from(sourceSet);
+  const mergedSources = Array.from(sourceSet).map(s => `[[${s}]]`);
 
   // Preserve created, update updated
   const created = fm.created || new Date().toISOString().split('T')[0];

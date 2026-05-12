@@ -102,6 +102,9 @@ export interface LLMWikiSettings {
   // Ingestion acceleration
   pageGenerationConcurrency: number;
   batchDelayMs: number;
+
+  // Query dedup
+  lastOfferedQueryHash?: string;
 }
 
 export interface QueryHistoryMessage {
@@ -114,7 +117,7 @@ export interface QueryHistoryMessage {
 
 export interface WikiSchema {
   version: number;
-  last_updated: string;
+  updated: string;
   auto_suggestion_count: number;
   body: string;
 }
@@ -139,6 +142,8 @@ export interface IngestReport {
   success: boolean;
   errorMessage?: string;
   elapsedSeconds?: number;
+  skippedFiles?: number;
+  totalFilesInFolder?: number;
 }
 
 // LLM Client interface
@@ -194,6 +199,7 @@ export interface EngineContext {
   getSchemaContext: (task: string) => Promise<string | undefined>;
   onFileWrite?: (path: string) => void;
   onProgress?: (message: string) => void;
+  onDone?: (report: IngestReport) => void;
 }
 
 // Predefined LLM provider configurations
@@ -366,4 +372,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // Ingestion acceleration (default: serial for safety)
   pageGenerationConcurrency: 1,
   batchDelayMs: 300,
+
+  // Query dedup
+  lastOfferedQueryHash: '',
 };

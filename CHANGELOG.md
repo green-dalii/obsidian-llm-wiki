@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.7] - 2026-05-12
+
+### Added
+- **Smart skip mechanism for batch ingestion**: Automatically detects and skips already-ingested source files in folder batch operations
+  - Primary check: Wiki/sources page exists with matching slug → considered ingested
+  - Secondary check: Optional strict verification via frontmatter sources array
+  - Conservative fallback: If wiki page exists but frontmatter is missing/malformed, still skip to protect user edits
+  - Batch ingest report now shows skipped file count: "跳过（已摄入）：X/Y"
+  - Toast notifications: "跳过 X/Y 个已摄入文件，正在摄入 Z 个新文件..."
+
+### Fixed
+- **Conversation summary page template mismatch**: Summary pages generated from Query Wiki now use LLM prompts (same as file ingestion) instead of hardcoded templates
+  - Now uses `PROMPTS.generateSummaryPage` with proper schema context and section labels
+  - Frontmatter now includes `updated` field, consistent with file ingestion
+  - Sources array properly populated with conversation metadata
+
+- **Duplicate save prompts on Query Wiki**: Modal now tracks conversation hash to prevent re-evaluation of unchanged conversations
+  - Added `lastOfferedQueryHash` to settings
+  - Hash computed from conversation messages, checked before LLM evaluation
+  - Updated on both save suggestion and successful save
+
+- **Progress notice stuck on "Generating index..."**: Save-to-wiki operations now guarantee notice dismissal
+  - Both `saveToWiki()` and `doSave()` use try-finally for cleanup
+  - Progress callback wired to notice in both paths
+  - Error handling always hides notice before showing error message
+
+- **Conversation save report missing**: `ingestConversation()` now returns `IngestReport` (same as file ingestion)
+  - Added `onDone` callback to `EngineContext` for unified report handling
+  - Save success notice shows entity/concept count: "3 实体, 2 概念, 6 页"
+  - Report includes elapsed time, created pages, failed items, contradictions
+
+- **Notice messages hardcoded in English**: All Notice() calls now respect Interface Language setting
+  - Added 7 new i18n texts for auto-maintain, query, and batch ingest notices
+  - `auto-maintain.ts`: 7 notices converted to TEXTS system
+  - `query-engine.ts`: 5 notices converted, removed inline ternary operators
+  - `ui/settings.ts`: 1 notice converted
+  - Chinese translations added for all new texts
+
+---
+
 ## [1.7.6] - 2026-05-09
 
 ### Added

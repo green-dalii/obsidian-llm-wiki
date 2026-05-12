@@ -402,7 +402,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           const schemaPath = `${this.tempSettings.wikiFolder}/schema/config.md`;
           const file = this.app.vault.getAbstractFileByPath(schemaPath);
           if (file instanceof TFile) void this.app.workspace.getLeaf().openFile(file);
-          else new Notice('Schema file not found. Enable schema to create it.', 5000);
+          else new Notice(this.getText('schemaNotFoundNotice'), 5000);
         }))
       .addButton(button => button
         .setButtonText(this.getText('regenerateSchemaButton'))

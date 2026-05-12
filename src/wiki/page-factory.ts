@@ -445,7 +445,7 @@ export class PageFactory {
     return path;
   }
 
-  async updateRelatedPage(pageName: string, analysis: SourceAnalysis): Promise<void> {
+  async updateRelatedPage(pageName: string, analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<void> {
     const existingPages = getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
     const page = existingPages.find(p => p.title === pageName);
 
@@ -462,29 +462,35 @@ export class PageFactory {
 
     const existingContent = await this.ctx.app.vault.read(abstractFile);
 
+    // 1. Programmatic frontmatter merge (sources + updated)
+    const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
+
     const prompt = `Existing Wiki page: ${pageName}
 
 Existing content:
-${existingContent}
+${existingBody}
 
-The new source file provides additional information about ${pageName}:
+The new source file ("${sourceFile.basename}") provides additional information about ${pageName}:
 ${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName) || 'No directly relevant information')}
 
 Update the page by adding the new information without deleting existing content. Use wiki-link syntax [[page-name]].
-Output ONLY the complete updated page content, no other text.`;
+Output ONLY the updated page BODY content (without frontmatter), no other text.`;
 
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
 
-    const updatedContent = await client.createMessage({
+    const updatedBody = await client.createMessage({
       model: this.ctx.settings.model,
       max_tokens: 8000,
       system: await this.ctx.buildSystemPrompt('related'),
       messages: [{ role: 'user', content: prompt }]
     });
 
-    const cleanedContent = cleanMarkdownResponse(updatedContent);
-    await this.ctx.createOrUpdateFile(page.path, cleanedContent);
+    const cleanedBody = cleanMarkdownResponse(updatedBody);
+
+    // 2. Assemble: programmatic frontmatter + LLM body
+    const finalContent = `${frontmatter}\n\n${cleanedBody}`;
+    await this.ctx.createOrUpdateFile(page.path, finalContent);
   }
 
   private async analyzeMerge(
