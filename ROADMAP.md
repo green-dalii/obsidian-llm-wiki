@@ -2,11 +2,31 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.6 | **Updated:** 2026-05-09
+**Version:** 1.7.7 | **Updated:** 2026-05-12
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.7) — Save-to-Wiki Fixes + Smart Batch Skip + Plugin ID Change
+
+**Save-to-Wiki Quality Improvements (5 fixes)**
+- **Conversation summary LLM generation**: Query Wiki saved pages now use `generateSummaryPage` prompt (same as file ingestion), proper schema context, frontmatter `updated` field, sources array populated
+- **Duplicate save prompt fix**: Hash tracking (`lastOfferedQueryHash`) prevents re-evaluation of unchanged conversations, hash updated on suggestion/save
+- **Progress notice guarantee**: `saveToWiki()`/`doSave()` use try-finally cleanup, progress callback wired in both paths, error handling always dismisses notice
+- **Conversation save report**: `ingestConversation()` returns `IngestReport` (unified with file ingestion), Notice shows entity/concept count, full report with elapsed time/failed items/contradictions
+- **Notice i18n compliance**: All Notice calls respect Interface Language (7 new texts, auto-maintain/query/settings converted), Chinese translations complete
+
+**Smart Batch Ingestion Skip**
+- **Automatic detection**: Checks `wiki/sources/${slug}.md` existence before ingestion, skips already-processed files
+- **Conservative fallback**: If wiki page exists but frontmatter missing/malformed, still skip (protects user edits)
+- **Optional strict verification**: Frontmatter sources array check for precise file path matching
+- **Report enhancement**: Shows skipped count "跳过（已摄入）：X/Y", Toast: "跳过 X/Y 个已摄入文件，正在摄入 Z 个新文件..."
+
+**Plugin ID Rename**
+- **ID changed**: `llm-wiki` → `karpathywiki` to avoid conflict with existing plugin and follow Obsidian naming guidelines (no "obsidian" in ID)
+- **Files updated**: `manifest.json`, `package.json`, README installation instructions (folder name: `karpathywiki`)
+- **No functionality impact**: Identifier update only for community submission readiness
 
 ### Implemented (v1.7.6) — Related Page Parallelization + Path Fixes
 

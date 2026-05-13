@@ -43,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ui/settings.ts`: 1 notice converted
   - Chinese translations added for all new texts
 
+### Changed
+- **Plugin ID renamed**: `llm-wiki` → `karpathywiki` to avoid conflict with existing plugin and align with Obsidian naming guidelines
+  - Updated in `manifest.json` and `package.json`
+  - Plugin folder name in installation instructions changed from `llm-wiki` to `karpathywiki`
+  - README.md and README_CN.md installation steps updated
+  - No functionality changes — only identifier update for community submission
+
 ---
 
 ## [1.7.6] - 2026-05-09
