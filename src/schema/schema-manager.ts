@@ -8,7 +8,7 @@ import { parseJsonResponse } from '../utils';
 const SCHEMA_FILENAME = 'schema/config.md';
 const SUGGESTIONS_FILENAME = 'schema/suggestions.md';
 
-export type SchemaTask = 'analyze' | 'summary' | 'entity' | 'concept' | 'related' | 'conversation' | 'index' | 'lint' | 'full';
+export type SchemaTask = 'analyze' | 'summary' | 'entity' | 'concept' | 'related' | 'conversation' | 'index' | 'lint' | 'merge' | 'full';
 
 const TASK_SECTIONS: Record<SchemaTask, string[]> = {
   analyze: ['Wiki Structure', 'Classification Rules', 'Naming Conventions'],
@@ -19,6 +19,7 @@ const TASK_SECTIONS: Record<SchemaTask, string[]> = {
   conversation: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules'],
   index: ['Wiki Structure'],
   lint: ['Maintenance Policies'],
+  merge: ['Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules'],
   full: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules', 'Maintenance Policies'],
 };
 
@@ -28,35 +29,62 @@ function buildDefaultSchemaBody(): string {
 This file governs how the LLM builds and maintains your Wiki. Edit it freely.
 
 ## Wiki Structure
-- Entity pages: \`entities/\` (person, organization, project, location, other)
+- Entity pages: \`entities/\` (person, organization, project, product, event, location, other)
 - Concept pages: \`concepts/\` (theory, method, technology, term, other)
 - Source pages: \`sources/\`
 - Index: \`index.md\`
 - Log: \`log.md\`
 
 ## Entity Page Template
-Pages in \`entities/\` should follow this structure:
-- Frontmatter: type, created, sources, tags
-- Sections: Basic Info, Description, Related Content, Mentions
+Pages in \`entities/\` MUST follow this structure:
+
+**Frontmatter:** type, created, sources (array), tags, reviewed (optional)
+
+**Sections:**
+1. **Basic Information**: Type, source file link
+2. **Description**: 3-6 sentences with concrete facts, bidirectional links
+3. **Related Entities**: Links to related entities using [[entities/...]]
+4. **Related Concepts**: Links to related concepts using [[concepts/...]]
+5. **Mentions in Source**: Verbatim quotes (2-4) from source, preserved in original language
 
 ## Concept Page Template
-Pages in \`concepts/\` should follow this structure:
-- Frontmatter: type, created, sources, tags
-- Sections: Definition, Key Features, Applications, Related Concepts, Related Entities
+Pages in \`concepts/\` MUST follow this structure:
+
+**Frontmatter:** type, created, sources (array), tags, reviewed (optional)
+
+**Sections:**
+1. **Definition**: Clear, concise definition
+2. **Key Characteristics**: Bullet list of defining traits
+3. **Applications**: Real-world usage scenarios
+4. **Related Concepts**: Links using [[concepts/...]]
+5. **Related Entities**: Links using [[entities/...]]
+6. **Mentions in Source**: Verbatim quotes (2-4) from source, preserved in original language
 
 ## Naming Conventions
-- Use lowercase-with-hyphens for filenames
-- Entity names: capitalize proper nouns consistently
-- Concept names: use title case for formal names
+- Filenames: lowercase-with-hyphens (slugified)
+- Entity/concept names: Preserve original language from source, NEVER translate
+- Wiki-links: Use full paths [[entities/page-name|Display Name]] or [[concepts/page-name|Display Name]]
+
+## Content Rules
+- mentions_in_source MUST be VERBATIM quotes — never paraphrase or translate
+- Summaries/descriptions should use the wiki output language
+- Entity/concept names must match the source file's original language exactly
+- All pages must include bidirectional links where relevant
 
 ## Classification Rules
-- Entity types: person, organization, project, location, other
+- Entity types: person, organization, project, product, event, location, other
 - Concept types: theory, method, technology, term, other
 - Source types: document, conversation, note
 
+## Multi-Source Merge Rules
+- Sources array: Append new sources, never overwrite
+- reviewed flag: If true, preserve all existing content, only append genuinely new info
+- Contradictions: Preserve both sides with attribution, add to ## Contradictions section
+- NO_NEW_CONTENT: Return this signal if source adds nothing new
+
 ## Maintenance Policies
 - Stale threshold: 90 days without updates
-- Contradiction severity levels: warning, conflict, error
+- Contradiction severity: warning, conflict, error
 - Orphan page: no inbound links from other wiki pages
 - Missing page: referenced by [[link]] but does not exist
 `;
@@ -158,7 +186,7 @@ ${selectedBody}
 
   async loadSchema(): Promise<WikiSchema | null> {
     if (this.cacheValid && this.cachedBody !== null) {
-      return { version: 0, last_updated: '', auto_suggestion_count: 0, body: this.cachedBody };
+      return { version: 0, updated: '', auto_suggestion_count: 0, body: this.cachedBody };
     }
 
     const path = this.getSchemaPath();
@@ -200,7 +228,7 @@ ${selectedBody}
     const body = buildDefaultSchemaBody();
     const content = `---
 version: 1
-last_updated: ${today}
+updated: ${today}
 auto_suggestion_count: 0
 ---
 
@@ -219,7 +247,7 @@ ${body}`;
     const body = buildDefaultSchemaBody();
     const content = `---
 version: 1
-last_updated: ${today}
+updated: ${today}
 auto_suggestion_count: 0
 ---
 
@@ -276,7 +304,7 @@ ${body}`;
 
   private parseConfigFile(content: string): WikiSchema {
     let version = 0;
-    let last_updated = '';
+    let updated = '';
     let auto_suggestion_count = 0;
     let body = content;
 
@@ -293,8 +321,8 @@ ${body}`;
 
             if (key === 'version') {
               version = parseInt(value) || 0;
-            } else if (key === 'last_updated') {
-              last_updated = value;
+            } else if (key === 'updated') {
+              updated = value;
             } else if (key === 'auto_suggestion_count') {
               auto_suggestion_count = parseInt(value) || 0;
             }
@@ -304,7 +332,7 @@ ${body}`;
       }
     }
 
-    return { version, last_updated, auto_suggestion_count, body };
+    return { version, updated, auto_suggestion_count, body };
   }
 
   private async appendSuggestion(suggestion: SchemaSuggestion): Promise<void> {

@@ -4,7 +4,7 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Author:** Greener-Dalii | **Version:** 1.7.0
+**Author:** Greener-Dalii | **Version:** 1.7.7
 
 [English](README.md) | [中文文档](README_CN.md) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
@@ -38,21 +38,37 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 
 ## Features
 
-- **Multi-Provider LLM Support** — Anthropic (Claude), Anthropic Compatible (Coding Plan), Google Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, and custom OpenAI-compatible endpoints
-- **Wiki Output Language** — 8-language output (EN/ZH/JA/KO/DE/FR/ES/PT) independent of UI language, with custom input fallback
-- **Internationalization** — English and Chinese UI (default: English)
-- **Schema Layer** — Structured configuration (`wiki/schema/config.md`) injected into all LLM prompts for consistent, high-quality Wiki output
-- **Intelligent Ingestion** — Auto-extract entities and concepts from source notes, generate structured Wiki pages with bidirectional `[[wiki-links]]`
-- **Content Truncation Protection** — 8000 max_tokens for all page generation, `stop_reason`/`finish_reason` detection with automatic retry at 2x tokens across all LLM providers
-- **Iterative Batch Extraction** — Batched entity/concept extraction with adaptive batch sizing eliminates the max_tokens bottleneck for long sources
-- **Smart Knowledge Fusion** — When updating existing pages, LLM analyzes new vs. existing content, detects duplicates and contradictions, and performs structured incremental merge
-- **Conversational Query** — ChatGPT-style dialog with streaming Markdown responses, multi-turn history, and optional Wiki saving
-- **Query-to-Wiki Feedback** — 3-stage value assessment on query close with semantic dedup before saving conversations to Wiki
-- **Lint AI Auto-Fix** — Per-item fix buttons for dead links, empty pages, and orphan pages in LintReportModal
+### Ingestion Improvements
+- **Smart Batch Skip** — Automatically detect and skip already-ingested files during folder batch operations, saving time and API costs. Shows skipped count in reports
+- **Parallel Page Generation** — Configurable 1-5 concurrent pages for sources with 50+ entities, 3x faster with error isolation
+- **Iterative Batch Extraction** — Adaptive batch sizing eliminates max_tokens bottleneck for long documents, extracting all entities/concepts systematically
+- **Verbatim Source Mentions** — Original language quotes preserved with optional translation, ensuring traceability
+
+### Knowledge Quality
+- **Save-to-Wiki Quality** — Conversation saves now match file ingestion quality: proper summary pages, frontmatter fields, entity/concept reports
+- **Enhanced Entity/Concept Relations** — Separate "Related Entities" and "Related Concepts" sections for bidirectional tracking
+- **Smart Knowledge Fusion** — Intelligent merge on page updates: detect duplicates, preserve contradictions with attribution, maintain links
+- **Content Truncation Protection** — 8000 max_tokens + automatic retry at 2x tokens across all providers
 - **Contradiction State Machine** — `detected → review_ok → resolved` (AI fix) or `detected → pending_fix` (manual)
-- **Auto Maintenance** — File watcher for automatic ingestion, periodic lint scheduling (hourly/daily/weekly), startup health check
-- **Knowledge Graph** — Visualize entity/concept relationships in Obsidian's Graph View
-- **Auto Index** — `index.md` and `log.md` maintained automatically with hierarchical (by-tag) organization
+
+### Query & Feedback
+- **Conversational Query** — ChatGPT-style dialog with streaming Markdown and `[[wiki-links]]`, multi-turn history
+- **Query-to-Wiki Feedback** — 3-stage value assessment on close, semantic deduplication before save
+- **Duplicate Save Prevention** — Hash tracking stops re-evaluation of unchanged conversations
+
+### LLM & Language
+- **Multi-Provider Support** — Anthropic, Anthropic Compatible (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, custom endpoints
+- **Dynamic Model List** — Real-time fetching from provider APIs
+- **Wiki Output Language** — 8 languages independent of UI (EN/ZH/JA/KO/DE/FR/ES/PT), with custom input
+- **Internationalization** — English and Chinese UI (default: English), all notices respect language setting
+
+### Maintenance & Architecture
+- **Schema Layer** — `wiki/schema/config.md` with templates, merge policies, content guidelines injected into all prompts
+- **Lint AI Auto-Fix** — Per-item buttons for dead links, empty pages, orphans in LintReportModal
+- **Auto Maintenance** — Multi-folder file watcher, periodic lint, startup health check (all optional)
+- **Knowledge Graph** — Entity/concept relationships visualized in Obsidian's Graph View
+- **Auto Index** — `index.md` and `log.md` maintained automatically
+- **Modular Codebase** — 9 focused modules for maintainability
 
 ---
 
@@ -64,7 +80,7 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 
 1. Download `main.js`, `manifest.json`, `styles.css` from [Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases)
 2. In Obsidian, go to Settings → Community plugins. On the **Installed plugins** tab, click the folder icon to open your plugins directory
-3. Create a folder named `llm-wiki`, drop the three files inside
+3. Create a folder named `karpathywiki`, drop the three files inside
 4. Back in Obsidian, click the refresh icon — **Karpathy LLM Wiki** will appear under Installed plugins
 5. Toggle it on to enable
 
@@ -112,7 +128,15 @@ For local models (Ollama): context windows are typically smaller (8K–128K). Co
 
 Re-ingesting the same source does incremental updates on entity/concept pages (new info merged in). Summary pages are regenerated.
 
-**User Feedback Loop (reviewed pages):** Add `reviewed: true` to a Wiki page's frontmatter to mark it as manually reviewed. When re-ingesting, the plugin preserves all user-edited content and only appends new, non-duplicate information. This protects your manual edits from being overwritten by LLM regeneration.
+**Smart Batch Skip:** When ingesting a folder, the plugin automatically detects already-processed files and skips them to save time and API costs. If `wiki/sources/${slug}.md` exists, the source is considered ingested. The batch report shows "Skipped (already ingested): X/Y" count.
+
+**Ingestion Acceleration:** For sources with many entities (20+), enable parallel page generation in Settings → Ingestion Acceleration:
+- **Page Generation Concurrency**: 1 (serial, safest) to 5 (parallel, fastest). Start with 3 for most providers. Increase batch delay if you hit rate limits.
+- **Batch Delay**: 100-2000ms between parallel batches. Increase to 500ms+ for OpenAI (60 RPM limit) or if you see 429 errors.
+
+> **Safety note**: Parallel generation uses `Promise.allSettled` — if one page fails, others continue. Failed pages are retried individually with exponential backoff. Links to not-yet-created pages are valid Obsidian syntax (`[[entity-name]]`) and resolve automatically once the target page exists.
+
+**Source Mentions Preservation:** The "Mentions in Source" section preserves verbatim quotes from your original source. If your Wiki output language differs from the source language, translations appear in parentheses after the original text. This ensures traceability while maintaining readability.
 
 ```markdown
 ---
@@ -169,6 +193,12 @@ Core concepts and algorithms for learning from data.
 **Output — Entity:** `wiki/entities/supervised-learning.md`
 
 ```markdown
+---
+type: entity
+created: 2026-05-08
+sources: [[sources/machine-learning]]
+---
+
 # Supervised Learning
 
 ## Definition
@@ -179,8 +209,14 @@ Supervised learning learns predictive models from labeled data.
 - Common algorithms: linear regression, decision trees, neural networks
 
 ## Related Concepts
-- [[Machine Learning]]
-- [[Unsupervised Learning]]
+- [[Machine Learning]] — The broader field
+- [[Unsupervised Learning]] — Learning without labels
+
+## Related Entities
+- [[Arthur Samuel]] — Pioneer of machine learning
+
+## Mentions in Source
+- "Machine learning uses algorithms to learn from data."
 ```
 
 ---

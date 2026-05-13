@@ -2,11 +2,96 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.0 | **Updated:** 2026-05-07
+**Version:** 1.7.7 | **Updated:** 2026-05-12
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.7) — Save-to-Wiki Fixes + Smart Batch Skip + Plugin ID Change
+
+**Save-to-Wiki Quality Improvements (5 fixes)**
+- **Conversation summary LLM generation**: Query Wiki saved pages now use `generateSummaryPage` prompt (same as file ingestion), proper schema context, frontmatter `updated` field, sources array populated
+- **Duplicate save prompt fix**: Hash tracking (`lastOfferedQueryHash`) prevents re-evaluation of unchanged conversations, hash updated on suggestion/save
+- **Progress notice guarantee**: `saveToWiki()`/`doSave()` use try-finally cleanup, progress callback wired in both paths, error handling always dismisses notice
+- **Conversation save report**: `ingestConversation()` returns `IngestReport` (unified with file ingestion), Notice shows entity/concept count, full report with elapsed time/failed items/contradictions
+- **Notice i18n compliance**: All Notice calls respect Interface Language (7 new texts, auto-maintain/query/settings converted), Chinese translations complete
+
+**Smart Batch Ingestion Skip**
+- **Automatic detection**: Checks `wiki/sources/${slug}.md` existence before ingestion, skips already-processed files
+- **Conservative fallback**: If wiki page exists but frontmatter missing/malformed, still skip (protects user edits)
+- **Optional strict verification**: Frontmatter sources array check for precise file path matching
+- **Report enhancement**: Shows skipped count "跳过（已摄入）：X/Y", Toast: "跳过 X/Y 个已摄入文件，正在摄入 Z 个新文件..."
+
+**Plugin ID Rename**
+- **ID changed**: `llm-wiki` → `karpathywiki` to avoid conflict with existing plugin and follow Obsidian naming guidelines (no "obsidian" in ID)
+- **Files updated**: `manifest.json`, `package.json`, README installation instructions (folder name: `karpathywiki`)
+- **No functionality impact**: Identifier update only for community submission readiness
+
+### Implemented (v1.7.6) — Related Page Parallelization + Path Fixes
+
+**Related Page Update Parallelization**
+- **Stage 4 parallel batch processing**: Related page updates now use configurable concurrency (reuses `pageGenerationConcurrency` setting), reducing update time by up to 3x
+- **Promise.allSettled error isolation**: single related-page failure doesn't block the batch; per-page retry with 2s delay on failure
+- **Batch-level delay control**: uses `batchDelayMs` setting between parallel batches for API rate limit protection
+- **Progress tracking**: per-page progress callbacks with real-time status
+
+**Hardcoded Wiki Path Fixes**
+- **`FileSuggestModal` / `FolderSuggestModal`**: Now accept `wikiFolder` constructor parameter instead of hardcoded `'wiki'` string
+- **`query-engine.ts`**: Wiki-link format instructions now use `settings.wikiFolder` dynamically instead of hardcoded `wiki/`
+- **All callers updated**: `main.ts` (2 sites), `settings.ts` (1 site) now pass `wikiFolder` to modal constructors
+
+### Implemented (v1.7.5) — TypeScript Compilation Fixes
+
+- **20+ TypeScript errors resolved**: Fixed `SchemaTask` type mismatches, null safety issues, `Component` parameter for `MarkdownRenderer.render()`, callback signatures, and i18n type assertions across 5 files
+
+### Implemented (v1.7.3) — Ingestion Acceleration + Schema Enhancement
+
+**Ingestion Parallel Acceleration**
+- **Single-source page generation concurrency**: Configurable 1-5 parallel pages (default 1 for safety), 3x speedup for 50+ entity sources
+- **Promise.allSettled error isolation**: Single page failure doesn't block batch; per-page retry with exponential backoff
+- **Batch delay control**: 100-2000ms configurable delay between batches for API rate limit protection
+- **Progress tracking**: Real-time batch completion logging with success/failure counts
+
+**Verbatim Mentions Preservation**
+- Source quotes in `mentions_in_source` preserved in original language
+- Optional translation in parentheses for wiki language different from source
+- LLM prompt explicitly instructs verbatim preservation with translation as add-on
+
+**Entity/Concept Relationship Enhancement**
+- Entity pages now have separate "Related Entities" and "Related Concepts" sections (was "Related Content")
+- Concept pages have both "Related Concepts" and "Related Entities" sections
+- Analysis phase extracts `related_entities` and `related_concepts` for both entity and concept objects
+- Page generation prompts updated to populate both sections
+
+**Schema Template Optimization**
+- Explicit section structure rules for entity and concept pages
+- Content guidelines: verbatim mentions requirement, naming conventions, link formats
+- Multi-source merge policies: sources array append, reviewed protection, NO_NEW_CONTENT signal
+- Classification rules with examples
+- Maintenance policies: stale thresholds, contradiction severity, orphan/missing definitions
+
+### Implemented (v1.7.2) — Intelligent Multi-Source Merge
+
+**Critical Fix: Multi-Source Knowledge Loss**
+- **Programmatic frontmatter merge**: `sources` array now deterministically appended (not overwritten), `created` preserved, `updated` refreshed, `reviewed` protected
+- **Intelligent content fusion**: LLM follows schema-defined sections to merge new source info into existing pages — no redundancy, contradictions preserved with attribution, bidirectional links maintained
+- **Reviewed page protection**: minimal append-only mode for pages with `reviewed: true`
+- **NO_NEW_CONTENT signal**: skip redundant updates when source adds nothing new
+- **New prompts**: `mergeEntityPage`, `mergeConceptPage`, `appendToReviewedPage`
+- **Schema task**: added `'merge'` type for selective schema injection during content fusion
+
+### Implemented (v1.7.1) — Multi-Folder Watch
+
+- **Multi-folder auto-watch**: `watchedFolders` array replaces single `watchedFolder`; "Add Folder" buttons in Settings
+- **Web Clipper preset**: one-click adds `Clippings/` folder for seamless web-clip auto-ingestion
+- **Semantic entity deduplication**: LLM semantic fallback when slug matching fails, handling translations, abbreviations, renamings
+- **Granularity-linked iteration caps**: coarse(3 batches/10 items/20 cap) / standard(6/20/50) / fine(12/30/unlimited)
+- **Ingestion Notice feedback**: Toast notifications for single-file and folder ingest
+- **Actionable network errors**: after 3 retries, report specific causes (VPN/SSL/firewall/URL)
+- **Entity name translation leak fix**: names preserve source language, only summaries follow wikiLanguage
+- **Premature stop fix**: `newTotal === 0` (post-dedup) vs `rawTotal < batchSize`
+- **settings backward compat**: old `watchedFolder` string auto-resets to `[]`
 
 ### Implemented (v1.7.0) — Quality Milestone
 
@@ -108,6 +193,7 @@
 | 6 | Query: output format limited to markdown (no tables/slides/charts) | Low |
 | 7 | Schema: rules-engine based, not co-evolved LLM instruction doc | Low |
 | 8 | Long source analysis: max_tokens: 4000 bottleneck limits entity/concept count | ✅ Fixed (v1.6.2) |
+| 9 | Ingest performance: serial page generation for 50+ entities | ✅ Fixed (v1.7.3) |
 
 ---
 
@@ -115,9 +201,9 @@
 
 > Based on re-reading Karpathy's [original LLM Wiki vision](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and auditing the plugin against his core principles.
 
-### v1.8.0 — Conversational Ingest + Web Clipper
+### v1.8.0 — Conversational Ingest + Experience Polish
 
-**Goal:** Transform ingest from a black box into a collaborative process, and integrate with Obsidian's native content capture.
+**Goal:** Transform ingest from a black box into a collaborative process.
 
 Karpathy: *"I like to do them one at a time, and be involved myself. I like to discuss what to file, then file it."*
 
@@ -130,32 +216,16 @@ Karpathy: *"I like to do them one at a time, and be involved myself. I like to d
 
 **Files:** `src/ingest-wizard.ts` (new), `src/wiki-engine.ts`, `main.ts`
 
-#### 2. Web Clipper Integration
-Obsidian's official [Web Clipper](https://obsidian.md/clipper) plugin saves web content into a `Clippings/` folder by default — a natural, zero-friction content funnel for LLM Wiki. Instead of manually moving files to `sources/`, the plugin watches the Clippings folder and auto-ingests new clips.
-
-- **Settings toggle**: "Watch Clippings folder" checkbox + customizable folder path (default: `Clippings/`)
-- **Auto-ingest on new clip**: file watcher detects new `.md` files in the watched folder → triggers `ingestSource()` automatically
-- **Debounce**: reuse existing auto-maintain debounce logic; batch clips arriving within 30s into a single ingest run
-- **Per-clip notification**: brief Notice on ingest completion; detailed report in `log.md`
-- **Defaults OFF**: avoid surprise API costs for users unaware of the feature
-- **Karpathy alignment**: web clips are a primary source of real-world knowledge; auto-ingesting them keeps the Wiki growing organically without manual effort — "knowledge compounds" with zero friction
-
-**Files:** `src/schema/auto-maintain.ts` (extend), `src/ui/settings.ts` (toggle), `src/types.ts` (settings fields), `src/texts.ts` (i18n)
-
-#### 3. Lint Per-Item Review
+#### 2. Lint Per-Item Review
 - Replace batch fix with per-item preview + confirm
 - Show LLM fix proposal before applying
 - Align with human-in-the-loop principle
 
----
-
-### v1.8.0 — Experience Polish
-
-#### 4. Proactive Schema Suggestions
+#### 3. Proactive Schema Suggestions
 - After ingest, check if new entity/concept types fall outside schema categories
 - Suggest running "Analyze Schema" (do not auto-modify)
 
-#### 5. Output Format Diversity
+#### 4. Output Format Diversity
 Karpathy: *"comparison tables, slide decks (Marp), charts"*
 - Optimize query prompts for structured table output
 - "Export as Marp" button in Query modal
@@ -186,11 +256,16 @@ Karpathy: *"comparison tables, slide decks (Marp), charts"*
 | **v1.6.3** | 2026-05 | Adaptive batch_size | Released |
 | **v1.6.4** | 2026-05 | Dual-layer JSON parsing, Anthropic prompt caching, entity extraction balance, ingestion report, granularity cost labeling | Code complete |
 | **v1.6.5** | 2026-05 | Wiki output language (8 languages + custom), English LLM prompts, system prompt language directive, artifact removal | Code complete |
-| **v1.7.0** | 2026-05 | Quality milestone: truncation protection, fillEmptyPage fix, batch reports, i18n completion, module refactoring | Released |
-| **v1.8.0** | TBD | Conversational ingest wizard, Web Clipper integration, lint per-item review | Planned |
-| **v1.9.0** | TBD | Proactive schema suggestions, output diversity | Planned |
+| **v1.7.0** | 2026-05 | Content truncation protection, fillEmptyPage reliability, frontmatter normalization, lint/command i18n, batch ingest reports, entity/concept breakdown, slugify improvements | Released |
+| **v1.7.1** | 2026-05 | Multi-folder watch, Web Clipper preset, semantic deduplication, granularity-linked caps, ingestion Notices, actionable errors | Committed |
+| **v1.7.2** | 2026-05 | Programmatic frontmatter merge (sources append), intelligent content fusion, NO_NEW_CONTENT signal, reviewed page minimal-append | Committed |
+| **v1.7.3** | 2026-05 | Ingestion acceleration (concurrent page generation), verbatim mentions, enhanced entity/concept relations, schema optimization | Released |
+| **v1.7.5** | 2026-05 | TypeScript compilation fixes (20+ errors across 5 files) | Committed |
+| **v1.7.6** | 2026-05 | Related page parallelization, hardcoded wiki path fixes | In progress |
+| **v1.8.0** | TBD | Ingest Wizard (conversational), lint per-item review, proactive schema, output diversity | Planned |
+| **v1.9.0** | TBD | Wiki Health Dashboard, page version history | Planned |
 | **v2.0.0** | TBD | Agent mode + multi-modal | Concept |
 
 ---
 
-**Last Updated:** 2026-05-07 | **Maintainer:** Greener-Dalii
+**Last Updated:** 2026-05-09 | **Maintainer:** Greener-Dalii

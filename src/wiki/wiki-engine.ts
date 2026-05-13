@@ -2,7 +2,7 @@
 // Orchestrates sub-modules: SourceAnalyzer, PageFactory, ConversationIngestor,
 // LintFixer, ContradictionManager, and system-prompts.
 
-import { App, TFile } from 'obsidian';
+import { App, TFile, TFolder } from 'obsidian';
 import {
   LLMWikiSettings,
   LLMClient,
@@ -17,7 +17,7 @@ import {
   slugify,
   cleanMarkdownResponse,
 } from '../utils';
-import { SchemaManager } from '../schema/schema-manager';
+import { SchemaManager, SchemaTask } from '../schema/schema-manager';
 import {
   buildSystemPrompt,
   getSectionLabels,
@@ -72,13 +72,14 @@ export class WikiEngine {
       createOrUpdateFile: (p, c) => this.createOrUpdateFile(p, c),
       tryReadFile: p => this.tryReadFile(p),
       buildSystemPrompt: task =>
-        buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t), task),
+        buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t as SchemaTask), task),
       getSectionLabels: () => getSectionLabels(this.settings),
       getExistingWikiPages: () =>
         getExistingWikiPages(this.app, this.settings.wikiFolder),
-      getSchemaContext: t => this.schemaManager.getSchemaContext(t),
+      getSchemaContext: t => this.schemaManager.getSchemaContext(t as SchemaTask),
       onFileWrite: path => this.onFileWrite?.(path),
       onProgress: msg => this.onProgress?.(msg),
+      onDone: report => this.onDone?.(report),
     };
 
     this.lintFixer = new LintFixer(ctx);
@@ -99,8 +100,12 @@ export class WikiEngine {
     this.onFileWrite = cb;
   }
 
-  setProgressCallback(cb: (message: string) => void): void {
+  setProgressCallback(cb: ((message: string) => void) | null): void {
     this.onProgress = cb;
+  }
+
+  getProgressCallback(): ((message: string) => void) | null {
+    return this.onProgress;
   }
 
   setDoneCallback(cb: ((report: IngestReport) => void) | null): void {
@@ -113,8 +118,8 @@ export class WikiEngine {
     return c;
   }
 
-  private async buildSystemPrompt(task: string): Promise<string | undefined> {
-    return buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t), task);
+  private async buildSystemPrompt(task: SchemaTask): Promise<string | undefined> {
+    return buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t as SchemaTask), task);
   }
 
   private applySectionLabels(prompt: string): string {
@@ -124,7 +129,8 @@ export class WikiEngine {
   async ingestSource(file: TFile) {
     console.debug('=== 开始摄入流程 ===');
     console.debug('源文件:', file.path);
-    const startTime = Date.now();
+    const totalStartTime = Date.now();
+
     this.onProgress?.(`Analyzing: ${file.basename}`);
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
@@ -133,10 +139,14 @@ export class WikiEngine {
     try {
       await this.ensureWikiStructure();
 
+      // Stage 1: Source Analysis
+      const analysisStart = Date.now();
       analysis = await this.sourceAnalyzer.analyzeSource(file);
       if (!analysis) {
-        throw new Error('源文件分析失败');
+        throw new Error(`Source analysis failed for "${file.basename}". Check the developer console (Ctrl+Shift+I) for network or API errors. If you see SSL/network errors, verify your provider URL and network connection.`);
       }
+      const analysisTime = Date.now() - analysisStart;
+      console.debug(`[耗时] 源文件分析阶段: ${analysisTime}ms`);
       console.debug('分析结果:', JSON.stringify(analysis, null, 2));
 
       const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
@@ -152,77 +162,192 @@ export class WikiEngine {
 
       this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
       await this.apiDelay();
+
+      // Stage 2: Summary Page Generation
+      const summaryStart = Date.now();
       const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths);
+      const summaryTime = Date.now() - summaryStart;
+      console.debug(`[耗时] 摘要页生成: ${summaryTime}ms`);
       analysis.created_pages.push(summaryPage);
 
-      for (const entity of analysis.entities) {
-        step++;
-        this.onProgress?.(`[${step}/${totalSteps}] Entity: ${entity.name}`);
-        await this.apiDelay();
-        try {
-          const entityPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis, file);
-          if (entityPage) {
-            analysis.created_pages.push(entityPage);
-          }
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          console.error(`Entity "${entity.name}" failed:`, reason);
-          failedItems.push({ type: 'entity', name: entity.name, reason });
+      // Stage 3: Entity/Concept Page Generation
+      const pageGenStart = Date.now();
+      let pageGenCount = 0;
 
-          try {
-            await this.apiDelay(2000);
-            const retryPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis, file);
-            if (retryPage) {
-              analysis.created_pages.push(retryPage);
-              console.debug(`Entity "${entity.name}" recovered on retry`);
-              failedItems.pop();
+      // Phase 2: Parallel page generation with concurrency control
+      const concurrency = this.settings.pageGenerationConcurrency ?? 1;
+      const batchDelay = this.settings.batchDelayMs ?? 300;
+
+      // Log parallel mode info
+      if (concurrency > 1) {
+        console.debug(`[并行模式] 并发度: ${concurrency}, 批次间延迟: ${batchDelay}ms, 总任务: ${analysis.entities.length + analysis.concepts.length}`);
+      } else {
+        console.debug(`[串行模式] 逐一生成页面, 总任务: ${analysis.entities.length + analysis.concepts.length}`);
+      }
+
+      // Prepare all page generation tasks
+      type PageGenTask = {
+        type: 'entity' | 'concept';
+        name: string;
+        index: number;
+      };
+
+      const tasks: PageGenTask[] = [
+        ...analysis.entities.map((e, i) => ({ type: 'entity' as const, name: e.name, index: i })),
+        ...analysis.concepts.map((c, i) => ({ type: 'concept' as const, name: c.name, index: i }))
+      ];
+
+      // Process in batches based on concurrency setting
+      for (let i = 0; i < tasks.length; i += concurrency) {
+        const batch = tasks.slice(i, i + concurrency);
+
+        // Execute batch with Promise.allSettled for error isolation
+        const batchResults = await Promise.allSettled(
+          batch.map(async (task) => {
+            step++;
+            this.onProgress?.(`[${step}/${totalSteps}] ${task.type === 'entity' ? 'Entity' : 'Concept'}: ${task.name}`);
+
+            if (task.type === 'entity') {
+              const entity = analysis!.entities[task.index];
+              try {
+                const entityPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file);
+                if (entityPage) {
+                  analysis!.created_pages.push(entityPage);
+                }
+                return { success: true as const, name: entity.name, type: 'entity' as const };
+              } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                console.error(`Entity "${entity.name}" failed:`, reason);
+                failedItems.push({ type: 'entity', name: entity.name, reason });
+
+                // Retry once
+                try {
+                  await this.apiDelay(2000);
+                  const retryPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file);
+                  if (retryPage) {
+                    analysis!.created_pages.push(retryPage);
+                    console.debug(`Entity "${entity.name}" recovered on retry`);
+                    failedItems.pop();
+                  }
+                } catch {
+                  console.error(`Entity "${entity.name}" retry also failed`);
+                }
+                return { success: false as const, name: entity.name, type: 'entity' as const, reason };
+              }
+            } else {
+              const concept = analysis!.concepts[task.index];
+              try {
+                const conceptPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file);
+                if (conceptPage) {
+                  analysis!.created_pages.push(conceptPage);
+                }
+                return { success: true as const, name: concept.name, type: 'concept' as const };
+              } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                console.error(`Concept "${concept.name}" failed:`, reason);
+                failedItems.push({ type: 'concept', name: concept.name, reason });
+
+                // Retry once
+                try {
+                  await this.apiDelay(2000);
+                  const retryPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file);
+                  if (retryPage) {
+                    analysis!.created_pages.push(retryPage);
+                    console.debug(`Concept "${concept.name}" recovered on retry`);
+                    failedItems.pop();
+                  }
+                } catch {
+                  console.error(`Concept "${concept.name}" retry also failed`);
+                }
+                return { success: false as const, name: concept.name, type: 'concept' as const, reason };
+              }
             }
-          } catch {
-            console.error(`Entity "${entity.name}" retry also failed`);
-          }
+          })
+        );
+
+        // Log batch summary
+        pageGenCount += batch.length;
+        const batchNum = Math.floor(i / concurrency) + 1;
+        const totalBatches = Math.ceil(tasks.length / concurrency);
+        const succeeded = batchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+        const mode = concurrency > 1 ? '并行' : '串行';
+        const batchTime = Date.now() - pageGenStart;
+        console.debug(`[${mode}批次 ${batchNum}/${totalBatches}] ${succeeded}/${batch.length} 页面成功 (并发度: ${concurrency}, 累计耗时: ${batchTime}ms)`);
+
+        // API rate limit protection: delay between batches if there are more tasks
+        if (i + concurrency < tasks.length) {
+          await this.apiDelay(batchDelay);
         }
       }
+      const pageGenTime = Date.now() - pageGenStart;
+      console.debug(`[耗时] 页面生成阶段完成: ${pageGenTime}ms (平均 ${Math.round(pageGenTime / pageGenCount)}ms/页)`);
 
-      for (const concept of analysis.concepts) {
-        step++;
-        this.onProgress?.(`[${step}/${totalSteps}] Concept: ${concept.name}`);
-        await this.apiDelay();
-        try {
-          const conceptPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis, file);
-          if (conceptPage) {
-            analysis.created_pages.push(conceptPage);
-          }
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          console.error(`Concept "${concept.name}" failed:`, reason);
-          failedItems.push({ type: 'concept', name: concept.name, reason });
+      // Stage 4: Related Pages Update (并行化改造)
+      const relatedStart = Date.now();
+      const relatedConcurrency = this.settings.pageGenerationConcurrency ?? 1;
+      const relatedDelay = this.settings.batchDelayMs ?? 300;
 
-          try {
-            await this.apiDelay(2000);
-            const retryPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis, file);
-            if (retryPage) {
-              analysis.created_pages.push(retryPage);
-              console.debug(`Concept "${concept.name}" recovered on retry`);
-              failedItems.pop();
+      // 准备任务列表
+      const relatedTasks = analysis.related_pages.map((name, idx) => ({
+        name,
+        index: idx,
+        stepNum: step + idx + 1  // 计算每个任务的步骤编号
+      }));
+
+      let relatedCount = 0;
+      const relatedTotal = relatedTasks.length;
+
+      // 分批并行处理
+      for (let i = 0; i < relatedTasks.length; i += relatedConcurrency) {
+        const batch = relatedTasks.slice(i, i + relatedConcurrency);
+
+        // 执行批次并行更新
+        const batchResults = await Promise.allSettled(
+          batch.map(async (task) => {
+            this.onProgress?.(`[${task.stepNum}/${totalSteps}] Updating: ${task.name}`);
+
+            try {
+              await this.pageFactory.updateRelatedPage(task.name, analysis!, file);
+              return { success: true as const, name: task.name };
+            } catch (error) {
+              const reason = error instanceof Error ? error.message : String(error);
+              console.error(`Related page "${task.name}" update failed:`, reason);
+
+              // 重试机制（与页面生成一致）
+              try {
+                await this.apiDelay(2000);
+                await this.pageFactory.updateRelatedPage(task.name, analysis!, file);
+                console.debug(`Related page "${task.name}" recovered on retry`);
+                return { success: true as const, name: task.name };
+              } catch (_retryError) {
+                console.error(`Related page "${task.name}" retry also failed`);
+                return { success: false as const, name: task.name, reason };
+              }
             }
-          } catch {
-            console.error(`Concept "${concept.name}" retry also failed`);
+          })
+        );
+
+        // 收集成功结果
+        batchResults.forEach((r, idx) => {
+          if (r.status === 'fulfilled' && r.value.success) {
+            analysis!.updated_pages.push(batch[idx].name);
+            relatedCount++;
           }
+        });
+
+        // 批次间延迟（除最后一批）
+        if (i + relatedConcurrency < relatedTasks.length) {
+          await this.apiDelay(relatedDelay);
         }
       }
 
-      for (const relatedPageName of analysis.related_pages) {
-        step++;
-        this.onProgress?.(`[${step}/${totalSteps}] Updating: ${relatedPageName}`);
-        await this.apiDelay();
-        try {
-          await this.pageFactory.updateRelatedPage(relatedPageName, analysis);
-          analysis.updated_pages.push(relatedPageName);
-        } catch (error) {
-          console.error(`Related page "${relatedPageName}" update failed, continuing...`, error);
-        }
-      }
+      const relatedTime = Date.now() - relatedStart;
+      const relatedModeLabel = relatedConcurrency > 1 ? `并行(并发度:${relatedConcurrency})` : '串行';
+      console.debug(`[耗时] 相关页更新阶段完成: ${relatedTime}ms (${relatedModeLabel}, ${relatedCount}/${relatedTotal} 页成功)`);
+      step += relatedTotal;  // 更新step变量，确保后续阶段编号正确
 
+      // Stage 5: Contradiction Recording
+      const contradictionStart = Date.now();
       for (const contradiction of analysis.contradictions) {
         try {
           await this.noteContradiction(contradiction);
@@ -230,19 +355,35 @@ export class WikiEngine {
           // non-critical
         }
       }
+      const contradictionTime = Date.now() - contradictionStart;
+      console.debug(`[耗时] 矛盾记录阶段: ${contradictionTime}ms (${analysis.contradictions.length} 个)`);
 
+      // Stage 6: Index & Log Update
+      const indexStart = Date.now();
       step++;
       this.onProgress?.(`[${step}/${totalSteps}] Generating index...`);
       await this.generateIndexFromEngine();
       await this.updateLog('ingest', analysis);
+      const indexTime = Date.now() - indexStart;
+      console.debug(`[耗时] 索引与日志更新: ${indexTime}ms`);
 
       const created = analysis.created_pages.length;
       const updated = analysis.updated_pages.length;
       const entitiesCreated = analysis.created_pages.filter(p => p.includes('/entities/')).length;
       const conceptsCreated = analysis.created_pages.filter(p => p.includes('/concepts/')).length;
+      const modeLabel = (this.settings.pageGenerationConcurrency ?? 1) > 1 ? `并行(并发度:${this.settings.pageGenerationConcurrency})` : '串行';
+      const totalTime = Date.now() - totalStartTime;
 
       console.debug('=== 摄入流程完成 ===');
-      console.debug(`摄入完成: 创建 ${created} 页 (${entitiesCreated} 实体 + ${conceptsCreated} 概念), 更新 ${updated} 页`);
+      console.debug(`摄入完成 [${modeLabel}]: 创建 ${created} 页 (${entitiesCreated} 实体 + ${conceptsCreated} 概念), 更新 ${updated} 页`);
+      console.debug(`[总耗时] ${totalTime}ms (${Math.round(totalTime/1000)}秒)`);
+      console.debug('[阶段耗时分解]:');
+      console.debug(`  - 源文件分析: ${analysisTime}ms`);
+      console.debug(`  - 摘要页生成: ${summaryTime}ms`);
+      console.debug(`  - 页面生成(${concurrency}并发): ${pageGenTime}ms`);
+      console.debug(`  - 相关页更新: ${relatedTime}ms`);
+      console.debug(`  - 矛盾记录: ${contradictionTime}ms`);
+      console.debug(`  - 索引与日志: ${indexTime}ms`);
 
       this.onDone?.({
         sourceFile: file.path,
@@ -253,7 +394,7 @@ export class WikiEngine {
         failedItems,
         contradictionsFound: analysis.contradictions.length,
         success: true,
-        elapsedSeconds: Math.round((Date.now() - startTime) / 1000)
+        elapsedSeconds: Math.round(totalTime / 1000)
       });
 
     } catch (error) {
@@ -272,7 +413,7 @@ export class WikiEngine {
         contradictionsFound: analysis?.contradictions?.length || 0,
         success: false,
         errorMessage: errorMsg,
-        elapsedSeconds: Math.round((Date.now() - startTime) / 1000)
+        elapsedSeconds: Math.round((Date.now() - totalStartTime) / 1000)
       });
       throw error;
     }
@@ -421,7 +562,7 @@ export class WikiEngine {
     const baseName = path.substring(lastSep + 1).normalize();
 
     const dir = this.app.vault.getAbstractFileByPath(dirPath);
-    if (dir && 'children' in dir) {
+    if (dir && dir instanceof TFolder) {
       for (const child of dir.children) {
         if (child instanceof TFile && child.name.normalize() === baseName) {
           return child;
@@ -510,7 +651,7 @@ export class WikiEngine {
 
   // ---- Conversation ingestion delegation ----
 
-  async ingestConversation(history: ConversationHistory): Promise<void> {
+  async ingestConversation(history: ConversationHistory): Promise<IngestReport> {
     return this.conversationIngestor.ingestConversation(history);
   }
 

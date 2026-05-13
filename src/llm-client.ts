@@ -116,28 +116,46 @@ export class AnthropicCompatibleClient implements LLMClient {
     };
     if (params.system) body.system = params.system;
 
-    const response = await requestUrl({
-      url: this.baseUrl + '/messages',
-      method: 'POST',
-      headers: {
-        'x-api-key': this.apiKey,
-        'Anthropic-Version': this.apiVersion,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
+    console.debug('[AnthropicCompat SSE] 发送流式请求, model:', params.model, 'max_tokens:', params.max_tokens,
+      'system长度:', params.system?.length || 0, 'messages数:', messages.length);
 
-    // Parse SSE events from response body
+    let response;
+    try {
+      response = await requestUrl({
+        url: this.baseUrl + '/messages',
+        method: 'POST',
+        headers: {
+          'x-api-key': this.apiKey,
+          'Anthropic-Version': this.apiVersion,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+    } catch (err) {
+      console.error('[AnthropicCompat SSE] requestUrl 请求失败:', err);
+      throw err;
+    }
+
     const responseText = response.text;
+    console.debug('[AnthropicCompat SSE] 收到响应, 长度:', responseText.length,
+      '前200字符:', responseText.substring(0, 200));
+
+    // Parse SSE events from response body.
+    // Handles both "data: " (with space, Anthropic official) and "data:" (no space,
+    // some third-party proxies). Also handles \r\n and \n line endings.
     let fullText = '';
-    const events = responseText.split('\n\n');
+    const normalizedText = responseText.replace(/\r\n/g, '\n');
+    const events = normalizedText.split('\n\n');
     for (const event of events) {
       if (!event.trim()) continue;
       const dataLine = event.split('\n')
-        .find(line => line.startsWith('data: '));
+        .find(line => line.startsWith('data:'));
       if (!dataLine) continue;
       try {
-        const parsed = JSON.parse(dataLine.slice(6)) as {
+        // Extract JSON from data line: skip "data:" prefix (with or without space)
+        const jsonStart = dataLine.indexOf('{');
+        if (jsonStart === -1) continue;
+        const parsed = JSON.parse(dataLine.substring(jsonStart)) as {
           type?: string;
           delta?: { type?: string; text?: string };
         };
@@ -151,6 +169,37 @@ export class AnthropicCompatibleClient implements LLMClient {
         // Skip malformed JSON in SSE
       }
     }
+
+    // Fallback: if SSE parsing yielded nothing, try non-streaming JSON format.
+    // Many Anthropic-compatible providers ignore stream:true and return a
+    // standard JSON response instead of SSE events.
+    if (!fullText) {
+      console.debug('[AnthropicCompat SSE] SSE 解析为空, 尝试非流式JSON回退');
+      try {
+        const data = JSON.parse(responseText) as {
+          content?: Array<{ type: string; text?: string }>;
+          error?: { message: string };
+        };
+        if (data.error) throw new Error(data.error.message);
+        fullText = this.extractText(data.content || []);
+        if (fullText) {
+          console.debug('[AnthropicCompat SSE] 非流式回退成功, 长度:', fullText.length);
+          params.onChunk(fullText);
+        }
+      } catch (parseErr) {
+        console.debug('[AnthropicCompat SSE] 非流式JSON解析也失败:', parseErr);
+      }
+    }
+
+    if (!fullText) {
+      throw new Error(
+        'Anthropic-compatible endpoint returned neither SSE events nor a standard JSON response. ' +
+        'The provider may not support the Messages API streaming format. ' +
+        'Response preview: ' + responseText.substring(0, 300)
+      );
+    }
+
+    console.debug('[AnthropicCompat SSE] 成功, 响应长度:', fullText.length);
     return fullText;
   }
 
@@ -358,6 +407,15 @@ export class OpenAIClient implements LLMClient {
         await new Promise(resolve => activeWindow.setTimeout(resolve, delay));
         return this.createMessageWithRetry(params, attempt + 1);
       }
+      // After all retries exhausted, throw with actionable context
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error(
+          `Network request failed after 3 retries: cannot reach the API endpoint. ` +
+          `Possible causes: (1) VPN or proxy blocking the connection, (2) SSL/TLS certificate issue (try restarting Obsidian), ` +
+          `(3) provider URL is incorrect or has changed, (4) firewall blocking outbound HTTPS. ` +
+          `Check your network and try the "Test Connection" button in Settings.`
+        );
+      }
       throw error;
     }
   }
@@ -416,7 +474,7 @@ export class OpenAIClient implements LLMClient {
   private isNetworkError(error: unknown): boolean {
     if (error instanceof TypeError && error.message === 'Failed to fetch') return true;
     const msg = error instanceof Error ? error.message : String(error);
-    return /network|fetch|econnrefused|econnreset|etimedout|abort|closed/i.test(msg);
+    return /network|fetch|econnrefused|econnreset|etimedout|abort|closed|ssl|tls|protocol_error/i.test(msg);
   }
 
   async listModels(): Promise<string[]> {

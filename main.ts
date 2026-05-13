@@ -1,4 +1,4 @@
-import { Plugin, Notice } from 'obsidian';
+import { Plugin, Notice, TFile } from 'obsidian';
 
 import {
   PREDEFINED_PROVIDERS,
@@ -9,7 +9,7 @@ import {
 } from './src/types';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAIClient } from './src/llm-client';
 import { TEXTS } from './src/texts';
-import { cleanMarkdownResponse } from './src/utils';
+import { cleanMarkdownResponse, slugify, parseFrontmatter } from './src/utils';
 import { isPageEmpty } from './src/wiki/lint-fixes';
 import { LLMWikiSettingTab } from './src/ui/settings';
 import { WikiEngine } from './src/wiki/wiki-engine';
@@ -130,15 +130,25 @@ export default class LLMWikiPlugin extends Plugin {
     const savedData = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
 
+    console.debug('loadSettings: loaded watchedFolders =', JSON.stringify(this.settings.watchedFolders));
+
     // Backward compatibility: if wikiLanguage was never set, inherit from existing language setting
     if (savedData && !savedData.wikiLanguage) {
       this.settings.wikiLanguage = this.settings.language;
       await this.saveData(this.settings);
     }
+
+    // Backward compat: ensure watchedFolders is an array (older versions had single watchedFolder string)
+    if (!Array.isArray(this.settings.watchedFolders)) {
+      this.settings.watchedFolders = [];
+      console.debug('loadSettings: watchedFolders was not an array, reset to []');
+    }
   }
 
   async saveSettings() {
+    console.debug('saveSettings: watchedFolders =', JSON.stringify(this.settings.watchedFolders));
     await this.saveData(this.settings);
+    console.debug('saveSettings: data saved to data.json');
     this.initializeLLMClient();
     this.schemaManager?.updateSettings(this.settings);
     if (this.wikiEngine) {
@@ -146,6 +156,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
     // Sync auto-maintain features with updated settings
     if (this.autoMaintainManager) {
+      this.autoMaintainManager.settings = this.settings;
       this.autoMaintainManager.stop();
       if (this.settings.autoWatchSources) {
         this.autoMaintainManager.startWatching();
@@ -212,13 +223,56 @@ export default class LLMWikiPlugin extends Plugin {
 
   // ==================== 核心功能实现 ====================
 
+  /**
+   * Check if a source file has already been ingested into the Wiki.
+   * Primary check: wiki/sources/${slug}.md exists → considered ingested.
+   * Secondary check (optional): if frontmatter.sources exists, verify it contains this file.
+   * If frontmatter is missing, still skip (user may have edited manually).
+   */
+  private async isAlreadyIngested(sourceFile: TFile): Promise<boolean> {
+    const slug = slugify(sourceFile.basename);
+    const wikiPath = `${this.settings.wikiFolder}/sources/${slug}.md`;
+
+    try {
+      const file = this.app.vault.getAbstractFileByPath(wikiPath);
+      if (!(file instanceof TFile)) return false; // No corresponding wiki page
+
+      // Primary: wiki page exists, consider it ingested
+      // Secondary: optionally verify sources frontmatter, but don't fail if missing
+      try {
+        const content = await this.app.vault.read(file);
+        const fm = parseFrontmatter(content);
+        if (fm && fm.sources) {
+          // Normalize: sources can be [[path]] or plain path
+          const normalizedSources = fm.sources.map(s => {
+            const trimmed = s.trim();
+            if (trimmed.startsWith('[[') && trimmed.endsWith(']]')) {
+              return trimmed.slice(2, -2).trim();
+            }
+            return trimmed;
+          });
+          // Strict: check if this exact file is in sources
+          return normalizedSources.includes(sourceFile.path);
+        }
+        // Frontmatter missing or sources field empty → still consider ingested (page exists)
+        return true;
+      } catch {
+        // Can't read the file, but it exists → still skip to be safe
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+
   selectSourceToIngest() {
     if (!this.llmClient) {
       new Notice(TEXTS[this.settings.language].errorNoApiKey);
       return;
     }
 
-    new FileSuggestModal(this.app, (file) => {
+    new FileSuggestModal(this.app, this.settings.wikiFolder, (file) => {
+      new Notice(`Ingesting "${file.basename}" — this may take a while. Watch the wiki folder for new pages.`, 6000);
       this.wikiEngine.ingestSource(file).catch(e => console.error(e));
     }).open();
   }
@@ -229,7 +283,7 @@ export default class LLMWikiPlugin extends Plugin {
       return;
     }
 
-    new FolderSuggestModal(this.app, (folder) => {
+    new FolderSuggestModal(this.app, this.settings.wikiFolder, (folder) => {
       void (async () => {
       const files = this.app.vault.getMarkdownFiles()
         .filter(f => f.path.startsWith(folder.path));
@@ -240,7 +294,40 @@ export default class LLMWikiPlugin extends Plugin {
         return;
       }
 
+      // Smart skip: check which files are already ingested
+      this.showProgress('Checking for already-ingested files...');
+      const alreadyIngestedFiles: TFile[] = [];
+      const newFiles: TFile[] = [];
+
+      for (const file of files) {
+        if (await this.isAlreadyIngested(file)) {
+          alreadyIngestedFiles.push(file);
+        } else {
+          newFiles.push(file);
+        }
+      }
+
       const totalFiles = files.length;
+      const skippedCount = alreadyIngestedFiles.length;
+      const ingestCount = newFiles.length;
+
+      if (skippedCount > 0) {
+        const texts = TEXTS[this.settings.language];
+        new Notice(
+          texts.batchIngestSkipNotice
+            .replace('{skipped}', String(skippedCount))
+            .replace('{total}', String(totalFiles))
+            .replace('{new}', String(ingestCount)),
+          6000
+        );
+      }
+
+      if (ingestCount === 0) {
+        const texts = TEXTS[this.settings.language];
+        new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), 5000);
+        return;
+      }
+
       const reports: IngestReport[] = [];
 
       // Collect per-file reports for aggregated summary
@@ -248,18 +335,23 @@ export default class LLMWikiPlugin extends Plugin {
         reports.push(report);
       });
 
-      this.showProgress(`[0/${totalFiles}] Starting...`);
+      this.showProgress(`[0/${ingestCount}] Starting ingestion...`);
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      const texts = TEXTS[this.settings.language];
+      new Notice(texts.batchIngestStarting
+        .replace('{count}', String(ingestCount))
+        .replace('{folder}', folder.name), 8000);
+
+      for (let i = 0; i < newFiles.length; i++) {
+        const file = newFiles[i];
 
         try {
-          this.showProgress(`[${i + 1}/${totalFiles}] ${file.basename}`);
-          console.debug(`(${i + 1}/${totalFiles}) 开始摄入: ${file.path}`);
+          this.showProgress(`[${i + 1}/${ingestCount}] ${file.basename}`);
+          console.debug(`(${i + 1}/${ingestCount}) 开始摄入: ${file.path}`);
           await this.wikiEngine.ingestSource(file);
-          console.debug(`(${i + 1}/${totalFiles}) 摄入成功: ${file.path}`);
+          console.debug(`(${i + 1}/${ingestCount}) 摄入成功: ${file.path}`);
         } catch (error) {
-          console.error(`(${i + 1}/${totalFiles}) 摄入失败: ${file.path}`, error);
+          console.error(`(${i + 1}/${ingestCount}) 摄入失败: ${file.path}`, error);
         }
       }
 
@@ -288,7 +380,9 @@ export default class LLMWikiPlugin extends Plugin {
           failedItems: allFailedItems,
           contradictionsFound: totalContradictions,
           success: allSuccess,
-          elapsedSeconds: totalElapsed
+          elapsedSeconds: totalElapsed,
+          skippedFiles: skippedCount,
+          totalFilesInFolder: totalFiles,
         };
 
         new IngestReportModal(this.app, aggregated, this.settings.language).open();
@@ -296,8 +390,8 @@ export default class LLMWikiPlugin extends Plugin {
         const texts = TEXTS[this.settings.language];
         new Notice(texts.batchIngestComplete
           .replace('{success}', '0')
-          .replace('{total}', String(totalFiles))
-          .replace('{fail}', String(totalFiles)), 10000);
+          .replace('{total}', String(ingestCount))
+          .replace('{fail}', String(ingestCount)), 10000);
       }
     })().catch(e => console.error(e));
     }).open();

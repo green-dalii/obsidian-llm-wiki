@@ -5,6 +5,129 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.7] - 2026-05-12
+
+### Added
+- **Smart skip mechanism for batch ingestion**: Automatically detects and skips already-ingested source files in folder batch operations
+  - Primary check: Wiki/sources page exists with matching slug → considered ingested
+  - Secondary check: Optional strict verification via frontmatter sources array
+  - Conservative fallback: If wiki page exists but frontmatter is missing/malformed, still skip to protect user edits
+  - Batch ingest report now shows skipped file count: "跳过（已摄入）：X/Y"
+  - Toast notifications: "跳过 X/Y 个已摄入文件，正在摄入 Z 个新文件..."
+
+### Fixed
+- **Conversation summary page template mismatch**: Summary pages generated from Query Wiki now use LLM prompts (same as file ingestion) instead of hardcoded templates
+  - Now uses `PROMPTS.generateSummaryPage` with proper schema context and section labels
+  - Frontmatter now includes `updated` field, consistent with file ingestion
+  - Sources array properly populated with conversation metadata
+
+- **Duplicate save prompts on Query Wiki**: Modal now tracks conversation hash to prevent re-evaluation of unchanged conversations
+  - Added `lastOfferedQueryHash` to settings
+  - Hash computed from conversation messages, checked before LLM evaluation
+  - Updated on both save suggestion and successful save
+
+- **Progress notice stuck on "Generating index..."**: Save-to-wiki operations now guarantee notice dismissal
+  - Both `saveToWiki()` and `doSave()` use try-finally for cleanup
+  - Progress callback wired to notice in both paths
+  - Error handling always hides notice before showing error message
+
+- **Conversation save report missing**: `ingestConversation()` now returns `IngestReport` (same as file ingestion)
+  - Added `onDone` callback to `EngineContext` for unified report handling
+  - Save success notice shows entity/concept count: "3 实体, 2 概念, 6 页"
+  - Report includes elapsed time, created pages, failed items, contradictions
+
+- **Notice messages hardcoded in English**: All Notice() calls now respect Interface Language setting
+  - Added 7 new i18n texts for auto-maintain, query, and batch ingest notices
+  - `auto-maintain.ts`: 7 notices converted to TEXTS system
+  - `query-engine.ts`: 5 notices converted, removed inline ternary operators
+  - `ui/settings.ts`: 1 notice converted
+  - Chinese translations added for all new texts
+
+### Changed
+- **Plugin ID renamed**: `llm-wiki` → `karpathywiki` to avoid conflict with existing plugin and align with Obsidian naming guidelines
+  - Updated in `manifest.json` and `package.json`
+  - Plugin folder name in installation instructions changed from `llm-wiki` to `karpathywiki`
+  - README.md and README_CN.md installation steps updated
+  - No functionality changes — only identifier update for community submission
+
+---
+
+## [1.7.6] - 2026-05-09
+
+### Added
+- **Related page update parallelization**: Stage 4 now processes related pages in configurable parallel batches using `Promise.allSettled` for error isolation
+  - Reuses existing `pageGenerationConcurrency` setting (1-5, default 1) for batch size control
+  - Reuses `batchDelayMs` setting for inter-batch API rate limit protection
+  - Per-page automatic retry with 2s delay on failure; single page failure doesn't block the batch
+  - Real-time progress tracking with per-page status callbacks
+
+### Fixed
+- **Hardcoded wiki folder paths**: Several UI components used hardcoded `'wiki'` string instead of the user-configurable `wikiFolder` setting
+  - `FileSuggestModal` and `FolderSuggestModal` now accept `wikiFolder` constructor parameter, correctly filtering wiki files from source selection
+  - `query-engine.ts` wiki-link format instructions now use `settings.wikiFolder` dynamically in LLM prompts (e.g., `[[myWiki/entities/...]]` instead of always `[[wiki/entities/...]]`)
+  - All 3 callers updated: `main.ts` (2 sites), `settings.ts` (1 site)
+
+---
+
+## [1.7.5] - 2026-05-09
+
+### Fixed
+- **TypeScript compilation errors** — Fixed 20+ type errors across the codebase
+  - `wiki-engine.ts`: Fixed `SchemaTask` type mismatches and null safety issues
+  - `query-engine.ts`: Added proper `Component` instance for `MarkdownRenderer.render()`
+  - `auto-maintain.ts`: Fixed `metadataCache.on('resolved')` callback signature
+  - `modals.ts` & `settings.ts`: Fixed `TEXTS` type assertions for nested i18n objects
+
+---
+
+## [1.7.2] - 2026-05-08
+
+### Fixed
+- **Critical: Multi-source knowledge loss on page update**
+  - Frontmatter `sources` array now programmatically appended (not overwritten) when updating existing pages
+  - `created` date preserved, `updated` date refreshed on each source addition
+  - `reviewed: true` flag preserved in frontmatter
+  - Sources maintain chronological order with deduplication
+
+### Changed
+- **Intelligent content merge architecture** (replaces simple overwrite)
+  - New pages: Full LLM-generated content with complete structure
+  - Existing pages: LLM performs intelligent body merge following schema-defined sections
+  - Reviewed pages: Minimal append-only mode preserving user edits
+  - `NO_NEW_CONTENT` signal allows skipping redundant updates when source adds nothing new
+- **New prompts**:
+  - `mergeEntityPage`: Schema-guided intelligent merge with contradiction preservation
+  - `mergeConceptPage`: Same for concept pages
+  - `appendToReviewedPage`: Minimal mode for user-reviewed content
+- **Schema task**: Added `'merge'` task type for selective schema injection during content fusion
+
+### Deprecated
+- Removed `preserveFrontmatterReviewTag()` (superseded by `mergeFrontmatter()`)
+- Removed old `analyzeMerge()` / `buildMergeStrategyText()` methods (superseded by new architecture)
+
+## [1.7.1] - 2026-05-08
+
+### Added
+- **Multi-folder auto-watch**: `watchedFolders` array replaces single `watchedFolder`; users can watch any number of folders via "Add Folder" buttons in settings
+- **Web Clipper preset**: one-click button adds `Clippings/` folder to watch list for seamless web-clip auto-ingestion
+- **Semantic entity deduplication**: `resolvePagePath()` uses LLM fallback when slug matching fails, handling translations ("Tsinghua University" ↔ "清华大学"), abbreviations, and renamings
+- **Granularity-linked iteration caps**: `coarse`/`standard`/`fine` now control batch count (3/6/12), per-batch quota (10/20/30), and cumulative soft ceiling (20/50/unlimited) — prevents runaway extraction in standard mode
+- **Ingestion Notice feedback**: single-file and folder-ingest commands now show `Notice` with duration guidance so users know the operation is running
+- **Network error actionable messages**: after 3 retries, OpenAI client reports specific causes (VPN, SSL/TLS, firewall, incorrect URL) and suggests using "Test Connection"
+
+### Fixed
+- **Entity name translation leak**: `langHint` now excludes names from language requirement — entity/concept names preserve source language, summaries/descriptions follow `wikiLanguage`
+- **Premature iteration stop**: changed from `rawTotal < currentBatchSize` to `newTotal === 0` (post-deduplication), so legitimate duplicates no longer abort extraction early
+- **`fillEmptyPage` "file not found"**: pre-read content passed directly from lint phase to fix callback, bypassing string→TFile resolution entirely
+- **Settings `watchedFolders` array type migration**: older installs with string `watchedFolder` auto-reset to `[]` on load
+- **Auto-maintain settings sync**: `saveSettings()` now propagates settings reference to `autoMaintainManager`, fixing stale-folder bugs after settings changes
+- **Auto-maintain startup noise**: `workspace.onLayoutReady()` gates watcher registration, preventing false triggers from existing files on plugin load
+- **metadataCache duplicate events**: mtime-level deduplication (`lastSeenPaths`) prevents double-ingestion on external drag-drop
+
+### Changed
+- **analyzeSource prompt quality**: summary target 100-200 → 150-250 words; item summaries 2-4 → 4-6 sentences; `mentions_in_source` now requires 2-4 verbatim source quotes with surrounding context
+- **Expanded network error detection**: `ssl`, `tls`, `protocol_error` added to `isNetworkError()` regex
+
 ## [1.7.0] - 2026-05-06
 
 ### Added

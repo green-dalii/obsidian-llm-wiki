@@ -1,6 +1,6 @@
 // Query Engine - Conversational Wiki Query Modal
 
-import { App, Modal, Notice, MarkdownRenderer } from 'obsidian';
+import { App, Modal, Notice, MarkdownRenderer, Component } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { TEXTS } from '../texts';
 import { WIKI_LANGUAGES } from '../types';
@@ -65,15 +65,27 @@ class SuggestSaveModal extends Modal {
     const texts = TEXTS[this.plugin.settings.language];
     const progressNotice = new Notice(texts.savingToWiki, 0);
 
+    const origProgress = this.plugin.wikiEngine.getProgressCallback();
+    this.plugin.wikiEngine.setProgressCallback((msg: string) => {
+      progressNotice.setMessage(msg);
+    });
+
     try {
-      await this.plugin.wikiEngine.ingestConversation(this.history);
-      progressNotice.hide();
-      new Notice(texts.saveToWikiSuccess, 5000);
+      const report = await this.plugin.wikiEngine.ingestConversation(this.history);
+      this.plugin.settings.lastOfferedQueryHash = JSON.stringify(this.history.messages);
+      void this.plugin.saveSettings();
+      const lang = this.plugin.settings.language;
+      const summary = lang === 'en'
+        ? `${report.entitiesCreated} entities, ${report.conceptsCreated} concepts, ${report.createdPages.length} pages`
+        : `${report.entitiesCreated} 实体, ${report.conceptsCreated} 概念, ${report.createdPages.length} 页`;
+      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, 5000);
     } catch (error) {
-      progressNotice.hide();
       console.error('Save failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      new Notice(`Save failed: ${errorMsg}`, 8000);
+      new Notice(texts.queryModalErrorPrefix + errorMsg, 8000);
+    } finally {
+      progressNotice.hide();
+      this.plugin.wikiEngine.setProgressCallback(origProgress);
     }
   }
 
@@ -100,6 +112,7 @@ export class QueryModal extends Modal {
   historyContainer: HTMLElement;
   inputArea: HTMLTextAreaElement;
   historyCountDisplay: HTMLElement;
+  private renderComponent: Component;
 
   constructor(app: App, plugin: LLMWikiPlugin) {
     super(app);
@@ -113,6 +126,7 @@ export class QueryModal extends Modal {
     this.historyContainer = null as unknown as HTMLElement;
     this.inputArea = null as unknown as HTMLTextAreaElement;
     this.historyCountDisplay = null as unknown as HTMLElement;
+    this.renderComponent = new Component();
   }
 
   onOpen() {
@@ -225,8 +239,16 @@ export class QueryModal extends Modal {
     const assistantMessages = this.history.messages.filter(m => m.role === 'assistant');
     if (assistantMessages.length < 1) return;
 
+    // Skip if this conversation was already offered for save and hasn't changed
+    const hash = this.computeConversationHash();
+    if (hash === this.plugin.settings.lastOfferedQueryHash) return;
+
     // Always use LLM to evaluate conversation value semantically
     void this.evaluateWithLLM();
+  }
+
+  private computeConversationHash(): string {
+    return JSON.stringify(this.history.messages);
   }
 
   private async evaluateWithLLM(): Promise<void> {
@@ -246,6 +268,8 @@ export class QueryModal extends Modal {
 
       const parsed = await parseJsonResponse(response) as { valuable?: boolean; reason?: string } | null;
       if (parsed?.valuable) {
+        this.plugin.settings.lastOfferedQueryHash = this.computeConversationHash();
+        void this.plugin.saveSettings();
         new SuggestSaveModal(this.app, this.plugin, this.history, parsed.reason || '').open();
       }
     } catch {
@@ -302,17 +326,55 @@ export class QueryModal extends Modal {
 
     try {
       if (this.plugin.llmClient?.createMessageStream) {
-        const fullResponse = await this.plugin.llmClient.createMessageStream({
-          model: this.plugin.settings.model,
-          max_tokens: 3000,
-          system: wikiContext,
-          messages: conversationMessages,
-          language: this.plugin.settings.language,
-          onChunk: (chunk) => {
-            this.accumulatedResponse += chunk;
-            this.renderMarkdownContent(this.accumulatedResponse, contentDiv);
+        let fullResponse = '';
+        try {
+          fullResponse = await this.plugin.llmClient.createMessageStream({
+            model: this.plugin.settings.model,
+            max_tokens: 3000,
+            system: wikiContext,
+            messages: conversationMessages,
+            language: this.plugin.settings.language,
+            onChunk: (chunk) => {
+              this.accumulatedResponse += chunk;
+              this.renderMarkdownContent(this.accumulatedResponse, contentDiv);
+            }
+          });
+        } catch (streamErr) {
+          console.warn('Streaming query failed, falling back to non-streaming:', streamErr);
+          // Update indicator to tell user streaming is not supported
+          streamingIndicator.setText(texts.queryModalFallbackStreaming);
+          // Fallback: try non-streaming if streaming fails (e.g., SSE not supported)
+          if (this.plugin.llmClient?.createMessage) {
+            try {
+              fullResponse = await this.plugin.llmClient.createMessage({
+                model: this.plugin.settings.model,
+                max_tokens: 3000,
+                system: wikiContext,
+                messages: conversationMessages
+              });
+              this.renderMarkdownContent(fullResponse, contentDiv);
+            } catch (fallbackErr) {
+              console.error('Non-streaming fallback also failed:', fallbackErr);
+              const errMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+              contentDiv.createEl('p', {
+                text: texts.queryModalErrorPrefix + errMsg,
+                cls: 'llm-wiki-query-error'
+              });
+              streamingIndicator.remove();
+              this.isStreaming = false;
+              return;
+            }
+          } else {
+            const errMsg = streamErr instanceof Error ? streamErr.message : String(streamErr);
+            contentDiv.createEl('p', {
+              text: texts.queryModalErrorPrefix + errMsg,
+              cls: 'llm-wiki-query-error'
+            });
+            streamingIndicator.remove();
+            this.isStreaming = false;
+            return;
           }
-        });
+        }
 
         this.history.messages.push({
           role: 'assistant',
@@ -343,7 +405,10 @@ export class QueryModal extends Modal {
     } catch (error) {
       console.error('Query failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      contentDiv.setText(`Error: ${errorMsg}`);
+      contentDiv.createEl('p', {
+        text: texts.queryModalErrorPrefix + errorMsg,
+        cls: 'llm-wiki-query-error'
+      });
       streamingIndicator.remove();
     }
 
@@ -370,7 +435,7 @@ export class QueryModal extends Modal {
       content,
       container,
       sourcePath,
-      this
+      this.renderComponent
     );
 
     // Bind click handlers on wiki-links so they work inside the Modal.
@@ -425,10 +490,9 @@ export class QueryModal extends Modal {
       const keepCount = max * 2;
       this.history.messages = this.history.messages.slice(-keepCount);
 
+      const texts = TEXTS[this.plugin.settings.language];
       new Notice(
-        this.plugin.settings.language === 'en'
-          ? `History truncated to last ${max} rounds`
-          : `历史已截断至最近${max}轮对话`,
+        texts.historyTruncated.replace('{max}', String(max)),
         3000
       );
 
@@ -446,27 +510,28 @@ export class QueryModal extends Modal {
     const progressNotice = new Notice(texts.savingToWiki, 0);
 
     // Wire progress callback to update the sticky notice
-    const origProgress = this.plugin.wikiEngine.onProgress;
+    const origProgress = this.plugin.wikiEngine.getProgressCallback();
     this.plugin.wikiEngine.setProgressCallback((msg: string) => {
       progressNotice.setMessage(msg);
     });
 
     try {
-      await this.plugin.wikiEngine.ingestConversation(this.history);
-      progressNotice.hide();
-      this.plugin.wikiEngine.setProgressCallback(origProgress);
-      new Notice(texts.saveToWikiSuccess, 5000);
+      const report = await this.plugin.wikiEngine.ingestConversation(this.history);
+      this.plugin.settings.lastOfferedQueryHash = this.computeConversationHash();
+      void this.plugin.saveSettings();
+      const lang = this.plugin.settings.language;
+      const summary = lang === 'en'
+        ? `${report.entitiesCreated} entities, ${report.conceptsCreated} concepts, ${report.createdPages.length} pages`
+        : `${report.entitiesCreated} 实体, ${report.conceptsCreated} 概念, ${report.createdPages.length} 页`;
+      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, 5000);
     } catch (error) {
-      progressNotice.hide();
-      this.plugin.wikiEngine.setProgressCallback(origProgress);
       console.error('Save failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      new Notice(
-        this.plugin.settings.language === 'en'
-          ? `Save failed: ${errorMsg}`
-          : `保存失败: ${errorMsg}`,
-        8000
-      );
+      const texts = TEXTS[this.plugin.settings.language];
+      new Notice(texts.queryModalErrorPrefix + errorMsg, 8000);
+    } finally {
+      progressNotice.hide();
+      this.plugin.wikiEngine.setProgressCallback(origProgress);
     }
   }
 
@@ -477,14 +542,9 @@ export class QueryModal extends Modal {
     this.plugin.settings.queryHistory = [];
     void this.plugin.saveSettings();
 
-    new Notice(
-      this.plugin.settings.language === 'en'
-        ? 'History cleared'
-        : '历史已清空',
-      2000
-    );
-
     const texts = TEXTS[this.plugin.settings.language];
+    new Notice(texts.historyCleared, 2000);
+
     const maxRounds = this.plugin.settings.maxConversationHistory;
     this.historyCountDisplay.setText(
       texts.queryModalHistoryCount
@@ -536,16 +596,16 @@ ${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : 'No directly rele
 
 Instructions:
 - Answer based on the Wiki pages above (not general knowledge)
-- Use ONLY Obsidian's wiki-link syntax: [[wiki/entities/page-name]] (NOT HTML links)
+- Use ONLY Obsidian's wiki-link syntax: [[${this.plugin.settings.wikiFolder}/entities/page-name]] (NOT HTML links)
 - Link format MUST include wiki folder: [[${this.plugin.settings.wikiFolder}/entities/page-name]]
 
 CRITICAL RULES:
-✅ CORRECT: [[wiki/entities/example-page]], [[wiki/concepts/example-concept]]
+✅ CORRECT: [[${this.plugin.settings.wikiFolder}/entities/example-page]], [[${this.plugin.settings.wikiFolder}/concepts/example-concept]]
 ❌ WRONG: <a href="...">, [link text](url), [[example-page]], [[entities/example-page]]
 - Obsidian wiki-links use DOUBLE brackets: [[path]]
 - NO HTML: Never use <a href="...">text</a>
 - NO Markdown external links: Never use [text](url)
-- Include wiki/ prefix: Links must start with [[wiki/...
+- Include ${this.plugin.settings.wikiFolder}/ prefix: Links must start with [[${this.plugin.settings.wikiFolder}/...
 
 If Wiki lacks relevant information:
 - Acknowledge it and suggest ingesting more sources

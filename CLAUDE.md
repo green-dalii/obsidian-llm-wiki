@@ -2,38 +2,60 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-07
+**Last Updated:** 2026-05-12
 
 ---
 
-## ⚠️ Current Phase: v1.7.0 QA Wrapping Up → v1.8.0 Planning
+## Current Phase: Save-to-Wiki Fixes + Smart Batch Skip (v1.7.7)
 
-**No new features in v1.7.x.** Focus: bugfixing, Bot review compliance. All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (PR #12344).
+**New features: Conversation save quality improvements + Smart skip for batch ingestion.**
 
-Recently completed (v1.7.0):
-- Content truncation protection: 8000 max_tokens + stop_reason/finish_reason detection + auto-retry
-- fillEmptyPage reliability: pre-read content bypasses string→TFile resolution
-- Batch ingest aggregated reports with entity/concept breakdown
-- Lint report & command palette i18n
-- Lint fix log enrichment with per-item details
-- Bot review fix: removed unnecessary `async` from settings.ts dropdown callback
+Recently completed (v1.7.7):
+- **Conversation summary page LLM generation**: Query Wiki saved pages now use `generateSummaryPage` prompt (same as file ingestion), proper schema context, frontmatter `updated` field
+- **Duplicate save prompt fix**: Hash tracking prevents re-evaluation of unchanged conversations, `lastOfferedQueryHash` in settings
+- **Progress notice guarantee**: Save-to-wiki operations use try-finally cleanup, progress callback wired in both paths
+- **Conversation save report**: `ingestConversation()` returns `IngestReport` (unified with file ingestion), Notice shows entity/concept count
+- **Notice i18n compliance**: All Notice() calls respect Interface Language (7 new texts, auto-maintain/query/settings updated)
+- **Smart batch skip mechanism**: Folder ingestion checks `wiki/sources/${slug}.md` existence, skips already-ingested files, conservative fallback protects user edits, report shows skipped count
 
-Active gaps (v1.7.x):
-- Lint batch fix without per-item review (human-in-the-loop)
-- Ingest Wizard: conversational ingestion with user review
+Recently completed (v1.7.6):
+- **Related page update parallelization**: Stage 4 now uses configurable concurrency (reuses `pageGenerationConcurrency`), reducing related-page update time by up to 3x
+- **Hardcoded wiki path fixes**: `FileSuggestModal` and `FolderSuggestModal` now accept `wikiFolder` parameter; query-engine wiki-link format instructions now use `settings.wikiFolder` instead of hardcoded `wiki/`
+- **Promise.allSettled error isolation**: per-page retry with 2s delay on failure; batch-level delay control via `batchDelayMs`
+
+Recently completed (v1.7.5):
+- **TypeScript compilation fixes**: 20+ type errors resolved across wiki-engine.ts, query-engine.ts, auto-maintain.ts, modals.ts
+
+Recently completed (v1.7.3):
+- **Ingestion Parallel Acceleration**: Configurable page generation concurrency (1-5, default 1)
+- **Batch delay control**: 100-2000ms for API rate limit protection
+- **Verbatim mentions preservation**: Source quotes in original language
+- **Entity/Concept relationship enhancement**: Separate Related Entities/Concepts sections
+- **Schema template optimization**: Explicit structure rules and merge policies
+
+Recently completed (v1.7.2): All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (v1.2.0 PR since 2026-04-29).
+
+Recently completed (v1.7.0-1.7.2):
+- **v1.7.2 — Intelligent Multi-Source Merge (CRITICAL FIX)**:
+  - Programmatic frontmatter merge: sources[] deterministically appended (not overwritten), created preserved, updated refreshed, reviewed protected
+  - Intelligent body fusion: LLM merges new source following schema sections — no redundancy, contradictions preserved with attribution, bidirectional links maintained
+  - Reviewed page minimal-append mode: pages with `reviewed: true` get only genuinely new content appended
+  - NO_NEW_CONTENT signal: skip redundant updates when source adds nothing new
+- **v1.7.1 — Multi-Folder Watch & Granularity Control**:
+  - Multi-folder auto-watch: `watchedFolders` array with "Add Folder" UI, Web Clipper preset
+  - Granularity-linked iteration caps: coarse(3/10/20) / standard(6/20/50) / fine(12/30/unlimited)
+  - Semantic entity deduplication: LLM fallback for translations, abbreviations, renamings
+- **v1.7.0 — Content Truncation Protection & Quality**:
+  - 8000 max_tokens + stop_reason/finish_reason detection + auto-retry
+  - fillEmptyPage reliability: pre-read content bypasses string→TFile resolution
+  - Batch ingest aggregated reports with entity/concept breakdown
+  - Lint report & command palette i18n
+  - Lint fix log enrichment with per-item details
+
+Active gaps:
+- Lint batch fix without per-item review (human-in-the-loop) — scheduled for v1.8.0
+- Ingest Wizard: conversational ingestion with user review — scheduled for v1.8.0
 - Stale-claim detection in lint — medium priority
-
-### v1.8.0 — Web Clipper Integration (planned)
-
-**Obsidian Web Clipper** is the official first-party browser extension that saves web content into the vault (default: `Clippings/` folder). It is a natural content funnel for LLM Wiki.
-
-Proposed features:
-- **Clippings folder watcher**: new setting toggle to auto-watch `Clippings/` (or custom folder) for new clips
-- **Auto-ingest on clip**: when Web Clipper saves a new page, LLM Wiki detects it and triggers ingestion automatically
-- **Debounce protection**: reuse existing auto-maintain debounce logic to handle rapid multi-clip sessions
-- **Per-clip report**: each ingested clip shows a mini report (or aggregate if multiple clips in a session)
-
-This is additive — it leverages the existing file watcher + ingest pipeline. The setting defaults OFF to avoid surprise API costs.
 
 ## 📁 Project Structure (v1.6.7+)
 

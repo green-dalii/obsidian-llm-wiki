@@ -105,6 +105,8 @@ export const TEXTS = {
     queryModalClearButton: 'Clear History',
     queryModalHistoryCount: 'Conversation history: {}/{} rounds',
     queryModalStreaming: 'Streaming...',
+    queryModalFallbackStreaming: 'Streaming not supported, switched to non-streaming. Please wait...',
+    queryModalErrorPrefix: 'Error: ',
     queryModalHint: 'Queries based on Wiki content. Click "Save to Wiki" to extract valuable conversations as Wiki pages.',
 
     // Error Messages
@@ -189,11 +191,27 @@ export const TEXTS = {
     extractionGranularityStandard: 'Standard — core + significant entities/concepts (balanced)',
     extractionGranularityCoarse: 'Coarse — only the most central entities/concepts (fewest pages, lowest token cost)',
 
+    // Ingestion Acceleration
+    accelerationSectionTitle: 'Ingestion Acceleration',
+    pageGenerationConcurrencyName: 'Page Generation Concurrency',
+    pageGenerationConcurrencyDesc: 'Number of pages to generate in parallel during single-source ingestion. Higher values speed up ingestion but increase API costs and may trigger rate limits.',
+    concurrencyValueSingular: '{} (serial — safest)',
+    concurrencyValuePlural: '{} (parallel)',
+    batchDelayName: 'Batch Delay (ms)',
+    batchDelayDesc: 'Delay between parallel batches to prevent API rate limiting (100-2000ms). Increase if you see 429 errors.',
+
     // Auto Maintenance
     autoMaintainSection: 'Auto Maintenance',
     autoMaintainBetaBadge: 'BETA — Experimental feature. May have issues. Recommended for advanced users only.',
-    autoWatchName: 'Watch Sources Folder',
-    autoWatchDesc: 'Automatically detect changes in sources/ and notify or auto-ingest',
+    autoWatchName: 'Watch Folders',
+    autoWatchDesc: 'Automatically detect new or changed .md files in the watched folders and notify or auto-ingest',
+    watchedFoldersName: 'Watched Folders',
+    watchedFoldersDesc: 'Folders to watch for new content. Click "Add Folder" to select from your vault.',
+    addWatchedFolderButton: 'Add Folder',
+    removeWatchedFolderButton: 'Remove',
+    webClipperPresetName: 'Watch Clippings (Web Clipper)',
+    webClipperPresetDesc: 'Add the Clippings/ folder used by Obsidian Web Clipper to the watch list. Your web clips will be auto-ingested into the Wiki.',
+    noWatchedFoldersHint: 'No folders configured. Add a folder or enable the Clippings preset.',
     autoWatchModeName: 'Watch Mode',
     autoWatchModeDesc: '"Notify Only" shows a prompt. "Auto Ingest" processes silently.',
     watchModeNotify: 'Notify Only',
@@ -213,9 +231,13 @@ export const TEXTS = {
 
     // Notices
     startupCheckSummary: 'Wiki has {pages} pages ({entities} entities, {concepts} concepts, {sources} sources)',
-    watchIngestNotice: '{count} file(s) changed in sources/. Run "Ingest Sources" to process.',
+    watcherActiveNotice: 'Wiki: file watcher active — monitoring watched folders',
+    watchIngestNotice: 'Wiki: {count} file(s) changed in sources/. Run "Ingest Sources" to process.',
     autoIngestRunning: 'Auto-ingesting {count} changed file(s)...',
     autoIngestComplete: 'Auto-ingest complete: {success} succeeded, {fail} failed',
+    scheduledLintRunning: 'Running scheduled wiki lint...',
+    wikiLintStats: 'Wiki lint: {pages} pages ({entities} entities, {concepts} concepts, {sources} sources)',
+    wikiHealthStats: 'Wiki health: {pages} pages ({entities} entities, {concepts} concepts, {sources} sources){indexStatus}',
     lintWikiStart: 'Starting wiki lint...',
     lintWikiComplete: 'Wiki lint complete',
     lintWikiFailed: 'Wiki lint failed',
@@ -223,9 +245,15 @@ export const TEXTS = {
     schemaSuggestionGenerated: 'Schema suggestions generated, see wiki/schema/suggestions.md',
     noSchemaUpdateNeeded: 'No schema updates needed.',
     schemaSuggestionFailed: 'Schema suggestion failed',
+    schemaNotFoundNotice: 'Schema file not found. Enable schema to create it.',
     selectFolderNoMdFiles: 'No Markdown files in folder: {path}',
+    batchIngestSkipNotice: 'Skipping {skipped}/{total} already-ingested files. Ingesting {new} new files...',
+    batchIngestAllIngested: 'All {total} files in this folder have already been ingested.',
+    batchIngestStarting: 'Ingesting {count} file(s) from "{folder}" — this may take several minutes. A report will appear when complete.',
     batchIngestComplete: 'Batch ingest complete: {success}/{total} succeeded, {fail} failed',
     batchIngestFailedFiles: 'Failed files:',
+    historyTruncated: 'History truncated to last {max} rounds',
+    historyCleared: 'History cleared',
 
     // User Feedback Loop
     reviewedPagePreserved: 'Preserving user-reviewed content for: {}',
@@ -238,6 +266,7 @@ export const TEXTS = {
 
     // Ingestion Report
     ingestReportElapsedTime: 'Elapsed time',
+    ingestReportSkippedFiles: 'Skipped (already ingested)',
     ingestReportFailedGuidance: 'These items could not be automatically created. You can manually create the corresponding pages, or lower the extraction granularity and re-ingest the source file.',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
@@ -412,6 +441,8 @@ export const TEXTS = {
     queryModalClearButton: '清空历史',
     queryModalHistoryCount: '对话历史: {}/{} 轮',
     queryModalStreaming: '流式生成中...',
+    queryModalFallbackStreaming: '端点不支持流式传输，已回退至非流式模式，请耐心等待...',
+    queryModalErrorPrefix: '错误：',
     queryModalHint: '查询基于Wiki内容。点击"保存到Wiki"可将有价值对话提炼为Wiki页面。',
 
     // 错误消息
@@ -496,11 +527,27 @@ export const TEXTS = {
     extractionGranularityStandard: '标准 — 核心 + 重要实体/概念（均衡）',
     extractionGranularityCoarse: '粗放 — 仅提取最核心的实体/概念（页面最少、Token 消耗最低）',
 
+    // 摄入加速
+    accelerationSectionTitle: '摄入加速',
+    pageGenerationConcurrencyName: '页面生成并发度',
+    pageGenerationConcurrencyDesc: '单文件摄入时并行生成页面的数量。数值越高速度越快，但会增加 API 消耗并可能触发限流。',
+    concurrencyValueSingular: '{}（串行 — 最安全）',
+    concurrencyValuePlural: '{}（并行）',
+    batchDelayName: '批次延迟 (ms)',
+    batchDelayDesc: '并行批次间的延迟，防止 API 限流（100-2000ms）。如遇 429 错误请增大此值。',
+
     // 自动维护
     autoMaintainSection: '自动维护',
     autoMaintainBetaBadge: 'BETA 测试 — 实验性功能，可能存在问题，仅建议高级用户使用。',
-    autoWatchName: '监听 Sources 文件夹',
-    autoWatchDesc: '自动检测 sources/ 中的文件变更，通知或自动摄入',
+    autoWatchName: '监听文件夹',
+    autoWatchDesc: '自动检测监听列表中文件夹的新增或变更 .md 文件，通知或自动摄入',
+    watchedFoldersName: '监听文件夹列表',
+    watchedFoldersDesc: '监听新内容的文件夹。点击「添加文件夹」从仓库中选择。',
+    addWatchedFolderButton: '添加文件夹',
+    removeWatchedFolderButton: '移除',
+    webClipperPresetName: '监听 Clippings（Web Clipper）',
+    webClipperPresetDesc: '将 Obsidian Web Clipper 使用的 Clippings/ 文件夹加入监听列表。网页剪藏内容将自动摄入 Wiki。',
+    noWatchedFoldersHint: '尚未配置监听文件夹。请添加文件夹或启用 Clippings 预设。',
     autoWatchModeName: '监听模式',
     autoWatchModeDesc: '"仅通知"显示提示。"自动摄入"静默处理。',
     watchModeNotify: '仅通知',
@@ -520,9 +567,13 @@ export const TEXTS = {
 
     // 通知
     startupCheckSummary: 'Wiki 共 {pages} 页（{entities} 个实体、{concepts} 个概念、{sources} 个来源）',
-    watchIngestNotice: 'sources/ 中有 {count} 个文件变更。请执行"摄入源文件"处理。',
+    watcherActiveNotice: 'Wiki: 文件监听已启动 — 正在监控指定文件夹',
+    watchIngestNotice: 'Wiki: sources/ 中有 {count} 个文件变更。请执行"摄入源文件"处理。',
     autoIngestRunning: '正在自动摄入 {count} 个变更文件...',
     autoIngestComplete: '自动摄入完成：成功 {success}，失败 {fail}',
+    scheduledLintRunning: '正在执行定时 Wiki 维护...',
+    wikiLintStats: 'Wiki 维护: 共 {pages} 页（{entities} 实体, {concepts} 概念, {sources} 来源）',
+    wikiHealthStats: 'Wiki 健康: 共 {pages} 页（{entities} 实体, {concepts} 概念, {sources} 来源）{indexStatus}',
     lintWikiStart: '开始维护 wiki...',
     lintWikiComplete: '维护完成',
     lintWikiFailed: '维护失败',
@@ -530,9 +581,15 @@ export const TEXTS = {
     schemaSuggestionGenerated: 'Schema 建议已生成，请查看 wiki/schema/suggestions.md',
     noSchemaUpdateNeeded: '未检测到 Schema 需要更新。',
     schemaSuggestionFailed: 'Schema 建议生成失败',
+    schemaNotFoundNotice: 'Schema 文件未找到。启用 Schema 功能以创建它。',
     selectFolderNoMdFiles: '文件夹 {path} 中没有 Markdown 文件',
+    batchIngestSkipNotice: '跳过 {skipped}/{total} 个已摄入文件。正在摄入 {new} 个新文件...',
+    batchIngestAllIngested: '该文件夹中的所有 {total} 个文件均已摄入。',
+    batchIngestStarting: '正在从 "{folder}" 摄入 {count} 个文件 — 可能需要数分钟。完成后会显示报告。',
     batchIngestComplete: '批量摄入完成: 成功 {success}/{total}, 失败 {fail}',
     batchIngestFailedFiles: '失败的文件:',
+    historyTruncated: '历史已截断至最近 {max} 轮对话',
+    historyCleared: '历史已清空',
 
     // 用户反馈闭环
     reviewedPagePreserved: '已保留用户审阅内容: {}',
@@ -545,6 +602,7 @@ export const TEXTS = {
 
     // 摄入报告
     ingestReportElapsedTime: '耗时',
+    ingestReportSkippedFiles: '跳过（已摄入）',
     ingestReportFailedGuidance: '这些条目未能自动创建。您可手动创建对应页面，或降低提取颗粒度后重新摄入源文件。',
 
     // 命令名称（sentence case 遵循 Obsidian Bot 规则）

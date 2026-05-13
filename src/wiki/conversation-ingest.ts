@@ -4,13 +4,15 @@
 import {
   EngineContext,
   SourceAnalysis,
+  IngestReport,
 } from '../types';
 import { PROMPTS } from '../prompts';
 import {
   slugify,
   parseJsonResponse,
+  cleanMarkdownResponse,
 } from '../utils';
-import { getSectionLabels } from './system-prompts';
+import { applySectionLabels } from './system-prompts';
 import { PageFactory } from './page-factory';
 
 export interface ConversationOrchestration {
@@ -49,7 +51,8 @@ export class ConversationIngestor {
       content: string;
       timestamp: number;
     }>;
-  }): Promise<void> {
+  }): Promise<IngestReport> {
+    const startTime = Date.now();
     const client = this.ctx.getClient();
     if (!client) {
       throw new Error('LLM Client not initialized');
@@ -74,7 +77,17 @@ export class ConversationIngestor {
         if (dedupResult === 'fully_redundant') {
           console.debug('Conversation fully covered by existing Wiki, skipping save');
           this.ctx.onProgress?.('This knowledge already exists in Wiki');
-          return;
+          return {
+            sourceFile: `Conversation: ${history.messages[0]?.content?.substring(0, 50) || 'unknown'}`,
+            createdPages: [],
+            updatedPages: [],
+            entitiesCreated: 0,
+            conceptsCreated: 0,
+            failedItems: [],
+            contradictionsFound: 0,
+            success: true,
+            errorMessage: 'Knowledge already exists in Wiki',
+          };
         }
       } catch (error) {
         console.debug('Dedup check failed, proceeding with save:', error);
@@ -168,44 +181,7 @@ CRITICAL RULES:
     const summaryPath = `${this.ctx.settings.wikiFolder}/sources/${semanticSlug}.md`;
     console.debug('[语义化文件路径]', summaryPath);
 
-    const tags = parsed.concepts.map(c => c.name).join(', ');
-    const labels = getSectionLabels(this.ctx.settings);
-    const summaryContent = `---
-type: source
-created: ${actualDate}
-source_file: Conversation Extract - ${actualDate}
-tags: [${tags}]
----
-
-# ${parsed.source_title}
-
-## ${labels.source}
-- Conversation date: ${actualDate}
-- Source type: User query extraction
-- Semantic path: [[${summaryPath.replace(this.ctx.settings.wikiFolder + '/', '')}]]
-
-## ${labels.core_content}
-
-${parsed.summary}
-
-## ${labels.key_entities}
-
-${parsed.entities.map(e => `- [[entities/${slugify(e.name)}|${e.name}]] - ${e.summary}`).join('\n')}
-
-## ${labels.key_concepts}
-
-${parsed.concepts.map(c => `- [[concepts/${slugify(c.name)}|${c.name}]] - ${c.summary}`).join('\n')}
-
-## ${labels.main_points}
-
-${parsed.key_points.map((p: string) => `- ${p}`).join('\n')}
-
----
-${labels.updated}: ${actualDate}`;
-
-    await this.ctx.createOrUpdateFile(summaryPath, summaryContent);
-    parsed.created_pages.push(summaryPath);
-
+    // Build planned paths before summary so the LLM can reference them
     const convPlannedPaths: string[] = [summaryPath];
     for (const entity of parsed.entities) {
       convPlannedPaths.push(`${this.ctx.settings.wikiFolder}/entities/${slugify(entity.name)}.md`);
@@ -213,6 +189,41 @@ ${labels.updated}: ${actualDate}`;
     for (const concept of parsed.concepts) {
       convPlannedPaths.push(`${this.ctx.settings.wikiFolder}/concepts/${slugify(concept.name)}.md`);
     }
+
+    const createdPagesList = convPlannedPaths.length > 0
+      ? convPlannedPaths.map(p => {
+          const relPath = p.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '');
+          const name = relPath.split('/').pop() || relPath;
+          return `- [[${relPath}|${name}]]`;
+        }).join('\n')
+      : '(none)';
+
+    const tags = parsed.concepts.map(c => c.name).join(', ');
+
+    const summaryPrompt = PROMPTS.generateSummaryPage
+      .replace('{{source_title}}', parsed.source_title)
+      .replace('{{content}}', conversationText.substring(0, 500))
+      .replace('{{analysis}}', JSON.stringify(parsed))
+      .replace('{{created_pages_list}}', createdPagesList)
+      .replace(/{{source_file}}/g, `Conversation: ${parsed.source_title}`)
+      .replace(/{{date}}/g, actualDate)
+      .replace('{{tags}}', tags);
+
+    const finalSummaryPrompt = applySectionLabels(summaryPrompt, this.ctx.settings);
+
+    this.ctx.onProgress?.('Generating summary page...');
+    const summaryPageContent = await client.createMessage({
+      model: this.ctx.settings.model,
+      max_tokens: 8000,
+      system: await this.ctx.buildSystemPrompt('summary'),
+      messages: [{ role: 'user', content: finalSummaryPrompt }]
+    });
+
+    const cleanedSummary = cleanMarkdownResponse(summaryPageContent);
+    await this.ctx.createOrUpdateFile(summaryPath, cleanedSummary);
+    parsed.created_pages.push(summaryPath);
+
+    const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
 
     for (const entity of parsed.entities) {
       await this.orch.apiDelay();
@@ -223,7 +234,9 @@ ${labels.updated}: ${actualDate}`;
           parsed.created_pages.push(entityPage);
         }
       } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
         console.error(`Conversation entity "${entity.name}" failed:`, error);
+        failedItems.push({ type: 'entity', name: entity.name, reason });
       }
     }
 
@@ -236,7 +249,9 @@ ${labels.updated}: ${actualDate}`;
           parsed.created_pages.push(conceptPage);
         }
       } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
         console.error(`Conversation concept "${concept.name}" failed:`, error);
+        failedItems.push({ type: 'concept', name: concept.name, reason });
       }
     }
 
@@ -245,8 +260,26 @@ ${labels.updated}: ${actualDate}`;
     parsed.contradictions = parsed.contradictions || [];
     await this.orch.updateLog('conversation', parsed);
 
+    const entitiesCreated = parsed.created_pages.filter(p => p.includes('/entities/')).length;
+    const conceptsCreated = parsed.created_pages.filter(p => p.includes('/concepts/')).length;
+
+    const report: IngestReport = {
+      sourceFile: `Conversation: ${parsed.source_title}`,
+      createdPages: parsed.created_pages,
+      updatedPages: parsed.updated_pages || [],
+      entitiesCreated,
+      conceptsCreated,
+      failedItems,
+      contradictionsFound: parsed.contradictions?.length || 0,
+      success: true,
+      elapsedSeconds: Math.round((Date.now() - startTime) / 1000),
+    };
+
     console.debug('=== Conversation extraction complete ===');
     console.debug('Created pages:', parsed.created_pages);
+
+    this.ctx.onDone?.(report);
+    return report;
   }
 
   private async checkDedup(wikiIndex: string, conversationText: string): Promise<string> {

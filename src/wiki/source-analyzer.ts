@@ -28,12 +28,18 @@ export class SourceAnalyzer {
     const existingPagesList = existingPages.map(p => `- ${p.wikiLink}`).join('\n');
     console.debug('现有 Wiki 页面数量:', existingPages.length);
 
-    // Iterative batch extraction parameters
+    // Iterative batch extraction parameters — linked to granularity setting
     const MAX_TOKENS = 16000;
-    const INITIAL_BATCH_SIZE = 20;
+    const granularity = this.ctx.settings.extractionGranularity || 'standard';
+    const granularityConfig: Record<string, { initialBatchSize: number; maxBatchesBase: number; maxTotalItems: number | null }> = {
+      fine:   { initialBatchSize: 30, maxBatchesBase: 12, maxTotalItems: null },
+      standard:{ initialBatchSize: 20, maxBatchesBase: 6,  maxTotalItems: 50 },
+      coarse: { initialBatchSize: 10, maxBatchesBase: 3,  maxTotalItems: 20 }
+    };
+    const config = granularityConfig[granularity] || granularityConfig.standard;
     const MIN_BATCH_SIZE = 5;
-    let currentBatchSize = INITIAL_BATCH_SIZE;
-    const MAX_BATCHES = Math.max(1, Math.ceil(content.length / 500));
+    let currentBatchSize = config.initialBatchSize;
+    const MAX_BATCHES = Math.max(1, Math.ceil(content.length / 500)) + config.maxBatchesBase;
 
     const allEntities: EntityInfo[] = [];
     const allConcepts: ConceptInfo[] = [];
@@ -48,7 +54,6 @@ export class SourceAnalyzer {
     let finalBatchNum = 0;
 
     // Build granularity instruction
-    const granularity = this.ctx.settings.extractionGranularity || 'standard';
     const granularityInstructions: Record<string, string> = {
       fine: 'Extract ALL entities and concepts worth recording from the source, including those mentioned only once or tangentially. Make full use of the {{batch_size}} item quota for this round.',
       standard: 'Extract important and moderately important entities and concepts from the source. Ignore minor items mentioned only in passing.',
@@ -81,7 +86,7 @@ export class SourceAnalyzer {
         .replace('{{granularity_instruction}}', granularityInstructions[granularity])
         .replace(/{{batch_size}}/g, String(currentBatchSize));
 
-      const langHint = `\n\nCRITICAL LANGUAGE REQUIREMENT: All entity names, concept names, summaries, descriptions, and key points in your JSON output MUST be written in ${WIKI_LANGUAGES[this.ctx.settings.wikiLanguage || 'en'] || this.ctx.settings.wikiLanguage || 'English'}. Do NOT output any content in other languages.`;
+      const langHint = `\n\nCRITICAL LANGUAGE REQUIREMENT: Summaries, descriptions, source_title, and key_points in your JSON output MUST be written in ${WIKI_LANGUAGES[this.ctx.settings.wikiLanguage || 'en'] || this.ctx.settings.wikiLanguage || 'English'}. HOWEVER: entity names and concept names MUST be preserved in their original source language — NEVER translate names. mentions_in_source MUST be verbatim quotes from the source (preserve original language).`;
       const finalPrompt = prompt + langHint;
 
       console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] 发起LLM调用 (batch_size=${currentBatchSize})...`);
@@ -168,6 +173,7 @@ export class SourceAnalyzer {
         }
 
         const rawTotal = (analysisData.entities || []).length + (analysisData.concepts || []).length;
+        const newTotal = newEntities.length + newConcepts.length;
         finalBatchNum = batchNum + 1;
 
         if (rawTotal === 0) {
@@ -175,16 +181,29 @@ export class SourceAnalyzer {
           break;
         }
 
-        if (rawTotal < currentBatchSize) {
-          console.debug(`[Batch ${batchNum + 1}] 返回条目 ${rawTotal} < ${currentBatchSize}，判断已穷尽，停止迭代`);
+        // Stop only when LLM returned items but ALL were duplicates (nothing new to extract)
+        if (newTotal === 0) {
+          console.debug(`[Batch ${batchNum + 1}] 所有 ${rawTotal} 个条目均为重复，判断已穷尽，停止迭代`);
+          break;
+        }
+
+        // Granularity-linked cumulative soft cap
+        const cumulativeTotal = allEntities.length + allConcepts.length;
+        if (config.maxTotalItems !== null && cumulativeTotal >= config.maxTotalItems) {
+          console.debug(`[Batch ${batchNum + 1}] 累积数量 ${cumulativeTotal} 达到 ${granularity} 模式上限 ${config.maxTotalItems}，停止迭代`);
           break;
         }
 
       } catch (error) {
         console.error(`[Batch ${batchNum + 1}] 调用失败:`, error);
         if (isFirstBatch) {
-          console.error('❌ 第一轮失败，无法继续');
-          return null;
+          const providerName = this.ctx.settings.provider;
+          const errMsg = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Failed to connect to ${providerName} API: ${errMsg}. ` +
+            `Check your network connection, API key, and provider URL in Settings. ` +
+            `If the error mentions SSL/TLS, try: (1) restart Obsidian, (2) check VPN/proxy settings, (3) verify the provider URL is correct.`
+          );
         }
         console.warn(`[Batch ${batchNum + 1}] 非第一轮失败，保留已提取的 ${allEntities.length + allConcepts.length} 个条目`);
         break;

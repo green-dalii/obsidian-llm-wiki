@@ -309,6 +309,9 @@ export interface FrontmatterData {
   reviewed?: boolean;
   type?: string;
   created?: string;
+  updated?: string;
+  sources?: string[];
+  tags?: string[];
   [key: string]: unknown;
 }
 
@@ -317,20 +320,189 @@ export function parseFrontmatter(content: string): FrontmatterData | null {
   if (!match) return null;
 
   const result: FrontmatterData = {};
-  for (const line of match[1].split('\n')) {
+  const fmText = match[1];
+
+  // Parse simple key-value pairs and arrays
+  const lines = fmText.split('\n');
+  let currentKey: string | null = null;
+  let arrayValues: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines
+    if (!trimmed) {
+      if (currentKey && arrayValues.length > 0) {
+        result[currentKey] = arrayValues;
+        arrayValues = [];
+        currentKey = null;
+      }
+      continue;
+    }
+
+    // Check for array continuation (lines starting with - in YAML array)
+    if (trimmed.startsWith('- ') && currentKey) {
+      const value = trimmed.substring(2).trim();
+      // Remove surrounding quotes if present
+      arrayValues.push(value.replace(/^["']|["']$/g, ''));
+      continue;
+    }
+
+    // If we were parsing an array and hit a non-array line, save it
+    if (currentKey && arrayValues.length > 0 && !trimmed.startsWith('-')) {
+      result[currentKey] = arrayValues;
+      arrayValues = [];
+      currentKey = null;
+    }
+
+    // Parse key: value
     const colonIdx = line.indexOf(':');
     if (colonIdx === -1) continue;
+
     const key = line.substring(0, colonIdx).trim();
     const value = line.substring(colonIdx + 1).trim();
+
+    // Check if next line starts a YAML array
+    const nextLine = lines[i + 1]?.trim();
+    if (nextLine && nextLine.startsWith('- ')) {
+      currentKey = key;
+      arrayValues = [];
+      continue;
+    }
+
+    // Simple value parsing
     if (key === 'reviewed') {
       result.reviewed = value === 'true';
     } else if (key === 'type') {
       result.type = value;
     } else if (key === 'created') {
       result.created = value;
+    } else if (key === 'updated') {
+      result.updated = value;
+    } else if (value.startsWith('[') && value.endsWith(']')) {
+      // Inline array like ["a", "b"]
+      try {
+        result[key] = value
+          .slice(1, -1)
+          .split(',')
+          .map(v => v.trim().replace(/^["']|["']$/g, ''))
+          .filter(v => v);
+      } catch {
+        result[key] = value;
+      }
+    } else {
+      result[key] = value.replace(/^["']|["']$/g, '');
     }
   }
+
+  // Handle array at end of frontmatter
+  if (currentKey && arrayValues.length > 0) {
+    result[currentKey] = arrayValues;
+  }
+
   return result;
+}
+
+/** Serialize value to YAML format for frontmatter */
+function yamlStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[]';
+    return '\n' + value.map(v => `  - "${v}"`).join('\n');
+  }
+  if (typeof value === 'string') {
+    // If string contains special chars, quote it
+    // Note: [ and ] don't need escaping inside character class
+    if (/[":[\]{}\n]/.test(value)) {
+      return `"${value.replace(/"/g, '\\"')}"`;
+    }
+    return value;
+  }
+  if (typeof value === 'boolean') {
+    return String(value);
+  }
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  // For objects or any other unexpected type, return empty string
+  // This should not happen with valid frontmatter data
+  return '';
+}
+
+/** Extract body content after frontmatter */
+export function extractBody(content: string): string {
+  if (!content.startsWith('---')) return content;
+  const endIdx = content.indexOf('\n---', 3);
+  if (endIdx === -1) return content;
+  return content.substring(endIdx + 4).trim();
+}
+
+/** Merge frontmatter deterministically: preserve created, update sources (append), update date */
+export function mergeFrontmatter(
+  existingContent: string,
+  newSourcePath: string
+): { frontmatter: string; body: string; wasMerged: boolean } {
+  const fm = parseFrontmatter(existingContent);
+  const body = extractBody(existingContent);
+
+  if (!fm) {
+    // No existing frontmatter, treat as new
+    return {
+      frontmatter: '',
+      body: existingContent,
+      wasMerged: false
+    };
+  }
+
+  // Merge sources array deterministically (programmatic, not LLM)
+  const normalizeSourcePath = (s: string): string => {
+    const trimmed = s.trim();
+    if (trimmed.startsWith('[[') && trimmed.endsWith(']]')) {
+      return trimmed.slice(2, -2).trim();
+    }
+    return trimmed;
+  };
+  const existingSources = Array.isArray(fm.sources) ? fm.sources : [];
+  const sourceSet = new Set<string>();
+  for (const s of existingSources) {
+    sourceSet.add(normalizeSourcePath(String(s)));
+  }
+  sourceSet.add(newSourcePath);
+  const mergedSources = Array.from(sourceSet).map(s => `[[${s}]]`);
+
+  // Preserve created, update updated
+  const created = fm.created || new Date().toISOString().split('T')[0];
+  const updated = new Date().toISOString().split('T')[0];
+
+  // Build new frontmatter programmatically
+  const lines: string[] = ['---'];
+
+  if (fm.type) lines.push(`type: ${fm.type}`);
+  lines.push(`created: ${created}`);
+  lines.push(`updated: ${updated}`);
+
+  if (mergedSources.length > 0) {
+    lines.push(`sources:${yamlStringify(mergedSources)}`);
+  }
+
+  if (Array.isArray(fm.tags) && fm.tags.length > 0) {
+    lines.push(`tags:${yamlStringify(fm.tags)}`);
+  }
+
+  if (fm.reviewed) {
+    lines.push('reviewed: true');
+  }
+
+  lines.push('---');
+
+  return {
+    frontmatter: lines.join('\n'),
+    body,
+    wasMerged: true
+  };
 }
 
 export function preserveFrontmatterReviewTag(originalContent: string, newContent: string): string {
@@ -412,4 +584,98 @@ export function cleanMarkdownResponse(response: string): string {
   }
 
   return cleaned.trim();
+}
+
+/**
+ * Enforce frontmatter type and tags constraints.
+ * - type: MUST be exactly "entity" or "concept" (based on page path)
+ * - tags: MUST be an array of valid subtypes (entity_type or concept_type)
+ *
+ * This is a safety net in case LLM doesn't follow the prompt instructions.
+ */
+export function enforceFrontmatterConstraints(content: string, pageType: 'entity' | 'concept' | 'source'): string {
+  if (!content.startsWith('---')) return content;
+
+  const fmEnd = content.indexOf('\n---\n', 3);
+  if (fmEnd === -1) return content;
+
+  const fmText = content.substring(3, fmEnd);
+  let body = content.substring(fmEnd + 5);
+
+  // Parse existing frontmatter
+  const lines = fmText.split('\n');
+  const newLines: string[] = [];
+  let typeLine = '';
+  let collectedTags: string[] = [];
+  let foundType = false;
+  let foundTags = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    if (line.startsWith('type:')) {
+      foundType = true;
+      const currentType = line.substring(5).trim();
+      // Force type to be entity/concept/source only
+      if (pageType === 'entity' || pageType === 'concept') {
+        typeLine = `type: ${pageType}`;
+        // Collect original type as a tag if it was a valid subtype
+        if (currentType && currentType !== 'entity' && currentType !== 'concept' && currentType !== pageType) {
+          collectedTags.push(currentType);
+        }
+      } else {
+        typeLine = `type: ${pageType}`;
+      }
+    } else if (line.startsWith('tags:')) {
+      foundTags = true;
+      // Collect existing tags from inline array format
+      const tagsValue = line.substring(5).trim();
+      if (tagsValue.startsWith('[') && tagsValue.endsWith(']')) {
+        const inner = tagsValue.slice(1, -1).trim();
+        if (inner) {
+          collectedTags.push(...inner.split(',').map(t => t.trim().replace(/^["']|["']$/g, '')));
+        }
+      }
+      // Handle YAML array continuation on next lines
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim().startsWith('- ')) {
+        const tagVal = lines[j].trim().substring(2).trim().replace(/^["']|["']$/g, '');
+        if (tagVal) collectedTags.push(tagVal);
+        j++;
+      }
+      if (j > i + 1) i = j - 1; // Skip processed lines
+    } else if (!line.startsWith('- ')) {
+      newLines.push(line);
+    }
+  }
+
+  // Rebuild frontmatter
+  const result: string[] = ['---'];
+
+  if (foundType) {
+    result.push(typeLine);
+  }
+
+  // Add other fields (preserving order)
+  for (const line of newLines) {
+    if (!line.startsWith('type:') && !line.startsWith('tags:')) {
+      result.push(line);
+    }
+  }
+
+  // Add tags line
+  if (foundTags || collectedTags.length > 0) {
+    // Remove duplicates and invalid values
+    const validTags = collectedTags.filter((v, i, a) => a.indexOf(v) === i && v && v !== pageType);
+    if (validTags.length > 0) {
+      result.push(`tags: [${validTags.join(', ')}]`);
+    } else {
+      result.push('tags: []');
+    }
+  }
+
+  result.push('---');
+
+  return result.join('\n') + body;
 }

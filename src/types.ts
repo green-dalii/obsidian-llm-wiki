@@ -20,6 +20,8 @@ export interface EntityInfo {
   type: 'person' | 'organization' | 'project' | 'product' | 'event' | 'location' | 'other';
   summary: string;
   mentions_in_source: string[];
+  related_entities?: string[];
+  related_concepts?: string[];
 }
 
 export interface ConceptInfo {
@@ -28,6 +30,7 @@ export interface ConceptInfo {
   summary: string;
   mentions_in_source: string[];
   related_concepts: string[];
+  related_entities?: string[];
 }
 
 export interface ContradictionInfo {
@@ -92,8 +95,16 @@ export interface LLMWikiSettings {
   autoWatchSources: boolean;
   autoWatchMode: 'notify' | 'auto';
   autoWatchDebounceMs: number;
+  watchedFolders: string[];
   periodicLint: 'off' | 'hourly' | 'daily' | 'weekly';
   startupCheck: boolean;
+
+  // Ingestion acceleration
+  pageGenerationConcurrency: number;
+  batchDelayMs: number;
+
+  // Query dedup
+  lastOfferedQueryHash?: string;
 }
 
 export interface QueryHistoryMessage {
@@ -106,7 +117,7 @@ export interface QueryHistoryMessage {
 
 export interface WikiSchema {
   version: number;
-  last_updated: string;
+  updated: string;
   auto_suggestion_count: number;
   body: string;
 }
@@ -131,6 +142,8 @@ export interface IngestReport {
   success: boolean;
   errorMessage?: string;
   elapsedSeconds?: number;
+  skippedFiles?: number;
+  totalFilesInFolder?: number;
 }
 
 // LLM Client interface
@@ -186,6 +199,7 @@ export interface EngineContext {
   getSchemaContext: (task: string) => Promise<string | undefined>;
   onFileWrite?: (path: string) => void;
   onProgress?: (message: string) => void;
+  onDone?: (report: IngestReport) => void;
 }
 
 // Predefined LLM provider configurations
@@ -351,6 +365,14 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   autoWatchSources: false,
   autoWatchMode: 'notify',
   autoWatchDebounceMs: 5000,
+  watchedFolders: [],
   periodicLint: 'off',
   startupCheck: false,
+
+  // Ingestion acceleration (default: serial for safety)
+  pageGenerationConcurrency: 1,
+  batchDelayMs: 300,
+
+  // Query dedup
+  lastOfferedQueryHash: '',
 };
