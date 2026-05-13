@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.9] - 2026-05-13
+
+### Added
+- **GitHub artifact attestations** — Added cryptographic provenance verification for release assets (supply chain security)
+  - Workflow now generates attestations for `main.js` and `styles.css` using `actions/attest-build-provenance@v1`
+  - Users can cryptographically verify assets were built from source repository
+  - Added workflow permissions: `attestations: write`, `id-token: write`
+  - Meets Obsidian community plugin submission security requirements
+  - Reference: https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds
+
+---
+
 ## [1.7.8] - 2026-05-13
 
 ### Added

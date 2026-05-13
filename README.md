@@ -4,7 +4,7 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Author:** Greener-Dalii | **Version:** 1.7.8
+**Author:** Greener-Dalii | **Version:** 1.7.9
 
 [English](README.md) | [中文文档](README_CN.md) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 

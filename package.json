@@ -1,6 +1,6 @@
 {
   "name": "karpathywiki",
-  "version": "1.7.8",
+  "version": "1.7.9",
   "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation with conversational query",
   "main": "main.js",
   "scripts": {

@@ -2,11 +2,21 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.8 | **Updated:** 2026-05-13
+**Version:** 1.7.9 | **Updated:** 2026-05-13
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.9) — GitHub Artifact Attestations (Supply Chain Security)
+
+**Obsidian Community Submission Security Enhancement**
+- **Cryptographic provenance verification**: Added GitHub Actions artifact attestations for release assets
+  - Workflow generates SLSA provenance attestations for `main.js` and `styles.css` using `actions/attest-build-provenance@v1`
+  - Users can verify assets were built from source repository (prevents supply chain attacks)
+  - Required workflow permissions: `attestations: write`, `id-token: write` for OIDC token generation
+  - Meets Obsidian plugin security requirements for community submission
+  - Verification command: `gh attestation verify main.js --repo green-dalii/obsidian-llm-wiki`
 
 ### Implemented (v1.7.8) — Obsidian Bot Review Compliance
 
