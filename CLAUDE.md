@@ -2,13 +2,30 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-12
+**Last Updated:** 2026-05-14
 
 ---
 
-## Current Phase: Save-to-Wiki Fixes + Smart Batch Skip (v1.7.7)
+## Current Phase: Knowledge Deduplication + Error Resilience (v1.7.10)
 
-**New features: Conversation save quality improvements + Smart skip for batch ingestion.**
+**New features: Duplicate page detection/merge, 5xx retry, persistent progress notices, error handling overhaul.**
+
+Recently completed (v1.7.10):
+- **方案C Phase 1+2 — Knowledge deduplication**:
+  - Three-layer duplicate detection: programmatic signals (shared sources/links/bigram) → LLM title scan (cross-lingual) → LLM content verification
+  - Intelligent merge: LLM fuses content + discovers aliases, programmatic frontmatter merge (sources appended, updated refreshed), source page deleted and all wiki-links rewritten
+  - Aliases infrastructure: `mergeFrontmatter` and `enforceFrontmatterConstraints` preserve aliases, `getExistingWikiPages` reads aliases from frontmatter, `fixDeadLink` fallback checks aliases
+  - Duplicate section in lint report with "Merge duplicates" action button
+  - `deleteFile` in EngineContext using `vault.trash()`
+- **5xx retry mechanism**: All three LLM clients retry on HTTP 5xx/429 errors (max 2 retries, exponential backoff)
+- **Persistent progress notices**: All lint/fix/ingest stages use `new Notice('', 0)` + `setMessage()` + `hide()` pattern with per-item detail
+- **Error handling overhaul**: Per-item failure Notices (8s) with specific error messages in all fix loops, duplicate detection failure shows persistent Notice with layer info, outer catch shows error detail
+
+Recently completed (v1.7.9):
+- **GitHub artifact attestations** — Cryptographic provenance verification for release assets (supply chain security)
+
+Recently completed (v1.7.8):
+- **Obsidian Bot review compliance** — 15-rule audit fixes, `window.setTimeout` replacement, type safety improvements
 
 Recently completed (v1.7.7):
 - **Conversation summary page LLM generation**: Query Wiki saved pages now use `generateSummaryPage` prompt (same as file ingestion), proper schema context, frontmatter `updated` field
@@ -88,11 +105,12 @@ src/
 
 ## ⚠️ Branch Policy
 
-**main branch is frozen.** The v1.2.0 PR passed Obsidian Bot automated review and is queued for human review (since 2026-04-29). Until approved:
+**Plugin is under Obsidian human review.** The v1.2.0 PR passed automated bot review and has been queued for human review since 2026-04-29. Subsequent versions up to v1.7.10 have been pushed to main.
 
-- **Do NOT** push any code to the main branch
-- **All development** stays on `feature/schema-auto-maintain`
-- Merging to main must wait until Obsidian human review is complete
+- **main branch is active** — all development happens here
+- **No feature branch requirement** — direct commits to main are fine
+- **Pre-commit**: `pnpm lint` + `pnpm build` must pass
+- After Obsidian review completes, the plugin will be available in the Community Plugin directory
 
 ---
 

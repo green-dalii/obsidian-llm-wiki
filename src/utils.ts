@@ -1,5 +1,7 @@
 // Utility functions for Wiki processing
 
+import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from './types';
+
 export function slugify(text: string): string {
   console.debug('slugify 输入:', text, '长度:', text?.length);
 
@@ -312,6 +314,7 @@ export interface FrontmatterData {
   updated?: string;
   sources?: string[];
   tags?: string[];
+  aliases?: string[];
   [key: string]: unknown;
 }
 
@@ -496,6 +499,10 @@ export function mergeFrontmatter(
     lines.push('reviewed: true');
   }
 
+  if (Array.isArray(fm.aliases) && fm.aliases.length > 0) {
+    lines.push(`aliases:${yamlStringify(fm.aliases)}`);
+  }
+
   lines.push('---');
 
   return {
@@ -609,6 +616,8 @@ export function enforceFrontmatterConstraints(content: string, pageType: 'entity
   let collectedTags: string[] = [];
   let foundType = false;
   let foundTags = false;
+  let foundAliases = false;
+  let collectedAliases: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -645,6 +654,24 @@ export function enforceFrontmatterConstraints(content: string, pageType: 'entity
         j++;
       }
       if (j > i + 1) i = j - 1; // Skip processed lines
+    } else if (line.startsWith('aliases:')) {
+      foundAliases = true;
+      // Collect aliases from inline or continuation format
+      const aliasesValue = line.substring(8).trim();
+      if (aliasesValue.startsWith('[') && aliasesValue.endsWith(']')) {
+        const inner = aliasesValue.slice(1, -1).trim();
+        if (inner) {
+          collectedAliases.push(...inner.split(',').map(t => t.trim().replace(/^["']|["']$/g, '')));
+        }
+      }
+      // Handle YAML array continuation on next lines
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim().startsWith('- ')) {
+        const aliasVal = lines[j].trim().substring(2).trim().replace(/^["']|["']$/g, '');
+        if (aliasVal) collectedAliases.push(aliasVal);
+        j++;
+      }
+      if (j > i + 1) i = j - 1;
     } else if (!line.startsWith('- ')) {
       newLines.push(line);
     }
@@ -659,19 +686,35 @@ export function enforceFrontmatterConstraints(content: string, pageType: 'entity
 
   // Add other fields (preserving order)
   for (const line of newLines) {
-    if (!line.startsWith('type:') && !line.startsWith('tags:')) {
+    if (!line.startsWith('type:') && !line.startsWith('tags:') && !line.startsWith('aliases:')) {
       result.push(line);
     }
   }
 
   // Add tags line
   if (foundTags || collectedTags.length > 0) {
-    // Remove duplicates and invalid values
-    const validTags = collectedTags.filter((v, i, a) => a.indexOf(v) === i && v && v !== pageType);
+    // Validate against schema-defined subtype ranges
+    const validSubtypes = pageType === 'entity'
+      ? VALID_ENTITY_TAGS
+      : pageType === 'concept'
+        ? VALID_CONCEPT_TAGS
+        : [];
+    const validTags = collectedTags.filter((v, i, a) =>
+      a.indexOf(v) === i && v && v !== pageType && validSubtypes.includes(v)
+    );
     if (validTags.length > 0) {
       result.push(`tags: [${validTags.join(', ')}]`);
     } else {
-      result.push('tags: []');
+      const fallback = pageType === 'entity' ? 'other' : pageType === 'concept' ? 'term' : '';
+      result.push(`tags: [${fallback}]`);
+    }
+  }
+
+  // Add aliases line
+  if (foundAliases || collectedAliases.length > 0) {
+    const validAliases = collectedAliases.filter((v, i, a) => a.indexOf(v) === i && v);
+    if (validAliases.length > 0) {
+      result.push(`aliases:${yamlStringify(validAliases)}`);
     }
   }
 

@@ -46,6 +46,9 @@ export class WikiEngine {
   private sourceAnalyzer: SourceAnalyzer;
   private pageFactory: PageFactory;
   private conversationIngestor: ConversationIngestor;
+  private pagesCache: Array<{path: string; title: string; wikiLink: string; aliases?: string[]}> | null = null;
+  private pagesCacheTime = 0;
+  private readonly PAGES_CACHE_TTL_MS = 5000;
 
   constructor(
     app: App,
@@ -70,6 +73,7 @@ export class WikiEngine {
       settings: this.settings,
       getClient: () => this.getLLMClient(),
       createOrUpdateFile: (p, c) => this.createOrUpdateFile(p, c),
+      deleteFile: p => this.deleteFile(p),
       tryReadFile: p => this.tryReadFile(p),
       buildSystemPrompt: task =>
         buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t as SchemaTask), task),
@@ -492,12 +496,14 @@ export class WikiEngine {
           await this.app.vault.modify(file, content);
           console.debug('更新成功:', path);
           this.onFileWrite?.(path);
+          this.pagesCache = null;
           return;
         } else {
           console.debug(`尝试 ${attempt + 1}: 文件不存在，创建:`, path);
           await this.app.vault.create(path, content);
           console.debug('创建成功:', path);
           this.onFileWrite?.(path);
+          this.pagesCache = null;
           return;
         }
       } catch (error) {
@@ -519,6 +525,7 @@ export class WikiEngine {
             await this.app.vault.modify(resolved, content);
             console.debug('通过文件解析后更新成功:', path);
             this.onFileWrite?.(path);
+            this.pagesCache = null;
             return;
           }
           console.debug('文件已存在异常，等待100ms后重试:', path);
@@ -545,8 +552,18 @@ export class WikiEngine {
       await this.app.vault.modify(file, content);
       console.debug('最终更新成功:', path);
       this.onFileWrite?.(path);
+      this.pagesCache = null;
     } else {
       throw new Error(`无法创建或更新文件: ${path}`);
+    }
+  }
+
+  async deleteFile(path: string): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (file instanceof TFile) {
+      await this.app.vault.trash(file, false);
+      this.pagesCache = null;
+      console.debug('deleteFile:', path);
     }
   }
 
@@ -615,8 +632,16 @@ export class WikiEngine {
 
   // ---- Lint-fix delegation ----
 
-  getExistingWikiPages(): {path: string, title: string, wikiLink: string}[] {
-    return getExistingWikiPages(this.app, this.settings.wikiFolder);
+  getExistingWikiPages(): Promise<Array<{path: string; title: string; wikiLink: string; aliases?: string[]}>> {
+    const now = Date.now();
+    if (this.pagesCache && (now - this.pagesCacheTime) < this.PAGES_CACHE_TTL_MS) {
+      return Promise.resolve(this.pagesCache);
+    }
+    return getExistingWikiPages(this.app, this.settings.wikiFolder).then(data => {
+      this.pagesCache = data;
+      this.pagesCacheTime = Date.now();
+      return data;
+    });
   }
 
   async fixDeadLink(sourcePath: string, targetName: string): Promise<string> {
@@ -742,6 +767,11 @@ export class WikiEngine {
 
     const existingLog = await this.tryReadFile(logPath) || `# Wiki ${lang === 'zh' ? '操作日志' : 'Operation Log'}\n\n`;
     await this.createOrUpdateFile(logPath, existingLog + entry);
+  }
+
+  /** Merge a duplicate source page into a target page. */
+  async mergeDuplicatePages(targetPath: string, sourcePath: string): Promise<string> {
+    return this.lintFixer.mergeDuplicatePages(targetPath, sourcePath);
   }
 
   /** Append a lint-fix entry to the operation log. */

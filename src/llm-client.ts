@@ -36,60 +36,94 @@ export class AnthropicCompatibleClient implements LLMClient {
     };
     if (params.system) body.system = params.system;
 
-    const response = await requestUrl({
-      url: this.baseUrl + '/messages',
-      method: 'POST',
-      headers: {
-        'x-api-key': this.apiKey,
-        'Anthropic-Version': this.apiVersion,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
+    // Retry loop for 5xx / network errors (max 2 retries, exponential backoff)
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await requestUrl({
+          url: this.baseUrl + '/messages',
+          method: 'POST',
+          headers: {
+            'x-api-key': this.apiKey,
+            'Anthropic-Version': this.apiVersion,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
 
-    const data = response.json as {
-      content?: Array<{ type: string; text?: string }>;
-      stop_reason?: string;
-      error?: { message: string };
-    };
+        const data = response.json as {
+          content?: Array<{ type: string; text?: string }>;
+          stop_reason?: string;
+          error?: { message: string };
+        };
 
-    if (data.error) throw new Error(data.error.message);
-    let text = this.extractText(data.content || []);
+        if (data.error) throw new Error(data.error.message);
+        let text = this.extractText(data.content || []);
 
-    // Detect truncation: retry once with double the token limit.
-    if (data.stop_reason === 'max_tokens') {
-      const retryTokens = Math.min(params.max_tokens * 2, 16000);
-      console.warn(
-        `Anthropic-compatible response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
-        `Retrying with ${retryTokens} tokens.`
-      );
-      const retryBody: Record<string, unknown> = {
-        ...body,
-        max_tokens: retryTokens
-      };
-      const retryResponse = await requestUrl({
-        url: this.baseUrl + '/messages',
-        method: 'POST',
-        headers: {
-          'x-api-key': this.apiKey,
-          'Anthropic-Version': this.apiVersion,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(retryBody)
-      });
-      const retryData = retryResponse.json as {
-        content?: Array<{ type: string; text?: string }>;
-        error?: { message: string };
-      };
-      if (retryData.error) throw new Error(retryData.error.message);
-      text = this.extractText(retryData.content || []);
+        // Detect truncation: retry once with double the token limit.
+        if (data.stop_reason === 'max_tokens') {
+          const retryTokens = Math.min(params.max_tokens * 2, 16000);
+          console.warn(
+            `Anthropic-compatible response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
+            `Retrying with ${retryTokens} tokens.`
+          );
+          const retryBody: Record<string, unknown> = {
+            ...body,
+            max_tokens: retryTokens
+          };
+          // Truncation retry also needs 5xx handling
+          let retryResponse;
+          for (let retryAttempt = 0; retryAttempt < 2; retryAttempt++) {
+            try {
+              retryResponse = await requestUrl({
+                url: this.baseUrl + '/messages',
+                method: 'POST',
+                headers: {
+                  'x-api-key': this.apiKey,
+                  'Anthropic-Version': this.apiVersion,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(retryBody)
+              });
+              break;
+            } catch (retryErr) {
+              const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+              if (/status 5\d{2}|network|fetch|timeout/i.test(msg) && retryAttempt < 1) {
+                const delay = Math.pow(2, retryAttempt) * 1000 + Math.random() * 500;
+                console.warn(`Truncation retry error, reattempting in ${Math.round(delay)}ms: ${msg}`);
+                await new Promise(resolve => window.setTimeout(resolve, delay));
+                continue;
+              }
+              throw retryErr;
+            }
+          }
+          const retryData = retryResponse.json as {
+            content?: Array<{ type: string; text?: string }>;
+            error?: { message: string };
+          };
+          if (retryData.error) throw new Error(retryData.error.message);
+          text = this.extractText(retryData.content || []);
+        }
+
+        // Safety: if prefill { was stripped by the provider, restore it
+        if (params.response_format?.type === 'json_object' && text.length > 0 && text[0] !== '{') {
+          text = '{' + text;
+        }
+        return text;
+      } catch (error) {
+        lastError = error;
+        const msg = error instanceof Error ? error.message : String(error);
+        const isRetryable = /status 5\d{2}|status 429|network|fetch|econnrefused|etimedout|timeout|abort/i.test(msg);
+        if (isRetryable && attempt < 2) {
+          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+          console.warn(`Anthropic-compatible API error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms: ${msg}`);
+          await new Promise(resolve => window.setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
     }
-
-    // Safety: if prefill { was stripped by the provider, restore it
-    if (params.response_format?.type === 'json_object' && text.length > 0 && text[0] !== '{') {
-      text = '{' + text;
-    }
-    return text;
+    throw lastError;
   }
 
   async createMessageStream(params: {
@@ -246,38 +280,56 @@ export class AnthropicClient implements LLMClient {
       ? [...messages, { role: 'assistant' as const, content: '{' }]
       : messages;
 
-    const response = await this.client.messages.create({
-      model: params.model,
-      max_tokens: params.max_tokens,
-      system: params.system || undefined,
-      messages: finalMessages
-    });
-    const textBlock = response.content.find(c => c.type === 'text');
-    let text = textBlock && 'text' in textBlock ? textBlock.text : '';
+    // Retry loop for 5xx / network errors (max 2 retries, exponential backoff)
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await this.client.messages.create({
+          model: params.model,
+          max_tokens: params.max_tokens,
+          system: params.system || undefined,
+          messages: finalMessages
+        });
+        const textBlock = response.content.find(c => c.type === 'text');
+        let text = textBlock && 'text' in textBlock ? textBlock.text : '';
 
-    // Detect truncation: if the API stopped because it hit max_tokens,
-    // retry once with double the limit so the response completes.
-    if (response.stop_reason === 'max_tokens') {
-      const retryTokens = Math.min(params.max_tokens * 2, 16000);
-      console.warn(
-        `Anthropic response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
-        `Retrying with ${retryTokens} tokens.`
-      );
-      const retryResponse = await this.client.messages.create({
-        model: params.model,
-        max_tokens: retryTokens,
-        system: params.system || undefined,
-        messages: finalMessages
-      });
-      const retryBlock = retryResponse.content.find(c => c.type === 'text');
-      text = retryBlock && 'text' in retryBlock ? retryBlock.text : '';
-    }
+        // Detect truncation: if the API stopped because it hit max_tokens,
+        // retry once with double the limit so the response completes.
+        if (response.stop_reason === 'max_tokens') {
+          const retryTokens = Math.min(params.max_tokens * 2, 16000);
+          console.warn(
+            `Anthropic response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
+            `Retrying with ${retryTokens} tokens.`
+          );
+          const retryResponse = await this.client.messages.create({
+            model: params.model,
+            max_tokens: retryTokens,
+            system: params.system || undefined,
+            messages: finalMessages
+          });
+          const retryBlock = retryResponse.content.find(c => c.type === 'text');
+          text = retryBlock && 'text' in retryBlock ? retryBlock.text : '';
+        }
 
-    // Safety: if prefill { was stripped by the provider, restore it
-    if (params.response_format?.type === 'json_object' && text.length > 0 && text[0] !== '{') {
-      text = '{' + text;
+        // Safety: if prefill { was stripped by the provider, restore it
+        if (params.response_format?.type === 'json_object' && text.length > 0 && text[0] !== '{') {
+          text = '{' + text;
+        }
+        return text;
+      } catch (error) {
+        lastError = error;
+        const msg = error instanceof Error ? error.message : String(error);
+        const isRetryable = /status 5\d{2}|status 429|network|fetch|econnrefused|etimedout|timeout|abort/i.test(msg);
+        if (isRetryable && attempt < 2) {
+          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+          console.warn(`Anthropic API error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms: ${msg}`);
+          await new Promise(resolve => window.setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
     }
-    return text;
+    throw lastError;
   }
 
   async createMessageStream(params: {
@@ -474,7 +526,7 @@ export class OpenAIClient implements LLMClient {
   private isNetworkError(error: unknown): boolean {
     if (error instanceof TypeError && error.message === 'Failed to fetch') return true;
     const msg = error instanceof Error ? error.message : String(error);
-    return /network|fetch|econnrefused|econnreset|etimedout|abort|closed|ssl|tls|protocol_error/i.test(msg);
+    return /network|fetch|econnrefused|econnreset|etimedout|abort|closed|ssl|tls|protocol_error|status 5\d{2}|status 429|internal server error|service unavailable/i.test(msg);
   }
 
   async listModels(): Promise<string[]> {

@@ -286,7 +286,7 @@ export class AutoMaintainManager {
       await this.lintCallback();
     } else {
       // Fallback: lightweight page count if no callback provided
-      const pages = this.wikiEngine.getExistingWikiPages();
+      const pages = await this.wikiEngine.getExistingWikiPages();
       const entities = pages.filter(p => p.path.includes('/entities/')).length;
       const concepts = pages.filter(p => p.path.includes('/concepts/')).length;
       const sources = pages.filter(p => p.path.includes('/sources/')).length;
@@ -323,7 +323,7 @@ export class AutoMaintainManager {
 
     const texts = TEXTS[this.settings.language];
 
-    const pages = this.wikiEngine.getExistingWikiPages();
+    const pages = await this.wikiEngine.getExistingWikiPages();
     const entities = pages.filter(p => p.path.includes('/entities/')).length;
     const concepts = pages.filter(p => p.path.includes('/concepts/')).length;
     const sources = pages.filter(p => p.path.includes('/sources/')).length;

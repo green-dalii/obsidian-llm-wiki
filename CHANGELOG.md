@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.10] - 2026-05-14
+
+### Added
+- **Knowledge deduplication — 方案C Phase 1+2**: Three-layer duplicate page detection and intelligent merge
+  - Layer 1: Programmatic candidate generation (shared sources, shared wiki-links, title bigram similarity)
+  - Layer 2: LLM title scan for cross-lingual/translation/abbreviation detection
+  - Layer 3: LLM content verification of merged candidates
+  - Duplicate section in lint report with "Merge duplicates" action button
+  - Intelligent merge: LLM fuses content, discovers aliases from both pages, programmatic frontmatter merge (sources appended, updated refreshed)
+  - Source page deleted after merge, all wiki-links rewritten to target
+- **Aliases infrastructure**: `mergeFrontmatter()` and `enforceFrontmatterConstraints()` preserve aliases, `getExistingWikiPages()` reads aliases from frontmatter, `fixDeadLink` fallback checks aliases for case-insensitive matching
+- **5xx retry mechanism**: All three LLM clients (`AnthropicClient`, `AnthropicCompatibleClient`, `OpenAIClient`) retry on HTTP 5xx/429 errors with exponential backoff (max 2 retries)
+- **Persistent progress notices**: All lint/fix/ingest stages use `new Notice('', 0)` + `setMessage()` pattern with per-item detail (target page, source, etc.)
+- **Error handling overhaul**: Per-item failure Notices (8s duration) with specific error messages in all fix loops (dead links, empty pages, orphans, merges); duplicate detection failure shows persistent Notice with error detail; outer catch blocks show error context
+- **Tag validation**: `enforceFrontmatterConstraints()` validates tags against schema-defined subtypes (`VALID_ENTITY_TAGS`, `VALID_CONCEPT_TAGS`), falls back to defaults for invalid values
+- `deleteFile` in EngineContext interface, implemented via `vault.trash()`
+
+### Changed
+- `getExistingWikiPages()` is now async and returns `aliases` array alongside each page entry
+- `FrontmatterData` interface includes optional `aliases: string[]`
+- All lint fix callbacks use `for...let i` loops with proper indices for progress reporting
+- Ingestion progress uses persistent `showProgress()` instead of timed Notices
+- `lintDuplicateCheckFailed` replaced with detailed `lintDuplicateCheckFailedDetail` i18n text
+
+### Fixed
+- **500 error with no retry**: Previously, HTTP 5xx errors from LLM providers were not retried (only network errors were). Now all 5xx/429 errors trigger automatic retry
+- **Missing error Notices**: Dead link fix, orphan linking, and merge fix loops previously only logged errors to console without user-visible feedback
+- **Duplicate detection false negatives**: Cross-lingual duplicates (e.g. "CoT" vs "思维链") were previously undetected by programmatic-only checks
+- **Merge not preserving aliases/sources/updated**: Merged pages now correctly append sources (dedup), add LLM-discovered aliases, and refresh `updated` date
+
+---
+
 ## [1.7.9] - 2026-05-13
 
 ### Added

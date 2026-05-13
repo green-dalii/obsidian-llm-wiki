@@ -9,8 +9,9 @@ import {
 } from './src/types';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAIClient } from './src/llm-client';
 import { TEXTS } from './src/texts';
-import { cleanMarkdownResponse, slugify, parseFrontmatter } from './src/utils';
-import { isPageEmpty } from './src/wiki/lint-fixes';
+import { PROMPTS } from './src/prompts';
+import { cleanMarkdownResponse, slugify, parseFrontmatter, parseJsonResponse } from './src/utils';
+import { isPageEmpty, generateDuplicateCandidates } from './src/wiki/lint-fixes';
 import { LLMWikiSettingTab } from './src/ui/settings';
 import { WikiEngine } from './src/wiki/wiki-engine';
 import { QueryModal } from './src/wiki/query-engine';
@@ -272,8 +273,12 @@ export default class LLMWikiPlugin extends Plugin {
     }
 
     new FileSuggestModal(this.app, this.settings.wikiFolder, (file) => {
-      new Notice(`Ingesting "${file.basename}" — this may take a while. Watch the wiki folder for new pages.`, 6000);
-      this.wikiEngine.ingestSource(file).catch(e => console.error(e));
+      this.showProgress(`Ingesting: ${file.basename}`);
+      this.wikiEngine.ingestSource(file).catch(e => {
+        console.error('Single ingest failed:', e);
+        const errMsg = e instanceof Error ? e.message : String(e);
+        new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, 8000);
+      });
     }).open();
   }
 
@@ -335,12 +340,10 @@ export default class LLMWikiPlugin extends Plugin {
         reports.push(report);
       });
 
-      this.showProgress(`[0/${ingestCount}] Starting ingestion...`);
-
       const texts = TEXTS[this.settings.language];
-      new Notice(texts.batchIngestStarting
+      this.showProgress(texts.batchIngestStarting
         .replace('{count}', String(ingestCount))
-        .replace('{folder}', folder.name), 8000);
+        .replace('{folder}', folder.name));
 
       for (let i = 0; i < newFiles.length; i++) {
         const file = newFiles[i];
@@ -352,6 +355,8 @@ export default class LLMWikiPlugin extends Plugin {
           console.debug(`(${i + 1}/${ingestCount}) 摄入成功: ${file.path}`);
         } catch (error) {
           console.error(`(${i + 1}/${ingestCount}) 摄入失败: ${file.path}`, error);
+          const errMsg = error instanceof Error ? error.message : String(error);
+          new Notice(texts.errorIngestFailed + file.basename + ': ' + errMsg, 8000);
         }
       }
 
@@ -414,6 +419,8 @@ export default class LLMWikiPlugin extends Plugin {
 
     new Notice(TEXTS[this.settings.language].lintWikiStart);
 
+    let stageNotice: Notice | null = null;
+
     try {
       const wikiFiles = this.app.vault.getMarkdownFiles()
         .filter(f => f.path.startsWith(this.settings.wikiFolder) &&
@@ -454,15 +461,31 @@ export default class LLMWikiPlugin extends Plugin {
       }
 
       // Collect wiki pages (for scanning and page-level checks)
+      const t = TEXTS[this.settings.language];
       const pageMap = new Map<string, { path: string; content: string; basename: string }>();
+      stageNotice = new Notice('', 0);
+      stageNotice.setMessage(t.lintReadingPages.replace('{count}', String(wikiFiles.length)));
+      console.debug(`lintWiki: reading ${wikiFiles.length} wiki pages`);
+      let readCount = 0;
+      const totalPages = wikiFiles.length;
       for (const file of wikiFiles) {
         const content = await this.app.vault.read(file);
         pageMap.set(file.path, { path: file.path, content, basename: file.basename });
+        readCount++;
+        if (readCount % 10 === 0 || readCount === totalPages) {
+          stageNotice.setMessage(t.lintReadingPagesProgress
+            .replace('{current}', String(readCount))
+            .replace('{total}', String(totalPages)));
+          console.debug(`lintWiki: read ${readCount}/${totalPages} pages`);
+        }
       }
 
       // Dead links: parse all [[...]] in wiki pages and check against ALL vault files
+      stageNotice.setMessage(t.lintScanningLinks);
+      console.debug('lintWiki: scanning dead links');
       const deadLinks: Array<{ source: string; target: string }> = [];
       const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
+      let scanCount = 0;
       for (const { path, content } of pageMap.values()) {
         let match: RegExpExecArray | null;
         while ((match = linkRegex.exec(content)) !== null) {
@@ -476,6 +499,12 @@ export default class LLMWikiPlugin extends Plugin {
           }
         }
         linkRegex.lastIndex = 0;
+        scanCount++;
+        if (scanCount % 10 === 0 || scanCount === totalPages) {
+          stageNotice.setMessage(t.lintScanningLinksProgress
+            .replace('{current}', String(scanCount))
+            .replace('{total}', String(totalPages)));
+        }
       }
 
       // Empty / near-empty pages (Bug 1 fix: uses isPageEmpty which properly strips
@@ -519,8 +548,100 @@ export default class LLMWikiPlugin extends Plugin {
         }
       }
 
+      // Duplicate detection: three-layer approach
+      // Layer 1: Programmatic candidates (shared sources, shared links, title bigram)
+      // Layer 2: LLM title scan (cross-lingual, translations, abbreviations)
+      // Layer 3: LLM content verification of merged candidates
+      let duplicates: Array<{target: string, source: string, reason: string}> = [];
+      const entityConceptFiles = wikiFiles.filter(f =>
+        f.path.includes('/entities/') || f.path.includes('/concepts/')
+      );
+      if (entityConceptFiles.length >= 2 && this.llmClient) {
+        stageNotice.setMessage(t.lintCheckingDuplicates);
+        try {
+          // Build page data for candidate generation
+          const pagesForDedup: Array<{ path: string; content: string; title: string }> = [];
+          for (const file of entityConceptFiles) {
+            const info = pageMap.get(file.path);
+            if (info) {
+              pagesForDedup.push({ path: file.path, content: info.content, title: file.basename });
+            }
+          }
+
+          // Layer 1: Programmatic candidate generation
+          const progCandidates = generateDuplicateCandidates(pagesForDedup);
+          console.debug(`lintWiki: programmatic candidates: ${progCandidates.length} pairs`);
+
+          // Layer 2: LLM title scan for cross-lingual/translation duplicates
+          const titleList = pagesForDedup.map(p => `- ${p.path} (${p.title})`).join('\n');
+          const titleScanPrompt = PROMPTS.lintTitleScanCandidates
+            .replace('{{title_list}}', titleList)
+            .replace('{{total}}', String(pagesForDedup.length));
+
+          const titleScanResponse = await this.llmClient.createMessage({
+            model: this.settings.model,
+            max_tokens: 2000,
+            messages: [{ role: 'user', content: titleScanPrompt }]
+          });
+
+          const titleScanResult = await parseJsonResponse(titleScanResponse) as {
+            candidates?: string[][]
+          } | null;
+
+          const llmCandidates: Array<{target: string, source: string, reason: string}> = [];
+          if (titleScanResult?.candidates?.length) {
+            for (const pair of titleScanResult.candidates) {
+              if (pair.length === 2) {
+                llmCandidates.push({ target: pair[0], source: pair[1], reason: 'Title scan (possible translation/abbreviation)' });
+              }
+            }
+            console.debug(`lintWiki: LLM title scan candidates: ${llmCandidates.length} pairs`);
+          }
+
+          // Merge candidates (dedup by sorted pair key)
+          const candidateMap = new Map<string, {target: string, source: string, reason: string}>();
+          for (const c of [...progCandidates, ...llmCandidates]) {
+            const key = [c.target, c.source].sort().join('|||');
+            if (!candidateMap.has(key)) candidateMap.set(key, c);
+          }
+          const mergedCandidates = Array.from(candidateMap.values());
+          console.debug(`lintWiki: merged candidates: ${mergedCandidates.length} pairs`);
+
+          // Layer 3: LLM verification of merged candidates
+          if (mergedCandidates.length > 0) {
+            const candidateList = mergedCandidates.map(c =>
+              `- Candidate A: ${c.target}\n  Candidate B: ${c.source}\n  Signal: ${c.reason}`
+            ).join('\n');
+
+            const dedupPrompt = PROMPTS.lintDuplicateDetection
+              .replace('{{candidates}}', candidateList)
+              .replace('{{total}}', String(pagesForDedup.length));
+
+            const dedupResponse = await this.llmClient.createMessage({
+              model: this.settings.model,
+              max_tokens: 2000,
+              messages: [{ role: 'user', content: dedupPrompt }]
+            });
+
+            const dedupResult = await parseJsonResponse(dedupResponse) as {
+              duplicates?: Array<{target: string, source: string, reason: string}>
+            } | null;
+
+            if (dedupResult?.duplicates?.length) {
+              duplicates = dedupResult.duplicates;
+              console.debug(`lintWiki: LLM confirmed ${duplicates.length} duplicate pairs`);
+            }
+          }
+        } catch (e) {
+          console.error('Duplicate detection failed:', e);
+          const errMsg = e instanceof Error ? e.message : String(e);
+          const errNotice = new Notice(t.lintDuplicateCheckFailedDetail.replace('{step}', 'Layer 2/3 (LLM scan/verify)').replace('{error}', errMsg), 0);
+          // Auto-hide after 10s so it doesn't block the report
+          window.setTimeout(() => errNotice.hide(), 10000);
+        }
+      }
+
       // ---- 2. Build programmatic findings report ----
-      const t = TEXTS[this.settings.language];
       let progReport = '';
       if (deadLinks.length > 0) {
         progReport += `## ${t.lintDeadLinkSection}\n\n`;
@@ -547,8 +668,22 @@ export default class LLMWikiPlugin extends Plugin {
         }
         progReport += '\n';
       }
-      if (!deadLinks.length && !emptyPages.length && !orphans.length) {
+      if (!deadLinks.length && !emptyPages.length && !orphans.length && !duplicates.length) {
         progReport += `${t.lintNoIssuesFound}\n\n`;
+      }
+
+      // Add duplicate section
+      if (duplicates.length > 0) {
+        progReport += `## ${t.lintDuplicateSection}\n\n`;
+        for (const d of duplicates) {
+          const targetRel = d.target.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+          const sourceRel = d.source.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+          progReport += t.lintDuplicateItem
+            .replace('{target}', targetRel)
+            .replace('{source}', sourceRel)
+            .replace('{reason}', d.reason) + '\n';
+        }
+        progReport += '\n';
       }
 
       // ---- 2.5 Contradiction scanning ----
@@ -611,6 +746,7 @@ export default class LLMWikiPlugin extends Plugin {
         .replace('{contentSample}', contentSample)
         .replace('{progReport}', progReport || 'No issues detected by programmatic checks.');
 
+      stageNotice.setMessage(t.lintAnalyzingLLM);
       const llmReport = await this.llmClient.createMessage({
         model: this.settings.model,
         max_tokens: 4000,
@@ -625,13 +761,13 @@ export default class LLMWikiPlugin extends Plugin {
       const counts: LintCounts = {
         deadLinks: deadLinks.length,
         emptyPages: emptyPages.length,
-        orphans: orphans.length
+        orphans: orphans.length,
+        duplicates: duplicates.length
       };
 
       const fixCallbacks: LintFixCallbacks = {
         onFixDeadLinks: deadLinks.length > 0 ? () => {
           void (async () => {
-            // Deduplicate: same source+target appears once per wikilink occurrence in page
             const seen = new Set<string>();
             const unique = deadLinks.filter(dl => {
               const key = `${dl.source}::${dl.target}`;
@@ -642,8 +778,11 @@ export default class LLMWikiPlugin extends Plugin {
 
             let fixed = 0;
             const results: string[] = [];
-            for (const dl of unique) {
-              new Notice(t.lintFixProgress.replace('{current}', String(fixed)).replace('{total}', String(unique.length)));
+            const fixNotice = new Notice('', 0);
+            for (let i = 0; i < unique.length; i++) {
+              const dl = unique[i];
+              fixNotice.setMessage(t.lintFixProgress.replace('{current}', String(i + 1)).replace('{total}', String(unique.length)).replace('{target}', dl.target));
+              console.debug(`lintFix: dead link ${i + 1}/${unique.length}: ${dl.source} -> ${dl.target}`);
               try {
                 const sourcePath = `${this.settings.wikiFolder}/${dl.source}.md`;
                 const result = await this.wikiEngine.fixDeadLink(sourcePath, dl.target);
@@ -654,8 +793,11 @@ export default class LLMWikiPlugin extends Plugin {
                 }
               } catch (e) {
                 console.error(`Failed to fix dead link: ${dl.source} -> ${dl.target}`, e);
+                const errMsg = e instanceof Error ? e.message : String(e);
+                new Notice(t.lintFixItemFailed.replace('{target}', dl.target).replace('{error}', errMsg), 8000);
               }
             }
+            fixNotice.hide();
             new Notice(t.lintFixDeadComplete.replace('{fixed}', String(fixed)).replace('{total}', String(unique.length)));
             if (fixed > 0) {
               await this.wikiEngine.generateIndexFromEngine();
@@ -669,18 +811,22 @@ export default class LLMWikiPlugin extends Plugin {
           void (async () => {
             let filled = 0;
             const results: string[] = [];
+            const fixNotice = new Notice('', 0);
             for (let i = 0; i < emptyPages.length; i++) {
               const ep = emptyPages[i];
-              new Notice(t.lintFillProgress.replace('{current}', String(i + 1)).replace('{total}', String(emptyPages.length)));
+              fixNotice.setMessage(t.lintFillProgress.replace('{current}', String(i + 1)).replace('{total}', String(emptyPages.length)).replace('{page}', ep.path));
+              console.debug(`lintFix: fill empty page ${i + 1}/${emptyPages.length}: ${ep.path}`);
               try {
                 const summary = await this.wikiEngine.fillEmptyPage(ep.path, ep.content);
                 filled++;
                 results.push(`- ${summary}`);
               } catch (e) {
                 console.error(`Failed to expand empty page: ${ep.path}`, e);
-                new Notice(t.lintFillFailed.replace('{page}', ep.path));
+                const errMsg = e instanceof Error ? e.message : String(e);
+                new Notice(t.lintFillFailed.replace('{page}', ep.path).replace('{error}', errMsg), 8000);
               }
             }
+            fixNotice.hide();
             new Notice(t.lintFillComplete.replace('{filled}', String(filled)).replace('{total}', String(emptyPages.length)));
             if (filled > 0) {
               await this.wikiEngine.generateIndexFromEngine();
@@ -692,14 +838,15 @@ export default class LLMWikiPlugin extends Plugin {
         } : undefined,
         onLinkOrphans: orphans.length > 0 ? () => {
           void (async () => {
-            let linked = 0;
             const results: string[] = [];
-            for (const op of orphans) {
-              linked++;
-              new Notice(t.lintLinkProgress.replace('{current}', String(linked)).replace('{total}', String(orphans.length)));
+            const fixNotice = new Notice('', 0);
+            for (let i = 0; i < orphans.length; i++) {
+              const op = orphans[i];
+              const opRel = op.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+              fixNotice.setMessage(t.lintLinkProgress.replace('{current}', String(i + 1)).replace('{total}', String(orphans.length)).replace('{page}', opRel));
+              console.debug(`lintFix: link orphan ${i + 1}/${orphans.length}: ${op}`);
               try {
                 const linkedPages = await this.wikiEngine.linkOrphanPage(op);
-                const opRel = op.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
                 if (linkedPages.length > 0) {
                   results.push(`- [[${opRel}]] linked from: ${linkedPages.map(p => `[[${p}]]`).join(', ')}`);
                 } else {
@@ -707,9 +854,12 @@ export default class LLMWikiPlugin extends Plugin {
                 }
               } catch (e) {
                 console.error(`Failed to link orphan: ${op}`, e);
+                const errMsg = e instanceof Error ? e.message : String(e);
+                new Notice(t.lintLinkItemFailed.replace('{page}', opRel).replace('{error}', errMsg), 8000);
               }
             }
-            new Notice(t.lintLinkComplete.replace('{linked}', String(linked)));
+            fixNotice.hide();
+            new Notice(t.lintLinkComplete.replace('{linked}', String(results.length)));
             if (results.length > 0) {
               await this.wikiEngine.generateIndexFromEngine();
               const details = results.join('\n');
@@ -718,16 +868,50 @@ export default class LLMWikiPlugin extends Plugin {
             }
           })();
         } : undefined,
-        onAnalyzeSchema: () => { void this.suggestSchemaUpdate(); }
+        onAnalyzeSchema: () => { void this.suggestSchemaUpdate(); },
+        onMergeDuplicates: duplicates.length > 0 ? () => {
+          void (async () => {
+            let merged = 0;
+            const results: string[] = [];
+            const fixNotice = new Notice('', 0);
+            for (let i = 0; i < duplicates.length; i++) {
+              const d = duplicates[i];
+              const sourceRel = d.source.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+              const targetRel = d.target.replace(this.settings.wikiFolder + '/', '').replace('.md', '');
+              fixNotice.setMessage(t.lintMergeProgress.replace('{current}', String(i + 1)).replace('{total}', String(duplicates.length)).replace('{source}', sourceRel).replace('{target}', targetRel));
+              console.debug(`lintFix: merge duplicates ${i + 1}/${duplicates.length}: ${d.source} → ${d.target}`);
+              try {
+                const result = await this.wikiEngine.mergeDuplicatePages(d.target, d.source);
+                merged++;
+                results.push(`- ${d.source} → ${d.target}: ${result}`);
+              } catch (e) {
+                console.error(`Failed to merge duplicates: ${d.source} → ${d.target}`, e);
+                const errMsg = e instanceof Error ? e.message : String(e);
+                new Notice(t.lintMergeItemFailed.replace('{source}', sourceRel).replace('{target}', targetRel).replace('{error}', errMsg), 8000);
+              }
+            }
+            fixNotice.hide();
+            new Notice(t.lintMergeComplete.replace('{merged}', String(merged)).replace('{total}', String(duplicates.length)));
+            if (merged > 0) {
+              await this.wikiEngine.generateIndexFromEngine();
+              const details = results.join('\n');
+              await this.wikiEngine.logLintFix('Merge Duplicate Pages', details);
+              new Notice(t.lintFixIndexUpdated);
+            }
+          })();
+        } : undefined,
       };
 
+      stageNotice.hide();
       new LintReportModal(this.app, fullReport, fixCallbacks, counts, this.settings.language).open();
       // Always regenerate index after lint — the report reflects current state
       await this.wikiEngine.generateIndexFromEngine();
       new Notice(TEXTS[this.settings.language].lintWikiComplete);
 
     } catch (error) {
-      new Notice(TEXTS[this.settings.language].lintWikiFailed);
+      stageNotice?.hide();
+      const errMsg = error instanceof Error ? error.message : String(error);
+      new Notice(TEXTS[this.settings.language].lintWikiFailed + ': ' + errMsg, 0);
       console.error(error);
     }
   }
@@ -748,7 +932,8 @@ export default class LLMWikiPlugin extends Plugin {
       }
     } catch (error) {
       console.error('Schema suggestion failed:', error);
-      new Notice(TEXTS[this.settings.language].schemaSuggestionFailed);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      new Notice(TEXTS[this.settings.language].schemaSuggestionFailed + ': ' + errMsg, 8000);
     }
   }
 

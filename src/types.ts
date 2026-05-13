@@ -183,6 +183,14 @@ export const WIKI_LANGUAGES: Record<string, string> = {
   'pt': 'Português',
 };
 
+// Valid frontmatter tag values per schema classification rules.
+// `type: entity` pages use entity subtypes as tags.
+// `type: concept` pages use concept subtypes as tags.
+export const VALID_ENTITY_TAGS = ['person', 'organization', 'project', 'product', 'event', 'location', 'other'];
+export const VALID_CONCEPT_TAGS = ['theory', 'method', 'technology', 'term', 'other'];
+export const DEFAULT_ENTITY_TAG = 'other';
+export const DEFAULT_CONCEPT_TAG = 'term';
+
 // EngineContext — shared dependencies injected into extracted modules.
 // Defined as an interface so wiki-engine.ts can implement it once and
 // pass it to specialized sub-modules (lint-fixes, contradictions, etc.).
@@ -193,9 +201,10 @@ export interface EngineContext {
   getClient: () => LLMClient | null;
   createOrUpdateFile: (path: string, content: string) => Promise<void>;
   tryReadFile: (path: string) => Promise<string | null>;
+  deleteFile: (path: string) => Promise<void>;
   buildSystemPrompt: (task: string) => Promise<string | undefined>;
   getSectionLabels: () => Record<string, string>;
-  getExistingWikiPages: () => Array<{path: string; title: string; wikiLink: string}>;
+  getExistingWikiPages: () => Promise<Array<{path: string; title: string; wikiLink: string; aliases?: string[]}>>;
   getSchemaContext: (task: string) => Promise<string | undefined>;
   onFileWrite?: (path: string) => void;
   onProgress?: (message: string) => void;

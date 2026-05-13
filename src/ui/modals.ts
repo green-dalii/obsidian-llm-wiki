@@ -70,12 +70,14 @@ export interface LintFixCallbacks {
   onFillEmptyPages?: () => void;
   onLinkOrphans?: () => void;
   onAnalyzeSchema?: () => void;
+  onMergeDuplicates?: () => void;
 }
 
 export interface LintCounts {
   deadLinks: number;
   emptyPages: number;
   orphans: number;
+  duplicates: number;
 }
 
 export class LintReportModal extends Modal {
@@ -145,6 +147,16 @@ export class LintReportModal extends Modal {
         cls: 'mod-cta'
       }).addEventListener('click', () => {
         this.fixCallbacks.onLinkOrphans?.();
+        this.close();
+      });
+    }
+
+    if (this.counts.duplicates > 0 && this.fixCallbacks.onMergeDuplicates) {
+      buttonRow.createEl('button', {
+        text: t.lintModalMergeDuplicates.replace('{count}', String(this.counts.duplicates)),
+        cls: 'mod-cta'
+      }).addEventListener('click', () => {
+        this.fixCallbacks.onMergeDuplicates?.();
         this.close();
       });
     }

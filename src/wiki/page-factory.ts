@@ -23,6 +23,41 @@ import { getExistingWikiPages } from './lint-fixes';
 export class PageFactory {
   constructor(private ctx: EngineContext) {}
 
+  // Append aliases to an existing wiki page, deduplicating against existing frontmatter.
+  private async appendAliases(pagePath: string, newAliases: string[]): Promise<void> {
+    const content = await this.ctx.tryReadFile(pagePath);
+    if (!content) return;
+
+    const fm = parseFrontmatter(content);
+    const existingAliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
+    const toAdd = newAliases.filter(a => !existingAliases.includes(a));
+    if (toAdd.length === 0) return;
+
+    const merged = [...existingAliases, ...toAdd];
+    const aliasesLine = `aliases:\n${merged.map(a => `  - "${a}"`).join('\n')}`;
+
+    // Replace existing aliases block or inject before closing ---
+    const fmStart = content.indexOf('---');
+    const fmEnd = content.indexOf('\n---', fmStart + 3);
+    if (fmStart === -1 || fmEnd === -1) return;
+
+    const fmText = content.substring(fmStart + 3, fmEnd);
+    const body = content.substring(fmEnd + 4);
+
+    let newFm: string;
+    if (fmText.includes('aliases:')) {
+      // Replace existing aliases block
+      newFm = fmText.replace(/^aliases:[\s\S]*?(?=\n\S|\n*$)/m, aliasesLine);
+    } else {
+      // Inject before closing ---
+      newFm = fmText.trimEnd() + '\n' + aliasesLine;
+    }
+
+    const newContent = `---${newFm}\n---${body}`;
+    await this.ctx.createOrUpdateFile(pagePath, newContent);
+    console.debug(`appendAliases: added ${toAdd.join(', ')} to ${pagePath}`);
+  }
+
   // Determine the actual file path for a new entity/concept, using slug-based
   // matching first and falling back to LLM semantic resolution.
   private async resolvePagePath(
@@ -40,7 +75,7 @@ export class PageFactory {
 
     // Slow path: LLM semantic resolution against existing pages of the same type
     try {
-      const allPages = getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+      const allPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
       const sameTypePages = allPages.filter(p => p.path.includes(`/${folder}/`));
       if (sameTypePages.length === 0) return slugPath;
 
@@ -73,6 +108,8 @@ export class PageFactory {
 
       if (result?.match && result?.path) {
         console.debug(`Entity resolution: "${name}" matched existing page "${result.path}"`);
+        // Append the new name as an alias to the existing page to prevent future duplicates
+        await this.appendAliases(result.path, [name]);
         return result.path;
       }
     } catch (error) {
@@ -82,8 +119,8 @@ export class PageFactory {
     return slugPath;
   }
 
-  buildPagesListForPrompt(includePaths: string[] = []): string {
-    const allPages = getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+  async buildPagesListForPrompt(includePaths: string[] = []): Promise<string> {
+    const allPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
     const MAX_PAGES = 50;
     let pages = allPages;
     let truncated = false;
@@ -170,7 +207,7 @@ export class PageFactory {
       .replace('{{mentions}}', entity.mentions_in_source?.join('\n') || 'No specific mentions')
       .replace('{{related_entities}}', entity.related_entities?.join(', ') || 'No related entities')
       .replace('{{related_concepts}}', entity.related_concepts?.join(', ') || 'No related concepts')
-      .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
+      .replace('{{existing_pages}}', await this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_content}}', 'No existing content')
       .replace('{{merge_strategy}}', 'New page, no merge needed.')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
@@ -213,7 +250,7 @@ export class PageFactory {
       .replace('{{related_entities}}', entity.related_entities?.join(', ') || '')
       .replace('{{related_concepts}}', entity.related_concepts?.join(', ') || '')
       .replace('{{key_details}}', entity.mentions_in_source?.slice(0, 2).join('; ') || '')
-      .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths));
+      .replace('{{existing_pages}}', await this.buildPagesListForPrompt(extraPagePaths));
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 
@@ -332,7 +369,7 @@ export class PageFactory {
       .replace('{{concept_type}}', concept.type)
       .replace('{{concept_summary}}', concept.summary)
       .replace('{{mentions}}', concept.mentions_in_source?.join('\n') || 'No specific mentions')
-      .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths))
+      .replace('{{existing_pages}}', await this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || 'No related concepts')
       .replace('{{related_entities}}', concept.related_entities?.join(', ') || 'No related entities')
       .replace('{{related_content}}', 'No existing content')
@@ -377,7 +414,7 @@ export class PageFactory {
       .replace('{{related_concepts}}', concept.related_concepts?.join(', ') || '')
       .replace('{{related_entities}}', concept.related_entities?.join(', ') || '')
       .replace('{{key_details}}', concept.mentions_in_source?.slice(0, 2).join('; ') || '')
-      .replace('{{existing_pages}}', this.buildPagesListForPrompt(extraPagePaths));
+      .replace('{{existing_pages}}', await this.buildPagesListForPrompt(extraPagePaths));
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 
@@ -446,7 +483,7 @@ export class PageFactory {
   }
 
   async updateRelatedPage(pageName: string, analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<void> {
-    const existingPages = getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+    const existingPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
     const page = existingPages.find(p => p.title === pageName);
 
     if (!page) {

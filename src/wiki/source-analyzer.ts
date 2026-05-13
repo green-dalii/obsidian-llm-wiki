@@ -24,7 +24,7 @@ export class SourceAnalyzer {
     const content = await this.ctx.app.vault.read(file);
     console.debug('文件内容长度:', content.length);
 
-    const existingPages = getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+    const existingPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
     const existingPagesList = existingPages.map(p => `- ${p.wikiLink}`).join('\n');
     console.debug('现有 Wiki 页面数量:', existingPages.length);
 

@@ -2,11 +2,27 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.9 | **Updated:** 2026-05-13
+**Version:** 1.7.10 | **Updated:** 2026-05-14
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.10) — Knowledge Deduplication + Error Resilience
+
+**方案C Phase 1+2 — Duplicate Page Detection & Merge**
+- **Three-layer duplicate detection**: Programmatic candidates (shared sources/links/bigram) → LLM title scan (cross-lingual) → LLM content verification
+- **Intelligent merge**: LLM fuses content and discovers aliases, programmatic frontmatter merge (sources appended, updated refreshed), source page trashed, wiki-links rewritten
+- **Aliases infrastructure**: Full aliases support in frontmatter parsing, merge, enforcement, dead link fallback, and page resolution
+- **Duplicate section in lint report** with "Merge duplicates" action button
+
+**5xx Retry & Error Resilience**
+- **LLM client retry**: All three clients (Anthropic, Anthropic-compatible, OpenAI) retry on HTTP 5xx/429 with exponential backoff (max 2 retries)
+- **Persistent progress notices**: All lint/fix/ingest stages use persistent Notice pattern with per-item detail
+- **Error handling overhaul**: Per-item failure Notices across all fix loops, detailed error messages
+
+**Tag Validation**
+- `enforceFrontmatterConstraints()` validates tags against schema-defined subtype ranges, falls back to defaults
 
 ### Implemented (v1.7.9) — GitHub Artifact Attestations (Supply Chain Security)
 

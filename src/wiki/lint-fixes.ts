@@ -8,7 +8,7 @@
 import { App } from 'obsidian';
 import { EngineContext } from '../types';
 import { PROMPTS } from '../prompts';
-import { slugify, parseJsonResponse, cleanMarkdownResponse } from '../utils';
+import { slugify, parseJsonResponse, cleanMarkdownResponse, parseFrontmatter, enforceFrontmatterConstraints } from '../utils';
 import {
   buildSystemPrompt,
   getSectionLabels,
@@ -20,10 +20,10 @@ const EMPTY_CONTENT_STRIP = /[#*\-_>\s\n[\]|—]/g;
 const MIN_SUBSTANTIVE_CHARS = 50;
 const STUB_MARKER = 'Auto-generated stub page';
 
-export function getExistingWikiPages(
+export async function getExistingWikiPages(
   app: App,
   wikiFolder: string
-): Array<{ path: string; title: string; wikiLink: string }> {
+): Promise<Array<{ path: string; title: string; wikiLink: string; aliases?: string[] }>> {
   const wikiFiles = app.vault
     .getMarkdownFiles()
     .filter(
@@ -35,14 +35,19 @@ export function getExistingWikiPages(
         !f.path.includes('/contradictions/')
     );
 
-  return wikiFiles.map(f => {
+  const pages: Array<{ path: string; title: string; wikiLink: string; aliases?: string[] }> = [];
+  for (const f of wikiFiles) {
     const relPath = f.path.replace(wikiFolder + '/', '').replace('.md', '');
-    return {
+    const content = await app.vault.read(f);
+    const fm = parseFrontmatter(content);
+    pages.push({
       path: f.path,
       title: f.basename,
       wikiLink: `[[${relPath}|${f.basename}]]`,
-    };
-  });
+      aliases: fm?.aliases,
+    });
+  }
+  return pages;
 }
 
 export class LintFixer {
@@ -52,7 +57,7 @@ export class LintFixer {
     sourcePath: string,
     targetName: string
   ): Promise<string> {
-    const existingPages = getExistingWikiPages(
+    const existingPages = await getExistingWikiPages(
       this.ctx.app,
       this.ctx.settings.wikiFolder
     );
@@ -138,6 +143,9 @@ export class LintFixer {
       const stubContent = `---
 type: ${stubType}
 created: ${new Date().toISOString().split('T')[0]}
+sources: ["[[${sourceRel}]]"]
+tags: [${stubType === 'entity' ? 'other' : 'term'}]
+aliases: []
 ---
 # ${result.stub_title}
 
@@ -165,10 +173,17 @@ created: ${new Date().toISOString().split('T')[0]}
       const targetBasename = targetName.includes('/')
         ? targetName.split('/').pop()!
         : targetName;
+      const lowerTarget = targetBasename.toLowerCase();
       // Case-insensitive match — macOS file system is case-insensitive by
       // default, so "Thinking" and "thinking" refer to the same page.
-      const lowerTarget = targetBasename.toLowerCase();
-      const match = existingPages.find(p => p.title.toLowerCase() === lowerTarget);
+      let match = existingPages.find(p => p.title.toLowerCase() === lowerTarget);
+
+      // Also check aliases for case-insensitive match
+      if (!match) {
+        match = existingPages.find(p =>
+          p.aliases?.some(a => a.toLowerCase() === lowerTarget)
+        );
+      }
 
       if (match) {
         const newLink = `[[${match.path.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '')}|${match.title}]]`;
@@ -197,6 +212,9 @@ created: ${new Date().toISOString().split('T')[0]}
       const stubContent = `---
 type: ${stubType}
 created: ${new Date().toISOString().split('T')[0]}
+sources: ["[[${sourceRel}]]"]
+tags: [${stubType === 'entity' ? 'other' : 'term'}]
+aliases: []
 ---
 # ${targetBasename}
 
@@ -289,11 +307,13 @@ created: ${new Date().toISOString().split('T')[0]}
     // its training data (e.g. 2024) which is older than `created`.
     const dateStr = new Date().toISOString().split('T')[0];
     const withDates = normalizeFrontmatterDates(stubFree, dateStr);
+    const pageTypeSingular = pageType === 'entities' ? 'entity' : pageType === 'concepts' ? 'concept' : 'source';
+    const enforced = enforceFrontmatterConstraints(withDates, pageTypeSingular);
 
-    await this.ctx.createOrUpdateFile(pagePath, withDates);
+    await this.ctx.createOrUpdateFile(pagePath, enforced);
 
     const pageRel = pagePath.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '');
-    return `${pageRel} (${beforeLen} → ${withDates.length} chars)`;
+    return `${pageRel} (${beforeLen} → ${enforced.length} chars)`;
   }
 
   async linkOrphanPage(orphanPath: string): Promise<string[]> {
@@ -355,6 +375,313 @@ created: ${new Date().toISOString().split('T')[0]}
     }
     return linkedPages;
   }
+
+  async mergeDuplicatePages(targetPath: string, sourcePath: string): Promise<string> {
+    const targetContent = await this.ctx.tryReadFile(targetPath);
+    const sourceContent = await this.ctx.tryReadFile(sourcePath);
+    if (!targetContent || !sourceContent) {
+      throw new Error(`Cannot merge: target or source page not found (target=${targetPath}, source=${sourcePath})`);
+    }
+
+    const sourceFm = parseFrontmatter(sourceContent);
+    const targetFm = parseFrontmatter(targetContent);
+    const sourceTitle = sourcePath.split('/').pop()?.replace('.md', '') || '';
+
+    // 1. Compute merged frontmatter fields (programmatic, not LLM)
+    // Merge sources (dedup by lowercased key)
+    const targetSources = Array.isArray(targetFm?.sources) ? targetFm.sources : [];
+    const sourceSources = Array.isArray(sourceFm?.sources) ? sourceFm.sources : [];
+    const mergedSourcesSet = new Set<string>();
+    const mergedSourcesList: string[] = [];
+    for (const s of [...targetSources, ...sourceSources]) {
+      const key = s.trim().toLowerCase();
+      if (!mergedSourcesSet.has(key)) {
+        mergedSourcesSet.add(key);
+        mergedSourcesList.push(s);
+      }
+    }
+
+    // Merge aliases — sources:
+    //   a) target's existing aliases
+    //   b) source's frontmatter aliases
+    //   c) source's filename (slug)
+    //   d) source's H1 heading (display title, if different from slug)
+    const targetAliases = Array.isArray(targetFm?.aliases) ? targetFm.aliases : [];
+    const sourceAliases = Array.isArray(sourceFm?.aliases) ? sourceFm.aliases : [];
+
+    // Extract H1 heading from source body as a display-name alias
+    const extractH1 = (content: string): string | null => {
+      const bodyMatch = content.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
+      if (!bodyMatch) return null;
+      const h1Match = bodyMatch[1].trim().match(/^#\s+(.+?)(?:\n|$)/);
+      return h1Match ? h1Match[1].trim() : null;
+    };
+    const sourceH1 = extractH1(sourceContent);
+    const targetH1 = extractH1(targetContent);
+
+    const allAliases = [...targetAliases, sourceTitle, ...sourceAliases];
+    if (sourceH1 && sourceH1 !== sourceTitle) {
+      allAliases.push(sourceH1);
+    }
+    // Also add target's H1 if it differs from target filename (unlikely but safe)
+    const targetFilename = targetPath.split('/').pop()?.replace('.md', '') || '';
+    if (targetH1 && targetH1 !== targetFilename && !targetAliases.includes(targetH1)) {
+      allAliases.unshift(targetH1); // prepend — likely the best human-readable name
+    }
+
+    const targetTitle = targetFm?.title as string || targetFilename;
+    let dedupedAliases = allAliases.filter((a, i) =>
+      a && a !== targetTitle && allAliases.indexOf(a) === i
+    );
+
+    // 2. LLM content merge
+    const client = this.ctx.getClient();
+    let mergedBody = '';
+    let llmMergeSucceeded = false;
+    if (client) {
+      try {
+        const prompt = PROMPTS.mergeDuplicatePages
+          .replace('{{target_content}}', targetContent)
+          .replace('{{source_content}}', sourceContent)
+          .replace('{{source_path}}', sourcePath);
+
+        const mergedContent = await client.createMessage({
+          model: this.ctx.settings.model,
+          max_tokens: 8000,
+          system: await buildSystemPrompt(
+            this.ctx.settings,
+            this.ctx.getSchemaContext,
+            'merge'
+          ),
+          messages: [{ role: 'user', content: prompt }]
+        });
+
+        const cleaned = cleanMarkdownResponse(mergedContent);
+        if (cleaned && cleaned.length > 100) {
+          // Parse JSON response: {body, aliases}
+          let parsed: { body?: string; aliases?: string[] } | null = null;
+          try {
+            parsed = await parseJsonResponse(cleaned);
+          } catch (parseErr) {
+            console.error(`mergeDuplicatePages: JSON parse failed for ${sourcePath} → ${targetPath}`, parseErr);
+          }
+          if (parsed?.body) {
+            mergedBody = parsed.body.trim();
+            llmMergeSucceeded = true;
+          } else if (!parsed) {
+            console.warn(`mergeDuplicatePages: JSON parse returned null for ${sourcePath} → ${targetPath}, falling back to programmatic merge`);
+          } else {
+            console.warn(`mergeDuplicatePages: LLM response missing 'body' field for ${sourcePath} → ${targetPath}, falling back to programmatic merge`);
+          }
+          // Merge LLM-discovered aliases with programmatic aliases
+          if (parsed?.aliases && Array.isArray(parsed.aliases)) {
+            for (const a of parsed.aliases) {
+              if (a && a !== targetTitle && !dedupedAliases.includes(a)) {
+                dedupedAliases.push(a);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        console.error(`LLM merge failed for ${sourcePath} → ${targetPath}: ${errMsg}. Using programmatic merge.`, e);
+      }
+    }
+
+    // If LLM failed or returned empty body, fall back to programmatic merge
+    if (!mergedBody) {
+      if (llmMergeSucceeded) {
+        console.warn(`mergeDuplicatePages: LLM returned empty body for ${sourcePath} → ${targetPath}, using programmatic merge`);
+      }
+      const targetBodyMatch = targetContent.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
+      mergedBody = targetBodyMatch ? targetBodyMatch[1].trim() : '';
+      // Append source's unique sections at the end
+      const sourceBodyMatch = sourceContent.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
+      if (sourceBodyMatch) {
+        mergedBody += '\n\n## From ' + sourceTitle + '\n\n' + sourceBodyMatch[1].trim();
+      }
+    }
+
+    // 3. Build final frontmatter with all merged fields
+    const today = new Date().toISOString().split('T')[0];
+    const fmLines: string[] = ['---'];
+    if (targetFm?.type) fmLines.push(`type: ${targetFm.type}`);
+    fmLines.push(`created: ${targetFm?.created || today}`);
+    fmLines.push(`updated: ${today}`);
+    if (mergedSourcesList.length > 0) {
+      fmLines.push('sources:');
+      for (const s of mergedSourcesList) fmLines.push(`  - "${s}"`);
+    }
+    const tags = Array.isArray(targetFm?.tags) ? targetFm.tags : [];
+    if (tags.length > 0) {
+      fmLines.push('tags:');
+      for (const t of tags) fmLines.push(`  - ${t}`);
+    }
+    if (targetFm?.reviewed) fmLines.push('reviewed: true');
+    if (dedupedAliases.length > 0) {
+      fmLines.push('aliases:');
+      for (const a of dedupedAliases) fmLines.push(`  - "${a}"`);
+    }
+    fmLines.push('---');
+
+    const finalContent = fmLines.join('\n') + '\n' + mergedBody;
+
+    // 4. Enforce frontmatter constraints (tag validation, etc.)
+    const validated = enforceFrontmatterConstraints(finalContent);
+
+    // 5. Write merged target
+    await this.ctx.createOrUpdateFile(targetPath, validated);
+
+    // 6. Rewrite wiki-links: all references to sourcePath → targetPath
+    const wikiFolder = this.ctx.settings.wikiFolder;
+    const sourceRel = sourcePath.replace(wikiFolder + '/', '').replace('.md', '');
+    const targetRel = targetPath.replace(wikiFolder + '/', '').replace('.md', '');
+    const allWikiFiles = this.ctx.app.vault.getMarkdownFiles().filter(
+      f => f.path.startsWith(wikiFolder) && f.path !== sourcePath
+    );
+    for (const file of allWikiFiles) {
+      const content = await this.ctx.app.vault.read(file);
+      if (content.includes(`[[${sourceRel}]]`) || content.includes(`[[${sourceRel}|`)) {
+        const updated = content
+          .replace(new RegExp(`\\[\\[${escapeRegex(sourceRel)}\\]\\]`, 'g'), `[[${targetRel}]]`)
+          .replace(new RegExp(`\\[\\[${escapeRegex(sourceRel)}\\|`, 'g'), `[[${targetRel}|`);
+        if (updated !== content) {
+          await this.ctx.createOrUpdateFile(file.path, updated);
+        }
+      }
+    }
+
+    // 7. Delete source page
+    await this.ctx.deleteFile(sourcePath);
+
+    return `merged ${sourceRel} → ${targetRel}`;
+  }
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Generate duplicate-page candidates using programmatic signals.
+// Returns up to 50 candidate pairs for LLM verification.
+// Three signals, ordered by reliability:
+//   1. Shared frontmatter sources (strongest — catches translations of same source)
+//   2. Shared outgoing wiki-links (catches pages linking to same related entities/concepts)
+//   3. Character bigram title similarity (catches spelling variants, same-language near-matches)
+export function generateDuplicateCandidates(
+  pages: Array<{ path: string; content: string; title: string }>,
+): Array<{ target: string; source: string; reason: string }> {
+  interface PageMeta {
+    path: string;
+    title: string;
+    sources: string[];
+    aliases: string[];
+    links: Set<string>;
+  }
+
+  const metas: PageMeta[] = [];
+  const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
+
+  for (const page of pages) {
+    const fm = parseFrontmatter(page.content);
+    const sources = Array.isArray(fm?.sources) ? fm.sources : [];
+    const aliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
+
+    const links = new Set<string>();
+    const body = page.content.replace(/---[\s\S]*?---/, '');
+    let match: RegExpExecArray | null;
+    while ((match = linkRegex.exec(body)) !== null) {
+      links.add(match[1].trim().toLowerCase());
+    }
+
+    metas.push({ path: page.path, title: page.title, sources, aliases, links });
+  }
+
+  const candidates = new Map<string, { target: string; source: string; reason: string }>();
+
+  const addCandidate = (pathA: string, pathB: string, reason: string) => {
+    const metaA = metas.find(m => m.path === pathA)!;
+    const metaB = metas.find(m => m.path === pathB)!;
+    // Prefer the page with more sources as the target (keep)
+    const [target, source] = metaA.sources.length >= metaB.sources.length
+      ? [pathA, pathB] : [pathB, pathA];
+    const key = `${target}|||${source}`;
+    if (!candidates.has(key)) {
+      candidates.set(key, { target, source, reason });
+    }
+  };
+
+  // Signal 1: Shared frontmatter sources
+  const sourceIndex = new Map<string, string[]>();
+  for (const meta of metas) {
+    for (const src of meta.sources) {
+      const key = src.toLowerCase();
+      if (!sourceIndex.has(key)) sourceIndex.set(key, []);
+      sourceIndex.get(key)!.push(meta.path);
+    }
+  }
+  for (const [, paths] of sourceIndex) {
+    for (let i = 0; i < paths.length; i++) {
+      for (let j = i + 1; j < paths.length; j++) {
+        addCandidate(paths[i], paths[j], 'Shared source file');
+      }
+    }
+  }
+
+  // Signal 2: Shared outgoing wiki-links (Jaccard >= 0.25)
+  for (let i = 0; i < metas.length; i++) {
+    for (let j = i + 1; j < metas.length; j++) {
+      const a = metas[i], b = metas[j];
+      if (a.links.size === 0 || b.links.size === 0) continue;
+      let intersection = 0;
+      for (const link of a.links) {
+        if (b.links.has(link)) intersection++;
+      }
+      const union = a.links.size + b.links.size - intersection;
+      if (union > 0 && intersection / union >= 0.25) {
+        addCandidate(a.path, b.path, `Shared wiki-links (${Math.round(intersection / union * 100)}% overlap)`);
+      }
+    }
+  }
+
+  // Signal 3: Character bigram similarity on titles/aliases (>= 0.4)
+  const bigrams = (s: string): Set<string> => {
+    const result = new Set<string>();
+    const normalized = s.toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
+    for (let i = 0; i < normalized.length - 1; i++) {
+      result.add(normalized.substring(i, i + 2));
+    }
+    return result;
+  };
+
+  for (let i = 0; i < metas.length; i++) {
+    for (let j = i + 1; j < metas.length; j++) {
+      const a = metas[i], b = metas[j];
+      const namesA = [a.title, ...a.aliases];
+      const namesB = [b.title, ...b.aliases];
+      let best = 0;
+      for (const na of namesA) {
+        const bgA = bigrams(na);
+        if (bgA.size === 0) continue;
+        for (const nb of namesB) {
+          const bgB = bigrams(nb);
+          if (bgB.size === 0) continue;
+          let intersection = 0;
+          for (const bg of bgA) { if (bgB.has(bg)) intersection++; }
+          const union = bgA.size + bgB.size - intersection;
+          if (union > 0) {
+            const sim = intersection / union;
+            if (sim > best) best = sim;
+          }
+        }
+      }
+      if (best >= 0.4) {
+        addCandidate(a.path, b.path, `Title similarity (${Math.round(best * 100)}%)`);
+      }
+    }
+  }
+
+  return Array.from(candidates.values()).slice(0, 50);
 }
 
 // Normalize frontmatter dates: replace any LLM-generated `updated` with
