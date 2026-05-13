@@ -127,8 +127,8 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   async loadSettings() {
-    const savedData = await this.loadData();
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
+    const savedData = await this.loadData() as Partial<LLMWikiSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData || {});
 
     console.debug('loadSettings: loaded watchedFolders =', JSON.stringify(this.settings.watchedFolders));
 

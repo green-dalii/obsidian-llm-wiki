@@ -2,11 +2,20 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.7 | **Updated:** 2026-05-12
+**Version:** 1.7.8 | **Updated:** 2026-05-13
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.8) — Obsidian Bot Review Compliance
+
+**Obsidian Community Submission Review Fixes**
+- **API compliance**: Replaced `activeWindow.setTimeout` → `window.setTimeout` (7 locations) per Obsidian official API requirements
+- **Type safety**: Added `Partial<LLMWikiSettings> | null` assertion to `loadData()` result, fixed unsafe assignment/member access warnings
+- **CSS format consistency**: Expanded short hex colors to 6-digit format (#666→#666666, 4 locations) per Obsidian style guidelines
+- **Code cleanup**: Removed unused `_retryError` parameter, replaced deprecated `builtin-modules` dependency with Node.js native API
+- **Zero functional impact**: All fixes are code quality improvements, backward compatible, no runtime logic changes
 
 ### Implemented (v1.7.7) — Save-to-Wiki Fixes + Smart Batch Skip + Plugin ID Change
 

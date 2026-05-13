@@ -71,7 +71,7 @@
   background: #fff3e0;
   padding: 8px 16px;
   font-size: 13px;
-  color: #666;
+  color: #666666;
   flex-shrink: 0;
 }
 
@@ -84,7 +84,7 @@
 }
 
 .llm-wiki-query-input-container {
-  border-top: 2px solid #ddd;
+  border-top: 2px solid #dddddd;
   padding: 16px;
   background: white;
   flex-shrink: 0;
@@ -117,7 +117,7 @@
 }
 
 .llm-wiki-query-clear-btn {
-  background: #999;
+  background: #999999;
   color: white;
   padding: 8px;
   cursor: pointer;
@@ -128,7 +128,7 @@
 .llm-wiki-query-count {
   margin-top: 8px;
   font-size: 11px;
-  color: #999;
+  color: #999999;
 }
 
 .llm-wiki-query-message-wrapper {

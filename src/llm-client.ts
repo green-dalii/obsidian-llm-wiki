@@ -404,7 +404,7 @@ export class OpenAIClient implements LLMClient {
       if (this.isNetworkError(error) && attempt < 3) {
         const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
         console.warn(`Network error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms...`);
-        await new Promise(resolve => activeWindow.setTimeout(resolve, delay));
+        await new Promise(resolve => window.setTimeout(resolve, delay));
         return this.createMessageWithRetry(params, attempt + 1);
       }
       // After all retries exhausted, throw with actionable context
@@ -464,7 +464,7 @@ export class OpenAIClient implements LLMClient {
       if (this.isNetworkError(error) && attempt < 3) {
         const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
         console.warn(`Stream network error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms...`);
-        await new Promise(resolve => activeWindow.setTimeout(resolve, delay));
+        await new Promise(resolve => window.setTimeout(resolve, delay));
         return this.createMessageStreamWithRetry(params, attempt + 1);
       }
       throw error;

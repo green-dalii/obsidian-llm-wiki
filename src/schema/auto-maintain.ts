@@ -131,7 +131,7 @@ export class AutoMaintainManager {
       return;
     }
     this.lastSeenPaths.add(fileKey);
-    activeWindow.setTimeout(() => { this.lastSeenPaths.delete(fileKey); }, 600000);
+    window.setTimeout(() => { this.lastSeenPaths.delete(fileKey); }, 600000);
 
     console.debug(`[AutoMaintain] DETECTED: ${file.path}, pending: ${this.pendingFiles.size + 1}`);
 
@@ -169,7 +169,7 @@ export class AutoMaintainManager {
   markRecentWrite(path: string): void {
     this.recentWrites.add(path);
     // Auto-expire after 120 seconds (covers slow LLM responses)
-    activeWindow.setTimeout(() => {
+    window.setTimeout(() => {
       this.recentWrites.delete(path);
     }, 120000);
   }
@@ -319,7 +319,7 @@ export class AutoMaintainManager {
 
   async runStartupCheck(): Promise<void> {
     // Wait for vault to settle after startup
-    await new Promise(resolve => activeWindow.setTimeout(resolve, 3000));
+    await new Promise(resolve => window.setTimeout(resolve, 3000));
 
     const texts = TEXTS[this.settings.language];
 

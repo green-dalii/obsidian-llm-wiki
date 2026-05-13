@@ -319,7 +319,7 @@ export class WikiEngine {
                 await this.pageFactory.updateRelatedPage(task.name, analysis!, file);
                 console.debug(`Related page "${task.name}" recovered on retry`);
                 return { success: true as const, name: task.name };
-              } catch (_retryError) {
+              } catch {
                 console.error(`Related page "${task.name}" retry also failed`);
                 return { success: false as const, name: task.name, reason };
               }
@@ -420,7 +420,7 @@ export class WikiEngine {
   }
 
   private async apiDelay(ms?: number): Promise<void> {
-    await new Promise(resolve => activeWindow.setTimeout(resolve, ms || 300));
+    await new Promise(resolve => window.setTimeout(resolve, ms || 300));
   }
 
   async ensureWikiStructure() {
@@ -522,7 +522,7 @@ export class WikiEngine {
             return;
           }
           console.debug('文件已存在异常，等待100ms后重试:', path);
-          await new Promise(resolve => activeWindow.setTimeout(resolve, 100));
+          await new Promise(resolve => window.setTimeout(resolve, 100));
           continue;
         } else {
           console.error('无法处理的错误:', path, error);

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.8] - 2026-05-13
+
+### Fixed
+- **Obsidian Bot review compliance** — Addressed all warnings from official Obsidian community submission review
+  - Replaced `activeWindow.setTimeout` with `window.setTimeout` across 7 locations (llm-client, auto-maintain, wiki-engine) per Obsidian API guidelines
+  - Added type safety to `loadData()` result in main.ts with `Partial<LLMWikiSettings> | null` assertion
+  - Fixed unsafe member access on `savedData.wikiLanguage` by proper type assertion
+  - Expanded short hex color formats in styles.css (4 locations: #666→#666666, #ddd→#dddddd, #999→#999999) for consistency
+  - Removed unused `_retryError` parameter in catch block (wiki-engine.ts)
+
+### Changed
+- **Removed deprecated dependency** — Replaced `builtin-modules` package with Node.js native `module.builtinModules` API in esbuild config
+  - Eliminated third-party dependency, using built-in Node.js (v16+) functionality
+  - No functional changes to build output
+
+---
+
 ## [1.7.7] - 2026-05-12
 
 ### Added
