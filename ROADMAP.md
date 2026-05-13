@@ -11,6 +11,10 @@
 ### Implemented (v1.7.8) — Obsidian Bot Review Compliance
 
 **Obsidian Community Submission Review Fixes**
+- **Artifact attestations**: Added cryptographic provenance verification for release assets (main.js, styles.css) using GitHub Actions `attest-build-provenance@v1`
+  - Users can verify assets were built from source repository
+  - Supply chain security: prevents tampering between build and release
+  - Required workflow permissions: `attestations: write`, `id-token: write`
 - **API compliance**: Replaced `activeWindow.setTimeout` → `window.setTimeout` (7 locations) per Obsidian official API requirements
 - **Type safety**: Added `Partial<LLMWikiSettings> | null` assertion to `loadData()` result, fixed unsafe assignment/member access warnings
 - **CSS format consistency**: Expanded short hex colors to 6-digit format (#666→#666666, 4 locations) per Obsidian style guidelines

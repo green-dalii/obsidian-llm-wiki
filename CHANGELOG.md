@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.8] - 2026-05-13
 
+### Added
+- **GitHub artifact attestations** — Added cryptographic provenance verification for release assets
+  - Workflow now generates attestations for `main.js` and `styles.css` using `actions/attest-build-provenance@v1`
+  - Users can verify assets were built from source repository (supply chain security)
+  - Added workflow permissions: `attestations: write`, `id-token: write`
+  - Meets Obsidian community submission security requirements
+
 ### Fixed
 - **Obsidian Bot review compliance** — Addressed all warnings from official Obsidian community submission review
   - Replaced `activeWindow.setTimeout` with `window.setTimeout` across 7 locations (llm-client, auto-maintain, wiki-engine) per Obsidian API guidelines
