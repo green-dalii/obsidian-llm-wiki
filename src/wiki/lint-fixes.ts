@@ -434,15 +434,21 @@ aliases: []
       a && a !== targetTitle && allAliases.indexOf(a) === i
     );
 
-    // 2. LLM content merge
+    // 2. LLM content merge — PASS ONLY THE BODY, NOT FRONTMATTER
+    // Extract body from both pages (strip frontmatter before sending to LLM)
+    const targetBodyMatch = targetContent.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
+    const sourceBodyMatch = sourceContent.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
+    const targetBody = targetBodyMatch ? targetBodyMatch[1].trim() : targetContent;
+    const sourceBody = sourceBodyMatch ? sourceBodyMatch[1].trim() : sourceContent;
+
     const client = this.ctx.getClient();
     let mergedBody = '';
     let llmMergeSucceeded = false;
     if (client) {
       try {
         const prompt = PROMPTS.mergeDuplicatePages
-          .replace('{{target_content}}', targetContent)
-          .replace('{{source_content}}', sourceContent)
+          .replace('{{target_content}}', targetBody)  // ONLY body, no frontmatter
+          .replace('{{source_content}}', sourceBody)  // ONLY body, no frontmatter
           .replace('{{source_path}}', sourcePath);
 
         const mergedContent = await client.createMessage({
@@ -488,17 +494,15 @@ aliases: []
       }
     }
 
-    // If LLM failed or returned empty body, fall back to programmatic merge
+    // If LLM failed or returned empty body, fall back to programmatic merge (using already extracted bodies)
     if (!mergedBody) {
       if (llmMergeSucceeded) {
         console.warn(`mergeDuplicatePages: LLM returned empty body for ${sourcePath} → ${targetPath}, using programmatic merge`);
       }
-      const targetBodyMatch = targetContent.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
-      mergedBody = targetBodyMatch ? targetBodyMatch[1].trim() : '';
+      mergedBody = targetBody;
       // Append source's unique sections at the end
-      const sourceBodyMatch = sourceContent.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
-      if (sourceBodyMatch) {
-        mergedBody += '\n\n## From ' + sourceTitle + '\n\n' + sourceBodyMatch[1].trim();
+      if (sourceBody) {
+        mergedBody += '\n\n## From ' + sourceTitle + '\n\n' + sourceBody;
       }
     }
 
@@ -524,10 +528,13 @@ aliases: []
     }
     fmLines.push('---');
 
-    const finalContent = fmLines.join('\n') + '\n' + mergedBody;
+    // CRITICAL: frontmatter closing delimiter MUST have blank line before body
+    // Format: ---\n...\n---\n\n<body> (double newline after closing ---)
+    const finalContent = fmLines.join('\n') + '\n\n' + mergedBody;
 
     // 4. Enforce frontmatter constraints (tag validation, etc.)
-    const validated = enforceFrontmatterConstraints(finalContent);
+    const pageType = (targetFm?.type as 'entity' | 'concept' | 'source' | undefined) || 'entity';
+    const validated = enforceFrontmatterConstraints(finalContent, pageType);
 
     // 5. Write merged target
     await this.ctx.createOrUpdateFile(targetPath, validated);
@@ -568,13 +575,20 @@ function escapeRegex(s: string): string {
 //   1. Shared frontmatter sources (strongest — catches translations of same source)
 //   2. Shared outgoing wiki-links (catches pages linking to same related entities/concepts)
 //   3. Character bigram title similarity (catches spelling variants, same-language near-matches)
+export interface DuplicateCandidate {
+  target: string;
+  source: string;
+  reason: string;
+  signal: 'crossLang' | 'abbreviation' | 'bigram' | 'sharedLinks';
+  score: number;
+}
+
 export function generateDuplicateCandidates(
   pages: Array<{ path: string; content: string; title: string }>,
-): Array<{ target: string; source: string; reason: string }> {
+): DuplicateCandidate[] {
   interface PageMeta {
     path: string;
     title: string;
-    sources: string[];
     aliases: string[];
     links: Set<string>;
   }
@@ -584,7 +598,6 @@ export function generateDuplicateCandidates(
 
   for (const page of pages) {
     const fm = parseFrontmatter(page.content);
-    const sources = Array.isArray(fm?.sources) ? fm.sources : [];
     const aliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
 
     const links = new Set<string>();
@@ -594,41 +607,21 @@ export function generateDuplicateCandidates(
       links.add(match[1].trim().toLowerCase());
     }
 
-    metas.push({ path: page.path, title: page.title, sources, aliases, links });
+    metas.push({ path: page.path, title: page.title, aliases, links });
   }
 
-  const candidates = new Map<string, { target: string; source: string; reason: string }>();
+  const candidates = new Map<string, DuplicateCandidate>();
 
-  const addCandidate = (pathA: string, pathB: string, reason: string) => {
-    const metaA = metas.find(m => m.path === pathA)!;
-    const metaB = metas.find(m => m.path === pathB)!;
-    // Prefer the page with more sources as the target (keep)
-    const [target, source] = metaA.sources.length >= metaB.sources.length
-      ? [pathA, pathB] : [pathB, pathA];
-    const key = `${target}|||${source}`;
+  const addCandidate = (pathA: string, pathB: string, reason: string, signal: DuplicateCandidate['signal'], score: number) => {
+    const key = [pathA, pathB].sort().join('|||');
     if (!candidates.has(key)) {
-      candidates.set(key, { target, source, reason });
+      candidates.set(key, { target: pathA, source: pathB, reason, signal, score });
+    } else if (score > candidates.get(key)!.score) {
+      candidates.set(key, { target: pathA, source: pathB, reason, signal, score });
     }
   };
 
-  // Signal 1: Shared frontmatter sources
-  const sourceIndex = new Map<string, string[]>();
-  for (const meta of metas) {
-    for (const src of meta.sources) {
-      const key = src.toLowerCase();
-      if (!sourceIndex.has(key)) sourceIndex.set(key, []);
-      sourceIndex.get(key)!.push(meta.path);
-    }
-  }
-  for (const [, paths] of sourceIndex) {
-    for (let i = 0; i < paths.length; i++) {
-      for (let j = i + 1; j < paths.length; j++) {
-        addCandidate(paths[i], paths[j], 'Shared source file');
-      }
-    }
-  }
-
-  // Signal 2: Shared outgoing wiki-links (Jaccard >= 0.25)
+  // Signal 1: Shared outgoing wiki-links (Jaccard >= 0.4)
   for (let i = 0; i < metas.length; i++) {
     for (let j = i + 1; j < metas.length; j++) {
       const a = metas[i], b = metas[j];
@@ -638,13 +631,14 @@ export function generateDuplicateCandidates(
         if (b.links.has(link)) intersection++;
       }
       const union = a.links.size + b.links.size - intersection;
-      if (union > 0 && intersection / union >= 0.25) {
-        addCandidate(a.path, b.path, `Shared wiki-links (${Math.round(intersection / union * 100)}% overlap)`);
+      const jaccard = union > 0 ? intersection / union : 0;
+      if (jaccard >= 0.4) {
+        addCandidate(a.path, b.path, `Shared wiki-links (${Math.round(jaccard * 100)}% overlap)`, 'sharedLinks', jaccard);
       }
     }
   }
 
-  // Signal 3: Character bigram similarity on titles/aliases (>= 0.4)
+  // Signal 2: Bigram + cross-language + abbreviation on titles/aliases
   const bigrams = (s: string): Set<string> => {
     const result = new Set<string>();
     const normalized = s.toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
@@ -659,29 +653,100 @@ export function generateDuplicateCandidates(
       const a = metas[i], b = metas[j];
       const namesA = [a.title, ...a.aliases];
       const namesB = [b.title, ...b.aliases];
-      let best = 0;
-      for (const na of namesA) {
-        const bgA = bigrams(na);
-        if (bgA.size === 0) continue;
-        for (const nb of namesB) {
-          const bgB = bigrams(nb);
-          if (bgB.size === 0) continue;
+
+      // 2a: Bigram similarity on all names (titles + aliases)
+      let maxSim = 0;
+      for (const nameA of namesA) {
+        for (const nameB of namesB) {
+          const bgA = bigrams(nameA);
+          const bgB = bigrams(nameB);
+          if (bgA.size === 0 || bgB.size === 0) continue;
           let intersection = 0;
-          for (const bg of bgA) { if (bgB.has(bg)) intersection++; }
-          const union = bgA.size + bgB.size - intersection;
-          if (union > 0) {
-            const sim = intersection / union;
-            if (sim > best) best = sim;
+          for (const bg of bgA) {
+            if (bgB.has(bg)) intersection++;
+          }
+          const sim = intersection / (bgA.size + bgB.size - intersection);
+          if (sim > maxSim) maxSim = sim;
+        }
+      }
+      if (maxSim >= 0.4) {
+        addCandidate(a.path, b.path, `Title/alias similarity (${Math.round(maxSim * 100)}% match)`, 'bigram', maxSim);
+      }
+
+      // 2b: Cross-language alias match
+      const normalizeForMatch = (s: string) => s.toLowerCase().replace(/[\s\-_]+/g, '').replace(/[^a-z0-9一-鿿]/g, '');
+
+      const normalizedNamesA = namesA.map(n => normalizeForMatch(n));
+      const normalizedAliasesB = b.aliases.map(n => normalizeForMatch(n));
+      const normalizedTitleB = normalizeForMatch(b.title);
+
+      let crossLangMatch = false;
+      for (const normA of normalizedNamesA) {
+        if (normA && (normalizedAliasesB.includes(normA) || normalizedTitleB === normA)) {
+          addCandidate(a.path, b.path, 'Cross-language match (alias or title overlap)', 'crossLang', 1.0);
+          crossLangMatch = true;
+          break;
+        }
+      }
+
+      // Reverse check: B's title/alias in A's aliases
+      if (!crossLangMatch) {
+        const normalizedNamesB = namesB.map(n => normalizeForMatch(n));
+        const normalizedAliasesA = a.aliases.map(n => normalizeForMatch(n));
+        const normalizedTitleA = normalizeForMatch(a.title);
+
+        for (const normB of normalizedNamesB) {
+          if (normB && (normalizedAliasesA.includes(normB) || normalizedTitleA === normB)) {
+            addCandidate(a.path, b.path, 'Cross-language match (alias or title overlap)', 'crossLang', 1.0);
+            break;
           }
         }
       }
-      if (best >= 0.4) {
-        addCandidate(a.path, b.path, `Title similarity (${Math.round(best * 100)}%)`);
+
+      // 2c: Common abbreviation expansion
+      const abbreviations = new Map<string, string>([
+        ['moe', 'mixtureofexperts'],
+        ['cot', 'chainofthought'],
+        ['ntp', 'nexttokenprediction'],
+        ['kv', 'keyvalue'],
+        ['lora', 'lowrankadaptation'],
+        ['rag', 'retrievalaugmentedgeneration'],
+        ['pe', 'positionencoding'],
+        ['attn', 'attention'],
+        ['mlp', 'multilayerperceptron'],
+        ['ffn', 'feedforwardnetwork'],
+        ['ce', 'crossentropy'],
+        ['bf16', 'bfloat16'],
+        ['fp16', 'float16'],
+        ['fp32', 'float32'],
+        ['gpu', 'graphicsprocessingunit'],
+        ['cpu', 'centralprocessingunit'],
+        ['nic', 'networkinterfacecard'],
+        ['cnic', 'computenetworkinterfacecard'],
+      ]);
+
+      const expandAbbr = (s: string): string[] => {
+        const norm = normalizeForMatch(s);
+        const expanded = abbreviations.get(norm);
+        return expanded ? [norm, expanded] : [norm];
+      };
+
+      // Check if A's title matches B's title after abbreviation expansion
+      const expandedA = namesA.flatMap(n => expandAbbr(n));
+      const expandedB = namesB.flatMap(n => expandAbbr(n));
+
+      for (const expA of expandedA) {
+        for (const expB of expandedB) {
+          if (expA && expB && expA === expB && expA !== normalizeForMatch(a.title) && expA !== normalizeForMatch(b.title)) {
+            addCandidate(a.path, b.path, `Abbreviation match (${expA})`, 'abbreviation', 1.0);
+            break;
+          }
+        }
       }
     }
   }
 
-  return Array.from(candidates.values()).slice(0, 50);
+	return Array.from(candidates.values());
 }
 
 // Normalize frontmatter dates: replace any LLM-generated `updated` with

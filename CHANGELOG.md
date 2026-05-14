@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.11] - 2026-05-15
+
+### Fixed
+- **Lint duplicate detection 500 error on large wikis**: Removed low-quality `sharedSources` signal (generated 11K+ false-positive candidates), raised `sharedLinks` Jaccard threshold from 0.25 to 0.4, implemented semantic tiering with token-budget batching for LLM verification
+- **Frontmatter corruption**: Fixed missing blank line between closing `---` and body in `enforceFrontmatterConstraints()` and `mergeDuplicatePages()` LLM output path
+- **Frontmatter leaked to LLM in merge**: Stripped frontmatter before sending page content to LLM in `mergeDuplicatePages()`, updated prompt to clarify body-only input
+- **minAppVersion**: Bumped from 1.4.0 to 1.6.6 for `FileManager.trashFile()` API
+
+### Added
+- **Mandatory aliases in page generation**: All three page generation prompts (`generateEntityPage`, `generateConceptPage`, `generateSummaryPage`) now require at least 1 alias with fallback hierarchy (translation → source name → original language name)
+- **`generateAliases` prompt**: New LLM prompt for filling missing aliases on existing pages via Lint
+- **Alias deficiency in Lint**: Detects entity/concept pages without `aliases:` frontmatter field, reports in summary and prepended to report body, "Complete aliases" button with parallel batch processing
+- **Semantic tiering for duplicate candidates**: Tier 1 (crossLang, abbreviation, bigram ≥ 0.6) always sent; Tier 2 (bigram 0.4-0.6, sharedLinks ≥ 0.4) fills remaining token budget (15K input tokens)
+- **Parallel batch LLM verification**: Duplicate candidates split into batches of 100, processed with configurable concurrency via `Promise.allSettled`, batch-level error isolation
+- **`DuplicateCandidate` interface**: Structured candidate with `signal` and `score` fields for tier classification
+- **Smart Fix All button**: Batched causality-aware fix (duplicates → dead links → orphans → empty pages) in Lint report modal
+- **Console logging for alias completion**: `[Alias]` prefix batch/per-page/summary logs
+
+### Changed
+- **Lint report modal redesigned**: 4-layer button layout (pre-flight aliases → causality-ordered fixes → smart fix all → schema analysis)
+- **Lint report summary**: Now includes `{aliasesMissing}` count alongside duplicates, dead links, orphans, empty pages
+- **main.ts**: Fully migrated from legacy shim to complete plugin entry point
+- **CLAUDE.md**: Updated project structure and phase documentation
+
 ## [1.7.10] - 2026-05-14
 
 ### Added

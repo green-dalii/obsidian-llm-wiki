@@ -58,7 +58,13 @@ export class AnthropicCompatibleClient implements LLMClient {
         };
 
         if (data.error) throw new Error(data.error.message);
+        console.debug('Anthropic API response:', {
+          stop_reason: data.stop_reason,
+          content_length: data.content?.length || 0,
+          content_types: data.content?.map(c => c.type) || []
+        });
         let text = this.extractText(data.content || []);
+        console.debug('Extracted text length:', text.length);
 
         // Detect truncation: retry once with double the token limit.
         if (data.stop_reason === 'max_tokens') {
@@ -97,6 +103,7 @@ export class AnthropicCompatibleClient implements LLMClient {
               throw retryErr;
             }
           }
+          if (!retryResponse) throw new Error('Truncation retry failed: no response after retries');
           const retryData = retryResponse.json as {
             content?: Array<{ type: string; text?: string }>;
             error?: { message: string };

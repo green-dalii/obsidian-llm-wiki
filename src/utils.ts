@@ -720,5 +720,7 @@ export function enforceFrontmatterConstraints(content: string, pageType: 'entity
 
   result.push('---');
 
-  return result.join('\n') + body;
+  // CRITICAL: frontmatter closing delimiter MUST have blank line before body
+  // Format: ---\n...\n---\n\n<body> (double newline after closing ---)
+  return result.join('\n') + '\n\n' + body;
 }

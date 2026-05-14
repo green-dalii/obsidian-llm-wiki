@@ -561,7 +561,7 @@ export class WikiEngine {
   async deleteFile(path: string): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (file instanceof TFile) {
-      await this.app.vault.trash(file, false);
+      await this.app.fileManager.trashFile(file);
       this.pagesCache = null;
       console.debug('deleteFile:', path);
     }

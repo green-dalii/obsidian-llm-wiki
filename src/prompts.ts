@@ -103,7 +103,12 @@ export const PROMPTS = {
 2. When referencing other pages, use the exact full path format from the "Existing Wiki Pages" list above (e.g. [[entities/Page-Name|Page Name]])
 3. If the entity already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
-5. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
+5. **Generate aliases for this page** — provide 1-3 alternative names. This field is REQUIRED:
+   - If the page name is in Chinese, add the English equivalent as alias
+   - If the page name is in English, add a Chinese translation as alias (when Wiki language is Chinese)
+   - Include common acronyms, abbreviations, or alternative phrasings
+   - **If no natural alias exists**, fall back to: a translation in the Wiki language, the source file name, or the entity name itself in the other language. The aliases field MUST NOT be left empty — always provide at least one meaningful alias
+6. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
 ---
@@ -112,7 +117,7 @@ created: {{date}}
 updated: {{date}}
 sources: ["[[{{source_file}}]]"]
 tags: [{{entity_type}}]  # Use entity_type (e.g., product, person, organization) as a tag
-aliases: []
+aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must NOT be empty
 ---
 
 # {{entity_name}}
@@ -245,7 +250,12 @@ reviewed: true
 2. When referencing other pages, use the exact full path format from the "Existing Wiki Pages" list above (e.g. [[concepts/Page-Name|Page Name]])
 3. If the concept already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
-5. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
+5. **Generate aliases for this page** — provide 1-3 alternative names. This field is REQUIRED:
+   - If the page name is in Chinese, add the English equivalent as alias
+   - If the page name is in English, add a Chinese translation as alias (when Wiki language is Chinese)
+   - Include common acronyms, abbreviations, or alternative phrasings
+   - **If no natural alias exists**, fall back to: a translation in the Wiki language, the source file name, or the concept name itself in the other language. The aliases field MUST NOT be left empty — always provide at least one meaningful alias
+6. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
 ---
@@ -254,7 +264,7 @@ created: {{date}}
 updated: {{date}}
 sources: ["[[{{source_file}}]]"]
 tags: [{{concept_type}}]  # Use concept_type (e.g., theory, method, technology) as a tag
-aliases: []
+aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must NOT be empty
 ---
 
 # {{concept_name}}
@@ -295,6 +305,10 @@ aliases: []
 2. When referencing entities and concepts, use the exact full path format from the "All Created Wiki Pages" list above
 3. Highlight key points
 4. Be objective and accurate
+5. **Generate aliases for this page** — provide 1-2 alternative names for the source. This field is REQUIRED:
+   - Add an English translation of the title as alias (if title is in Chinese)
+   - Add a Chinese translation of the title as alias (if title is in English and Wiki language is Chinese)
+   - **If no natural alias exists**, use the source file name or the title itself in the other language. The aliases field MUST NOT be left empty — always provide at least one alias
 
 **Output Format:**
 ---
@@ -303,7 +317,7 @@ created: {{date}}
 updated: {{date}}
 source_file: "[[{{source_file}}]]"
 tags: [{{tags}}]
-aliases: []
+aliases: ["Alternative title or translation"]  # REQUIRED: at least 1 alias, must NOT be empty
 ---
 
 # {{source_title}} - Summary
@@ -719,15 +733,17 @@ If none of the candidates are true duplicates: {"duplicates": []}`,
   // Merge two duplicate pages: intelligently fuse source into target.
   // Outputs JSON with both merged body AND discovered aliases so the LLM
   // can contribute aliases it finds in the content (translations, abbreviations, etc.).
-  mergeDuplicatePages: `You are a Wiki editor merging two duplicate pages. Intelligently fuse the source page into the target page to create the best single version. Also extract any alternative names found in either page.
+  mergeDuplicatePages: `You are a Wiki editor merging two duplicate pages. Intelligently fuse the source page body into the target page body to create the best single version. Also extract any alternative names found in either page.
 
-**Target page (will be kept):**
+**Target page body (will be kept):**
 {{target_content}}
 
-**Source page (will be merged then deleted):**
+**Source page body (will be merged then deleted):**
 {{source_content}}
 
 **Source page path:** {{source_path}}
+
+**IMPORTANT:** You are receiving ONLY the Markdown body content (frontmatter already stripped by the system). DO NOT include any frontmatter in your output. The system will handle frontmatter merging programmatically.
 
 **Fusion rules:**
 1. Keep ALL information from the target page — it is the primary version
@@ -752,5 +768,32 @@ If none of the candidates are true duplicates: {"duplicates": []}`,
 }
 
 If source adds nothing new, still output the target body AND any aliases found.`,
+
+  // Generate aliases for a page by analyzing its content and title.
+  // Used to fill missing aliases to improve duplicate detection.
+  generateAliases: `You are a knowledge curator. Given a wiki page's title and body, suggest alternative names (aliases) someone might search for when looking for this concept.
+
+**Page title:** {{title}}
+
+**Page body:**
+{{body}}
+
+**What to generate:**
+- Translations: if the title is Chinese, suggest English translations, and vice versa
+- Abbreviations: e.g. "Chain of Thought" → "CoT", "Mixture of Experts" → "MoE"
+- Spelling variants: "Mixture-of-Experts", "Mixture of Experts", "Sparse MoE"
+- Common alternative names in the field
+- Full forms of abbreviations (e.g. "NTP" → "Next Token Prediction")
+
+**Rules:**
+- 3-8 aliases is ideal
+- Only include names that genuinely refer to THIS concept
+- Do NOT include the page title itself as an alias
+- Prefer commonly-used names in the field
+
+**You MUST output ONLY a valid JSON object, no other text:**
+{"aliases": ["alias1", "alias2", "alias3"]}
+
+If no meaningful aliases found: {"aliases": []}`,
 
 };

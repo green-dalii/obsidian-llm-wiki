@@ -2,13 +2,23 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-14
+**Last Updated:** 2026-05-15
 
 ---
 
-## Current Phase: Knowledge Deduplication + Error Resilience (v1.7.10)
+## Current Phase: Alias Infrastructure + Duplicate Detection Scaling (v1.7.11)
 
-**New features: Duplicate page detection/merge, 5xx retry, persistent progress notices, error handling overhaul.**
+**New features: Mandatory page aliases, semantic-tier duplicate detection with token-budget batching, alias deficiency detection and repair.**
+
+Recently completed (v1.7.11):
+- **Mandatory aliases in page generation**: All three generation prompts now require `aliases:` to be non-empty, with fallback hierarchy (translation → source name → original name). Every new entity/concept/source page gets at least 1 alias.
+- **`generateAliases` prompt + alias completion in Lint**: New prompt for filling missing aliases on existing pages; Lint detects pages without aliases and offers "Complete aliases" button with parallel batch processing (reuses `pageGenerationConcurrency`).
+- **Duplicate detection scaling fix**: Removed `sharedSources` signal (generated false positives from same-source pages that aren't duplicates). Raised `sharedLinks` Jaccard threshold from 0.25 → 0.4. Implemented semantic tiering: Tier 1 (must-send: crossLang, abbreviation, bigram ≥ 0.6) always verified; Tier 2 (fill: bigram 0.4-0.6, sharedLinks ≥ 0.4) uses token budget (15K input tokens). Batch size 100 candidates per LLM call at 4000 max_tokens, parallelized with configurable concurrency.
+- **`DuplicateCandidate` interface**: Structured candidate with `signal` and `score` fields for clean tier classification.
+- **Smart Fix All**: Causality-ordered batch fix (duplicates → dead links → orphans → empty pages) in Lint report.
+- **Frontmatter fixes**: `enforceFrontmatterConstraints()` and `mergeDuplicatePages()` now correctly insert blank line between closing `---` and body; merge path strips frontmatter before sending to LLM.
+- **minAppVersion bumped to 1.6.6**: Required for `FileManager.trashFile()` API.
+- **Lint report redesigned**: 4-layer button layout, summary includes `{aliasesMissing}` count, causality annotations on dead links and orphans.
 
 Recently completed (v1.7.10):
 - **方案C Phase 1+2 — Knowledge deduplication**:
@@ -78,12 +88,12 @@ Active gaps:
 
 ```
 src/
-├── main.ts                         # Plugin entry shim → ../main.ts
+├── main.ts                         # Plugin entry point
 ├── types.ts                        # Shared types + EngineContext
 ├── utils.ts                        # Utilities (slugify, parseJson, etc.)
 ├── prompts.ts                      # All LLM prompt templates
 ├── texts.ts                        # i18n texts (8 languages)
-├── llm-client.ts                   # Anthropic/OpenAI/Ollama clients
+├── llm-client.ts                   # Anthropic/OpenAI/Ollama clients (with 5xx retry)
 ├── wiki/                           # Wiki engine + knowledge modules
 │   ├── wiki-engine.ts              # Orchestrator (526 lines)
 │   ├── query-engine.ts             # Conversational query
@@ -91,6 +101,7 @@ src/
 │   ├── page-factory.ts             # Entity/concept CRUD + merge
 │   ├── conversation-ingest.ts      # Chat → wiki knowledge + dedup
 │   ├── lint-fixes.ts               # Dead link fix, empty page fill, orphan link
+│   ├── lint-controller.ts          # Lint orchestration (extracted from main.ts)
 │   ├── contradictions.ts           # Contradiction detection/resolution
 │   └── system-prompts.ts           # Language directive + section labels
 ├── schema/                         # Schema co-evolution
