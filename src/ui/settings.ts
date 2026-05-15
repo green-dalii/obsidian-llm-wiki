@@ -148,6 +148,19 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           try {
             const apiKey = isOllama ? 'ollama' : this.tempSettings.apiKey.trim();
             const baseUrl = this.tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
+
+            // Smart filter based on provider: OpenRouter allows '/', Ollama allows ':'
+            const getModelFilter = (provider: string) => {
+              if (provider === 'openrouter') {
+                return (id: string) => !id.includes(':'); // Keep '/', filter ':'
+              } else if (provider === 'ollama') {
+                return (id: string) => !id.includes('/'); // Keep ':', filter '/'
+              } else {
+                return (id: string) => !id.includes(':') && !id.includes('/'); // Filter both
+              }
+            };
+            const modelFilter = getModelFilter(this.tempSettings.provider);
+
             if (this.tempSettings.provider === 'anthropic' || this.tempSettings.provider === 'anthropic-compatible') {
               if (this.tempSettings.provider === 'anthropic-compatible' && this.tempSettings.baseUrl?.trim()) {
                 const rawBase = this.tempSettings.baseUrl.trim();
@@ -158,7 +171,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
                   if (response.status >= 200 && response.status < 300) {
                     const data = response.json as { data?: Array<{ id: string }> };
                     if (data.data?.length) {
-                      this.tempSettings.availableModels = data.data.map(m => m.id).filter(id => !id.includes(':') && !id.includes('/')).sort();
+                      this.tempSettings.availableModels = data.data.map(m => m.id).filter(modelFilter).sort();
                     } else throw new Error('empty model list');
                   } else throw new Error(`HTTP ${response.status}`);
                 } catch {
@@ -167,7 +180,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
                   if (altResponse.status >= 200 && altResponse.status < 300) {
                     const altData = altResponse.json as { data?: Array<{ id: string }> };
                     if (altData.data?.length) {
-                      this.tempSettings.availableModels = altData.data.map(m => m.id).filter(id => !id.includes(':') && !id.includes('/')).sort();
+                      this.tempSettings.availableModels = altData.data.map(m => m.id).filter(modelFilter).sort();
                     } else throw new Error('empty model list');
                   } else throw new Error(`HTTP ${altResponse.status}`);
                 }
@@ -177,7 +190,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             } else {
               const tempClient = new OpenAI({ apiKey, baseURL: baseUrl || 'https://api.openai.com/v1', dangerouslyAllowBrowser: true });
               const models = await tempClient.models.list();
-              this.tempSettings.availableModels = models.data.map((m: { id: string }) => m.id).filter((id: string) => !id.includes(':') && !id.includes('/')).sort().slice(0, 100);
+              this.tempSettings.availableModels = models.data.map((m: { id: string }) => m.id).filter(modelFilter).sort().slice(0, 100);
             }
             if (this.tempSettings.availableModels.length > 0) {
               new Notice(this.getText('fetchSuccess').replace('{}', this.tempSettings.availableModels.length.toString()), 5000);
