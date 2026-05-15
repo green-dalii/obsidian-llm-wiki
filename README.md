@@ -24,6 +24,18 @@ You write. AI organizes. You ask. That's it.
 
 ---
 
+## Why Obsidian + LLM-Wiki?
+
+Obsidian is brilliant at linked thinking. But there's a catch: you're the one doing all the linking.
+
+LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it with you. Add a note about a new concept — it finds the connections you'd miss. Ask a question — it walks your own knowledge graph and brings back answers with citations.
+
+- **Your Graph View comes alive.** New notes don't just sit there — they sprout links to entities, concepts, and sources. The graph grows organically, and the plugin maintains it: detecting duplicates, fixing dead links, bridging languages with aliases.
+- **Your notes learn to talk back.** Search becomes conversation. "What did I write about X?" becomes a dialogue, with streaming responses and `[[wiki-links]]` as breadcrumbs. Every answer is a path deeper into your own knowledge.
+- **Obsidian becomes a thinking partner.** It stops being a cabinet for notes and starts being something that helps you *think* — surfacing hidden connections, flagging contradictions, remembering what you forgot you knew.
+
+---
+
 ## Quick Start
 
 ### Installation
@@ -33,6 +45,8 @@ You write. AI organizes. You ask. That's it.
 1. In Obsidian, go to **Settings → Community plugins**
 2. Click **Browse** and search for "Karpathy LLM Wiki"
 3. Click **Install**, then **Enable**
+
+**Or from the Community Plugin website —** visit [community.obsidian.md/plugins/karpathywiki](https://community.obsidian.md/plugins/karpathywiki) and click **Add to Obsidian** to install directly.
 
 **Manual (alternative):**
 
