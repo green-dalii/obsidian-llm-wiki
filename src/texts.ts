@@ -99,13 +99,20 @@ export const TEXTS = {
 
     // Query Modal UI
     queryModalTitle: 'Query Wiki - Conversational Query',
-    queryModalPlaceholder: 'Enter question... (Enter to send)',
+    queryModalPlaceholder: 'Enter question...',
     queryModalSendButton: 'Send',
+    queryModalStopButton: 'Stop',
     queryModalSaveButton: 'Save to Wiki',
     queryModalClearButton: 'Clear History',
     queryModalHistoryCount: 'Conversation history: {}/{} rounds',
     queryModalStreaming: 'Streaming...',
     queryModalFallbackStreaming: 'Streaming not supported, switched to non-streaming. Please wait...',
+    queryPhaseSearching: 'Analyzing Wiki index, selecting relevant pages...',
+    queryPhaseFoundPages: 'Found {count} page(s): {pages}',
+    queryPhaseLoadingPages: 'Loading page content...',
+    queryPhaseContextReady: 'Context ready. Generating answer...',
+    queryPhaseGenerating: 'Generating... (elapsed {time}s)',
+    queryPhaseNonStreaming: 'Non-streaming mode, generating response... (elapsed {time}s)',
     queryModalErrorPrefix: 'Error: ',
     queryModalHint: 'Queries based on Wiki content. Click "Save to Wiki" to extract valuable conversations as Wiki pages.',
 
@@ -462,13 +469,20 @@ export const TEXTS = {
 
     // Query Modal UI
     queryModalTitle: 'Query Wiki - 对话式查询',
-    queryModalPlaceholder: '输入问题... (Enter发送)',
+    queryModalPlaceholder: '输入问题...',
     queryModalSendButton: '发送',
+    queryModalStopButton: '停止',
     queryModalSaveButton: '保存到Wiki',
     queryModalClearButton: '清空历史',
     queryModalHistoryCount: '对话历史: {}/{} 轮',
     queryModalStreaming: '流式生成中...',
     queryModalFallbackStreaming: '端点不支持流式传输，已回退至非流式模式，请耐心等待...',
+    queryPhaseSearching: '正在分析 Wiki 索引，查找相关资料...',
+    queryPhaseFoundPages: '找到 {count} 个资料：{pages}',
+    queryPhaseLoadingPages: '正在加载页面内容...',
+    queryPhaseContextReady: '资料就绪，正在生成回复...',
+    queryPhaseGenerating: '正在生成回复...（已等待 {time}s）',
+    queryPhaseNonStreaming: '非流式模式，生成中，请耐心等待...（已等待 {time}s）',
     queryModalErrorPrefix: '错误：',
     queryModalHint: '查询基于Wiki内容。点击"保存到Wiki"可将有价值对话提炼为Wiki页面。',
 

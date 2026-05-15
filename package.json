@@ -1,6 +1,6 @@
 {
   "name": "karpathywiki",
-  "version": "1.7.13",
+  "version": "1.7.14",
   "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation with conversational query",
   "main": "main.js",
   "scripts": {
@@ -33,7 +33,6 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.0",
-    "openai": "^4.67.0"
+    "@anthropic-ai/sdk": "^0.24.0"
   }
 }

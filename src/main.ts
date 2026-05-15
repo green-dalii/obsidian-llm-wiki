@@ -7,7 +7,7 @@ import {
   LLMClient,
   IngestReport
 } from './types';
-import { AnthropicClient, AnthropicCompatibleClient, OpenAIClient } from './llm-client';
+import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
 import { TEXTS } from './texts';
 import { slugify, parseFrontmatter } from './utils';
 import { LLMWikiSettingTab } from './ui/settings';
@@ -178,7 +178,7 @@ export default class LLMWikiPlugin extends Plugin {
         const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
         const apiKey = this.settings.provider === 'ollama' ? 'ollama' : this.settings.apiKey.trim();
 
-        this.llmClient = new OpenAIClient(apiKey, baseUrl);
+        this.llmClient = new OpenAICompatibleClient(apiKey, baseUrl);
       }
 
       console.debug('LLM Client initialized:', this.settings.provider, 'baseUrl:', this.settings.baseUrl || PREDEFINED_PROVIDERS[this.settings.provider]?.baseUrl);
@@ -453,7 +453,7 @@ export default class LLMWikiPlugin extends Plugin {
       } else {
         const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
         const apiKey = isOllama ? 'ollama' : this.settings.apiKey.trim();
-        testClient = new OpenAIClient(apiKey, baseUrl);
+        testClient = new OpenAICompatibleClient(apiKey, baseUrl);
       }
 
       const testResponse = await testClient.createMessage({

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.14] - 2026-05-15
+
+### Fixed
+- **#17 CORS errors for OpenAI compatible endpoints**: Replaced `openai` npm SDK (browser `fetch()`, CORS-bound) with `requestUrl()`-based `OpenAICompatibleClient` across all non-Anthropic providers. The `requestUrl()` API delegates to Obsidian's Main process (Node.js), bypassing browser CORS restrictions entirely. Also rewrote model fetching in settings to use `requestUrl()`. This eliminates `x-stainless-timeout` header preflight failures and `Access-Control-Allow-Origin` rejections
+- **Query modal `.modal-header` blank space**: Hidden via CSS to remove unused header area
+- **Markdown rendering in Query not matching Obsidian**: Root cause was stale Component lifecycle — reusing the same `Component` across streaming chunks accumulated orphaned child components, causing tables and complex elements to render without proper styles. Fixed by creating a fresh `Component` per render call and explicitly disposing old ones. Added `markdown-reading-view` CSS class to message body containers for theme style compatibility. Added comprehensive explicit CSS for tables (border-collapse, th/td borders, alternating row backgrounds, code blocks, blockquotes) using Obsidian CSS variables
+
+### Added
+- **Query progress indicator overhaul**: Five-phase progress display with real-time updates:
+  - "Analyzing Wiki index..." → "Found 3 pages: Attention, Transformer, CSA" → "Loading page content..." → "Context ready" → "Generating... (elapsed 25s)"
+  - Page names displayed in found-pages phase, persisted into generating phase
+  - Elapsed time counter updates every second during generation
+  - Non-streaming mode clearly labeled with "Non-streaming mode, generating... (elapsed Xs)"
+- **Cmd+Enter to send / Stop button**: Send now requires Cmd+Enter (Ctrl+Enter on Windows) to prevent accidental sends. Button shows keyboard shortcut hint. During LLM processing, send button transforms into red "Stop" button. Stopping preserves input text for editing
+- **Copy button**: Each assistant message has a hover-visible "Copy" button that copies raw markdown to clipboard with "Copied!" feedback
+- **Auto-scroll**: Chat history automatically scrolls to bottom on new messages and during streaming
+
+### Changed
+- Query modal padding removed, overflow fixed to eliminate page-level scrollbar
+- `queryModalPlaceholder` simplified (shortcut hint moved to button)
+- All progress texts synchronized between English and Chinese
+
+### Removed
+- `openai` npm dependency (no longer imported anywhere in src/)
+- `docs/OBSIDIAN_SUBMISSION_GUIDE.md` and `docs/SECURITY.md` (outdated, not relevant for end users)
+
 ## [1.7.13] - 2026-05-15
 
 ### Fixed

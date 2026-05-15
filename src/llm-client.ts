@@ -1,5 +1,4 @@
 import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
 import { requestUrl } from 'obsidian';
 import { LLMClient } from './types';
 
@@ -385,17 +384,23 @@ export class AnthropicClient implements LLMClient {
   }
 }
 
-export class OpenAIClient implements LLMClient {
-  private client: OpenAI;
+export class OpenAICompatibleClient implements LLMClient {
+  private apiKey: string;
+  private baseUrl: string;
 
   constructor(apiKey: string, baseUrl?: string) {
-    this.client = new OpenAI({
-      apiKey,
-      baseURL: baseUrl || 'https://api.openai.com/v1',
-      dangerouslyAllowBrowser: true,
-      timeout: 300000,         // 5 minutes per request
-      maxRetries: 3            // auto-retry on transient HTTP errors
-    });
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl || 'https://api.openai.com/v1';
+  }
+
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
+    }
+    return headers;
   }
 
   async createMessage(params: {
@@ -405,7 +410,94 @@ export class OpenAIClient implements LLMClient {
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
   }): Promise<string> {
-    return this.createMessageWithRetry(params);
+    const messages = params.system
+      ? [{ role: 'system' as const, content: params.system }, ...params.messages]
+      : params.messages;
+
+    const body: Record<string, unknown> = {
+      model: params.model,
+      max_tokens: params.max_tokens,
+      messages
+    };
+    if (params.response_format) {
+      body.response_format = params.response_format;
+    }
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await requestUrl({
+          url: this.baseUrl + '/chat/completions',
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(body)
+        });
+
+        const data = response.json as {
+          choices?: Array<{
+            message?: { content?: string };
+            finish_reason?: string;
+          }>;
+          error?: { message: string };
+        };
+
+        if (data.error) throw new Error(data.error.message);
+
+        const text = data.choices?.[0]?.message?.content || '';
+
+        // Detect truncation: retry once with double max_tokens
+        if (data.choices?.[0]?.finish_reason === 'length') {
+          const retryTokens = Math.min(params.max_tokens * 2, 16000);
+          console.warn(
+            `OpenAI-compatible response truncated at ${params.max_tokens} tokens (finish_reason=length). ` +
+            `Retrying with ${retryTokens} tokens.`
+          );
+          const retryBody = { ...body, max_tokens: retryTokens };
+          let retryResponse;
+          for (let retryAttempt = 0; retryAttempt < 2; retryAttempt++) {
+            try {
+              retryResponse = await requestUrl({
+                url: this.baseUrl + '/chat/completions',
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify(retryBody)
+              });
+              break;
+            } catch (retryErr) {
+              const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+              if (/status 5\d{2}|network|fetch|timeout/i.test(msg) && retryAttempt < 1) {
+                const delay = Math.pow(2, retryAttempt) * 1000 + Math.random() * 500;
+                console.warn(`Truncation retry error, reattempting in ${Math.round(delay)}ms: ${msg}`);
+                await new Promise(resolve => window.setTimeout(resolve, delay));
+                continue;
+              }
+              throw retryErr;
+            }
+          }
+          if (!retryResponse) throw new Error('Truncation retry failed: no response after retries');
+          const retryData = retryResponse.json as {
+            choices?: Array<{ message?: { content?: string } }>;
+            error?: { message: string };
+          };
+          if (retryData.error) throw new Error(retryData.error.message);
+          return retryData.choices?.[0]?.message?.content || text;
+        }
+
+        return text;
+      } catch (error) {
+        lastError = error;
+        const msg = error instanceof Error ? error.message : String(error);
+        const isRetryable = /status 5\d{2}|status 429|network|fetch|econnrefused|etimedout|timeout|abort/i.test(msg);
+        if (isRetryable && attempt < 2) {
+          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+          console.warn(`OpenAI-compatible API error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms: ${msg}`);
+          await new Promise(resolve => window.setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError;
   }
 
   async createMessageStream(params: {
@@ -416,136 +508,135 @@ export class OpenAIClient implements LLMClient {
     language: 'en' | 'zh';
     onChunk: (chunk: string) => void;
   }): Promise<string> {
-    return this.createMessageStreamWithRetry(params);
-  }
-
-  private async createMessageWithRetry(params: {
-    model: string;
-    max_tokens: number;
-    system?: string;
-    messages: Array<{role: 'user' | 'assistant'; content: string}>;
-    response_format?: { type: 'json_object' };
-  }, attempt = 0): Promise<string> {
-    const messagesWithSystem = params.system
-      ? [
-        { role: 'system', content: params.system } as OpenAI.Chat.Completions.ChatCompletionMessageParam,
-        ...params.messages
-      ]
-      : params.messages;
-
-    try {
-      const response = await this.client.chat.completions.create({
-        model: params.model,
-        max_tokens: params.max_tokens,
-        messages: messagesWithSystem,
-        ...(params.response_format ? { response_format: params.response_format } : {})
-      });
-      const text = response.choices[0]?.message?.content || '';
-
-      // Detect truncation: OpenAI returns finish_reason='length' when max_tokens hit.
-      if (response.choices[0]?.finish_reason === 'length') {
-        const retryTokens = Math.min(params.max_tokens * 2, 16000);
-        console.warn(
-          `OpenAI response truncated at ${params.max_tokens} tokens (finish_reason=length). ` +
-          `Retrying with ${retryTokens} tokens.`
-        );
-        const retryResponse = await this.client.chat.completions.create({
-          model: params.model,
-          max_tokens: retryTokens,
-          messages: messagesWithSystem,
-          ...(params.response_format ? { response_format: params.response_format } : {})
-        });
-        return retryResponse.choices[0]?.message?.content || text;
-      }
-
-      return text;
-    } catch (error) {
-      if (this.isNetworkError(error) && attempt < 3) {
-        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
-        console.warn(`Network error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms...`);
-        await new Promise(resolve => window.setTimeout(resolve, delay));
-        return this.createMessageWithRetry(params, attempt + 1);
-      }
-      // After all retries exhausted, throw with actionable context
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error(
-          `Network request failed after 3 retries: cannot reach the API endpoint. ` +
-          `Possible causes: (1) VPN or proxy blocking the connection, (2) SSL/TLS certificate issue (try restarting Obsidian), ` +
-          `(3) provider URL is incorrect or has changed, (4) firewall blocking outbound HTTPS. ` +
-          `Check your network and try the "Test Connection" button in Settings.`
-        );
-      }
-      throw error;
-    }
-  }
-
-  private async createMessageStreamWithRetry(params: {
-    model: string;
-    max_tokens: number;
-    system?: string;
-    messages: Array<{role: 'user' | 'assistant'; content: string}>;
-    language: 'en' | 'zh';
-    onChunk: (chunk: string) => void;
-  }, attempt = 0): Promise<string> {
-    const messagesWithSystemAndLanguage = params.system
-      ? [
-        { role: 'system', content: params.system } as OpenAI.Chat.Completions.ChatCompletionMessageParam,
-        ...params.messages
-      ]
+    const messages = params.system
+      ? [{ role: 'system' as const, content: params.system }, ...params.messages]
       : [
-        ...params.messages,
-        {
-          role: 'user',
-          content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
+          ...params.messages,
+          {
+            role: 'user' as const,
+            content: 'Please respond in the same language as the user\'s question. If the user asks in Chinese, reply in Chinese. If the user asks in English, reply in English. Keep the response language consistent with the user\'s input language.'
+          }
+        ];
+
+    const body = {
+      model: params.model,
+      max_tokens: params.max_tokens,
+      messages,
+      stream: true
+    };
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await requestUrl({
+          url: this.baseUrl + '/chat/completions',
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(body)
+        });
+
+        const responseText = response.text;
+        let fullText = '';
+
+        // Parse SSE events from response body.
+        // Handles both "data: " (with space) and "data:" (no space).
+        // Also handles \r\n and \n line endings.
+        const normalizedText = responseText.replace(/\r\n/g, '\n');
+        const events = normalizedText.split('\n\n');
+        for (const event of events) {
+          if (!event.trim()) continue;
+          const dataLine = event.split('\n').find(line => line.startsWith('data:'));
+          if (!dataLine) continue;
+
+          const dataContent = dataLine.substring(5).trim();
+          if (dataContent === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(dataContent) as {
+              choices?: Array<{
+                delta?: { content?: string };
+                finish_reason?: string;
+              }>;
+            };
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              fullText += content;
+              params.onChunk(content);
+            }
+          } catch {
+            // Skip malformed JSON in SSE
+          }
         }
-      ];
 
-    try {
-      const stream = await this.client.chat.completions.create({
-        model: params.model,
-        max_tokens: params.max_tokens,
-        messages: messagesWithSystemAndLanguage as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-        stream: true
-      });
-
-      let fullResponse = '';
-
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content || '';
-        if (text) {
-          fullResponse += text;
-          params.onChunk(text);
+        // Fallback: if SSE parsing yielded nothing, try non-streaming JSON format.
+        // Some providers ignore stream:true and return standard JSON instead of SSE.
+        if (!fullText) {
+          console.debug('[OpenAICompat SSE] SSE parsing empty, trying non-streaming JSON fallback');
+          try {
+            const data = JSON.parse(responseText) as {
+              choices?: Array<{ message?: { content?: string } }>;
+              error?: { message: string };
+            };
+            if (data.error) throw new Error(data.error.message);
+            const text = data.choices?.[0]?.message?.content || '';
+            if (text) {
+              console.debug('[OpenAICompat SSE] Non-streaming fallback successful, length:', text.length);
+              fullText = text;
+              params.onChunk(text);
+            }
+          } catch (parseErr) {
+            console.debug('[OpenAICompat SSE] Non-streaming JSON parse also failed:', parseErr);
+          }
         }
-      }
 
-      return fullResponse;
-    } catch (error) {
-      if (this.isNetworkError(error) && attempt < 3) {
-        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
-        console.warn(`Stream network error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms...`);
-        await new Promise(resolve => window.setTimeout(resolve, delay));
-        return this.createMessageStreamWithRetry(params, attempt + 1);
+        if (!fullText) {
+          throw new Error(
+            'OpenAI-compatible endpoint returned neither SSE events nor a standard JSON response. ' +
+            'The provider may not support streaming. ' +
+            'Response preview: ' + responseText.substring(0, 300)
+          );
+        }
+
+        return fullText;
+      } catch (error) {
+        lastError = error;
+        const msg = error instanceof Error ? error.message : String(error);
+        const isRetryable = /status 5\d{2}|status 429|network|fetch|econnrefused|etimedout|timeout|abort/i.test(msg);
+        if (isRetryable && attempt < 2) {
+          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+          console.warn(`OpenAI-compatible stream error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms: ${msg}`);
+          await new Promise(resolve => window.setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
-  }
-
-  private isNetworkError(error: unknown): boolean {
-    if (error instanceof TypeError && error.message === 'Failed to fetch') return true;
-    const msg = error instanceof Error ? error.message : String(error);
-    return /network|fetch|econnrefused|econnreset|etimedout|abort|closed|ssl|tls|protocol_error|status 5\d{2}|status 429|internal server error|service unavailable/i.test(msg);
+    throw lastError;
   }
 
   async listModels(): Promise<string[]> {
     try {
-      const models = await this.client.models.list();
-      const modelIds = models.data
+      const response = await requestUrl({
+        url: this.baseUrl + '/models',
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+
+      const data = response.json as {
+        data?: Array<{ id: string }>;
+        error?: { message: string };
+      };
+
+      if (data.error) throw new Error(data.error.message);
+
+      const modelIds = (data.data || [])
         .map(m => m.id)
         .filter(id => !id.includes(':') && !id.includes('/'))
         .sort();
+
       return modelIds.slice(0, 100);
     } catch (error) {
-      console.error('获取模型列表失败:', error);
+      console.error('Failed to fetch model list:', error);
       return [];
     }
   }

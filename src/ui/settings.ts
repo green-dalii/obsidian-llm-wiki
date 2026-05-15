@@ -1,7 +1,6 @@
 // Settings panel UI for LLM Wiki Plugin
 
 import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl } from 'obsidian';
-import OpenAI from 'openai';
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES } from '../types';
 import { TEXTS } from '../texts';
@@ -188,9 +187,16 @@ export class LLMWikiSettingTab extends PluginSettingTab {
                 this.tempSettings.availableModels = ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001'];
               }
             } else {
-              const tempClient = new OpenAI({ apiKey, baseURL: baseUrl || 'https://api.openai.com/v1', dangerouslyAllowBrowser: true });
-              const models = await tempClient.models.list();
-              this.tempSettings.availableModels = models.data.map((m: { id: string }) => m.id).filter(modelFilter).sort().slice(0, 100);
+              const modelsUrl = (baseUrl || 'https://api.openai.com/v1') + '/models';
+              const response = await requestUrl({
+                url: modelsUrl,
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+              });
+              const data = response.json as { data?: Array<{ id: string }> };
+              if (data.data?.length) {
+                this.tempSettings.availableModels = data.data.map(m => m.id).filter(modelFilter).sort().slice(0, 100);
+              } else throw new Error('empty model list');
             }
             if (this.tempSettings.availableModels.length > 0) {
               new Notice(this.getText('fetchSuccess').replace('{}', this.tempSettings.availableModels.length.toString()), 5000);

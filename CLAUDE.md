@@ -6,9 +6,18 @@
 
 ---
 
-## Current Phase: v1.7.12 — Provider-Aware Model Filtering + Alias-Aware Query
+## Current Phase: v1.7.14 — CORS Fix + Query UX Overhaul
 
-**Bug fixes: OpenRouter/Ollama model filtering, alias-based page lookup in Query.**
+**Bug fixes: #17 CORS for OpenAI-compatible endpoints, Query markdown rendering, Query modal UI.**
+
+Recently completed (v1.7.14):
+- **#17 CORS fix**: Replaced `openai` npm SDK (browser `fetch()`, CORS-bound) with `requestUrl()`-based `OpenAICompatibleClient`. `requestUrl()` delegates to Obsidian's Main process (Node.js), bypassing CORS entirely. Also rewrote model fetching in settings.ts. Removed `openai` from dependencies.
+- **Query progress overhaul**: Five-phase progress display with page names, elapsed time counter, proper non-streaming labeling.
+- **Cmd+Enter to send + Stop button**: Prevent accidental Enter-only sends. Button transforms to red "Stop" during generation.
+- **Copy button**: Hover-visible copy button on each assistant message, copies raw markdown.
+- **Markdown rendering fix**: Fresh Component per render call (stale component accumulation was causing degraded table/styles rendering).
+- **Auto-scroll**: Chat history scrolls to bottom on new messages and during streaming.
+- **Table/CSS overhaul**: Explicit markdown element styles (tables, code, blockquotes) using Obsidian CSS variables.
 
 Recently completed (v1.7.12):
 - **Provider-aware model ID filtering**: Fixed critical bug where OpenRouter model IDs containing `/` (e.g., `openai/gpt-4o`) and Ollama model IDs containing `:` (e.g., `qwen3.5:latest`) were incorrectly filtered out. Implemented smart `getModelFilter()` in `settings.ts` with provider-specific rules: OpenRouter preserves `/`, Ollama preserves `:`.
