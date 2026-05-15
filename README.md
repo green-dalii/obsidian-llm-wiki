@@ -4,7 +4,7 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Author:** Greener-Dalii | **Version:** 1.7.9
+**Author:** Greener-Dalii | **Version:** 1.7.11
 
 [English](README.md) | [中文文档](README_CN.md) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
@@ -24,59 +24,17 @@ You write. AI organizes. You ask. That's it.
 
 ---
 
-## Why Obsidian + LLM-Wiki?
-
-Obsidian is brilliant at linked thinking. But there's a catch: you're the one doing all the linking.
-
-LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it with you. Add a note about a new concept — it finds the connections you'd miss. Ask a question — it walks your own knowledge graph and brings back answers with citations.
-
-- **Your Graph View comes alive.** New notes don't just sit there — they sprout links to entities, concepts, and sources. The graph grows organically, not manually.
-- **Your notes learn to talk back.** Search becomes conversation. "What did I write about X?" becomes a dialogue, with streaming responses and `[[wiki-links]]` as breadcrumbs.
-- **Obsidian becomes a thinking partner.** It stops being a cabinet for notes and starts being something that helps you *think* — surfacing connections, spotting gaps, remembering what you forgot you knew.
-
----
-
-## Features
-
-### Ingestion Improvements
-- **Smart Batch Skip** — Automatically detect and skip already-ingested files during folder batch operations, saving time and API costs. Shows skipped count in reports
-- **Parallel Page Generation** — Configurable 1-5 concurrent pages for sources with 50+ entities, 3x faster with error isolation
-- **Iterative Batch Extraction** — Adaptive batch sizing eliminates max_tokens bottleneck for long documents, extracting all entities/concepts systematically
-- **Verbatim Source Mentions** — Original language quotes preserved with optional translation, ensuring traceability
-
-### Knowledge Quality
-- **Save-to-Wiki Quality** — Conversation saves now match file ingestion quality: proper summary pages, frontmatter fields, entity/concept reports
-- **Enhanced Entity/Concept Relations** — Separate "Related Entities" and "Related Concepts" sections for bidirectional tracking
-- **Smart Knowledge Fusion** — Intelligent merge on page updates: detect duplicates, preserve contradictions with attribution, maintain links
-- **Content Truncation Protection** — 8000 max_tokens + automatic retry at 2x tokens across all providers
-- **Contradiction State Machine** — `detected → review_ok → resolved` (AI fix) or `detected → pending_fix` (manual)
-
-### Query & Feedback
-- **Conversational Query** — ChatGPT-style dialog with streaming Markdown and `[[wiki-links]]`, multi-turn history
-- **Query-to-Wiki Feedback** — 3-stage value assessment on close, semantic deduplication before save
-- **Duplicate Save Prevention** — Hash tracking stops re-evaluation of unchanged conversations
-
-### LLM & Language
-- **Multi-Provider Support** — Anthropic, Anthropic Compatible (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, custom endpoints
-- **Dynamic Model List** — Real-time fetching from provider APIs
-- **Wiki Output Language** — 8 languages independent of UI (EN/ZH/JA/KO/DE/FR/ES/PT), with custom input
-- **Internationalization** — English and Chinese UI (default: English), all notices respect language setting
-
-### Maintenance & Architecture
-- **Schema Layer** — `wiki/schema/config.md` with templates, merge policies, content guidelines injected into all prompts
-- **Lint AI Auto-Fix** — Per-item buttons for dead links, empty pages, orphans in LintReportModal
-- **Auto Maintenance** — Multi-folder file watcher, periodic lint, startup health check (all optional)
-- **Knowledge Graph** — Entity/concept relationships visualized in Obsidian's Graph View
-- **Auto Index** — `index.md` and `log.md` maintained automatically
-- **Modular Codebase** — 9 focused modules for maintainability
-
----
-
 ## Quick Start
 
 ### Installation
 
-**Manual (recommended):**
+**Recommended — Obsidian Community Plugin Market:**
+
+1. In Obsidian, go to **Settings → Community plugins**
+2. Click **Browse** and search for "Karpathy LLM Wiki"
+3. Click **Install**, then **Enable**
+
+**Manual (alternative):**
 
 1. Download `main.js`, `manifest.json`, `styles.css` from [Releases](https://github.com/green-dalii/obsidian-llm-wiki/releases)
 2. In Obsidian, go to Settings → Community plugins. On the **Installed plugins** tab, click the folder icon to open your plugins directory
@@ -98,26 +56,6 @@ LLM-Wiki flips that. Instead of you building the graph by hand, the AI grows it 
 
 > See [README_CN.md](README_CN.md) for provider-specific instructions in Chinese.
 
-### Model Selection Guide
-
-This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not chunked RAG retrieval**. Long-context models are strongly recommended — the larger your Wiki grows, the more context the LLM needs to maintain cross-page consistency and answer questions accurately.
-
-> Why not RAG/embeddings? Karpathy's [original critique](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) argues that RAG fragments knowledge and breaks the LLM's ability to reason across the full knowledge graph. A single long-context LLM call over the relevant Wiki pages preserves relational understanding.
-
-**Top recommendations:**
-
-| Model | Context Window | Why |
-|-------|---------------|-----|
-| **DeepSeek V4** | 1M tokens | **Best value — ultra-low pricing, strong Chinese support. Ideal for large Wikis.** |
-| **Gemini 3.1 Pro** | 1M+ tokens | **Largest context window. Strong reasoning. Excellent for very large Wikis.** |
-| **Claude Opus 4.7** | 1M tokens | **Strongest agentic coding and reasoning. Best for complex multi-page synthesis.** |
-| **GPT-5.5** | 1M tokens | **Latest OpenAI flagship. Top AI intelligence index. Excellent for knowledge work.** |
-| **Claude Sonnet 4.6** | 1M tokens | Great balance of speed, cost, and quality for mid-size Wikis |
-
-For local models (Ollama): context windows are typically smaller (8K–128K). Consider limiting Wiki scope or using a cloud provider for ingestion + local model for query.
-
-**Anthropic Compatible (Coding Plan):** If your provider offers an Anthropic-compatible API endpoint (common with Coding Plan subscriptions), select "Anthropic Compatible" and enter your provider's Base URL and API Key. Uses the same Claude models via the Anthropic SDK format.
-
 ### Usage
 
 | Method | How |
@@ -125,29 +63,60 @@ For local models (Ollama): context windows are typically smaller (8K–128K). Co
 | **Ingest from `sources/`** | `Cmd+P` → "Ingest Sources" — processes the entire `sources/` folder |
 | **Ingest any folder** | `Cmd+P` → "Ingest from Folder" — pick a folder, generate Wiki from existing notes |
 | **Query Wiki** | `Cmd+P` → "Query Wiki" — ask questions, get streaming answers with `[[wiki-links]]` |
+| **Lint Wiki** | `Cmd+P` → "Lint Wiki" — health scan with duplicate detection, dead links, orphans |
 
 Re-ingesting the same source does incremental updates on entity/concept pages (new info merged in). Summary pages are regenerated.
 
-**Smart Batch Skip:** When ingesting a folder, the plugin automatically detects already-processed files and skips them to save time and API costs. If `wiki/sources/${slug}.md` exists, the source is considered ingested. The batch report shows "Skipped (already ingested): X/Y" count.
+**Smart Batch Skip:** When ingesting a folder, the plugin automatically detects already-processed files and skips them to save time and API costs. The batch report shows skipped count.
 
 **Ingestion Acceleration:** For sources with many entities (20+), enable parallel page generation in Settings → Ingestion Acceleration:
-- **Page Generation Concurrency**: 1 (serial, safest) to 5 (parallel, fastest). Start with 3 for most providers. Increase batch delay if you hit rate limits.
-- **Batch Delay**: 100-2000ms between parallel batches. Increase to 500ms+ for OpenAI (60 RPM limit) or if you see 429 errors.
+- **Page Generation Concurrency**: 1 (serial, safest) to 5 (parallel, fastest). Start with 3 for most providers.
+- **Batch Delay**: 100–2000ms between parallel batches. Increase to 500ms+ for rate-limited providers.
 
-> **Safety note**: Parallel generation uses `Promise.allSettled` — if one page fails, others continue. Failed pages are retried individually with exponential backoff. Links to not-yet-created pages are valid Obsidian syntax (`[[entity-name]]`) and resolve automatically once the target page exists.
+> **Safety**: Parallel generation uses `Promise.allSettled` — if one page fails, others continue. Failed pages are retried individually with exponential backoff.
 
-**Source Mentions Preservation:** The "Mentions in Source" section preserves verbatim quotes from your original source. If your Wiki output language differs from the source language, translations appear in parentheses after the original text. This ensures traceability while maintaining readability.
-
-```markdown
----
-type: entity
-created: 2026-04-29
-reviewed: true
 ---
 
-# Supervised Learning
-Your carefully curated content here...
-```
+## Features
+
+### Knowledge Quality
+
+- **Entity/Concept Extraction** — LLM extracts entities (people, orgs, products, events) and concepts (theories, methods, terms) from your notes
+- **Mandatory Page Aliases** — Every generated page includes at least 1 alias (translation, acronym, alternate name), enabling cross-language duplicate detection
+- **Duplicate Detection & Merge** — Semantic tiering catches true duplicates (cross-language translations, abbreviations, spelling variants); intelligent LLM merge fuses content and preserves aliases
+- **Smart Knowledge Fusion** — Multi-source updates merge new info without redundancy, contradictions preserved with attribution, `reviewed: true` pages protected from overwrite
+- **Content Truncation Protection** — 8000 max_tokens with automatic stop_reason detection and retry at 2× tokens across all providers
+- **Verbatim Source Mentions** — Original language quotes preserved with optional translation for traceability
+
+### Maintenance
+
+- **Lint Health Scan** — Detects duplicates, dead links, empty pages, orphans, missing aliases, and contradictions in one comprehensive report
+- **Semantic-Tier Duplicate Detection** — Tier 1 (direct name matches: cross-language, abbreviations, high-similarity titles) always verified; Tier 2 (indirect signals: shared links, moderate similarity) fills token budget
+- **Smart Fix All** — Causality-ordered batch fix: duplicates merged → dead links resolved → orphans linked → empty pages expanded
+- **Alias Completion** — One-click parallel batch generation of missing aliases, improving future duplicate detection
+- **Auto-Maintenance** — Multi-folder file watcher, periodic lint, startup health check (all optional)
+- **Contradiction State Machine** — `detected → review_ok → resolved` (AI fix) or `detected → pending_fix` (manual)
+
+### Query & Feedback
+
+- **Conversational Query** — ChatGPT-style dialog with streaming Markdown and `[[wiki-links]]`, multi-turn history
+- **Query-to-Wiki Feedback** — Save valuable conversations to Wiki with entity/concept extraction, semantic dedup before save
+- **Duplicate Save Prevention** — Hash tracking prevents re-evaluation of unchanged conversations
+
+### LLM & Language
+
+- **Multi-Provider** — Anthropic, Anthropic Compatible (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, custom endpoints
+- **5xx Retry** — Automatic exponential backoff retry (max 2) on HTTP 5xx/429 errors across all clients
+- **Dynamic Model List** — Real-time fetching from provider APIs
+- **Wiki Output Language** — 8 languages independent of UI (EN/ZH/JA/KO/DE/FR/ES/PT), with custom input
+- **Internationalization** — English and Chinese UI (default: English)
+
+### Architecture & Performance
+
+- **Parallel Page Generation** — Configurable 1–5 concurrent pages, 3× faster for large sources, error isolation per page
+- **Iterative Batch Extraction** — Adaptive batch sizing eliminates max_tokens bottleneck for long documents
+- **Three-Layer Architecture** — `sources/` (read-only) → `wiki/` (LLM-generated) → `schema/` (co-evolved config)
+- **Modular Codebase** — 13 focused modules in `src/`
 
 ---
 
@@ -155,10 +124,10 @@ Your carefully curated content here...
 
 | Command | Description |
 |---------|-------------|
-| **Ingest single source** | Select a note → generate Wiki pages |
-| **Ingest from folder** | Select any folder → batch generate Wiki from existing notes |
-| **Query wiki** | Conversational Q&A over your Wiki, with streaming |
-| **Lint wiki** | Detect contradictions, stale info, orphaned pages |
+| **Ingest single source** | Select a note → generate Wiki pages with entities, concepts, and summary |
+| **Ingest from folder** | Select a folder → batch generate Wiki from existing notes |
+| **Query wiki** | Conversational Q&A over your Wiki, streaming responses with `[[wiki-links]]` |
+| **Lint wiki** | Full health scan: duplicates, dead links, empty pages, orphans, missing aliases, contradictions |
 | **Regenerate index** | Manually rebuild `wiki/index.md` |
 | **Suggest schema updates** | LLM analyzes Wiki and proposes schema improvements |
 
@@ -178,46 +147,60 @@ Machine learning uses algorithms to learn from data.
 - Reinforcement learning
 ```
 
-**Output — Summary:** `wiki/sources/machine-learning.md`
-
-```markdown
-# Machine Learning
-Core concepts and algorithms for learning from data.
-
-## Key Concepts
-- [[Supervised Learning]] — Learning from labeled data
-- [[Unsupervised Learning]] — Discover patterns in unlabeled data
-- [[Reinforcement Learning]] — Learn through interaction
-```
-
-**Output — Entity:** `wiki/entities/supervised-learning.md`
+**Output — Entity page:** `wiki/entities/supervised-learning.md`
 
 ```markdown
 ---
 type: entity
-created: 2026-05-08
-sources: [[sources/machine-learning]]
+created: 2026-05-15
+updated: 2026-05-15
+sources: ["[[sources/machine-learning]]"]
+tags: [method]
+aliases: ["监督学习", "Supervised Learning"]
 ---
 
 # Supervised Learning
 
-## Definition
-Supervised learning learns predictive models from labeled data.
+## Basic Information
+- Type: method
+- Source: [[sources/machine-learning]]
 
-## Key Features
-- Requires labeled dataset
-- Common algorithms: linear regression, decision trees, neural networks
+## Description
+Supervised learning is a machine learning paradigm where models learn
+from labeled training data to make predictions on unseen data...
 
 ## Related Concepts
-- [[Machine Learning]] — The broader field
-- [[Unsupervised Learning]] — Learning without labels
+- [[concepts/Machine-Learning|Machine Learning]]
+- [[concepts/Unsupervised-Learning|Unsupervised Learning]]
 
 ## Related Entities
-- [[Arthur Samuel]] — Pioneer of machine learning
+- [[entities/Arthur-Samuel|Arthur Samuel]]
 
 ## Mentions in Source
-- "Machine learning uses algorithms to learn from data."
+- "Supervised learning uses labeled data to train predictive models..."
 ```
+
+---
+
+## Model Selection Guide
+
+This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not chunked RAG retrieval**. Long-context models are strongly recommended — the larger your Wiki grows, the more context the LLM needs.
+
+> Why not RAG? Karpathy's [original critique](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) argues that RAG fragments knowledge and breaks the LLM's ability to reason across the full knowledge graph.
+
+**Top recommendations:**
+
+| Model | Context Window | Why |
+|-------|---------------|-----|
+| **DeepSeek V4** | 1M tokens | Best value — ultra-low pricing, strong Chinese support |
+| **Gemini 3.1 Pro** | 1M+ tokens | Largest context window, strong reasoning |
+| **Claude Opus 4.7** | 1M tokens | Strongest agentic coding and reasoning |
+| **GPT-5.5** | 1M tokens | Latest OpenAI flagship, top AI intelligence index |
+| **Claude Sonnet 4.6** | 1M tokens | Great balance of speed, cost, and quality |
+
+For local models (Ollama): context windows are typically smaller (8K–128K). Consider using a cloud provider for ingestion + local model for query.
+
+**Anthropic Compatible (Coding Plan):** If your provider offers an Anthropic-compatible API endpoint, select "Anthropic Compatible" and enter your provider's Base URL and API Key.
 
 ---
 
@@ -233,7 +216,26 @@ wiki/        # LLM-generated Wiki pages
 schema/      # Wiki structure configuration (naming, templates, categories)
 ```
 
-**Modular codebase** (`src/`): `wiki/` (engine, query, ingest, lint, page-factory), `schema/` (schema-manager, auto-maintain), `ui/` (settings, modals), plus shared `llm-client.ts`, `prompts.ts`, `texts.ts` (i18n).
+**Codebase** (`src/`):
+
+```
+wiki/               # Wiki engine modules
+  wiki-engine.ts    # Orchestrator
+  query-engine.ts   # Conversational query
+  source-analyzer.ts # Iterative batch extraction
+  page-factory.ts   # Entity/concept CRUD + merge
+  lint-controller.ts # Lint orchestration
+  lint-fixes.ts     # Fix logic + duplicate candidate generation
+  contradictions.ts # Contradiction detection
+  system-prompts.ts # Language directive + section labels
+schema/             # Schema co-evolution
+  schema-manager.ts # Schema CRUD + suggestions
+  auto-maintain.ts  # File watcher + periodic lint
+ui/                 # User interface
+  settings.ts       # Settings panel
+  modals.ts         # Lint/Ingest/Query modals
++ shared modules: llm-client.ts, prompts.ts, texts.ts, utils.ts, types.ts
+```
 
 **Generated pages:**
 - `wiki/sources/filename.md` — Source summary
@@ -241,31 +243,6 @@ schema/      # Wiki structure configuration (naming, templates, categories)
 - `wiki/concepts/concept-name.md` — Concept pages (theories, methods, terms, etc.)
 - `wiki/index.md` — Auto-generated index
 - `wiki/log.md` — Operation log
-
----
-
-## Troubleshooting
-
-**"Please configure API Key first"** — Go to Settings → LLM Wiki, enter your API key, click Test Connection then Save.
-
-**Wiki pages show as code blocks** — Fixed in v1.0.7+. Rebuild affected pages.
-
-**Chinese filenames become `untitled-xxx`** — Fixed in v1.0.3+. Full Unicode supported.
-
-**JSON parsing / "Source analysis failed"** — Fixed in v1.0.8+ with LLM-based repair fallback. Open Developer Tools (`Ctrl+Shift+I`) for detailed logs.
-
----
-
-## Contributing
-
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit: `git commit -m 'feat: add your feature'`
-4. Push and open a Pull Request
-
-Use TypeScript, follow existing code style, and update version numbers in `manifest.json`, `package.json`, and `versions.json`.
-
-Questions, ideas, or want to share how you use LLM-Wiki? Join the [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions).
 
 ---
 
