@@ -145,7 +145,6 @@ type: ${stubType}
 created: ${new Date().toISOString().split('T')[0]}
 sources: ["[[${sourceRel}]]"]
 tags: [${stubType === 'entity' ? 'other' : 'term'}]
-aliases: []
 ---
 # ${result.stub_title}
 
@@ -214,7 +213,6 @@ type: ${stubType}
 created: ${new Date().toISOString().split('T')[0]}
 sources: ["[[${sourceRel}]]"]
 tags: [${stubType === 'entity' ? 'other' : 'term'}]
-aliases: []
 ---
 # ${targetBasename}
 

@@ -506,8 +506,8 @@ Task:
 3. concepts type: explain the concept's definition, application scenarios, and related concepts
 4. sources type: summarize the source's core viewpoints and contributions
 5. Use [[wiki-links]] to link to related pages
-6. Preserve any existing frontmatter fields exactly (type, created, sources, tags, aliases, reviewed). Do NOT remove or alter these fields
-7. If the existing content has a sources array, keep it. If tags are present, keep them. If aliases are present, keep them
+6. Preserve any existing frontmatter fields exactly (type, created, sources, tags, reviewed). Do NOT remove or alter these fields
+7. **Aliases are REQUIRED:** If the existing content has non-empty aliases, keep them. If aliases are missing or empty, you MUST generate 1-2 meaningful aliases following the fallback hierarchy: translation in Wiki language → alternative names → abbreviations. The aliases field MUST NOT be left empty
 8. **Tags constraint:** entity pages MUST use tags from: [person, organization, project, product, event, location, other]. Concept pages MUST use tags from: [theory, method, technology, term, other]. Never invent new tags outside these lists
 
 Output format: directly output the complete Markdown page content (do not output explanatory text)`,

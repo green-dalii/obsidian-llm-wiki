@@ -202,13 +202,21 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
                 } | null;
 
                 console.debug(`lintWiki: batch ${batchNum}/${batches.length} → ${dedupResult?.duplicates?.length || 0} duplicates confirmed`);
-                return dedupResult?.duplicates || [];
+                // Guard against non-array LLM responses (single object, string, etc.)
+                const rawDups = dedupResult?.duplicates;
+                return Array.isArray(rawDups) ? rawDups : [];
               })
             );
 
             for (const result of results) {
               if (result.status === 'fulfilled') {
-                allDuplicates.push(...result.value);
+                // Defensive filter: ensure array + drop entries missing required fields
+                const rawDups = Array.isArray(result.value) ? result.value : [];
+                const validDups = rawDups.filter(
+                  d => typeof d.target === 'string' && d.target.length > 0 &&
+                       typeof d.source === 'string' && d.source.length > 0
+                );
+                allDuplicates.push(...validDups);
               } else {
                 console.error('lintWiki: duplicate detection batch failed:', result.reason);
               }

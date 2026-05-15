@@ -5,17 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.12] - 2026-05-15
+## [1.7.13] - 2026-05-15
 
 ### Fixed
 - **Query alias-based page lookup**: Wiki index (`index.md`) now includes aliases for every page, and the LLM page selector prompt explicitly instructs matching by aliases. Fixes the case where "DSA" query returned no results despite `DeepSeek-Sparse-Attention` page having "DSA" alias
 - **OpenRouter model filtering bug (#14)**: Model IDs containing `/` (e.g., `openai/gpt-4o`) were incorrectly filtered out, preventing OpenRouter users from selecting correct models
 - **Ollama model filtering bug**: Model IDs containing `:` (e.g., `qwen3.5:latest`) were incorrectly filtered out, preventing Ollama users from selecting tagged models
 - Implemented provider-aware smart filter: OpenRouter preserves `/`, Ollama preserves `:`
+- **Aliases unified mechanism**: Fixed `fixDeadLink` creating stubs with hardcoded `aliases: []`, `fillEmptyPage` prompt now requires alias generation (no longer passive "preserve"), `enforceFrontmatterConstraints` empty array check fixed. All fix paths now use the same 3-tier fallback (Wiki language translation → alternative names → abbreviations)
 
 ### Changed
 - `generateFlatIndex()` now reads each page's frontmatter `aliases` and appends them in backtick-brackets (`[alias1, alias2]`) to index entries
 - `selectRelevantPagesWithLLM` prompt updated with explicit alias-matching instruction
+
+### Added
+- **README internationalization**: 8-language README expansion (English, Chinese, Japanese, Korean, German, French, Spanish, Portuguese) following Apple translation standards (信达雅: accurate, fluent, professional)
+- Root directory: `README_JA.md` (Japanese), `README_KO.md` (Korean), `README_DE.md` (German)
+- `docs/` directory: `README_FR.md` (French), `README_ES.md` (Spanish), `README_PT.md` (Portuguese)
+- All technical terms kept in English (Wiki-links, Schema, Lint, Entity, Concept, Provider, Model, max_tokens)
+- Official site link unified: https://llmwiki.greenerai.top/ in all language versions
+- Language navigation header with mutual cross-links across 8 languages
+- Interface Language i18n expansion plan (Phase 1-3, zero side effects) documented in project memory
 
 ## [1.7.11] - 2026-05-15
 
