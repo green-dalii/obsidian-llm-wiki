@@ -2,13 +2,13 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.12 | **Updated:** 2026-05-15
+**Version:** 1.7.13 | **Updated:** 2026-05-15
 
 ---
 
 ## Current Status
 
-### Implemented (v1.7.12) — Provider-Aware Model Filtering + Alias-Aware Query
+### Implemented (v1.7.13) — Aliases Unified Mechanism + README i18n
 
 **Provider-Aware Model ID Filtering**
 - Fixed OpenRouter: model IDs containing `/` (e.g., `openai/gpt-4o`) are now preserved

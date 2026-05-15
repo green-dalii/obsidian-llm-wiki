@@ -711,7 +711,7 @@ export function enforceFrontmatterConstraints(content: string, pageType: 'entity
   }
 
   // Add aliases line
-  if (foundAliases || collectedAliases.length > 0) {
+  if ((Array.isArray(foundAliases) && foundAliases.length > 0) || collectedAliases.length > 0) {
     const validAliases = collectedAliases.filter((v, i, a) => a.indexOf(v) === i && v);
     if (validAliases.length > 0) {
       result.push(`aliases:${yamlStringify(validAliases)}`);
