@@ -6,7 +6,7 @@
 
 ---
 
-## Current Phase: v1.7.15 — CORS Fix + Query UX Overhaul + Bot Compliance
+## Current Phase: v1.7.16 — CORS Fix + Query UX + Timer Compliance
 
 **Bug fixes: #17 CORS for OpenAI-compatible endpoints, Query markdown rendering, Query modal UI.**
 

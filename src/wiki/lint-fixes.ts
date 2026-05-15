@@ -624,7 +624,7 @@ export async function generateDuplicateCandidates(
   // Signal 1: Shared outgoing wiki-links (Jaccard >= 0.4)
   for (let i = 0; i < metas.length; i++) {
     if (i > 0 && i % YIELD_EVERY === 0) {
-      await new Promise(resolve => activeWindow.setTimeout(resolve, 0));
+      await new Promise(resolve => window.setTimeout(resolve, 0));
     }
     for (let j = i + 1; j < metas.length; j++) {
       const a = metas[i], b = metas[j];
@@ -653,7 +653,7 @@ export async function generateDuplicateCandidates(
 
   for (let i = 0; i < metas.length; i++) {
     if (i > 0 && i % YIELD_EVERY === 0) {
-      await new Promise(resolve => activeWindow.setTimeout(resolve, 0));
+      await new Promise(resolve => window.setTimeout(resolve, 0));
     }
     for (let j = i + 1; j < metas.length; j++) {
       const a = metas[i], b = metas[j];

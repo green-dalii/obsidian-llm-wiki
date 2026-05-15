@@ -372,7 +372,7 @@ export class QueryModal extends Modal {
     }, 1000);
 
     const cleanupTimer = () => {
-      activeWindow.clearInterval(timerInterval);
+      window.clearInterval(timerInterval);
       statusIndicator.remove();
     };
 
@@ -601,10 +601,10 @@ export class QueryModal extends Modal {
       const raw = bodyDiv.getAttribute('data-raw-content') || '';
       navigator.clipboard.writeText(raw).then(() => {
         copyBtn.setText('Copied!');
-        activeWindow.setTimeout(() => copyBtn.setText('Copy'), 1500);
+        window.setTimeout(() => copyBtn.setText('Copy'), 1500);
       }).catch(() => {
         copyBtn.setText('Failed');
-        activeWindow.setTimeout(() => copyBtn.setText('Copy'), 1500);
+        window.setTimeout(() => copyBtn.setText('Copy'), 1500);
       });
     });
   }
