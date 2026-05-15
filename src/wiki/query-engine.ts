@@ -637,8 +637,9 @@ ${indexContent}
 Task:
 1. Read the Wiki index above
 2. Identify pages that are MOST relevant to the user's query
-3. Consider page titles, summaries, and semantic relevance
-4. Select top 3-5 most relevant pages
+3. Pay special attention to \`[aliases]\` in backtick-brackets after page names — these are alternative names, abbreviations, or translations. A user asking "DSA" may be referring to a page with alias "DSA" under a different title.
+4. Consider page titles, summaries, aliases, and semantic relevance
+5. Select top 3-5 most relevant pages
 
 Output Format (strict JSON):
 {

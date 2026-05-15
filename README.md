@@ -83,6 +83,8 @@ Re-ingesting the same source does incremental updates on entity/concept pages (n
 
 **Smart Batch Skip:** When ingesting a folder, the plugin automatically detects already-processed files and skips them to save time and API costs. The batch report shows skipped count.
 
+> **Upgrading from an earlier version?** Run `Cmd+P` → "Regenerate index" to rebuild your Wiki index with aliases included — this enables alias-aware search in Query (e.g., searching "DSA" will find "DeepSeek-Sparse-Attention").
+
 **Ingestion Acceleration:** For sources with many entities (20+), enable parallel page generation in Settings → Ingestion Acceleration:
 - **Page Generation Concurrency**: 1 (serial, safest) to 5 (parallel, fastest). Start with 3 for most providers.
 - **Batch Delay**: 100–2000ms between parallel batches. Increase to 500ms+ for rate-limited providers.

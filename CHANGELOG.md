@@ -8,9 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.12] - 2026-05-15
 
 ### Fixed
+- **Query alias-based page lookup**: Wiki index (`index.md`) now includes aliases for every page, and the LLM page selector prompt explicitly instructs matching by aliases. Fixes the case where "DSA" query returned no results despite `DeepSeek-Sparse-Attention` page having "DSA" alias
 - **OpenRouter model filtering bug (#14)**: Model IDs containing `/` (e.g., `openai/gpt-4o`) were incorrectly filtered out, preventing OpenRouter users from selecting correct models
 - **Ollama model filtering bug**: Model IDs containing `:` (e.g., `qwen3.5:latest`) were incorrectly filtered out, preventing Ollama users from selecting tagged models
 - Implemented provider-aware smart filter: OpenRouter preserves `/`, Ollama preserves `:`
+
+### Changed
+- `generateFlatIndex()` now reads each page's frontmatter `aliases` and appends them in backtick-brackets (`[alias1, alias2]`) to index entries
+- `selectRelevantPagesWithLLM` prompt updated with explicit alias-matching instruction
 
 ## [1.7.11] - 2026-05-15
 

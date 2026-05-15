@@ -16,6 +16,7 @@ import { TEXTS } from '../texts';
 import {
   slugify,
   cleanMarkdownResponse,
+  parseFrontmatter,
 } from '../utils';
 import { SchemaManager, SchemaTask } from '../schema/schema-manager';
 import {
@@ -718,22 +719,29 @@ export class WikiEngine {
     const labels = TEXTS.en.indexLabels[langKey];
     let indexContent = `# Wiki Index\n\n`;
     indexContent += `> ${labels.subtitle}\n\n`;
+    indexContent += `> Note: Text in \`[brackets]\` after page names are aliases — alternative names, abbreviations, or translations.\n\n`;
 
     indexContent += `## ${labels.entities}\n\n`;
     for (const file of entities) {
       const summary = await this.getPageSummary(file);
-      indexContent += `- [[entities/${file.basename}|${file.basename}]] - ${summary}\n`;
+      const aliases = await this.getPageAliases(file);
+      const aliasStr = aliases.length > 0 ? ` \`[${aliases.join(', ')}]\`` : '';
+      indexContent += `- [[entities/${file.basename}|${file.basename}]]${aliasStr} - ${summary}\n`;
     }
 
     indexContent += `\n## ${labels.concepts}\n\n`;
     for (const file of concepts) {
       const summary = await this.getPageSummary(file);
-      indexContent += `- [[concepts/${file.basename}|${file.basename}]] - ${summary}\n`;
+      const aliases = await this.getPageAliases(file);
+      const aliasStr = aliases.length > 0 ? ` \`[${aliases.join(', ')}]\`` : '';
+      indexContent += `- [[concepts/${file.basename}|${file.basename}]]${aliasStr} - ${summary}\n`;
     }
 
     indexContent += `\n## ${labels.sources}\n\n`;
     for (const file of sources) {
-      indexContent += `- [[sources/${file.basename}|${file.basename}]]\n`;
+      const aliases = await this.getPageAliases(file);
+      const aliasStr = aliases.length > 0 ? ` \`[${aliases.join(', ')}]\`` : '';
+      indexContent += `- [[sources/${file.basename}|${file.basename}]]${aliasStr}\n`;
     }
 
     const indexPath = `${this.settings.wikiFolder}/index.md`;
@@ -744,6 +752,15 @@ export class WikiEngine {
     const content = await this.app.vault.read(file);
     const lines = content.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('---'));
     return lines[0]?.substring(0, 100) || 'No summary';
+  }
+
+  async getPageAliases(file: TFile): Promise<string[]> {
+    const content = await this.app.vault.read(file);
+    const fm = parseFrontmatter(content);
+    if (fm?.aliases && Array.isArray(fm.aliases) && fm.aliases.length > 0) {
+      return fm.aliases.filter(a => typeof a === 'string' && a.trim().length > 0).map(a => a.trim());
+    }
+    return [];
   }
 
   async updateLog(operation: string, analysis: SourceAnalysis) {

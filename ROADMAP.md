@@ -2,11 +2,23 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.11 | **Updated:** 2026-05-15
+**Version:** 1.7.12 | **Updated:** 2026-05-15
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.12) — Provider-Aware Model Filtering + Alias-Aware Query
+
+**Provider-Aware Model ID Filtering**
+- Fixed OpenRouter: model IDs containing `/` (e.g., `openai/gpt-4o`) are now preserved
+- Fixed Ollama: model IDs containing `:` (e.g., `qwen3.5:latest`) are now preserved
+- Smart `getModelFilter()` function with provider-specific rules for all 10+ providers
+
+**Alias-Aware Wiki Index & Query**
+- `generateFlatIndex()` now reads each page's frontmatter `aliases` and appends them in backtick-brackets to index entries
+- `selectRelevantPagesWithLLM` prompt updated with explicit alias-matching instruction
+- Users upgrading from earlier versions should run "Regenerate index" to enable alias-aware search
 
 ### Implemented (v1.7.11) — Alias Infrastructure + Duplicate Detection Scaling
 
@@ -140,6 +152,7 @@ Karpathy: *"I like to do them one at a time, and be involved myself."*
 
 | Version | Date | Key Features | Status |
 |---------|------|-------------|--------|
+| **v1.7.12** | 2026-05 | Provider-aware model filtering (OpenRouter/Ollama), alias-aware wiki index & query | Released |
 | **v1.7.11** | 2026-05 | Mandatory page aliases, semantic-tier duplicate detection, token-budget batching, alias completion, Smart Fix All, frontmatter fixes | Released |
 | **v1.7.10** | 2026-05 | Three-layer duplicate detection/merge, 5xx retry, persistent notices, error overhaul, tag validation | Released |
 | **v1.7.9** | 2026-05 | GitHub artifact attestations (supply chain security) | Released |

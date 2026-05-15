@@ -6,9 +6,14 @@
 
 ---
 
-## Current Phase: Alias Infrastructure + Duplicate Detection Scaling (v1.7.11)
+## Current Phase: v1.7.12 — Provider-Aware Model Filtering + Alias-Aware Query
 
-**New features: Mandatory page aliases, semantic-tier duplicate detection with token-budget batching, alias deficiency detection and repair.**
+**Bug fixes: OpenRouter/Ollama model filtering, alias-based page lookup in Query.**
+
+Recently completed (v1.7.12):
+- **Provider-aware model ID filtering**: Fixed critical bug where OpenRouter model IDs containing `/` (e.g., `openai/gpt-4o`) and Ollama model IDs containing `:` (e.g., `qwen3.5:latest`) were incorrectly filtered out. Implemented smart `getModelFilter()` in `settings.ts` with provider-specific rules: OpenRouter preserves `/`, Ollama preserves `:`.
+- **Alias-aware Wiki index**: `generateFlatIndex()` now reads each page's frontmatter `aliases` and appends them in backtick-brackets (`[alias1, alias2]`) to index entries. New `getPageAliases()` helper in wiki-engine.ts.
+- **Alias-aware page selection prompt**: `selectRelevantPagesWithLLM()` prompt updated with explicit alias-matching instruction. Users upgrading should run "Regenerate index" to rebuild with aliases.
 
 Recently completed (v1.7.11):
 - **Mandatory aliases in page generation**: All three generation prompts now require `aliases:` to be non-empty, with fallback hierarchy (translation → source name → original name). Every new entity/concept/source page gets at least 1 alias.
