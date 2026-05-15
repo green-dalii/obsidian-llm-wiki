@@ -581,15 +581,17 @@ export interface DuplicateCandidate {
   score: number;
 }
 
-export function generateDuplicateCandidates(
+export async function generateDuplicateCandidates(
   pages: Array<{ path: string; content: string; title: string }>,
-): DuplicateCandidate[] {
+): Promise<DuplicateCandidate[]> {
   interface PageMeta {
     path: string;
     title: string;
     aliases: string[];
     links: Set<string>;
   }
+
+  const YIELD_EVERY = 200;
 
   const metas: PageMeta[] = [];
   const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
@@ -621,6 +623,9 @@ export function generateDuplicateCandidates(
 
   // Signal 1: Shared outgoing wiki-links (Jaccard >= 0.4)
   for (let i = 0; i < metas.length; i++) {
+    if (i > 0 && i % YIELD_EVERY === 0) {
+      await new Promise(resolve => activeWindow.setTimeout(resolve, 0));
+    }
     for (let j = i + 1; j < metas.length; j++) {
       const a = metas[i], b = metas[j];
       if (a.links.size === 0 || b.links.size === 0) continue;
@@ -647,6 +652,9 @@ export function generateDuplicateCandidates(
   };
 
   for (let i = 0; i < metas.length; i++) {
+    if (i > 0 && i % YIELD_EVERY === 0) {
+      await new Promise(resolve => activeWindow.setTimeout(resolve, 0));
+    }
     for (let j = i + 1; j < metas.length; j++) {
       const a = metas[i], b = metas[j];
       const namesA = [a.title, ...a.aliases];

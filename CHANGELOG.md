@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.15] - 2026-05-15
+
+### Fixed
+- **Obsidian Bot review compliance**: Updated `pnpm lint` script to `--max-warnings=0` matching Obsidian Bot's strict mode; fixed `pnpm-lock.yaml` stale entries
+- **Lint UI freeze**: `generateDuplicateCandidates` (O(n²) pairwise comparisons) now runs asynchronously with event-loop yield points every 200 outer iterations, preventing renderer thread blocking on large wikis (1200+ pages). Page reading batched to 200 files per batch to reduce I/O contention
+- **Type safety**: Added `await` to `generateDuplicateCandidates` call site in `lint-controller.ts` (async return type mismatch caused all `DuplicateCandidate` accesses to resolve as `any`)
+
 ## [1.7.14] - 2026-05-15
 
 ### Fixed

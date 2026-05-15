@@ -1,12 +1,12 @@
 {
   "name": "karpathywiki",
-  "version": "1.7.14",
+  "version": "1.7.15",
   "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation with conversational query",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
-    "lint": "eslint src/"
+    "lint": "eslint src/ --max-warnings=0"
   },
   "keywords": [
     "obsidian",

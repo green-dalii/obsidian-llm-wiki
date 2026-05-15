@@ -69,14 +69,18 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
     console.debug(`lintWiki: reading ${wikiFiles.length} wiki pages in parallel`);
 
     const totalPages = wikiFiles.length;
-    const readResults = await Promise.all(
-      wikiFiles.map(async file => {
-        const content = await ctx.app.vault.read(file);
-        return { path: file.path, content, basename: file.basename };
-      })
-    );
-    for (const r of readResults) {
-      pageMap.set(r.path, r);
+    const BATCH_READ = 200;
+    for (let i = 0; i < wikiFiles.length; i += BATCH_READ) {
+      const batch = wikiFiles.slice(i, i + BATCH_READ);
+      const batchResults = await Promise.all(
+        batch.map(async file => {
+          const content = await ctx.app.vault.read(file);
+          return { path: file.path, content, basename: file.basename };
+        })
+      );
+      for (const r of batchResults) {
+        pageMap.set(r.path, r);
+      }
     }
     stageNotice.setMessage(t.lintReadingPagesProgress
       .replace('{current}', String(totalPages))
@@ -115,7 +119,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
         }
 
         // Layer 1: Programmatic candidates (2 signals: sharedLinks + bigram/crossLang/abbreviation)
-        const allCandidates = generateDuplicateCandidates(pagesForDedup);
+        const allCandidates = await generateDuplicateCandidates(pagesForDedup);
 
         // Tier classification: semantic meaning of each signal
         // Tier 1 (must-send): direct evidence of duplication
