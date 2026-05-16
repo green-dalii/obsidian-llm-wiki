@@ -1,4 +1,4 @@
-![llm_wiki_banner](/docs/assets/llm_wiki_banner.jpg)
+![llm_wiki_banner](/docs/assets/llm_wiki_banner.webp)
 
 # Karpathy LLM Wiki — Plugin Obsidian
 
