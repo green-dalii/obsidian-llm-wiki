@@ -6,9 +6,9 @@
 
 ---
 
-## Current Phase: Post-v1.7.17 — Code Quality Phase 1 Planning
+## Current Phase: Post-v1.7.18 — Code Quality Phase 1 Planning
 
-**v1.7.17 bug fix completed.** Next step: Phase 1 refactoring (constants.ts, utils helpers, lint caching/scope/batching) with zero breaking changes.
+**v1.7.18 critical bug fix completed.** Next step: Phase 1 refactoring (constants.ts, utils helpers, lint caching/scope/batching) with zero breaking changes.
 
 Comprehensive codebase review (May 2026) identified 26 issues across three dimensions:
 - **Code reuse**: 8 issues, ~200 lines reducible via shared utilities
@@ -21,7 +21,11 @@ Comprehensive codebase review (May 2026) identified 26 issues across three dimen
 
 **Phase 3 (6 items)**: WikiLinkParser class, EngineContext refactor, SSE parser, change detection guards.
 
-**v1.7.17 completed**: Lint UI freeze issue resolved with async yield points in duplicate candidate generation (Phase 1 frontmatter parsing + inner loop signal processing). Smart Fix All button count fixed (now includes missing aliases), Phase 0 aliases completion added before duplicate merge.
+**v1.7.18 completed**: Critical folder name leakage bug fixed — `{{source_path}}` removed from `mergeDuplicatePages` and `{{page_path}}` removed from `fillEmptyPage` prompts (LLM only needs semantic content, not file system paths). Added contaminated alias filtering to prevent pollution propagation (aliases matching `entities*`, `concepts*`, `sources*` rejected).
+
+Recently completed (v1.7.18):
+- **Folder name leakage fix**: Removed `{{source_path}}` from `mergeDuplicatePages` prompt — LLM was misinterpreting full paths like `wiki/entities/DeepSeek-V3` as page titles, producing polluted titles (`entitiesDeepSeek-V3-2`, `concepts表征学习`). LLM now only receives body content.
+- **Alias contamination defense**: Added filter to reject aliases matching `entities*`, `concepts*`, `sources*` patterns (folder-name prefix leakage) during merge, preventing existing pollution from spreading.
 
 Recently completed (v1.7.17):
 - **Lint UI freeze fix**: Added async yield points in Phase 1 frontmatter parsing (every 50 pages) and inner loop comparison (every 500 comparisons) to prevent 10-40s UI blocking on large wikis (1200+ pages)
@@ -185,10 +189,13 @@ After completing each Phase, execute in order:
 
 **Documentation:**
 - ✅ **README.md:** English (primary, for international users)
-- ✅ **README_CN.md:** Chinese (optional, for local users)
-- ✅ **ROADMAP.md:** English (international planning)
-- ✅ **CHANGELOG.md:** English (international tracking)
-- ✅ **All other docs:** English (except user-facing localized content)
+- ✅ **docs/README_CN.md:** Chinese (optional, for local users)
+- ✅ **docs/README_JA.md:** Japanese
+- ✅ **docs/README_KO.md:** Korean
+- ✅ **docs/README_DE.md:** German
+- ✅ **docs/README_FR.md:** French
+- ✅ **docs/README_ES.md:** Spanish
+- ✅ **docs/README_PT.md:** Portuguese
 
 **User Interface (v1.0.9+):**
 - ✅ **Settings panel:** Supports English and Chinese interface

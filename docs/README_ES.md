@@ -4,9 +4,11 @@
 
 > Base de conocimiento estructurada impulsada por IA que ingiere tus notas y genera un Wiki conectado — basado en el concepto de [LLM Wiki de Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Autor:** Greener-Dalii | **Versión:** 1.7.17
+**Autor:** Greener-Dalii | **Versión:** 1.7.18
 
-[English](README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md) | [Sitio oficial](https://llmwiki.greenerai.top/) | [Discusiones](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+[English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md)
+
+[Sitio oficial](https://llmwiki.greenerai.top/) | [Discusiones](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
 ---
 

@@ -2,11 +2,19 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.17 | **Updated:** 2026-05-16
+**Version:** 1.7.18 | **Updated:** 2026-05-16
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.18) — Critical Bug Fix: Folder Name Leakage in LLM Prompts
+
+**LLM prompt path leakage**
+- Root cause: Two repair prompts (`mergeDuplicatePages`, `fillEmptyPage`) passed full file paths (`wiki/entities/DeepSeek-V3`) to LLM, causing it to misinterpret folder names as part of page titles
+- Result: merged pages got polluted titles like `entitiesDeepSeek-V3-2`, `concepts表征学习`
+- Fix: Removed `{{source_path}}` from mergeDuplicatePages and `{{page_path}}` from fillEmptyPage — LLM only needs body content and type, not file system paths
+- Defense layer: Added contaminated alias filtering to reject aliases matching `entities*`, `concepts*`, `sources*` patterns, preventing existing pollution from spreading
 
 ### Implemented (v1.7.17) — Lint Performance + Smart Fix All Fixes
 
@@ -220,6 +228,7 @@ Karpathy: *"I like to do them one at a time, and be involved myself."*
 
 | Version | Date | Key Features | Status |
 |---------|------|-------------|--------|
+| **v1.7.18** | 2026-05 | Critical fix: folder name leakage in duplicate merge titles, contaminated alias filtering | Released |
 | **v1.7.17** | 2026-05 | Lint UI freeze fix (async yield in Phase 1 + inner loops), Smart Fix All button count fix, Phase 0 aliases completion | Released |
 | **v1.7.13** | 2026-05 | Provider-aware model filtering (OpenRouter/Ollama), alias-aware wiki index & query | Released |
 | **v1.7.11** | 2026-05 | Mandatory page aliases, semantic-tier duplicate detection, token-budget batching, alias completion, Smart Fix All, frontmatter fixes | Released |

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.18] - 2026-05-16
+
+### Fixed
+- **Critical: Folder name leakage in LLM prompts**: LLM was receiving full file paths in two repair prompts, causing systematic folder name pollution in generated titles and content.
+  - `mergeDuplicatePages`: Removed `{{source_path}}` parameter — LLM misinterpreted `wiki/entities/DeepSeek-V3` as page title, producing polluted titles like `entitiesDeepSeek-V3`, `concepts表征学习`
+  - `fillEmptyPage`: Removed `{{page_path}}` parameter — same root cause, LLM doesn't need file system paths for content generation
+- **Defense layer**: Added contaminated alias filtering that rejects aliases matching `entities*`, `concepts*`, `sources*` patterns, preventing existing pollution from spreading through future merges
+
 ## [1.7.17] - 2026-05-16
 
 ### Fixed

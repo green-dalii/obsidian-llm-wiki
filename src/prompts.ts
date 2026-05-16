@@ -491,7 +491,6 @@ Output JSON format:
 
   fillEmptyPage: `You are a Wiki page expansion assistant. Generate content for the following under-populated Wiki page.
 
-Page Path: {{page_path}}
 Page Type (entities/concepts/sources): {{page_type}}
 
 Existing Content:
@@ -741,9 +740,7 @@ If none of the candidates are true duplicates: {"duplicates": []}`,
 **Source page body (will be merged then deleted):**
 {{source_content}}
 
-**Source page path:** {{source_path}}
-
-**IMPORTANT:** You are receiving ONLY the Markdown body content (frontmatter already stripped by the system). DO NOT include any frontmatter in your output. The system will handle frontmatter merging programmatically.
+**IMPORTANT:** You are receiving ONLY the Markdown body content (frontmatter already stripped by the system). DO not include any frontmatter in your output. The system will handle frontmatter merging programmatically. Focus on merging the semantic content only.
 
 **Fusion rules:**
 1. Keep ALL information from the target page — it is the primary version

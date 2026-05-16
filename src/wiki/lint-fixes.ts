@@ -259,7 +259,6 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     const wikiIndex = (await this.ctx.tryReadFile(indexPath)) || '';
 
     const prompt = PROMPTS.fillEmptyPage
-      .replace('{{page_path}}', pagePath)
       .replace('{{page_type}}', pageType)
       .replace('{{existing_content}}', content)
       .replace('{{wiki_index}}', wikiIndex.substring(0, 2000));
@@ -427,9 +426,20 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
       allAliases.unshift(targetH1); // prepend — likely the best human-readable name
     }
 
+    // Filter out contaminated aliases: folder-name-prefix leakage
+    // e.g. "entitiesDeepSeek-V3-2" → startsWith("entities") && longer than "entities"
+    const wikiSubfolders = ['entities', 'concepts', 'sources'];
+    const cleanAliases = allAliases.filter(a => {
+      if (!a) return false;
+      for (const folder of wikiSubfolders) {
+        if (a.startsWith(folder) && a.length > folder.length) return false;
+      }
+      return true;
+    });
+
     const targetTitle = targetFm?.title as string || targetFilename;
-    let dedupedAliases = allAliases.filter((a, i) =>
-      a && a !== targetTitle && allAliases.indexOf(a) === i
+    let dedupedAliases = cleanAliases.filter((a, i) =>
+      a && a !== targetTitle && cleanAliases.indexOf(a) === i
     );
 
     // 2. LLM content merge — PASS ONLY THE BODY, NOT FRONTMATTER
@@ -446,8 +456,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
       try {
         const prompt = PROMPTS.mergeDuplicatePages
           .replace('{{target_content}}', targetBody)  // ONLY body, no frontmatter
-          .replace('{{source_content}}', sourceBody)  // ONLY body, no frontmatter
-          .replace('{{source_path}}', sourcePath);
+          .replace('{{source_content}}', sourceBody);  // ONLY body, no frontmatter - removed path to prevent folder name leakage
 
         const mergedContent = await client.createMessage({
           model: this.ctx.settings.model,
