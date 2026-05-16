@@ -2,15 +2,33 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-15
+**Last Updated:** 2026-05-16
 
 ---
 
-## Current Phase: v1.7.16 — CORS Fix + Query UX + Timer Compliance
+## Current Phase: Post-v1.7.17 — Code Quality Phase 1 Planning
 
-**Bug fixes: #17 CORS for OpenAI-compatible endpoints, Query markdown rendering, Query modal UI.**
+**v1.7.17 bug fix completed.** Next step: Phase 1 refactoring (constants.ts, utils helpers, lint caching/scope/batching) with zero breaking changes.
 
-Recently completed (v1.7.14):
+Comprehensive codebase review (May 2026) identified 26 issues across three dimensions:
+- **Code reuse**: 8 issues, ~200 lines reducible via shared utilities
+- **Code quality**: 6 issues, copy-paste templates + magic strings
+- **Efficiency**: 10 issues, lint performance bottlenecks + redundant operations
+
+**Phase 1 (7 items, immediate)**: Create constants.ts, add utils helpers, fix lint caching/scope/batching, parameterize prompts, generalize page-factory. Zero breaking changes.
+
+**Phase 2 (7 items)**: Extract withRetry wrapper, parallel lint fixes, flatten parseFrontmatter, use existing utilities.
+
+**Phase 3 (6 items)**: WikiLinkParser class, EngineContext refactor, SSE parser, change detection guards.
+
+**v1.7.17 completed**: Lint UI freeze issue resolved with async yield points in duplicate candidate generation (Phase 1 frontmatter parsing + inner loop signal processing). Smart Fix All button count fixed (now includes missing aliases), Phase 0 aliases completion added before duplicate merge.
+
+Recently completed (v1.7.17):
+- **Lint UI freeze fix**: Added async yield points in Phase 1 frontmatter parsing (every 50 pages) and inner loop comparison (every 500 comparisons) to prevent 10-40s UI blocking on large wikis (1200+ pages)
+- **Smart Fix All button count**: Fixed to include missing aliases count, making Phase 0 aliases completion visible in button label
+- **Smart Fix All logic**: Added Phase 0 aliases completion before Phase 1 duplicate merge, ensuring aliases exist before duplicate detection runs
+
+Recently completed (v1.7.16):
 - **#17 CORS fix**: Replaced `openai` npm SDK (browser `fetch()`, CORS-bound) with `requestUrl()`-based `OpenAICompatibleClient`. `requestUrl()` delegates to Obsidian's Main process (Node.js), bypassing CORS entirely. Also rewrote model fetching in settings.ts. Removed `openai` from dependencies.
 - **Query progress overhaul**: Five-phase progress display with page names, elapsed time counter, proper non-streaming labeling.
 - **Cmd+Enter to send + Stop button**: Prevent accidental Enter-only sends. Button transforms to red "Stop" during generation.
@@ -93,10 +111,11 @@ Recently completed (v1.7.0-1.7.2):
   - Lint report & command palette i18n
   - Lint fix log enrichment with per-item details
 
-Active gaps:
-- Lint batch fix without per-item review (human-in-the-loop) — scheduled for v1.8.0
-- Ingest Wizard: conversational ingestion with user review — scheduled for v1.8.0
+Active gaps (postponed to post-quality-update phase):
+- Lint batch fix without per-item review (human-in-the-loop) — v1.8.0 (postponed)
+- Ingest Wizard: conversational ingestion with user review — v1.8.0 (postponed)
 - Stale-claim detection in lint — medium priority
+- Lint UI freeze before duplicate detection on large wikis — investigating, high priority for v1.7.17
 
 ## 📁 Project Structure (v1.6.7+)
 

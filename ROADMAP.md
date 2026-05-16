@@ -2,11 +2,24 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.13 | **Updated:** 2026-05-15
+**Version:** 1.7.17 | **Updated:** 2026-05-16
 
 ---
 
 ## Current Status
+
+### Implemented (v1.7.17) — Lint Performance + Smart Fix All Fixes
+
+**Lint UI Freeze Resolution**
+- Fixed 10-40 second UI blocking on large wikis (1200+ pages) during duplicate candidate generation
+- Phase 1 frontmatter parsing: Added async yield every 50 pages
+- Inner loop signal processing: Added async yield every 500 comparisons (covering sharedLinks/bigram calculations)
+- Root cause: O(n²) algorithm with 743 comparisons per outer iteration, no yield points caused continuous blocking
+
+**Smart Fix All Enhancements**
+- Button count fix: `totalFixable` now includes `pagesMissingAliases` (Phase 0 aliases completion visible)
+- Phase 0 added: Aliases completion runs before Phase 1 duplicate merge, ensuring aliases exist for duplicate detection
+- Phase numbering: Aliases (Phase 0) → Duplicates (Phase 1) → Dead links (Phase 2) → Orphans (Phase 3) → Empty pages (Phase 4)
 
 ### Implemented (v1.7.13) — Aliases Unified Mechanism + README i18n
 
@@ -126,9 +139,64 @@
 
 ---
 
-## Planned
+## Next Milestone: v1.7.17 — Code Quality & Architecture Refactoring
 
-### v1.8.0 — Conversational Ingest + Experience Polish
+**Priority shift:** v1.8.0 new features postponed. Focus on code quality, maintainability, and performance optimization before adding new capabilities.
+
+---
+
+### v1.8.0 — Code Quality Phase 1 (Immediate)
+
+**Code Reuse Optimization**
+- Create `src/constants.ts` for all frontmatter keys, wiki subfolders, magic numbers
+- Add utility helpers to `src/utils.ts`: `getTodayDate()`, `WIKI_LINK_REGEX`, `normalizeWikiPath()`
+- Reduce ~200 lines of duplicated code across 14 files
+
+**Performance Fixes**
+- lint-controller.ts: Use cached `getExistingWikiPages()` instead of direct calls (multiple reads per lint cycle)
+- lint-fixes.ts: Limit `mergeDuplicatePages` vault scan to wiki folder only (currently scans entire vault)
+- main.ts: Batch `isAlreadyIngested` checks (N+1 pattern → Set lookup)
+
+**Architecture Simplification**
+- prompts.ts: Parameterize entity/concept/summary page templates (`buildPagePrompt(type, fields)`)
+- page-factory.ts: Generalize create/merge methods (`createPage(type, data)`, `mergePage(type, existing, new)`)
+
+**Estimated impact:** Lint performance +30-50% (after Phase 1 caching/batching), maintainability significantly improved
+
+### v1.9.0 — Phase 2: Shared Utilities + Concurrency (Requires Testing)
+
+- llm-client.ts: Extract `withRetry<T>(fn, options)` wrapper (shared retry logic across 3 client classes)
+- lint-controller.ts: Parallel dead link fixes with `Promise.allSettled` + concurrency control
+- lint-controller.ts: Cache settings access (`wikiFolder` accessed 50+ times in single function)
+- utils.ts: Flatten `parseFrontmatter` 4-level nesting → early returns + helpers
+- lint-fixes.ts: Use existing `extractBody()` utility instead of inline regex
+
+### v2.0.0 — Phase 3: Long-term Architecture Refactoring
+
+- Extract `WikiLinkParser` class (`extractLinks()`, `validateLink()`, `resolveLink()`)
+- Refactor `EngineContext` interface (split by concern or use Builder pattern)
+- SSE parser utility for Anthropic/OpenAI clients
+- Change detection guards in query-engine timer + lint regex compilation
+
+### Implemented (v1.7.17) — Lint Performance Fix
+
+**Known Issue: Lint UI Freeze (RESOLVED)**
+
+**Original symptom:** Obsidian UI became unresponsive for 10-40 seconds during lint before reaching "checking duplicate pages" phase (1200+ page wikis).
+
+**Root cause identified:** Duplicate candidate generation Phase 1 (frontmatter parsing) and inner loops (signal processing) had no yield points. Outer loop iteration took ~1.1 seconds with ~743 comparisons per iteration, causing continuous blocking.
+
+**Fix applied:** Added two yield patterns:
+- Phase 1: `await new Promise(resolve => window.setTimeout(resolve, 0))` every 50 pages during frontmatter parsing and link extraction
+- Inner loops: Track `comparisonCount` across all sharedLinks/bigram loops, yield every 500 comparisons
+
+**Result:** UI remains responsive throughout lint cycle, duplicate candidate generation no longer blocks event loop.
+
+---
+
+## Planned (Postponed)
+
+### v1.10.0 — Conversational Ingest + Experience Polish
 
 Karpathy: *"I like to do them one at a time, and be involved myself."*
 
@@ -152,7 +220,8 @@ Karpathy: *"I like to do them one at a time, and be involved myself."*
 
 | Version | Date | Key Features | Status |
 |---------|------|-------------|--------|
-| **v1.7.12** | 2026-05 | Provider-aware model filtering (OpenRouter/Ollama), alias-aware wiki index & query | Released |
+| **v1.7.17** | 2026-05 | Lint UI freeze fix (async yield in Phase 1 + inner loops), Smart Fix All button count fix, Phase 0 aliases completion | Released |
+| **v1.7.13** | 2026-05 | Provider-aware model filtering (OpenRouter/Ollama), alias-aware wiki index & query | Released |
 | **v1.7.11** | 2026-05 | Mandatory page aliases, semantic-tier duplicate detection, token-budget batching, alias completion, Smart Fix All, frontmatter fixes | Released |
 | **v1.7.10** | 2026-05 | Three-layer duplicate detection/merge, 5xx retry, persistent notices, error overhaul, tag validation | Released |
 | **v1.7.9** | 2026-05 | GitHub artifact attestations (supply chain security) | Released |
@@ -168,7 +237,8 @@ Karpathy: *"I like to do them one at a time, and be involved myself."*
 | **v1.6.2** | 2026-05 | Iterative batch extraction, granularity control, JSON enforcement | Released |
 | **v1.4.0** | 2026-04 | Schema layer, auto-maintenance, ESLint compliance | Released |
 | **v1.0.0** | 2026-04 | Multi-page generation, entity/concept extraction, bidirectional links | Released |
-| **v1.8.0** | TBD | Ingest Wizard, lint per-item review, output diversity | Planned |
+| **v1.8.0** | TBD | Phase 1 refactoring: constants.ts, utils helpers, lint caching/batching | Planned |
+| **v1.10.0** | TBD | Ingest Wizard, lint per-item review, output diversity | Planned |
 | **v2.0.0** | TBD | Agent mode, multi-modal | Concept |
 
 ---

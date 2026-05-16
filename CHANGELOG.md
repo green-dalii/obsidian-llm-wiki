@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.17] - 2026-05-16
+
+### Fixed
+- **Smart Fix All missing aliases phase**: Added Phase 0 aliases completion before duplicate detection, ensuring Tier 1 signals (crossLang, abbreviation) work correctly. Previously, Smart Fix All skipped aliases → duplicate detection missed true duplicates → downstream fixes incomplete
+- **Lint UI freeze on large wikis (10-40s blocking)**: Added async yield points in duplicate candidate generation Phase 1 (frontmatter parsing + link extraction, yield every 50 pages) and Phase 2-3 inner loops (yield every 500 comparisons). Obsidian UI thread now regains control every 0.75-1.5 seconds on 1500+ page wikis
+
 ## [1.7.16] - 2026-05-15
 
 ### Fixed

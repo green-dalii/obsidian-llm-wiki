@@ -756,15 +756,29 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
     }
 
     const totalFixable = deadLinks.length + emptyPages.length + orphans.length + duplicates.length;
-    if (totalFixable > 0) {
+    const totalFixableIncludingAliases = totalFixable + aliasDeficientPages.length;
+    if (totalFixableIncludingAliases > 0) {
       fixCallbacks.onFixAll = () => {
         void (async () => {
           const allResults: string[] = [];
           const fixAllNotice = new Notice('', 0);
 
-          // Smart fix strategy: follow causality chain
+          // Smart fix strategy: follow causality chain with aliases as foundation
+          // Phase 0: Complete aliases (pre-flight, ensures duplicate detection accuracy)
+          // → Aliases are required for Tier 1 duplicate signals (crossLang, abbreviation)
+          // → Missing aliases → duplicate detection misses true duplicates → downstream fixes incomplete
+          fixAllNotice.setMessage('Smart fix: Phase 0 — Completing aliases...');
+          if (aliasDeficientPages.length > 0) {
+            const { filled, results } = await runAliasCompletion();
+            if (filled > 0) {
+              allResults.push(`## Complete Aliases\n${results.join('\n')}`);
+              console.debug(`Smart fix: Completed ${filled} aliases, improving duplicate detection accuracy`);
+            }
+          }
+
           // Phase 1: Merge duplicates (root cause)
           // → Eliminates redundant pages, resolves many dead links and orphans automatically via link rewriting
+          // → Duplicate detection now uses complete aliases (Tier 1 crossLang/abbreviation signals active)
           fixAllNotice.setMessage('Smart fix: Phase 1 — Merging duplicates...');
           if (duplicates.length > 0) {
             const { merged, results } = await runDuplicateMerges();
@@ -777,6 +791,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
           // Phase 2: Fix remaining dead links
           // → Links to deleted source pages were already rewritten during merge
           // → This phase fixes any remaining dead links (pointing to non-existent pages)
+          // → Dead link fallback uses aliases to find existing pages (avoiding stub creation)
           fixAllNotice.setMessage('Smart fix: Phase 2 — Fixing dead links...');
           if (deadLinks.length > 0) {
             const { fixed, results } = await runDeadLinkFixes();
@@ -811,7 +826,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
           fixAllNotice.hide();
           if (allResults.length > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
-            await ctx.wikiEngine.logLintFix('Smart Fix All (Causality-Aware)', allResults.join('\n\n'));
+            await ctx.wikiEngine.logLintFix('Smart Fix All (Causality-Aware with Aliases)', allResults.join('\n\n'));
             new Notice(t.lintFixAllComplete);
           }
         })();

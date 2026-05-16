@@ -592,11 +592,21 @@ export async function generateDuplicateCandidates(
   }
 
   const YIELD_EVERY = 200;
+  const YIELD_EVERY_PHASE1 = 50; // Phase 1 (frontmatter parsing + link extraction) is slower, yield more frequently
 
   const metas: PageMeta[] = [];
   const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
 
-  for (const page of pages) {
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+
+    // Phase 1: Parse frontmatter + extract links
+    // This is the slowest part (parseFrontmatter is a 90-line YAML parser)
+    // Yield every 50 pages to prevent UI thread blocking on large wikis (1200+ pages)
+    if (i > 0 && i % YIELD_EVERY_PHASE1 === 0) {
+      await new Promise(resolve => window.setTimeout(resolve, 0));
+    }
+
     const fm = parseFrontmatter(page.content);
     const aliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
 
@@ -621,12 +631,23 @@ export async function generateDuplicateCandidates(
     }
   };
 
+  // Track comparison count across both signals for yield scheduling
+  // O(n²) algorithm: 1487 pages → ~1.1M comparisons
+  // Yield every 500 comparisons to prevent UI blocking (each comparison ~1.5ms)
+  let comparisonCount = 0;
+  const YIELD_EVERY_COMPARISON = 500;
+
   // Signal 1: Shared outgoing wiki-links (Jaccard >= 0.4)
   for (let i = 0; i < metas.length; i++) {
     if (i > 0 && i % YIELD_EVERY === 0) {
       await new Promise(resolve => window.setTimeout(resolve, 0));
     }
     for (let j = i + 1; j < metas.length; j++) {
+      comparisonCount++;
+      if (comparisonCount % YIELD_EVERY_COMPARISON === 0) {
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+      }
+
       const a = metas[i], b = metas[j];
       if (a.links.size === 0 || b.links.size === 0) continue;
       let intersection = 0;
@@ -656,6 +677,11 @@ export async function generateDuplicateCandidates(
       await new Promise(resolve => window.setTimeout(resolve, 0));
     }
     for (let j = i + 1; j < metas.length; j++) {
+      comparisonCount++;
+      if (comparisonCount % YIELD_EVERY_COMPARISON === 0) {
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+      }
+
       const a = metas[i], b = metas[j];
       const namesA = [a.title, ...a.aliases];
       const namesB = [b.title, ...b.aliases];

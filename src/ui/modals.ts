@@ -164,7 +164,7 @@ export class LintReportModal extends Modal {
     }
 
     // === Layer 3: Smart Fix All (batched all-in-one) ===
-    const totalFixable = this.counts.deadLinks + this.counts.emptyPages + this.counts.orphans + this.counts.duplicates;
+    const totalFixable = this.counts.deadLinks + this.counts.emptyPages + this.counts.orphans + this.counts.duplicates + this.counts.pagesMissingAliases;
     if (totalFixable > 0 && this.fixCallbacks.onFixAll) {
       const row = actionSection.createDiv({ attr: { style: 'margin-bottom: 10px;' } });
       const btn = row.createEl('button', {
