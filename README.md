@@ -4,7 +4,7 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Author:** Greener-Dalii | **Version:** 1.7.18
+**Author:** Greener-Dalii | **Version:** 1.7.19
 
 [English](README.md) | [中文文档](docs/README_CN.md) | [日本語](docs/README_JA.md) | [한국어](docs/README_KO.md) | [Deutsch](docs/README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md)
 
@@ -85,13 +85,33 @@ Re-ingesting the same source does incremental updates on entity/concept pages (n
 
 **Smart Batch Skip:** When ingesting a folder, the plugin automatically detects already-processed files and skips them to save time and API costs. The batch report shows skipped count.
 
-> **Upgrading from an earlier version?** Run `Cmd+P` → "Regenerate index" to rebuild your Wiki index with aliases included — this enables alias-aware search in Query (e.g., searching "DSA" will find "DeepSeek-Sparse-Attention").
+### Upgrading from an Older Version?
 
-**Ingestion Acceleration:** For sources with many entities (20+), enable parallel page generation in Settings → Ingestion Acceleration:
-- **Page Generation Concurrency**: 1 (serial, safest) to 5 (parallel, fastest). Start with 3 for most providers.
-- **Batch Delay**: 100–2000ms between parallel batches. Increase to 500ms+ for rate-limited providers.
+If you're upgrading from a version **before v1.7.11** (or much earlier), your existing Wiki pages were generated without several capabilities added over many releases. Follow these steps after upgrading to bring your Wiki up to date:
 
-> **Safety**: Parallel generation uses `Promise.allSettled` — if one page fails, others continue. Failed pages are retried individually with exponential backoff.
+**1. Rebuild your index**
+`Cmd+P` → **"Regenerate index"** — This rebuilds `wiki/index.md` with alias entries for every page, enabling alias-aware search (e.g., searching "DSA" finds "DeepSeek-Sparse-Attention"). The old index format only listed page titles.
+
+**2. Run Lint Wiki**
+`Cmd+P` → **"Lint Wiki"** — This scans your entire Wiki and shows:
+- **Missing aliases**: Pages without aliases (all pre-v1.7.11 pages). Click **"Complete Aliases"** — the LLM generates translations, acronyms, and alternate names in bulk. This is critical for duplicate detection.
+- **Duplicate pages**: Pages with overlapping content (e.g., "CoT" vs "思维链" created by older versions that didn't have alias-aware dedup). Click **"Merge Duplicates"** to fuse them and preserve all aliases.
+- **Dead links / Empty pages / Orphans**: Standard wiki maintenance issues.
+
+**3. Use Smart Fix All**
+Click **"Smart Fix All"** in the Lint report for a one-click, causality-ordered repair: aliases completed → duplicates merged → dead links fixed → orphans linked → empty pages expanded. This is the fastest way to clean up a wiki built across many versions.
+
+**4. Enable parallel page generation**
+Settings → **Ingestion Acceleration**:
+- **Page Generation Concurrency**: Set to 3 for most providers (was 1/serial by default before v1.7.3). Speeds up ingestion 2–3× on sources with 10+ entities.
+- **Batch Delay**: Start at 300ms. Increase to 500–800ms if you hit rate limits.
+
+**5. Review new settings (added since v1.4.0–v1.7.x):**
+- **Wiki Output Language** (v1.6.5): Independent from UI language — your Wiki can be in Chinese while the plugin UI stays in English, or vice versa.
+- **Extraction Granularity** (v1.6.2): Fine/Standard/Coarse controls how deeply the LLM extracts entities from sources. "Standard" is a good default.
+- **Auto-Maintenance** (v1.4.0): Optional file watcher, periodic Lint, and startup health check. All default OFF — enable only if you want automatic background processing.
+
+> **Safety**: Parallel generation uses `Promise.allSettled` — if one page fails, others continue. Failed pages are retried individually with exponential backoff. Smart Batch Skip (v1.7.7) automatically detects already-ingested files to save time and API costs.
 
 ---
 
@@ -243,7 +263,10 @@ wiki/               # Wiki engine modules
   source-analyzer.ts # Iterative batch extraction
   page-factory.ts   # Entity/concept CRUD + merge
   lint-controller.ts # Lint orchestration
-  lint-fixes.ts     # Fix logic + duplicate candidate generation
+  lint-fixes.ts     # Fix logic for dead links, empty pages, orphans
+  lint/             # Lint sub-modules
+    duplicate-detection.ts  # Programmatic candidate generation
+    fix-runners.ts          # Batch fix execution helpers
   contradictions.ts # Contradiction detection
   system-prompts.ts # Language directive + section labels
 schema/             # Schema co-evolution
@@ -261,6 +284,84 @@ ui/                 # User interface
 - `wiki/concepts/concept-name.md` — Concept pages (theories, methods, terms, etc.)
 - `wiki/index.md` — Auto-generated index
 - `wiki/log.md` — Operation log
+
+---
+
+## FAQ
+
+### Why does Lint show "missing aliases" on almost all my pages?
+
+Pages generated before v1.7.11 didn't include aliases. This is expected and harmless — aliases are an enhancement, not a requirement. Click **"Complete Aliases"** in the Lint report to have the LLM generate translations, acronyms, and alternate names for all deficient pages in one batch. Once aliases exist, duplicate detection and alias-aware search become much more effective.
+
+### Why do I see duplicate pages with similar names (e.g., "CoT" and "思维链")?
+
+Older versions (pre-v1.7.10) didn't have alias-aware duplicate detection. When you ingested content about the same concept using different names, the LLM created separate pages. Run **Lint Wiki** → if duplicates are found, click **"Merge Duplicates"** to fuse them. The merged page preserves aliases from both, preventing future duplicates.
+
+### How do I speed up ingestion for large source files?
+
+Two settings in **Settings → Ingestion Acceleration**:
+- **Page Generation Concurrency**: Increase from 1 to 3 (or 5 for providers with high rate limits). This processes multiple entity/concept pages in parallel.
+- **Batch Delay**: Lower values are faster but risk rate limiting. Start at 300ms; increase to 500–800ms if you see HTTP 429 errors.
+
+Also check **Extraction Granularity**: "Standard" or "Coarse" produce fewer pages than "Fine" and are faster.
+
+### The plugin freezes when I run Lint on a large Wiki. What's wrong?
+
+This was a known issue fixed in v1.7.15 and v1.7.17. If you're on a version before v1.7.15, upgrade to the latest release — the Lint system now includes async yield points that return control to Obsidian's UI thread every 50 pages and every 500 comparisons, preventing the 10–40 second freeze that occurred on wikis with 1200+ pages.
+
+### Can I manually edit Wiki pages?
+
+Yes. The plugin respects your edits:
+- Set `reviewed: true` in the frontmatter to protect a page from being overwritten during re-ingestion. Reviewed pages only receive genuinely new content appended.
+- The `created` date is preserved across updates; only `updated` is refreshed.
+- Manual aliases, tags, and sources are preserved during merges.
+
+### How do I use local models with Ollama?
+
+1. Install [Ollama](https://ollama.com) and pull a model: `ollama pull gemma4`
+2. In plugin settings, select **"Ollama (Local)"** as the provider
+3. Click **Fetch Models** to populate the model list, or type the model name manually
+4. No API key needed
+
+> Local models typically have smaller context windows (8K–128K). Consider using a cloud provider for ingestion (which needs the largest context) and your local model for Query.
+
+### What's the difference between UI Language and Wiki Output Language?
+
+- **Interface Language** (top of settings): Controls the plugin's own UI — settings labels, button text, Notices. Currently supports English and Chinese.
+- **Wiki Output Language** (added in v1.6.5): Controls what language the LLM writes Wiki pages in. Supports 8 languages (EN/ZH/JA/KO/DE/FR/ES/PT) plus custom input. You can have an English UI while your Wiki is written in Japanese.
+
+### Why doesn't Query find pages I know exist?
+
+Three common causes:
+1. **Index is stale**: Run `Cmd+P` → **"Regenerate index"** to rebuild with current pages and aliases.
+2. **Aliases are missing**: Without aliases (pre-v1.7.11 pages), the LLM can only match by exact page title. Run Lint → Complete Aliases to fix.
+3. **Search terms don't match**: Try the page title, an alias, or a related term. The LLM does semantic matching, not keyword search — rephrasing helps.
+
+### What does "Smart Fix All" do and in what order?
+
+Smart Fix All runs fixes in causality order to minimize creating new problems:
+1. **Phase 0 — Complete Aliases**: Fill missing aliases so duplicate detection works properly.
+2. **Phase 1 — Merge Duplicates**: Fuse duplicate pages (root cause of many dead links and orphans).
+3. **Phase 2 — Fix Dead Links**: Repair broken `[[wiki-links]]` (many resolved after duplicate merge rewrites links).
+4. **Phase 3 — Link Orphans**: Add incoming links to pages that have none.
+5. **Phase 4 — Expand Empty Pages**: Fill stub pages with LLM-generated content.
+
+### How do I avoid unexpected API costs?
+
+- **Auto-Maintenance is OFF by default** — don't enable it unless you want continuous background processing.
+- **Smart Batch Skip** (v1.7.7) automatically skips already-ingested files, so re-running folder ingestion doesn't re-process everything.
+- **Extraction Granularity** set to "Standard" or "Coarse" uses fewer API calls than "Fine."
+- **Batch Delay** values above 500ms give more breathing room but don't increase token usage — they only space out calls.
+- The **Lint report** shows counts before you run any fixes, so you can decide what's worth the API cost.
+
+### How do I upgrade without losing my Wiki data?
+
+The plugin never modifies your source files in `sources/`. Wiki pages in `wiki/` are only modified when you explicitly run fixes or re-ingest. To be safe:
+1. Back up your vault (or just the `wiki/` folder)
+2. Update the plugin
+3. Run **Regenerate index** first
+4. Run **Lint Wiki** to see what needs attention
+5. Apply fixes selectively — you don't have to fix everything at once
 
 ---
 

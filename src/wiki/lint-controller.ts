@@ -7,7 +7,9 @@ import { LintFixCallbacks, LintCounts, LintReportModal } from '../ui/modals';
 import { TEXTS } from '../texts';
 import { PROMPTS } from '../prompts';
 import { cleanMarkdownResponse, parseJsonResponse } from '../utils';
-import { isPageEmpty, generateDuplicateCandidates, DuplicateCandidate } from './lint-fixes';
+import { isPageEmpty } from './lint-fixes';
+import { generateDuplicateCandidates, DuplicateCandidate } from './lint/duplicate-detection';
+import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges } from './lint/fix-runners';
 import { WikiEngine } from './wiki-engine';
 
 export interface LintContext {
@@ -118,7 +120,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
           }
         }
 
-        // Layer 1: Programmatic candidates (2 signals: sharedLinks + bigram/crossLang/abbreviation)
+        // Layer 1: Programmatic candidates (2 signals: sharedLinks + bigram/crossLang)
         const allCandidates = await generateDuplicateCandidates(pagesForDedup);
 
         // Tier classification: semantic meaning of each signal
@@ -127,7 +129,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
         const tier1: DuplicateCandidate[] = [];
         const tier2: DuplicateCandidate[] = [];
         for (const c of allCandidates) {
-          if (c.signal === 'crossLang' || c.signal === 'abbreviation') {
+          if (c.signal === 'crossLang') {
             tier1.push(c);
           } else if (c.signal === 'bigram') {
             (c.score >= 0.6 ? tier1 : tier2).push(c);
@@ -142,7 +144,6 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
         console.debug(`lintWiki: ${allCandidates.length} candidates → Tier 1: ${tier1.length}, Tier 2: ${tier2.length}`);
         console.debug(`lintWiki: candidate breakdown by signal:`, {
           crossLang: allCandidates.filter(c => c.signal === 'crossLang').length,
-          abbreviation: allCandidates.filter(c => c.signal === 'abbreviation').length,
           bigram: allCandidates.filter(c => c.signal === 'bigram').length,
           sharedLinks: allCandidates.filter(c => c.signal === 'sharedLinks').length,
         });
@@ -470,216 +471,6 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
       pagesMissingAliases: aliasDeficientPages.length
     };
 
-    // ---- Reusable fix phase helpers (captured in closure) ----
-    // Alias completion: parallel batch processing using pageGenerationConcurrency
-    async function runAliasCompletion(): Promise<{ filled: number; results: string[] }> {
-      const client = ctx.llmClient;
-      if (!client) return { filled: 0, results: [] };
-
-      const concurrency = ctx.settings.pageGenerationConcurrency ?? 1;
-      const totalBatches = Math.ceil(aliasDeficientPages.length / concurrency);
-      console.debug(`[Alias] 开始补全 — ${aliasDeficientPages.length} 页面, 并发度=${concurrency}, 总批次=${totalBatches}`);
-
-      let filled = 0;
-      const results: string[] = [];
-      const fixNotice = new Notice('', 0);
-      const aliasStartTime = Date.now();
-
-      for (let i = 0; i < aliasDeficientPages.length; i += concurrency) {
-        const batch = aliasDeficientPages.slice(i, i + concurrency);
-        const batchNum = Math.floor(i / concurrency) + 1;
-        const batchStartTime = Date.now();
-
-        console.debug(`[Alias 批次 ${batchNum}/${totalBatches}] 处理 ${batch.length} 页面: ${batch.map(p => p.basename).join(', ')}`);
-
-        let batchSuccess = 0;
-        let batchFail = 0;
-        const batchResults = await Promise.allSettled(
-          batch.map(async (page) => {
-            const pageRel = page.path.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
-            fixNotice.setMessage(t.lintAliasesFilling
-              .replace('{current}', String(Math.min(i + batch.length, aliasDeficientPages.length)))
-              .replace('{total}', String(aliasDeficientPages.length))
-              .replace('{page}', page.basename));
-
-            try {
-              // Extract body (strip frontmatter)
-              const bodyMatch = page.content.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
-              const body = bodyMatch ? bodyMatch[1].trim() : '';
-
-              const prompt = PROMPTS.generateAliases
-                .replace('{{title}}', page.basename)
-                .replace('{{body}}', body.substring(0, 2000));
-
-              console.debug(`[Alias] 请求LLM生成别名: ${page.basename} (body长度=${body.length})`);
-
-              const response = await client.createMessage({
-                model: ctx.settings.model,
-                max_tokens: 500,
-                messages: [{ role: 'user', content: prompt }],
-                response_format: { type: 'json_object' }
-              });
-
-              const parsed = await parseJsonResponse(response) as { aliases?: string[] } | null;
-              if (parsed?.aliases?.length) {
-                console.debug(`[Alias] ${page.basename}: 生成 ${parsed.aliases.length} 个别名 → [${parsed.aliases.join(', ')}]`);
-
-                // Write aliases into page frontmatter
-                const fmEnd = page.content.indexOf('\n---', 3);
-                if (fmEnd !== -1) {
-                  const aliasesYaml = 'aliases:\n' + parsed.aliases.map(a => `  - "${a}"`).join('\n');
-                  const updated = page.content.substring(0, fmEnd) + '\n' + aliasesYaml + page.content.substring(fmEnd);
-                  await ctx.app.vault.adapter.write(page.path, updated);
-                  results.push(`- [[${pageRel}]]: added ${parsed.aliases.length} aliases`);
-                  console.debug(`[Alias] ${page.basename}: 已写入 frontmatter`);
-                  return { success: true, name: page.basename, count: parsed.aliases.length };
-                } else {
-                  console.warn(`[Alias] ${page.basename}: 未找到 frontmatter 闭合标记`);
-                }
-              } else {
-                console.debug(`[Alias] ${page.basename}: LLM未生成有效别名`);
-              }
-              return { success: false, name: page.basename, reason: 'No aliases generated' };
-            } catch (e) {
-              const errMsg = e instanceof Error ? e.message : String(e);
-              console.error(`[Alias] ${page.basename}: 生成失败 — ${errMsg}`);
-              new Notice(t.lintAliasesFillFailed.replace('{page}', page.basename).replace('{error}', errMsg), 8000);
-              return { success: false, name: page.basename, reason: errMsg };
-            }
-          })
-        );
-
-        for (const r of batchResults) {
-          if (r.status === 'fulfilled' && r.value.success) {
-            filled++;
-            batchSuccess++;
-          } else {
-            batchFail++;
-            if (r.status === 'rejected') {
-              console.error(`[Alias 批次 ${batchNum}] Promise rejected:`, r.reason);
-            }
-          }
-        }
-
-        const batchTime = Date.now() - batchStartTime;
-        console.debug(`[Alias 批次 ${batchNum}/${totalBatches}] 完成 — 成功=${batchSuccess}, 失败=${batchFail}, 耗时=${batchTime}ms`);
-
-        // Batch delay for API rate limiting
-        if (i + concurrency < aliasDeficientPages.length && (ctx.settings.batchDelayMs ?? 300) > 0) {
-          await new Promise(resolve => window.setTimeout(resolve, ctx.settings.batchDelayMs ?? 300));
-        }
-      }
-
-      fixNotice.hide();
-      const totalTime = Date.now() - aliasStartTime;
-      console.debug(`[Alias] 全部完成 — 成功=${filled}, 失败=${aliasDeficientPages.length - filled}, 总耗时=${totalTime}ms`);
-      return { filled, results };
-    }
-
-    async function runDeadLinkFixes(): Promise<{ fixed: number; results: string[] }> {
-      const seen = new Set<string>();
-      const unique = deadLinks.filter(dl => {
-        const key = `${dl.source}::${dl.target}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      let fixed = 0;
-      const results: string[] = [];
-      const fixNotice = new Notice('', 0);
-      for (let i = 0; i < unique.length; i++) {
-        const dl = unique[i];
-        fixNotice.setMessage(t.lintFixProgress.replace('{current}', String(i + 1)).replace('{total}', String(unique.length)).replace('{target}', dl.target));
-        console.debug(`lintFix: dead link ${i + 1}/${unique.length}: ${dl.source} -> ${dl.target}`);
-        try {
-          const sourcePath = `${ctx.settings.wikiFolder}/${dl.source}.md`;
-          const result = await ctx.wikiEngine.fixDeadLink(sourcePath, dl.target);
-          console.debug(`Dead link fix: ${dl.source} -> ${dl.target}: ${result}`);
-          if (!result.includes(t.lintFixNoAction)) {
-            fixed++;
-            results.push(`- [[${dl.source}]]: \`[[${dl.target}]]\` → ${result}`);
-          }
-        } catch (e) {
-          console.error(`Failed to fix dead link: ${dl.source} -> ${dl.target}`, e);
-          const errMsg = e instanceof Error ? e.message : String(e);
-          new Notice(t.lintFixItemFailed.replace('{target}', dl.target).replace('{error}', errMsg), 8000);
-        }
-      }
-      fixNotice.hide();
-      return { fixed, results };
-    }
-
-    async function runEmptyPageFixes(): Promise<{ filled: number; results: string[] }> {
-      let filled = 0;
-      const results: string[] = [];
-      const fixNotice = new Notice('', 0);
-      for (let i = 0; i < emptyPages.length; i++) {
-        const ep = emptyPages[i];
-        fixNotice.setMessage(t.lintFillProgress.replace('{current}', String(i + 1)).replace('{total}', String(emptyPages.length)).replace('{page}', ep.path));
-        console.debug(`lintFix: fill empty page ${i + 1}/${emptyPages.length}: ${ep.path}`);
-        try {
-          const summary = await ctx.wikiEngine.fillEmptyPage(ep.path, ep.content);
-          filled++;
-          results.push(`- ${summary}`);
-        } catch (e) {
-          console.error(`Failed to expand empty page: ${ep.path}`, e);
-          const errMsg = e instanceof Error ? e.message : String(e);
-          new Notice(t.lintFillFailed.replace('{page}', ep.path).replace('{error}', errMsg), 8000);
-        }
-      }
-      fixNotice.hide();
-      return { filled, results };
-    }
-
-    async function runOrphanFixes(): Promise<{ linked: number; results: string[] }> {
-      const results: string[] = [];
-      const fixNotice = new Notice('', 0);
-      for (let i = 0; i < orphans.length; i++) {
-        const op = orphans[i];
-        const opRel = op.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
-        fixNotice.setMessage(t.lintLinkProgress.replace('{current}', String(i + 1)).replace('{total}', String(orphans.length)).replace('{page}', opRel));
-        console.debug(`lintFix: link orphan ${i + 1}/${orphans.length}: ${op}`);
-        try {
-          const linkedPages = await ctx.wikiEngine.linkOrphanPage(op);
-          if (linkedPages.length > 0) {
-            results.push(`- [[${opRel}]] linked from: ${linkedPages.map(p => `[[${p}]]`).join(', ')}`);
-          } else {
-            results.push(`- [[${opRel}]]: no suitable linking targets found`);
-          }
-        } catch (e) {
-          console.error(`Failed to link orphan: ${op}`, e);
-          const errMsg = e instanceof Error ? e.message : String(e);
-          new Notice(t.lintLinkItemFailed.replace('{page}', opRel).replace('{error}', errMsg), 8000);
-        }
-      }
-      fixNotice.hide();
-      return { linked: results.length, results };
-    }
-
-    async function runDuplicateMerges(): Promise<{ merged: number; results: string[] }> {
-      let merged = 0;
-      const results: string[] = [];
-      const fixNotice = new Notice('', 0);
-      for (let i = 0; i < duplicates.length; i++) {
-        const d = duplicates[i];
-        const sourceRel = d.source.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
-        const targetRel = d.target.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
-        fixNotice.setMessage(t.lintMergeProgress.replace('{current}', String(i + 1)).replace('{total}', String(duplicates.length)).replace('{source}', sourceRel).replace('{target}', targetRel));
-        console.debug(`lintFix: merge duplicates ${i + 1}/${duplicates.length}: ${d.source} → ${d.target}`);
-        try {
-          const result = await ctx.wikiEngine.mergeDuplicatePages(d.target, d.source);
-          merged++;
-          results.push(`- ${d.source} → ${d.target}: ${result}`);
-        } catch (e) {
-          console.error(`Failed to merge duplicates: ${d.source} → ${d.target}`, e);
-          const errMsg = e instanceof Error ? e.message : String(e);
-          new Notice(t.lintMergeItemFailed.replace('{source}', sourceRel).replace('{target}', targetRel).replace('{error}', errMsg), 8000);
-        }
-      }
-      fixNotice.hide();
-      return { merged, results };
-    }
-
     // ---- Build callbacks ----
     const fixCallbacks: LintFixCallbacks = {};
     fixCallbacks.onAnalyzeSchema = () => { void ctx.onAnalyzeSchema(); };
@@ -688,7 +479,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
     if (aliasDeficientPages.length > 0) {
       fixCallbacks.onCompleteAliases = () => {
         void (async () => {
-          const { filled, results } = await runAliasCompletion();
+          const { filled, results } = await runAliasCompletion(ctx, aliasDeficientPages);
           new Notice(t.lintAliasesFilled.replace('{filled}', String(filled)).replace('{total}', String(aliasDeficientPages.length)));
           if (filled > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
@@ -702,7 +493,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
     if (deadLinks.length > 0) {
       fixCallbacks.onFixDeadLinks = () => {
         void (async () => {
-          const { fixed, results } = await runDeadLinkFixes();
+          const { fixed, results } = await runDeadLinkFixes(ctx, deadLinks);
           new Notice(t.lintFixDeadComplete.replace('{fixed}', String(fixed)).replace('{total}', String(deadLinks.length)));
           if (fixed > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
@@ -716,7 +507,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
     if (emptyPages.length > 0) {
       fixCallbacks.onFillEmptyPages = () => {
         void (async () => {
-          const { filled, results } = await runEmptyPageFixes();
+          const { filled, results } = await runEmptyPageFixes(ctx, emptyPages);
           new Notice(t.lintFillComplete.replace('{filled}', String(filled)).replace('{total}', String(emptyPages.length)));
           if (filled > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
@@ -730,7 +521,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
     if (orphans.length > 0) {
       fixCallbacks.onLinkOrphans = () => {
         void (async () => {
-          const { linked, results } = await runOrphanFixes();
+          const { linked, results } = await runOrphanFixes(ctx, orphans);
           new Notice(t.lintLinkComplete.replace('{linked}', String(linked)));
           if (linked > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
@@ -744,7 +535,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
     if (duplicates.length > 0) {
       fixCallbacks.onMergeDuplicates = () => {
         void (async () => {
-          const { merged, results } = await runDuplicateMerges();
+          const { merged, results } = await runDuplicateMerges(ctx, duplicates);
           new Notice(t.lintMergeComplete.replace('{merged}', String(merged)).replace('{total}', String(duplicates.length)));
           if (merged > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
@@ -765,11 +556,11 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
 
           // Smart fix strategy: follow causality chain with aliases as foundation
           // Phase 0: Complete aliases (pre-flight, ensures duplicate detection accuracy)
-          // → Aliases are required for Tier 1 duplicate signals (crossLang, abbreviation)
+          // → Aliases are required for Tier 1 duplicate signals (crossLang)
           // → Missing aliases → duplicate detection misses true duplicates → downstream fixes incomplete
           fixAllNotice.setMessage('Smart fix: Phase 0 — Completing aliases...');
           if (aliasDeficientPages.length > 0) {
-            const { filled, results } = await runAliasCompletion();
+            const { filled, results } = await runAliasCompletion(ctx, aliasDeficientPages);
             if (filled > 0) {
               allResults.push(`## Complete Aliases\n${results.join('\n')}`);
               console.debug(`Smart fix: Completed ${filled} aliases, improving duplicate detection accuracy`);
@@ -778,10 +569,10 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
 
           // Phase 1: Merge duplicates (root cause)
           // → Eliminates redundant pages, resolves many dead links and orphans automatically via link rewriting
-          // → Duplicate detection now uses complete aliases (Tier 1 crossLang/abbreviation signals active)
+          // → Duplicate detection now uses complete aliases (Tier 1 crossLang signals active)
           fixAllNotice.setMessage('Smart fix: Phase 1 — Merging duplicates...');
           if (duplicates.length > 0) {
-            const { merged, results } = await runDuplicateMerges();
+            const { merged, results } = await runDuplicateMerges(ctx, duplicates);
             if (merged > 0) {
               allResults.push(`## Merge Duplicate Pages\n${results.join('\n')}`);
               console.debug(`Smart fix: Merged ${merged} duplicates, dead links and orphans may be auto-resolved`);
@@ -794,7 +585,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
           // → Dead link fallback uses aliases to find existing pages (avoiding stub creation)
           fixAllNotice.setMessage('Smart fix: Phase 2 — Fixing dead links...');
           if (deadLinks.length > 0) {
-            const { fixed, results } = await runDeadLinkFixes();
+            const { fixed, results } = await runDeadLinkFixes(ctx, deadLinks);
             if (fixed > 0) {
               allResults.push(`## Fix Dead Links\n${results.join('\n')}`);
               console.debug(`Smart fix: Fixed ${fixed} dead links`);
@@ -806,7 +597,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
           // → This phase links any remaining orphan pages
           fixAllNotice.setMessage('Smart fix: Phase 3 — Linking orphan pages...');
           if (orphans.length > 0) {
-            const { linked, results } = await runOrphanFixes();
+            const { linked, results } = await runOrphanFixes(ctx, orphans);
             if (linked > 0) {
               allResults.push(`## Link Orphan Pages\n${results.join('\n')}`);
               console.debug(`Smart fix: Linked ${linked} orphan pages`);
@@ -816,7 +607,7 @@ export async function runLintWiki(ctx: LintContext): Promise<void> {
           // Phase 4: Expand empty pages (last, independent of other issues)
           fixAllNotice.setMessage('Smart fix: Phase 4 — Expanding empty pages...');
           if (emptyPages.length > 0) {
-            const { filled, results } = await runEmptyPageFixes();
+            const { filled, results } = await runEmptyPageFixes(ctx, emptyPages);
             if (filled > 0) {
               allResults.push(`## Expand Empty Pages\n${results.join('\n')}`);
               console.debug(`Smart fix: Expanded ${filled} empty pages`);

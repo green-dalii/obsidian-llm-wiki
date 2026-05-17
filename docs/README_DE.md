@@ -4,7 +4,7 @@
 
 > KI-gestützte strukturierte Wissensbasis — wandelt Notizen automatisch in ein Wiki um. Basierend auf [Andrej Karpathys LLM Wiki-Konzept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 
-**Autor:** Greener-Dalii **Version:** 1.7.18
+**Autor:** Greener-Dalii **Version:** 1.7.19
 
 [English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md)
 
@@ -83,13 +83,33 @@ Re-Ingesting derselben Source führt zu inkrementellen Updates auf Entity/Concep
 
 **Smart Batch Skip:** Beim Folder-Ingest erkennt das Plugin automatisch bereits verarbeitete Dateien und überspringt diese, um Zeit und API-Kosten zu sparen. Der Batch-Report zeigt die Anzahl übersprungener Dateien.
 
-> **Upgrade von früherer Version?** `Cmd+P` → "Regenerate index" ausführen, um den Wiki-Index mit Aliases neu aufzubauen — dies aktiviert die Alias-aware Search in Query (z. B. findet Suche nach "DSA" die Seite "DeepSeek-Sparse-Attention").
+### Upgrade von einer älteren Version?
 
-**Ingestion Acceleration:** Für Sources mit vielen Entities (20+), parallele Page-Generierung in Settings → Ingestion Acceleration aktivieren:
-- **Page Generation Concurrency**: 1 (seriell, sicherste) bis 5 (parallel, schnellste). Mit 3 für die meisten Providers starten.
-- **Batch Delay**: 100–2000 ms Verzögerung zwischen parallelen Batches. Auf 500 ms+ erhöhen für rate-limited Providers.
+Wenn Sie von einer Version **vor v1.7.11** (oder noch früher) upgraden, wurden Ihre Wiki-Seiten ohne mehrere Funktionen generiert, die in späteren Versionen hinzugekommen sind. Führen Sie nach dem Upgrade diese Schritte aus, um Ihr Wiki auf den neuesten Stand zu bringen:
 
-> **Safety**: Parallele Generierung nutzt `Promise.allSettled` — bei Fehler einer Page laufen andere weiter. Fehlgeschlagene Pages werden einzeln mit Exponential Backoff wiederholt.
+**1. Index neu aufbauen**
+`Cmd+P` → **"Regenerate index"** — Baut `wiki/index.md` mit Alias-Einträgen für jede Seite neu auf. Dies ermöglicht die Alias-basierte Suche (z. B. findet die Suche nach "DSA" die Seite "DeepSeek-Sparse-Attention"). Das alte Index-Format enthielt nur Seitentitel.
+
+**2. Lint Wiki ausführen**
+`Cmd+P` → **"Lint Wiki"** — Durchsucht Ihr gesamtes Wiki und zeigt Folgendes an:
+- **Fehlende Aliases**: Seiten ohne Aliases (alle Seiten vor v1.7.11). Klicken Sie **"Complete Aliases"** — der LLM generiert Übersetzungen, Akronyme und alternative Namen im Batch. Dies ist entscheidend für die Duplikaterkennung.
+- **Doppelte Seiten**: Seiten mit überlappenden Inhalten (z. B. "CoT" vs "Chain-of-Thought", die von älteren Versionen ohne Alias-basierte Deduplizierung erstellt wurden). Klicken Sie **"Merge Duplicates"**, um sie zu verschmelzen und alle Aliases zu erhalten.
+- **Tote Links / Leere Seiten / Orphans**: Übliche Wiki-Wartungsprobleme.
+
+**3. Smart Fix All verwenden**
+Klicken Sie im Lint-Report auf **"Smart Fix All"** für eine einmalige, kausal geordnete Reparatur: Aliases ergänzen → Duplikate zusammenführen → tote Links reparieren → Orphans verlinken → leere Seiten befüllen. Dies ist der schnellste Weg, ein über mehrere Versionen gewachsenes Wiki zu bereinigen.
+
+**4. Parallele Seitengenerierung aktivieren**
+Settings → **Ingestion Acceleration**:
+- **Page Generation Concurrency**: Stellen Sie den Wert auf 3 für die meisten Provider (vor v1.7.3 war der Standardwert 1/seriell). Beschleunigt die Ingestion um das 2- bis 3-Fache bei Quellen mit 10+ Entities.
+- **Batch Delay**: Beginnen Sie bei 300 ms. Erhöhen Sie auf 500–800 ms, wenn Sie auf Rate Limits stoßen.
+
+**5. Neue Einstellungen prüfen (seit v1.4.0–v1.7.x hinzugekommen):**
+- **Wiki Output Language** (v1.6.5): Unabhängig von der UI-Sprache — Ihr Wiki kann auf Deutsch sein, während die Plugin-Oberfläche auf Englisch bleibt, oder umgekehrt.
+- **Extraction Granularity** (v1.6.2): Fine/Standard/Coarse steuert, wie tief der LLM Entities aus Quellen extrahiert. "Standard" ist eine gute Voreinstellung.
+- **Auto-Maintenance** (v1.4.0): Optionaler File Watcher, periodischer Lint und Startup Health Check. Standardmäßig alle AUS — nur aktivieren, wenn Sie automatische Hintergrundverarbeitung wünschen.
+
+> **Safety**: Parallele Generierung nutzt `Promise.allSettled` — bei Fehler einer Seite laufen andere weiter. Fehlgeschlagene Seiten werden einzeln mit Exponential Backoff wiederholt. Smart Batch Skip (v1.7.7) erkennt automatisch bereits verarbeitete Dateien und spart so Zeit und API-Kosten.
 
 ---
 
@@ -190,7 +210,10 @@ wiki/               # Wiki Engine Modules
   source-analyzer.ts # Iterative Batch Extraction
   page-factory.ts   # Entity/Concept CRUD + Merge
   lint-controller.ts # Lint Orchestration
-  lint-fixes.ts     # Fix Logic + Duplicate Candidate Generation
+  lint-fixes.ts     # Fix Logic for Dead Links, Empty Pages, Orphans
+  lint/             # Lint-Submodule
+    duplicate-detection.ts  # Programmatische Kandidatengenerierung
+    fix-runners.ts          # Batch-Fix-Ausführungshilfen
   contradictions.ts # Contradiction Detection
   system-prompts.ts # Language Directive + Section Labels
 schema/             # Schema Co-Evolution
@@ -241,6 +264,84 @@ ui/                 # User Interface
 - `pnpm build` erfolgreich
 - Englische Commit Messages (Conventional Format)
 - Dokumentation bei Feature-Änderungen aktualisieren
+
+---
+
+## FAQ
+
+### Warum zeigt Lint bei fast all meinen Seiten "fehlende Aliases" an?
+
+Seiten, die vor v1.7.11 generiert wurden, enthielten keine Aliases. Das ist normal und harmlos — Aliases sind eine Verbesserung, keine Voraussetzung. Klicken Sie im Lint-Report auf **"Complete Aliases"**, damit der LLM Übersetzungen, Akronyme und alternative Namen für alle fehlenden Seiten in einem Batch generiert. Sobald Aliases vorhanden sind, werden die Duplikaterkennung und die Alias-basierte Suche deutlich effektiver.
+
+### Warum sehe ich doppelte Seiten mit ähnlichen Namen (z. B. "CoT" und "Chain-of-Thought")?
+
+Ältere Versionen (vor v1.7.10) hatten keine Alias-basierte Duplikaterkennung. Wenn Sie Inhalte über dasselbe Konzept mit unterschiedlichen Namen verarbeitet haben, hat der LLM separate Seiten erstellt. Führen Sie **Lint Wiki** aus — wenn Duplikate gefunden werden, klicken Sie **"Merge Duplicates"**, um sie zu verschmelzen. Die zusammengeführte Seite behält Aliases von beiden und verhindert so zukünftige Duplikate.
+
+### Wie kann ich die Ingestion für große Quelldateien beschleunigen?
+
+Zwei Einstellungen in **Settings → Ingestion Acceleration**:
+- **Page Generation Concurrency**: Erhöhen Sie den Wert von 1 auf 3 (oder 5 für Provider mit hohen Rate Limits). Dadurch werden mehrere Entity/Concept-Seiten parallel verarbeitet.
+- **Batch Delay**: Niedrigere Werte sind schneller, bergen aber ein Risiko für Rate Limits. Beginnen Sie bei 300 ms; erhöhen Sie auf 500–800 ms, wenn Sie HTTP-429-Fehler sehen.
+
+Prüfen Sie auch die **Extraction Granularity**: "Standard" oder "Coarse" erzeugen weniger Seiten als "Fine" und sind daher schneller.
+
+### Das Plugin friert ein, wenn ich Lint auf einem großen Wiki ausführe. Was ist los?
+
+Dies war ein bekanntes Problem, das in v1.7.15 und v1.7.17 behoben wurde. Wenn Sie eine Version vor v1.7.15 verwenden, aktualisieren Sie auf die neueste Version — das Lint-System enthält jetzt asynchrone Yield Points, die die Kontrolle an den UI-Thread von Obsidian zurückgeben (alle 50 Seiten und alle 500 Vergleiche). Dies verhindert die 10–40 Sekunden langen Freezes, die bei Wikis mit 1200+ Seiten auftraten.
+
+### Kann ich Wiki-Seiten manuell bearbeiten?
+
+Ja. Das Plugin respektiert Ihre Bearbeitungen:
+- Setzen Sie `reviewed: true` im Frontmatter, um eine Seite vor Überschreibung bei erneuter Ingestion zu schützen. Überprüfte Seiten erhalten nur ergänzend wirklich neue Inhalte.
+- Das `created`-Datum bleibt bei Updates erhalten; nur `updated` wird aktualisiert.
+- Manuelle Aliases, Tags und Sources bleiben bei Zusammenführungen erhalten.
+
+### Wie verwende ich lokale Modelle mit Ollama?
+
+1. Installieren Sie [Ollama](https://ollama.com) und pullen Sie ein Modell: `ollama pull gemma4`
+2. Wählen Sie in den Plugin-Einstellungen **"Ollama (Local)"** als Provider
+3. Klicken Sie **Fetch Models**, um die Modellliste zu füllen, oder geben Sie den Modellnamen manuell ein
+4. Es ist kein API-Key erforderlich
+
+> Lokale Modelle haben typischerweise kleinere Context Windows (8K–128K). Ziehen Sie in Betracht, einen Cloud-Provider für die Ingestion (die den größten Context benötigt) und Ihr lokales Modell für Query zu verwenden.
+
+### Was ist der Unterschied zwischen UI-Sprache und Wiki Output Language?
+
+- **Interface Language** (oben in den Einstellungen): Steuert die Plugin-Oberfläche — Einstellungsbezeichnungen, Schaltflächentexte, Notices. Unterstützt derzeit Englisch und Chinesisch.
+- **Wiki Output Language** (hinzugefügt in v1.6.5): Steuert, in welcher Sprache der LLM Wiki-Seiten schreibt. Unterstützt 8 Sprachen (EN/ZH/JA/KO/DE/FR/ES/PT) plus benutzerdefinierte Eingabe. Sie können eine englische Oberfläche haben, während Ihr Wiki auf Deutsch geschrieben wird.
+
+### Warum findet Query keine Seiten, von denen ich weiß, dass sie existieren?
+
+Drei häufige Ursachen:
+1. **Index ist veraltet**: Führen Sie `Cmd+P` → **"Regenerate index"** aus, um den Index mit aktuellen Seiten und Aliases neu aufzubauen.
+2. **Aliases fehlen**: Ohne Aliases (Seiten vor v1.7.11) kann der LLM nur nach exakten Seitentiteln suchen. Führen Sie Lint → Complete Aliases aus, um dies zu beheben.
+3. **Suchbegriffe stimmen nicht überein**: Versuchen Sie den Seitentitel, einen Alias oder einen verwandten Begriff. Der LLM führt semantisches Matching durch, keine Stichwortsuche — eine Umformulierung hilft.
+
+### Was macht "Smart Fix All" und in welcher Reihenfolge?
+
+Smart Fix All führt Reparaturen in kausaler Reihenfolge durch, um die Entstehung neuer Probleme zu minimieren:
+1. **Phase 0 — Complete Aliases**: Fehlende Aliases ergänzen, damit die Duplikaterkennung korrekt funktioniert.
+2. **Phase 1 — Merge Duplicates**: Doppelte Seiten zusammenführen (Hauptursache vieler toter Links und Orphans).
+3. **Phase 2 — Fix Dead Links**: Defekte `[[wiki-links]]` reparieren (viele werden nach der Duplikat-Zusammenführung automatisch aufgelöst).
+4. **Phase 3 — Link Orphans**: Eingehende Links zu Seiten hinzufügen, die keine haben.
+5. **Phase 4 — Expand Empty Pages**: Leere Seiten mit LLM-generierten Inhalten befüllen.
+
+### Wie vermeide ich unerwartete API-Kosten?
+
+- **Auto-Maintenance ist standardmäßig AUS** — aktivieren Sie es nicht, wenn Sie keine kontinuierliche Hintergrundverarbeitung wünschen.
+- **Smart Batch Skip** (v1.7.7) überspringt automatisch bereits verarbeitete Dateien, sodass eine erneute Ordner-Ingestion nicht alles neu verarbeitet.
+- **Extraction Granularity** auf "Standard" oder "Coarse" verwendet weniger API-Aufrufe als "Fine".
+- **Batch Delay**-Werte über 500 ms geben mehr Spielraum, erhöhen aber nicht den Token-Verbrauch — sie verteilen die Aufrufe nur zeitlich.
+- Der **Lint-Report** zeigt Anzahlen an, bevor Sie Reparaturen ausführen, sodass Sie entscheiden können, was den API-Aufwand wert ist.
+
+### Wie führe ich ein Upgrade durch, ohne meine Wiki-Daten zu verlieren?
+
+Das Plugin ändert niemals Ihre Quelldateien in `sources/`. Wiki-Seiten in `wiki/` werden nur geändert, wenn Sie explizit Reparaturen ausführen oder erneut ingestieren. Um auf der sicheren Seite zu sein:
+1. Erstellen Sie ein Backup Ihres Vaults (oder zumindest des `wiki/`-Ordners)
+2. Aktualisieren Sie das Plugin
+3. Führen Sie zuerst **Regenerate index** aus
+4. Führen Sie **Lint Wiki** aus, um zu sehen, was Aufmerksamkeit benötigt
+5. Wenden Sie Reparaturen gezielt an — Sie müssen nicht alles auf einmal beheben
 
 ---
 

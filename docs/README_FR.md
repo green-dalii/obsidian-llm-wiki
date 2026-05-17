@@ -4,7 +4,7 @@
 
 > Base de connaissances structurée alimentée par IA. Ingestion automatique des notes et génération d'un Wiki interconnecté — inspiré du concept de [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) d'Andrej Karpathy.
 
-**Auteur:** Greener-Dalii | **Version:** 1.7.18
+**Auteur:** Greener-Dalii | **Version:** 1.7.19
 
 [English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md)
 
@@ -85,13 +85,33 @@ La ré-ingestion d'une même source effectue des mises à jour incrémentales su
 
 **Smart Batch Skip :** Lors de l'ingestion d'un dossier, le plugin détecte automatiquement les fichiers déjà traités et les ignore pour économiser temps et coûts API. Le rapport de batch indique le nombre de fichiers ignorés.
 
-> **Mise à niveau depuis une version antérieure ?** Exécutez `Cmd+P` → « Regenerate index » pour reconstruire votre index Wiki avec les alias inclus — cela active la recherche par alias dans Query (par ex. rechercher « DSA » trouvera « DeepSeek-Sparse-Attention »).
+### Mise à niveau depuis une version antérieure ?
 
-**Accélération d'ingestion :** Pour les sources comportant de nombreuses Entity (20+), activez la génération de pages parallèles dans Paramètres → Ingestion Acceleration :
-- **Page Generation Concurrency** : 1 (séquentiel, plus sûr) à 5 (parallèle, plus rapide). Commencez par 3 pour la plupart des providers.
-- **Batch Delay** : 100–2000 ms entre les batchs parallèles. Augmentez à 500 ms+ pour les providers avec limitation de débit.
+Si vous effectuez une mise à niveau depuis une version **antérieure à la v1.7.11** (ou bien plus ancienne), vos pages Wiki existantes ont été générées sans plusieurs fonctionnalités ajoutées au fil des versions. Suivez ces étapes après la mise à jour pour mettre votre Wiki à jour :
 
-> **Sécurité :** La génération parallèle utilise `Promise.allSettled` — si une page échoue, les autres poursuivent leur traitement. Les pages en échec sont réessayées individuellement avec backoff exponentiel.
+**1. Reconstruisez votre index**
+`Cmd+P` → **"Regenerate index"** — Cela reconstruit `wiki/index.md` avec les entrées d'alias pour chaque page, activant la recherche par alias dans Query (par ex., rechercher « DSA » trouve « DeepSeek-Sparse-Attention »). L'ancien format d'index ne listait que les titres de pages.
+
+**2. Exécutez Lint Wiki**
+`Cmd+P` → **"Lint Wiki"** — Cela scanne l'intégralité de votre Wiki et affiche :
+- **Alias manquants** : Pages sans alias (toutes les pages pré-v1.7.11). Cliquez sur **"Complete Aliases"** — le LLM génère traductions, acronymes et noms alternatifs en masse. C'est essentiel pour la détection des doublons.
+- **Pages en double** : Pages au contenu qui se chevauche (ex. « CoT » vs « chaîne de pensée » créées par des versions plus anciennes sans déduplication basée sur les alias). Cliquez sur **"Merge Duplicates"** pour les fusionner et préserver tous les alias.
+- **Liens morts / Pages vides / Pages orphelines** : Problèmes classiques de maintenance Wiki.
+
+**3. Utilisez Smart Fix All**
+Cliquez sur **"Smart Fix All"** dans le rapport Lint pour une réparation en un clic, ordonnée par causalité : alias complétés → doublons fusionnés → liens morts réparés → pages orphelines liées → pages vides développées. C'est le moyen le plus rapide de nettoyer un Wiki construit à travers plusieurs versions.
+
+**4. Activez la génération parallèle de pages**
+Paramètres → **Ingestion Acceleration** :
+- **Page Generation Concurrency** : Réglez sur 3 pour la plupart des providers (la valeur par défaut était 1/séquentiel avant v1.7.3). Accélère l'ingestion de 2 à 3× sur les sources avec 10+ entités.
+- **Batch Delay** : Commencez à 300 ms. Augmentez à 500–800 ms si vous rencontrez des limites de débit.
+
+**5. Passez en revue les nouveaux paramètres (ajoutés entre v1.4.0 et v1.7.x) :**
+- **Wiki Output Language** (v1.6.5) : Indépendant de la langue de l'interface — votre Wiki peut être en chinois pendant que l'interface du plugin reste en anglais, ou vice versa.
+- **Extraction Granularity** (v1.6.2) : Fine/Standard/Coarse contrôle la profondeur d'extraction des entités par le LLM. « Standard » est un bon choix par défaut.
+- **Auto-Maintenance** (v1.4.0) : Surveillance de fichiers optionnelle, Lint périodique et vérification de santé au démarrage. Tout est désactivé par défaut — activez uniquement si vous souhaitez un traitement automatique en arrière-plan.
+
+> **Sécurité :** La génération parallèle utilise `Promise.allSettled` — si une page échoue, les autres poursuivent leur traitement. Les pages en échec sont réessayées individuellement avec backoff exponentiel. Smart Batch Skip (v1.7.7) détecte automatiquement les fichiers déjà ingérés pour économiser du temps et des coûts d'API.
 
 ---
 
@@ -243,7 +263,10 @@ wiki/               # Modules du moteur Wiki
   source-analyzer.ts # Extraction par batch itérative
   page-factory.ts   # CRUD Entity/Concept + fusion
   lint-controller.ts # Orchestration Lint
-  lint-fixes.ts     # Logique de correction + génération de candidats doublons
+  lint-fixes.ts     # Correction des liens morts, pages vides et pages orphelines
+  lint/             # Sous-modules Lint
+    duplicate-detection.ts  # Génération programmatique de candidats doublons
+    fix-runners.ts          # Exécution de corrections par lot
   contradictions.ts # Détection de contradictions
   system-prompts.ts # Directive de langue + étiquettes de sections
 schema/             # Co-évolution du Schema
@@ -261,6 +284,84 @@ ui/                 # Interface utilisateur
 - `wiki/concepts/concept-name.md` — Pages Concept (théories, méthodes, termes, etc.)
 - `wiki/index.md` — Index auto-généré
 - `wiki/log.md` — Log des opérations
+
+---
+
+## FAQ
+
+### Pourquoi Lint affiche-t-il « alias manquants » sur presque toutes mes pages ?
+
+Les pages générées avant la v1.7.11 n'incluaient pas d'alias. C'est normal et sans danger — les alias sont une amélioration, pas une obligation. Cliquez sur **"Complete Aliases"** dans le rapport Lint pour que le LLM génère des traductions, acronymes et noms alternatifs pour toutes les pages déficientes en un seul batch. Une fois les alias présents, la détection des doublons et la recherche par alias deviennent bien plus efficaces.
+
+### Pourquoi ai-je des pages en double avec des noms similaires (ex. « CoT » et « chaîne de pensée ») ?
+
+Les versions plus anciennes (avant v1.7.10) n'avaient pas de détection des doublons basée sur les alias. Lorsque vous ingériez du contenu sur le même concept avec des noms différents, le LLM créait des pages séparées. Lancez **Lint Wiki** → si des doublons sont trouvés, cliquez sur **"Merge Duplicates"** pour les fusionner. La page fusionnée préserve les alias des deux, évitant ainsi les futurs doublons.
+
+### Comment accélérer l'ingestion pour les fichiers sources volumineux ?
+
+Deux paramètres dans **Paramètres → Ingestion Acceleration** :
+- **Page Generation Concurrency** : Passez de 1 à 3 (ou 5 pour les providers avec des limites de débit élevées). Cela traite plusieurs pages Entity/Concept en parallèle.
+- **Batch Delay** : Des valeurs plus basses sont plus rapides mais risquent le rate limiting. Commencez à 300 ms ; augmentez à 500–800 ms si vous voyez des erreurs HTTP 429.
+
+Vérifiez également **Extraction Granularity** : « Standard » ou « Coarse » produisent moins de pages que « Fine » et sont plus rapides.
+
+### Le plugin se fige quand j'exécute Lint sur un gros Wiki. Que faire ?
+
+C'était un problème connu corrigé dans les v1.7.15 et v1.7.17. Si vous êtes sur une version antérieure à la v1.7.15, mettez à jour vers la dernière version — le système Lint intègre désormais des points de yield asynchrones qui redonnent la main au thread UI d'Obsidian toutes les 50 pages et toutes les 500 comparaisons, évitant le gel de 10 à 40 secondes qui se produisait sur les Wikis de 1200+ pages.
+
+### Puis-je modifier manuellement les pages Wiki ?
+
+Oui. Le plugin respecte vos modifications :
+- Définissez `reviewed: true` dans le frontmatter pour protéger une page d'une réécriture lors de la ré-ingestion. Les pages « reviewed » reçoivent uniquement du nouveau contenu qui est annexé.
+- La date `created` est préservée lors des mises à jour ; seul `updated` est actualisé.
+- Les alias, tags et sources ajoutés manuellement sont préservés lors des fusions.
+
+### Comment utiliser les modèles locaux avec Ollama ?
+
+1. Installez [Ollama](https://ollama.com) et téléchargez un modèle : `ollama pull gemma4`
+2. Dans les paramètres du plugin, sélectionnez **"Ollama (Local)"** comme provider
+3. Cliquez sur **Fetch Models** pour peupler la liste des modèles, ou saisissez le nom du modèle manuellement
+4. Aucune clé API requise
+
+> Les modèles locaux ont généralement des fenêtres de contexte plus petites (8K–128K). Envisagez d'utiliser un provider cloud pour l'ingestion (qui nécessite le plus de contexte) et votre modèle local pour le Query.
+
+### Quelle est la différence entre la langue de l'interface et la langue de sortie du Wiki ?
+
+- **Interface Language** (en haut des paramètres) : Contrôle la langue propre du plugin — libellés des paramètres, texte des boutons, Notices. Prend actuellement en charge l'anglais et le chinois.
+- **Wiki Output Language** (ajouté dans v1.6.5) : Contrôle la langue dans laquelle le LLM rédige les pages Wiki. Prend en charge 8 langues (EN/ZH/JA/KO/DE/FR/ES/PT) plus une saisie personnalisée. Vous pouvez avoir une interface en anglais pendant que votre Wiki est rédigé en japonais.
+
+### Pourquoi Query ne trouve-t-il pas des pages dont je connais l'existence ?
+
+Trois causes fréquentes :
+1. **L'index est obsolète** : Exécutez `Cmd+P` → **"Regenerate index"** pour reconstruire avec les pages et alias actuels.
+2. **Les alias sont manquants** : Sans alias (pages pré-v1.7.11), le LLM ne peut faire correspondre que par titre de page exact. Lancez Lint → Complete Aliases pour corriger.
+3. **Les termes de recherche ne correspondent pas** : Essayez le titre de la page, un alias, ou un terme connexe. Le LLM effectue une correspondance sémantique, pas une recherche par mot-clé — reformuler la question aide.
+
+### Que fait « Smart Fix All » et dans quel ordre ?
+
+Smart Fix All exécute les corrections par ordre de causalité pour minimiser la création de nouveaux problèmes :
+1. **Phase 0 — Complete Aliases** : Remplit les alias manquants pour que la détection des doublons fonctionne correctement.
+2. **Phase 1 — Merge Duplicates** : Fusionne les pages en double (cause racine de nombreux liens morts et pages orphelines).
+3. **Phase 2 — Fix Dead Links** : Répare les `[[wiki-links]]` brisés (beaucoup sont résolus après que la fusion des doublons réécrit les liens).
+4. **Phase 3 — Link Orphans** : Ajoute des liens entrants aux pages qui n'en ont aucun.
+5. **Phase 4 — Expand Empty Pages** : Remplit les pages squelettes avec du contenu généré par le LLM.
+
+### Comment éviter des coûts d'API imprévus ?
+
+- **Auto-Maintenance est désactivé par défaut** — ne l'activez pas sauf si vous souhaitez un traitement continu en arrière-plan.
+- **Smart Batch Skip** (v1.7.7) ignore automatiquement les fichiers déjà ingérés, donc relancer l'ingestion d'un dossier ne retraite pas tout.
+- **Extraction Granularity** réglé sur « Standard » ou « Coarse » utilise moins d'appels API que « Fine ».
+- **Batch Delay** au-dessus de 500 ms offre plus de marge mais n'augmente pas la consommation de tokens — cela espace seulement les appels.
+- Le **rapport Lint** affiche les comptages avant d'exécuter des corrections, vous pouvez donc décider ce qui vaut le coût API.
+
+### Comment effectuer une mise à niveau sans perdre mes données Wiki ?
+
+Le plugin ne modifie jamais vos fichiers sources dans `sources/`. Les pages Wiki dans `wiki/` ne sont modifiées que lorsque vous exécutez explicitement des corrections ou une ré-ingestion. Pour être prudent :
+1. Sauvegardez votre coffre (ou simplement le dossier `wiki/`)
+2. Mettez à jour le plugin
+3. Exécutez d'abord **Regenerate index**
+4. Exécutez **Lint Wiki** pour voir ce qui nécessite attention
+5. Appliquez les corrections de manière sélective — vous n'êtes pas obligé de tout corriger à la fois
 
 ---
 

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.19] - 2026-05-17
+
+### Fixed
+- **Hardcoded abbreviation removal**: Removed English-only abbreviation expansion map (MoE→mixtureofexperts, CoT→chainofthought, LoRA→lowrankadaptation, etc.) from duplicate candidate generation. These hardcoded rules were language-biased and contradicted the plugin's LLM-driven philosophy. With Phase 0 alias completion (v1.7.17), the LLM now handles cross-language abbreviation matching naturally through aliases.
+
+### Changed
+- **Lint system modular refactoring**: Split 1,675 lines across 2 monolithic files into 4 focused modules under `src/wiki/lint/`:
+  - `duplicate-detection.ts` (171 lines) — Programmatic duplicate candidate generation with 3 signals (sharedLinks, bigram, crossLang)
+  - `fix-runners.ts` (229 lines) — 5 parameterized batch fix execution functions extracted from closure-based runners in lint-controller.ts
+  - `lint-fixes.ts` reduced from ~790 to 610 lines
+  - `lint-controller.ts` reduced from ~820 to 638 lines
+- **Centralized constants** (`src/constants.ts`): Frontmatter keys, default paths, timing values, and tree types extracted from magic strings scattered across the codebase
+
+### Added
+- **Comprehensive upgrade guidance** in README.md and README_CN.md covering all versions from v1.2.x to current, with step-by-step post-upgrade checklist
+- **FAQ section** in README.md and README_CN.md with 12 common questions covering aliases, duplicates, performance, local models, language settings, and API costs
+
 ## [1.7.18] - 2026-05-16
 
 ### Fixed

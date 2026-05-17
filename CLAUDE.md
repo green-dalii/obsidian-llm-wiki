@@ -2,34 +2,47 @@
 
 > Development guidelines for international open-source quality
 
-**Last Updated:** 2026-05-16
+**Last Updated:** 2026-05-17
 
 ---
 
-## Current Phase: Post-v1.7.18 — Code Quality Phase 1 Planning
+## Current Phase: Post-v1.7.19 — Code Quality Phase 1 Progress
 
-**v1.7.18 critical bug fix completed.** Next step: Phase 1 refactoring (constants.ts, utils helpers, lint caching/scope/batching) with zero breaking changes.
+**v1.7.19 released.** Phase 1 refactoring partially completed: lint system modularized, constants.ts created, hardcoded abbreviations removed. Comprehensive upgrade guidance and FAQ added to README.
 
 Comprehensive codebase review (May 2026) identified 26 issues across three dimensions:
 - **Code reuse**: 8 issues, ~200 lines reducible via shared utilities
 - **Code quality**: 6 issues, copy-paste templates + magic strings
 - **Efficiency**: 10 issues, lint performance bottlenecks + redundant operations
 
-**Phase 1 (7 items, immediate)**: Create constants.ts, add utils helpers, fix lint caching/scope/batching, parameterize prompts, generalize page-factory. Zero breaking changes.
+**Phase 1 (partially done, remaining items)**: Add utils helpers, fix lint caching/scope/batching, parameterize prompts, generalize page-factory. Zero breaking changes.
 
 **Phase 2 (7 items)**: Extract withRetry wrapper, parallel lint fixes, flatten parseFrontmatter, use existing utilities.
 
 **Phase 3 (6 items)**: WikiLinkParser class, EngineContext refactor, SSE parser, change detection guards.
 
-**v1.7.18 completed**: Critical folder name leakage bug fixed — `{{source_path}}` removed from `mergeDuplicatePages` and `{{page_path}}` removed from `fillEmptyPage` prompts (LLM only needs semantic content, not file system paths). Added contaminated alias filtering to prevent pollution propagation (aliases matching `entities*`, `concepts*`, `sources*` rejected).
+Recently completed (v1.7.19):
+- **Hardcoded abbreviation removal**: Removed English-only abbreviation map (MoE, CoT, LoRA, etc.) from duplicate candidate generation — now purely LLM-driven via aliases
+- **Lint system modular refactoring**: Split lint system from 2 files (1675 lines) into 4 modules under `src/wiki/lint/`:
+  - `duplicate-detection.ts` (171 lines) — 3-signal programmatic candidate generation
+  - `fix-runners.ts` (229 lines) — 5 parameterized batch fix execution functions
+  - `lint-fixes.ts` reduced to 610 lines; `lint-controller.ts` reduced to 638 lines
+- **Centralized constants** (`src/constants.ts`): FRONTMATTER_KEYS, DEFAULT_PATHS, TIMING, TREE_TYPES
+- **Comprehensive README upgrade guidance**: Step-by-step post-upgrade checklist covering all versions from v1.2.x through current, addressing aliases, parallel generation, dedup, and new settings
+- **FAQ section**: 12 common questions in README.md and README_CN.md (aliases, duplicates, performance, Ollama, language settings, API costs)
 
 Recently completed (v1.7.18):
-- **Folder name leakage fix**: Removed `{{source_path}}` from `mergeDuplicatePages` prompt — LLM was misinterpreting full paths like `wiki/entities/DeepSeek-V3` as page titles, producing polluted titles (`entitiesDeepSeek-V3-2`, `concepts表征学习`). LLM now only receives body content.
-- **Alias contamination defense**: Added filter to reject aliases matching `entities*`, `concepts*`, `sources*` patterns (folder-name prefix leakage) during merge, preventing existing pollution from spreading.
+- **Folder name leakage fix**: Removed `{{source_path}}` from `mergeDuplicatePages` and `{{page_path}}` from `fillEmptyPage` prompts — LLM only receives body content, not file system paths
+- **Alias contamination defense**: Added filter to reject aliases matching `entities*`, `concepts*`, `sources*` patterns
 
 Recently completed (v1.7.17):
-- **Lint UI freeze fix**: Added async yield points in Phase 1 frontmatter parsing (every 50 pages) and inner loop comparison (every 500 comparisons) to prevent 10-40s UI blocking on large wikis (1200+ pages)
-- **Smart Fix All button count**: Fixed to include missing aliases count, making Phase 0 aliases completion visible in button label
+- **Lint UI freeze fix**: Async yield points in frontmatter parsing (every 50 pages) and inner loop comparisons (every 500 comparisons)
+- **Smart Fix All Phase 0 aliases**: Missing aliases completed before duplicate detection, enabling Tier 1 crossLang signals
+
+Recently completed (v1.7.16):
+- **#17 CORS fix**: Replaced `openai` npm SDK with `requestUrl()`-based client
+- **Query progress overhaul**: Five-phase progress display with page names, elapsed time, streaming/non-streaming labels
+- **Cmd+Enter to send + Stop button + Copy button + Auto-scroll**
 - **Smart Fix All logic**: Added Phase 0 aliases completion before Phase 1 duplicate merge, ensuring aliases exist before duplicate detection runs
 
 Recently completed (v1.7.16):
@@ -67,59 +80,10 @@ Recently completed (v1.7.10):
 - **Persistent progress notices**: All lint/fix/ingest stages use `new Notice('', 0)` + `setMessage()` + `hide()` pattern with per-item detail
 - **Error handling overhaul**: Per-item failure Notices (8s) with specific error messages in all fix loops, duplicate detection failure shows persistent Notice with layer info, outer catch shows error detail
 
-Recently completed (v1.7.9):
-- **GitHub artifact attestations** — Cryptographic provenance verification for release assets (supply chain security)
-
-Recently completed (v1.7.8):
-- **Obsidian Bot review compliance** — 15-rule audit fixes, `window.setTimeout` replacement, type safety improvements
-
-Recently completed (v1.7.7):
-- **Conversation summary page LLM generation**: Query Wiki saved pages now use `generateSummaryPage` prompt (same as file ingestion), proper schema context, frontmatter `updated` field
-- **Duplicate save prompt fix**: Hash tracking prevents re-evaluation of unchanged conversations, `lastOfferedQueryHash` in settings
-- **Progress notice guarantee**: Save-to-wiki operations use try-finally cleanup, progress callback wired in both paths
-- **Conversation save report**: `ingestConversation()` returns `IngestReport` (unified with file ingestion), Notice shows entity/concept count
-- **Notice i18n compliance**: All Notice() calls respect Interface Language (7 new texts, auto-maintain/query/settings updated)
-- **Smart batch skip mechanism**: Folder ingestion checks `wiki/sources/${slug}.md` existence, skips already-ingested files, conservative fallback protects user edits, report shows skipped count
-
-Recently completed (v1.7.6):
-- **Related page update parallelization**: Stage 4 now uses configurable concurrency (reuses `pageGenerationConcurrency`), reducing related-page update time by up to 3x
-- **Hardcoded wiki path fixes**: `FileSuggestModal` and `FolderSuggestModal` now accept `wikiFolder` parameter; query-engine wiki-link format instructions now use `settings.wikiFolder` instead of hardcoded `wiki/`
-- **Promise.allSettled error isolation**: per-page retry with 2s delay on failure; batch-level delay control via `batchDelayMs`
-
-Recently completed (v1.7.5):
-- **TypeScript compilation fixes**: 20+ type errors resolved across wiki-engine.ts, query-engine.ts, auto-maintain.ts, modals.ts
-
-Recently completed (v1.7.3):
-- **Ingestion Parallel Acceleration**: Configurable page generation concurrency (1-5, default 1)
-- **Batch delay control**: 100-2000ms for API rate limit protection
-- **Verbatim mentions preservation**: Source quotes in original language
-- **Entity/Concept relationship enhancement**: Separate Related Entities/Concepts sections
-- **Schema template optimization**: Explicit structure rules and merge policies
-
-Recently completed (v1.7.2): All development on `feature/schema-auto-maintain`; pending Obsidian human review on main (v1.2.0 PR since 2026-04-29).
-
-Recently completed (v1.7.0-1.7.2):
-- **v1.7.2 — Intelligent Multi-Source Merge (CRITICAL FIX)**:
-  - Programmatic frontmatter merge: sources[] deterministically appended (not overwritten), created preserved, updated refreshed, reviewed protected
-  - Intelligent body fusion: LLM merges new source following schema sections — no redundancy, contradictions preserved with attribution, bidirectional links maintained
-  - Reviewed page minimal-append mode: pages with `reviewed: true` get only genuinely new content appended
-  - NO_NEW_CONTENT signal: skip redundant updates when source adds nothing new
-- **v1.7.1 — Multi-Folder Watch & Granularity Control**:
-  - Multi-folder auto-watch: `watchedFolders` array with "Add Folder" UI, Web Clipper preset
-  - Granularity-linked iteration caps: coarse(3/10/20) / standard(6/20/50) / fine(12/30/unlimited)
-  - Semantic entity deduplication: LLM fallback for translations, abbreviations, renamings
-- **v1.7.0 — Content Truncation Protection & Quality**:
-  - 8000 max_tokens + stop_reason/finish_reason detection + auto-retry
-  - fillEmptyPage reliability: pre-read content bypasses string→TFile resolution
-  - Batch ingest aggregated reports with entity/concept breakdown
-  - Lint report & command palette i18n
-  - Lint fix log enrichment with per-item details
-
 Active gaps (postponed to post-quality-update phase):
 - Lint batch fix without per-item review (human-in-the-loop) — v1.8.0 (postponed)
 - Ingest Wizard: conversational ingestion with user review — v1.8.0 (postponed)
 - Stale-claim detection in lint — medium priority
-- Lint UI freeze before duplicate detection on large wikis — investigating, high priority for v1.7.17
 
 ## 📁 Project Structure (v1.6.7+)
 
@@ -139,6 +103,9 @@ src/
 │   ├── conversation-ingest.ts      # Chat → wiki knowledge + dedup
 │   ├── lint-fixes.ts               # Dead link fix, empty page fill, orphan link
 │   ├── lint-controller.ts          # Lint orchestration (extracted from main.ts)
+│   ├── lint/                       # Lint sub-modules
+│   │   ├── duplicate-detection.ts  # Duplicate candidate generation (3 signals)
+│   │   └── fix-runners.ts          # Batch fix execution helpers
 │   ├── contradictions.ts           # Contradiction detection/resolution
 │   └── system-prompts.ts           # Language directive + section labels
 ├── schema/                         # Schema co-evolution

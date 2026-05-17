@@ -719,13 +719,13 @@ export class WikiEngine {
     const labels = TEXTS.en.indexLabels[langKey];
     let indexContent = `# Wiki Index\n\n`;
     indexContent += `> ${labels.subtitle}\n\n`;
-    indexContent += `> Note: Text in \`[brackets]\` after page names are aliases — alternative names, abbreviations, or translations.\n\n`;
+    indexContent += `> Note: Text in backticks after page names shows aliases — alternative names, abbreviations, or translations.\n\n`;
 
     indexContent += `## ${labels.entities}\n\n`;
     for (const file of entities) {
       const summary = await this.getPageSummary(file);
       const aliases = await this.getPageAliases(file);
-      const aliasStr = aliases.length > 0 ? ` \`[${aliases.join(', ')}]\`` : '';
+      const aliasStr = aliases.length > 0 ? ` \`aliases: ${aliases.join(', ')}\`` : '';
       indexContent += `- [[entities/${file.basename}|${file.basename}]]${aliasStr} - ${summary}\n`;
     }
 
@@ -733,14 +733,14 @@ export class WikiEngine {
     for (const file of concepts) {
       const summary = await this.getPageSummary(file);
       const aliases = await this.getPageAliases(file);
-      const aliasStr = aliases.length > 0 ? ` \`[${aliases.join(', ')}]\`` : '';
+      const aliasStr = aliases.length > 0 ? ` \`aliases: ${aliases.join(', ')}\`` : '';
       indexContent += `- [[concepts/${file.basename}|${file.basename}]]${aliasStr} - ${summary}\n`;
     }
 
     indexContent += `\n## ${labels.sources}\n\n`;
     for (const file of sources) {
       const aliases = await this.getPageAliases(file);
-      const aliasStr = aliases.length > 0 ? ` \`[${aliases.join(', ')}]\`` : '';
+      const aliasStr = aliases.length > 0 ? ` \`aliases: ${aliases.join(', ')}\`` : '';
       indexContent += `- [[sources/${file.basename}|${file.basename}]]${aliasStr}\n`;
     }
 

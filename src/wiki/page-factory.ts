@@ -136,7 +136,10 @@ export class PageFactory {
       }
       truncated = true;
     }
-    const list = pages.map(p => `- ${p.wikiLink}`).join('\n');
+    const list = pages.map(p => {
+      const aliasSuffix = p.aliases?.length ? ` \`aliases: ${p.aliases.join(', ')}\`` : '';
+      return `- ${p.wikiLink}${aliasSuffix}`;
+    }).join('\n');
     let result = list;
     if (includePaths.length > 0) {
       const newPages = includePaths.map(p => {
