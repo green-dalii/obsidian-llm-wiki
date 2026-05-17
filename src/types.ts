@@ -77,7 +77,7 @@ export interface LLMWikiSettings {
   baseUrl: string;
   model: string;
   wikiFolder: string;
-  language: 'en' | 'zh';
+  language: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt';
   wikiLanguage: string;
   useCustomWikiLanguage?: boolean;
   availableModels?: string[];
@@ -163,7 +163,7 @@ export interface LLMClient {
     max_tokens: number;
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
-    language: 'en' | 'zh';
+    language: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt';
     onChunk: (chunk: string) => void;
   }): Promise<string>;
 

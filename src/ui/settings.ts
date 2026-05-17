@@ -43,7 +43,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     // ==========================================
-    // 1. Language & Save
+    // 1. Language Settings
     // ==========================================
 
     new Setting(containerEl)
@@ -52,8 +52,14 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       .addDropdown(dropdown => {
         dropdown.addOption('en', this.getText('languageEn'));
         dropdown.addOption('zh', this.getText('languageZh'));
+        dropdown.addOption('ja', this.getText('languageJa'));
+        dropdown.addOption('ko', this.getText('languageKo'));
+        dropdown.addOption('de', this.getText('languageDe'));
+        dropdown.addOption('fr', this.getText('languageFr'));
+        dropdown.addOption('es', this.getText('languageEs'));
+        dropdown.addOption('pt', this.getText('languagePt'));
         dropdown.setValue(this.tempSettings.language);
-        dropdown.onChange((value: 'en' | 'zh') => {
+        dropdown.onChange((value: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt') => {
           this.tempSettings.language = value;
           this.display();
         });
@@ -73,7 +79,52 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         }));
 
     // ==========================================
-    // 2. LLM Provider (highest priority — must configure first)
+    // 2. Wiki Output Language
+    // ==========================================
+    new Setting(containerEl).setName(this.getText('wikiLanguageName')).setHeading();
+
+    new Setting(containerEl)
+      .setName(this.getText('wikiLanguageName'))
+      .setDesc(this.getText('wikiLanguageDesc'))
+      .addDropdown(dropdown => {
+        for (const [key, label] of Object.entries(WIKI_LANGUAGES)) dropdown.addOption(key, label);
+        dropdown.addOption('__custom__', this.getText('customWikiLanguageOption'));
+        // Priority: if custom mode is active, show '__custom__' regardless of wikiLanguage value
+        if (this.tempSettings.useCustomWikiLanguage) {
+          dropdown.setValue('__custom__');
+        } else {
+          const currentLang = this.tempSettings.wikiLanguage;
+          if (currentLang && WIKI_LANGUAGES[currentLang]) dropdown.setValue(currentLang);
+          else if (currentLang) dropdown.setValue('__custom__');
+          else dropdown.setValue('en');
+        }
+        dropdown.onChange((value: string) => {
+          if (value === '__custom__') {
+            this.tempSettings.useCustomWikiLanguage = true;
+            // Keep existing wikiLanguage value for display in custom input, or clear if it was a standard language
+            if (WIKI_LANGUAGES[this.tempSettings.wikiLanguage || '']) {
+              this.tempSettings.wikiLanguage = '';
+            }
+          } else {
+            this.tempSettings.wikiLanguage = value;
+            this.tempSettings.useCustomWikiLanguage = false;
+          }
+          this.display();
+        });
+      });
+
+    if (this.tempSettings.useCustomWikiLanguage) {
+      new Setting(containerEl)
+        .setName(this.getText('wikiLanguageName') + ' (Custom)')
+        .setDesc(this.getText('customWikiLanguageHint'))
+        .addText(text => text
+          .setPlaceholder(this.getText('customWikiLanguagePlaceholder'))
+          .setValue(this.tempSettings.wikiLanguage && !WIKI_LANGUAGES[this.tempSettings.wikiLanguage] ? this.tempSettings.wikiLanguage : '')
+          .onChange((value) => { this.tempSettings.wikiLanguage = value.trim(); }));
+    }
+
+    // ==========================================
+    // 3. LLM Provider (highest priority — must configure first)
     // ==========================================
     new Setting(containerEl).setName(this.getText('providerSection')).setHeading();
 
@@ -279,51 +330,6 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       text: `${this.getText('statusTitle')}: ${clientStatus} | ${this.getText('currentProvider')}: ${currentProvider}`,
       attr: { style: 'margin: 16px 0 8px; font-size: 13px; color: #666;' }
     });
-
-    // ==========================================
-    // 3. Wiki Output Language
-    // ==========================================
-    new Setting(containerEl).setName(this.getText('wikiLanguageName')).setHeading();
-
-    new Setting(containerEl)
-      .setName(this.getText('wikiLanguageName'))
-      .setDesc(this.getText('wikiLanguageDesc'))
-      .addDropdown(dropdown => {
-        for (const [key, label] of Object.entries(WIKI_LANGUAGES)) dropdown.addOption(key, label);
-        dropdown.addOption('__custom__', this.getText('customWikiLanguageOption'));
-        // Priority: if custom mode is active, show '__custom__' regardless of wikiLanguage value
-        if (this.tempSettings.useCustomWikiLanguage) {
-          dropdown.setValue('__custom__');
-        } else {
-          const currentLang = this.tempSettings.wikiLanguage;
-          if (currentLang && WIKI_LANGUAGES[currentLang]) dropdown.setValue(currentLang);
-          else if (currentLang) dropdown.setValue('__custom__');
-          else dropdown.setValue('en');
-        }
-        dropdown.onChange((value: string) => {
-          if (value === '__custom__') {
-            this.tempSettings.useCustomWikiLanguage = true;
-            // Keep existing wikiLanguage value for display in custom input, or clear if it was a standard language
-            if (WIKI_LANGUAGES[this.tempSettings.wikiLanguage || '']) {
-              this.tempSettings.wikiLanguage = '';
-            }
-          } else {
-            this.tempSettings.wikiLanguage = value;
-            this.tempSettings.useCustomWikiLanguage = false;
-          }
-          this.display();
-        });
-      });
-
-    if (this.tempSettings.useCustomWikiLanguage) {
-      new Setting(containerEl)
-        .setName(this.getText('wikiLanguageName') + ' (Custom)')
-        .setDesc(this.getText('customWikiLanguageHint'))
-        .addText(text => text
-          .setPlaceholder(this.getText('customWikiLanguagePlaceholder'))
-          .setValue(this.tempSettings.wikiLanguage && !WIKI_LANGUAGES[this.tempSettings.wikiLanguage] ? this.tempSettings.wikiLanguage : '')
-          .onChange((value) => { this.tempSettings.wikiLanguage = value.trim(); }));
-    }
 
     // ==========================================
     // 4. Wiki Folder

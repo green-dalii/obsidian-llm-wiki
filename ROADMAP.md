@@ -2,13 +2,30 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.7.18 | **Updated:** 2026-05-16
+**Version:** 1.8.0 | **Updated:** 2026-05-17
 
 ---
 
 ## Current Status
 
-### Implemented (v1.7.18) — Critical Bug Fix: Folder Name Leakage in LLM Prompts
+### Implemented (v1.8.0) — Full i18n Support + Dynamic Badges
+
+**Internationalization Expansion**
+- Extended plugin UI from 2 languages (English, Chinese) to 8 languages (Japanese, Korean, German, French, Spanish, Portuguese)
+- Created 6 new translation files (269+ fields each) with natural local expressions, proper technical terminology handling, and placeholder integrity
+- All 8 language variants maintain sentence case compliance and formal style appropriate for software UI
+- Language switcher dropdown now offers 8 options in all language interfaces
+
+**Badge Automation**
+- Dynamic download badge: README badges fetch real-time download counts from Obsidian's official `community-plugin-stats.json` via shields.io dynamic JSON badge
+- Complete badge suite: 8 standardized badges (Version, License, Maintenance, Build, Obsidian Compatibility, Stars, Downloads, Languages, Providers) added to all README variants with consistent flat-square styling
+
+**Settings UX**
+- Language settings consolidation: Interface Language and Wiki Output Language grouped at top (Sections 1-2)
+- Restart notice: All 8 language setting descriptions include explicit restart instructions for command palette language changes
+- Language type expansion: Updated from `'en' | 'zh'` to 8-language union type with full dropdown UI
+
+### Implemented (v1.7.20) — Code Quality Phase 1: 5 Deep Fixes + Modular Splits
 
 **LLM prompt path leakage**
 - Root cause: Two repair prompts (`mergeDuplicatePages`, `fillEmptyPage`) passed full file paths (`wiki/entities/DeepSeek-V3`) to LLM, causing it to misinterpret folder names as part of page titles

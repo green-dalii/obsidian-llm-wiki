@@ -15,9 +15,15 @@ export const ZH_TEXTS = {
 
     // 语言切换
     languageTitle: '界面语言',
-    languageDesc: '选择设置面板的显示语言',
+    languageDesc: '选择设置面板的显示语言。重启插件以将语言更改应用到命令面板。',
     languageEn: 'English (英文)',
     languageZh: '中文',
+    languageJa: 'Japanese (日本語)',
+    languageKo: 'Korean (한국어)',
+    languageDe: 'German (Deutsch)',
+    languageFr: 'French (Français)',
+    languageEs: 'Spanish (Español)',
+    languagePt: 'Portuguese (Português)',
 
     // 状态
     statusTitle: 'LLM Client 状态',

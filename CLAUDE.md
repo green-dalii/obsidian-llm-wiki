@@ -6,16 +6,19 @@
 
 ---
 
-## Current Phase: Post-v1.7.20 — Code Quality Phase 1 Complete
+## Current Phase: Post-v1.8.0 — Full i18n Support Complete
 
-**v1.7.20 released.** Quality update stage complete: 5 deep fixes (aliases convergence, pollution, section labels, source fabrication, granularity) + 2 architectural splits (prompts, texts). All fixes address root causes identified from first-principles analysis.
+**v1.8.0 released.** Internationalization expansion complete: plugin UI now supports 8 languages (English, Chinese, Japanese, Korean, German, French, Spanish, Portuguese). All 269+ UI fields translated with natural local expressions, proper terminology handling, and sentence case compliance.
 
-**Phase 1 complete.** Next steps: monitor user feedback, gather real-world test cases for the 5 new fixes.
+**Phase complete.** Next steps: monitor multilingual user feedback, gather real-world test cases from non-English/Chinese speakers.
 
-Comprehensive codebase review (May 2026) identified 26 issues across three dimensions:
-- **Code reuse**: 8 issues, ~200 lines reducible via shared utilities
-- **Code quality**: 6 issues, copy-paste templates + magic strings
-- **Efficiency**: 10 issues, lint performance bottlenecks + redundant operations
+Recently completed (v1.8.0):
+- **Full i18n support for 8 languages**: Extended from 2 (en, zh) to 8 languages (ja, ko, de, fr, es, pt). Created 6 new translation files (269+ fields each) with formal style, technical terminology preservation, and placeholder integrity
+- **Dynamic download badge**: README badges across all 8 languages fetch real-time counts from Obsidian's `community-plugin-stats.json` via shields.io dynamic JSON badge
+- **Complete badge suite**: 8 standardized badges (Version, License, Maintenance, Build, Obsidian Compatibility, Stars, Downloads, Languages, Providers) added to all README variants
+- **Restart notice**: All languages include explicit restart instructions in interface language settings
+- **Language settings consolidation**: Reorganized settings panel to group interface language and wiki output language at top (Sections 1-2)
+- **Language type expansion**: Updated `language` setting type to support all 8 languages with full dropdown UI
 
 Recently completed (v1.7.20):
 - **Aliases convergence**: Two-layer alias matching in fixDeadLink (pre-check + post-check) prevents non-convergent fix cycle — dead links match existing aliases instead of creating duplicates

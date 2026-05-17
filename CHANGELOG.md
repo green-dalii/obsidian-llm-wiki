@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-05-17
+
+### Added
+- **Full i18n support for 8 languages**: Extended plugin UI from 2 languages (English, Chinese) to 8 languages (Japanese, Korean, German, French, Spanish, Portuguese). Each language has complete translation of all 269+ UI fields with natural local expressions, proper technical terminology, and sentence case compliance. Language switcher now offers 8 options in all language interfaces
+- **Dynamic download badge**: README download badges across all 8 languages now fetch real-time download counts from Obsidian's official `community-plugin-stats.json` via shields.io dynamic JSON badge, eliminating hardcoded manual updates
+- **Complete badge suite**: Added 8 standardized badges (Version, License, Maintenance, Build Status, Obsidian Compatibility, GitHub Stars, Downloads, Languages, Providers) to all 8 language README files with consistent flat-square styling
+- **Restart notice in language settings**: All 8 languages now include explicit restart instructions in interface language description to inform users that plugin restart is required for command palette language changes
+
+### Changed
+- **Language settings consolidation**: Reorganized settings panel to group all language-related configurations at the top. Interface Language and Wiki Output Language sections now appear consecutively as Section 1 and Section 2 for easier unified configuration
+- **Language type expansion**: Updated `language` setting type in types.ts from `'en' | 'zh'` to `'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt'` with full dropdown support in settings UI
+- **i18n structure modularization**: Split texts.ts barrel file to import 8 language modules (en, zh, ja, ko, de, fr, es, pt), preparing infrastructure for future language additions
+
 ## [1.7.20] - 2026-05-17
 
 ### Fixed

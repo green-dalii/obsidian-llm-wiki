@@ -15,9 +15,15 @@ export const EN_TEXTS = {
 
     // Language Switcher
     languageTitle: 'Interface Language',
-    languageDesc: 'Select your preferred language for settings panel',
+    languageDesc: 'Select your preferred language for settings panel. Restart plugin to apply language changes to command palette.',
     languageEn: 'English',
     languageZh: 'Chinese (中文)',
+    languageJa: 'Japanese (日本語)',
+    languageKo: 'Korean (한국어)',
+    languageDe: 'German (Deutsch)',
+    languageFr: 'French (Français)',
+    languageEs: 'Spanish (Español)',
+    languagePt: 'Portuguese (Português)',
 
     // Status
     statusTitle: 'LLM Client Status',
