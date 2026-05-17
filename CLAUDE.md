@@ -6,20 +6,25 @@
 
 ---
 
-## Current Phase: Post-v1.7.19 — Code Quality Phase 1 Progress
+## Current Phase: Post-v1.7.20 — Code Quality Phase 1 Complete
 
-**v1.7.19 released.** Phase 1 refactoring partially completed: lint system modularized, constants.ts created, hardcoded abbreviations removed. Comprehensive upgrade guidance and FAQ added to README.
+**v1.7.20 released.** Quality update stage complete: 5 deep fixes (aliases convergence, pollution, section labels, source fabrication, granularity) + 2 architectural splits (prompts, texts). All fixes address root causes identified from first-principles analysis.
+
+**Phase 1 complete.** Next steps: monitor user feedback, gather real-world test cases for the 5 new fixes.
 
 Comprehensive codebase review (May 2026) identified 26 issues across three dimensions:
 - **Code reuse**: 8 issues, ~200 lines reducible via shared utilities
 - **Code quality**: 6 issues, copy-paste templates + magic strings
 - **Efficiency**: 10 issues, lint performance bottlenecks + redundant operations
 
-**Phase 1 (partially done, remaining items)**: Add utils helpers, fix lint caching/scope/batching, parameterize prompts, generalize page-factory. Zero breaking changes.
-
-**Phase 2 (7 items)**: Extract withRetry wrapper, parallel lint fixes, flatten parseFrontmatter, use existing utilities.
-
-**Phase 3 (6 items)**: WikiLinkParser class, EngineContext refactor, SSE parser, change detection guards.
+Recently completed (v1.7.20):
+- **Aliases convergence**: Two-layer alias matching in fixDeadLink (pre-check + post-check) prevents non-convergent fix cycle — dead links match existing aliases instead of creating duplicates
+- **Pollution prevention**: Centralized regex in createOrUpdateFile strips folder prefix duplication from all LLM outputs; prompt instructions explicitly forbid `[[entities/X|entities/X]]`
+- **Section labels localization**: fillEmptyPage applies language-specific headers via buildSectionLabelsHint() + applySectionLabels()
+- **Anti-fabrication**: Prompt forbids "Mentions in Source" section when stub has no verbatim quotes, preventing hallucinated citations
+- **Granularity reuse**: Replaced hardcoded "max 3" limits with getGranularityFixLimits() (fine→6, standard→3, coarse→2)
+- **Prompts modular refactoring**: Split 800-line prompts.ts into 6 domain modules under src/wiki/prompts/ (ingestion, generation, merge, fixes, lint, conversation)
+- **i18n preparation**: Split 742-line texts.ts into language modules under src/texts/ (en.ts, zh.ts)
 
 Recently completed (v1.7.19):
 - **Hardcoded abbreviation removal**: Removed English-only abbreviation map (MoE, CoT, LoRA, etc.) from duplicate candidate generation — now purely LLM-driven via aliases

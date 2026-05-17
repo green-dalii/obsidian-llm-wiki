@@ -13,6 +13,7 @@ import {
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../utils';
 import { getExistingWikiPages } from './lint-fixes';
+import { getGranularityInstruction } from './system-prompts';
 
 export class SourceAnalyzer {
   constructor(private ctx: EngineContext) {}
@@ -53,12 +54,8 @@ export class SourceAnalyzer {
     let firstBatchData: Partial<SourceAnalysis> | null = null;
     let finalBatchNum = 0;
 
-    // Build granularity instruction
-    const granularityInstructions: Record<string, string> = {
-      fine: 'Extract ALL entities and concepts worth recording from the source, including those mentioned only once or tangentially. Make full use of the {{batch_size}} item quota for this round.',
-      standard: 'Extract important and moderately important entities and concepts from the source. Ignore minor items mentioned only in passing.',
-      coarse: 'Extract only the most essential entities and concepts from the source — those without which the text cannot be understood. Strictly limit quantity; quality over quantity.'
-    };
+    // Build granularity instruction from shared definitions
+    const granularityInstruction = getGranularityInstruction(this.ctx.settings)
 
     const templateUntouched = PROMPTS.analyzeSource
       .replace('{{content}}', content)
@@ -83,7 +80,7 @@ export class SourceAnalyzer {
       }
 
       const prompt = staticPrefix + batchContext + suffixTemplate
-        .replace('{{granularity_instruction}}', granularityInstructions[granularity])
+        .replace('{{granularity_instruction}}', granularityInstruction)
         .replace(/{{batch_size}}/g, String(currentBatchSize));
 
       const langHint = `\n\nCRITICAL LANGUAGE REQUIREMENT: Summaries, descriptions, source_title, and key_points in your JSON output MUST be written in ${WIKI_LANGUAGES[this.ctx.settings.wikiLanguage || 'en'] || this.ctx.settings.wikiLanguage || 'English'}. HOWEVER: entity names and concept names MUST be preserved in their original source language — NEVER translate names. mentions_in_source MUST be verbatim quotes from the source (preserve original language).`;

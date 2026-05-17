@@ -1,7 +1,7 @@
 // System prompt builder — extracted from WikiEngine for modularity.
 // Pure functions with no Obsidian vault dependencies.
 
-import { LLMWikiSettings, WIKI_LANGUAGES } from '../types';
+import { LLMWikiSettings, WIKI_LANGUAGES, ExtractionGranularity } from '../types';
 
 export function buildWikiLanguageDirective(settings: LLMWikiSettings): string {
   const lang = settings.wikiLanguage || 'en';
@@ -111,6 +111,31 @@ export const SECTION_LABELS: Record<string, Record<string, string>> = {
 export function getSectionLabels(settings: LLMWikiSettings): Record<string, string> {
   const lang = settings.wikiLanguage || 'en';
   return SECTION_LABELS[lang] || SECTION_LABELS.en;
+}
+
+// Granularity instruction text for extraction prompts.
+const GRANULARITY_INSTRUCTIONS: Record<ExtractionGranularity, string> = {
+  fine: 'Extract ALL entities and concepts worth recording from the source, including those mentioned only once or tangentially.',
+  standard: 'Extract important and moderately important entities and concepts from the source. Ignore minor items mentioned only in passing.',
+  coarse: 'Extract only the most essential entities and concepts from the source — those without which the text cannot be understood. Quality over quantity.',
+};
+
+// Numeric limits for entity/concept generation in fix (non-ingestion) contexts.
+// Keyed by granularity: max per type (entities, concepts).
+const GRANULARITY_FIX_LIMITS: Record<ExtractionGranularity, { maxEntities: number; maxConcepts: number }> = {
+  fine:    { maxEntities: 6, maxConcepts: 6 },
+  standard: { maxEntities: 3, maxConcepts: 3 },
+  coarse:  { maxEntities: 2, maxConcepts: 2 },
+};
+
+export function getGranularityInstruction(settings: LLMWikiSettings): string {
+  const granularity = settings.extractionGranularity || 'standard';
+  return GRANULARITY_INSTRUCTIONS[granularity] || GRANULARITY_INSTRUCTIONS.standard;
+}
+
+export function getGranularityFixLimits(settings: LLMWikiSettings): { maxEntities: number; maxConcepts: number } {
+  const granularity = settings.extractionGranularity || 'standard';
+  return GRANULARITY_FIX_LIMITS[granularity] || GRANULARITY_FIX_LIMITS.standard;
 }
 
 export function applySectionLabels(prompt: string, settings: LLMWikiSettings): string {

@@ -8,6 +8,8 @@ import { slugify, parseJsonResponse, cleanMarkdownResponse, parseFrontmatter, en
 import {
   buildSystemPrompt,
   getSectionLabels,
+  applySectionLabels,
+  getGranularityFixLimits,
 } from './system-prompts';
 
 // Regex used to strip markdown syntax for substantive-content measurement.
@@ -57,12 +59,44 @@ export class LintFixer {
       this.ctx.app,
       this.ctx.settings.wikiFolder
     );
+
+    // ---- Pre-check: deterministic title + alias match (avoids unnecessary LLM calls) ----
+    // This prevents the non-convergent fix cycle: without this check, the LLM may
+    // return create_stub for a target whose matching page already exists under a
+    // different name (e.g., dead link "思维链" → existing page "CoT" with alias "思维链").
+    const sourceContent =
+      (await this.ctx.tryReadFile(sourcePath)) || '(empty)';
+    const targetBasename = targetName.includes('/')
+      ? targetName.split('/').pop()!
+      : targetName;
+    const lowerTarget = targetBasename.toLowerCase();
+
+    let preMatch = existingPages.find(p => p.title.toLowerCase() === lowerTarget);
+    if (!preMatch) {
+      preMatch = existingPages.find(p =>
+        p.aliases?.some(a => a.toLowerCase() === lowerTarget)
+      );
+    }
+
+    if (preMatch) {
+      const newLink = `[[${preMatch.path.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '')}|${preMatch.title}]]`;
+      const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
+      const updatedContent = sourceContent.replace(
+        linkRegex,
+        (fullMatch: string, capturedTarget: string) => {
+          if (capturedTarget.trim() === targetName) return newLink;
+          return fullMatch;
+        }
+      );
+      await this.ctx.createOrUpdateFile(sourcePath, updatedContent);
+      return `pre-check corrected (alias match): ${newLink}`;
+    }
+
+    // ---- LLM path: semantic matching with alias-aware prompt ----
     const pagesList = existingPages.map(p => {
       const aliasSuffix = p.aliases?.length ? ` \`aliases: ${p.aliases.join(', ')}\`` : '';
       return `- ${p.wikiLink}${aliasSuffix}`;
     }).join('\n');
-    const sourceContent =
-      (await this.ctx.tryReadFile(sourcePath)) || '(empty)';
 
     const prompt = PROMPTS.fixDeadLink
       .replace('{{source_content}}', sourceContent.substring(0, 2000))
@@ -128,6 +162,28 @@ export class LintFixer {
     }
 
     if (result?.action === 'create_stub' && result.stub_title) {
+      // Safety net: re-check aliases before creating a stub.
+      // The LLM may have missed an alias match even though aliases were
+      // included in the prompt. This prevents duplicate page creation.
+      const stubTitleLower = result.stub_title.toLowerCase();
+      const aliasMatch = existingPages.find(p =>
+        p.title.toLowerCase() === stubTitleLower ||
+        p.aliases?.some(a => a.toLowerCase() === stubTitleLower)
+      );
+      if (aliasMatch) {
+        const newLink = `[[${aliasMatch.path.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '')}|${aliasMatch.title}]]`;
+        const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
+        const updatedContent = sourceContent.replace(
+          linkRegex,
+          (fullMatch: string, capturedTarget: string) => {
+            if (capturedTarget.trim() === targetName) return newLink;
+            return fullMatch;
+          }
+        );
+        await this.ctx.createOrUpdateFile(sourcePath, updatedContent);
+        return `safety-net corrected (alias match for stub): ${newLink}`;
+      }
+
       const stubType = result.stub_type || 'entity';
       const pluralMap: Record<string, string> = {
         entity: 'entities',
@@ -257,10 +313,17 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     const indexPath = `${this.ctx.settings.wikiFolder}/index.md`;
     const wikiIndex = (await this.ctx.tryReadFile(indexPath)) || '';
 
+    const limits = getGranularityFixLimits(this.ctx.settings);
+
     const prompt = PROMPTS.fillEmptyPage
       .replace('{{page_type}}', pageType)
       .replace('{{existing_content}}', content)
-      .replace('{{wiki_index}}', wikiIndex.substring(0, 2000));
+      .replace('{{wiki_index}}', wikiIndex.substring(0, 2000))
+      .replace('{{section_labels}}', buildSectionLabelsHint(this.ctx.settings))
+      .replace('{{max_entities}}', String(limits.maxEntities))
+      .replace('{{max_concepts}}', String(limits.maxConcepts));
+
+    const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
@@ -273,20 +336,41 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
         this.ctx.getSchemaContext,
         'full'
       ),
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: finalPrompt }],
     });
 
     const cleaned = cleanMarkdownResponse(filledContent);
 
+    // Detect folder-prefix pollution in LLM output before writing
+    const POLLUTION_REGEX = /\[\[(entities|concepts|sources)\/[^|\]]+\|(entities|concepts|sources)\/[^|\]]+\]\]/g;
+    if (POLLUTION_REGEX.test(cleaned)) {
+      console.warn(
+        `fillEmptyPage: detected folder-prefix pollution in LLM output for ${pagePath}, auto-correcting`
+      );
+    }
+    const pollutionFree = cleaned.replace(
+      POLLUTION_REGEX,
+      (match: string) => {
+        const parts = match.match(/\[\[([^|\]]+)\|([^|\]]+)\]\]/);
+        if (parts) {
+          const path = parts[1];
+          const pollutedDisplay = parts[2];
+          const cleanDisplay = pollutedDisplay.replace(/^(entities|concepts|sources)\//, '');
+          return `[[${path}|${cleanDisplay}]]`;
+        }
+        return match;
+      }
+    );
+
     // Strip any residual stub marker line — LLM may preserve it from the
     // existing content, which would cause isPageEmpty to keep flagging it.
-    const stubFree = cleaned.includes(STUB_MARKER)
-      ? cleaned
+    const stubFree = pollutionFree.includes(STUB_MARKER)
+      ? pollutionFree
           .split('\n')
           .filter(line => !line.includes(STUB_MARKER))
           .join('\n')
           .trim()
-      : cleaned;
+      : pollutionFree;
 
     // Bug 3 fix: verify the result is no longer empty before writing
     const textBody = stubFree
@@ -573,6 +657,35 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Build a hint string listing section labels in the target language,
+// so the LLM knows what headers to use when generating page content.
+function buildSectionLabelsHint(settings: import('../types').LLMWikiSettings): string {
+  const labels = getSectionLabels(settings);
+  const entityLabels = [
+    `- ${labels.basic_information}`,
+    `- ${labels.description}`,
+    `- ${labels.related_entities}`,
+    `- ${labels.related_concepts}`,
+    `- ${labels.mentions_in_source}`,
+  ].join('\n');
+  const conceptLabels = [
+    `- ${labels.definition}`,
+    `- ${labels.key_characteristics}`,
+    `- ${labels.applications}`,
+    `- ${labels.related_concepts}`,
+    `- ${labels.related_entities}`,
+    `- ${labels.mentions_in_source}`,
+  ].join('\n');
+  const sourceLabels = [
+    `- ${labels.source}`,
+    `- ${labels.core_content}`,
+    `- ${labels.key_entities}`,
+    `- ${labels.key_concepts}`,
+    `- ${labels.main_points}`,
+  ].join('\n');
+  return `Entity pages use:\n${entityLabels}\n\nConcept pages use:\n${conceptLabels}\n\nSource pages use:\n${sourceLabels}`;
 }
 
 // Normalize frontmatter dates: replace any LLM-generated `updated` with

@@ -489,6 +489,22 @@ export class WikiEngine {
   async createOrUpdateFile(path: string, content: string): Promise<void> {
     console.debug('createOrUpdateFile:', path);
 
+    // Central pollution detection: strip folder-prefix duplication from wiki-links
+    // before writing. This catches pollution from ALL sources (page generation,
+    // stub expansion, dead link fixes, merges, etc.).
+    const POLLUTION_REGEX = /\[\[(entities|concepts|sources)\/([^|\]]+)\|(entities|concepts|sources)\/([^|\]]+)\]\]/g;
+    if (POLLUTION_REGEX.test(content)) {
+      console.warn(
+        `createOrUpdateFile: detected folder-prefix pollution in ${path}, auto-correcting`
+      );
+      content = content.replace(
+        POLLUTION_REGEX,
+        (_match: string, _folder: string, _path: string, _dupFolder: string, display: string) => {
+          return `[[${_folder}/${_path}|${display}]]`;
+        }
+      );
+    }
+
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const file = this.app.vault.getAbstractFileByPath(path);

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.20] - 2026-05-17
+
+### Fixed
+- **Aliases convergence in dead link fixes**: Added two-layer alias matching (deterministic pre-check before LLM + safety-net after create_stub) to prevent duplicate page creation. Dead links to "思维链" now correctly match existing "CoT" page with alias "思维链" instead of creating redundant stub, solving non-convergent fix cycle
+- **Wiki-link folder name pollution**: Centralized pollution detection in `createOrUpdateFile()` that strips duplicated folder prefixes (`[[entities/X|entities/X]]` → `[[entities/X|X]]`) from all LLM outputs. Prompt instructions clarified to explicitly forbid folder duplication in display names
+- **Section headers not localized in fix pages**: `fillEmptyPage` now calls `applySectionLabels()` and receives language-specific header list via `buildSectionLabelsHint()`. Empty page expansion generates headers matching user's wiki output language setting
+- **Fabricated source mentions in fix pages**: Prompt now forbids "Mentions in Source" section creation when no verbatim quotes exist in stub content. LLM instructed to note "No source content available" instead of inventing fake citations from training data
+- **Hardcoded entity limits in fixes**: Replaced rigid "max 3" limit with granularity-aware `getGranularityFixLimits()` that respects user's extraction granularity setting (fine→6, standard→3, coarse→2 per type)
+
+### Changed
+- **Prompts modular refactoring**: Split 800-line `src/prompts.ts` into domain modules under `src/wiki/prompts/` (ingestion, generation, merge, fixes, lint, conversation). Each domain isolated in own file; barrel re-exports for zero breaking changes
+- **i18n structure preparation**: Split 742-line `src/texts.ts` into language modules under `src/texts/` (en.ts, zh.ts). Future language additions (ja, ko, de) require only new file creation + barrel import
+
 ## [1.7.19] - 2026-05-17
 
 ### Fixed
