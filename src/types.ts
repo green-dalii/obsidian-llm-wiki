@@ -191,9 +191,18 @@ export const VALID_CONCEPT_TAGS = ['theory', 'method', 'technology', 'term', 'ot
 export const DEFAULT_ENTITY_TAG = 'other';
 export const DEFAULT_CONCEPT_TAG = 'term';
 
-// EngineContext — shared dependencies injected into extracted modules.
-// Defined as an interface so wiki-engine.ts can implement it once and
-// pass it to specialized sub-modules (lint-fixes, contradictions, etc.).
+// EngineContext — shared dependencies injected into sub-modules.
+// Functions (getClient, tryReadFile) return the latest state at call time,
+// not a snapshot at construction time. This is intentional: the LLM client
+// can change when the user updates settings without restarting the plugin.
+//
+// Core (required by all sub-modules):
+//   getClient — runtime accessor for LLM client, reflects settings changes
+//   getExistingWikiPages — reads frontmatter from all wiki/*.md files
+//   createOrUpdateFile — single write gate with pollution defense
+// Integration (consumed by auto-maintain and ingestion pipeline):
+//   onFileWrite — notifies file watcher of writes for change detection
+//   onProgress / onDone — ingestion progress → UI modal
 
 export interface EngineContext {
   app: App;

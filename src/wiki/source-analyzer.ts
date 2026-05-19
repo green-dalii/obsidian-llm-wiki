@@ -19,15 +19,15 @@ export class SourceAnalyzer {
   constructor(private ctx: EngineContext) {}
 
   async analyzeSource(file: TFile): Promise<SourceAnalysis | null> {
-    console.debug('=== 开始分析源文件 ===');
-    console.debug('文件:', file.path);
+    console.debug('=== Source analysis started ===');
+    console.debug('File:', file.path);
 
     const content = await this.ctx.app.vault.read(file);
-    console.debug('文件内容长度:', content.length);
+    console.debug('File content length:', content.length);
 
     const existingPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
     const existingPagesList = existingPages.map(p => `- ${p.wikiLink}`).join('\n');
-    console.debug('现有 Wiki 页面数量:', existingPages.length);
+    console.debug('Existing Wiki pages count:', existingPages.length);
 
     // Iterative batch extraction parameters — linked to granularity setting
     const MAX_TOKENS = 16000;
@@ -86,8 +86,8 @@ export class SourceAnalyzer {
       const langHint = `\n\nCRITICAL LANGUAGE REQUIREMENT: Summaries, descriptions, source_title, and key_points in your JSON output MUST be written in ${WIKI_LANGUAGES[this.ctx.settings.wikiLanguage || 'en'] || this.ctx.settings.wikiLanguage || 'English'}. HOWEVER: entity names and concept names MUST be preserved in their original source language — NEVER translate names. mentions_in_source MUST be verbatim quotes from the source (preserve original language).`;
       const finalPrompt = prompt + langHint;
 
-      console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] 发起LLM调用 (batch_size=${currentBatchSize})...`);
-      console.debug(`[Batch ${batchNum + 1}] Prompt长度:`, prompt.length);
+      console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] LLM call started (batch_size=${currentBatchSize})...`);
+      console.debug(`[Batch ${batchNum + 1}] Prompt length:`, prompt.length);
       this.ctx.onProgress?.(`Analyzing batch ${batchNum + 1}...`);
 
       try {
@@ -101,7 +101,7 @@ export class SourceAnalyzer {
           cacheBreakpoint: staticPrefix.length
         });
 
-        console.debug(`[Batch ${batchNum + 1}] 响应长度:`, response.length);
+        console.debug(`[Batch ${batchNum + 1}] Response length:`, response.length);
         this.ctx.onProgress?.(`Analyzed batch ${batchNum + 1}, processing...`);
 
         const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
@@ -116,21 +116,21 @@ export class SourceAnalyzer {
         }) as Partial<SourceAnalysis> | null;
 
         if (!analysisData) {
-          console.error(`[Batch ${batchNum + 1}] JSON 解析失败，跳过此批次`);
+          console.error(`[Batch ${batchNum + 1}] JSON parse failed, skipping batch`);
           if (isFirstBatch) return null;
           break;
         }
 
         if (isFirstBatch) {
           if (!analysisData.entities || !analysisData.concepts) {
-            console.error('❌ 第一轮缺少必要字段 (entities/concepts):', {
+            console.error('❌ Round 1 missing required fields (entities/concepts):', {
               entities: !!analysisData.entities,
               concepts: !!analysisData.concepts
             });
             return null;
           }
           if (!analysisData.source_title) {
-            console.debug('第一轮缺少 source_title，使用文件名作为回退:', file.basename);
+            console.debug('Round 1 missing source_title, falling back to filename:', file.basename);
           }
           firstBatchData = analysisData;
           sourceTitle = analysisData.source_title || file.basename;
@@ -159,14 +159,14 @@ export class SourceAnalyzer {
         allConcepts.push(...newConcepts);
 
         const batchTotal = newEntities.length + newConcepts.length;
-        console.debug(`[Batch ${batchNum + 1}] 新增: ${newEntities.length} entities, ${newConcepts.length} concepts (扣除重复后 ${batchTotal})`);
-        console.debug(`[Batch ${batchNum + 1}] 累计: ${allEntities.length} entities, ${allConcepts.length} concepts`);
+        console.debug(`[Batch ${batchNum + 1}] New: ${newEntities.length} entities, ${newConcepts.length} concepts (de-duplicated ${batchTotal})`);
+        console.debug(`[Batch ${batchNum + 1}] Cumulative: ${allEntities.length} entities, ${allConcepts.length} concepts`);
 
         const RESPONSE_FULLNESS_THRESHOLD = MAX_TOKENS * 0.7;
         if (response.length > RESPONSE_FULLNESS_THRESHOLD && currentBatchSize > MIN_BATCH_SIZE) {
           const prevSize = currentBatchSize;
           currentBatchSize = Math.max(MIN_BATCH_SIZE, Math.floor(currentBatchSize * 0.75));
-          console.debug(`[Batch ${batchNum + 1}] 响应长度 ${response.length} 超过阈值 ${Math.round(RESPONSE_FULLNESS_THRESHOLD)}，batch_size: ${prevSize} → ${currentBatchSize}`);
+          console.debug(`[Batch ${batchNum + 1}] Response length ${response.length} 超过阈值 ${Math.round(RESPONSE_FULLNESS_THRESHOLD)}，batch_size: ${prevSize} → ${currentBatchSize}`);
         }
 
         const rawTotal = (analysisData.entities || []).length + (analysisData.concepts || []).length;
@@ -174,25 +174,25 @@ export class SourceAnalyzer {
         finalBatchNum = batchNum + 1;
 
         if (rawTotal === 0) {
-          console.debug(`[Batch ${batchNum + 1}] LLM返回空数组，停止迭代`);
+          console.debug(`[Batch ${batchNum + 1}] LLM returned empty array, stopping iteration`);
           break;
         }
 
         // Stop only when LLM returned items but ALL were duplicates (nothing new to extract)
         if (newTotal === 0) {
-          console.debug(`[Batch ${batchNum + 1}] 所有 ${rawTotal} 个条目均为重复，判断已穷尽，停止迭代`);
+          console.debug(`[Batch ${batchNum + 1}] All items duplicate, extraction exhausted, stopping`);
           break;
         }
 
         // Granularity-linked cumulative soft cap
         const cumulativeTotal = allEntities.length + allConcepts.length;
         if (config.maxTotalItems !== null && cumulativeTotal >= config.maxTotalItems) {
-          console.debug(`[Batch ${batchNum + 1}] 累积数量 ${cumulativeTotal} 达到 ${granularity} 模式上限 ${config.maxTotalItems}，停止迭代`);
+          console.debug(`[Batch ${batchNum + 1}] Cumulative total reached limit, stopping ${config.maxTotalItems}，停止迭代`);
           break;
         }
 
       } catch (error) {
-        console.error(`[Batch ${batchNum + 1}] 调用失败:`, error);
+        console.error(`[Batch ${batchNum + 1}] Call failed:`, error);
         if (isFirstBatch) {
           const providerName = this.ctx.settings.provider;
           const errMsg = error instanceof Error ? error.message : String(error);
@@ -202,7 +202,7 @@ export class SourceAnalyzer {
             `If the error mentions SSL/TLS, try: (1) restart Obsidian, (2) check VPN/proxy settings, (3) verify the provider URL is correct.`
           );
         }
-        console.warn(`[Batch ${batchNum + 1}] 非第一轮失败，保留已提取的 ${allEntities.length + allConcepts.length} 个条目`);
+        console.warn(`[Batch ${batchNum + 1}] Non-first-round failure, keeping extracted items`);
         break;
       }
     }
@@ -224,11 +224,11 @@ export class SourceAnalyzer {
       updated_pages: []
     };
 
-    console.debug('=== 迭代提取完成 ===');
-    console.debug('  - 总轮次:', finalBatchNum);
-    console.debug('  - 实体数量:', allEntities.length);
-    console.debug('  - 概念数量:', allConcepts.length);
-    console.debug('  - 去重名称:', extractedNames.size);
+    console.debug('=== Iterative extraction complete ===');
+    console.debug('  - Total batches:', finalBatchNum);
+    console.debug('  - Entities count:', allEntities.length);
+    console.debug('  - Concepts count:', allConcepts.length);
+    console.debug('  - Deduplicated names:', extractedNames.size);
 
     return analysis;
   }

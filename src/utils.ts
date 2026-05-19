@@ -3,15 +3,15 @@
 import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from './types';
 
 export function slugify(text: string): string {
-  console.debug('slugify 输入:', text, '长度:', text?.length);
+  console.debug('slugify input:', text, 'length:', text?.length);
 
   if (!text || text.trim().length === 0) {
-    console.warn('slugify: 输入文本为空');
+    console.warn('slugify: input text is empty');
     return 'untitled';
   }
 
   const trimmed = text.trim();
-  console.debug('trim 后:', trimmed, '长度:', trimmed.length);
+  console.debug('after trim:', trimmed, 'length:', trimmed.length);
 
   // Step 1: Remove ASCII control characters (char code < 32) and filesystem-unsafe symbols
   const afterRemoveInvalid = trimmed
@@ -19,31 +19,31 @@ export function slugify(text: string): string {
     .filter(c => c.charCodeAt(0) >= 32)
     .join('')
     .replace(/[/\\:*?"<>|,()'、，。；：！？（）【】《》]/g, '');
-  console.debug('移除无效字符和特殊符号后:', afterRemoveInvalid, '长度:', afterRemoveInvalid.length);
+  console.debug('after removing invalid chars:', afterRemoveInvalid, 'length:', afterRemoveInvalid.length);
 
   if (afterRemoveInvalid.length === 0) {
-    console.warn('slugify: 移除无效字符后为空，使用备用名称');
-    console.debug('原始输入字符编码:', trimmed.split('').map(c => c.charCodeAt(0)));
+    console.warn('slugify: empty after removing invalid chars，using fallback name');
+    console.debug('original char codes:', trimmed.split('').map(c => c.charCodeAt(0)));
     return 'untitled-' + Date.now();
   }
 
   // Step 2: Convert spaces and dots to dashes
   const afterSpaceToDash = afterRemoveInvalid.replace(/[\s.]+/g, '-');
-  console.debug('空格转连字符后:', afterSpaceToDash, '长度:', afterSpaceToDash.length);
+  console.debug('after space-to-dash:', afterSpaceToDash, 'length:', afterSpaceToDash.length);
 
   // Step 3: Merge multiple dashes
   const afterMergeDash = afterSpaceToDash.replace(/-+/g, '-');
-  console.debug('合并连字符后:', afterMergeDash, '长度:', afterMergeDash.length);
+  console.debug('after dash merge:', afterMergeDash, 'length:', afterMergeDash.length);
 
   // Step 4: Remove leading and trailing dashes
   const finalSlug = afterMergeDash.replace(/^-|-$/g, '').trim();
-  console.debug('最终 slug:', finalSlug, '长度:', finalSlug.length);
+  console.debug('final slug:', finalSlug, 'length:', finalSlug.length);
 
   if (finalSlug.length === 0) {
-    console.warn('slugify: 最终结果为空，使用备用名称');
-    console.debug('=== 调试信息 ===');
-    console.debug('原始输入字符编码:', trimmed.split('').map(c => c.charCodeAt(0)));
-    console.debug('处理后字符编码:', afterRemoveInvalid.split('').map(c => c.charCodeAt(0)));
+    console.warn('slugify: empty final result，using fallback name');
+    console.debug('=== Debug info ===');
+    console.debug('original char codes:', trimmed.split('').map(c => c.charCodeAt(0)));
+    console.debug('processed char codes:', afterRemoveInvalid.split('').map(c => c.charCodeAt(0)));
     return 'untitled-' + Date.now();
   }
 
@@ -54,7 +54,7 @@ export async function parseJsonResponse(
   response: string,
   repairFn?: (malformedJson: string) => Promise<string>
 ): Promise<Record<string, unknown> | null> {
-  console.debug('parseJsonResponse 开始解析... 响应长度:', response.length);
+  console.debug('parseJsonResponse parsing started... response length:', response.length);
 
   try {
     // ===== Layer 1: Response Normalization =====
@@ -77,14 +77,14 @@ export async function parseJsonResponse(
     if (normalized.startsWith('{{')) {
       // Remove the first { (prefill echo)
       normalized = normalized.substring(1);
-      console.debug('检测到双括号 {{，去除多余的前导 {');
+      console.debug('Prefill echo "{{" detected, removing leading {');
     } else if (normalized.length > 1 && normalized[0] === '{') {
       // Check for "loose prefill": lone { on first line, then actual JSON starting with {
       // OR the LLM wrapped output in a code fence after echoing the prefill {
       const afterFirst = normalized.substring(1).trimStart();
       if (afterFirst.startsWith('{') || afterFirst.startsWith('```')) {
         normalized = afterFirst;
-        console.debug('检测到换行分隔的双括号 {\\n{，去除多余的前导 {');
+        console.debug('Newline-separated "{\n{" detected {\\n{，removing leading {');
       }
     }
 
@@ -92,11 +92,11 @@ export async function parseJsonResponse(
       // Try prepending { and parse (prefill stripped by provider)
       const withBrace = '{' + normalized;
       try {
-        console.debug('首字符非 {，补回前导 { 后解析成功');
+        console.debug("first char not '{', prepended '{' and parsed successfully");
         return JSON.parse(withBrace) as Record<string, unknown>;
       } catch {
         // Not a simple missing brace issue, continue normal flow
-        console.debug('补回前导 { 后仍失败，继续后续流程');
+        console.debug("prepending '{' still failed, continuing");
       }
     }
 
@@ -110,12 +110,12 @@ export async function parseJsonResponse(
       if (afterMatch) {
         const endPos = parseInt(afterMatch[1], 10);
         const prefix = normalized.substring(0, endPos);
-        console.debug('检测到 JSON 后有额外内容 (position %d)，提取前缀 (长度 %d)', endPos, prefix.length);
+        console.debug('extra content after JSON detected (position %d)，prefix extracted (length %d)', endPos, prefix.length);
         try {
-          console.debug('前缀解析成功');
+          console.debug('prefix parsed successfully');
           return JSON.parse(prefix) as Record<string, unknown>;
         } catch {
-          console.debug('前缀解析失败，继续后续步骤');
+          console.debug('prefix parse failed, continuing');
         }
       }
     }
@@ -132,7 +132,7 @@ export async function parseJsonResponse(
         try {
           return JSON.parse(fixed) as Record<string, unknown>;
         } catch (braceError) {
-          console.debug('括号计数提取修复未成功:', String(braceError).slice(0, 80));
+          console.debug('brace-count extraction failed:', String(braceError).slice(0, 80));
         }
 
         // LLM repair on balanced extraction
@@ -146,7 +146,7 @@ export async function parseJsonResponse(
             const final = fixCommonJsonIssues(cleanedLlm);
             return JSON.parse(final) as Record<string, unknown>;
           } catch (llmError) {
-            console.error('LLM 修复也未成功 (括号计数):', String(llmError).slice(0, 80));
+            console.error('LLM repair also failed (brace-count):', String(llmError).slice(0, 80));
           }
         }
       }
@@ -160,7 +160,7 @@ export async function parseJsonResponse(
       try {
         return JSON.parse(fixed) as Record<string, unknown>;
       } catch (regexError) {
-        console.debug('贪婪正则提取修复未成功:', String(regexError).slice(0, 80));
+        console.debug('greedy regex extraction failed:', String(regexError).slice(0, 80));
       }
 
       if (repairFn) {
@@ -173,19 +173,19 @@ export async function parseJsonResponse(
           const final = fixCommonJsonIssues(cleanedLlm);
           return JSON.parse(final) as Record<string, unknown>;
         } catch (llmError) {
-          console.error('LLM 修复也未成功 (贪婪正则):', String(llmError).slice(0, 80));
+          console.error('LLM repair also failed (greedy regex):', String(llmError).slice(0, 80));
         }
       }
     }
 
     // Step 2.3: Diagnostic logging on total failure
-    console.error('❌ JSON 解析完全失败 (长度 %d)', response.length);
-    console.error('规范化后开头200字符:', normalized.substring(0, 200));
-    console.error('规范化后结尾200字符:', normalized.substring(Math.max(0, normalized.length - 200)));
+    console.error('JSON parse completely failed (length %d)', response.length);
+    console.error('first 200 chars after normalization:', normalized.substring(0, 200));
+    console.error('last 200 chars after normalization:', normalized.substring(Math.max(0, normalized.length - 200)));
     return null;
 
   } catch (error) {
-    console.error('parseJsonResponse 异常:', error);
+    console.error('parseJsonResponse exception:', error);
     return null;
   }
 }
@@ -539,7 +539,7 @@ export function preserveFrontmatterReviewTag(originalContent: string, newContent
 }
 
 export function cleanMarkdownResponse(response: string): string {
-  console.debug('cleanMarkdownResponse 输入长度:', response.length);
+  console.debug('cleanMarkdownResponse input length:', response.length);
 
   // Remove markdown code block wrapping
   // Pattern 1: ```markdown ... ```
@@ -561,7 +561,7 @@ export function cleanMarkdownResponse(response: string): string {
     if (match) {
       // Extract code block content (remove ``` markers)
       cleaned = cleaned.replace(pattern, '$1').trim();
-      console.debug('检测到代码块包裹，已移除');
+      console.debug('code block wrapping detected, removed');
       break;
     }
   }
@@ -569,16 +569,16 @@ export function cleanMarkdownResponse(response: string): string {
   // If still has residual ````, manually remove opening and closing
   if (cleaned.startsWith('```')) {
     cleaned = cleaned.replace(/^```(?:markdown|md)?\s*\n?/, '');
-    console.debug('移除开头的代码块标记');
+    console.debug('removed opening code block marker');
   }
 
   if (cleaned.endsWith('```')) {
     cleaned = cleaned.replace(/\n?```$/, '');
-    console.debug('移除结尾的代码块标记');
+    console.debug('removed closing code block marker');
   }
 
-  console.debug('cleanMarkdownResponse 输出长度:', cleaned.length);
-  console.debug('前50字符:', cleaned.substring(0, 50));
+  console.debug('cleanMarkdownResponse output length:', cleaned.length);
+  console.debug('first 50 chars:', cleaned.substring(0, 50));
 
   // Ensure frontmatter starts at position 0 for Obsidian to parse it.
   // LLM may omit the opening --- or preface content with explanatory text.
@@ -594,10 +594,10 @@ export function cleanMarkdownResponse(response: string): string {
         beforeFm.split('\n').filter(l => l.trim()).every(l => l.includes(':') || l.trim() === '');
       if (looksLikeFrontmatter) {
         cleaned = '---\n' + cleaned;
-        console.debug('已添加缺失的开头 ---');
+        console.debug('added missing opening ---');
       } else {
         cleaned = cleaned.substring(fmEnd + 1);
-        console.debug('已移除 frontmatter 前的前置文本');
+        console.debug('removed preamble text before frontmatter');
       }
     }
   }

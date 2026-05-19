@@ -8,6 +8,23 @@ import {
   IngestReport
 } from './types';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
+
+function createLLMClient(settings: LLMWikiSettings): LLMClient {
+  if (settings.provider === 'anthropic') {
+    return new AnthropicClient(settings.apiKey.trim());
+  }
+  if (settings.provider === 'anthropic-compatible') {
+    const baseUrl = settings.baseUrl?.trim();
+    if (baseUrl) {
+      return new AnthropicCompatibleClient(settings.apiKey.trim(), baseUrl);
+    }
+    return new AnthropicClient(settings.apiKey.trim());
+  }
+  const providerConfig = PREDEFINED_PROVIDERS[settings.provider];
+  const baseUrl = settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
+  const apiKey = settings.provider === 'ollama' ? 'ollama' : settings.apiKey.trim();
+  return new OpenAICompatibleClient(apiKey, baseUrl);
+}
 import { TEXTS } from './texts';
 import { slugify, parseFrontmatter } from './utils';
 import { LLMWikiSettingTab } from './ui/settings';
@@ -163,25 +180,8 @@ export default class LLMWikiPlugin extends Plugin {
     }
 
     try {
-      const providerConfig = PREDEFINED_PROVIDERS[this.settings.provider];
-
-      if (this.settings.provider === 'anthropic') {
-        this.llmClient = new AnthropicClient(this.settings.apiKey.trim());
-      } else if (this.settings.provider === 'anthropic-compatible') {
-        const baseUrl = this.settings.baseUrl?.trim();
-        if (baseUrl) {
-          this.llmClient = new AnthropicCompatibleClient(this.settings.apiKey.trim(), baseUrl);
-        } else {
-          this.llmClient = new AnthropicClient(this.settings.apiKey.trim());
-        }
-      } else {
-        const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
-        const apiKey = this.settings.provider === 'ollama' ? 'ollama' : this.settings.apiKey.trim();
-
-        this.llmClient = new OpenAICompatibleClient(apiKey, baseUrl);
-      }
-
-      console.debug('LLM Client initialized:', this.settings.provider, 'baseUrl:', this.settings.baseUrl || PREDEFINED_PROVIDERS[this.settings.provider]?.baseUrl);
+      this.llmClient = createLLMClient(this.settings);
+      console.debug('LLM Client initialized:', this.settings.provider);
     } catch (error) {
       console.error('LLM Client initialization failed:', error);
       this.llmClient = null;
@@ -322,11 +322,11 @@ export default class LLMWikiPlugin extends Plugin {
 
         try {
           this.showProgress(`[${i + 1}/${ingestCount}] ${file.basename}`);
-          console.debug(`(${i + 1}/${ingestCount}) 开始摄入: ${file.path}`);
+          console.debug(`(${i + 1}/${ingestCount}) ingesting: ${file.path}`);
           await this.wikiEngine.ingestSource(file);
-          console.debug(`(${i + 1}/${ingestCount}) 摄入成功: ${file.path}`);
+          console.debug(`(${i + 1}/${ingestCount}) ingestion success: ${file.path}`);
         } catch (error) {
-          console.error(`(${i + 1}/${ingestCount}) 摄入失败: ${file.path}`, error);
+          console.error(`(${i + 1}/${ingestCount}) ingestion failed: ${file.path}`, error);
           const errMsg = error instanceof Error ? error.message : String(error);
           new Notice(texts.errorIngestFailed + file.basename + ': ' + errMsg, 8000);
         }
@@ -421,40 +421,14 @@ export default class LLMWikiPlugin extends Plugin {
   // ==================== Connection Test ====================
 
   async testLLMConnection(): Promise<{ success: boolean; message: string }> {
-    console.debug('测试 LLM 连接...');
-    console.debug('当前配置:', {
-      provider: this.settings.provider,
-      apiKey: this.settings.apiKey ? '已配置' : '未配置',
-      baseUrl: this.settings.baseUrl || PREDEFINED_PROVIDERS[this.settings.provider]?.baseUrl || '默认',
-      model: this.settings.model
-    });
-
     const isOllama = this.settings.provider === 'ollama';
     if (!isOllama && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
-      return {
-        success: false,
-        message: 'API Key 未配置'
-      };
+      return { success: false, message: 'API Key 未配置' };
     }
 
     try {
-      let testClient: LLMClient;
+      const testClient = createLLMClient(this.settings);
       const providerConfig = PREDEFINED_PROVIDERS[this.settings.provider];
-
-      if (this.settings.provider === 'anthropic') {
-        testClient = new AnthropicClient(this.settings.apiKey.trim());
-      } else if (this.settings.provider === 'anthropic-compatible') {
-        const testBaseUrl = this.settings.baseUrl?.trim();
-        if (testBaseUrl) {
-          testClient = new AnthropicCompatibleClient(this.settings.apiKey.trim(), testBaseUrl);
-        } else {
-          testClient = new AnthropicClient(this.settings.apiKey.trim());
-        }
-      } else {
-        const baseUrl = this.settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
-        const apiKey = isOllama ? 'ollama' : this.settings.apiKey.trim();
-        testClient = new OpenAICompatibleClient(apiKey, baseUrl);
-      }
 
       const testResponse = await testClient.createMessage({
         model: this.settings.model,
@@ -465,14 +439,14 @@ export default class LLMWikiPlugin extends Plugin {
         }]
       });
 
-      console.debug('测试响应:', testResponse);
+      console.debug('Test response:', testResponse);
 
       return {
         success: true,
         message: `✅ 连接成功！提供商: ${providerConfig?.name || this.settings.provider}`
       };
     } catch (error) {
-      console.error('连接测试失败:', error);
+      console.error('Connection test failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,

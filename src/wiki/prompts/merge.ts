@@ -175,4 +175,16 @@ If new content exists:
 
 ## New Information ({{new_source}})
 [Only genuinely new facts, written to match existing style]`,
+
+  // Update related page with incremental information from a new source
+  updateRelatedPage: `Existing Wiki page: {{page_name}}
+
+Existing content:
+{{existing_body}}
+
+The new source file ("{{source_basename}}") provides additional information about {{page_name}}:
+{{new_info}}
+
+Update the page by adding the new information without deleting existing content. Use wiki-link syntax [[page-name]].
+Output ONLY the updated page BODY content (without frontmatter), no other text.`,
 };

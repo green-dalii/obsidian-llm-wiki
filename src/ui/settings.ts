@@ -32,10 +32,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     }
   }
 
-  getText(key: string): string {
-    const lang = this.tempSettings.language;
-    const texts = TEXTS[lang];
-    return (texts as unknown as Record<string, string>)[key] || (TEXTS.en as unknown as Record<string, string>)[key] || key;
+  getText(key: keyof typeof TEXTS.en): string {
+    const texts = TEXTS[this.tempSettings.language];
+    return (texts[key] as string) ?? TEXTS.en[key] ?? key;
   }
 
   display() {
@@ -361,6 +360,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       ? this.getText('concurrencyValueSingular').replace('{}', String(concurrencyValue))
       : this.getText('concurrencyValuePlural').replace('{}', String(concurrencyValue));
 
+    let concurrencySetting: Setting;
     new Setting(containerEl)
       .setName(this.getText('pageGenerationConcurrencyName'))
       .setDesc(this.getText('pageGenerationConcurrencyDesc') + ' ' + concurrencyDesc)
@@ -370,11 +370,16 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .setDynamicTooltip()
         .onChange((value) => {
           this.tempSettings.pageGenerationConcurrency = value;
-          this.display();
-        }));
+          const desc = value === 1
+            ? this.getText('concurrencyValueSingular').replace('{}', String(value))
+            : this.getText('concurrencyValuePlural').replace('{}', String(value));
+          concurrencySetting.setDesc(this.getText('pageGenerationConcurrencyDesc') + ' ' + desc);
+        }))
+      .then(s => { concurrencySetting = s; });
 
     // Batch Delay
     const batchDelayValue = this.tempSettings.batchDelayMs ?? 300;
+    let batchDelaySetting: Setting;
     new Setting(containerEl)
       .setName(this.getText('batchDelayName'))
       .setDesc(this.getText('batchDelayDesc').replace('{}', String(batchDelayValue)))
@@ -384,8 +389,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .setDynamicTooltip()
         .onChange((value) => {
           this.tempSettings.batchDelayMs = value;
-          this.display();
-        }));
+          batchDelaySetting.setDesc(this.getText('batchDelayDesc').replace('{}', String(value)));
+        }))
+      .then(s => { batchDelaySetting = s; });
 
     // Max Conversation History
     new Setting(containerEl)

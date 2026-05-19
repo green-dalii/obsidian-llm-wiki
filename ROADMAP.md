@@ -33,10 +33,11 @@ Following an independent code audit (score: B+), targeted technical debt repayme
 
 | Action | Effort | Why |
 |--------|--------|-----|
-| Split `ingestSource` into stage methods | 3h | Current ~300-line flow: stage1Analyze → stage2Summary → stage3GeneratePages → etc. |
-| Keyword pre-filter for query page selection | 3h | Reduce LLM token cost before semantic matching on large wikis |
-| Write ADR for key design decisions | 3h | max_tokens 8000, Tier 1/2 dedup, 5s cache TTL, concurrency defaults |
-| JSDoc public interfaces | 4h | EngineContext, LLMClient, PageFactory — current zero documentation |
+| Python Zen design principles (CLAUDE.md) | — | Simple > Complex; Flat > Nested; Sparse > Dense; solve when it hurts |
+| Key design decisions (CLAUDE.md) | 30min | Tier 1/2 dedup, Promise.allSettled isolation, pollution defense, LLM semantic selection |
+| EngineContext interface comments (types.ts) | 15min | Grouping by core/integration; document function-as-accessor pattern |
+| ~~Split `ingestSource` into stage methods~~ | — | Rejected: 300 lines sequential with clear comments is more readable than 6 micro-methods |
+| ~~Keyword pre-filter for query~~ | — | Rejected: introduces false negatives; correct fix for large wikis is index sharding, not BM25 |
 
 ### Test Coverage Milestone (v1.8.1)
 

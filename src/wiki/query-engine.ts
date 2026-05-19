@@ -681,19 +681,19 @@ export class QueryModal extends Modal {
   }
 
   async buildWikiContext(userMessage: string, onProgress?: (phase: string) => void): Promise<string> {
-    console.debug('=== buildWikiContext开始 ===');
-    console.debug('用户问题:', userMessage);
+    console.debug('=== buildWikiContext started ===');
+    console.debug('User question:', userMessage);
 
     const texts = TEXTS[this.plugin.settings.language];
 
     try {
       const indexPath = `${this.plugin.settings.wikiFolder}/index.md`;
-      console.debug('[步骤1] 读取index.md路径:', indexPath);
+      console.debug('[Step 1] Index path:', indexPath);
       const indexContent = await this.plugin.wikiEngine.tryReadFile(indexPath);
-      console.debug('[步骤1] index.md内容:', indexContent ? '已读取' : '不存在');
+      console.debug('[Step 1] Index content:', indexContent ? 'loaded' : 'not found');
 
       if (!indexContent) {
-        console.debug('[步骤1] Wiki为空，返回提示');
+        console.debug('[Step 1] Wiki is empty, returning hint');
         const lang = this.plugin.settings.wikiLanguage || 'en';
         const langName = WIKI_LANGUAGES[lang] || lang;
         return `IMPORTANT: You MUST write ALL responses in ${langName}.\n\nYou are a Wiki assistant. The Wiki is empty. Please answer based on your knowledge and suggest the user ingest sources first.`;
@@ -702,9 +702,9 @@ export class QueryModal extends Modal {
       // Phase: Searching for relevant pages
       onProgress?.(texts.queryPhaseSearching);
 
-      console.debug('[步骤2] 让LLM选择相关页面...');
+      console.debug('[Step 2] LLM selecting relevant pages...');
       const relevantPages = await this.selectRelevantPagesWithLLM(userMessage, indexContent);
-      console.debug('[步骤2] LLM选择的页面:', relevantPages);
+      console.debug('[Step 2] LLM selected pages:', relevantPages);
 
       // Phase: Found pages count with names
       const pageNames = relevantPages.map(p => p.split('/').pop() || p).join(', ');
@@ -716,11 +716,11 @@ export class QueryModal extends Modal {
       // Phase: Loading pages
       onProgress?.(texts.queryPhaseLoadingPages);
 
-      console.debug('[步骤3] 加载相关页面内容...');
+      console.debug('[Step 3] Loading page content...');
       const pagesContent = await this.loadRelevantPages(relevantPages);
-      console.debug('[步骤3] 加载的页面内容数量:', pagesContent.length);
+      console.debug('[Step 3] Pages loaded:', pagesContent.length);
       pagesContent.forEach((content, i) => {
-        console.debug(`[步骤3] 页面${i+1}内容长度:`, content.length);
+        console.debug(`[Step 3] page content length:`, content.length);
       });
 
       // Phase: Context ready, about to generate
@@ -767,11 +767,11 @@ If Wiki lacks relevant information:
 
 Respond in ${langName}`;
 
-      console.debug('[步骤4] Wiki上下文构建完成');
-      console.debug('[步骤4] 上下文长度:', wikiContext.length);
+      console.debug('[Step 4] Wiki context built');
+      console.debug('[Step 4] Context length:', wikiContext.length);
       return wikiContext;
     } catch (error) {
-      console.error('[错误] buildWikiContext失败:', error);
+      console.error('[Error] buildWikiContext failed:', error);
       const lang2 = this.plugin.settings.wikiLanguage || 'en';
       const langName2 = WIKI_LANGUAGES[lang2] || lang2;
       return `IMPORTANT: You MUST write ALL responses in ${langName2}.\n\nYou are a Wiki assistant. Failed to load Wiki context. Please answer based on your knowledge.`;
@@ -779,7 +779,7 @@ Respond in ${langName}`;
   }
 
   async selectRelevantPagesWithLLM(query: string, indexContent: string): Promise<string[]> {
-    console.debug('=== LLM选择相关页面开始 ===');
+    console.debug('=== LLM page selection started ===');
 
     const prompt = `You are a Wiki page selector. Given a user query and the Wiki index, select the most relevant pages.
 
@@ -810,7 +810,7 @@ Important:
 - If no pages are relevant, output: {"relevant_pages": []}`;
 
     try {
-      console.debug('[LLM调用] 发送选择请求...');
+      console.debug('[LLM] Sending selection request...');
       const response = await this.plugin.llmClient!.createMessage({
         model: this.plugin.settings.model,
         max_tokens: 500,
@@ -818,50 +818,50 @@ Important:
         response_format: { type: 'json_object' }
       });
 
-      console.debug('[LLM响应] 原始响应:', response);
+      console.debug('[LLM] Raw response:', response);
 
       const parsed = await parseJsonResponse(response) as { relevant_pages?: string[] } | null;
       const pages = parsed?.relevant_pages || [];
 
-      console.debug('[解析成功] 页面列表:', pages);
+      console.debug('[Parse OK] Page list:', pages);
       return pages;
     } catch (error) {
-      console.error('[LLM选择失败]', error);
+      console.error('[LLM selection failed]', error);
       return [];
     }
   }
 
   async loadRelevantPages(pageTitles: string[]): Promise<string[]> {
-    console.debug('=== loadRelevantPages开始 ===');
-    console.debug('页面标题列表:', pageTitles);
+    console.debug('=== loadRelevantPages started ===');
+    console.debug('Page titles:', pageTitles);
 
     const pages: string[] = [];
 
     const wikiPrefix = this.plugin.settings.wikiFolder + '/';
 
     for (const title of pageTitles) {
-      console.debug(`[加载页面] 处理标题: "${title}"`);
+      console.debug(`[Load Page] Processing title: "${title}"`);
 
       // Strip wiki folder prefix if LLM returned it (e.g., "wiki/entities/xxx" → "entities/xxx")
       const normalizedTitle = title.startsWith(wikiPrefix) ? title.slice(wikiPrefix.length) : title;
       const pagePath = `${this.plugin.settings.wikiFolder}/${normalizedTitle}.md`;
 
-      console.debug(`[加载页面] 完整路径: "${pagePath}"`);
+      console.debug(`[Load Page] Full path: "${pagePath}"`);
 
       const content = await this.plugin.wikiEngine.tryReadFile(pagePath);
-      console.debug(`[加载页面] 文件是否存在: ${content ? '是' : '否'}`);
+      console.debug(`[Load Page] File exists: ${content ? 'yes' : 'no'}`);
 
       if (content) {
-        console.debug(`[加载页面] 内容长度: ${content.length}`);
-        console.debug(`[加载页面] 内容前100字符: ${content.substring(0, 100)}`);
+        console.debug(`[Load Page] content length: ${content.length}`);
+        console.debug(`[Load Page] First 100 chars: ${content.substring(0, 100)}`);
         const displayTitle = `${this.plugin.settings.wikiFolder}/${normalizedTitle}`;
         pages.push(`## ${displayTitle}\n\n${content}`);
       } else {
-        console.warn(`[加载页面] 无法读取页面: ${pagePath}`);
+        console.warn(`[Load Page] Cannot read page: ${pagePath}`);
       }
     }
 
-    console.debug(`[加载页面] 成功加载${pages.length}个页面`);
+    console.debug(`[Load Page] Successfully loaded pages`);
     return pages;
   }
 }

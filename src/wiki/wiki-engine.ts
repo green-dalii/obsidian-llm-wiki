@@ -134,8 +134,8 @@ export class WikiEngine {
   }
 
   async ingestSource(file: TFile) {
-    console.debug('=== 开始摄入流程 ===');
-    console.debug('源文件:', file.path);
+    console.debug('=== Ingestion started ===');
+    console.debug('Source file:', file.path);
     const totalStartTime = Date.now();
 
     this.onProgress?.(`Analyzing: ${file.basename}`);
@@ -153,8 +153,8 @@ export class WikiEngine {
         throw new Error(`Source analysis failed for "${file.basename}". Check the developer console (Ctrl+Shift+I) for network or API errors. If you see SSL/network errors, verify your provider URL and network connection.`);
       }
       const analysisTime = Date.now() - analysisStart;
-      console.debug(`[耗时] 源文件分析阶段: ${analysisTime}ms`);
-      console.debug('分析结果:', JSON.stringify(analysis, null, 2));
+      console.debug(`[Time] Source analysis phase: ${analysisTime}ms`);
+      console.debug('Analysis result:', JSON.stringify(analysis, null, 2));
 
       const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
       let step = 1;
@@ -174,7 +174,7 @@ export class WikiEngine {
       const summaryStart = Date.now();
       const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths);
       const summaryTime = Date.now() - summaryStart;
-      console.debug(`[耗时] 摘要页生成: ${summaryTime}ms`);
+      console.debug(`[Time] Summary page generation: ${summaryTime}ms`);
       analysis.created_pages.push(summaryPage);
 
       // Stage 3: Entity/Concept Page Generation
@@ -187,9 +187,9 @@ export class WikiEngine {
 
       // Log parallel mode info
       if (concurrency > 1) {
-        console.debug(`[并行模式] 并发度: ${concurrency}, 批次间延迟: ${batchDelay}ms, 总任务: ${analysis.entities.length + analysis.concepts.length}`);
+        console.debug(`[Parallel] concurrency: ${concurrency}, batch delay: ${batchDelay}ms, total tasks: ${analysis.entities.length + analysis.concepts.length}`);
       } else {
-        console.debug(`[串行模式] 逐一生成页面, 总任务: ${analysis.entities.length + analysis.concepts.length}`);
+        console.debug(`[Serial] generating pages sequentially, total tasks: ${analysis.entities.length + analysis.concepts.length}`);
       }
 
       // Prepare all page generation tasks
@@ -277,9 +277,9 @@ export class WikiEngine {
         const batchNum = Math.floor(i / concurrency) + 1;
         const totalBatches = Math.ceil(tasks.length / concurrency);
         const succeeded = batchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
-        const mode = concurrency > 1 ? '并行' : '串行';
+        const mode = concurrency > 1 ? 'parallel' : 'serial';
         const batchTime = Date.now() - pageGenStart;
-        console.debug(`[${mode}批次 ${batchNum}/${totalBatches}] ${succeeded}/${batch.length} 页面成功 (并发度: ${concurrency}, 累计耗时: ${batchTime}ms)`);
+        console.debug(`[${mode}batch ${batchNum}/${totalBatches}] ${succeeded}/${batch.length}  pages succeeded (concurrency: ${concurrency}, cumulative: ${batchTime}ms)`);
 
         // API rate limit protection: delay between batches if there are more tasks
         if (i + concurrency < tasks.length) {
@@ -287,7 +287,7 @@ export class WikiEngine {
         }
       }
       const pageGenTime = Date.now() - pageGenStart;
-      console.debug(`[耗时] 页面生成阶段完成: ${pageGenTime}ms (平均 ${Math.round(pageGenTime / pageGenCount)}ms/页)`);
+      console.debug(`[Time] Page generation phase complete: ${pageGenTime}ms (avg ${Math.round(pageGenTime / pageGenCount)}ms/page)`);
 
       // Rate-limit detection: check if parallel failures are 429-related
       const pageGenRateInfo = detectRateLimitFailures(
@@ -320,7 +320,7 @@ export class WikiEngine {
       for (let i = 0; i < relatedTasks.length; i += relatedConcurrency) {
         const batch = relatedTasks.slice(i, i + relatedConcurrency);
 
-        // 执行批次并行更新
+        // 执行batch并行更新
         const batchResults = await Promise.allSettled(
           batch.map(async (task) => {
             this.onProgress?.(`[${task.stepNum}/${totalSteps}] Updating: ${task.name}`);
@@ -360,15 +360,15 @@ export class WikiEngine {
           }
         });
 
-        // 批次间延迟（除最后一批）
+        // batch间延迟（除最后一批）
         if (i + relatedConcurrency < relatedTasks.length) {
           await this.apiDelay(relatedDelay);
         }
       }
 
       const relatedTime = Date.now() - relatedStart;
-      const relatedModeLabel = relatedConcurrency > 1 ? `并行(并发度:${relatedConcurrency})` : '串行';
-      console.debug(`[耗时] 相关页更新阶段完成: ${relatedTime}ms (${relatedModeLabel}, ${relatedCount}/${relatedTotal} 页成功)`);
+      const relatedModeLabel = relatedConcurrency > 1 ? `parallel(concurrency:${relatedConcurrency})` : 'serial';
+      console.debug(`[Time] Related page update phase complete: ${relatedTime}ms (${relatedModeLabel}, ${relatedCount}/${relatedTotal}  pages succeeded)`);
       step += relatedTotal;
 
       // Rate-limit detection for related page updates
@@ -380,7 +380,7 @@ export class WikiEngine {
         console.warn(`[Rate Limit] Related pages update: ${relatedRateInfo.count} item(s) failed with 429, ` +
           `suggested concurrency=${relatedRateInfo.suggestedConcurrency}, delay=${relatedRateInfo.suggestedDelay}ms`);
         new Notice(formatRateLimitNotice(relatedRateInfo, TEXTS[this.settings.language] as unknown as Record<string, string>), 10000);
-      }  // 更新step变量，确保后续阶段编号正确
+      }  // 更新step变量，确保后续 phase编号正确
 
       // Stage 5: Contradiction Recording
       const contradictionStart = Date.now();
@@ -392,7 +392,7 @@ export class WikiEngine {
         }
       }
       const contradictionTime = Date.now() - contradictionStart;
-      console.debug(`[耗时] 矛盾记录阶段: ${contradictionTime}ms (${analysis.contradictions.length} 个)`);
+      console.debug(`[Time] Contradiction recording phase: ${contradictionTime}ms (${analysis.contradictions.length} items)`);
 
       // Stage 6: Index & Log Update
       const indexStart = Date.now();
@@ -401,25 +401,25 @@ export class WikiEngine {
       await this.generateIndexFromEngine();
       await this.updateLog('ingest', analysis);
       const indexTime = Date.now() - indexStart;
-      console.debug(`[耗时] 索引与日志更新: ${indexTime}ms`);
+      console.debug(`[Time] Index Index & log update: ${indexTime}ms`);
 
       const created = analysis.created_pages.length;
       const updated = analysis.updated_pages.length;
       const entitiesCreated = analysis.created_pages.filter(p => p.includes('/entities/')).length;
       const conceptsCreated = analysis.created_pages.filter(p => p.includes('/concepts/')).length;
-      const modeLabel = (this.settings.pageGenerationConcurrency ?? 1) > 1 ? `并行(并发度:${this.settings.pageGenerationConcurrency})` : '串行';
+      const modeLabel = (this.settings.pageGenerationConcurrency ?? 1) > 1 ? `parallel(concurrency:${this.settings.pageGenerationConcurrency})` : 'serial';
       const totalTime = Date.now() - totalStartTime;
 
-      console.debug('=== 摄入流程完成 ===');
-      console.debug(`摄入完成 [${modeLabel}]: 创建 ${created} 页 (${entitiesCreated} 实体 + ${conceptsCreated} 概念), 更新 ${updated} 页`);
-      console.debug(`[总耗时] ${totalTime}ms (${Math.round(totalTime/1000)}秒)`);
-      console.debug('[阶段耗时分解]:');
-      console.debug(`  - 源文件分析: ${analysisTime}ms`);
-      console.debug(`  - 摘要页生成: ${summaryTime}ms`);
-      console.debug(`  - 页面生成(${concurrency}并发): ${pageGenTime}ms`);
-      console.debug(`  - 相关页更新: ${relatedTime}ms`);
-      console.debug(`  - 矛盾记录: ${contradictionTime}ms`);
-      console.debug(`  - 索引与日志: ${indexTime}ms`);
+      console.debug('=== Ingestion complete ===');
+      console.debug(`Ingestion complete [${modeLabel}]: Created ${created} pages (${entitiesCreated} entities + ${conceptsCreated} concepts), Updated ${updated} pages`);
+      console.debug(`[Total time] ${totalTime}ms (${Math.round(totalTime/1000)}s)`);
+      console.debug('[Phase breakdown]:');
+      console.debug(`  - Source analysis: ${analysisTime}ms`);
+      console.debug(`  - Summary page generation: ${summaryTime}ms`);
+      console.debug(`  - Page gen (${concurrency}concurrency): ${pageGenTime}ms`);
+      console.debug(`  - Related page update: ${relatedTime}ms`);
+      console.debug(`  - Contradiction recording: ${contradictionTime}ms`);
+      console.debug(`  - Index & log: ${indexTime}ms`);
 
       this.onDone?.({
         sourceFile: file.path,
@@ -434,8 +434,8 @@ export class WikiEngine {
       });
 
     } catch (error) {
-      console.error('=== 摄入流程失败 ===');
-      console.error('错误:', error);
+      console.error('=== Ingestion failed ===');
+      console.error('Error:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
 
       const createdPages = analysis?.created_pages || [];
@@ -470,7 +470,7 @@ export class WikiEngine {
     for (const folder of folders) {
       try {
         await this.app.vault.createFolder(folder);
-        console.debug('创建文件夹:', folder);
+        console.debug('Creating folder:', folder);
       } catch {
         // 文件夹已存在
       }
@@ -540,23 +540,23 @@ export class WikiEngine {
       try {
         const file = this.app.vault.getAbstractFileByPath(path);
         if (file instanceof TFile) {
-          console.debug(`尝试 ${attempt + 1}: 文件已存在，更新:`, path);
+          console.debug(`Attempt ${attempt + 1}: File exists, updating:`, path);
           await this.app.vault.modify(file, content);
-          console.debug('更新成功:', path);
+          console.debug('Update success:', path);
           this.onFileWrite?.(path);
           this.pagesCache = null;
           return;
         } else {
-          console.debug(`尝试 ${attempt + 1}: 文件不存在，创建:`, path);
+          console.debug(`Attempt ${attempt + 1}: File not found, creating:`, path);
           await this.app.vault.create(path, content);
-          console.debug('创建成功:', path);
+          console.debug('Create success:', path);
           this.onFileWrite?.(path);
           this.pagesCache = null;
           return;
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(`尝试 ${attempt + 1} 失败:`, errorMsg);
+        console.error(`Attempt ${attempt + 1} failed:`, errorMsg);
 
         if (errorMsg.includes('File already exists') || errorMsg.includes('already exists')) {
           // macOS Unicode normalization: getAbstractFileByPath returned null
@@ -567,27 +567,27 @@ export class WikiEngine {
             const normalized = path.normalize();
             const allFiles = this.app.vault.getMarkdownFiles();
             resolved = allFiles.find(f => f.path.normalize() === normalized) || null;
-            if (resolved) console.debug('重试中通过全量扫描找到文件:', path);
+            if (resolved) console.debug('Retry found file via full scan:', path);
           }
           if (resolved) {
             await this.app.vault.modify(resolved, content);
-            console.debug('通过文件解析后更新成功:', path);
+            console.debug('Update succeeded after file resolution:', path);
             this.onFileWrite?.(path);
             this.pagesCache = null;
             return;
           }
-          console.debug('文件已存在异常，等待100ms后重试:', path);
+          console.debug('File exists anomaly, retrying after 100ms:', path);
           await new Promise(resolve => window.setTimeout(resolve, 100));
           continue;
         } else {
-          console.error('无法处理的错误:', path, error);
+          console.error('Unhandled error:', path, error);
           throw error;
         }
       }
     }
 
     // Final fallback: try directory listing + full markdown scan
-    console.debug('3次尝试后，通过目录列表查找文件:', path);
+    console.debug('3attempts exhausted, searching directory listing:', path);
     let file = this.resolveFileInVault(path);
     if (!file) {
       // Belt-and-suspenders: scan getMarkdownFiles() (same source of truth as lint)
@@ -598,7 +598,7 @@ export class WikiEngine {
     }
     if (file) {
       await this.app.vault.modify(file, content);
-      console.debug('最终更新成功:', path);
+      console.debug('Final update succeeded:', path);
       this.onFileWrite?.(path);
       this.pagesCache = null;
     } else {

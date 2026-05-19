@@ -490,13 +490,13 @@ export class PageFactory {
     const page = existingPages.find(p => p.title === pageName);
 
     if (!page) {
-      console.debug('相关页面不存在:', pageName);
+      console.debug('Related page not found:', pageName);
       return;
     }
 
     const abstractFile = this.ctx.app.vault.getAbstractFileByPath(page.path);
     if (!(abstractFile instanceof TFile)) {
-      console.debug('相关页面不是文件:', pageName);
+      console.debug('Related page is not a file:', pageName);
       return;
     }
 
@@ -505,16 +505,11 @@ export class PageFactory {
     // 1. Programmatic frontmatter merge (sources + updated)
     const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
 
-    const prompt = `Existing Wiki page: ${pageName}
-
-Existing content:
-${existingBody}
-
-The new source file ("${sourceFile.basename}") provides additional information about ${pageName}:
-${JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName) || 'No directly relevant information')}
-
-Update the page by adding the new information without deleting existing content. Use wiki-link syntax [[page-name]].
-Output ONLY the updated page BODY content (without frontmatter), no other text.`;
+    const prompt = PROMPTS.updateRelatedPage
+      .replace('{{page_name}}', pageName)
+      .replace('{{existing_body}}', existingBody)
+      .replace('{{source_basename}}', sourceFile.basename)
+      .replace('{{new_info}}', JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName) || 'No directly relevant information'));
 
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
@@ -531,74 +526,5 @@ Output ONLY the updated page BODY content (without frontmatter), no other text.`
     // 2. Assemble: programmatic frontmatter + LLM body
     const finalContent = `${frontmatter}\n\n${cleanedBody}`;
     await this.ctx.createOrUpdateFile(page.path, finalContent);
-  }
-
-  private async analyzeMerge(
-    pageName: string,
-    pageType: 'entity' | 'concept',
-    existingContent: string,
-    newInfo: EntityInfo | ConceptInfo
-  ): Promise<{
-    merge_items: Array<{ content: string; classification: string; target_section: string; reason: string }>;
-    contradictions: Array<{ claim: string; existing_claim: string; resolution: string }>;
-    merge_summary: string;
-  }> {
-    const prompt = PROMPTS.mergeAnalysis
-      .replace('{{page_name}}', pageName)
-      .replace('entity or concept', pageType)
-      .replace('{{existing_content}}', existingContent)
-      .replace('{{new_info}}', JSON.stringify(newInfo, null, 2));
-
-    const client = this.ctx.getClient();
-    if (!client) throw new Error('LLM client not initialized');
-
-    const response = await client.createMessage({
-      model: this.ctx.settings.model,
-      max_tokens: 2000,
-      system: await this.ctx.buildSystemPrompt('full'),
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' }
-    });
-
-    const parsed = await parseJsonResponse(response) as {
-      merge_items?: Array<{ content: string; classification: string; target_section: string; reason: string }>;
-      contradictions?: Array<{ claim: string; existing_claim: string; resolution: string }>;
-      merge_summary?: string;
-    } | null;
-
-    return {
-      merge_items: parsed?.merge_items || [],
-      contradictions: parsed?.contradictions || [],
-      merge_summary: parsed?.merge_summary || 'No merge analysis available'
-    };
-  }
-
-  private buildMergeStrategyText(analysis: {
-    merge_items: Array<{ content: string; classification: string; target_section: string; reason: string }>;
-    merge_summary: string;
-  }): string {
-    const newItems = analysis.merge_items.filter(i => i.classification === 'new' || i.classification === 'complementary');
-    const dupCount = analysis.merge_items.filter(i => i.classification === 'duplicate').length;
-    const contraCount = analysis.merge_items.filter(i => i.classification === 'contradictory').length;
-
-    let text = `**Merge Strategy (from multi-source fusion analysis):**\n`;
-    text += `${analysis.merge_summary}\n\n`;
-
-    if (newItems.length > 0) {
-      text += `**New information (${newItems.length} items):**\n`;
-      for (const item of newItems) {
-        text += `- [${item.classification}] ${item.content} (insert at: ${item.target_section})\n`;
-      }
-    }
-
-    if (dupCount > 0) {
-      text += `\n**Duplicate information (${dupCount} items):** Skipped, not added.\n`;
-    }
-
-    if (contraCount > 0) {
-      text += `\n**Contradictory information (${contraCount} items):** Flagged; existing content preserved, contradiction noted at page end.\n`;
-    }
-
-    return text;
   }
 }
