@@ -36,20 +36,16 @@ export class SourceAnalyzer {
     const MAX_TOKENS = 16000;
     const granularity = this.ctx.settings.extractionGranularity || 'standard';
 
-    // Handle custom granularity with user-defined limits
-    let customMaxTotalItems: number | null = null;
-    if (granularity === 'custom') {
-      const entityLimit = this.ctx.settings.customEntityLimit ?? 5;
-      const conceptLimit = this.ctx.settings.customConceptLimit ?? 5;
-      customMaxTotalItems = Math.min(entityLimit + conceptLimit, 300);
-    }
+    // Custom mode per-type caps (null for non-custom modes = no per-type limit)
+    const customEntityCap = granularity === 'custom' ? (this.ctx.settings.customEntityLimit ?? 5) : null;
+    const customConceptCap = granularity === 'custom' ? (this.ctx.settings.customConceptLimit ?? 5) : null;
 
     const granularityConfig: Record<string, { initialBatchSize: number; maxBatchesBase: number; maxTotalItems: number | null }> = {
       fine:     { initialBatchSize: 30, maxBatchesBase: 12, maxTotalItems: 100 },
       standard: { initialBatchSize: 20, maxBatchesBase: 6,  maxTotalItems: 50 },
       coarse:   { initialBatchSize: 10, maxBatchesBase: 3,  maxTotalItems: 10 },
       minimal:  { initialBatchSize: 5,  maxBatchesBase: 1,  maxTotalItems: 5 },
-      custom:   { initialBatchSize: 5,  maxBatchesBase: 1,  maxTotalItems: customMaxTotalItems }
+      custom:   { initialBatchSize: 5,  maxBatchesBase: 1,  maxTotalItems: null }
     };
     const config = granularityConfig[granularity] || granularityConfig.standard;
     const MIN_BATCH_SIZE = 5;
@@ -166,14 +162,22 @@ export class SourceAnalyzer {
           return true;
         });
 
-        for (const e of newEntities) extractedNames.add(e.name.trim().toLowerCase());
-        for (const c of newConcepts) extractedNames.add(c.name.trim().toLowerCase());
+        // Per-type caps for custom granularity
+        const cappedEntities = customEntityCap !== null
+          ? newEntities.slice(0, Math.max(0, customEntityCap - allEntities.length))
+          : newEntities;
+        const cappedConcepts = customConceptCap !== null
+          ? newConcepts.slice(0, Math.max(0, customConceptCap - allConcepts.length))
+          : newConcepts;
 
-        allEntities.push(...newEntities);
-        allConcepts.push(...newConcepts);
+        for (const e of cappedEntities) extractedNames.add(e.name.trim().toLowerCase());
+        for (const c of cappedConcepts) extractedNames.add(c.name.trim().toLowerCase());
 
-        const batchTotal = newEntities.length + newConcepts.length;
-        console.debug(`[Batch ${batchNum + 1}] New: ${newEntities.length} entities, ${newConcepts.length} concepts (de-duplicated ${batchTotal})`);
+        allEntities.push(...cappedEntities);
+        allConcepts.push(...cappedConcepts);
+
+        const batchTotal = cappedEntities.length + cappedConcepts.length;
+        console.debug(`[Batch ${batchNum + 1}] New: ${cappedEntities.length} entities, ${cappedConcepts.length} concepts (de-duplicated ${batchTotal})`);
         console.debug(`[Batch ${batchNum + 1}] Cumulative: ${allEntities.length} entities, ${allConcepts.length} concepts`);
 
         const RESPONSE_FULLNESS_THRESHOLD = MAX_TOKENS * 0.7;
@@ -184,7 +188,7 @@ export class SourceAnalyzer {
         }
 
         const rawTotal = (analysisData.entities || []).length + (analysisData.concepts || []).length;
-        const newTotal = newEntities.length + newConcepts.length;
+        const newTotal = cappedEntities.length + cappedConcepts.length;
         finalBatchNum = batchNum + 1;
 
         if (rawTotal === 0) {
@@ -198,11 +202,19 @@ export class SourceAnalyzer {
           break;
         }
 
-        // Granularity-linked cumulative soft cap
-        const cumulativeTotal = allEntities.length + allConcepts.length;
-        if (config.maxTotalItems !== null && cumulativeTotal >= config.maxTotalItems) {
-          console.debug(`[Batch ${batchNum + 1}] Cumulative total reached limit, stopping ${config.maxTotalItems}，停止迭代`);
-          break;
+        // Granularity-linked cumulative cap
+        if (customEntityCap !== null && customConceptCap !== null) {
+          // Custom mode: stop when both types reach their per-type caps
+          if (allEntities.length >= customEntityCap && allConcepts.length >= customConceptCap) {
+            console.debug(`[Batch ${batchNum + 1}] Per-type limits reached (entities: ${allEntities.length}/${customEntityCap}, concepts: ${allConcepts.length}/${customConceptCap}), stopping`);
+            break;
+          }
+        } else {
+          const cumulativeTotal = allEntities.length + allConcepts.length;
+          if (config.maxTotalItems !== null && cumulativeTotal >= config.maxTotalItems) {
+            console.debug(`[Batch ${batchNum + 1}] Cumulative total reached limit ${config.maxTotalItems}, stopping`);
+            break;
+          }
         }
 
       } catch (error) {

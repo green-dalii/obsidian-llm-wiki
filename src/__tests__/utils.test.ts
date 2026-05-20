@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { slugify, parseFrontmatter, detectRateLimitFailures, formatRateLimitNotice, cleanMarkdownResponse, enforceFrontmatterConstraints, parseJsonResponse, mergeFrontmatter, preserveFrontmatterReviewTag } from '../utils';
+import { getGranularityInstruction, getGranularityFixLimits } from '../wiki/system-prompts';
+import { LLMWikiSettings } from '../types';
 
 describe('slugify', () => {
   it('returns "untitled" for empty input', () => {
@@ -554,5 +556,88 @@ describe('preserveFrontmatterReviewTag', () => {
     const orig = '---\ntype: entity\nreviewed: true\n---\n\nBody';
     const newC = '# Just markdown\nNo frontmatter';
     expect(preserveFrontmatterReviewTag(orig, newC)).toBe(newC);
+  });
+});
+
+describe('getGranularityInstruction', () => {
+  const baseSettings: LLMWikiSettings = {
+    provider: 'anthropic', apiKey: '', baseUrl: '', model: 'claude-sonnet-4-6',
+    wikiFolder: 'wiki', language: 'en', wikiLanguage: 'en',
+    maxConversationHistory: 30, extractionGranularity: 'standard',
+    enableSchema: true, autoWatchSources: false, autoWatchMode: 'notify',
+    autoWatchDebounceMs: 5000, watchedFolders: [], periodicLint: 'off',
+    startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
+  };
+
+  it('injects concrete entity and concept limits for custom mode', () => {
+    const settings: LLMWikiSettings = {
+      ...baseSettings,
+      extractionGranularity: 'custom',
+      customEntityLimit: 15,
+      customConceptLimit: 10,
+    };
+    const result = getGranularityInstruction(settings);
+    expect(result).toContain('15 entities');
+    expect(result).toContain('10 concepts');
+  });
+
+  it('uses defaults (5) when custom limits are not set', () => {
+    const settings: LLMWikiSettings = {
+      ...baseSettings,
+      extractionGranularity: 'custom',
+    };
+    const result = getGranularityInstruction(settings);
+    expect(result).toContain('5 entities');
+    expect(result).toContain('5 concepts');
+  });
+
+  it('returns fixed text for non-custom modes', () => {
+    for (const mode of ['fine', 'standard', 'coarse', 'minimal'] as const) {
+      const settings: LLMWikiSettings = { ...baseSettings, extractionGranularity: mode };
+      const result = getGranularityInstruction(settings);
+      expect(result.length).toBeGreaterThan(0);
+      // Non-custom modes should not contain dynamically injected numbers
+      expect(result).not.toContain('at most');
+    }
+  });
+});
+
+describe('getGranularityFixLimits', () => {
+  const baseSettings: LLMWikiSettings = {
+    provider: 'anthropic', apiKey: '', baseUrl: '', model: 'claude-sonnet-4-6',
+    wikiFolder: 'wiki', language: 'en', wikiLanguage: 'en',
+    maxConversationHistory: 30, extractionGranularity: 'standard',
+    enableSchema: true, autoWatchSources: false, autoWatchMode: 'notify',
+    autoWatchDebounceMs: 5000, watchedFolders: [], periodicLint: 'off',
+    startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
+  };
+
+  it('returns user-defined limits for custom mode', () => {
+    const settings: LLMWikiSettings = {
+      ...baseSettings,
+      extractionGranularity: 'custom',
+      customEntityLimit: 20,
+      customConceptLimit: 8,
+    };
+    const limits = getGranularityFixLimits(settings);
+    expect(limits.maxEntities).toBe(20);
+    expect(limits.maxConcepts).toBe(8);
+  });
+
+  it('uses defaults for custom mode when limits are not set', () => {
+    const settings: LLMWikiSettings = {
+      ...baseSettings,
+      extractionGranularity: 'custom',
+    };
+    const limits = getGranularityFixLimits(settings);
+    expect(limits.maxEntities).toBe(5);
+    expect(limits.maxConcepts).toBe(5);
+  });
+
+  it('returns predefined limits for non-custom modes', () => {
+    const settings: LLMWikiSettings = { ...baseSettings, extractionGranularity: 'fine' };
+    const limits = getGranularityFixLimits(settings);
+    expect(limits.maxEntities).toBe(6);
+    expect(limits.maxConcepts).toBe(6);
   });
 });

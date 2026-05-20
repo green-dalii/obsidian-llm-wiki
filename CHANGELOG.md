@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.2] - 2026-05-20
+
+### Fixed
+- **Custom granularity per-type limits ignored**: In custom mode, entity and concept limits set in settings were not being enforced separately. The extraction loop merged them into a single total cap, `getGranularityInstruction()` returned vague text without the actual numbers, and `getGranularityFixLimits()` used hardcoded values ignoring user settings. All three now read `customEntityLimit`/`customConceptLimit` dynamically and enforce per-type caps.
+
 ## [1.10.1] - 2026-05-20
 
 ### Fixed

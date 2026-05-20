@@ -114,31 +114,44 @@ export function getSectionLabels(settings: LLMWikiSettings): Record<string, stri
 }
 
 // Granularity instruction text for extraction prompts.
+// custom is generated dynamically (injects concrete entity/concept limit numbers from settings).
 const GRANULARITY_INSTRUCTIONS: Record<ExtractionGranularity, string> = {
   fine: 'Extract ALL entities and concepts worth recording from the source, including those mentioned only once or tangentially.',
   standard: 'Extract important and moderately important entities and concepts from the source. Ignore minor items mentioned only in passing.',
   coarse: 'Extract only the most essential entities and concepts from the source — those without which the text cannot be understood. Quality over quantity.',
   minimal: 'Extract only the most critical entities and concepts from the source — maximum 3 total items. Extreme selectivity for cost control.',
-  custom: 'Extract entities and concepts according to user-defined limits. Follow the specified maximum counts.',
+  custom: '', // placeholder — never used; getGranularityInstruction handles custom dynamically
 };
 
 // Numeric limits for entity/concept generation in fix (non-ingestion) contexts.
 // Keyed by granularity: max per type (entities, concepts).
+// custom is handled dynamically in getGranularityFixLimits.
 const GRANULARITY_FIX_LIMITS: Record<ExtractionGranularity, { maxEntities: number; maxConcepts: number }> = {
   fine:     { maxEntities: 6, maxConcepts: 6 },
   standard: { maxEntities: 3, maxConcepts: 3 },
   coarse:   { maxEntities: 2, maxConcepts: 2 },
   minimal:  { maxEntities: 1, maxConcepts: 2 },
-  custom:   { maxEntities: 3, maxConcepts: 3 }, // Use standard as fallback for custom in fix contexts
+  custom:   { maxEntities: 0, maxConcepts: 0 }, // placeholder — never used
 };
 
 export function getGranularityInstruction(settings: LLMWikiSettings): string {
   const granularity = settings.extractionGranularity || 'standard';
+  if (granularity === 'custom') {
+    const entityLimit = settings.customEntityLimit ?? 5;
+    const conceptLimit = settings.customConceptLimit ?? 5;
+    return `Extract at most ${entityLimit} entities and at most ${conceptLimit} concepts from the source. If you reach either limit, stop extracting that type.`;
+  }
   return GRANULARITY_INSTRUCTIONS[granularity] || GRANULARITY_INSTRUCTIONS.standard;
 }
 
 export function getGranularityFixLimits(settings: LLMWikiSettings): { maxEntities: number; maxConcepts: number } {
   const granularity = settings.extractionGranularity || 'standard';
+  if (granularity === 'custom') {
+    return {
+      maxEntities: settings.customEntityLimit ?? 5,
+      maxConcepts: settings.customConceptLimit ?? 5
+    };
+  }
   return GRANULARITY_FIX_LIMITS[granularity] || GRANULARITY_FIX_LIMITS.standard;
 }
 

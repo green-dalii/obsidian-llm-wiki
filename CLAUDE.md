@@ -4,7 +4,10 @@
 
 ---
 
-## Current Phase: v1.10.1 — Slug Normalization Fix
+## Current Phase: v1.10.2 — Custom Granularity Consistency Fix
+
+### Completed (v1.10.2)
+- ✅ **Custom granularity per-type limits fix**: Fixed three inconsistencies where UI presented entity/concept as separate limits but code ignored them. `source-analyzer.ts` now enforces per-type caps instead of merging into a single total. `getGranularityInstruction()` injects concrete numbers into the LLM prompt. `getGranularityFixLimits()` reads user settings instead of hardcoded values. Added 6 unit tests (101 total).
 
 ### Completed (v1.10.1)
 - ✅ **Issue #32 — Slug normalization missing in resolvePagePath**: Fast path 2 now checks both title AND aliases via normalized slug comparison (case-insensitive), catching space-vs-hyphen variants (`Metabolisches Syndrom` vs `Metabolisches-Syndrom`), alias slug variants, and case differences — all without LLM calls. Added 4 unit tests (96 total).
