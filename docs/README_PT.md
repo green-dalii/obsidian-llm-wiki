@@ -10,7 +10,7 @@
 
 [English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md)
 
-[Site oficial](https://llmwiki.greenerai.top/) | [Discussões](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Ask DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Site oficial](https://llmwiki.greenerai.top/) | [Feedback e discussão](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explorar código com DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
 ---
 
