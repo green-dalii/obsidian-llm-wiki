@@ -320,6 +320,7 @@ export const JA_TEXTS = {
 
     // Ingestion status bar
     ingestionStatusBar: '取り込み中... クリックでキャンセル',
+    ingestionCancelling: 'キャンセル中 — 現在のバッチ完了後に停止します',
     ingestionCancelled: '取り込みがキャンセルされました',
 
     // Lint Report

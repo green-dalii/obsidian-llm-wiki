@@ -131,6 +131,11 @@ export class WikiEngine {
   cancelIngestion(): void {
     if (this.abortController) {
       this.abortController.abort();
+      const t = TEXTS[this.settings.language] || TEXTS.en;
+      const msg = (t as unknown as Record<string, string>).ingestionCancelling
+        || 'Cancelling — will stop after current batch completes';
+      new Notice(msg, 6000);
+      this.onProgress?.(msg);
       console.debug('Ingestion cancellation requested');
     }
   }

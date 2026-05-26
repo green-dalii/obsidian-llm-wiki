@@ -321,6 +321,7 @@ export const KO_TEXTS = {
 
     // Ingestion status bar
     ingestionStatusBar: '수집 중... 클릭하여 취소',
+    ingestionCancelling: '취소 중 — 현재 배치 완료 후 중지됩니다',
     ingestionCancelled: '수집이 취소되었습니다',
 
     // Lint Report

@@ -320,6 +320,7 @@ export const DE_TEXTS = {
 
     // Ingestion status bar
     ingestionStatusBar: 'Aufnahme läuft... zum Abbrechen klicken',
+    ingestionCancelling: 'Wird abgebrochen — Stopp nach aktuellem Batch',
     ingestionCancelled: 'Aufnahme abgebrochen',
 
     // Lint Report

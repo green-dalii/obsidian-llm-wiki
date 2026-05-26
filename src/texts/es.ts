@@ -320,6 +320,7 @@ export const ES_TEXTS = {
 
     // Ingestion status bar
     ingestionStatusBar: 'Ingiriendo... clic para cancelar',
+    ingestionCancelling: 'Cancelando — se detendrá tras el lote actual',
     ingestionCancelled: 'Ingesta cancelada',
 
     // Lint Report

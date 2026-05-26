@@ -323,6 +323,7 @@ export const EN_TEXTS = {
 
     // Ingestion status bar
     ingestionStatusBar: 'Ingesting... click to cancel',
+    ingestionCancelling: 'Cancelling — will stop after current batch completes',
     ingestionCancelled: 'Ingestion cancelled',
 
     // Lint Report

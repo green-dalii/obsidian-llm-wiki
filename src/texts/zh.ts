@@ -321,6 +321,7 @@ export const ZH_TEXTS = {
 
     // Ingestion status bar
     ingestionStatusBar: '提取中... 点击取消',
+    ingestionCancelling: '正在取消 — 当前批次完成后将停止',
     ingestionCancelled: '提取已取消',
 
     // 维护报告
