@@ -782,3 +782,17 @@ export function formatRateLimitNotice(
   return `Rate limit hit — ${info.count} operation(s) failed${namesHint ? ': ' + namesHint + moreHint : ''}. ` +
     `Lower concurrency to ${info.suggestedConcurrency} or increase batch delay to ${info.suggestedDelay}ms in Settings → Wiki Configuration.`;
 }
+
+// Truncate mentions to a reasonable token budget for merge/create prompts.
+export function truncateMentions(mentions: string[] | undefined, maxChars = 500): string {
+  if (!mentions || mentions.length === 0) return '';
+  let result = '';
+  for (const m of mentions) {
+    if (result.length + m.length > maxChars) {
+      if (result.length > 0) break;
+      return m.substring(0, maxChars);
+    }
+    result += (result ? '\n' : '') + m;
+  }
+  return result;
+}

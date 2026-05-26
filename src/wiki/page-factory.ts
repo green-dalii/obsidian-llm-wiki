@@ -16,23 +16,10 @@ import {
   mergeFrontmatter,
   parseJsonResponse,
   enforceFrontmatterConstraints,
+  truncateMentions,
 } from '../utils';
 import { applySectionLabels } from './system-prompts';
 import { getExistingWikiPages } from './lint-fixes';
-
-// Truncate mentions to a reasonable token budget for merge/create prompts.
-function truncateMentions(mentions: string[] | undefined, maxChars = 500): string {
-  if (!mentions || mentions.length === 0) return '';
-  let result = '';
-  for (const m of mentions) {
-    if (result.length + m.length > maxChars) {
-      if (result.length > 0) break;
-      return m.substring(0, maxChars);
-    }
-    result += (result ? '\n' : '') + m;
-  }
-  return result;
-}
 
 export class PageFactory {
   constructor(private ctx: EngineContext) {}
