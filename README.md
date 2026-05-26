@@ -107,6 +107,12 @@ Re-ingesting the same source does incremental updates on entity/concept pages (n
 
 ### ⚠️ Upgrading from an Older Version?
 
+**New in v1.11.0**: Core features (ingest, lint, query) now require a successful connection test before they unlock. Existing users are automatically migrated — your saved configuration sets `llmReady = true` without any action needed. If you change providers or API keys, re-run Test Connection.
+
+**If upgrading from before v1.11.0**, run **Lint Wiki** once to automatically fix historical issues:
+- **Double-nested links** `[[[[entities/Foo|Foo]]]]` in log.md — Lint detects and fixes these with zero LLM cost
+- **Cross-directory stub duplicates** — pages that exist in both `entities/` and `concepts/` with the same slug are now correctly matched
+
 If you're upgrading from a version **before v1.7.11** (or much earlier), your existing Wiki pages were generated without several capabilities added over many releases. Follow these steps after upgrading to bring your Wiki up to date:
 
 **1️⃣ Rebuild your index**
