@@ -4,25 +4,22 @@
 
 ---
 
-## Current Phase: v1.10.3 — Robustness & UX Improvements
+## Current Phase: v1.11.0 — Full Issue Resolution & UX Hardening
 
-### Completed (v1.10.3)
-- ✅ **Issue #41 — 529 "Overloaded" not retried**: Error messages now embed HTTP status codes across all client classes. All retry regex patterns include `overload` keyword. Affected `AnthropicCompatibleClient`, `AnthropicClient`, `OpenAICompatibleClient`.
-- ✅ **Issue #37 — Double-nested wiki-links in log.md**: Three-layer defense: (1) prompt forces plain names for `related_pages`, (2) source-analyzer strips `[[...]]` syntax as post-processing, (3) `updateRelatedPage` returns `boolean` — pages not actually found are no longer reported as "updated."
-- ✅ **Issue #43 — Cancel ingestion mid-run**: `AbortController` with checkpoints at each batch boundary. Status bar item (clickable) + command palette (`Cancel current ingestion`). Folder ingestion loop breaks on cancellation. Immediate Notice feedback on cancel request.
-- ✅ **Issue #40 — Opposite-directory stub creation**: Stub safety nets (LLM path + deterministic fallback) now check slug-equivalence via `slugify()`, preventing duplicate stubs when pages exist under different formatting in the opposite directory.
-- ✅ **Issue #34 — Extraction prompt rewrite**: Graph-centric ("wiki-link test") replaces document-centric criteria. Bibliographic references explicitly excluded. Entity Recognition Guide updated for person/product types.
-- ✅ **PageFactory refactoring** (ROADMAP P1): 8 entity/concept methods unified into 4 generic methods. Code reduced 563→424 lines (-25%). Public API unchanged.
-- ✅ **Lint double-nested link auto-fix**: Lint now programmatically detects and fixes `[[[[...]]]]` patterns across all wiki directory files. +5 unit tests.
-- ✅ **Lint cancel support**: `runLintWiki` accepts `AbortSignal`, checks at batch boundaries (page reads, LLM dedup, LLM analysis). Shared status bar and command with ingest cancel.
-- ✅ **Cancellation UX feedback**: CancelIngestion immediately shows Notice toast + updates progress indicator.
-- ✅ **ROADMAP P1 — LLM client retry extraction**: Shared `withRetry<T>` helper eliminates duplicated retry loops across all 3 client classes (exponential backoff, error pattern matching, truncation retry). Code reduced -67 lines in `llm-client.ts`.
-- ✅ **ROADMAP P1 — `createMessageStream` language cleanup**: Removed unused `language` parameter from interface and 3 implementations. Auto-detecting question language is correct behavior — better UX than forcing UI language.
-- ✅ **Issue #44 — Ribbon icon + ingest current file**: `addRibbonIcon('sticker')` + command `Ingest current file`. Uses `getActiveFile()` to skip file picker. Validates non-md files and missing API key. 8-language i18n.
-- ✅ **ROADMAP P2 — `slugify` debug log reduction**: Removed 4 redundant intermediate console.debug calls. Normal path: 6→2 logs. Warnings and diagnostic blocks preserved.
-- ✅ **ROADMAP P2 — `mentions_in_source` filtering (Issue #39)**: `truncateMentions()` helper caps mentions at 500 chars before passing to LLM in create/merge/append prompts.
-- ✅ **ROADMAP P2 — Residual Chinese comment cleanup**: 10 comments in wiki-engine.ts + 7 debug strings in llm-client.ts + 2 in conversation-ingest.ts translated to English.
-- ✅ **ROADMAP P2 — `parseJsonResponse` + `mergeFrontmatter` supplemental tests**: +8 tests (repairFn callback, edge cases). 113 total tests.
+### Completed (v1.11.0)
+- ✅ **Issue #42 — llmReady gating**: New users must complete Provider → API Key → Fetch Models → Test Connection before core features unlock. `llmReady` field in settings. Status indicator in settings panel. Existing users auto-migrated. Anthropic model list now calls real API.
+- ✅ **Issue #43 — Cancel ingestion mid-run**: `AbortController` with checkpoints at batch boundaries. Status bar item (clickable) + command palette (`Cancel current ingestion`). Folder loop breaks on cancel. Immediate Notice feedback.
+- ✅ **Issue #44 — Ribbon icon + ingest current file**: `addRibbonIcon('sticker')` + command `Ingest current file`. Uses `getActiveFile()` to skip file picker. 8-language i18n.
+- ✅ **Issue #41 — 529 "Overloaded" not retried**: Error messages embed HTTP status codes. All retry regex patterns include `overload` keyword. All 3 client classes covered.
+- ✅ **Issue #37 — Double-nested wiki-links**: Three-layer defense (prompt + post-processing + integrity check). Lint auto-fix for historical damage. `updateRelatedPage` returns `boolean`.
+- ✅ **Issue #40 — Opposite-directory stubs**: Slug-equivalence matching in both LLM and deterministic stub safety nets.
+- ✅ **Issue #34 — Extraction prompt rewrite**: Graph-centric ("wiki-link test"). Bibliographic references excluded. Entity Recognition Guide updated.
+- ✅ **Issue #39 — `mentions_in_source` filtering**: `truncateMentions()` caps at 500 chars. 3 replacement points in page-factory.ts.
+- ✅ **ROADMAP P1 — PageFactory refactoring**: 8 methods → 4 generic (563→424 lines, -25%). Public API unchanged.
+- ✅ **ROADMAP P1 — LLM client retry extraction**: Shared `withRetry<T>` helper (-67 lines in llm-client.ts).
+- ✅ **ROADMAP P1 — `createMessageStream` language cleanup**: Removed unused `language` parameter from interface and 3 implementations.
+- ✅ **ROADMAP P2 — All items completed**: Supplemental tests (+15, 113 total), mentions truncation, slugify log reduction, Chinese comment cleanup.
+- ✅ **ROADMAP P2 — #38 Anthropic prompt caching evaluated & rejected**: System prompts too small for cache threshold. User message caching via `cacheBreakpoint` already handles main savings.
 
 ### Completed (v1.10.2)
 - ✅ **Custom granularity per-type limits fix**: Three inconsistencies fixed — `source-analyzer.ts` enforces per-type caps, `getGranularityInstruction()` injects concrete numbers, `getGranularityFixLimits()` reads user settings. +6 unit tests.
@@ -33,26 +30,13 @@
 ### Completed (v1.10.0)
 - ✅ **Issue #30/#31 — Aliases + Granularity expansion**: Minimal/Custom options, UX improvements, i18n across 8 languages.
 
-### P1 — Short-term (all completed ✅)
-- ~~LLM client retry extraction~~ → done v1.10.3
-- ~~`createMessageStream` language type consistency~~ → dead code removed v1.10.3
-- ~~Ingest current file + ribbon icon (Issue #44)~~ → done v1.10.3
-
-### P2 — Medium-term (all completed ✅)
-- ~~`parseJsonResponse` + `mergeFrontmatter` unit tests~~ → +8 tests done v1.10.3
-- ~~`mentions_in_source` filtering (Issue #39)~~ → done v1.10.3
-- ~~`slugify` debug log reduction~~ → 6→2 done v1.10.3
-- ~~Residual Chinese comment cleanup~~ → done v1.10.3
-
 ### P3 — Nice-to-have
-- Source title in frontmatter (Issue #36) — needs clarification from issue author
-- Connection failure UX (Issue #42) — network error guidance
+- #36 — Source title in frontmatter: needs clarification from issue author
+- #38 — Anthropic prompt caching: evaluated & rejected (system prompts too small for cache threshold; `cacheBreakpoint` already handles main savings)
 
-### Evaluated & Rejected
-- Anthropic prompt caching (Issue #38) — System prompts are too small (<1k tokens) for cache threshold (1024 tokens). User message caching via `cacheBreakpoint` already captures the main savings. Not worth the type-safety risk and minimal ROI.
-- `getExistingWikiPages` cache bypass → Solve when it hurts
-- `runLintWiki` 760-line method → Flat > Nested
-- Custom YAML parser → Correct choice for Obsidian plugin constraints
+### Test Coverage
+- **113 unit tests** via vitest across 2 test files
+- CI-ready: `pnpm lint && pnpm test && pnpm build && npx tsc --noEmit`
 
 ---
 

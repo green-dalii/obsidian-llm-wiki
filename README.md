@@ -171,7 +171,7 @@ Settings → **Ingestion Acceleration**:
 
 ### 🌐 LLM & Language
 
-- **🔌 Multi-Provider** — Anthropic, Anthropic Compatible (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, custom endpoints
+- **🔌 Multi-Provider** — Anthropic, Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, MiniMax, custom endpoints — with guided first-run setup and real-time model list fetching
 - **🔄 5xx/429/Overload Retry** — Automatic exponential backoff retry (max 2) on HTTP 5xx/429/529 overload errors across all clients, with status-aware error diagnostics
 - **📋 Dynamic Model List** — Real-time fetching from provider APIs
 - **🌐 Wiki Output Language** — 8 languages independent of UI (EN/ZH/JA/KO/DE/FR/ES/PT), with custom input

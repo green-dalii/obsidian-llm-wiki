@@ -5,21 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.10.3] - 2026-05-26
+## [1.11.0] - 2026-05-26
 
 ### Added
-- **Lint cancel support**: Cancel ongoing lint operations via status bar click or command palette. Checks at batch boundaries (page reads, LLM duplicate verification, LLM analysis) ensure clean cancellation with partial results preserved. Cancellation Notice provides immediate feedback to the user.
-- **Double-nested wiki-link auto-fix**: Lint now automatically detects and fixes `[[[[entities/Foo|Foo]]]]` double-nesting patterns in all wiki directory files (including `log.md`). Programmatic fix with zero LLM cost. Fixes historical damage from #37. +5 unit tests (106 total).
+- **llmReady gating (#42)**: New users must complete Provider → API Key → Fetch Models → Test Connection before core features are available. Each successful connection test sets `llmReady = true`, unlocking all functionality. Connection status indicator (green/orange) in settings. Existing users are auto-migrated — no reconfiguration needed.
+- **Cancel ingestion & lint (#43)**: Click status bar or use `Ctrl+P` → "Cancel current ingestion" to stop running operations at the next batch boundary. AbortController pattern with checks at each batch boundary. Works for both ingest and lint. Folder ingestion loop breaks on cancel. Immediate Notice feedback.
+- **Ribbon icon + one-click ingest (#44)**: `sticker` ribbon icon in left sidebar for quick access. `Ctrl+P` → "Ingest current file" skips the file picker and uses the active editor file directly. Validates non-md files and missing API key.
+- **Lint double-nested link auto-fix**: Lint now programmatically detects and fixes `[[[[entities/Foo|Foo]]]]` patterns across all wiki directory files. Zero LLM cost. Fixes historical damage from #37.
+- **Lint cancel support**: `runLintWiki` accepts `AbortSignal`, checks at batch boundaries (page reads, LLM dedup, LLM analysis). Shares cancel infrastructure with ingest.
 
 ### Fixed
-- **529 "Overloaded" not retried** (Issue #41): Anthropic serving infrastructure overload errors returned with message "Overloaded", which didn't match any retry regex pattern. Now catches both `status 529` (status codes embedded in error messages) and `overload` (regex safety net). Affected all client classes (`AnthropicCompatibleClient`, `AnthropicClient`, `OpenAICompatibleClient`).
-- **Double-nested wiki-links in log.md** (Issue #37): Three-layer defense — (1) prompt clarifies `related_pages` must output plain names, not wiki-link format; (2) `source-analyzer.ts` strips `[[...]]` syntax from LLM output as post-processing safety net; (3) `updateRelatedPage` returns `boolean`, only recording pages actually found and updated. Fixes secondary bug where silently-skipped pages were reported as "updated."
-- **Opposite-directory stub creation** (Issue #40): Stub creation safety nets (both LLM path and deterministic fallback) now check slug-equivalence via `slugify()` in addition to exact title/alias matching. Prevents duplicate stubs when a page exists in the opposite directory under a different format (e.g. "Machine Learning" vs "Machine-Learning").
-- **Cancellation UX feedback**: When user cancels ingestion, immediate Notice toast and progress indicator update confirm the action with a descriptive message instead of leaving the previous progress text unchanged.
+- **529 "Overloaded" not retried (#41)**: Anthropic serving infrastructure errors returned "Overloaded" which didn't match any retry regex. Error messages now embed HTTP status codes across all client classes. All 6 retry regex patterns include `overload` keyword.
+- **Double-nested wiki-links in log.md (#37)**: Three-layer defense — (1) prompt forces `related_pages` output as plain names; (2) source-analyzer strips `[[...]]` syntax from LLM output; (3) `updateRelatedPage` returns `boolean`, only recording pages actually found and updated.
+- **Opposite-directory stub creation (#40)**: Stub safety nets now check slug-equivalence via `slugify()` in addition to exact title/alias matching. Prevents duplicate stubs when pages exist in opposite directory under variant formatting.
+- **Extraction prompt noise (#34)**: Extraction criteria changed from document-centric to graph-centric ("wiki-link test"). Bibliographic references excluded — LLM guided to extract findings as concepts instead.
+- **Merge prompt token waste (#39)**: `truncateMentions()` caps `mentions_in_source` at 500 characters before passing to LLM in create/merge/append prompts.
 
 ### Changed
-- **PageFactory refactoring**: 8 entity/concept methods (2 public + 6 private) unified into 4 generic private methods via `createOrUpdatePage(info, pageType, ...)`. Code reduced from 563 to 424 lines (-25%). Public API unchanged — zero call-site modifications across 6 callers.
-- **Extraction prompt improved** (Issue #34): Extraction criteria changed from document-centric ("importance in the text") to graph-centric ("wiki-link test"). Bibliographic references (author citations, study/trial names) explicitly excluded — the prompt guides LLM to extract their findings as concepts instead of the citation as an entity.
+- **Anthropic model list uses real API**: `AnthropicClient.listModels()` now calls `api.anthropic.com/v1/models` instead of returning hardcoded list. All providers fetch models from their respective APIs.
+- **PageFactory refactoring**: 8 entity/concept methods unified into 4 generic methods. Code reduced 563→424 lines (-25%). Public API unchanged.
+- **LLM client retry extraction**: Shared `withRetry<T>` helper eliminates duplicated retry loops across all 3 client classes. Code reduced -67 lines in `llm-client.ts`.
+- **Dead code removal**: Removed unused `language` parameter from `createMessageStream` interface and 3 implementations. Auto-detecting question language is the correct behavior.
+- **Slugify debug log reduction**: 6→2 debug logs per normal-path call. Warnings and diagnostic blocks preserved.
+- **Codebase language consistency**: 19 residual Chinese comments and debug strings translated to English.
+
+### Test Coverage
+- **113 unit tests** (+15): `parseJsonResponse` repairFn callback (3), mergeFrontmatter edge cases (4), fixDoubleNestedWikiLinks (5), empty object parsing (1), merge dedup (2).
+- CI-ready: `pnpm lint && pnpm test && pnpm build && npx tsc --noEmit`
 
 ## [1.10.2] - 2026-05-20
 

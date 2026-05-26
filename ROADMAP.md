@@ -2,44 +2,29 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.10.3 | **Updated:** 2026-05-26
+**Version:** 1.11.0 | **Updated:** 2026-05-26
 
 ---
 
 ## Current Status
 
-### Next: v1.11.0 — Open Issues Resolution
+### All P1/P2 Complete — v1.11.0 Milestone
 
-P1-P3 issues verified against code, ready for implementation.
+8 Issues closed. 6 ROADMAP improvements delivered. 113 tests.
 
-**P1 — Short-term**
-
-| Action | Effort | Why |
-|--------|--------|-----|
-| LLM client retry extraction (`withRetry`) | 2h | Retry/truncation duplicated across 3 clients |
-| `createMessageStream` language type consistency | 1h | Interface vs implementation mismatch |
-| Ingest current file (+ ribbon icon) (Issue #44) | 2h | Users want one-click ingest, no file picker |
-
-**P2 — Medium-term**
+**Remaining (P3):**
 
 | Action | Effort | Why |
 |--------|--------|-----|
-| Anthropic prompt caching via `cache_control: ephemeral` (Issue #38) | 2h | Significant cost savings for repeated system prompts |
-| `mentions_in_source` filtering in merge prompts (Issue #39) | 1h | Merge quality improvement |
-| `parseJsonResponse` + `mergeFrontmatter` unit tests | 3h | Auditors' #1 test priority |
-| `slugify` debug log reduction (8→2) | 30min | High-frequency noise |
-| Residual Chinese comment cleanup | 1h | Codebase language consistency |
+| #36 — Source title in frontmatter | 1h | Needs clarification from issue author |
 
-**P3 — Nice-to-have**
+**Evaluated & Rejected:**
+- #38 Anthropic prompt caching — system prompts too small for cache threshold; `cacheBreakpoint` already handles main savings
+- `getExistingWikiPages` cache bypass → Solve when it hurts
+- `runLintWiki` 760-line method → Flat > Nested
+- Custom YAML parser → Correct choice for Obsidian plugin constraints
 
-| Action | Effort | Why |
-|--------|--------|-----|
-| Source title in frontmatter (Issue #36) | 1h | Needs clarification from issue author |
-| Connection failure UX (Issue #42) | 2h | Network error guidance |
-
-**Not doing** (per Python Zen): cache bypass, serial index reads, 760-line method split, YAML parser replacement
-
-### Test Coverage Milestone (v1.10.3)
+### Implemented (v1.11.0) — Full Issue Resolution & UX Hardening
 
 - **106 unit tests** via vitest: slugify (13), parseFrontmatter (9), detectRateLimitFailures (8), formatRateLimitNotice (2), cleanMarkdownResponse (8), enforceFrontmatterConstraints (13), parseJsonResponse (14), mergeFrontmatter (9), preserveFrontmatterReviewTag (4), isPageEmpty (5), detectPollutedPages (6), fixDoubleNestedWikiLinks (5), custom granularity (6), slug normalization (4)
 - CI-ready: `pnpm lint && pnpm test && pnpm build && npx tsc --noEmit`
