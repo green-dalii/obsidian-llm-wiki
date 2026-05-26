@@ -461,6 +461,29 @@ describe('parseJsonResponse', () => {
     const result = await parseJsonResponse('{"outer": {"inner": [1, 2, 3]}}');
     expect(result).toEqual({ outer: { inner: [1, 2, 3] } });
   });
+
+  it('uses repairFn callback for malformed but brace-balanced JSON', async () => {
+    const repairFn = async (_malformed: string) => '{"repaired": true}';
+    const result = await parseJsonResponse('{"a": invalid}', repairFn);
+    expect(result).toEqual({ repaired: true });
+  });
+
+  it('falls back to null when repairFn returns invalid JSON', async () => {
+    const repairFn = async (_malformed: string) => 'still not json';
+    const result = await parseJsonResponse('{"a": invalid}', repairFn);
+    expect(result).toBeNull();
+  });
+
+  it('handles repairFn returning JSON in code fence', async () => {
+    const repairFn = async (_malformed: string) => '```json\n{"from_fence": true}\n```';
+    const result = await parseJsonResponse('{"a": invalid}', repairFn);
+    expect(result).toEqual({ from_fence: true });
+  });
+
+  it('parses empty object', async () => {
+    const result = await parseJsonResponse('{}');
+    expect(result).toEqual({});
+  });
 });
 
 describe('mergeFrontmatter', () => {
@@ -525,6 +548,26 @@ describe('mergeFrontmatter', () => {
     const input = '---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\nsources: ["[[sources/old]]"]\n---\n\nBody';
     const result = mergeFrontmatter(input, 'sources/new');
     expect(result.frontmatter).toContain('[[sources/old]]');
+    expect(result.frontmatter).toContain('[[sources/new]]');
+  });
+
+  it('deduplicates when new source matches existing plain path source', () => {
+    const input = '---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\nsources: ["sources/test"]\n---\n\nBody';
+    const result = mergeFrontmatter(input, 'sources/test');
+    const count = (result.frontmatter.match(/- "\[\[sources\/test\]\]"/g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  it('deduplicates when new source matches existing wikilink source', () => {
+    const input = '---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\nsources: ["[[sources/existing]]"]\n---\n\nBody';
+    const result = mergeFrontmatter(input, 'sources/existing');
+    const count = (result.frontmatter.match(/sources\/existing/g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  it('handles empty sources array gracefully', () => {
+    const input = '---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\nsources: []\n---\n\nBody';
+    const result = mergeFrontmatter(input, 'sources/new');
     expect(result.frontmatter).toContain('[[sources/new]]');
   });
 });
