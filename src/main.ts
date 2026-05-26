@@ -23,7 +23,9 @@ function createLLMClient(settings: LLMWikiSettings): LLMClient {
   const providerConfig = PREDEFINED_PROVIDERS[settings.provider];
   const baseUrl = settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
   const apiKey = settings.provider === 'ollama' ? 'ollama' : settings.apiKey.trim();
-  return new OpenAICompatibleClient(apiKey, baseUrl);
+  return new OpenAICompatibleClient(apiKey, baseUrl, {
+    jsonResponseFormat: settings.provider === 'lm-studio' ? 'json_schema' : 'json_object'
+  });
 }
 import { TEXTS } from './texts';
 import { slugify, parseFrontmatter } from './utils';

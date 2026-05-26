@@ -371,11 +371,13 @@ export class AnthropicClient implements LLMClient {
 export class OpenAICompatibleClient implements LLMClient {
   private apiKey: string;
   private baseUrl: string;
+  private jsonResponseFormat: 'json_object' | 'json_schema';
 
-  constructor(apiKey: string, baseUrl?: string) {
+  constructor(apiKey: string, baseUrl?: string, options?: { jsonResponseFormat?: 'json_object' | 'json_schema' }) {
     this.apiKey = apiKey;
     this.baseUrl = (baseUrl || 'https://api.openai.com/v1')
       .replace(/\/+$/, '');
+    this.jsonResponseFormat = options?.jsonResponseFormat || 'json_object';
   }
 
   private getHeaders(): Record<string, string> {
@@ -405,7 +407,7 @@ export class OpenAICompatibleClient implements LLMClient {
       messages
     };
     if (params.response_format) {
-      body.response_format = params.response_format;
+      body.response_format = this.getResponseFormat(params.response_format.type);
     }
 
     return withRetry(async () => {
@@ -454,6 +456,23 @@ export class OpenAICompatibleClient implements LLMClient {
 
       return text;
     }, 3, 'OpenAI-compatible API');
+  }
+
+  private getResponseFormat(type: 'json_object'): Record<string, unknown> {
+    if (type === 'json_object' && this.jsonResponseFormat === 'json_schema') {
+      return {
+        type: 'json_schema',
+        json_schema: {
+          name: 'json_response',
+          schema: {
+            type: 'object',
+            additionalProperties: true
+          },
+          strict: false
+        }
+      };
+    }
+    return { type };
   }
 
   async createMessageStream(params: {
