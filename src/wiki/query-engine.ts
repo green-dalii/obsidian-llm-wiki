@@ -5,7 +5,7 @@ import LLMWikiPlugin from '../main';
 import { TEXTS } from '../texts';
 import { WIKI_LANGUAGES } from '../types';
 import { PROMPTS } from '../prompts';
-import { parseJsonResponse } from '../utils';
+import { parseJsonResponse, parseIndexForPages, localKeywordMatch } from '../utils';
 
 // ---- Suggest Save Modal (post-query feedback) ----
 
@@ -698,12 +698,31 @@ export class QueryModal extends Modal {
         return `IMPORTANT: You MUST write ALL responses in ${langName}.\n\nYou are a Wiki assistant. The Wiki is empty. Please answer based on your knowledge and suggest the user ingest sources first.`;
       }
 
-      // Phase: Searching for relevant pages
+      // Phase: Searching for relevant pages — Layer 1 local keyword match first
       onProgress?.(texts.queryPhaseSearching);
 
-      console.debug('[Step 2] LLM selecting relevant pages...');
-      const relevantPages = await this.selectRelevantPagesWithLLM(userMessage, indexContent);
-      console.debug('[Step 2] LLM selected pages:', relevantPages);
+      let relevantPages: string[];
+
+      const allPages = parseIndexForPages(indexContent);
+      const localMatches = localKeywordMatch(userMessage, allPages);
+
+      // High confidence: 2+ keyword hits in titles and at least 3 matches
+      const highConfidence = localMatches.filter(p => p.score >= 6);
+      if (highConfidence.length >= 3) {
+        console.debug('[Step 2] Local keyword high-confidence match, skipping LLM selection:', highConfidence.length, 'pages');
+        relevantPages = highConfidence.slice(0, 5).map(p => p.path);
+      } else if (localMatches.length > 0) {
+        // Medium confidence: narrow candidates to top 15 then use LLM to refine
+        console.debug('[Step 2] Local keyword medium match, LLM refining from', localMatches.length, 'candidates');
+        const candidateList = localMatches.slice(0, 15).map(p =>
+          `- ${p.path} \`aliases: ${p.aliases.join(', ')}\``
+        ).join('\n');
+        relevantPages = await this.selectRelevantPagesWithLLM(userMessage, candidateList);
+      } else {
+        // No local match: fall back to full LLM scan of entire index
+        console.debug('[Step 2] No local keyword match, full LLM selection');
+        relevantPages = await this.selectRelevantPagesWithLLM(userMessage, indexContent);
+      }
 
       // Phase: Found pages count with names
       const pageNames = relevantPages.map(p => p.split('/').pop() || p).join(', ');
