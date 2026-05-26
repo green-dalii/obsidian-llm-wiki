@@ -106,12 +106,14 @@ This project evolves rapidly — new features, bug fixes, and improvements are s
 ### 🔑 Configure an LLM Provider
 
 1. Open Settings → Karpathy LLM Wiki
-2. Pick a provider from the dropdown (Anthropic, Anthropic Compatible, Google Gemini, OpenAI, DeepSeek, Kimi, GLM, Ollama, OpenRouter, or custom)
-3. Enter your API key (not needed for Ollama)
+2. Pick a provider from the dropdown (Anthropic, Anthropic Compatible, Google Gemini, OpenAI, DeepSeek, Kimi, GLM, Ollama, LM Studio, OpenRouter, or custom)
+3. Enter your API key (not needed for Ollama; optional for LM Studio)
 4. Click **Fetch Models** to populate the model dropdown, or type a model name manually
 5. Click **Test Connection**, then **Save Settings**
 
 **🦙 Ollama (local, no API key):** Install [Ollama](https://ollama.com), pull a model (`ollama pull gemma4`), select "Ollama (Local)" in the provider dropdown.
+
+**LM Studio (local, OpenAI-compatible):** In LM Studio, start the local server and load the model you want to use. In this plugin, select "LM Studio (Local)", set the Base URL to your server address (default `http://localhost:1234/v1`), enter the exact model identifier shown by LM Studio, optionally enter a token if your local endpoint requires one, then click **Test Connection**. **Fetch Models** can populate available IDs from `/v1/models`, but the model field remains freeform so you can use any identifier your local server accepts.
 
 > See [README_CN.md](README_CN.md) for provider-specific instructions in Chinese.
 
@@ -202,7 +204,7 @@ Settings → **Ingestion Acceleration**:
 
 ### 🌐 LLM & Language
 
-- **🔌 Multi-Provider** — Anthropic, Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, MiniMax, custom endpoints — with guided first-run setup and real-time model list fetching
+- **🔌 Multi-Provider** — Anthropic, Gemini, OpenAI, DeepSeek, Kimi, GLM, OpenRouter, Ollama, LM Studio, MiniMax, custom endpoints — with guided first-run setup and real-time model list fetching
 - **🔄 5xx/429/Overload Retry** — Automatic exponential backoff retry (max 2) on HTTP 5xx/429/529 overload errors across all clients, with status-aware error diagnostics
 - **📋 Dynamic Model List** — Real-time fetching from provider APIs
 - **🌐 Wiki Output Language** — 8 languages independent of UI (EN/ZH/JA/KO/DE/FR/ES/PT), with custom input
@@ -302,7 +304,7 @@ This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not
 | **Flagship** | Claude Opus 4.7 | 1M tokens | Ultimate quality, higher cost — use selectively |
 | **Flagship** | GPT-5.5 | 1M tokens | Top reasoning, higher cost — use selectively |
 
-For local models (Ollama): context windows are typically smaller (8K–128K). Consider using a cloud provider for ingestion + local model for query.
+For local models (Ollama or LM Studio): context windows are typically smaller than large hosted models and depend on the model you load locally. Consider using a cloud provider for ingestion + local model for query.
 
 **🔌 Anthropic Compatible (Coding Plan):** If your provider offers an Anthropic-compatible API endpoint, select "Anthropic Compatible" and enter your provider's Base URL and API Key.
 

@@ -129,6 +129,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
 
     const providerConfig = PREDEFINED_PROVIDERS[this.tempSettings.provider];
     const isOllama = this.tempSettings.provider === 'ollama';
+    const isLMStudio = this.tempSettings.provider === 'lm-studio';
 
     // Provider Dropdown
     new Setting(containerEl)
@@ -147,6 +148,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           const config = PREDEFINED_PROVIDERS[value];
           if (config) {
             this.tempSettings.model = config.defaultModel || '';
+            this.tempSettings.availableModels = [];
+            this.tempSettings.useCustomModel = value === 'lm-studio';
+            if (value === 'lm-studio') this.tempSettings.apiKey = '';
             if (value !== 'custom') this.tempSettings.baseUrl = config.baseUrl;
           }
           this.display();
@@ -157,9 +161,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     if (!isOllama) {
       new Setting(containerEl)
         .setName(this.getText('apiKeyName'))
-        .setDesc(this.getText('apiKeyDesc'))
+        .setDesc(isLMStudio ? 'Optional. Leave empty unless your local LM Studio endpoint requires a token.' : this.getText('apiKeyDesc'))
         .addText(text => {
-          text.setPlaceholder(this.getText('apiKeyPlaceholder'))
+          text.setPlaceholder(isLMStudio ? providerConfig?.apiKeyPlaceholder || 'Optional token' : this.getText('apiKeyPlaceholder'))
             .setValue(this.tempSettings.apiKey)
             .onChange((value) => { this.tempSettings.apiKey = value; this.tempSettings.llmReady = false; });
           text.inputEl.type = 'password';
@@ -172,10 +176,12 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     }
 
     // Base URL
-    if (this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible' || (providerConfig && this.tempSettings.baseUrl !== providerConfig.baseUrl)) {
+    if (isLMStudio || this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible' || (providerConfig && this.tempSettings.baseUrl !== providerConfig.baseUrl)) {
       new Setting(containerEl)
         .setName(this.getText('baseUrlName'))
-        .setDesc(this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible'
+        .setDesc(isLMStudio
+          ? 'LM Studio OpenAI-compatible server URL. Include /v1 unless your server is configured differently.'
+          : this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible'
           ? this.getText('baseUrlDescCustom') : this.getText('baseUrlDescOverride'))
         .addText(text => text
           .setPlaceholder(providerConfig?.baseUrl || 'https://api.example.com/v1')
@@ -197,11 +203,13 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           button.setDisabled(true);
           try {
             const apiKey = isOllama ? 'ollama' : this.tempSettings.apiKey.trim();
-            const baseUrl = this.tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
+            const baseUrl = (this.tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined)?.replace(/\/+$/, '');
 
-            // Smart filter based on provider: OpenRouter allows '/', Ollama allows ':'
+            // Smart filter based on provider. LM Studio model IDs are user-controlled, so do not filter them.
             const getModelFilter = (provider: string) => {
-              if (provider === 'openrouter') {
+              if (provider === 'lm-studio') {
+                return (_id: string) => true;
+              } else if (provider === 'openrouter') {
                 return (id: string) => !id.includes(':'); // Keep '/', filter ':'
               } else if (provider === 'ollama') {
                 return (id: string) => !id.includes('/'); // Keep ':', filter '/'
@@ -239,10 +247,12 @@ export class LLMWikiSettingTab extends PluginSettingTab {
               }
             } else {
               const modelsUrl = (baseUrl || 'https://api.openai.com/v1') + '/models';
+              const headers: Record<string, string> = {};
+              if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
               const response = await requestUrl({
                 url: modelsUrl,
                 method: 'GET',
-                headers: { 'Authorization': `Bearer ${apiKey}` }
+                headers
               });
               const data = response.json as { data?: Array<{ id: string }> };
               if (data.data?.length) {
@@ -251,7 +261,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             }
             if (this.tempSettings.availableModels.length > 0) {
               new Notice(this.getText('fetchSuccess').replace('{}', this.tempSettings.availableModels.length.toString()), 5000);
-              if (!this.tempSettings.model || !this.tempSettings.availableModels.includes(this.tempSettings.model)) {
+              if (!isLMStudio && (!this.tempSettings.model || !this.tempSettings.availableModels.includes(this.tempSettings.model))) {
                 this.tempSettings.model = this.tempSettings.availableModels[0];
               }
             } else {
@@ -270,7 +280,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         }));
 
     // Model Selection
-    if (this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0 && !this.tempSettings.useCustomModel) {
+    if (!isLMStudio && this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0 && !this.tempSettings.useCustomModel) {
       new Setting(containerEl)
         .setName(this.getText('selectModelName'))
         .setDesc(this.getText('selectModelDesc').replace('{}', this.tempSettings.availableModels.length.toString()))
@@ -287,13 +297,15 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       const useDropdown = (this.tempSettings.availableModels?.length ?? 0) > 0;
       new Setting(containerEl)
         .setName(this.getText('modelName'))
-        .setDesc(this.tempSettings.availableModels?.length
+        .setDesc(isLMStudio
+          ? 'Enter the exact model identifier currently loaded in LM Studio.'
+          : this.tempSettings.availableModels?.length
           ? this.getText('modelDescCustom')
           : providerConfig ? this.getText('modelDescRecommended').replace('{}', providerConfig.defaultModel || '') : this.getText('modelDescManual'))
         .addText(text => text
-          .setPlaceholder(providerConfig?.defaultModel || 'model-name')
+          .setPlaceholder(isLMStudio ? 'Enter model identifier' : providerConfig?.defaultModel || 'model-name')
           .setValue(this.tempSettings.model)
-          .onChange((value) => { this.tempSettings.model = value; }))
+          .onChange((value) => { this.tempSettings.model = value; this.tempSettings.llmReady = false; }))
         .addExtraButton(button => {
           if (useDropdown) {
             button

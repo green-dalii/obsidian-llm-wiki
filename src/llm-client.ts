@@ -374,7 +374,8 @@ export class OpenAICompatibleClient implements LLMClient {
 
   constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
-    this.baseUrl = baseUrl || 'https://api.openai.com/v1';
+    this.baseUrl = (baseUrl || 'https://api.openai.com/v1')
+      .replace(/\/+$/, '');
   }
 
   private getHeaders(): Record<string, string> {

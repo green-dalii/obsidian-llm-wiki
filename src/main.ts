@@ -206,7 +206,8 @@ export default class LLMWikiPlugin extends Plugin {
 
     // Migrate existing users: if they already have a working config, trust it
     if (savedData && !('llmReady' in savedData)) {
-      const hasConfig = savedData.provider && (savedData.apiKey?.trim() || savedData.provider === 'ollama') && savedData.model;
+      const localProviderNoKeyRequired = savedData.provider === 'ollama' || savedData.provider === 'lm-studio';
+      const hasConfig = savedData.provider && (savedData.apiKey?.trim() || localProviderNoKeyRequired) && savedData.model;
       this.settings.llmReady = !!hasConfig;
       if (hasConfig) {
         console.debug('loadSettings: existing user with config detected, llmReady = true');
@@ -234,7 +235,8 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   initializeLLMClient() {
-    if (!this.settings.apiKey?.trim() && this.settings.provider !== 'ollama') {
+    const localProviderNoKeyRequired = this.settings.provider === 'ollama' || this.settings.provider === 'lm-studio';
+    if (!this.settings.apiKey?.trim() && !localProviderNoKeyRequired) {
       this.llmClient = null;
       return;
     }
@@ -524,8 +526,8 @@ export default class LLMWikiPlugin extends Plugin {
   async testLLMConnection(): Promise<{ success: boolean; message: string }> {
     const t = TEXTS[this.settings.language] || TEXTS.en;
 
-    const isOllama = this.settings.provider === 'ollama';
-    if (!isOllama && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
+    const localProviderNoKeyRequired = this.settings.provider === 'ollama' || this.settings.provider === 'lm-studio';
+    if (!localProviderNoKeyRequired && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
       return { success: false, message: t.errorNoApiKey || 'API Key is not configured' };
     }
 

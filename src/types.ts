@@ -336,6 +336,18 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholderZh: 'ollama (无需Key)',
     requiresBaseUrl: false
   },
+  'lm-studio': {
+    id: 'lm-studio',
+    name: 'LM Studio (Local)',
+    nameEn: 'LM Studio (Local)',
+    nameZh: 'LM Studio (Local)',
+    baseUrl: 'http://localhost:1234/v1',
+    defaultModel: '',
+    apiKeyPlaceholder: 'Optional token',
+    apiKeyPlaceholderEn: 'Optional token',
+    apiKeyPlaceholderZh: 'Optional token',
+    requiresBaseUrl: false
+  },
   custom: {
     id: 'custom',
     name: 'Custom OpenAI-Compatible',
