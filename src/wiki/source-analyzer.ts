@@ -47,10 +47,31 @@ export class SourceAnalyzer {
       minimal:  { initialBatchSize: 5,  maxBatchesBase: 1,  maxTotalItems: 5 },
       custom:   { initialBatchSize: 5,  maxBatchesBase: 1,  maxTotalItems: null }
     };
-    const config = granularityConfig[granularity] || granularityConfig.standard;
+    const config = { ...(granularityConfig[granularity] || granularityConfig.standard) };
+
+    // C: Short content — auto-downgrade maxTotalItems to avoid "hard digging"
+    // A 6800-char source can't have 50 wiki-worthy items; cap at ~1 per 600 chars.
+    if (content.length < 20000 && config.maxTotalItems !== null) {
+      const reasonableCap = Math.max(5, Math.ceil(content.length / 600));
+      if (config.maxTotalItems > reasonableCap) {
+        console.debug(`[Auto-downgrade] Short content (${content.length} chars), capping maxTotalItems ${config.maxTotalItems} → ${reasonableCap}`);
+        config.maxTotalItems = reasonableCap;
+      }
+    }
+
     const MIN_BATCH_SIZE = 5;
     let currentBatchSize = config.initialBatchSize;
-    const MAX_BATCHES = Math.max(1, Math.ceil(content.length / 500)) + config.maxBatchesBase;
+
+    // A: Dynamic MAX_BATCHES — short content gets fewer batches, long content more.
+    // Base: ~1 batch per 2000 chars of content, plus a small constant.
+    const MAX_BATCHES = Math.min(
+      config.maxBatchesBase * 3,
+      Math.max(2, Math.ceil(content.length / 2000) + 2)
+    );
+
+    // D: Convergence detection — if batch yield is low, halve batch_size once.
+    // If the NEXT batch also has low yield, terminate immediately.
+    let batchSizeHalved = false;
 
     const allEntities: EntityInfo[] = [];
     const allConcepts: ConceptInfo[] = [];
@@ -204,6 +225,18 @@ export class SourceAnalyzer {
         if (newTotal === 0) {
           console.debug(`[Batch ${batchNum + 1}] All items duplicate, extraction exhausted, stopping`);
           break;
+        }
+
+        // D: Convergence detection — low yield → halve once → if still low, terminate
+        if (rawTotal < currentBatchSize / 2 && currentBatchSize > MIN_BATCH_SIZE) {
+          if (batchSizeHalved) {
+            console.debug(`[Batch ${batchNum + 1}] Low yield persists after halving (${rawTotal}/${currentBatchSize}), converged — stopping`);
+            break;
+          }
+          const prevSize = currentBatchSize;
+          currentBatchSize = Math.max(MIN_BATCH_SIZE, Math.floor(currentBatchSize / 2));
+          batchSizeHalved = true;
+          console.debug(`[Batch ${batchNum + 1}] Low yield (${rawTotal}/${prevSize}), halving batch_size: ${prevSize} → ${currentBatchSize}`);
         }
 
         // Granularity-linked cumulative cap
