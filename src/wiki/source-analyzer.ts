@@ -11,7 +11,7 @@ import {
   WIKI_LANGUAGES,
 } from '../types';
 import { PROMPTS } from '../prompts';
-import { parseJsonResponse } from '../utils';
+import { parseJsonResponse, slugify } from '../utils';
 import { getExistingWikiPages } from './lint-fixes';
 import { getGranularityInstruction } from './system-prompts';
 
@@ -25,12 +25,7 @@ export class SourceAnalyzer {
     const content = await this.ctx.app.vault.read(file);
     console.debug('File content length:', content.length);
 
-    const existingPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
-    const existingPagesList = existingPages.map(p => {
-      const aliasSuffix = p.aliases?.length ? ` \`aliases: ${p.aliases.join(', ')}\`` : '';
-      return `- ${p.wikiLink}${aliasSuffix}`;
-    }).join('\n');
-    console.debug('Existing Wiki pages count:', existingPages.length);
+    console.debug('Existing Wiki pages count: — delayed until post-extraction matching');
 
     // Iterative batch extraction parameters — linked to granularity setting
     const MAX_TOKENS = 16000;
@@ -88,29 +83,22 @@ export class SourceAnalyzer {
     // Build granularity instruction from shared definitions
     const granularityInstruction = getGranularityInstruction(this.ctx.settings)
 
-    // B1: Batch 1 uses full existing page list for semantic dedup.
-    // Batch 2+ only needs extracted names — the full 2141-page list is
-    // ~200K chars of prompt bloat. PageFactory.resolvePagePath catches
-    // any remaining semantic duplicates with 3-layer defense.
-    const templateWithPlaceholder = PROMPTS.analyzeSource
+    // ⚡ Page list removed from extraction prompt — PageFactory.resolvePagePath
+    // handles deduplication via slug/alias/LLM matching. Programmatic
+    // related_pages matching runs after extraction instead.
+    const templateUntouched = PROMPTS.analyzeSource
       .replace('{{content}}', content)
-      .replace('{{existing_pages}}', '{{page_list}}');
+      .replace('{{existing_pages}}', '');  // Empty — dedup handled downstream
     const batchMarker = '{{batch_context}}';
-    const markerIdx = templateWithPlaceholder.indexOf(batchMarker);
-    const staticPrefix = templateWithPlaceholder.substring(0, markerIdx);
-    const suffixTemplate = templateWithPlaceholder.substring(markerIdx + batchMarker.length);
+    const markerIdx = templateUntouched.indexOf(batchMarker);
+    const staticPrefix = templateUntouched.substring(0, markerIdx);
+    const suffixTemplate = templateUntouched.substring(markerIdx + batchMarker.length);
 
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
 
     for (let batchNum = 0; batchNum < MAX_BATCHES; batchNum++) {
       const isFirstBatch = batchNum === 0;
-
-      // B1: Full page list only for first batch; subsequent batches just need dedup names
-      const pageList = isFirstBatch
-        ? existingPagesList
-        : 'Already extracted (do NOT repeat any of these): ' +
-          [...extractedNames].map(n => `"${n}"`).join(', ');
 
       let batchContext: string;
       if (isFirstBatch) {
@@ -119,9 +107,7 @@ export class SourceAnalyzer {
         batchContext = `This is round ${batchNum + 1} of extraction. Extract the next batch of most important entities and concepts from the remaining content. If no more items are worth extracting, return empty arrays [] for entities and concepts.`;
       }
 
-      const prompt = staticPrefix
-        .replace('{{page_list}}', pageList)
-        + batchContext + suffixTemplate
+      const prompt = staticPrefix + batchContext + suffixTemplate
         .replace('{{granularity_instruction}}', granularityInstruction)
         .replace(/{{batch_size}}/g, String(currentBatchSize));
 
@@ -283,6 +269,33 @@ export class SourceAnalyzer {
 
     if (!firstBatchData && allEntities.length === 0 && allConcepts.length === 0) {
       return null;
+    }
+
+    // ── Programmatic related_pages matching ──────────────────────────
+    // After extraction, match extracted names against existing wiki pages
+    // using slug + alias matching (same logic as resolvePagePath Fast path 2).
+    // Replaces the old approach of embedding ~200K chars of page list in prompt.
+    const allExtractedNames = [
+      ...allEntities.map(e => e.name),
+      ...allConcepts.map(c => c.name),
+    ];
+    if (allExtractedNames.length > 0) {
+      try {
+        const existingPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+        const matched = new Set<string>();
+        for (const name of allExtractedNames) {
+          const targetSlug = slugify(name).toLowerCase();
+          const match = existingPages.find(p =>
+            slugify(p.title).toLowerCase() === targetSlug ||
+            (p.aliases || []).some(a => slugify(a).toLowerCase() === targetSlug)
+          );
+          if (match) matched.add(match.title);
+        }
+        relatedPages = [...matched];
+        console.debug('[Related pages] Programmatic matching:', relatedPages.length, 'pages matched');
+      } catch (err) {
+        console.warn('[Related pages] Programmatic matching failed:', err);
+      }
     }
 
     const analysis: SourceAnalysis = {

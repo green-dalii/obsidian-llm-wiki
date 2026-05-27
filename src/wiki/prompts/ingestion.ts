@@ -6,9 +6,6 @@ export const INGESTION_PROMPTS = {
 **Source File Content:**
 {{content}}
 
-**Existing Wiki Page List:**
-{{existing_pages}}
-
 {{batch_context}}
 
 **Extraction Scope:**
