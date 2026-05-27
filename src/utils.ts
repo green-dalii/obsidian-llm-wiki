@@ -844,12 +844,19 @@ export function matchExtractedToExisting(
   extractedNames: string[],
   existingPages: Array<{ title: string; aliases?: string[] }>
 ): string[] {
+  // Precompute slug values — existing page titles and aliases don't change
+  const pageSlugs = existingPages.map(p => ({
+    title: p.title,
+    slug: slugify(p.title).toLowerCase(),
+    aliasSlugs: (p.aliases || []).map(a => slugify(a).toLowerCase()),
+  }));
+
   const matched = new Set<string>();
   for (const name of extractedNames) {
     const targetSlug = slugify(name).toLowerCase();
-    const match = existingPages.find(p =>
-      slugify(p.title).toLowerCase() === targetSlug ||
-      (p.aliases || []).some(a => slugify(a).toLowerCase() === targetSlug)
+    const match = pageSlugs.find(p =>
+      p.slug === targetSlug ||
+      p.aliasSlugs.some(a => a === targetSlug)
     );
     if (match) matched.add(match.title);
   }

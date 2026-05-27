@@ -116,7 +116,11 @@ export class SourceAnalyzer {
 
       console.debug(`[Batch ${batchNum + 1}/${MAX_BATCHES}] LLM call started (batch_size=${currentBatchSize})...`);
       console.debug(`[Batch ${batchNum + 1}] Prompt length:`, prompt.length);
-      this.ctx.onProgress?.(`Analyzing batch ${batchNum + 1}...`);
+      if (isFirstBatch) {
+        this.ctx.onProgress?.(`Analyzing batch 1/${MAX_BATCHES}...`);
+      } else {
+        this.ctx.onProgress?.(`Analyzing batch ${batchNum + 1}/${MAX_BATCHES} (${allEntities.length} entities, ${allConcepts.length} concepts so far)...`);
+      }
 
       try {
         const systemPrompt = await this.ctx.buildSystemPrompt('analyze');
