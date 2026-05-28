@@ -366,6 +366,9 @@ export const ZH_TEXTS = {
     lintLinkComplete: '孤立页面链接完成。已链接 {linked} 页。',
     lintFixNoAction: '未执行操作（无 client）',
     lintFixIndexUpdated: 'Wiki 索引和日志已更新。',
+    lintPollutedFixed: '已修复污染页面：{fixed}/{total}。索引已重建。',
+    regenerateIndexCompleted: '索引已重建',
+    operationFailed: '失败：',
     lintFixAllComplete: '所有修复已完成。详情见日志。',
 
     // 维护报告弹窗

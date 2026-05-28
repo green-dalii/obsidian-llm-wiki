@@ -110,13 +110,14 @@ export default class LLMWikiPlugin extends Plugin {
       name: t.cmdRegenerateIndex,
       callback: () => {
         void (async () => {
-          new Notice(t.cmdRegenerateIndex + '...');
+          const texts = TEXTS[this.settings.language] as unknown as Record<string, string>;
+          new Notice((texts.regenerateIndexCompleted || 'Regenerating index...') + '...');
           try {
             await this.wikiEngine.generateIndexFromEngine();
-            new Notice(t.cmdRegenerateIndex + ' ' + 'completed.');
+            new Notice(texts.regenerateIndexCompleted || 'Index regenerated');
           } catch (err) {
             console.error('Regenerate index failed:', err);
-            new Notice(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+            new Notice((texts.operationFailed || 'Failed: ') + (err instanceof Error ? err.message : String(err)));
           }
         })();
       }

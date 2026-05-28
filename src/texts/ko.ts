@@ -369,6 +369,9 @@ export const KO_TEXTS = {
     lintLinkComplete: '고아 링크 완료. {linked} 페이지 링크됨.',
     lintFixNoAction: '조치 없음 (클라이언트 없음)',
     lintFixIndexUpdated: '위키 인덱스 및 로그가 업데이트되었습니다.',
+    lintPollutedFixed: '오염된 페이지 수정 완료: {fixed}/{total}. 인덱스 재생성됨.',
+    regenerateIndexCompleted: '인덱스 재생성됨',
+    operationFailed: '실패: ', 
     lintFixAllComplete: '모든 수정이 완료되었습니다. 자세한 내용은 로그를 확인하세요.',
 
     // Lint Report Modal

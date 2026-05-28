@@ -511,7 +511,12 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
           if (fixed > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
           }
-          new Notice(`Polluted pages fixed: ${fixed}/${pollutedPages.length}. Index regenerated.`, 0);
+          const t = TEXTS[ctx.settings.language] || TEXTS.en;
+          const msg = (t as unknown as Record<string, string>).lintPollutedFixed
+            ?.replace('{fixed}', String(fixed))
+            ?.replace('{total}', String(pollutedPages.length))
+            || `Polluted pages fixed: ${fixed}/${pollutedPages.length}. Index regenerated.`;
+          new Notice(msg, 0);
         })();
       };
     }

@@ -372,6 +372,9 @@ export const EN_TEXTS = {
     lintFixNoAction: 'No action taken (no client)',
     lintFixIndexUpdated: 'Wiki index and log updated.',
     lintFixAllComplete: 'All fixes complete. See log for details.',
+    lintPollutedFixed: 'Polluted pages fixed: {fixed}/{total}. Index regenerated.',
+    regenerateIndexCompleted: 'Index regenerated',
+    operationFailed: 'Failed: ',
 
     // Lint Report Modal
     lintModalActionsTitle: 'Fix suggestions (requires LLM tokens):',

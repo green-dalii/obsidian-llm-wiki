@@ -368,6 +368,9 @@ export const PT_TEXTS = {
     lintLinkComplete: 'Links de páginas órfãs concluídos. {linked} páginas linkadas.',
     lintFixNoAction: 'Nenhuma ação realizada (sem client)',
     lintFixIndexUpdated: 'Índice e log da Wiki atualizados.',
+    lintPollutedFixed: 'Páginas poluídas corrigidas: {fixed}/{total}. Índice regenerado.',
+    regenerateIndexCompleted: 'Índice regenerado',
+    operationFailed: 'Falha: ', 
     lintFixAllComplete: 'Todas as correções concluídas. Consulte o log para detalhes.',
 
     // Lint Report Modal

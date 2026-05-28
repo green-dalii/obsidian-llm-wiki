@@ -368,6 +368,9 @@ export const JA_TEXTS = {
     lintLinkComplete: '孤立ページへのリンク完了。{linked}ページにリンクを設定しました。',
     lintFixNoAction: '操作なし（クライアント未接続）',
     lintFixIndexUpdated: 'Wikiインデックスとログを更新しました。',
+    lintPollutedFixed: '汚染ページ修正済み：{fixed}/{total}。インデックス再構築済み。',
+    regenerateIndexCompleted: 'インデックス再構築済み',
+    operationFailed: '失敗：',
     lintFixAllComplete: 'すべての修復が完了しました。詳細はログを確認してください。',
 
     // Lint Report Modal

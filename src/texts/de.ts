@@ -368,6 +368,9 @@ export const DE_TEXTS = {
     lintLinkComplete: 'Verwaiste-Seiten-Verlinkung abgeschlossen. {linked} Seiten verlinkt.',
     lintFixNoAction: 'Keine Maßnahme ergriffen (kein Client)',
     lintFixIndexUpdated: 'Wiki-Index und Protokoll aktualisiert.',
+    lintPollutedFixed: 'Beschädigte Seiten behoben: {fixed}/{total}. Index neu generiert.',
+    regenerateIndexCompleted: 'Index neu generiert',
+    operationFailed: 'Fehlgeschlagen: ', 
     lintFixAllComplete: 'Alle Behebungen abgeschlossen. Details im Protokoll.',
 
     // Lint Report Modal
