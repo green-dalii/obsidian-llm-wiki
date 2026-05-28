@@ -65,7 +65,23 @@ export const INGESTION_PROMPTS = {
 - product: product/tool/software/service. Publications only when they are the primary subject of analysis, not when cited as evidence sources
 - event: event/conference/milestone/historical occurrence
 - location: place/region/geographic concept
-- other: other concrete entities not fitting the concept category
+- other: observable, instantiable concrete things (a specific dataset, benchmark, physical instrument) that do not fit any category above. NOT for abstract ideas, paradigms, or techniques — those are concepts
+
+**Classification Decision Tree (Entity vs. Concept) — apply in order, stop at first match:**
+1. Named PERSON → entity (person)
+2. Named ORGANIZATION, institution, company, team, lab → entity (organization)
+3. Named PROJECT or named initiative → entity (project)
+4. Named LOCATION, place, region → entity (location)
+5. Named EVENT, conference, competition, release milestone → entity (event)
+6. Named PRODUCT with its own vendor/release cycle (specific software package, hardware device, hosted service) → entity (product). Examples: PyTorch, GPT-4, BERT, TensorFlow. BUT if the source is not primarily ABOUT this product, extract its key ideas as concepts instead
+7. Abstract THEORY, principle, hypothesis, cognitive/scientific model → concept (theory)
+8. Procedural METHOD, algorithm, technique, protocol, training procedure → concept (method). Examples: gradient descent, RLHF, fine-tuning, chain-of-thought prompting, backpropagation
+9. Broad TECHNOLOGY paradigm or architectural pattern → concept (technology). Examples: transformer architecture, deep learning, attention mechanism, retrieval-augmented generation
+10. Any TERM, definition, or construct explaining how something works → concept (term)
+11. A concrete named thing that does not fit rules 1–6 → entity (other). Reserve for observable/instantiable things only
+12. If still uncertain → **prefer concept over entity**
+
+**Key boundary**: Named AI models and named frameworks are entities (product). Architectural ideas and learning techniques are concepts (method/technology). When a source mentions a product only as a tool used for something else, extract its role/capabilities as a concept, not the product as an entity.
 
 **Important Rules:**
 - Output ONLY JSON, nothing else
