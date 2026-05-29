@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.5] - 2026-05-29
+
+### Fixed
+- **Cross-folder entity/concept duplicates prevented (#54)**: `resolvePagePath()` now checks the opposite folder (entities ↔ concepts) after same-type matches fail. When a cross-type collision is found, the existing page receives the new name as an alias and creation is skipped — no more duplicate pages for the same topic in both folders. Contributed by @dmarchevsky.
+- **Classification Decision Tree added (#54)**: Extraction prompt gains a 12-step ordered decision tree for entity vs. concept decisions. `entity/other` is now restricted to observable/instantiable things; a "prefer concept over entity" tie-breaker reduces mis-classification of techniques and paradigms. Contributed by @dmarchevsky.
+
+### Changed
+- **README Usage section**: Added sidebar button ingestion method to all 8 language variants (EN/ZH/JA/KO/DE/FR/ES/PT).
+
 ## [1.12.1] - 2026-05-28
 
 ### Fixed

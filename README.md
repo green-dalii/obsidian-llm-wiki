@@ -133,6 +133,7 @@ This project evolves rapidly — new features, bug fixes, and improvements are s
 | **🛠️ Lint wiki** | `Cmd+P` → "Lint wiki" — health scan: duplicates, dead links, empty pages, orphans, missing aliases |
 | **📋 Regenerate index** | `Cmd+P` → "Regenerate index" — rebuild `wiki/index.md` with current pages and aliases |
 | **💡 Suggest schema updates** | `Cmd+P` → "Suggest schema updates" — LLM analyzes Wiki and proposes schema improvements |
+| **🎯 One-click ingest** | Click the `sticker` icon in the left sidebar or `Cmd+P` → "Ingest current file" — directly ingest the file you're editing |
 
 Re-ingesting the same source does incremental updates on entity/concept pages (new info merged in). Summary pages are regenerated.
 
