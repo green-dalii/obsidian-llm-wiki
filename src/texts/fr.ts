@@ -311,6 +311,7 @@ export const FR_TEXTS = {
     ingestReportElapsedTime: 'Temps écoulé',
     ingestReportSkippedFiles: 'Ignorés (déjà importés)',
     ingestReportFailedGuidance: "Ces éléments n'ont pas pu être créés automatiquement. Vous pouvez créer manuellement les pages correspondantes, ou réduire la granularité d'extraction et réimporter le fichier source.",
+    ingestReportCollisions: 'Collisions cross-type (fusionnées comme alias)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Importer une source unique',

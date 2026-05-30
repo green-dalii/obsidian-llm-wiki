@@ -19,6 +19,7 @@ import {
   parseFrontmatter,
   detectRateLimitFailures,
   formatRateLimitNotice,
+  getText,
 } from '../utils';
 import { SchemaManager, SchemaTask } from '../schema/schema-manager';
 import {
@@ -139,9 +140,7 @@ export class WikiEngine {
   cancelIngestion(): void {
     if (this.abortController) {
       this.abortController.abort();
-      const t = TEXTS[this.settings.language] || TEXTS.en;
-      const msg = (t as unknown as Record<string, string>).ingestionCancelling
-        || 'Cancelling — will stop after current batch completes';
+      const msg = getText(this.settings.language, 'ingestionCancelling');
       new Notice(msg, 6000);
       this.onProgress?.(msg);
       console.debug('Ingestion cancellation requested');
@@ -161,10 +160,7 @@ export class WikiEngine {
   cancelLint(): void {
     if (this.lintAbortController) {
       this.lintAbortController.abort();
-      const t = TEXTS[this.settings.language] || TEXTS.en;
-      const msg = (t as unknown as Record<string, string>).lintCancelling
-        || (t as unknown as Record<string, string>).ingestionCancelling
-        || 'Cancelling — will stop after current batch completes';
+      const msg = getText(this.settings.language, 'ingestionCancelling');
       new Notice(msg, 6000);
       console.debug('Lint cancellation requested');
     }
@@ -221,14 +217,12 @@ export class WikiEngine {
     const fileContent = await this.app.vault.read(file);
     const lineCount = fileContent.split('\n').length;
     if (lineCount > LONG_SOURCE_LINE_THRESHOLD) {
-      const t = TEXTS[this.settings.language] || TEXTS.en;
       const sizeKB = Math.round(fileContent.length / 1024);
       new Notice(
-        (t as unknown as Record<string, string>).longSourceNotice
-          ?.replace('{filename}', file.basename)
-          ?.replace('{lines}', String(lineCount))
-          ?.replace('{size}', sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)}MB` : `${sizeKB}KB`)
-        || `Large file detected: ${file.basename} (${lineCount} lines). Ingestion may take a while.`,
+        getText(this.settings.language, 'longSourceNotice')
+          .replace('{filename}', file.basename)
+          .replace('{lines}', String(lineCount))
+          .replace('{size}', sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)}MB` : `${sizeKB}KB`),
         0
       );
       console.debug(`[Long Source] ${file.basename}: ${lineCount} lines, ${sizeKB}KB — long ingestion expected`);
@@ -411,7 +405,7 @@ export class WikiEngine {
       if (pageGenRateInfo) {
         console.warn(`[Rate Limit] Page generation: ${pageGenRateInfo.count} item(s) failed with 429, ` +
           `suggested concurrency=${pageGenRateInfo.suggestedConcurrency}, delay=${pageGenRateInfo.suggestedDelay}ms`);
-        new Notice(formatRateLimitNotice(pageGenRateInfo, TEXTS[this.settings.language] as unknown as Record<string, string>), 10000);
+        new Notice(formatRateLimitNotice(pageGenRateInfo, this.settings.language), 10000);
       }
 
       // Stage 4: Related Pages Update
@@ -494,7 +488,7 @@ export class WikiEngine {
       if (relatedRateInfo) {
         console.warn(`[Rate Limit] Related pages update: ${relatedRateInfo.count} item(s) failed with 429, ` +
           `suggested concurrency=${relatedRateInfo.suggestedConcurrency}, delay=${relatedRateInfo.suggestedDelay}ms`);
-        new Notice(formatRateLimitNotice(relatedRateInfo, TEXTS[this.settings.language] as unknown as Record<string, string>), 10000);
+        new Notice(formatRateLimitNotice(relatedRateInfo, this.settings.language), 10000);
       }  // update step count for subsequent phase numbering
 
       // Stage 5: Contradiction Recording
@@ -538,10 +532,8 @@ export class WikiEngine {
 
       // Show collision notice if any occurred
       if (collisions.length > 0) {
-        const t = TEXTS[this.settings.language] || TEXTS.en;
-        const collisionNotice = (t as unknown as Record<string, string>).crossTypeCollisionNotice ||
-          `${collisions.length} items merged as cross-type aliases (entity ↔ concept duplicates prevented)`;
-        new Notice(collisionNotice.replace('{count}', String(collisions.length)), 5000);
+        new Notice(getText(this.settings.language, 'crossTypeCollisionNotice')
+          .replace('{count}', String(collisions.length)), 5000);
       }
 
       this.onDone?.({
@@ -563,8 +555,7 @@ export class WikiEngine {
       if (error instanceof DOMException && error.name === 'AbortError') {
         this.wasCancelled = true;
         console.debug('=== Ingestion cancelled by user ===');
-        const t = TEXTS[this.settings.language] || TEXTS.en;
-        new Notice((t as unknown as Record<string, string>).ingestionCancelled || 'Ingestion cancelled', 5000);
+        new Notice(getText(this.settings.language, 'ingestionCancelled'), 5000);
         this.onDone?.({
           sourceFile: file.path,
           createdPages,

@@ -6,7 +6,7 @@ import { LLMWikiSettings, LLMClient } from '../types';
 import { LintFixCallbacks, LintCounts, LintReportModal, FixReportModal, FixReportPhase } from '../ui/modals';
 import { TEXTS } from '../texts';
 import { PROMPTS } from '../prompts';
-import { cleanMarkdownResponse, parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice } from '../utils';
+import { cleanMarkdownResponse, parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice, getText } from '../utils';
 import { isPageEmpty, detectPollutedPages, fixDoubleNestedWikiLinks } from './lint-fixes';
 import { generateDuplicateCandidates, DuplicateCandidate } from './lint/duplicate-detection';
 import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges } from './lint/fix-runners';
@@ -247,7 +247,7 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
           if (dedupRateInfo) {
             console.warn(`[Duplicate Rate Limit] ${dedupRateInfo.count} duplicate detection batch(es) failed with 429, ` +
               `suggested concurrency=${dedupRateInfo.suggestedConcurrency}, delay=${dedupRateInfo.suggestedDelay}ms`);
-            new Notice(formatRateLimitNotice(dedupRateInfo, t as unknown as Record<string, string>), 10000);
+            new Notice(formatRateLimitNotice(dedupRateInfo, ctx.settings.language), 10000);
           }
 
           duplicates = allDuplicates;
@@ -511,11 +511,9 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
           if (fixed > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
           }
-          const t = TEXTS[ctx.settings.language] || TEXTS.en;
-          const msg = (t as unknown as Record<string, string>).lintPollutedFixed
-            ?.replace('{fixed}', String(fixed))
-            ?.replace('{total}', String(pollutedPages.length))
-            || `Polluted pages fixed: ${fixed}/${pollutedPages.length}. Index regenerated.`;
+          const msg = getText(ctx.settings.language, 'lintPollutedFixed')
+            .replace('{fixed}', String(fixed))
+            .replace('{total}', String(pollutedPages.length));
           new Notice(msg, 0);
         })();
       };
@@ -752,8 +750,7 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
   } catch (error) {
     stageNotice?.hide();
     if (error instanceof DOMException && error.name === 'AbortError') {
-      const t = TEXTS[ctx.settings.language] || TEXTS.en;
-      new Notice((t as unknown as Record<string, string>).ingestionCancelled || 'Lint cancelled', 5000);
+      new Notice(getText(ctx.settings.language, 'ingestionCancelled'), 5000);
       console.debug('Lint cancelled by user');
       return;
     }

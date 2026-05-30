@@ -3,6 +3,7 @@
 import { App, TFile, TFolder, Modal, FuzzySuggestModal, MarkdownRenderer, Component } from 'obsidian';
 import { IngestReport } from '../types';
 import { TEXTS } from '../texts';
+import { getText } from '../utils';
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   onSelect: (file: TFile) => void;
@@ -222,12 +223,11 @@ export class IngestReportModal extends Modal {
   }
 
   private t(key: string): string {
-    const texts = TEXTS[this.language as keyof typeof TEXTS] || TEXTS.en;
-    return (texts as unknown as Record<string, string>)[key] || (TEXTS.en as unknown as Record<string, string>)[key] || key;
+    return getText(this.language, key as keyof typeof TEXTS.en) || key;
   }
 
   onOpen() {
-    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, elapsedSeconds, skippedFiles, totalFilesInFolder } = this.report;
+    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, collisions, elapsedSeconds, skippedFiles, totalFilesInFolder } = this.report;
 
     const statusEmoji = success ? '✅' : '⚠️';
     this.contentEl.createEl('h2', { text: `${statusEmoji} ${this.t('ingestReportTitle')}` });
@@ -263,6 +263,17 @@ export class IngestReportModal extends Modal {
     statsEl.createEl('p', { text: this.t('ingestReportUpdatedPages').replace('{count}', String(updatedPages.length)) });
     if (contradictionsFound > 0) {
       statsEl.createEl('p', { text: this.t('ingestReportContradictionsFound').replace('{count}', String(contradictionsFound)) });
+    }
+
+    // Collisions
+    if (collisions && collisions.length > 0) {
+      this.contentEl.createEl('h3', { text: '🔀 ' + this.t('ingestReportCollisions') + ` (${collisions.length})` });
+      const list = this.contentEl.createEl('ul');
+      for (const c of collisions) {
+        const sourceTypeLabel = c.sourceType === 'entity' ? this.t('ingestReportEntityType') : this.t('ingestReportConceptType');
+        const targetTypeLabel = c.targetType === 'entity' ? this.t('ingestReportEntityType') : this.t('ingestReportConceptType');
+        list.createEl('li', { text: `"${c.name}" (${sourceTypeLabel}) → ${targetTypeLabel}` });
+      }
     }
 
     // Created pages
@@ -331,9 +342,8 @@ export class FixReportModal extends Modal {
   }
 
   onOpen() {
-    const texts = TEXTS[this.language as keyof typeof TEXTS] || TEXTS.en;
-    const t = texts as unknown as Record<string, string>;
-    const titleText = t.lintFixAllComplete || 'All fixes complete';
+    const tk = (k: string) => getText(this.language, k as keyof typeof TEXTS.en) || k;
+    const titleText = tk('lintFixAllComplete');
 
     this.contentEl.createEl('h2', { text: titleText });
 
@@ -347,7 +357,7 @@ export class FixReportModal extends Modal {
       list.createEl('li', { text: itemText });
     }
 
-    const indexNote = t.lintFixIndexUpdated || '';
+    const indexNote = tk('lintFixIndexUpdated');
     if (indexNote) {
       this.contentEl.createEl('p', {
         text: indexNote,
@@ -356,7 +366,7 @@ export class FixReportModal extends Modal {
     }
 
     const btnRow = this.contentEl.createDiv({ attr: { style: 'margin-top: 16px; text-align: right;' } });
-    const closeText = t.ingestReportClose || 'Close';
+    const closeText = tk('ingestReportClose');
     btnRow.createEl('button', { text: closeText }).addEventListener('click', () => this.close());
   }
 

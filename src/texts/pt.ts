@@ -311,6 +311,7 @@ export const PT_TEXTS = {
     ingestReportElapsedTime: 'Tempo decorrido',
     ingestReportSkippedFiles: 'Ignorados (já ingeridos)',
     ingestReportFailedGuidance: 'Estes itens não puderam ser criados automaticamente. Você pode criar as páginas manualmente ou reduzir a granularidade da extração e reingerir o arquivo fonte.',
+    ingestReportCollisions: 'Colisões cross-type (fundidas como alias)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Ingerir fonte individual',

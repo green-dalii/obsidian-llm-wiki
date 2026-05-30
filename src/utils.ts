@@ -1,6 +1,26 @@
 // Utility functions for Wiki processing
 
 import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from './types';
+import { TEXTS } from './texts';
+
+// Type-safe i18n accessor. Falls back to EN_TEXTS when key is missing in target language.
+export function getText<K extends keyof typeof TEXTS.en>(
+  language: string,
+  key: K,
+  replacements?: Record<string, string>
+): string {
+  const texts = TEXTS[language as keyof typeof TEXTS] || TEXTS.en;
+  let text = texts[key] as unknown as string;
+  if (!text) {
+    text = TEXTS.en[key] as unknown as string;
+  }
+  if (replacements) {
+    for (const [k, v] of Object.entries(replacements)) {
+      text = text.replace(`{${k}}`, v);
+    }
+  }
+  return text;
+}
 
 export function slugify(text: string): string {
   console.debug('slugify input:', text, 'length:', text?.length);
@@ -765,21 +785,12 @@ export function detectRateLimitFailures(
 
 export function formatRateLimitNotice(
   info: RateLimitInfo,
-  texts: Record<string, string>,
+  language: string,
 ): string {
-  const t = texts;
-  // Use full notice if t.rateLimitDetected exists, else build from parts
-  if (t.rateLimitDetected) {
-    return t.rateLimitDetected
-      .replace('{count}', String(info.count))
-      .replace('{suggestedConcurrency}', String(info.suggestedConcurrency))
-      .replace('{suggestedDelay}', String(info.suggestedDelay));
-  }
-  // Fallback: build English notice from scratch
-  const namesHint = info.rateLimitNames.slice(0, 3).join(', ');
-  const moreHint = info.rateLimitNames.length > 3 ? ` (and ${info.rateLimitNames.length - 3} more)` : '';
-  return `Rate limit hit — ${info.count} operation(s) failed${namesHint ? ': ' + namesHint + moreHint : ''}. ` +
-    `Lower concurrency to ${info.suggestedConcurrency} or increase batch delay to ${info.suggestedDelay}ms in Settings → Wiki Configuration.`;
+  return getText(language, 'rateLimitDetected')
+    .replace('{count}', String(info.count))
+    .replace('{suggestedConcurrency}', String(info.suggestedConcurrency))
+    .replace('{suggestedDelay}', String(info.suggestedDelay));
 }
 
 // Truncate mentions to a reasonable token budget for merge/create prompts.

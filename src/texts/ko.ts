@@ -312,6 +312,7 @@ export const KO_TEXTS = {
     ingestReportElapsedTime: '경과 시간',
     ingestReportSkippedFiles: '건너뜀 (이미 수집됨)',
     ingestReportFailedGuidance: '이 항목은 자동으로 생성되지 않았습니다. 해당하는 페이지를 수동으로 생성하거나 추출 세분화를 낮추고 소스 파일을 다시 수집할 수 있습니다.',
+    ingestReportCollisions: '크로스타입 충돌 (별칭으로 병합됨)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: '단일 소스 수집',

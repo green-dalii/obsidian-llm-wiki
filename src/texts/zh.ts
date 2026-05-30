@@ -312,6 +312,7 @@ export const ZH_TEXTS = {
     ingestReportElapsedTime: '耗时',
     ingestReportSkippedFiles: '跳过（已摄入）',
     ingestReportFailedGuidance: '这些条目未能自动创建。您可手动创建对应页面，或降低提取颗粒度后重新摄入源文件。',
+    ingestReportCollisions: '跨类型碰撞（已合并为别名）',
 
     // 命令名称（sentence case 遵循 Obsidian Bot 规则）
     cmdIngestSource: '摄入单个源文件',

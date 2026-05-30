@@ -75,7 +75,9 @@ export class PageFactory {
   // Determine the actual file path for a new entity/concept, using slug-based
   // matching first and falling back to LLM semantic resolution.
   // Returns { path: null, collision: {...} } when a cross-type collision is detected
-  // (same name exists in the opposite folder) — callers must skip page creation.
+  // (same name exists in the opposite folder). Callers must NOT create a new file in
+  // that case, but should merge the new content into collision.targetPath so no
+  // information from the source is lost.
   private async resolvePagePath(
     name: string,
     pageType: 'entity' | 'concept',
@@ -88,7 +90,18 @@ export class PageFactory {
 
     // Fast path: exact slug match (same type folder)
     const existing = await this.ctx.tryReadFile(slugPath);
-    if (existing !== null) return { path: slugPath };
+    if (existing !== null) {
+      // Check for historical cross-type duplicate: if the same name exists in the
+      // opposite folder, it means an earlier ingestion classified this item differently.
+      // Append the new name as an alias to bridge the two pages (Bug #1 fix).
+      const otherSlugPath = `${this.ctx.settings.wikiFolder}/${otherFolder}/${slug}.md`;
+      const otherExisting = await this.ctx.tryReadFile(otherSlugPath);
+      if (otherExisting !== null) {
+        console.warn(`Historical cross-type duplicate detected: ${folder}/${slug}.md and ${otherFolder}/${slug}.md both exist — appending alias`);
+        await this.appendAliases(otherSlugPath, [name]);
+      }
+      return { path: slugPath };
+    }
 
     // Fast path 2 + Slow path: share sameTypePages across slug-match and LLM resolution
     try {
@@ -119,28 +132,16 @@ export class PageFactory {
 
       // Cross-type collision check: if the same name already exists in the opposite
       // folder, skip creation to prevent entity/concept duplicates across folders.
+      // Uses in-memory path match from allPages — no extra I/O needed.
       const otherTypePages = allPages.filter(p => p.path.includes(`/${otherFolder}/`));
-      const otherSlugPath = `${this.ctx.settings.wikiFolder}/${otherFolder}/${slug}.md`;
-      const otherExact = await this.ctx.tryReadFile(otherSlugPath);
-      if (otherExact !== null) {
-        console.debug(`Cross-type collision: "${name}" already exists in /${otherFolder}/, skipping duplicate`);
-        await this.appendAliases(otherSlugPath, [name]);
-        return {
-          path: null,
-          collision: {
-            name,
-            sourceType: pageType,
-            targetType: otherFolder === 'entities' ? 'entity' : 'concept',
-            targetPath: otherSlugPath
-          }
-        };
-      }
-      const otherMatch = otherTypePages.find(p =>
-        computeSlug(p.title).toLowerCase() === targetSlug ||
-        (p.aliases || []).some(a => computeSlug(a).toLowerCase() === targetSlug)
-      );
+      const otherMatch = otherTypePages.find(p => {
+        const slugPath = `${this.ctx.settings.wikiFolder}/${otherFolder}/${slug}.md`;
+        return p.path === slugPath ||
+          computeSlug(p.title).toLowerCase() === targetSlug ||
+          (p.aliases || []).some(a => computeSlug(a).toLowerCase() === targetSlug);
+      });
       if (otherMatch) {
-        console.debug(`Cross-type collision (normalized): "${name}" matched ${otherMatch.path}, skipping duplicate`);
+        console.debug(`Cross-type collision: "${name}" matched ${otherMatch.path}, skipping duplicate`);
         await this.appendAliases(otherMatch.path, [name]);
         return {
           path: null,
@@ -281,7 +282,21 @@ export class PageFactory {
     const result = await this.resolvePagePath(info.name, pageType, info.summary);
     if (result.path === null) {
       if (result.collision) {
-        console.debug(`Skipping ${pageType} "${info.name}": cross-type duplicate exists in ${result.collision.targetType}`);
+        // Cross-type collision: a page for this item already exists in the opposite
+        // folder. Don't create a duplicate file, but merge the new content into the
+        // existing page so the source's summary/mentions/sources aren't lost.
+        // Use the EXISTING page's type for the merge so it keeps its classification.
+        const { targetPath, targetType } = result.collision;
+        const existingContent = await this.ctx.tryReadFile(targetPath);
+        if (existingContent) {
+          const isReviewed = parseFrontmatter(existingContent)?.reviewed === true;
+          if (isReviewed) {
+            await this.appendToReviewedPage(info, sourceFile, existingContent, targetPath);
+          } else {
+            await this.mergePage(info, targetType, sourceFile, existingContent, extraPagePaths, targetPath);
+          }
+          console.debug(`Cross-type collision: merged "${info.name}" content into ${targetType} page ${targetPath}`);
+        }
       }
       return result;
     }

@@ -311,6 +311,7 @@ export const JA_TEXTS = {
     ingestReportElapsedTime: '経過時間',
     ingestReportSkippedFiles: 'スキップ済み（取り込み済み）',
     ingestReportFailedGuidance: 'これらの項目は自動作成できませんでした。対応するページを手動で作成するか、抽出粒度を下げてソースファイルを再取り込みしてください。',
+    ingestReportCollisions: 'クロスタイプ衝突（エイリアスとして統合）',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: '単一ソースの取り込み',

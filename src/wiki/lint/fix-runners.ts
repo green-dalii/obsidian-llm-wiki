@@ -112,7 +112,7 @@ export async function runAliasCompletion(
   if (aliasRateInfo) {
     console.warn(`[Alias Rate Limit] ${aliasRateInfo.count} alias generation(s) failed with 429, ` +
       `suggested concurrency=${aliasRateInfo.suggestedConcurrency}, delay=${aliasRateInfo.suggestedDelay}ms`);
-    new Notice(formatRateLimitNotice(aliasRateInfo, t as unknown as Record<string, string>), 10000);
+    new Notice(formatRateLimitNotice(aliasRateInfo, ctx.settings.language), 10000);
   }
 
   fixNotice.hide();

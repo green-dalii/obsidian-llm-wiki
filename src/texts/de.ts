@@ -311,6 +311,7 @@ export const DE_TEXTS = {
     ingestReportElapsedTime: 'Verstrichene Zeit',
     ingestReportSkippedFiles: 'Übersprungen (bereits aufgenommen)',
     ingestReportFailedGuidance: 'Diese Elemente konnten nicht automatisch erstellt werden. Du kannst die entsprechenden Seiten manuell erstellen oder die Extraktions-Granularität senken und die Quelldatei erneut aufnehmen.',
+    ingestReportCollisions: 'Cross-Type-Kollisionen (als Aliase zusammengeführt)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Einzelne Quelle aufnehmen',

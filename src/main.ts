@@ -26,7 +26,7 @@ function createLLMClient(settings: LLMWikiSettings): LLMClient {
   return new OpenAICompatibleClient(apiKey, baseUrl);
 }
 import { TEXTS } from './texts';
-import { slugify, parseFrontmatter } from './utils';
+import { slugify, parseFrontmatter, getText } from './utils';
 import { LLMWikiSettingTab } from './ui/settings';
 import { WikiEngine } from './wiki/wiki-engine';
 import { QueryModal } from './wiki/query-engine';
@@ -110,14 +110,13 @@ export default class LLMWikiPlugin extends Plugin {
       name: t.cmdRegenerateIndex,
       callback: () => {
         void (async () => {
-          const texts = TEXTS[this.settings.language] as unknown as Record<string, string>;
-          new Notice((texts.regenerateIndexCompleted || 'Regenerating index...') + '...');
+          new Notice(getText(this.settings.language, 'regenerateIndexCompleted') + '...');
           try {
             await this.wikiEngine.generateIndexFromEngine();
-            new Notice(texts.regenerateIndexCompleted || 'Index regenerated');
+            new Notice(getText(this.settings.language, 'regenerateIndexCompleted'));
           } catch (err) {
             console.error('Regenerate index failed:', err);
-            new Notice((texts.operationFailed || 'Failed: ') + (err instanceof Error ? err.message : String(err)));
+            new Notice(getText(this.settings.language, 'operationFailed') + (err instanceof Error ? err.message : String(err)));
           }
         })();
       }
@@ -165,8 +164,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.wikiEngine.setIngestionCallbacks(
       () => {
-        const texts = TEXTS[this.settings.language] || TEXTS.en;
-        const label = (texts as unknown as Record<string, string>).ingestionStatusBar || 'Ingesting... click to cancel';
+        const label = getText(this.settings.language, 'ingestionStatusBar');
         if (this.ingestStatusBar) {
           this.ingestStatusBar.setText(label);
           this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
@@ -181,8 +179,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.wikiEngine.setLintCallbacks(
       () => {
-        const texts = TEXTS[this.settings.language] || TEXTS.en;
-        const label = (texts as unknown as Record<string, string>).lintStatusBar || 'Linting... click to cancel';
+        const label = getText(this.settings.language, 'lintStatusBar');
         if (this.ingestStatusBar) {
           this.ingestStatusBar.setText(label);
           this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
@@ -343,14 +340,12 @@ export default class LLMWikiPlugin extends Plugin {
 
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
-      const texts = TEXTS[this.settings.language];
-      new Notice((texts as unknown as Record<string, string>).noActiveFile || 'No file is currently open', 5000);
+      new Notice(getText(this.settings.language, 'noActiveFile'), 5000);
       return;
     }
 
     if (activeFile.extension !== 'md') {
-      const texts = TEXTS[this.settings.language];
-      new Notice((texts as unknown as Record<string, string>).mdOnlyFile || 'Only Markdown files can be ingested', 5000);
+      new Notice(getText(this.settings.language, 'mdOnlyFile'), 5000);
       return;
     }
 
@@ -584,8 +579,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   private requireLLMReady(): boolean {
     if (this.settings.llmReady) return true;
-    const t = TEXTS[this.settings.language] || TEXTS.en;
-    new Notice((t as unknown as Record<string, string>).llmNotReady || 'LLM is not configured. Please go to Settings → Karpathy LLM Wiki to configure your provider and pass the connection test.', 8000);
+    new Notice(getText(this.settings.language, 'llmNotReady'), 8000);
     return false;
   }
 }
