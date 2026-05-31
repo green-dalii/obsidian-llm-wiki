@@ -2,11 +2,26 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.12.0 | **Updated:** 2026-05-27
+**Version:** 1.13.0 | **Updated:** 2026-05-31
 
 ---
 
 ## Current Status
+
+### Implemented (v1.13.0) — Quality & Infrastructure
+
+Extraction reliability, duplicate prevention, and build verification improvements.
+
+**Key changes:**
+- Cross-type duplicate prevention (#54): resolvePagePath checks opposite folder, contributed by @dmarchevsky
+- Multi-round extraction dedup with aliases injection — LLM no longer relies on internal state
+- Extraction aliases seeding (aliases? field) → page generation quality improvement
+- Source analysis false abort fix (#61): gate changed from || to &&, contributed by @Indexed-Apogrypha
+- normalizeBatchResponse pure function + BatchValidity enum (unusable/empty/valid)
+- Alias self-pointing dedup (filterRedundantAliases)
+- Build verification passes (CI matches Obsidian verification exactly)
+- Three-No Principle structured evaluation framework
+- 191 tests across 4 test files (+18 since v1.12.4)
 
 ### Implemented (v1.12.0) — Production-Grade Performance
 
@@ -29,7 +44,15 @@ Production-critical performance release. Extraction fundamentally rearchitected 
 | Hash-bucket dedup (O(n²)→O(n log n)) | No user-reported perf issue; solve when it hurts |
 | Anthropic prompt caching (Issue #38) | System prompts too small for 1024-token cache threshold |
 
-### Next: v1.12.1+ — P3 items + community
+### Next: v1.13.1+ — Community & Polish
+
+**P0 — In Progress**
+- Mock infrastructure + page-factory.ts core tests (~4500 lines, zero tests)
+- runLintWiki phase extraction (835→6×~80 lines)
+
+**P1 — Planned**
+- Query local keyword filter (Layer 1 only, no vector)
+- Architecture diagram (Mermaid) + debug guide
 
 **P3 — Nice-to-have**
 
@@ -346,7 +369,8 @@ Karpathy: *"I like to do them one at a time, and be involved myself."*
 
 | Version | Date | Key Features | Status |
 |---------|------|-------------|--------|
-| **v1.7.18** | 2026-05 | Critical fix: folder name leakage in duplicate merge titles, contaminated alias filtering | Released |
+| **v1.13.0** | 2026-05 | Cross-type dedup, normalizeBatchResponse, aliases seeding, Three-No framework | Ready |
+| **v1.12.6** | 2026-05 | Build verification fix, dependency pinning | Released |
 | **v1.7.17** | 2026-05 | Lint UI freeze fix (async yield in Phase 1 + inner loops), Smart Fix All button count fix, Phase 0 aliases completion | Released |
 | **v1.7.13** | 2026-05 | Provider-aware model filtering (OpenRouter/Ollama), alias-aware wiki index & query | Released |
 | **v1.7.11** | 2026-05 | Mandatory page aliases, semantic-tier duplicate detection, token-budget batching, alias completion, Smart Fix All, frontmatter fixes | Released |

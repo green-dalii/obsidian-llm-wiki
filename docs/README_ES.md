@@ -24,7 +24,7 @@
   - [🔑 Configurar un Provider de LLM](#-configurar-un-provider-de-llm)
   - [🎮 Uso](#-uso)
   - [⚠️ Actualizando desde una Versión Anterior](#️-actualizando-desde-una-versión-anterior)
-- [⚡ Novedades en v1.12.6](#-novedades-en-v1126)
+- [⚡ Novedades en v1.13.0](#-novedades-en-v1130)
 - [✨ Características](#-características)
   - [📊 Calidad del Conocimiento](#-calidad-del-conocimiento)
   - [🛠️ Mantenimiento](#️-mantenimiento)
@@ -119,7 +119,7 @@ Este proyecto evoluciona rápidamente — nuevas funciones, correcciones de erro
 
 **🦙 Ollama (local, sin API key):** Instala [Ollama](https://ollama.com), descarga un model (`ollama pull gemma4`), selecciona "Ollama (Local)" en el menú de provider.
 
-> Consulta [README_CN.md](README_CN.md) para instrucciones de provider específicas en chino.
+> Consulta [README_CN.md](docs/README_CN.md) para instrucciones de provider específicas en chino.
 
 ### 🎮 Uso
 
@@ -179,7 +179,7 @@ Configuración → **Ingestion Acceleration**:
 ---
 ---
 
-## ⚡ Novedades en v1.12.6
+## ⚡ Novedades en v1.13.0
 
 Esta versión se centra en la **prevención de duplicados cross-type**. Cuando la misma entity/concept se clasificaba diferente en sesiones de ingestión distintas, aparecían duplicados en ambas carpetas `entities/` y `concepts/` — el nuevo contenido se descartaba silenciosamente. Esto está corregido.
 
@@ -196,6 +196,22 @@ Esta versión se centra en la **prevención de duplicados cross-type**. Cuando l
 **Recomendamos encarecidamente a todos los usuarios actualizar a esta versión.**
 
 ---
+
+
+Esta es una **actualización de calidad e infraestructura** que abarca múltiples mejoras en fiabilidad de extracción, prevención de duplicados y verificación de compilación.
+
+**Mejoras clave：**
+
+- **Prevención de duplicados cross-type.** `resolvePagePath()` verifica la carpeta opuesta (entities ↔ concepts) y fusiona contenido. Contribución de @dmarchevsky.
+- **Deduplicación multi-ronda.** Las rondas no iniciales reciben lista de nombres y alias ya extraídos — incluso modelos pequeños evitan duplicados sin memoria interna.
+- **Semillas de alias.** La extracción soporta un campo opcional `aliases`. Los alias pre-generados sirven como semilla para la generación de página.
+- **El análisis de fuente ya no falla incorrectamente (#61).** La validación del primer lote usa `&&` en lugar de `||` — fuentes tipo glosario (solo entidades) funcionan correctamente. Contribución de @Indexed-Apogrypha.
+- **Verificación de compilación exitosa.** CI usa `npm install + npm run build`, exactamente como la verificación de Obsidian. Todas las dependencias fijadas.
+- **191 pruebas unitarias (+18).** Nueva cobertura para lógica cross-type, i18n, normalización de lotes, deduplicación de alias.
+
+**¿Actualizando desde una versión anterior？** Ejecute **Lint Wiki** una vez después de actualizar para corregir automáticamente duplicados cross-type históricos. Su configuración existente se conserva.
+
+**Recomendamos encarecidamente a todos los usuarios actualizar a esta versión.**
 
 ## ✨ Características
 

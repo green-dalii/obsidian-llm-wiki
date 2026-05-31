@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-05-31
+
+### Added
+- **Extraction aliases seeding**: Entity and concept extraction now supports `aliases` field (optional). Pre-generated aliases serve as seeds for page generation and act as signals in multi-round extraction to prevent duplicate extractions. Contributed by @Indexed-Apogrypha (PR #61) and @green-dalii (PR #67).
+- **Multi-round extraction context**: Non-first extraction rounds now receive a list of already-extracted names and aliases, enabling the LLM to reliably avoid duplicates even on small/local models that struggle to maintain session state.
+
+### Fixed
+- **Source analysis false abort (#61)**: First batch gate changed from `||` to `&&` — only aborts when BOTH entities and concepts are absent. Previously a glossary source (entities only, no concepts) would incorrectly abort. Contributed by @Indexed-Apogrypha (Matthew Harper).
+- **Hidden TypeError on non-array LLM output**: `normalizeBatchResponse` uses typed `coerceToArray` to handle models returning `entities: true` (or similar non-array truthy values), preventing `TypeError` in downstream `.filter()` calls.
+- **Alias self-pointing duplication**: `appendAliases` now skips aliases that equal the page's own filename, preventing redundant self-pointing frontmatter entries on cross-type collisions.
+
+### Changed
+- **NormalizeBatchResponse pure function**: Extracted 8 scattered `|| []` fallbacks into a centralized pure function with `BatchValidity` enum (`unusable`/`empty`/`valid`), improving testability and fixing edge case handling.
+- **Prompt task 0 clarified**: Separated "field round restrictions" from "content requirements" — each is now an independent task item with front-loaded scope markers.
+- **Generation prompt receives aliases seeds**: Page creation template now includes `{{extraction_aliases}}` field, enabling the LLM to build on pre-extracted alias suggestions.
+- **Three-No Principle structured**: Replaced abstract manual-check descriptions with actionable evaluation procedures (call-site audit, data flow trace, state mutation analysis, breaking-change matrix).
+- **Official blog links added**: All 8 READMEs now include links to the official blog (CHN: `/zh/blog/`, others: `/blog/`).
+
 ## [1.12.6] - 2026-05-30
 
 ### Fixed

@@ -24,7 +24,7 @@
   - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
   - [🎮 Usage](#-usage)
   - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-- [⚡ What's New in v1.12.6](#-whats-new-in-v1126)
+- [⚡ What's New in v1.13.0](#-whats-new-in-v1130)
 - [✨ Features](#-features)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -121,7 +121,7 @@ This project evolves rapidly — new features, bug fixes, and improvements are s
 
 **🦙 Ollama (local, no API key):** Install [Ollama](https://ollama.com), pull a model (`ollama pull gemma4`), select "Ollama (Local)" in the provider dropdown.
 
-> See [README_CN.md](README_CN.md) for provider-specific instructions in Chinese.
+> See [README_CN.md](docs/README_CN.md) for provider-specific instructions in Chinese.
 
 ### 🎮 Usage
 
@@ -181,19 +181,18 @@ Settings → **Ingestion Acceleration**:
 
 ---
 
-## ⚡ What's New in v1.12.6
+## ⚡ What's New in v1.13.0
 
-This release focuses on **cross-type duplicate prevention**. When the same entity/concept is classified differently across ingestion sessions, duplicate pages would previously appear in both `entities/` and `concepts/` folders — with new content silently discarded. This is now fixed.
-
-**Build verification reliability (v1.12.6):** CI workflow now uses `npm install` and `npm run build` to exactly match Obsidian verification system. All dependencies are pinned to exact versions for reproducible builds.
+This is a **quality & infrastructure release** spanning multiple interlocking improvements across extraction reliability, duplicate prevention, and build verification.
 
 **Key Improvements:**
 
-- **Cross-folder duplicate detection.** When a page already exists in the opposite folder (e.g., `concepts/foo.md` exists while extracting entity "Foo"), the new content is merged into that existing page instead of creating a duplicate. No more silent information loss.
-- **Historical duplicates bridged.** Fast path 1 exact-match now also checks the opposite folder. If a historical duplicate exists (both folders had the same page before this release), an alias is automatically added and a warning is logged.
-- **Collision reporting in ingestion modal.** The batch report now displays all cross-type collisions that were merged as aliases — previously this info was aggregated but never shown.
-- **Type-safe i18n.** Added `getText()` helper to eliminate unsafe type casts across the codebase. Missing translation keys are now caught at compile time.
-- **173 unit tests (+8 since v1.12.4).** Comprehensive coverage for the new cross-type logic and i18n helper.
+- **Cross-type duplicate prevention.** When the same entity/concept is classified differently across ingestion sessions, `resolvePagePath()` now checks the opposite folder (entities ↔ concepts) and merges content into the existing page instead of creating a duplicate — no more silent information loss. Contributed by @dmarchevsky.
+- **Multi-round extraction dedup.** Non-first extraction rounds now receive a list of already-extracted names and aliases (new `aliases` field). The LLM can reliably avoid duplicates even on small/local models — no longer relies on internal model state to remember what it already extracted.
+- **Aliases seeding.** Extraction now supports an optional `aliases` field per entity/concept. Pre-generated aliases seed the page generation prompt, producing better-quality page aliases with less hallucination.
+- **Source analysis no longer false-aborts (#61).** First batch validation uses `&&` instead of `||` — glossary-style sources (entities without concepts, or vice versa) now proceed correctly. Contributed by @Indexed-Apogrypha.
+- **Build verification passes.** CI now uses `npm install + npm run build` to match Obsidian's verification system exactly. All dependencies pinned to exact versions.
+- **191 unit tests (+18 since v1.12.4).** New coverage for cross-type logic, i18n helper, batch normalization, alias dedup.
 
 **Upgrading from an older version?** Just run **Lint Wiki** once after upgrading to auto-fix any historical cross-type duplicates. Your existing configuration is preserved — no reconfiguration needed.
 
@@ -283,11 +282,11 @@ Machine learning uses algorithms to learn from data.
 - Reinforcement learning
 ```
 
-**Output — Entity page:** `wiki/entities/supervised-learning.md`
+**Output — Concept page:** `wiki/concepts/supervised-learning.md`
 
 ```markdown
 ---
-type: entity
+type: concept
 created: 2026-05-15
 updated: 2026-05-15
 sources: ["[[sources/machine-learning]]"]
@@ -406,7 +405,7 @@ You drop notes in, it extracts people, concepts, and theories, then generates an
 Obsidian v1.6.6+, desktop (Windows/macOS/Linux), an LLM provider API key. Ollama works locally with no API key. See [Configure an LLM Provider](#-configure-an-llm-provider) above.
 
 **Which model should I use?**
-See [Model Recommendations](#-model-recommendations) above. Long-context models work best — the larger your wiki, the more context the LLM needs.
+See [Model Selection Guide](#-model-selection-guide) above. Long-context models work best — the larger your wiki, the more context the LLM needs.
 
 ### 🏷️ Aliases & Duplicates
 
@@ -509,6 +508,7 @@ This plugin is listed on the Obsidian Community Plugin Market and undergoes auto
 **Clipboard access** is used exclusively by the "Copy" button in the Query modal, and only when you click it.
 
 If you prefer complete data locality, use a local LLM provider such as Ollama or LM Studio. With a local provider, your data never leaves your machine.
+
 ## 📜 License
 
 MIT License — see [LICENSE](LICENSE).

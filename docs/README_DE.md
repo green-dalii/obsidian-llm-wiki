@@ -24,7 +24,7 @@
   - [🔑 LLM Provider konfigurieren](#-llm-provider-konfigurieren)
   - [🎮 Nutzung](#-nutzung)
   - [⚠️ Upgrade von einer älteren Version?](#️-upgrade-von-einer-älteren-version)
-- [⚡ Was ist neu in v1.12.6](#-was-ist-neu-in-v1126)
+- [⚡ Was ist neu in v1.13.0](#-was-ist-neu-in-v1130)
 - [✨ Funktionen](#-funktionen)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -184,7 +184,7 @@ Settings → **Ingestion Acceleration**:
 ---
 ---
 
-## ⚡ Was ist neu in v1.12.6
+## ⚡ Was ist neu in v1.13.0
 
 Diese Version konzentriert sich auf **Cross-Type-Duplikat-Verhinderung**. Wenn dieselbe Entity/Concept in unterschiedlichen Ingestion-Sessions unterschiedlich klassifiziert wurde, entstanden früher Duplikate in beiden Ordnern `entities/` und `concepts/` — neue Inhalte wurden dabei stillschweigend verworfen. Das ist jetzt behoben.
 
@@ -201,6 +201,22 @@ Diese Version konzentriert sich auf **Cross-Type-Duplikat-Verhinderung**. Wenn d
 **Wir empfehlen dringend allen Nutzern das Upgrade auf diese Version.**
 
 ---
+
+
+Dies ist ein **Qualitäts- und Infrastruktur-Release** mit mehreren Verbesserungen bei Extraktionszuverlässigkeit, Duplikatvermeidung und Build-Verifikation.
+
+**Wichtigste Verbesserungen：**
+
+- **Cross-Type-Duplikat-Verhinderung.** Bei unterschiedlicher Klassifizierung derselben Entität/Concepts prüft `resolvePagePath()` den gegenüberliegenden Ordner (entities ↔ concepts) und führt Inhalte in bestehende Seiten zusammen. Beitrag von @dmarchevsky.
+- **Mehrrunden-Extraktions-Dedup.** Nicht-erste Runden erhalten eine Liste bereits extrahierter Namen und Aliase — kleine Modelle benötigen kein internes Gedächtnis mehr.
+- **Alias-Seeds.** Extraktion unterstützt optionales `aliases`-Feld. Vorgenerierte Aliase dienen als Seeds für die Seitenerstellung.
+- **Quellenanalyse bricht nicht mehr fälschlich ab (#61).** Erste-Batch-Prüfung verwendet `&&` statt `||` — Glossar-Quellen (nur Entitäten) werden korrekt verarbeitet. Beitrag von @Indexed-Apogrypha.
+- **Build-Verifikation bestanden.** CI nutzt `npm install + npm run build`, exakt wie Obsidians Prüfung. Alle Abhängigkeiten auf exakte Versionen fixiert.
+- **191 Unit-Tests (+18).** Neue Abdeckung für Cross-Type-Logik, i18n, Batch-Normalisierung, Alias-Dedup.
+
+**Von einer älteren Version upgraden？** Führen Sie nach dem Upgrade einmal **Lint Wiki** aus, um historische Cross-Type-Duplikate automatisch zu beheben. Ihre bestehende Konfiguration bleibt erhalten.
+
+**Wir empfehlen dringend allen Nutzern das Upgrade auf diese Version.**
 
 ## ✨ Funktionen
 

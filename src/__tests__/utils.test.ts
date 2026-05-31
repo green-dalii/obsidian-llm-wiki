@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugify, computeSlug, parseFrontmatter, detectRateLimitFailures, formatRateLimitNotice, cleanMarkdownResponse, enforceFrontmatterConstraints, parseJsonResponse, mergeFrontmatter, preserveFrontmatterReviewTag, extractBody, getText, filterRedundantAliases } from '../utils';
+import { slugify, computeSlug, parseFrontmatter, detectRateLimitFailures, formatRateLimitNotice, cleanMarkdownResponse, enforceFrontmatterConstraints, parseJsonResponse, mergeFrontmatter, preserveFrontmatterReviewTag, extractBody, getText, filterRedundantAliases, coerceToArray } from '../utils';
 import { getGranularityInstruction, getGranularityFixLimits } from '../wiki/system-prompts';
 import { LLMWikiSettings } from '../types';
 
@@ -911,5 +911,42 @@ describe('normalizeBatchResponse', () => {
     expect(normalizeBatchResponse({}).validity).toBe('unusable');
     // Explicit [] → empty (can distinguish from "LLM didn't try")
     expect(normalizeBatchResponse({ entities: [], concepts: [] }).validity).toBe('empty');
+  });
+});
+
+describe('coerceToArray', () => {
+  it('returns the same array when value is an array', () => {
+    const arr = [1, 2, 3];
+    const result = coerceToArray<number>(arr);
+    expect(result).toBe(arr);
+    expect(result).toEqual([1, 2, 3]);
+  });
+
+  it('returns empty array for null', () => {
+    expect(coerceToArray(null)).toEqual([]);
+  });
+
+  it('returns empty array for undefined', () => {
+    expect(coerceToArray(undefined)).toEqual([]);
+  });
+
+  it('returns empty array for non-array truthy value', () => {
+    expect(coerceToArray(true)).toEqual([]);
+  });
+
+  it('returns empty array for string', () => {
+    expect(coerceToArray('hello')).toEqual([]);
+  });
+
+  it('returns empty array for number', () => {
+    expect(coerceToArray(42)).toEqual([]);
+  });
+
+  it('returns empty array for object', () => {
+    expect(coerceToArray({ foo: 'bar' })).toEqual([]);
+  });
+
+  it('preserves array contents', () => {
+    expect(coerceToArray<string>(['a', 'b'])).toEqual(['a', 'b']);
   });
 });

@@ -1,19 +1,22 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-05-30
+**Last Updated:** 2026-05-31
 
 ---
 
-## Current Phase: v1.12.5 — Cross-Type Duplicate Prevention
+## Current Phase: v1.13.0 — Quality & Infrastructure
 
-### Completed (v1.12.5)
-- ✅ **Cross-folder entity/concept duplicate prevention (#54)**: `resolvePagePath()` checks opposite folder (entities ↔ concepts) when same-type matching fails. Cross-type collisions merge content into existing page instead of silently losing information. Contributed by @dmarchevsky.
-- ✅ **Historical cross-type duplicate detection in Fast path 1**: Exact slug match also checks opposite folder, bridging aliases for pre-existing dual pages.
-- ✅ **Collision content preservation**: Collision branch now calls `mergePage`/`appendToReviewedPage` with target's own type, preserving source content instead of discarding it.
-- ✅ **IngestReportModal displays collisions**: Cross-type collisions section added to ingestion report.
-- ✅ **Type-safe i18n**: `getText()` helper replaces 13 instances of `as unknown as Record<string, string>`.
-- ✅ **Reduced I/O**: Cross-type collision uses in-memory path match (eliminates `otherExact` tryReadFile).
-- ✅ **Test coverage**: 173 tests across 4 test files (+8 since v1.12.4).
+### Completed (v1.13.0)
+- ✅ **Cross-type duplicate prevention (#54)**: `resolvePagePath()` checks opposite folder (entities ↔ concepts) when same-type matching fails. Cross-type collisions merge content into existing page instead of silently losing information. Contributed by @dmarchevsky.
+- ✅ **Source analysis false abort fix (#61)**: First batch gate changed from `||` to `&&`. Only aborts when BOTH entities and concepts are absent. Contributed by @Indexed-Apogrypha (Matthew Harper).
+- ✅ **NormalizeBatchResponse pure function**: Centralized ~8 scattered `|| []` fallbacks into `BatchValidity`-typed normalization. Fixes hidden TypeError for non-array truthy LLM output.
+- ✅ **Aliases seeding**: `EntityInfo`/`ConceptInfo.aliases?` — extraction pre-generates alias seeds for page generation and multi-round dedup.
+- ✅ **Multi-round extraction context**: Injects already-extracted names+aliases into later round prompts, eliminating LLM internal-state dependency.
+- ✅ **Prompt task 0 rewritten**: Separated field round restrictions from content requirements.
+- ✅ **Alias self-pointing dedup**: `filterRedundantAliases` skips aliases equal to the page's own filename.
+- ✅ **Three-No Principle structured**: Actionable evaluation procedures (call-site audit, data flow trace, breaking-change matrix).
+- ✅ **CI uses npm for build**: Matches Obsidian verification exactly — Build verification passes.
+- ✅ **191 tests** across 4 test files (+18 since v1.12.4).
 
 ### Completed (v1.12.0)
 - ✅ **Extraction prompt rearchitected**: Full page list removed from prompt. Extraction speed is now independent of wiki size. ~80% faster for typical files.
@@ -22,7 +25,6 @@
 - ✅ **Deterministic related_pages matching**: `matchExtractedToExisting()` uses slug + alias matching — zero LLM cost, more reliable.
 - ✅ **esbuild upgraded**: 0.17.3 → 0.28.0 (dev-server vulnerability fixed).
 - ✅ **Production build suppresses console.debug**: `console.debug = function() {}` banner.
-- ✅ **Silent computeSlug**: `resolvePagePath` bulk matching no longer floods dev console.
 - ✅ **Granularity ≤ notation**: 8 languages synchronized with consistent numbers.
 - ✅ **Extraction and lint progress improvements**: batch counts and cumulative results displayed.
 - ✅ **What's New section in all READMEs**: Localized in 8 languages with proper TOC anchors.

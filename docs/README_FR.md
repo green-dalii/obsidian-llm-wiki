@@ -24,7 +24,7 @@
   - [🔑 Configuration d'un Provider LLM](#-configuration-dun-provider-llm)
   - [🎮 Utilisation](#-utilisation)
   - [⚠️ Mise à niveau depuis une version antérieure ?](#️-mise-à-niveau-depuis-une-version-antérieure-)
-- [⚡ Quoi de neuf dans la v1.12.6](#-quoi-de-neuf-dans-la-v1126)
+- [⚡ Quoi de neuf dans la v1.13.0](#-quoi-de-neuf-dans-la-v1130)
 - [✨ Fonctionnalités](#-fonctionnalités)
   - [📊 Qualité des connaissances](#-qualité-des-connaissances)
   - [🛠️ Maintenance](#️-maintenance)
@@ -119,7 +119,7 @@ Ce projet évolue rapidement — de nouvelles fonctionnalités, corrections de b
 
 **🦙 Ollama (local, sans clé API) :** Installez [Ollama](https://ollama.com), téléchargez un modèle (`ollama pull gemma4`), sélectionnez « Ollama (Local) » dans le menu déroulant des providers.
 
-> Consultez [README_CN.md](README_CN.md) pour les instructions spécifiques aux providers chinois.
+> Consultez [README_CN.md](docs/README_CN.md) pour les instructions spécifiques aux providers chinois.
 
 ### 🎮 Utilisation
 
@@ -179,7 +179,7 @@ Paramètres → **Ingestion Acceleration** :
 ---
 ---
 
-## ⚡ Quoi de neuf dans la v1.12.6
+## ⚡ Quoi de neuf dans la v1.13.0
 
 Cette version se concentre sur la **prévention des doublons cross-type**. Quand une même entity/concept était classifiée différemment selon les sessions d'ingestion, des doublons apparaissaient dans les deux dossiers `entities/` et `concepts/` — le nouveau contenu était silencieusement ignoré. Ce problème est maintenant corrigé.
 
@@ -196,6 +196,22 @@ Cette version se concentre sur la **prévention des doublons cross-type**. Quand
 **Nous recommandons vivement à tous les utilisateurs de mettre à jour vers cette version.**
 
 ---
+
+
+Il s'agit d'une **mise à jour qualité et infrastructure** avec plusieurs améliorations entrelacées : fiabilité d'extraction, prévention des doublons et vérification de build.
+
+**Améliorations clés：**
+
+- **Prévention des doublons cross-type.** `resolvePagePath()` vérifie le dossier opposé (entities ↔ concepts) et fusionne le contenu. Contribution par @dmarchevsky.
+- **Déduplication multi-tour.** Les tours non-initiaux reçoivent la liste des noms et alias déjà extraits — même les petits modèles évitent les doublons sans mémoire interne.
+- **Amorces d'alias.** L'extraction supporte un champ `aliases` optionnel. Les alias pré-générés servent de base à la génération de page.
+- **L'analyse source n'échoue plus par erreur (#61).** La validation du premier lot utilise `&&` au lieu de `||` — les sources glossaire (entités seules) fonctionnent correctement. Contribution par @Indexed-Apogrypha.
+- **Vérification de build réussie.** CI utilise `npm install + npm run build`, identique au système de vérification Obsidian. Toutes les dépendances épinglées.
+- **191 tests unitaires (+18).** Nouvelle couverture pour la logique cross-type, i18n, normalisation de lot, déduplication d'alias.
+
+**Mise à niveau depuis une version antérieure？** Exécutez **Lint Wiki** une fois après la mise à niveau pour corriger automatiquement les doublons cross-type historiques. Votre configuration existante est préservée.
+
+**Nous recommandons vivement à tous les utilisateurs de mettre à jour vers cette version.**
 
 ## ✨ Fonctionnalités
 
@@ -496,6 +512,7 @@ Ce plugin est répertorié sur le marché des plugins communautaires Obsidian et
 **L'accès au presse-papiers** est utilisé exclusivement par le bouton « Copier » dans la fenêtre modale de requête, et uniquement lorsque vous cliquez dessus.
 
 Si vous préférez une localité complète des données, utilisez un fournisseur LLM local tel qu'Ollama ou LM Studio. Avec un fournisseur local, vos données ne quittent jamais votre machine.
+
 ## 📜 Licence
 
 MIT License — voir [LICENSE](LICENSE).
