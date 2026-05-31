@@ -12,7 +12,7 @@ export const INGESTION_PROMPTS = {
 {{granularity_instruction}}
 
 **Task Requirements:**
-0. Output the source file title (source_title) and a 100-200 word source summary (summary). Only output these two fields in the first round
+0. Output the source file title (source_title) and a 100-200 word source summary (summary). These two fields appear in the FIRST round ONLY (omit them in later rounds). This does NOT mean the first round contains only these two fields: you MUST still output the entities and concepts arrays defined below, using [] when a category has no items.
 1. Extract entities and concepts that DESERVE standalone wiki pages — items another note could meaningfully link to, and that remain understandable independent of this source. Apply the wiki-link test before extracting: "Would a different note in this knowledge base link to [[this]]? Would someone search the wiki for this name?" If the answer is no, skip it. Bibliographic references (author citations like "Smith et al. 2022", study/trial names used as evidence pointers, journal article titles) are evidence containers — extract their FINDINGS as concepts instead, not the citation as an entity. Judge by wiki-graph value, not by prominence in the text
 2. Output at most {{batch_size}} items (entities + concepts total) this round
 3. Write a detailed, informative summary for each item (target 4-6 sentences). Include concrete information: what the entity/concept is, its role/significance in the source, key factual details, and how it relates to other items. Provide enough substance that the summary alone can seed a quality Wiki page

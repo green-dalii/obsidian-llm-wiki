@@ -154,13 +154,21 @@ export class SourceAnalyzer {
         }
 
         if (isFirstBatch) {
-          if (!analysisData.entities || !analysisData.concepts) {
-            console.error('❌ Round 1 missing required fields (entities/concepts):', {
+          // A first batch is only unusable when BOTH arrays are absent. A response with
+          // just one (e.g. a glossary that yields only entities) is valid: the rest of this
+          // method already tolerates a missing array via `(... || [])`, and the final guard
+          // below only aborts when nothing was extracted at all. The old `||` aborted the
+          // entire ingest whenever a model omitted an (often empty) array.
+          if (!analysisData.entities && !analysisData.concepts) {
+            console.error('❌ Round 1 missing BOTH entities and concepts (unusable response):', {
               entities: !!analysisData.entities,
               concepts: !!analysisData.concepts
             });
             return null;
           }
+          // A model may omit an empty array entirely instead of returning [].
+          if (!Array.isArray(analysisData.entities)) analysisData.entities = [];
+          if (!Array.isArray(analysisData.concepts)) analysisData.concepts = [];
           if (!analysisData.source_title) {
             console.debug('Round 1 missing source_title, falling back to filename:', file.basename);
           }
