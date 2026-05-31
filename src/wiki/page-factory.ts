@@ -341,6 +341,8 @@ export class PageFactory {
       .replace('{{concept_type}}', info.type)
       .replace('{{entity_summary}}', info.summary)
       .replace('{{concept_summary}}', info.summary)
+      .replace('{{extraction_aliases}}', info.aliases?.length
+        ? `[${info.aliases.join(', ')}]` : 'None')
       .replace('{{mentions}}', truncateMentions(info.mentions_in_source) || 'No specific mentions')
       .replace('{{related_entities}}', info.related_entities?.join(', ') || 'No related entities')
       .replace('{{related_concepts}}', info.related_concepts?.join(', ') || 'No related concepts')

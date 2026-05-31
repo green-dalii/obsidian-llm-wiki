@@ -12,9 +12,10 @@ export const INGESTION_PROMPTS = {
 {{granularity_instruction}}
 
 **Task Requirements:**
-0. Output the source file title (source_title) and a 100-200 word source summary (summary). These two fields appear in the FIRST round ONLY (omit them in later rounds). This does NOT mean the first round contains only these two fields: you MUST still output the entities and concepts arrays defined below, using [] when a category has no items.
-1. Extract entities and concepts that DESERVE standalone wiki pages — items another note could meaningfully link to, and that remain understandable independent of this source. Apply the wiki-link test before extracting: "Would a different note in this knowledge base link to [[this]]? Would someone search the wiki for this name?" If the answer is no, skip it. Bibliographic references (author citations like "Smith et al. 2022", study/trial names used as evidence pointers, journal article titles) are evidence containers — extract their FINDINGS as concepts instead, not the citation as an entity. Judge by wiki-graph value, not by prominence in the text
-2. Output at most {{batch_size}} items (entities + concepts total) this round
+0. [FIRST ROUND ONLY] Write a 100-200 word source summary (field: summary) and extract the source title (field: source_title). These fields must NOT appear in later rounds.
+1. In EVERY round (including the first), output both "entities" and "concepts" arrays. Use [] when a category has no items. Never omit either array.
+2. Optionally generate 1-2 aliases per entity/concept — alternative names, acronyms, translations, or common phrasings. Aliases serve as seeds for page generation and help the model avoid duplicate extractions in later rounds. The aliases field is OPTIONAL in extraction; skip it when no natural alias exists.
+3. Output at most {{batch_size}} items (entities + concepts total) this round
 3. Write a detailed, informative summary for each item (target 4-6 sentences). Include concrete information: what the entity/concept is, its role/significance in the source, key factual details, and how it relates to other items. Provide enough substance that the summary alone can seed a quality Wiki page
 4. For mentions_in_source: quote 2-4 verbatim sentences from the source where this entity/concept appears or is discussed. These quotes are critical — they provide the downstream page generator with source-grounded evidence. Include surrounding context, not just the name mention
 5. For related_entities and related_concepts: identify entities/concepts mentioned in the same context as this item. These should be other items extracted from this same source file
@@ -30,6 +31,7 @@ export const INGESTION_PROMPTS = {
     {
       "name": "Entity name — MUST be in the source's original language, NEVER translate",
       "type": "person|organization|project|product|event|location|other",
+      "aliases": ["Optional: 1-2 alternative names, abbreviations, or translations. Helps prevent duplicate extractions in later rounds.", "If provided, these will seed the page aliases."],
       "summary": "Detailed 4-6 sentence description with concrete facts: identity, role/significance, key attributes",
       "mentions_in_source": ["Verbatim sentence from source: '...'.", "Another verbatim quote: '...'."],
       "related_entities": ["Related entity names from this source"],
@@ -40,6 +42,7 @@ export const INGESTION_PROMPTS = {
     {
       "name": "Concept name — MUST be in the source's original language, NEVER translate",
       "type": "theory|method|technology|term|other",
+      "aliases": ["Optional: 1-2 alternative names, abbreviations, or translations. Helps prevent duplicate extractions in later rounds.", "If provided, these will seed the page aliases."],
       "summary": "Detailed 4-6 sentence description with concrete facts: definition, importance, relationships",
       "mentions_in_source": ["Verbatim sentence from source: '...'.", "Another verbatim quote: '...'."],
       "related_concepts": ["Related concept names from this source"],

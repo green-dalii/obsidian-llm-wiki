@@ -10,6 +10,7 @@ export const GENERATION_PROMPTS = {
 - Mentions in source (VERBATIM — preserve original language): {{mentions}}
 - Related entities: {{related_entities}}
 - Related concepts: {{related_concepts}}
+- Extraction aliases (seeds): {{extraction_aliases}}
 
 **Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}
@@ -71,6 +72,7 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 - Mentions in source (VERBATIM — preserve original language): {{mentions}}
 - Related concepts: {{related_concepts}}
 - Related entities: {{related_entities}}
+- Extraction aliases (seeds): {{extraction_aliases}}
 
 **Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}

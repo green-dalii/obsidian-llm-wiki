@@ -18,6 +18,7 @@ export interface SourceAnalysis {
 export interface EntityInfo {
   name: string;
   type: 'person' | 'organization' | 'project' | 'product' | 'event' | 'location' | 'other';
+  aliases?: string[];  // Pre-generated aliases from extraction (seeds for page generation)
   summary: string;
   mentions_in_source: string[];
   related_entities?: string[];
@@ -27,6 +28,7 @@ export interface EntityInfo {
 export interface ConceptInfo {
   name: string;
   type: 'theory' | 'method' | 'technology' | 'term' | 'other';
+  aliases?: string[];  // Pre-generated aliases from extraction (seeds for page generation)
   summary: string;
   mentions_in_source: string[];
   related_concepts: string[];

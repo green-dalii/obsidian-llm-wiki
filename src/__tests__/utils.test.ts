@@ -805,3 +805,109 @@ describe('coerceToArray', () => {
     expect(result).toEqual(['a', 'b', 'c']);
   });
 });
+
+// ── normalizeBatchResponse is in source-analyzer.ts ──────────────
+
+import {
+  normalizeBatchResponse,
+} from '../wiki/source-analyzer';
+
+describe('normalizeBatchResponse', () => {
+  it('returns unusable for null input', () => {
+    const { validity } = normalizeBatchResponse(null);
+    expect(validity).toBe('unusable');
+  });
+
+  it('returns unusable when both entities and concepts keys are absent', () => {
+    const { validity } = normalizeBatchResponse({});
+    expect(validity).toBe('unusable');
+  });
+
+  it('returns empty when both arrays are explicitly empty', () => {
+    const { validity } = normalizeBatchResponse({ entities: [], concepts: [] });
+    expect(validity).toBe('empty');
+  });
+
+  it('returns valid when only entities are present (glossary case)', () => {
+    const raw = {
+      entities: [{ name: 'Foo', type: 'other' as const, summary: 'S', mentions_in_source: [] }],
+      // concepts key absent — should not cause unusable
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toHaveLength(1);
+    expect(data.concepts).toHaveLength(0);
+  });
+
+  it('returns valid when only concepts are present', () => {
+    const raw = {
+      concepts: [{ name: 'Bar', type: 'theory' as const, summary: 'S', related_concepts: [], mentions_in_source: [] }],
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toHaveLength(0);
+    expect(data.concepts).toHaveLength(1);
+  });
+
+  it('coerces non-array truthy values to empty (e.g. entities: true)', () => {
+    const raw: Record<string, unknown> = {
+      entities: true,
+      concepts: [{ name: 'Bar', type: 'theory' as const, summary: 'S', related_concepts: [], mentions_in_source: [] }],
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toEqual([]);
+    expect(data.concepts).toHaveLength(1);
+  });
+
+  it('coerces null entities to empty', () => {
+    const raw: Record<string, unknown> = {
+      entities: null,
+      concepts: [{ name: 'Bar', type: 'theory' as const, summary: 'S', related_concepts: [], mentions_in_source: [] }],
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toEqual([]);
+  });
+
+  it('filters items with empty name', () => {
+    const raw = {
+      entities: [
+        { name: '', type: 'other' as const, summary: 'S', mentions_in_source: [] },
+        { name: 'Real', type: 'other' as const, summary: 'S', mentions_in_source: [] },
+      ],
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toHaveLength(1);
+    expect(data.entities[0].name).toBe('Real');
+  });
+
+  it('extracts sourceTitle and summary', () => {
+    const raw = {
+      entities: [{ name: 'Foo', type: 'other' as const, summary: 'S', mentions_in_source: [] }],
+      source_title: 'Test Title',
+      summary: 'Test summary body.',
+    };
+    const { data } = normalizeBatchResponse(raw);
+    expect(data.sourceTitle).toBe('Test Title');
+    expect(data.summary).toBe('Test summary body.');
+  });
+
+  it('strips wiki-link formatting from relatedPages', () => {
+    const raw = {
+      entities: [{ name: 'Foo', type: 'other' as const, summary: 'S', mentions_in_source: [] }],
+      related_pages: ['[[entities/Bar]]', '[[concepts/Baz|Baz Title]]'],
+    };
+    const { data } = normalizeBatchResponse(raw);
+    // [[path]] stays as-is (no pipe separator); [[path|name]] strips to display name
+    expect(data.relatedPages).toEqual(['entities/Bar', 'Baz Title']);
+  });
+
+  it('validity is unusable when both keys absent but overrides for empty arrays', () => {
+    // Absent keys → unusable
+    expect(normalizeBatchResponse({}).validity).toBe('unusable');
+    // Explicit [] → empty (can distinguish from "LLM didn't try")
+    expect(normalizeBatchResponse({ entities: [], concepts: [] }).validity).toBe('empty');
+  });
+});

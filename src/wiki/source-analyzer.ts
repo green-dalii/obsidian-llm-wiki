@@ -15,6 +15,78 @@ import { parseJsonResponse, matchExtractedToExisting, coerceToArray } from '../u
 import { getExistingWikiPages } from './lint-fixes';
 import { getGranularityInstruction } from './system-prompts';
 
+// ── Batch response normalization ─────────────────────────────────
+// LLMs often return irregular JSON: omitted empty arrays, non-array truthy
+// values (entities: true), or missing keys entirely. This module centralizes
+// all input validation so the main extraction loop doesn't need scattered
+// `|| []` fallbacks. Pure functions (no IO) — fully unit-testable.
+
+export type BatchValidity = 'valid' | 'empty' | 'unusable';
+
+export interface NormalizedBatch {
+  entities: EntityInfo[];
+  concepts: ConceptInfo[];
+  sourceTitle: string | null;
+  summary: string | null;
+  contradictions: ContradictionInfo[];
+  relatedPages: string[];
+  keyPoints: string[];
+}
+
+// Normalize a raw LLM batch response into a well-formed NormalizedBatch.
+// Returns a validity flag so callers can distinguish:
+//   'unusable' — both arrays absent/unfilled ⟹ abort first batch or skip
+//   'empty'    — both arrays present but zero items ⟹ signal to stop iteration
+//   'valid'    — at least one extractable item found ⟹ continue processing
+export function normalizeBatchResponse(
+  raw: Partial<SourceAnalysis> | null
+): { validity: BatchValidity; data: NormalizedBatch } {
+  if (!raw) {
+    return { validity: 'unusable', data: emptyBatch() };
+  }
+
+  const entities = coerceToArray<EntityInfo>(raw.entities)
+    .filter(e => e?.name?.trim());
+  const concepts = coerceToArray<ConceptInfo>(raw.concepts)
+    .filter(c => c?.name?.trim());
+
+  // Strip wiki-link formatting if LLM outputs [[path|name]] instead of plain name
+  const relatedPages = coerceToArray<string>(raw.related_pages).map(p => {
+    const match = String(p).match(/^\[\[(?:[^\]|]+\|)?([^\]]+)\]\]$/);
+    return match ? match[1] : p;
+  });
+
+  const data: NormalizedBatch = {
+    entities,
+    concepts,
+    sourceTitle: typeof raw.source_title === 'string' ? raw.source_title : null,
+    summary: typeof raw.summary === 'string' ? raw.summary : null,
+    contradictions: coerceToArray<ContradictionInfo>(raw.contradictions),
+    relatedPages,
+    keyPoints: coerceToArray<string>(raw.key_points),
+  };
+
+  if (entities.length === 0 && concepts.length === 0) {
+    // Both absent at key level → truly unusable; both present but empty → empty signal
+    const bothKeysAbsent = raw.entities === undefined && raw.concepts === undefined;
+    return { validity: bothKeysAbsent ? 'unusable' : 'empty', data };
+  }
+
+  return { validity: 'valid', data };
+}
+
+function emptyBatch(): NormalizedBatch {
+  return {
+    entities: [],
+    concepts: [],
+    sourceTitle: null,
+    summary: null,
+    contradictions: [],
+    relatedPages: [],
+    keyPoints: [],
+  };
+}
+
 export class SourceAnalyzer {
   constructor(private ctx: EngineContext) {}
 
@@ -104,7 +176,26 @@ export class SourceAnalyzer {
       if (isFirstBatch) {
         batchContext = 'This is the first extraction round. Extract the most important entities and concepts from the source.';
       } else {
-        batchContext = `This is round ${batchNum + 1} of extraction. Extract the next batch of most important entities and concepts from the remaining content. If no more items are worth extracting, return empty arrays [] for entities and concepts.`;
+        // Build already-extracted context with names and aliases to inform later rounds.
+        // This prevents the LLM from re-extracting duplicates (especially useful for
+        // small models that cannot reliably remember their own previous output).
+        const ctxLines: string[] = [];
+        for (const e of allEntities) {
+          const line = e.aliases?.length
+            ? `${e.name} (aliases: ${e.aliases.join(', ')})`
+            : e.name;
+          ctxLines.push(line);
+        }
+        for (const c of allConcepts) {
+          const line = c.aliases?.length
+            ? `${c.name} (aliases: ${c.aliases.join(', ')})`
+            : c.name;
+          ctxLines.push(line);
+        }
+        const alreadyExtracted = ctxLines.length > 0
+          ? `\n\nAlready extracted from this source:\n  [${ctxLines.join('; ')}]\n  (including abbreviations, synonyms, and translations of these names)\nDo NOT extract them again. If a candidate name is equivalent to any of the above — including their aliases — skip it.`
+          : '';
+        batchContext = `This is round ${batchNum + 1} of extraction. Extract the next batch of most important entities and concepts from the remaining content. If no more items are worth extracting, return empty arrays [] for entities and concepts.${alreadyExtracted}`;
       }
 
       const prompt = staticPrefix + batchContext + suffixTemplate
@@ -153,46 +244,38 @@ export class SourceAnalyzer {
           break;
         }
 
+        const { validity, data: norm } = normalizeBatchResponse(analysisData);
+
         if (isFirstBatch) {
-          // A first batch is only unusable when BOTH arrays are absent. A response with
-          // just one (e.g. a glossary that yields only entities) is valid: the rest of this
-          // method already tolerates a missing array via `(... || [])`, and the final guard
-          // below only aborts when nothing was extracted at all. The old `||` aborted the
-          // entire ingest whenever a model omitted an (often empty) array.
-          if (!analysisData.entities && !analysisData.concepts) {
-            console.error('❌ Round 1 missing BOTH entities and concepts (unusable response):', {
-              entities: !!analysisData.entities,
-              concepts: !!analysisData.concepts
+          if (validity === 'unusable') {
+            console.error('❌ Round 1 unusable — no entities or concepts:', {
+              entities: !!analysisData?.entities,
+              concepts: !!analysisData?.concepts
             });
             return null;
           }
-          // A model may omit an empty array entirely instead of returning [],
-          // or return a non-array truthy value (e.g. entities: true).
-          analysisData.entities = coerceToArray<EntityInfo>(analysisData.entities);
-          analysisData.concepts = coerceToArray<ConceptInfo>(analysisData.concepts);
-          if (!analysisData.source_title) {
+          if (!norm.sourceTitle) {
             console.debug('Round 1 missing source_title, falling back to filename:', file.basename);
           }
           firstBatchData = analysisData;
-          sourceTitle = analysisData.source_title || file.basename;
-          sourceSummary = analysisData.summary || '';
-          contradictions = analysisData.contradictions || [];
-          relatedPages = (analysisData.related_pages || []).map(p => {
-            // Strip wiki-link formatting if LLM outputs [[path|name]] instead of plain name
-            const match = String(p).match(/^\[\[(?:[^\]|]+\|)?([^\]]+)\]\]$/);
-            return match ? match[1] : p;
-          });
-          keyPoints = analysisData.key_points || [];
+          sourceTitle = norm.sourceTitle || file.basename;
+          sourceSummary = norm.summary || '';
+          contradictions = norm.contradictions;
+          relatedPages = norm.relatedPages;
+          keyPoints = norm.keyPoints;
         }
 
-        const newEntities = (analysisData.entities || []).filter(e => {
-          if (!e.name?.trim()) return false;
+        if (validity === 'empty') {
+          console.debug(`[Batch ${batchNum + 1}] LLM returned empty arrays, stopping iteration`);
+          break;
+        }
+
+        const newEntities = norm.entities.filter(e => {
           if (extractedNames.has(e.name.trim().toLowerCase())) return false;
           return true;
         });
 
-        const newConcepts = (analysisData.concepts || []).filter(c => {
-          if (!c.name?.trim()) return false;
+        const newConcepts = norm.concepts.filter(c => {
           if (extractedNames.has(c.name.trim().toLowerCase())) return false;
           return true;
         });
@@ -222,7 +305,7 @@ export class SourceAnalyzer {
           console.debug(`[Batch ${batchNum + 1}] Response length ${response.length} 超过阈值 ${Math.round(RESPONSE_FULLNESS_THRESHOLD)}，batch_size: ${prevSize} → ${currentBatchSize}`);
         }
 
-        const rawTotal = (analysisData.entities || []).length + (analysisData.concepts || []).length;
+        const rawTotal = norm.entities.length + norm.concepts.length;
         const newTotal = cappedEntities.length + cappedConcepts.length;
         finalBatchNum = batchNum + 1;
 
