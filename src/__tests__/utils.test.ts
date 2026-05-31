@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugify, computeSlug, parseFrontmatter, detectRateLimitFailures, formatRateLimitNotice, cleanMarkdownResponse, enforceFrontmatterConstraints, parseJsonResponse, mergeFrontmatter, preserveFrontmatterReviewTag, extractBody, getText } from '../utils';
+import { slugify, computeSlug, parseFrontmatter, detectRateLimitFailures, formatRateLimitNotice, cleanMarkdownResponse, enforceFrontmatterConstraints, parseJsonResponse, mergeFrontmatter, preserveFrontmatterReviewTag, extractBody, getText, coerceToArray } from '../utils';
 import { getGranularityInstruction, getGranularityFixLimits } from '../wiki/system-prompts';
 import { LLMWikiSettings } from '../types';
 
@@ -766,5 +766,42 @@ describe('getText', () => {
   it('handles non-existent replacement placeholders gracefully', () => {
     const result = getText('en', 'ingestionCancelled', { nonexistent: 'foo' });
     expect(result).toBe('Ingestion cancelled');
+  });
+});
+
+describe('coerceToArray', () => {
+  it('returns the array unchanged when value is already an array', () => {
+    const arr = [{ name: 'A' }, { name: 'B' }];
+    expect(coerceToArray(arr)).toBe(arr);
+  });
+
+  it('returns empty array when value is undefined', () => {
+    expect(coerceToArray(undefined)).toEqual([]);
+  });
+
+  it('returns empty array when value is null', () => {
+    expect(coerceToArray(null)).toEqual([]);
+  });
+
+  it('returns empty array when value is a non-array truthy value (e.g. true)', () => {
+    // This is the PR #61 fix: models may return entities: true
+    expect(coerceToArray(true)).toEqual([]);
+  });
+
+  it('returns empty array when value is a string', () => {
+    expect(coerceToArray('not an array')).toEqual([]);
+  });
+
+  it('returns empty array when value is a number', () => {
+    expect(coerceToArray(42)).toEqual([]);
+  });
+
+  it('returns empty array when value is an object', () => {
+    expect(coerceToArray({ foo: 'bar' })).toEqual([]);
+  });
+
+  it('preserves array contents correctly', () => {
+    const result = coerceToArray(['a', 'b', 'c']);
+    expect(result).toEqual(['a', 'b', 'c']);
   });
 });

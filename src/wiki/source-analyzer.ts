@@ -11,7 +11,7 @@ import {
   WIKI_LANGUAGES,
 } from '../types';
 import { PROMPTS } from '../prompts';
-import { parseJsonResponse, matchExtractedToExisting } from '../utils';
+import { parseJsonResponse, matchExtractedToExisting, coerceToArray } from '../utils';
 import { getExistingWikiPages } from './lint-fixes';
 import { getGranularityInstruction } from './system-prompts';
 
@@ -166,9 +166,10 @@ export class SourceAnalyzer {
             });
             return null;
           }
-          // A model may omit an empty array entirely instead of returning [].
-          if (!Array.isArray(analysisData.entities)) analysisData.entities = [];
-          if (!Array.isArray(analysisData.concepts)) analysisData.concepts = [];
+          // A model may omit an empty array entirely instead of returning [],
+          // or return a non-array truthy value (e.g. entities: true).
+          analysisData.entities = coerceToArray<EntityInfo>(analysisData.entities);
+          analysisData.concepts = coerceToArray<ConceptInfo>(analysisData.concepts);
           if (!analysisData.source_title) {
             console.debug('Round 1 missing source_title, falling back to filename:', file.basename);
           }

@@ -872,3 +872,13 @@ export function matchExtractedToExisting(
   }
   return [...matched];
 }
+
+// Coerce a potentially non-array value to an array.
+// Used for LLM output normalization where models may omit empty arrays
+// or return non-array truthy values (e.g. entities: true). Pure function.
+export function coerceToArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+  return [];
+}
