@@ -73,16 +73,19 @@ export class PageFactory {
 
   // Determine the actual file path for a new entity/concept, using slug-based
   // matching first and falling back to LLM semantic resolution.
+  // Returns null when a cross-type collision is detected (same name exists in the
+  // opposite folder) — callers must skip page creation in that case.
   private async resolvePagePath(
     name: string,
     pageType: 'entity' | 'concept',
     summary: string
-  ): Promise<string> {
+  ): Promise<string | null> {
     const folder = pageType === 'entity' ? 'entities' : 'concepts';
+    const otherFolder = pageType === 'entity' ? 'concepts' : 'entities';
     const slug = slugify(name);
     const slugPath = `${this.ctx.settings.wikiFolder}/${folder}/${slug}.md`;
 
-    // Fast path: exact slug match
+    // Fast path: exact slug match (same type folder)
     const existing = await this.ctx.tryReadFile(slugPath);
     if (existing !== null) return slugPath;
 
@@ -111,6 +114,26 @@ export class PageFactory {
       if (slugMatch) {
         await this.appendAliases(slugMatch.path, [name]);
         return slugMatch.path;
+      }
+
+      // Cross-type collision check: if the same name already exists in the opposite
+      // folder, skip creation to prevent entity/concept duplicates across folders.
+      const otherTypePages = allPages.filter(p => p.path.includes(`/${otherFolder}/`));
+      const otherSlugPath = `${this.ctx.settings.wikiFolder}/${otherFolder}/${slug}.md`;
+      const otherExact = await this.ctx.tryReadFile(otherSlugPath);
+      if (otherExact !== null) {
+        console.debug(`Cross-type collision: "${name}" already exists in /${otherFolder}/, skipping duplicate`);
+        await this.appendAliases(otherSlugPath, [name]);
+        return null;
+      }
+      const otherMatch = otherTypePages.find(p =>
+        computeSlug(p.title).toLowerCase() === targetSlug ||
+        (p.aliases || []).some(a => computeSlug(a).toLowerCase() === targetSlug)
+      );
+      if (otherMatch) {
+        console.debug(`Cross-type collision (normalized): "${name}" matched ${otherMatch.path}, skipping duplicate`);
+        await this.appendAliases(otherMatch.path, [name]);
+        return null;
       }
 
       if (sameTypePages.length === 0) return slugPath;
@@ -239,6 +262,10 @@ export class PageFactory {
     console.debug('type:', info.type);
 
     const path = await this.resolvePagePath(info.name, pageType, info.summary);
+    if (path === null) {
+      console.debug(`Skipping ${pageType} "${info.name}": cross-type duplicate exists`);
+      return null;
+    }
     console.debug('Resolved path:', path);
 
     const existingContent = await this.ctx.tryReadFile(path);
