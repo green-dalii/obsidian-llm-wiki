@@ -44,37 +44,28 @@ Production-critical performance release. Extraction fundamentally rearchitected 
 | Hash-bucket dedup (O(n²)→O(n log n)) | No user-reported perf issue; solve when it hurts |
 | Anthropic prompt caching (Issue #38) | System prompts too small for 1024-token cache threshold |
 
-### Next: v2.0.0 — Architecture Quality (Testing Infrastructure + ConflictResolver)
+### Next: v1.14.0 — Core Tests Expansion
 
-**P0 — Core Engine Testing Infrastructure**
-- **Mock infrastructure**: `createMockContext` (~80 lines). mock vault IO (in-memory Map) + mock LLM (preset responses) + mock settings (fixed config). Pure TypeScript + vitest, no Obsidian runtime needed.
-- **ConflictResolver**: Extract conflict detection from `resolvePagePath` into a pure logic layer (`src/core/conflict-resolver.ts`). Zero side effects, 10+ test cases. No dependency on Mock layer — can be developed in parallel.
-- **First batch tests**: source-analyzer's analyzeSource path + page-factory's resolvePagePath core logic. Target: 202 → 210+ tests.
+**P0 — Core Engine Tests**
+
+| Item | Status |
+|------|--------|
+| mock infrastructure (`createMockContext`) | ✅ Done (86f5765) |
+| source-analyzer core tests (5 cases) | ✅ Done (ddf77d4) |
+| page-factory appendAliases tests (5 cases) | ✅ Done (feat/mock-infrastructure) |
+| ConflictResolver (7 cases) | ✅ Done (feat/conflict-resolver) |
+| wiki-engine ingestSource full path | ⬜ ~1 day |
+| query-engine core flow | ⬜ ~1 day |
 
 **P1 — Planned**
-- **firstBatchData type narrowing**: `Partial<SourceAnalysis>` → `NormalizedBatch`. ~2 lines, eliminates `|| []` residual from defensive fallbacks.
-- Mock infrastructure + page-factory.ts core tests (~4500 lines, zero tests)
-- runLintWiki phase extraction (835→6×~80 lines)
-- Query local keyword filter (Layer 1 only, no vector)
-- Architecture diagram (Mermaid) + debug guide
+- page-factory.ts full path: resolvePagePath LLM fallback + mergePage + appendToReviewedPage
+- runLintWiki phase extraction (762→6×~130 lines)
+- firstBatchData type narrowing ✅ (merged via PR #69)
 
-**P3 — Nice-to-have**
-
-| Action | Effort | Why |
-|--------|--------|-----|
-| #36 — Source title in frontmatter | 1h | Needs clarification from issue author |
-| Good First Issue tagging | 10min | Community growth |
-| LLM client retry extraction | 2h | Code quality (low priority)
-
-### Evaluated & Rejected (v1.12.0)
-
-| Proposal | Reason |
-|----------|--------|
-| Hexagonal Architecture (Port-Adapter) | Over-engineering for Obsidian plugin context |
-| Vector search (Ollama embeddings) | Requires infrastructure <1% of users have |
-| Hash-bucket dedup (O(n²)→O(n log n)) | No user-reported perf issue; solve when it hurts |
-| page-factory try/catch completion | Exceptions bubble to centralized handler by design |
-| API URL validation | Obsidian's requestUrl already validates |
+**P2 — Backlog**
+- #36 — Source title in frontmatter (1h, needs clarification)
+- Good First Issue tagging (10min)
+- WIKI_SUBFOLDERS full migration in lint-fixes.ts frontmatter writes (10min)
 
 ### Implemented (v1.11.0) — Full Issue Resolution & UX Hardening
 

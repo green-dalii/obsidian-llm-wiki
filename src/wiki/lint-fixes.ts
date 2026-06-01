@@ -5,7 +5,7 @@ import { App } from 'obsidian';
 import { EngineContext } from '../types';
 import { PROMPTS } from '../prompts';
 import { slugify, parseJsonResponse, cleanMarkdownResponse, parseFrontmatter, enforceFrontmatterConstraints } from '../utils';
-import { TOKENS_LINT_PAGE_FIX, TOKENS_LINT_ORPHAN_FIX } from '../constants';
+import { TOKENS_LINT_PAGE_FIX, TOKENS_LINT_ORPHAN_FIX, WIKI_SUBFOLDERS } from '../constants';
 import {
   buildSystemPrompt,
   getSectionLabels,
@@ -205,8 +205,8 @@ export class LintFixer {
 
       const stubType = result.stub_type || 'entity';
       const pluralMap: Record<string, string> = {
-        entity: 'entities',
-        concept: 'concepts',
+        entity: WIKI_SUBFOLDERS.entities,
+        concept: WIKI_SUBFOLDERS.concepts,
       };
       const stubDir = pluralMap[stubType] || `${stubType}s`;
       const stubSlug = slugify(sanitizedTitle);
@@ -333,11 +333,11 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
 
     const beforeLen = content.length;
 
-    const pageType = pagePath.includes('/entities/')
-      ? 'entities'
-      : pagePath.includes('/concepts/')
-        ? 'concepts'
-        : 'sources';
+    const pageType = pagePath.includes(`/${WIKI_SUBFOLDERS.entities}/`)
+      ? WIKI_SUBFOLDERS.entities
+      : pagePath.includes(`/${WIKI_SUBFOLDERS.concepts}/`)
+        ? WIKI_SUBFOLDERS.concepts
+        : WIKI_SUBFOLDERS.sources;
     const indexPath = `${this.ctx.settings.wikiFolder}/index.md`;
     let wikiIndex = (await this.ctx.tryReadFile(indexPath)) || '';
 
@@ -435,7 +435,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     // its training data (e.g. 2024) which is older than `created`.
     const dateStr = new Date().toISOString().split('T')[0];
     const withDates = normalizeFrontmatterDates(stubFree, dateStr);
-    const pageTypeSingular = pageType === 'entities' ? 'entity' : pageType === 'concepts' ? 'concept' : 'source';
+    const pageTypeSingular = pageType === WIKI_SUBFOLDERS.entities ? 'entity' : pageType === WIKI_SUBFOLDERS.concepts ? 'concept' : 'source';
     const enforced = enforceFrontmatterConstraints(withDates, pageTypeSingular);
 
     await this.ctx.createOrUpdateFile(pagePath, enforced);
@@ -569,7 +569,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
 
     // Filter out contaminated aliases: folder-name-prefix leakage
     // e.g. "entitiesDeepSeek-V3-2" → startsWith("entities") && longer than "entities"
-    const wikiSubfolders = ['entities', 'concepts', 'sources'];
+    const wikiSubfolders = [WIKI_SUBFOLDERS.entities, WIKI_SUBFOLDERS.concepts, WIKI_SUBFOLDERS.sources];
     const cleanAliases = allAliases.filter(a => {
       if (!a) return false;
       for (const folder of wikiSubfolders) {
@@ -661,7 +661,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     fmLines.push(`created: ${targetFm?.created || today}`);
     fmLines.push(`updated: ${today}`);
     if (mergedSourcesList.length > 0) {
-      fmLines.push('sources:');
+      fmLines.push(`${WIKI_SUBFOLDERS.sources}:`);
       for (const s of mergedSourcesList) fmLines.push(`  - "${s}"`);
     }
     const tags = Array.isArray(targetFm?.tags) ? targetFm.tags : [];

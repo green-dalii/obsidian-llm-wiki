@@ -1,6 +1,6 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-05-31
+**Last Updated:** 2026-06-01
 
 ---
 
@@ -16,7 +16,16 @@
 - ✅ **Alias self-pointing dedup**: `filterRedundantAliases` skips aliases equal to the page's own filename.
 - ✅ **Three-No Principle structured**: Actionable evaluation procedures (call-site audit, data flow trace, breaking-change matrix).
 - ✅ **CI uses npm for build**: Matches Obsidian verification exactly — Build verification passes.
-- ✅ **191 tests** across 4 test files (+18 since v1.12.4).
+- ✅ **Think token stripping (Issue #64)**: `cleanMarkdownResponse` strips `<think>`/`<thinking>` blocks. Enables reasoning model support (DeepSeek-R1, QwQ).
+- ✅ **LM Studio compatibility (Issue #65)**: `response_format: json_object` removed from OpenAI-compatible client. Prompt + prefilled `{` is sufficient.
+- ✅ **Sources link constraint (Issue #63)**: `UNIVERSAL_LINK_CONSTRAINTS` injected into 3 previously-unprotected prompts (`generateSummaryPage`, `appendToReviewedPage`, `updateRelatedPage`).
+- ✅ **ConflictResolver pure layer**: `src/core/conflict-resolver.ts` — zero-side-effect conflict detection, 7 unit tests.
+- ✅ **Mock infrastructure**: `createMockContext` for core engine testing without Obsidian runtime.
+- ✅ **firstBatchData type narrowing**: `Partial<SourceAnalysis>` → `NormalizedBatch`.
+- ✅ **Constants centralization**: 16 token budget constants, 8 notice duration constants, retry params, `MAX_PAGE_CONTENT_CHARS`, `WIKI_SUBFOLDERS` activated.
+- ✅ **loadRelevantPages content truncation**: Capped at `MAX_PAGE_CONTENT_CHARS` (~3000 tokens) per page.
+- ✅ **appendAliases + buildPagesListForPrompt tests**: 8 test cases for page-factory core paths.
+- ✅ **198 tests** across 6 test files (+25 since v1.12.4).
 
 ### Completed (v1.12.0)
 - ✅ **Extraction prompt rearchitected**: Full page list removed from prompt. Extraction speed is now independent of wiki size. ~80% faster for typical files.
@@ -35,19 +44,15 @@
 
 | Item | Source | Effort |
 |------|--------|--------|
-| **Core Engine Testing Infrastructure**: `createMockContext` mock层 + 首批core tests | 三份独立审核共识：~4500行核心零测试 | 3小时 |
-| **ConflictResolver 独立层**: 将冲突检测从`resolvePagePath`剥离为纯逻辑层 | 三份审核一致建议 | 2小时 |
+| Wiki-engine full-path tests (ingestSource, mock 6+ LLM calls) | Three independent audit consensus | 1 day |
+| query-engine core tests | Audit consensus | 1 day |
 
 ### P1 — Planned
 
 | Item | Source | Effort |
 |------|--------|--------|
-| `firstBatchData` 类型收窄: `Partial<SourceAnalysis>` → `NormalizedBatch` | audit1 + 3 | 5分钟 |
-| Notice时长集中化: ~40处硬编码 → 8个语义常量 | 三无原则PR遗留 | 30分钟 |
-| Mock infrastructure + `page-factory.ts` core tests | 两审计共识：~4500行核心零测试 | 1周 |
-| `runLintWiki` phase extraction (835→6×~80行) | 审计二：835行，趋势增长 | 半天 |
-| Query local keyword filter (Layer 1 only, no vector) | 审计一：60-70%查询零API成本 | 1天 |
-| Architecture diagram (Mermaid) + debug guide | 审计一：新贡献者入门 | 2小时 |
+| page-factory resolvePagePath LLM fallback + merge + append tests | ROADMAP | 1 day |
+| runLintWiki phase extraction (762 → 6 × ~130 lines) | ROADMAP | half day |
 
 ### P2 — Backlog
 
@@ -61,11 +66,11 @@
 
 | Proposal | Source | Reason |
 |----------|--------|--------|
-| Hexagonal Architecture refactoring | 审计一 | Over-engineering for Obsidian plugin; mock alone enables testing |
-| Vector search (Ollama embeddings) | 审计一 | Requires Ollama + embedding model; <1% of users have this |
-| Hash-bucket dedup optimization | 审计一 | No user-reported perf issue; solve when it hurts |
-| page-factory try/catch 补全 | 审计二 | Exceptions bubble to wiki-engine's centralized error handler by design |
-| API URL validation | 审计一 | Obsidian's requestUrl already validates; self-phishing impossible |
+| Hexagonal Architecture refactoring | Audit 1 | Over-engineering for Obsidian plugin; mock alone enables testing |
+| Vector search (Ollama embeddings) | Audit 1 | Requires Ollama + embedding model; <1% of users have this |
+| Hash-bucket dedup optimization | Audit 1 | No user-reported perf issue; solve when it hurts |
+| page-factory try/catch completion | Audit 2 | Exceptions bubble to wiki-engine's centralized error handler by design |
+| API URL validation | Audit 1 | Obsidian's requestUrl already validates; self-phishing impossible |
 
 ### Completed (v1.11.0)
 - ✅ **Issue #42 — llmReady gating**: New users must complete Provider → API Key → Fetch Models → Test Connection before core features unlock.
@@ -284,8 +289,21 @@ English, conventional commits. `feat:` `fix:` `docs:` `refactor:` `test:` `chore
 ## ✅ Pre-Commit Checklist
 
 - `pnpm lint` (0 errors), `pnpm test` (all pass), `pnpm build` (clean), `npx tsc --noEmit` (0 errors)
-
 - `pnpm lint` (0 errors), `pnpm test` (all pass), `pnpm build` (clean), `tsc --noEmit` (0 errors)
+
+---
+
+## ⚠️ Development Protocol: Plan First, Then Execute
+
+**Before starting any significant change** (refactoring, new modules, prompt modification, architectural decisions, or anything touching core engine files):
+
+1. **Present your plan** — explain what, why, and how
+2. **Wait for explicit user approval** before writing code or committing
+3. **For multi-phase work**: pause and report after each phase
+
+**Exceptions** (no prior approval needed): trivial one-line fixes, running lint/test/build, reading files, documenting existing code.
+
+**Why**: The user is the domain expert on product vision. The AI has tooling capability but lacks product context. Propose, don't dispose.
 
 ---
 

@@ -5,6 +5,7 @@
 // independently identified coupling in resolvePagePath as the top architecture debt.
 
 import { computeSlug } from '../utils';
+import { WIKI_SUBFOLDERS } from '../constants';
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -37,11 +38,11 @@ export interface ConflictResolution {
 // ── Helpers ───────────────────────────────────────────────────────
 
 function folderOf(pageType: PageType): string {
-  return pageType === 'entity' ? 'entities' : 'concepts';
+  return pageType === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
 }
 
 function oppositeFolder(pageType: PageType): string {
-  return pageType === 'entity' ? 'concepts' : 'entities';
+  return pageType === 'entity' ? WIKI_SUBFOLDERS.concepts : WIKI_SUBFOLDERS.entities;
 }
 
 /** Return the slug-match key for a page: its title's slug + its alias slugs. */
@@ -107,7 +108,7 @@ export class ConflictResolver {
         action: 'merge',
         targetPath: match.path,
         existingPath: match.path,
-        existingType: otherFolder === 'entities' ? 'entity' : 'concept',
+        existingType: otherFolder === WIKI_SUBFOLDERS.entities ? 'entity' : 'concept',
         aliasToAdd: check.name !== match.title ? check.name : null,
         confidence: 'high',
         reason: `Cross-type collision: ${check.pageType} "${check.name}" → ${match.path}`,

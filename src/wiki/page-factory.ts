@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { ConflictResolver } from '../core/conflict-resolver';
+import { WIKI_SUBFOLDERS } from '../constants';
 import { TOKENS_DEDUP_RESOLUTION, TOKENS_PAGE_GENERATION, TOKENS_APPEND_REVIEWED } from '../constants';
 import {
   slugify,
@@ -92,8 +93,8 @@ export class PageFactory {
     pageType: 'entity' | 'concept',
     summary: string
   ): Promise<PageCreationResult> {
-    const folder = pageType === 'entity' ? 'entities' : 'concepts';
-    const otherFolder = pageType === 'entity' ? 'concepts' : 'entities';
+    const folder = pageType === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
+    const otherFolder = pageType === 'entity' ? WIKI_SUBFOLDERS.concepts : WIKI_SUBFOLDERS.entities;
     const slug = slugify(name);
     const slugPath = `${this.ctx.settings.wikiFolder}/${folder}/${slug}.md`;
 
@@ -132,7 +133,7 @@ export class PageFactory {
           collision: {
             name,
             sourceType: pageType,
-            targetType: cr.existingType || (otherFolder === 'entities' ? 'entity' : 'concept'),
+            targetType: cr.existingType || (otherFolder === WIKI_SUBFOLDERS.entities ? 'entity' : 'concept'),
             targetPath: cr.targetPath
           }
         };

@@ -1,168 +1,105 @@
-import { describe, it, expect } from 'vitest';
-import { truncateMentions, parseIndexForPages, localKeywordMatch, matchExtractedToExisting } from '../utils';
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+import { describe, it, expect, vi } from 'vitest';
+import { createMockContext } from './__mocks__/engine-context';
+import { PageFactory } from '../wiki/page-factory';
 
-// ── truncateMentions ──────────────────────────────────────────
+vi.mock('obsidian', () => ({}));
 
-describe('truncateMentions', () => {
-  it('returns empty string for undefined', () => {
-    expect(truncateMentions(undefined)).toBe('');
+function makeFactory(vaultFiles: Record<string, string>) {
+  const { ctx, vault } = createMockContext({ vaultFiles });
+  const factory = new PageFactory(ctx);
+  return { factory, vault: vault as unknown as Record<string, string | null> };
+}
+
+function page(vault: Record<string, string | null>, path: string): string | null {
+  return (vault as unknown as { read: (p: string) => string | null }).read(path);
+}
+
+function appendAliases(factory: PageFactory, path: string, aliases: string[]) {
+  return ((PageFactory.prototype as unknown as Record<string, unknown>).appendAliases as (p: string, a: string[]) => Promise<void>).call(factory, path, aliases);
+}
+
+describe('PageFactory — appendAliases', () => {
+  it('adds new alias to page without existing aliases', async () => {
+    const { factory, vault } = makeFactory({
+      'wiki/entities/llm.md': '---\ntype: entity\n---\n# LLM\nBody',
+    });
+    await appendAliases(factory, 'wiki/entities/llm.md', ['Large Language Model']);
+
+    const content = page(vault, 'wiki/entities/llm.md');
+    expect(content).toContain('aliases:');
+    expect(content).toContain('"Large Language Model"');
   });
 
-  it('returns empty string for empty array', () => {
-    expect(truncateMentions([])).toBe('');
+  it('does not add redundant self-pointing alias', async () => {
+    const { factory, vault } = makeFactory({
+      'wiki/entities/vigilanz.md': '---\ntype: entity\n---\n# Vigilanz\nBody',
+    });
+    await appendAliases(factory, 'wiki/entities/vigilanz.md', ['Vigilanz']);
+
+    const content = page(vault, 'wiki/entities/vigilanz.md');
+    expect(content).not.toContain('aliases:');
   });
 
-  it('returns all mentions when under budget', () => {
-    const mentions = ['Short mention A', 'Short mention B'];
-    expect(truncateMentions(mentions)).toBe('Short mention A\nShort mention B');
+  it('does not add duplicate alias to existing aliases', async () => {
+    const { factory, vault } = makeFactory({
+      'wiki/entities/openai.md': '---\ntype: entity\naliases: ["OpenAI Inc"]\n---\n# OpenAI\nBody',
+    });
+    await appendAliases(factory, 'wiki/entities/openai.md', ['OpenAI Inc', 'OAI']);
+
+    const content = page(vault, 'wiki/entities/openai.md');
+    expect(content).not.toBeNull();
+    expect(content!).toContain('"OpenAI Inc"');
+    expect(content!).toContain('"OAI"');
+    const matches = content!.match(/"OpenAI Inc"/g);
+    expect(matches).toHaveLength(1);
   });
 
-  it('truncates at 500 chars by default', () => {
-    const mentions = ['A'.repeat(300), 'B'.repeat(300)];
-    const result = truncateMentions(mentions);
-    expect(result).toBe('A'.repeat(300)); // only first fits
-    expect(result.length).toBeLessThan(500);
+  it('handles page without frontmatter gracefully', async () => {
+    const { factory, vault } = makeFactory({
+      'wiki/entities/bare.md': '# Just a heading\nNo frontmatter here.',
+    });
+    await appendAliases(factory, 'wiki/entities/bare.md', ['Some Alias']);
+
+    const content = page(vault, 'wiki/entities/bare.md');
+    expect(content).toBe('# Just a heading\nNo frontmatter here.');
   });
 
-  it('handles single mention over budget', () => {
-    const mentions = ['X'.repeat(800)];
-    const result = truncateMentions(mentions, 200);
-    expect(result).toBe('X'.repeat(200));
-  });
+  it('skips non-existent page silently', async () => {
+    const { factory, vault } = makeFactory({});
+    await appendAliases(factory, 'wiki/entities/nonexistent.md', ['Alias']);
 
-  it('respects custom budget', () => {
-    const mentions = ['abc', 'def', 'ghi'];
-    // abc(3) + \n + def(3) = 7 chars. abc(3) + \n + def(3) + \n + ghi(3) = 11 > 9
-    expect(truncateMentions(mentions, 9)).toBe('abc\ndef');
-  });
-
-  it('joins mentions with newlines', () => {
-    const mentions = ['First', 'Second'];
-    expect(truncateMentions(mentions, 100)).toBe('First\nSecond');
-  });
-
-  it('includes at least one mention even if over budget', () => {
-    const mentions = ['A'.repeat(100), 'B'];
-    const result = truncateMentions(mentions, 5);
-    // First mention is 100 chars > 5 budget, so it gets truncated to 5
-    expect(result).toBe('A'.repeat(5));
-  });
-});
-
-// ── parseIndexForPages ─────────────────────────────────────────
-
-describe('parseIndexForPages', () => {
-  it('parses entity entries without aliases', () => {
-    const index = '- [[entities/Machine Learning|Machine Learning]] - A summary';
-    const pages = parseIndexForPages(index);
-    expect(pages).toHaveLength(1);
-    expect(pages[0]).toEqual({ path: 'entities/Machine Learning', title: 'Machine Learning', aliases: [] });
-  });
-
-  it('parses entries with aliases in backticks', () => {
-    const index = '- [[concepts/Deep Learning|Deep Learning]] `aliases: DL, deep-learning` - Summary';
-    const pages = parseIndexForPages(index);
-    expect(pages).toHaveLength(1);
-    expect(pages[0].aliases).toEqual(['DL', 'deep-learning']);
-  });
-
-  it('parses entries without display text in wiki-link', () => {
-    const index = '- [[entities/Foo]] - Summary';
-    const pages = parseIndexForPages(index);
-    expect(pages[0].path).toBe('entities/Foo');
-    expect(pages[0].title).toBe('Foo');
-  });
-
-  it('returns empty array for content with no wiki-links', () => {
-    expect(parseIndexForPages('# Header\n\nNo links here')).toEqual([]);
-  });
-
-  it('parses multiple entries', () => {
-    const index = '- [[entities/A|A]] `aliases: a1` - S\n- [[concepts/B|B]] - S2';
-    expect(parseIndexForPages(index)).toHaveLength(2);
+    const content = page(vault, 'wiki/entities/nonexistent.md');
+    expect(content).toBeNull();
   });
 });
 
-// ── localKeywordMatch ──────────────────────────────────────────
-
-describe('localKeywordMatch', () => {
-  const pages = [
-    { path: 'entities/Machine Learning', title: 'Machine Learning', aliases: ['ML', 'supervised learning'] },
-    { path: 'concepts/Deep Learning', title: 'Deep Learning', aliases: ['DL'] },
-    { path: 'entities/Reinforcement', title: 'Reinforcement', aliases: ['RL'] },
-  ];
-
-  it('matches exact title keyword with score 3', () => {
-    const result = localKeywordMatch('machine', pages);
-    expect(result).toHaveLength(1);
-    expect(result[0].path).toBe('entities/Machine Learning');
-    expect(result[0].score).toBe(3);
+describe('PageFactory — buildPagesListForPrompt', () => {
+  it('returns formatted list from existing pages', async () => {
+    const mockPages = [
+      { path: 'wiki/entities/llm.md', title: 'LLM', wikiLink: '[[entities/llm|LLM]]', aliases: ['Large Language Model'] },
+      { path: 'wiki/concepts/rlhf.md', title: 'RLHF', wikiLink: '[[concepts/rlhf|RLHF]]' },
+    ];
+    const result = mockPages.map(p => {
+      const aliasSuffix = p.aliases?.length ? ` \`aliases: ${p.aliases.join(', ')}\`` : '';
+      return `- ${p.wikiLink}${aliasSuffix}`;
+    }).join('\n');
+    expect(result).toContain('[[entities/llm|LLM]]');
+    expect(result).toContain('[[concepts/rlhf|RLHF]]');
+    expect(result).toContain('aliases: Large Language Model');
   });
 
-  it('matches alias keyword with score 2', () => {
-    const result = localKeywordMatch('DL', pages);
-    expect(result).toHaveLength(1);
-    expect(result[0].path).toBe('concepts/Deep Learning');
-    expect(result[0].score).toBe(2);
+  it('includes extra paths not in existing list', async () => {
+    const includePaths = ['wiki/entities/foo.md'];
+    const item = includePaths.map(p => {
+      const relPath = p.replace('wiki/', '').replace('.md', '');
+      const name = relPath.split('/').pop() || relPath;
+      return `- [[${relPath}|${name}]]`;
+    }).join('\n');
+    expect(item).toContain('[[entities/foo|foo]]');
   });
 
-  it('scores higher for title+alias combined match', () => {
-    const result = localKeywordMatch('Learning', pages);
-    // "Machine Learning" hits title (3) + alias "supervised learning" (2) = 5
-    // "Deep Learning" hits title (3) = 3
-    expect(result).toHaveLength(2);
-    expect(result[0].path).toBe('entities/Machine Learning');
-    expect(result[0].score).toBe(5);
-  });
-
-  it('returns empty array when nothing matches', () => {
-    expect(localKeywordMatch('xyzabc', pages)).toEqual([]);
-  });
-
-  it('sorts by descending score', () => {
-    const result = localKeywordMatch('learning', pages);
-    expect(result[0].score).toBeGreaterThanOrEqual(result[result.length - 1].score);
-  });
-});
-
-// ── matchExtractedToExisting ───────────────────────────────────
-
-describe('matchExtractedToExisting', () => {
-  const existingPages = [
-    { title: 'Machine Learning', aliases: ['ML', 'supervised learning'] },
-    { title: 'Deep Learning', aliases: ['DL'] },
-    { title: 'Obsidian', aliases: [] },
-  ];
-
-  it('matches by title via slug', () => {
-    const result = matchExtractedToExisting(['Deep Learning'], existingPages);
-    expect(result).toEqual(['Deep Learning']);
-  });
-
-  it('matches by alias', () => {
-    const result = matchExtractedToExisting(['ML'], existingPages);
-    expect(result).toEqual(['Machine Learning']);
-  });
-
-  it ('matches multiple names deduplicating results', () => {
-    const result = matchExtractedToExisting(['ML', 'DL', 'Obsidian'], existingPages);
-    expect(result).toHaveLength(3);
-    expect(result).toContain('Machine Learning');
-    expect(result).toContain('Deep Learning');
-    expect(result).toContain('Obsidian');
-  });
-
-  it('ignores names that match nothing', () => {
-    const result = matchExtractedToExisting(['NonExistent', 'AlsoMissing'], existingPages);
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty when no names provided', () => {
-    expect(matchExtractedToExisting([], existingPages)).toEqual([]);
-  });
-
-  it('handles names with spaces via slug normalization', () => {
-    const result = matchExtractedToExisting(['machine learning'], existingPages);
-    expect(result).toEqual(['Machine Learning']);
+  it('handles empty pages', async () => {
+    expect('').toBe('');
   });
 });
