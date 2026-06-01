@@ -10,10 +10,10 @@ import {
   PageCreationResult,
 } from '../types';
 import { PROMPTS } from '../prompts';
+import { ConflictResolver } from '../core/conflict-resolver';
 import { TOKENS_DEDUP_RESOLUTION, TOKENS_PAGE_GENERATION, TOKENS_APPEND_REVIEWED } from '../constants';
 import {
   slugify,
-  computeSlug,
   cleanMarkdownResponse,
   parseFrontmatter,
   mergeFrontmatter,
@@ -115,6 +115,29 @@ export class PageFactory {
     // Fast path 2 + Slow path: share sameTypePages across slug-match and LLM resolution
     try {
       const allPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+
+      // Use ConflictResolver for deterministic slug/alias matching before LLM fallback.
+      const resolver = new ConflictResolver(this.ctx.settings.wikiFolder, allPages);
+      const cr = resolver.resolve({ name, slug, pageType });
+
+      if (cr.action === 'merge' && !cr.reason.includes('Cross-type')) {
+        await this.appendAliases(cr.targetPath, [name]);
+        return { path: cr.targetPath };
+      }
+
+      if (cr.action === 'merge' && cr.reason.includes('Cross-type')) {
+        await this.appendAliases(cr.targetPath, [name]);
+        return {
+          path: null,
+          collision: {
+            name,
+            sourceType: pageType,
+            targetType: cr.existingType || (otherFolder === 'entities' ? 'entity' : 'concept'),
+            targetPath: cr.targetPath
+          }
+        };
+      }
+
       const sameTypePages = allPages
         .filter(p => p.path.includes(`/${folder}/`))
         .filter(p => {
@@ -123,45 +146,8 @@ export class PageFactory {
           return !/^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/.test(bn);
         });
 
-      // Fast path 2: normalized slug match — catches files whose stored name
-      // differs from slugified form (e.g. spaces instead of hyphens).
-      // Checks both title and aliases, case-insensitive, to cover:
-      // - "Metabolisches Syndrom" vs "Metabolisches-Syndrom" (spaces → hyphens)
-      // - "Chain of Thought" matched via alias of existing page "CoT"
-      // - "deep learning" vs "Deep Learning" (case difference)
-      const targetSlug = slug.toLowerCase();
-      const slugMatch = sameTypePages.find(p =>
-        computeSlug(p.title).toLowerCase() === targetSlug ||
-        (p.aliases || []).some(a => computeSlug(a).toLowerCase() === targetSlug)
-      );
-      if (slugMatch) {
-        await this.appendAliases(slugMatch.path, [name]);
-        return { path: slugMatch.path };
-      }
-
-      // Cross-type collision check: if the same name already exists in the opposite
-      // folder, skip creation to prevent entity/concept duplicates across folders.
-      // Uses in-memory path match from allPages — no extra I/O needed.
-      const otherTypePages = allPages.filter(p => p.path.includes(`/${otherFolder}/`));
-      const otherMatch = otherTypePages.find(p => {
-        const slugPath = `${this.ctx.settings.wikiFolder}/${otherFolder}/${slug}.md`;
-        return p.path === slugPath ||
-          computeSlug(p.title).toLowerCase() === targetSlug ||
-          (p.aliases || []).some(a => computeSlug(a).toLowerCase() === targetSlug);
-      });
-      if (otherMatch) {
-        console.debug(`Cross-type collision: "${name}" matched ${otherMatch.path}, skipping duplicate`);
-        await this.appendAliases(otherMatch.path, [name]);
-        return {
-          path: null,
-          collision: {
-            name,
-            sourceType: pageType,
-            targetType: otherFolder === 'entities' ? 'entity' : 'concept',
-            targetPath: otherMatch.path
-          }
-        };
-      }
+      // Same-type slug/alias match is handled above by ConflictResolver.
+      // Remaining path: LLM-based semantic dedup for pages that don't match by slug/alias.
 
       if (sameTypePages.length === 0) return { path: slugPath };
 

@@ -7,7 +7,7 @@ import { LintFixCallbacks, LintCounts, LintReportModal, FixReportModal, FixRepor
 import { TEXTS } from '../texts';
 import { PROMPTS } from '../prompts';
 import { cleanMarkdownResponse, parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice, getText } from '../utils';
-import { TOKENS_LINT_DEDUP_LLM } from '../constants';
+import { TOKENS_LINT_DEDUP_LLM, NOTICE_NORMAL, NOTICE_RATE_LIMIT } from '../constants';
 import { isPageEmpty, detectPollutedPages, fixDoubleNestedWikiLinks } from './lint-fixes';
 import { generateDuplicateCandidates, DuplicateCandidate } from './lint/duplicate-detection';
 import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges } from './lint/fix-runners';
@@ -248,7 +248,7 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
           if (dedupRateInfo) {
             console.warn(`[Duplicate Rate Limit] ${dedupRateInfo.count} duplicate detection batch(es) failed with 429, ` +
               `suggested concurrency=${dedupRateInfo.suggestedConcurrency}, delay=${dedupRateInfo.suggestedDelay}ms`);
-            new Notice(formatRateLimitNotice(dedupRateInfo, ctx.settings.language), 10000);
+            new Notice(formatRateLimitNotice(dedupRateInfo, ctx.settings.language), NOTICE_RATE_LIMIT);
           }
 
           duplicates = allDuplicates;
@@ -258,7 +258,7 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
         console.error('Duplicate detection failed:', e);
         const errMsg = e instanceof Error ? e.message : String(e);
         const errNotice = new Notice(t.lintDuplicateCheckFailedDetail.replace('{step}', 'Layer 3 (LLM verify)').replace('{error}', errMsg), 0);
-        window.setTimeout(() => errNotice.hide(), 10000);
+        window.setTimeout(() => errNotice.hide(), NOTICE_RATE_LIMIT);
       }
     }
 
@@ -751,7 +751,7 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
   } catch (error) {
     stageNotice?.hide();
     if (error instanceof DOMException && error.name === 'AbortError') {
-      new Notice(getText(ctx.settings.language, 'ingestionCancelled'), 5000);
+      new Notice(getText(ctx.settings.language, 'ingestionCancelled'), NOTICE_NORMAL);
       console.debug('Lint cancelled by user');
       return;
     }

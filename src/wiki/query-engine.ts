@@ -6,7 +6,7 @@ import { TEXTS } from '../texts';
 import { WIKI_LANGUAGES } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse, parseIndexForPages, localKeywordMatch } from '../utils';
-import { MAX_PAGE_CONTENT_CHARS, TOKENS_QUERY_PAGE_SELECT, TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP } from '../constants';
+import { MAX_PAGE_CONTENT_CHARS, TOKENS_QUERY_PAGE_SELECT, TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 
 // ---- Suggest Save Modal (post-query feedback) ----
 
@@ -79,11 +79,11 @@ class SuggestSaveModal extends Modal {
       const summary = lang === 'en'
         ? `${report.entitiesCreated} entities, ${report.conceptsCreated} concepts, ${report.createdPages.length} pages`
         : `${report.entitiesCreated} 实体, ${report.conceptsCreated} 概念, ${report.createdPages.length} 页`;
-      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, 5000);
+      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, NOTICE_NORMAL);
     } catch (error) {
       console.error('Save failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      new Notice(texts.queryModalErrorPrefix + errorMsg, 8000);
+      new Notice(texts.queryModalErrorPrefix + errorMsg, NOTICE_ERROR);
     } finally {
       progressNotice.hide();
       this.plugin.wikiEngine.setProgressCallback(origProgress);
@@ -647,12 +647,12 @@ export class QueryModal extends Modal {
       const summary = lang === 'en'
         ? `${report.entitiesCreated} entities, ${report.conceptsCreated} concepts, ${report.createdPages.length} pages`
         : `${report.entitiesCreated} 实体, ${report.conceptsCreated} 概念, ${report.createdPages.length} 页`;
-      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, 5000);
+      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, NOTICE_NORMAL);
     } catch (error) {
       console.error('Save failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
       const texts = TEXTS[this.plugin.settings.language];
-      new Notice(texts.queryModalErrorPrefix + errorMsg, 8000);
+      new Notice(texts.queryModalErrorPrefix + errorMsg, NOTICE_ERROR);
     } finally {
       progressNotice.hide();
       this.plugin.wikiEngine.setProgressCallback(origProgress);
@@ -667,7 +667,7 @@ export class QueryModal extends Modal {
     void this.plugin.saveSettings();
 
     const texts = TEXTS[this.plugin.settings.language];
-    new Notice(texts.historyCleared, 2000);
+    new Notice(texts.historyCleared, NOTICE_BRIEF);
 
     const maxRounds = this.plugin.settings.maxConversationHistory;
     this.historyCountDisplay.setText(

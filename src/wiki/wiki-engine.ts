@@ -34,8 +34,8 @@ import {
 import { ContradictionManager } from './contradictions';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
+import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL } from '../constants';
 import { PageFactory } from './page-factory';
-import { TOKENS_PAGE_GENERATION } from '../constants';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
 
 export class WikiEngine {
@@ -143,7 +143,7 @@ export class WikiEngine {
     if (this.abortController) {
       this.abortController.abort();
       const msg = getText(this.settings.language, 'ingestionCancelling');
-      new Notice(msg, 6000);
+      new Notice(msg, NOTICE_ABORT);
       this.onProgress?.(msg);
       console.debug('Ingestion cancellation requested');
     }
@@ -163,7 +163,7 @@ export class WikiEngine {
     if (this.lintAbortController) {
       this.lintAbortController.abort();
       const msg = getText(this.settings.language, 'ingestionCancelling');
-      new Notice(msg, 6000);
+      new Notice(msg, NOTICE_ABORT);
       console.debug('Lint cancellation requested');
     }
   }
@@ -407,7 +407,7 @@ export class WikiEngine {
       if (pageGenRateInfo) {
         console.warn(`[Rate Limit] Page generation: ${pageGenRateInfo.count} item(s) failed with 429, ` +
           `suggested concurrency=${pageGenRateInfo.suggestedConcurrency}, delay=${pageGenRateInfo.suggestedDelay}ms`);
-        new Notice(formatRateLimitNotice(pageGenRateInfo, this.settings.language), 10000);
+        new Notice(formatRateLimitNotice(pageGenRateInfo, this.settings.language), NOTICE_RATE_LIMIT);
       }
 
       // Stage 4: Related Pages Update
@@ -490,7 +490,7 @@ export class WikiEngine {
       if (relatedRateInfo) {
         console.warn(`[Rate Limit] Related pages update: ${relatedRateInfo.count} item(s) failed with 429, ` +
           `suggested concurrency=${relatedRateInfo.suggestedConcurrency}, delay=${relatedRateInfo.suggestedDelay}ms`);
-        new Notice(formatRateLimitNotice(relatedRateInfo, this.settings.language), 10000);
+        new Notice(formatRateLimitNotice(relatedRateInfo, this.settings.language), NOTICE_RATE_LIMIT);
       }  // update step count for subsequent phase numbering
 
       // Stage 5: Contradiction Recording
@@ -535,7 +535,7 @@ export class WikiEngine {
       // Show collision notice if any occurred
       if (collisions.length > 0) {
         new Notice(getText(this.settings.language, 'crossTypeCollisionNotice')
-          .replace('{count}', String(collisions.length)), 5000);
+          .replace('{count}', String(collisions.length)), NOTICE_NORMAL);
       }
 
       this.onDone?.({
@@ -557,7 +557,7 @@ export class WikiEngine {
       if (error instanceof DOMException && error.name === 'AbortError') {
         this.wasCancelled = true;
         console.debug('=== Ingestion cancelled by user ===');
-        new Notice(getText(this.settings.language, 'ingestionCancelled'), 5000);
+        new Notice(getText(this.settings.language, 'ingestionCancelled'), NOTICE_NORMAL);
         this.onDone?.({
           sourceFile: file.path,
           createdPages,

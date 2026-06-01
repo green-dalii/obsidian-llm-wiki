@@ -1,3 +1,4 @@
+import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT } from '../constants';
 // Settings panel UI for LLM Wiki Plugin
 
 import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl } from 'obsidian';
@@ -73,7 +74,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
               watchedFolders: [...(this.tempSettings.watchedFolders || [])]
             };
             await this.plugin.saveSettings();
-            new Notice(this.getText('savedNotice'), 3000);
+            new Notice(this.getText('savedNotice'), NOTICE_SHORT);
           })();
         }));
 
@@ -250,18 +251,18 @@ export class LLMWikiSettingTab extends PluginSettingTab {
               } else throw new Error('empty model list');
             }
             if (this.tempSettings.availableModels.length > 0) {
-              new Notice(this.getText('fetchSuccess').replace('{}', this.tempSettings.availableModels.length.toString()), 5000);
+              new Notice(this.getText('fetchSuccess').replace('{}', this.tempSettings.availableModels.length.toString()), NOTICE_NORMAL);
               if (!this.tempSettings.model || !this.tempSettings.availableModels.includes(this.tempSettings.model)) {
                 this.tempSettings.model = this.tempSettings.availableModels[0];
               }
             } else {
-              new Notice(this.getText('fetchFailed'), 5000);
+              new Notice(this.getText('fetchFailed'), NOTICE_NORMAL);
               this.tempSettings.useCustomModel = true;
             }
             this.display();
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            new Notice(this.getText('errorFetchFailed').replace('{}', errorMsg), 8000);
+            new Notice(this.getText('errorFetchFailed').replace('{}', errorMsg), NOTICE_ERROR);
             this.tempSettings.useCustomModel = true;
             this.display();
           }
@@ -321,7 +322,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           button.setButtonText(this.getText('testButton'));
           button.setDisabled(false);
           this.display();
-          new Notice(result.message, result.success ? 5000 : 8000);
+          new Notice(result.message, result.success ? NOTICE_NORMAL : NOTICE_ERROR);
         }));
 
     // Status — connection readiness
@@ -396,11 +397,11 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             if (parsed > 300) {
               this.tempSettings.customEntityLimit = 300;
               text.setValue('300');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '300'), 3000);
+              new Notice(this.getText('numberRangeClamped').replace('{}', '300'), NOTICE_SHORT);
             } else if (parsed < 1) {
               this.tempSettings.customEntityLimit = 1;
               text.setValue('1');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), 3000);
+              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), NOTICE_SHORT);
             } else if (!isNaN(parsed)) {
               this.tempSettings.customEntityLimit = parsed;
             }
@@ -426,11 +427,11 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             if (parsed > 300) {
               this.tempSettings.customConceptLimit = 300;
               text.setValue('300');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '300'), 3000);
+              new Notice(this.getText('numberRangeClamped').replace('{}', '300'), NOTICE_SHORT);
             } else if (parsed < 1) {
               this.tempSettings.customConceptLimit = 1;
               text.setValue('1');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), 3000);
+              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), NOTICE_SHORT);
             } else if (!isNaN(parsed)) {
               this.tempSettings.customConceptLimit = parsed;
             }
@@ -495,11 +496,11 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             if (parsed > 50) {
               this.tempSettings.maxConversationHistory = 50;
               text.setValue('50');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '50'), 3000);
+              new Notice(this.getText('numberRangeClamped').replace('{}', '50'), NOTICE_SHORT);
             } else if (parsed < 1) {
               this.tempSettings.maxConversationHistory = 1;
               text.setValue('1');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), 3000);
+              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), NOTICE_SHORT);
             } else if (!isNaN(parsed)) {
               this.tempSettings.maxConversationHistory = parsed;
             }
@@ -520,13 +521,13 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           const schemaPath = `${this.tempSettings.wikiFolder}/schema/config.md`;
           const file = this.app.vault.getAbstractFileByPath(schemaPath);
           if (file instanceof TFile) void this.app.workspace.getLeaf().openFile(file);
-          else new Notice(this.getText('schemaNotFoundNotice'), 5000);
+          else new Notice(this.getText('schemaNotFoundNotice'), NOTICE_NORMAL);
         }))
       .addButton(button => button
         .setButtonText(this.getText('regenerateSchemaButton'))
         .onClick(async () => {
           await this.plugin.wikiEngine.regenerateDefaultSchema();
-          new Notice(this.getText('schemaRegeneratedNotice'), 3000);
+          new Notice(this.getText('schemaRegeneratedNotice'), NOTICE_SHORT);
         }));
 
     // ==========================================
@@ -619,11 +620,11 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             if (parsed > 60) {
               this.tempSettings.autoWatchDebounceMs = 60000;
               text.setValue('60');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '60'), 3000);
+              new Notice(this.getText('numberRangeClamped').replace('{}', '60'), NOTICE_SHORT);
             } else if (parsed < 1) {
               this.tempSettings.autoWatchDebounceMs = 1000;
               text.setValue('1');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), 3000);
+              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), NOTICE_SHORT);
             } else if (!isNaN(parsed)) {
               this.tempSettings.autoWatchDebounceMs = parsed * 1000;
             }

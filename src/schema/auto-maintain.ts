@@ -1,3 +1,4 @@
+import { NOTICE_SHORT, NOTICE_WATCHER } from '../constants';
 // Auto Maintain Manager - File watcher, periodic lint, startup health check
 
 import { App, TAbstractFile, TFile, Notice, Plugin } from 'obsidian';
@@ -79,7 +80,7 @@ export class AutoMaintainManager {
       this.watching = true;
       console.debug('AutoMaintain: File watcher started (create+rename+modify+resolved)');
       const texts = TEXTS[this.settings.language];
-      new Notice(texts.watcherActiveNotice, 4000);
+      new Notice(texts.watcherActiveNotice, NOTICE_WATCHER);
     });
   }
 
@@ -202,7 +203,7 @@ export class AutoMaintainManager {
         8000
       );
     } else {
-      new Notice(texts.autoIngestRunning.replace('{count}', String(sourceFiles.length)), 3000);
+      new Notice(texts.autoIngestRunning.replace('{count}', String(sourceFiles.length)), NOTICE_SHORT);
 
       let successCount = 0;
       let failCount = 0;
@@ -279,7 +280,7 @@ export class AutoMaintainManager {
     }
 
     const texts = TEXTS[this.settings.language];
-    new Notice(texts.scheduledLintRunning, 3000);
+    new Notice(texts.scheduledLintRunning, NOTICE_SHORT);
     this.lastLintTimestamp = Date.now();
 
     if (this.lintCallback) {

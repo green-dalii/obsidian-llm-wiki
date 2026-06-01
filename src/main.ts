@@ -7,7 +7,7 @@ import {
   LLMClient,
   IngestReport
 } from './types';
-import { TOKENS_QUERY_MODEL_DETECT } from './constants';
+import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR } from './constants';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
 
 function createLLMClient(settings: LLMWikiSettings): LLMClient {
@@ -327,7 +327,7 @@ export default class LLMWikiPlugin extends Plugin {
       this.wikiEngine.ingestSource(file).catch(e => {
         console.error('Single ingest failed:', e);
         const errMsg = e instanceof Error ? e.message : String(e);
-        new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, 8000);
+        new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
       });
     }).open();
   }
@@ -341,12 +341,12 @@ export default class LLMWikiPlugin extends Plugin {
 
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
-      new Notice(getText(this.settings.language, 'noActiveFile'), 5000);
+      new Notice(getText(this.settings.language, 'noActiveFile'), NOTICE_NORMAL);
       return;
     }
 
     if (activeFile.extension !== 'md') {
-      new Notice(getText(this.settings.language, 'mdOnlyFile'), 5000);
+      new Notice(getText(this.settings.language, 'mdOnlyFile'), NOTICE_NORMAL);
       return;
     }
 
@@ -354,7 +354,7 @@ export default class LLMWikiPlugin extends Plugin {
     this.wikiEngine.ingestSource(activeFile).catch(e => {
       console.error('Ingest active file failed:', e);
       const errMsg = e instanceof Error ? e.message : String(e);
-      new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, 8000);
+      new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
     });
   }
 
@@ -405,7 +405,7 @@ export default class LLMWikiPlugin extends Plugin {
 
       if (ingestCount === 0) {
         const texts = TEXTS[this.settings.language];
-        new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), 5000);
+        new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), NOTICE_NORMAL);
         return;
       }
 
@@ -435,7 +435,7 @@ export default class LLMWikiPlugin extends Plugin {
         } catch (error) {
           console.error(`(${i + 1}/${ingestCount}) ingestion failed: ${file.path}`, error);
           const errMsg = error instanceof Error ? error.message : String(error);
-          new Notice(texts.errorIngestFailed + file.basename + ': ' + errMsg, 8000);
+          new Notice(texts.errorIngestFailed + file.basename + ': ' + errMsg, NOTICE_ERROR);
         }
       }
 
@@ -524,14 +524,14 @@ export default class LLMWikiPlugin extends Plugin {
     try {
       const result = await this.schemaManager.suggestSchemaUpdate('Wiki lint analysis');
       if (result?.changes_needed) {
-        new Notice(TEXTS[this.settings.language].schemaSuggestionGenerated, 8000);
+        new Notice(TEXTS[this.settings.language].schemaSuggestionGenerated, NOTICE_ERROR);
       } else {
-        new Notice(TEXTS[this.settings.language].noSchemaUpdateNeeded, 5000);
+        new Notice(TEXTS[this.settings.language].noSchemaUpdateNeeded, NOTICE_NORMAL);
       }
     } catch (error) {
       console.error('Schema suggestion failed:', error);
       const errMsg = error instanceof Error ? error.message : String(error);
-      new Notice(TEXTS[this.settings.language].schemaSuggestionFailed + ': ' + errMsg, 8000);
+      new Notice(TEXTS[this.settings.language].schemaSuggestionFailed + ': ' + errMsg, NOTICE_ERROR);
     }
   }
 
@@ -580,7 +580,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   private requireLLMReady(): boolean {
     if (this.settings.llmReady) return true;
-    new Notice(getText(this.settings.language, 'llmNotReady'), 8000);
+    new Notice(getText(this.settings.language, 'llmNotReady'), NOTICE_ERROR);
     return false;
   }
 }
