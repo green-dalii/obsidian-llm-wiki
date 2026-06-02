@@ -3,6 +3,7 @@
 // LintFixer, ContradictionManager, and system-prompts.
 
 import { App, TFile, TFolder, Notice, normalizePath } from 'obsidian';
+import { insertWikiLinks } from '../core/wikilink-inserter';
 import {
   LLMWikiSettings,
   LLMClient,
@@ -37,6 +38,21 @@ import { SourceAnalyzer } from './source-analyzer';
 import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
+
+/** Injects a `source:` field into the frontmatter of content, or prepends a new frontmatter block. */
+function injectSourceField(content: string, sourcePath: string): string {
+  if (content.startsWith('---')) {
+    const end = content.indexOf('\n---', 3);
+    if (end !== -1) {
+      const fmBody = content.slice(3, end);
+      if (!fmBody.includes('source:')) {
+        return '---' + fmBody + `\nsource: "${sourcePath}"` + content.slice(end);
+      }
+      return content;
+    }
+  }
+  return `---\nsource: "${sourcePath}"\n---\n` + content;
+}
 
 export class WikiEngine {
   private app: App;
@@ -92,7 +108,7 @@ export class WikiEngine {
         buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t as SchemaTask), task),
       getSectionLabels: () => getSectionLabels(this.settings),
       getExistingWikiPages: () =>
-        getExistingWikiPages(this.app, this.settings.wikiFolder),
+        getExistingWikiPages(this.app, this.settings.wikiFolder, this.settings.pagesFolder),
       getSchemaContext: t => this.schemaManager.getSchemaContext(t as SchemaTask),
       onFileWrite: path => this.onFileWrite?.(path),
       onProgress: msg => this.onProgress?.(msg),
@@ -532,6 +548,11 @@ export class WikiEngine {
       console.debug(`  - Contradiction recording: ${contradictionTime}ms`);
       console.debug(`  - Index & log: ${indexTime}ms`);
 
+      // Stage 7: Copy source page with wiki links (if enabled)
+      if (this.settings.copySourcePagesToWiki) {
+        await this.copySourcePageWithLinks(file);
+      }
+
       // Show collision notice if any occurred
       if (collisions.length > 0) {
         new Notice(getText(this.settings.language, 'crossTypeCollisionNotice')
@@ -621,6 +642,25 @@ export class WikiEngine {
     }
 
     await this.schemaManager.ensureSchemaExists();
+  }
+
+  private async copySourcePageWithLinks(file: TFile): Promise<void> {
+    const pagesFolder = normalizePath(this.settings.pagesFolder);
+    try {
+      await this.app.vault.createFolder(pagesFolder);
+    } catch {
+      // Folder already exists
+    }
+
+    const rawContent = await this.app.vault.read(file);
+    const wikiPages = await getExistingWikiPages(this.app, this.settings.wikiFolder, this.settings.pagesFolder);
+    const linked = insertWikiLinks(rawContent, wikiPages);
+
+    // Inject source: field into frontmatter so lint can locate the original
+    const withSource = injectSourceField(linked, file.path);
+    const destPath = normalizePath(`${pagesFolder}/${file.name}`);
+    await this.app.vault.adapter.write(destPath, withSource);
+    console.debug(`[pages/] Copied ${file.name} with ${wikiPages.length} wiki pages processed`);
   }
 
   async createSummaryPage(file: TFile, analysis: SourceAnalysis, plannedPaths: string[] = []): Promise<string> {
@@ -852,7 +892,7 @@ export class WikiEngine {
     if (this.pagesCache && (now - this.pagesCacheTime) < this.PAGES_CACHE_TTL_MS) {
       return Promise.resolve(this.pagesCache);
     }
-    return getExistingWikiPages(this.app, this.settings.wikiFolder).then(data => {
+    return getExistingWikiPages(this.app, this.settings.wikiFolder, this.settings.pagesFolder).then(data => {
       this.pagesCache = data;
       this.pagesCacheTime = Date.now();
       return data;

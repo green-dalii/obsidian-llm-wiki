@@ -662,6 +662,7 @@ describe('getGranularityInstruction', () => {
     enableSchema: true, autoWatchSources: false, autoWatchMode: 'notify',
     autoWatchDebounceMs: 5000, watchedFolders: [], periodicLint: 'off',
     startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
+    copySourcePagesToWiki: false, pagesFolder: 'pages',
     llmReady: false,
     maxTokensPerCall: 0,
   };
@@ -707,6 +708,7 @@ describe('getGranularityFixLimits', () => {
     enableSchema: true, autoWatchSources: false, autoWatchMode: 'notify',
     autoWatchDebounceMs: 5000, watchedFolders: [], periodicLint: 'off',
     startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
+    copySourcePagesToWiki: false, pagesFolder: 'pages',
     llmReady: false,
     maxTokensPerCall: 0,
   };

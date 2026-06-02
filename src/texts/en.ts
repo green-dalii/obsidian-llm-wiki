@@ -285,6 +285,12 @@ export const EN_TEXTS = {
     periodicLintWeekly: 'Weekly',
     startupCheckName: 'Run quick fixes on startup',
     startupCheckDesc: 'Auto-fix low-level format issues (sources, double-nested links) on plugin load. Verifies Wiki folder structure. Default ON.',
+    copySourcePagesToggle: 'Copy source pages with wiki links',
+    copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
+    pagesFolderLabel: 'Pages folder',
+    pagesFolderDesc: 'Vault-relative path where linked copies are saved (default: pages). Can be inside the wiki folder, e.g. wiki/pages.',
+    lintRefreshPagesCopies: 'Refreshed {count} page copies with updated wiki links',
+    lintRefreshPagesCopiesProgress: 'Smart fix: Phase 5 — Refreshing pages/ copies...',
     suggestSchemaCommand: 'Suggest Schema Updates',
     autoMaintainCostWarning: '⚠️ Cost Notice: Auto-maintenance features consume API tokens. "Auto Ingest" triggers LLM calls on every source file change. "Periodic Lint" runs LLM health checks on schedule (only when source changes are detected). Configure carefully to avoid unexpected charges.',
 

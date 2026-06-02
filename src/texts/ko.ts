@@ -280,6 +280,12 @@ export const KO_TEXTS = {
     periodicLintWeekly: '매주',
     startupCheckName: '시작 시 빠른 수정 실행',
     startupCheckDesc: '플러그인 로딩 시低级 형식 문제(sources 필드, 이중 wikilink)를 자동 수정하고 Wiki 폴더 구조를 검증합니다. 기본 활성화.',
+    copySourcePagesToggle: 'Copy source pages with wiki links',
+    copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
+    pagesFolderLabel: 'Pages folder',
+    pagesFolderDesc: 'Vault-relative path where linked copies are saved (default: pages). Can be inside the wiki folder, e.g. wiki/pages.',
+    lintRefreshPagesCopies: 'Refreshed {count} page copies with updated wiki links',
+    lintRefreshPagesCopiesProgress: 'Smart fix: Phase 5 — Refreshing pages/ copies...',
     suggestSchemaCommand: '스키마 업데이트 제안',
     autoMaintainCostWarning: '⚠️ 비용 알림: 자동 유지보수 기능은 API 토큰을 소비합니다. "자동 수집"은 소스 파일 변경 시마다 LLM 호출을 트리거합니다. "정기 린트"는 일정에 따라 LLM 건강 검사를 실행합니다 (소스 변경 감지 시에만). 예상치 못한 요금을 피하기 위해 신중하게 설정하세요.',
 
