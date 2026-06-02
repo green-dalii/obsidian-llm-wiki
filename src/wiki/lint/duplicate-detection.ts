@@ -29,6 +29,27 @@ export function normalizeForMatch(s: string): string {
   return s.toLowerCase().replace(/[\s\-_]+/g, '').replace(/[^a-z0-9一-鿿]/g, '');
 }
 
+const BODY_STOPWORDS = new Set([
+  'also', 'are', 'been', 'being', 'both', 'but', 'can', 'could', 'did',
+  'does', 'each', 'from', 'had', 'has', 'have', 'into', 'its', 'may',
+  'might', 'must', 'not', 'only', 'other', 'our', 'shall', 'should',
+  'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these',
+  'they', 'this', 'those', 'through', 'was', 'were', 'what', 'when',
+  'where', 'which', 'while', 'will', 'with', 'would', 'your',
+]);
+
+/** Extract unique meaningful words from body text for content similarity comparison.
+ *  More discriminating than character bigrams: common English words and template
+ *  headings do not create artificial similarity between different-topic pages. */
+export function bodyWordSet(text: string): Set<string> {
+  return new Set(
+    text.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !BODY_STOPWORDS.has(w)),
+  );
+}
+
 /** Compute Jaccard similarity between two sets. */
 export function computeJaccard<T>(setA: Set<T>, setB: Set<T>): number {
   if (setA.size === 0 || setB.size === 0) return 0;
@@ -54,7 +75,7 @@ export async function generateDuplicateCandidates(
     title: string;
     aliases: string[];
     links: Set<string>;
-    bodyBigrams: Set<string>;
+    bodyWords: Set<string>;
   }
 
   const YIELD_EVERY = 200;
@@ -80,11 +101,11 @@ export async function generateDuplicateCandidates(
       links.add(match[1].trim().toLowerCase());
     }
 
-    // Strip wiki links before computing body bigrams so link text doesn't inflate similarity
+    // Strip wiki links before computing body words so link text doesn't inflate similarity
     const bodyText = body.replace(/\[\[[^\]]+\]\]/g, '');
-    const bodyBigrams = bigrams(bodyText);
+    const bodyWords = bodyWordSet(bodyText);
 
-    metas.push({ path: page.path, title: page.title, aliases, links, bodyBigrams });
+    metas.push({ path: page.path, title: page.title, aliases, links, bodyWords });
   }
 
   const candidates = new Map<string, DuplicateCandidate>();
@@ -119,8 +140,8 @@ export async function generateDuplicateCandidates(
         // Body similarity gate: pages with different content are not duplicates
         // even if they share the same set of wiki-links (e.g., two unrelated pages
         // both linking only to one popular hub page).
-        const bodySim = computeJaccard(a.bodyBigrams, b.bodyBigrams);
-        if (bodySim < 0.3) continue;
+        const bodySim = computeJaccard(a.bodyWords, b.bodyWords);
+        if (bodySim < 0.2) continue;
         addCandidate(a.path, b.path, `Shared wiki-links (${Math.round(jaccard * 100)}% overlap)`, 'sharedLinks', jaccard);
       }
     }

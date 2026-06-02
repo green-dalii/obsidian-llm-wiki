@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateDuplicateCandidates } from '../wiki/lint/duplicate-detection';
+import { generateDuplicateCandidates, bodyWordSet, computeJaccard } from '../wiki/lint/duplicate-detection';
 
 function makePage(path: string, body: string, links: string[] = []) {
   const linksText = links.map(l => `[[${l}]]`).join('\n');
@@ -10,19 +10,62 @@ function makePage(path: string, body: string, links: string[] = []) {
   };
 }
 
-describe('generateDuplicateCandidates — sharedLinks signal with body similarity gate', () => {
+// ── bodyWordSet ────────────────────────────────────────────────────────────────
+
+describe('bodyWordSet', () => {
+  it('returns unique meaningful words, filtering stopwords and short words', () => {
+    const words = bodyWordSet('The wiki is a knowledge base that compiles information');
+    expect(words.has('wiki')).toBe(true);
+    expect(words.has('knowledge')).toBe(true);
+    expect(words.has('compiles')).toBe(true);
+    expect(words.has('information')).toBe(true);
+    // Stopwords and short words filtered
+    expect(words.has('the')).toBe(false);
+    expect(words.has('is')).toBe(false);
+    expect(words.has('a')).toBe(false);
+    expect(words.has('that')).toBe(false);
+  });
+
+  it('produces low Jaccard for different-topic texts', () => {
+    const wA = bodyWordSet(
+      'A log file is a chronological append-only record detailing operational history of events. ' +
+      'Entries track system events such as ingests queries maintenance passes providing audit timeline.',
+    );
+    const wB = bodyWordSet(
+      'Query is an advanced knowledge interaction process where artificial intelligence is prompted ' +
+      'to synthesize information from multiple source pages producing cohesive answers with citations.',
+    );
+    const sim = computeJaccard(wA, wB);
+    expect(sim).toBeLessThan(0.2);
+  });
+
+  it('produces high Jaccard for near-identical texts', () => {
+    const text = 'A persistent wiki is a structured compounding artifact maintained by an LLM system ' +
+      'storing knowledge in interlinked markdown files for continuous knowledge accumulation.';
+    const wA = bodyWordSet(text + ' It bridges raw sources and the user.');
+    const wB = bodyWordSet(text + ' It connects raw documents to end users.');
+    const sim = computeJaccard(wA, wB);
+    expect(sim).toBeGreaterThan(0.5);
+  });
+});
+
+// ── generateDuplicateCandidates — sharedLinks signal ──────────────────────────
+
+describe('generateDuplicateCandidates — sharedLinks signal with body word-set gate', () => {
   it('should not flag pages with 1 shared link but different content as duplicates', async () => {
     // Regression: log-md, Query, Ingest all link only to [[concepts/Persistent-Wiki]],
     // causing 100% link Jaccard despite completely different content.
     const pages = [
       makePage(
         'concepts/log-md',
-        'A log file is a chronological append-only record of wiki events and system operations.',
+        'A log file is a chronological append-only record detailing operational history of the wiki. ' +
+        'Entries track system events such as ingests queries and maintenance passes providing audit trail.',
         ['concepts/Persistent-Wiki'],
       ),
       makePage(
         'concepts/Query',
-        'Query is an advanced knowledge synthesis process using LLM retrieval and citation tracking.',
+        'Query is an advanced knowledge interaction process where an LLM is prompted to synthesize ' +
+        'information from multiple source pages producing cohesive answers complete with citations.',
         ['concepts/Persistent-Wiki'],
       ),
     ];
@@ -34,12 +77,14 @@ describe('generateDuplicateCandidates — sharedLinks signal with body similarit
     const pages = [
       makePage(
         'concepts/Topic1',
-        'A completely different concept about topic one with unique specialized terminology.',
+        'A chronological auditing mechanism tracks operational events and system ingestion history ' +
+        'providing debugging capabilities and immutable append-only timeline reconstruction.',
         ['concepts/Common1', 'concepts/Common2'],
       ),
       makePage(
         'concepts/Topic2',
-        'An entirely distinct subject discussing topic two with separate unrelated ideas.',
+        'Synthesis process where intelligence queries multiple sources to produce cohesive citations ' +
+        'enabling compounding knowledge retrieval and answer generation from disparate information.',
         ['concepts/Common1', 'concepts/Common2'],
       ),
     ];
@@ -47,18 +92,19 @@ describe('generateDuplicateCandidates — sharedLinks signal with body similarit
     expect(candidates.find(c => c.signal === 'sharedLinks')).toBeUndefined();
   });
 
-  it('should flag pages with shared links AND similar body content as duplicates', async () => {
+  it('should flag pages with shared links AND similar body vocabulary as duplicates', async () => {
     const sharedPrefix =
-      'A persistent wiki is a structured compounding artifact maintained by an LLM system.';
+      'A persistent wiki is a structured compounding artifact maintained by an LLM system ' +
+      'storing knowledge in interlinked markdown files for continuous knowledge accumulation.';
     const pages = [
       makePage(
         'concepts/WikiA',
-        sharedPrefix + ' It stores knowledge in interlinked persistent markdown files.',
+        sharedPrefix + ' It bridges raw sources and provides structured knowledge to users.',
         ['concepts/LLM', 'concepts/Markdown'],
       ),
       makePage(
         'concepts/WikiB',
-        sharedPrefix + ' It stores compounded knowledge across interlinked persistent markdown pages.',
+        sharedPrefix + ' It connects raw documents to end users through structured knowledge layers.',
         ['concepts/LLM', 'concepts/Markdown'],
       ),
     ];
