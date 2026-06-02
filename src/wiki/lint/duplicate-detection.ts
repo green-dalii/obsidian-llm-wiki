@@ -54,6 +54,7 @@ export async function generateDuplicateCandidates(
     title: string;
     aliases: string[];
     links: Set<string>;
+    bodyBigrams: Set<string>;
   }
 
   const YIELD_EVERY = 200;
@@ -79,7 +80,11 @@ export async function generateDuplicateCandidates(
       links.add(match[1].trim().toLowerCase());
     }
 
-    metas.push({ path: page.path, title: page.title, aliases, links });
+    // Strip wiki links before computing body bigrams so link text doesn't inflate similarity
+    const bodyText = body.replace(/\[\[[^\]]+\]\]/g, '');
+    const bodyBigrams = bigrams(bodyText);
+
+    metas.push({ path: page.path, title: page.title, aliases, links, bodyBigrams });
   }
 
   const candidates = new Map<string, DuplicateCandidate>();
@@ -111,6 +116,11 @@ export async function generateDuplicateCandidates(
       if (a.links.size === 0 || b.links.size === 0) continue;
       const jaccard = computeJaccard(a.links, b.links);
       if (jaccard >= 0.4) {
+        // Body similarity gate: pages with different content are not duplicates
+        // even if they share the same set of wiki-links (e.g., two unrelated pages
+        // both linking only to one popular hub page).
+        const bodySim = computeJaccard(a.bodyBigrams, b.bodyBigrams);
+        if (bodySim < 0.3) continue;
         addCandidate(a.path, b.path, `Shared wiki-links (${Math.round(jaccard * 100)}% overlap)`, 'sharedLinks', jaccard);
       }
     }
