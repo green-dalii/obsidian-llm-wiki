@@ -94,6 +94,8 @@ export const JA_TEXTS = {
     wikiFolderName: 'Wiki フォルダー',
     wikiFolderDesc: '生成されたWikiページの保存先',
     wikiFolderPlaceholder: 'wiki',
+    useSubfoldersName: 'サブフォルダー構造を使用',
+    useSubfoldersDesc: 'エンティティと概念のページを entities/ と concepts/ サブフォルダーに分けて作成します。無効にするとすべてのページが wiki/ フォルダー直下に作成されます。',
 
     // Errors
     errorNoApiKey: 'まずAPI Keyを設定してください',

@@ -354,6 +354,13 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .setValue(this.tempSettings.wikiFolder)
         .onChange((value) => { this.tempSettings.wikiFolder = value; }));
 
+    new Setting(containerEl)
+      .setName(this.getText('useSubfoldersName'))
+      .setDesc(this.getText('useSubfoldersDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.useSubfolders !== false)
+        .onChange((value) => { this.tempSettings.useSubfolders = value; }));
+
     // Granularity setting with conditional custom inputs
     let customEntitySetting: Setting | null = null;
     let customConceptSetting: Setting | null = null;

@@ -96,6 +96,8 @@ export const EN_TEXTS = {
     wikiFolderName: 'Wiki Folder',
     wikiFolderDesc: 'Location for generated Wiki pages',
     wikiFolderPlaceholder: 'wiki',
+    useSubfoldersName: 'Use subfolder structure',
+    useSubfoldersDesc: 'Create entity and concept pages in separate entities/ and concepts/ subfolders. Disable to place all pages directly in the wiki/ folder.',
 
     // Errors
     errorNoApiKey: 'Please configure API Key first',

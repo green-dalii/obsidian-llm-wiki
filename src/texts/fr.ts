@@ -94,6 +94,8 @@ export const FR_TEXTS = {
     wikiFolderName: 'Dossier wiki',
     wikiFolderDesc: 'Emplacement des pages wiki générées',
     wikiFolderPlaceholder: 'wiki',
+    useSubfoldersName: 'Utiliser une structure de sous-dossiers',
+    useSubfoldersDesc: 'Crée les pages d\'entités et de concepts dans des sous-dossiers distincts entities/ et concepts/. Désactiver pour placer toutes les pages directement dans le dossier wiki/.',
 
     // Errors
     errorNoApiKey: 'Veuillez d\'abord configurer la clé API',

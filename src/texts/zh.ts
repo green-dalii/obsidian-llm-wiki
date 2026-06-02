@@ -94,6 +94,8 @@ export const ZH_TEXTS = {
     wikiFolderName: 'Wiki 文件夹',
     wikiFolderDesc: '存放生成的 Wiki 页面',
     wikiFolderPlaceholder: 'wiki',
+    useSubfoldersName: '使用子文件夹结构',
+    useSubfoldersDesc: '在独立的 entities/ 和 concepts/ 子文件夹中创建实体和概念页面。禁用后，所有页面将直接创建在 wiki/ 文件夹中。',
 
     // 错误
     errorNoApiKey: '请先配置 API Key',

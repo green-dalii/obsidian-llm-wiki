@@ -93,12 +93,16 @@ export class PageFactory {
     pageType: 'entity' | 'concept',
     summary: string
   ): Promise<PageCreationResult> {
+    const useSubfolders = this.ctx.settings.useSubfolders !== false;
     const folder = pageType === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
     const otherFolder = pageType === 'entity' ? WIKI_SUBFOLDERS.concepts : WIKI_SUBFOLDERS.entities;
     const slug = slugify(name);
-    const slugPath = `${this.ctx.settings.wikiFolder}/${folder}/${slug}.md`;
+    const wikiFolder = this.ctx.settings.wikiFolder;
+    const slugPath = useSubfolders
+      ? `${wikiFolder}/${folder}/${slug}.md`
+      : `${wikiFolder}/${slug}.md`;
 
-    // Fast path: exact slug match (same type folder)
+    // Fast path: exact slug match
     const existing = await this.ctx.tryReadFile(slugPath);
     if (existing !== null) {
       // Check for historical cross-type duplicate: if the same name exists in the
@@ -139,13 +143,19 @@ export class PageFactory {
         };
       }
 
-      const sameTypePages = allPages
-        .filter(p => p.path.includes(`/${folder}/`))
-        .filter(p => {
-          // Purge polluted entries from LLM input (L2)
-          const bn = p.title || '';
-          return !/^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/.test(bn);
-        });
+      const pollutionFilter = (p: { title: string }) => {
+        const bn = p.title || '';
+        return !/^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/.test(bn);
+      };
+      const sameTypePages = useSubfolders
+        ? allPages.filter(p => p.path.includes(`/${folder}/`)).filter(pollutionFilter)
+        : allPages
+            .filter(p =>
+              !p.path.includes('/sources/') &&
+              !p.path.includes('/entities/') &&
+              !p.path.includes('/concepts/')
+            )
+            .filter(pollutionFilter);
 
       // Same-type slug/alias match is handled above by ConflictResolver.
       // Remaining path: LLM-based semantic dedup for pages that don't match by slug/alias.
@@ -328,9 +338,16 @@ export class PageFactory {
     if (!client) throw new Error('LLM client not initialized');
 
     try {
+      const useSubfolders = this.ctx.settings.useSubfolders !== false;
       const generatePrompt = pageType === 'entity' ? PROMPTS.generateEntityPage : PROMPTS.generateConceptPage;
+      const linkFormatInstruction = useSubfolders
+        ? pageType === 'entity'
+          ? 'When referencing other pages, copy the wiki-link format EXACTLY from the "Existing Wiki Pages" list. The LEFT side of | is the full path (entities/Page-Name), the RIGHT side is the DISPLAY NAME ONLY. NEVER duplicate folder prefixes like entities/ or concepts/ in the display name. Example: [[entities/Qwen|Qwen]] is CORRECT, [[entities/Qwen|entities/Qwen]] is WRONG'
+          : 'When referencing other pages, copy the wiki-link format EXACTLY from the "Existing Wiki Pages" list. The LEFT side of | is the full path (concepts/Page-Name), the RIGHT side is the DISPLAY NAME ONLY. NEVER duplicate folder prefixes like entities/ or concepts/ in the display name. Example: [[concepts/Attention|Attention]] is CORRECT, [[concepts/Attention|concepts/Attention]] is WRONG'
+        : 'When referencing other pages, copy the wiki-link format EXACTLY from the "Existing Wiki Pages" list. Use just the page slug (no folder prefix) on the LEFT side of |, and the display name on the RIGHT. Example: [[Qwen|Qwen]] is CORRECT, [[entities/Qwen|Qwen]] is WRONG';
 
     const prompt = generatePrompt
+      .replace('{{link_format_instruction}}', linkFormatInstruction)
       .replace('{{entity_name}}', info.name)
       .replace('{{concept_name}}', info.name)
       .replace('{{entity_type}}', info.type)

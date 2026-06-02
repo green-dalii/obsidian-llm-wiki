@@ -232,6 +232,7 @@ export class WikiEngine {
 
     this.onProgress?.(`Analyzing: ${file.basename}`);
 
+    const useSubfolders = this.settings.useSubfolders !== false;
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
     const collisions: Array<{ name: string; sourceType: 'entity' | 'concept'; targetType: 'entity' | 'concept'; targetPath: string }> = [];
     let analysis: SourceAnalysis | null = null;
@@ -256,10 +257,14 @@ export class WikiEngine {
 
       const plannedPaths: string[] = [];
       for (const entity of analysis.entities) {
-        plannedPaths.push(normalizePath(`${this.settings.wikiFolder}/entities/${slugify(entity.name)}.md`));
+        plannedPaths.push(normalizePath(useSubfolders
+          ? `${this.settings.wikiFolder}/entities/${slugify(entity.name)}.md`
+          : `${this.settings.wikiFolder}/${slugify(entity.name)}.md`));
       }
       for (const concept of analysis.concepts) {
-        plannedPaths.push(normalizePath(`${this.settings.wikiFolder}/concepts/${slugify(concept.name)}.md`));
+        plannedPaths.push(normalizePath(useSubfolders
+          ? `${this.settings.wikiFolder}/concepts/${slugify(concept.name)}.md`
+          : `${this.settings.wikiFolder}/${slugify(concept.name)}.md`));
       }
 
       this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
@@ -516,8 +521,16 @@ export class WikiEngine {
 
       const created = analysis.created_pages.length;
       const updated = analysis.updated_pages.length;
-      const entitiesCreated = analysis.created_pages.filter(p => p.includes('/entities/')).length;
-      const conceptsCreated = analysis.created_pages.filter(p => p.includes('/concepts/')).length;
+      const entityPaths = new Set(analysis.entities.map(e =>
+        normalizePath(`${this.settings.wikiFolder}/${slugify(e.name)}.md`)));
+      const conceptPaths = new Set(analysis.concepts.map(c =>
+        normalizePath(`${this.settings.wikiFolder}/${slugify(c.name)}.md`)));
+      const entitiesCreated = useSubfolders
+        ? analysis.created_pages.filter(p => p.includes('/entities/')).length
+        : analysis.created_pages.filter(p => entityPaths.has(p)).length;
+      const conceptsCreated = useSubfolders
+        ? analysis.created_pages.filter(p => p.includes('/concepts/')).length
+        : analysis.created_pages.filter(p => conceptPaths.has(p)).length;
       const modeLabel = (this.settings.pageGenerationConcurrency ?? 1) > 1 ? `parallel(concurrency:${this.settings.pageGenerationConcurrency})` : 'serial';
       const totalTime = Date.now() - totalStartTime;
 
@@ -558,12 +571,20 @@ export class WikiEngine {
         this.wasCancelled = true;
         console.debug('=== Ingestion cancelled by user ===');
         new Notice(getText(this.settings.language, 'ingestionCancelled'), NOTICE_NORMAL);
+        const cancelEntityPaths = new Set((analysis?.entities || []).map(e =>
+          normalizePath(`${this.settings.wikiFolder}/${slugify(e.name)}.md`)));
+        const cancelConceptPaths = new Set((analysis?.concepts || []).map(c =>
+          normalizePath(`${this.settings.wikiFolder}/${slugify(c.name)}.md`)));
         this.onDone?.({
           sourceFile: file.path,
           createdPages,
           updatedPages: analysis?.updated_pages || [],
-          entitiesCreated: createdPages.filter(p => p.includes('/entities/')).length,
-          conceptsCreated: createdPages.filter(p => p.includes('/concepts/')).length,
+          entitiesCreated: useSubfolders
+            ? createdPages.filter(p => p.includes('/entities/')).length
+            : createdPages.filter(p => cancelEntityPaths.has(p)).length,
+          conceptsCreated: useSubfolders
+            ? createdPages.filter(p => p.includes('/concepts/')).length
+            : createdPages.filter(p => cancelConceptPaths.has(p)).length,
           failedItems,
           collisions,
           contradictionsFound: analysis?.contradictions?.length || 0,
@@ -579,12 +600,20 @@ export class WikiEngine {
       console.error('Error:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
 
+      const errEntityPaths = new Set((analysis?.entities || []).map(e =>
+        normalizePath(`${this.settings.wikiFolder}/${slugify(e.name)}.md`)));
+      const errConceptPaths = new Set((analysis?.concepts || []).map(c =>
+        normalizePath(`${this.settings.wikiFolder}/${slugify(c.name)}.md`)));
       this.onDone?.({
         sourceFile: file.path,
         createdPages,
         updatedPages: analysis?.updated_pages || [],
-        entitiesCreated: createdPages.filter(p => p.includes('/entities/')).length,
-        conceptsCreated: createdPages.filter(p => p.includes('/concepts/')).length,
+        entitiesCreated: useSubfolders
+          ? createdPages.filter(p => p.includes('/entities/')).length
+          : createdPages.filter(p => errEntityPaths.has(p)).length,
+        conceptsCreated: useSubfolders
+          ? createdPages.filter(p => p.includes('/concepts/')).length
+          : createdPages.filter(p => errConceptPaths.has(p)).length,
         failedItems,
         collisions,
         contradictionsFound: analysis?.contradictions?.length || 0,
@@ -606,9 +635,13 @@ export class WikiEngine {
   async ensureWikiStructure() {
     const folders = [
       normalizePath(this.settings.wikiFolder),
-      normalizePath(`${this.settings.wikiFolder}/entities`),
-      normalizePath(`${this.settings.wikiFolder}/concepts`),
-      normalizePath(`${this.settings.wikiFolder}/sources`)
+      normalizePath(`${this.settings.wikiFolder}/sources`),
+      ...(this.settings.useSubfolders !== false
+        ? [
+            normalizePath(`${this.settings.wikiFolder}/entities`),
+            normalizePath(`${this.settings.wikiFolder}/concepts`),
+          ]
+        : [])
     ];
 
     for (const folder of folders) {
@@ -634,9 +667,15 @@ export class WikiEngine {
           const name = relPath.split('/').pop() || relPath;
           return `- [[${relPath}|${name}]]`;
         }).join('\n')
-      : analysis.entities.map(e => `- [[entities/${slugify(e.name)}|${e.name}]]`).join('\n') +
+      : analysis.entities.map(e => this.settings.useSubfolders !== false
+          ? `- [[entities/${slugify(e.name)}|${e.name}]]`
+          : `- [[${slugify(e.name)}|${e.name}]]`
+        ).join('\n') +
         '\n' +
-        analysis.concepts.map(c => `- [[concepts/${slugify(c.name)}|${c.name}]]`).join('\n');
+        analysis.concepts.map(c => this.settings.useSubfolders !== false
+          ? `- [[concepts/${slugify(c.name)}|${c.name}]]`
+          : `- [[${slugify(c.name)}|${c.name}]]`
+        ).join('\n');
 
     const prompt = PROMPTS.generateSummaryPage
       .replace('{{source_title}}', analysis.source_title)
@@ -904,10 +943,35 @@ export class WikiEngine {
   async generateIndexFromEngine() {
     await this.ensureWikiStructure();
 
-    const entities = this.app.vault.getMarkdownFiles()
-      .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/entities/`));
-    const concepts = this.app.vault.getMarkdownFiles()
-      .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/concepts/`));
+    const useSubfolders = this.settings.useSubfolders !== false;
+    let entities: TFile[];
+    let concepts: TFile[];
+
+    if (useSubfolders) {
+      entities = this.app.vault.getMarkdownFiles()
+        .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/entities/`));
+      concepts = this.app.vault.getMarkdownFiles()
+        .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/concepts/`));
+    } else {
+      const allFlat = this.app.vault.getMarkdownFiles()
+        .filter(f =>
+          f.path.startsWith(`${this.settings.wikiFolder}/`) &&
+          !f.path.includes('/entities/') &&
+          !f.path.includes('/concepts/') &&
+          !f.path.includes('/sources/') &&
+          f.basename !== 'index' &&
+          f.basename !== 'log'
+        );
+      entities = [];
+      concepts = [];
+      for (const f of allFlat) {
+        const content = await this.app.vault.read(f);
+        const fm = parseFrontmatter(content);
+        if (fm?.type === 'entity') entities.push(f);
+        else if (fm?.type === 'concept') concepts.push(f);
+      }
+    }
+
     const sources = this.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/sources/`));
 
@@ -919,13 +983,14 @@ export class WikiEngine {
       return;
     }
 
-    await this.generateFlatIndex(entities, concepts, sources);
+    await this.generateFlatIndex(entities, concepts, sources, useSubfolders);
   }
 
   private async generateFlatIndex(
     entities: TFile[],
     concepts: TFile[],
-    sources: TFile[]
+    sources: TFile[],
+    useSubfolders: boolean
   ): Promise<void> {
     const lang = this.settings.wikiLanguage || 'en';
     type LangKey = keyof typeof TEXTS.en.indexLabels;
@@ -940,7 +1005,8 @@ export class WikiEngine {
       const summary = await this.getPageSummary(file);
       const aliases = await this.getPageAliases(file);
       const aliasStr = aliases.length > 0 ? ` \`aliases: ${aliases.join(', ')}\`` : '';
-      indexContent += `- [[entities/${file.basename}|${file.basename}]]${aliasStr} - ${summary}\n`;
+      const link = useSubfolders ? `entities/${file.basename}` : file.basename;
+      indexContent += `- [[${link}|${file.basename}]]${aliasStr} - ${summary}\n`;
     }
 
     indexContent += `\n## ${labels.concepts}\n\n`;
@@ -948,7 +1014,8 @@ export class WikiEngine {
       const summary = await this.getPageSummary(file);
       const aliases = await this.getPageAliases(file);
       const aliasStr = aliases.length > 0 ? ` \`aliases: ${aliases.join(', ')}\`` : '';
-      indexContent += `- [[concepts/${file.basename}|${file.basename}]]${aliasStr} - ${summary}\n`;
+      const link = useSubfolders ? `concepts/${file.basename}` : file.basename;
+      indexContent += `- [[${link}|${file.basename}]]${aliasStr} - ${summary}\n`;
     }
 
     indexContent += `\n## ${labels.sources}\n\n`;
