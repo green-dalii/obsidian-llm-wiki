@@ -37,6 +37,8 @@ export interface TruncationRetryOptions<T> {
   maxCap?: number;
   /** Label used in the warning log. */
   label: string;
+  /** Optional: extracts the stop/finish reason from the response for the warning log. */
+  getStopReason?: (response: T) => string | null | undefined;
 }
 
 export async function withTruncationRetry<T>(opts: TruncationRetryOptions<T>): Promise<string> {
@@ -51,8 +53,10 @@ export async function withTruncationRetry<T>(opts: TruncationRetryOptions<T>): P
   const currentMax = opts.getMaxTokens();
   const retryMaxTokens = Math.min(currentMax * 2, cap);
 
+  const stopReason = opts.getStopReason?.(initialResponse);
+  const reasonSuffix = stopReason ? ` (${stopReason})` : '';
   console.warn(
-    `${opts.label} response truncated at ${currentMax} tokens. Retrying with ${retryMaxTokens} tokens.`
+    `${opts.label} response truncated at ${currentMax} tokens${reasonSuffix}. Retrying with ${retryMaxTokens} tokens.`
   );
 
   const retryResponse = await opts.retryFn(retryMaxTokens);

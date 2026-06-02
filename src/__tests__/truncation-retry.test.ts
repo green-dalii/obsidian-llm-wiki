@@ -99,7 +99,7 @@ describe('withTruncationRetry', () => {
     await expect(promise).rejects.toThrow('retry failed');
   });
 
-  it('logs warning when truncation is detected and retried', async () => {
+  it('logs warning with stop_reason when truncation is detected and retried', async () => {
     const initial: () => Promise<Response> = vi.fn().mockResolvedValue({ text: 'partial', stop_reason: 'max_tokens' });
     const retry: (t: number) => Promise<Response> = vi.fn().mockResolvedValue({ text: 'full', stop_reason: 'end_turn' });
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -109,6 +109,7 @@ describe('withTruncationRetry', () => {
       retryFn: retry,
       isTruncated: (r) => r.stop_reason === 'max_tokens',
       extractText: (r) => r.text,
+      getStopReason: (r) => r.stop_reason,
       getMaxTokens: () => 100,
       label: 'Test API',
     });
@@ -116,6 +117,7 @@ describe('withTruncationRetry', () => {
     expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('Test API'));
     expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('100'));
     expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('200'));
+    expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining('(max_tokens)'));
 
     consoleWarn.mockRestore();
   });

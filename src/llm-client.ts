@@ -120,6 +120,7 @@ export class AnthropicCompatibleClient implements LLMClient {
         isTruncated: (r) => r.stop_reason === 'max_tokens',
         extractText: (r) => this.extractText(r.content || []),
         getMaxTokens: () => params.max_tokens,
+        getStopReason: (r) => r.stop_reason,
         label: 'Anthropic-compatible API',
       });
       console.debug('Extracted text length:', text.length);
@@ -287,6 +288,7 @@ export class AnthropicClient implements LLMClient {
           return block && 'text' in block ? block.text : '';
         },
         getMaxTokens: () => params.max_tokens,
+        getStopReason: (r) => r.stop_reason,
         label: 'Anthropic API',
       });
 
@@ -429,6 +431,7 @@ export class OpenAICompatibleClient implements LLMClient {
         isTruncated: (r) => r.choices[0]?.finish_reason === 'length',
         extractText: (r) => r.choices[0]?.message?.content || r.initialText,
         getMaxTokens: () => params.max_tokens,
+        getStopReason: (r) => r.choices[0]?.finish_reason,
         label: 'OpenAI-compatible API',
       });
     }, 3, 'OpenAI-compatible API');
