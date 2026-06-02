@@ -88,7 +88,7 @@ If source adds nothing new, still output the target body AND any aliases found.`
 {{body}}
 
 **What to generate:**
-- Translations: if the title is Chinese, suggest English translations, and vice versa
+- Translations: if the title is in a language different from the wiki language, suggest the wiki-language equivalent
 - Abbreviations: e.g. "Chain of Thought" → "CoT", "Mixture of Experts" → "MoE"
 - Spelling variants: "Mixture-of-Experts", "Mixture of Experts", "Sparse MoE"
 - Common alternative names in the field
