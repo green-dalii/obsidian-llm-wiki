@@ -93,6 +93,7 @@ Production-critical performance release. Extraction fundamentally rearchitected 
 | 10 | `source-analyzer.ts` 局部 `MAX_TOKENS` → `MAX_TOKENS_BATCH` | Second audit | 5min | ⬜ |
 | 11 | `parseJsonResponse` 内部 strip think blocks | Second audit | 15min | ⬜ |
 | 12 | `disable_thinking` interface + per-client implementation | Issue #72 | 2-3h | ⬜ |
+| 13 | Restore true streaming for 3rd-party providers (fetch + ReadableStream or SDK option) | User UX feedback 2026-06-02 | 1-2d | ⬜ Deferred |
 
 **Second Audit Deep Findings (2026-06-02):**
 - `source-analyzer.ts:113` shadows `MAX_TOKENS_BATCH` with local `MAX_TOKENS = 16000`

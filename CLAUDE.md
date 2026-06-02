@@ -258,19 +258,38 @@ git push origin X.Y.Z
 
 English, conventional commits. `feat:` `fix:` `docs:` `refactor:` `test:` `chore:`
 
-## 🧪 Test-Driven Development (TDD) Standard
+## 🧪 Development Quality Closure (TDD + Planning)
 
-**Test before code.** For any new function, module, or behavior change:
+**Mandatory development loop for every code change** (new feature, bug fix, refactor). This is a quality closure — skipping any step is a violation.
 
-1. **Write a failing test first** — define the expected behavior as a test case
-2. **Write just enough code** to make the test pass
-3. **Refactor** — clean up, then verify the test still passes
+```
+1. Deep thinking    → What is the problem? Edge cases? Failure modes?
+2. Plan             → Files to change, function signatures, side effects
+3. Write test       → Failing test that defines expected behavior
+4. Confirm RED      → Run test, verify it fails for the right reason
+5. Implement        → Minimum code to make the test pass
+6. Confirm GREEN    → Run test, verify it passes
+7. Refactor         → Clean up; tests must still pass
+8. 4-Gate verify    → lint + tsc + test + build all clean
+9. Three-No review  → No side effects, no breaking changes, no warnings
+```
 
-**Pre-existing code** (core engine files without tests): when modifying a function that has zero tests, add at least one test for the path you're changing before making the code change.
+**When tests are required** (mandatory):
+- New exported function, class, or module
+- New behavior branch (any new if/else path)
+- **Bug fix** — the test reproduces the bug; the fix makes the test pass
+- Refactor that changes observable behavior
 
-**Exceptions**: trivial one-line changes, pure configuration, documentation.
+**When tests are optional**:
+- Pure configuration, type-only changes, documentation
 
-**Why**: Every bug found since v1.0.0 was discovered by users, not by tests. Core engine files (wiki-engine 1017 lines, query-engine 888 lines) remain at zero test coverage. TDD ensures the next change doesn't add to this debt.
+**Pre-existing code**: when modifying a function with zero tests, add at least one test for the changed path first.
+
+**Why this is a closure, not a checklist**: Each step depends on the previous. Skipping "design test" leads to misaligned implementation. Skipping "confirm RED" means you don't know if the test actually catches the bug. Skipping "refactor" accumulates technical debt. Skipping "4-Gate" lets broken code reach PR.
+
+**Real example (2026-06-02)**: When extracting `parseSSEEvents`, the initial implementation was written first (TDD violation). User caught it. Corrected flow: 11 failing tests → confirmed all fail with `parseSSEEvents is not a function` → wrote minimal implementation → tests pass → fixed unused import warning + `isolatedModules` type export → 4-Gate green.
+
+**Reference**: [[feedback-tdd-standard]] for full TDD standard with examples.
 
 ## ✅ Pre-Commit Checklist
 
