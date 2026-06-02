@@ -94,6 +94,8 @@ export const ES_TEXTS = {
     wikiFolderName: 'Carpeta Wiki',
     wikiFolderDesc: 'Ubicación para las páginas Wiki generadas',
     wikiFolderPlaceholder: 'wiki',
+    useSubfoldersName: 'Usar estructura de subcarpetas',
+    useSubfoldersDesc: 'Crea las páginas de entidades y conceptos en subcarpetas separadas entities/ y concepts/. Desactivar para colocar todas las páginas directamente en la carpeta wiki/.',
 
     // Errors
     errorNoApiKey: 'Configura primero la API Key',

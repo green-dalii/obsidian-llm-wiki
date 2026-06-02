@@ -79,6 +79,7 @@ export interface LLMWikiSettings {
   baseUrl: string;
   model: string;
   wikiFolder: string;
+  useSubfolders?: boolean;
   language: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt';
   wikiLanguage: string;
   useCustomWikiLanguage?: boolean;
@@ -384,6 +385,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   baseUrl: '',
   model: 'claude-sonnet-4-6',
   wikiFolder: 'wiki',
+  useSubfolders: true,
   language: 'en',
   wikiLanguage: 'en',
   useCustomWikiLanguage: false,

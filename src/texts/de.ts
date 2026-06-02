@@ -94,6 +94,8 @@ export const DE_TEXTS = {
     wikiFolderName: 'Wiki-Ordner',
     wikiFolderDesc: 'Speicherort für generierte Wiki-Seiten',
     wikiFolderPlaceholder: 'wiki',
+    useSubfoldersName: 'Unterordner-Struktur verwenden',
+    useSubfoldersDesc: 'Erstellt Entity- und Konzept-Seiten in separaten entities/- und concepts/-Unterordnern. Deaktivieren, um alle Seiten direkt im wiki/-Ordner zu erstellen.',
 
     // Errors
     errorNoApiKey: 'Bitte zunächst API-Schlüssel konfigurieren',

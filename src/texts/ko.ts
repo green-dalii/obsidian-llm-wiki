@@ -94,6 +94,8 @@ export const KO_TEXTS = {
     wikiFolderName: '위키 폴더',
     wikiFolderDesc: '생성된 위키 페이지의 저장 위치',
     wikiFolderPlaceholder: 'wiki',
+    useSubfoldersName: '하위 폴더 구조 사용',
+    useSubfoldersDesc: '엔티티와 개념 페이지를 entities/ 및 concepts/ 하위 폴더에 생성합니다. 비활성화하면 모든 페이지가 wiki/ 폴더에 직접 생성됩니다.',
 
     // Errors
     errorNoApiKey: 'API 키를 먼저 설정하세요',

@@ -94,6 +94,8 @@ export const PT_TEXTS = {
     wikiFolderName: 'Pasta Wiki',
     wikiFolderDesc: 'Local para as páginas geradas da Wiki',
     wikiFolderPlaceholder: 'wiki',
+    useSubfoldersName: 'Usar estrutura de subpastas',
+    useSubfoldersDesc: 'Cria páginas de entidades e conceitos em subpastas separadas entities/ e concepts/. Desative para colocar todas as páginas diretamente na pasta wiki/.',
 
     // Errors
     errorNoApiKey: 'Configure a API Key primeiro',
