@@ -113,6 +113,27 @@ describe('scanDeadLinks', () => {
     const result = scanDeadLinks(pm, new Set(), new Set(), 'wiki');
     expect(result[0].source).toBe('concepts/Nested/Test');
   });
+
+  it('does not flag space-to-hyphen slug variants as dead links', () => {
+    // Regression: [[entities/Claude Code]] was reported dead even though
+    // the file entities/Claude-Code.md exists (space vs hyphen mismatch).
+    const pm = makePageMap('wiki/entities/OpenCode-Pi.md', '[[entities/Claude Code|Claude Code]]');
+    const { known, knownLower } = buildKnownTargets([
+      { basename: 'Claude-Code.md', path: 'wiki/entities/Claude-Code.md' },
+    ]);
+    const result = scanDeadLinks(pm, known, knownLower, 'wiki');
+    expect(result).toHaveLength(0);
+  });
+
+  it('still reports truly unknown targets even after slug normalization', () => {
+    const pm = makePageMap('wiki/entities/Page.md', '[[entities/Truly Unknown Page]]');
+    const { known, knownLower } = buildKnownTargets([
+      { basename: 'Claude-Code.md', path: 'wiki/entities/Claude-Code.md' },
+    ]);
+    const result = scanDeadLinks(pm, known, knownLower, 'wiki');
+    expect(result).toHaveLength(1);
+    expect(result[0].target).toBe('entities/Truly Unknown Page');
+  });
 });
 
 // ── scanOrphans ────────────────────────────────────────────────

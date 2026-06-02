@@ -95,11 +95,21 @@ export function scanDeadLinks(
     let match: RegExpExecArray | null;
     while ((match = linkRegex.exec(content)) !== null) {
       const target = match[1].trim();
-      if (!knownTargets.has(target) && !knownTargetsLower.has(target.toLowerCase())) {
-        deadLinks.push({
-          source: path.replace(wikiFolder + '/', '').replace('.md', ''),
-          target
-        });
+      const targetLower = target.toLowerCase();
+      if (!knownTargets.has(target) && !knownTargetsLower.has(targetLower)) {
+        // Slug-normalized fallback: "entities/Claude Code" matches "entities/Claude-Code"
+        const parts = target.split('/');
+        const sluggedBasename = parts[parts.length - 1].replace(/\s+/g, '-');
+        const sluggedTarget = [...parts.slice(0, -1), sluggedBasename].join('/');
+        const isSlugMatch =
+          sluggedTarget !== target &&
+          (knownTargets.has(sluggedTarget) || knownTargetsLower.has(sluggedTarget.toLowerCase()));
+        if (!isSlugMatch) {
+          deadLinks.push({
+            source: path.replace(wikiFolder + '/', '').replace('.md', ''),
+            target,
+          });
+        }
       }
     }
     linkRegex.lastIndex = 0;
