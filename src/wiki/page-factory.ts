@@ -400,8 +400,15 @@ export class PageFactory {
 
     // 2. LLM intelligent body merge
     const mergePrompt = pageType === 'entity' ? PROMPTS.mergeEntityPage : PROMPTS.mergeConceptPage;
+    const useSubfolders = this.ctx.settings.useSubfolders !== false;
+    const linkFormatInstruction = useSubfolders
+      ? pageType === 'entity'
+        ? 'Use [[path|display]] format. LEFT side = full path (entities/Page-Name), RIGHT side = display name ONLY. NEVER duplicate folder prefixes like entities/ or concepts/ in the display name. Example: [[entities/Qwen|Qwen]] is CORRECT, [[entities/Qwen|entities/Qwen]] is WRONG. Verify paths exist.'
+        : 'Use [[path|display]] format. LEFT side = full path (concepts/Page-Name), RIGHT side = display name ONLY. NEVER duplicate folder prefixes like entities/ or concepts/ in the display name. Example: [[concepts/Attention|Attention]] is CORRECT, [[concepts/Attention|concepts/Attention]] is WRONG. Verify paths exist.'
+      : 'Use [[slug|display]] format. LEFT side = page slug only (NO folder prefix), RIGHT side = display name. Example: [[Qwen|Qwen]] is CORRECT, [[entities/Qwen|Qwen]] is WRONG. Verify paths exist.';
 
     const prompt = mergePrompt
+      .replace('{{link_format_instruction}}', linkFormatInstruction)
       .replace('{{existing_body}}', existingBody)
       .replace('{{new_source}}', sourceFile.basename)
       .replace('{{entity_summary}}', info.summary)

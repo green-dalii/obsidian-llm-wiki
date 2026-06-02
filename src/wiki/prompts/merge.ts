@@ -76,7 +76,7 @@ Rules:
 3. RELATED: Update "Related Entities" and "Related Concepts" sections with new relationships.
 4. CONTRADICTIONS: If new info conflicts with existing, preserve BOTH with clear attribution.
 5. MENTIONS: Append new mentions to "Mentions in Source". Preserve VERBATIM quotes in original language. Translation optional in parentheses.
-6. LINKS: Use [[path|display]] format. LEFT side = full path, RIGHT side = display name ONLY. NEVER duplicate folder prefixes (entities/, concepts/) in display name. Verify paths exist.
+6. LINKS: {{link_format_instruction}}
 7. STYLE: Match existing writing style.
 8. NO REDUNDANCY: Do NOT restate existing facts.
 
@@ -103,8 +103,8 @@ Output ONLY the body content (no frontmatter):
 **Schema Rules (MUST follow this structure):**
 - ## Basic Information: Type, sources, definition
 - ## Description: Detailed explanation with examples (3-6 sentences)
-- ## Related Concepts: Connected concepts using [[concepts/...]]
-- ## Related Entities: Connected entities using [[entities/...]]
+- ## Related Concepts: Links to related concepts
+- ## Related Entities: Links to related entities
 - ## Mentions in Source: VERBATIM quotes in original language with source attribution
 
 **Existing Page Content (the current version):**
@@ -127,7 +127,7 @@ Output ONLY the body content (no frontmatter):
 4. RELATED ENTITIES: Update links — add new ones from this source.
 5. CONTRADICTIONS: If new info conflicts, preserve both with attribution.
 6. MENTIONS: Append to "Mentions in Source". Preserve VERBATIM quotes in original language.
-7. LINKS: Use [[path|display]] format. LEFT side = full path, RIGHT side = display name ONLY. NEVER duplicate folder prefixes (entities/, concepts/) in display name. Verify paths exist.
+7. LINKS: {{link_format_instruction}}
 8. STYLE: Match existing writing style.
 9. NO REDUNDANCY: Do NOT restate existing facts.
 
