@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans, ScannerPage } from '../wiki/lint/scanners';
+import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans, detectUppercasePageNames, ScannerPage } from '../wiki/lint/scanners';
 
 // ── buildKnownTargets ─────────────────────────────────────────
 
@@ -144,7 +144,7 @@ describe('scanOrphans', () => {
     expect(result).not.toContain('wiki/entities/Target.md');
   });
 
-  it('matches incoming links via aliases', () => {
+  it('matches incoming links case-insensitively via aliases', () => {
     const pm = new Map<string, ScannerPage>();
     const p = makePageMap('wiki/entities/ML.md', 'ML page content.', ['Machine Learning']);
     const src = makePageMap('wiki/concepts/Source.md', 'See [[Machine Learning]] for info.');
@@ -153,5 +153,66 @@ describe('scanOrphans', () => {
 
     const result = scanOrphans(pm, 'wiki');
     expect(result).not.toContain('wiki/entities/ML.md');
+  });
+});
+
+// ── detectUppercasePageNames ───────────────────────────────────
+
+describe('detectUppercasePageNames', () => {
+  const wiki = 'wiki';
+
+  it('returns empty result for all-lowercase pages', () => {
+    const pages = [
+      { path: 'wiki/entities/schema.md', basename: 'schema.md' },
+      { path: 'wiki/concepts/deep-learning.md', basename: 'deep-learning.md' },
+    ];
+    const result = detectUppercasePageNames(pages, wiki);
+    expect(result.merges).toHaveLength(0);
+    expect(result.renames).toHaveLength(0);
+  });
+
+  it('detects rename-needed for standalone uppercase page', () => {
+    const pages = [
+      { path: 'wiki/entities/Schema.md', basename: 'Schema.md' },
+    ];
+    const result = detectUppercasePageNames(pages, wiki);
+    expect(result.renames).toHaveLength(1);
+    expect(result.renames[0]).toEqual({ oldPath: 'wiki/entities/Schema.md', newBasename: 'schema' });
+    expect(result.merges).toHaveLength(0);
+  });
+
+  it('detects merge-needed when both uppercase and lowercase exist', () => {
+    const pages = [
+      { path: 'wiki/entities/Schema.md', basename: 'Schema.md' },
+      { path: 'wiki/entities/schema.md', basename: 'schema.md' },
+    ];
+    const result = detectUppercasePageNames(pages, wiki);
+    expect(result.merges).toHaveLength(1);
+    expect(result.merges[0]).toEqual({
+      target: 'wiki/entities/schema.md',
+      source: 'wiki/entities/Schema.md',
+    });
+    expect(result.renames).toHaveLength(0);
+  });
+
+  it('skips already-lowercase pages', () => {
+    const pages = [
+      { path: 'wiki/entities/deep-learning.md', basename: 'deep-learning.md' },
+      { path: 'wiki/entities/schema.md', basename: 'schema.md' },
+    ];
+    const result = detectUppercasePageNames(pages, wiki);
+    expect(result.merges).toHaveLength(0);
+    expect(result.renames).toHaveLength(0);
+  });
+
+  it('handles multiple independent uppercase pages', () => {
+    const pages = [
+      { path: 'wiki/entities/Schema.md', basename: 'Schema.md' },
+      { path: 'wiki/concepts/DeepLearning.md', basename: 'DeepLearning.md' },
+    ];
+    const result = detectUppercasePageNames(pages, wiki);
+    expect(result.renames).toHaveLength(2);
+    expect(result.renames.map(r => r.newBasename).sort()).toEqual(['deeplearning', 'schema']);
+    expect(result.merges).toHaveLength(0);
   });
 });

@@ -204,6 +204,10 @@ export class WikiEngine {
     return this.lintFixer.fixPollutedPage(oldPath, newBasename);
   }
 
+  async normalizePageCase(oldPath: string): Promise<string> {
+    return this.lintFixer.normalizePageCase(oldPath);
+  }
+
   private get client(): LLMClient {
     const c = this.getLLMClient();
     if (!c) throw new Error('LLM Client not initialized');
@@ -269,6 +273,24 @@ export class WikiEngine {
 
       const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
       let step = 1;
+
+      // Deduplicate by slug before page generation. The LLM can return the same
+      // concept with different capitalizations across extraction rounds. Without
+      // this, parallel tasks race to create both "Schema.md" and "schema.md".
+      const seenEntitySlugs = new Set<string>();
+      analysis.entities = analysis.entities.filter(e => {
+        const s = slugify(e.name);
+        if (seenEntitySlugs.has(s)) return false;
+        seenEntitySlugs.add(s);
+        return true;
+      });
+      const seenConceptSlugs = new Set<string>();
+      analysis.concepts = analysis.concepts.filter(c => {
+        const s = slugify(c.name);
+        if (seenConceptSlugs.has(s)) return false;
+        seenConceptSlugs.add(s);
+        return true;
+      });
 
       const plannedPaths: string[] = [];
       for (const entity of analysis.entities) {
