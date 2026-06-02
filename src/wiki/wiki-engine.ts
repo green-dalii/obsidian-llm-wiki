@@ -34,7 +34,7 @@ import {
 import { ContradictionManager } from './contradictions';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
-import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL } from '../constants';
+import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
 
@@ -61,7 +61,7 @@ export class WikiEngine {
   private onLintEnd: (() => void) | null = null;
   private pagesCache: Array<{path: string; title: string; wikiLink: string; aliases?: string[]}> | null = null;
   private pagesCacheTime = 0;
-  private readonly PAGES_CACHE_TTL_MS = 5000;
+  private readonly PAGES_CACHE_TTL_MS = PAGES_CACHE_TTL_MS;
 
   constructor(
     app: App,

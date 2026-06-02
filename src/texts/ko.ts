@@ -156,6 +156,7 @@ export const KO_TEXTS = {
     lintRetrying: '오류 후 재시도 ({attempt}/{max})...',
     lintAnalyzingLLM: 'LLM이 위키 건강 상태 분석 중...',
     saveToWikiSuccess: '대화가 위키에 저장되었습니다!',
+    saveSummary: '{entities} 개체, {concepts} 개념, {pages} 페이지',
     aliasAdded: '페이지 \'{page}\'에 별칭 \'{alias}\' 추가됨',
 
     // Status Messages
@@ -191,6 +192,11 @@ export const KO_TEXTS = {
     viewSchemaButton: '스키마 보기 / 편집',
     regenerateSchemaButton: '기본 스키마 재생성',
     schemaRegeneratedNotice: '기본 스키마가 재생성되었습니다.',
+    schemaRegenerateFailed: '스키마 생성 실패',
+
+    // Wiki 초기화 상태
+    wikiInitStatusReady: 'Wiki 초기화 완료',
+    wikiInitStatusNotReady: 'Wiki 초기화되지 않음 — 첫 번째 수집 시 자동 생성',
 
     // Wiki Output Language
     wikiLanguageName: '위키 출력 언어',

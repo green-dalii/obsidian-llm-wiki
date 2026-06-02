@@ -271,6 +271,14 @@ auto_suggestion_count: 0
 
 ${body}`;
 
+    // Ensure parent folders exist (handles empty vault or custom wikiFolder)
+    const schemaFolder = `${this.settings.wikiFolder}/schema`;
+    try {
+      await this.app.vault.createFolder(schemaFolder);
+    } catch {
+      // Already exists or path invalid
+    }
+
     const existing = this.app.vault.getAbstractFileByPath(path);
 
     if (existing instanceof TFile) {

@@ -27,6 +27,9 @@ export const WIKI_SUBFOLDERS = {
 /** Minimum substantive body content for a page to be considered non-empty. */
 export const MIN_SUBSTANTIVE_CHARS = 50;
 
+/** TTL for cached existing Wiki page list (milliseconds). */
+export const PAGES_CACHE_TTL_MS = 5000;
+
 // ============================================================================
 // LLM Token Budgets — semantic groups
 // ============================================================================

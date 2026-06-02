@@ -156,6 +156,7 @@ export const ZH_TEXTS = {
     lintRetrying: '出错后重试中（{attempt}/{max}）...',
     lintAnalyzingLLM: 'LLM 正在分析 Wiki 健康状态...',
     saveToWikiSuccess: '对话已保存到Wiki！',
+    saveSummary: '{entities} 个实体, {concepts} 个概念, {pages} 个页面',
     aliasAdded: '已为页面\'{page}\'添加别名\'{alias}\'',
 
     // 状态消息
@@ -191,6 +192,11 @@ export const ZH_TEXTS = {
     viewSchemaButton: '查看 / 编辑 Schema',
     regenerateSchemaButton: '重新生成默认 Schema',
     schemaRegeneratedNotice: '默认 Schema 已重新生成。',
+    schemaRegenerateFailed: 'Schema 生成失败',
+
+    // Wiki 初始化状态
+    wikiInitStatusReady: 'Wiki 已初始化',
+    wikiInitStatusNotReady: 'Wiki 未初始化 — 将在首次摄入时自动创建',
 
     // Wiki 输出语言
     wikiLanguageName: 'Wiki 输出语言',

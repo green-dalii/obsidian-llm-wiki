@@ -101,18 +101,17 @@ export class AnthropicCompatibleClient implements LLMClient {
           `Anthropic-compatible response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
           `Retrying with ${retryTokens} tokens.`
         );
-        const retryResponse = await withRetry(async () => {
-          return await requestUrl({
-            url: this.baseUrl + '/messages',
-            method: 'POST',
-            headers: {
-              'x-api-key': this.apiKey,
-              'Anthropic-Version': this.apiVersion,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ...body, max_tokens: retryTokens })
-          });
-        }, MAX_RETRIES, 'Anthropic-compatible truncation retry');
+        // Token truncation retry: direct request (outer withRetry handles network errors).
+        const retryResponse = await requestUrl({
+          url: this.baseUrl + '/messages',
+          method: 'POST',
+          headers: {
+            'x-api-key': this.apiKey,
+            'Anthropic-Version': this.apiVersion,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ...body, max_tokens: retryTokens })
+        });
 
         const retryData = retryResponse.json as {
           content?: Array<{ type: string; text?: string }>;
@@ -435,14 +434,13 @@ export class OpenAICompatibleClient implements LLMClient {
           `OpenAI-compatible response truncated at ${params.max_tokens} tokens (finish_reason=length). ` +
           `Retrying with ${retryTokens} tokens.`
         );
-        const retryResponse = await withRetry(async () => {
-          return await requestUrl({
-            url: this.baseUrl + '/chat/completions',
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify({ ...body, max_tokens: retryTokens })
-          });
-        }, MAX_RETRIES, 'OpenAI-compatible truncation retry');
+        // Token truncation retry: direct request (outer withRetry handles network errors).
+        const retryResponse = await requestUrl({
+          url: this.baseUrl + '/chat/completions',
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ ...body, max_tokens: retryTokens })
+        });
 
         const retryData = retryResponse.json as {
           choices?: Array<{ message?: { content?: string } }>;

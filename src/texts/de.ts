@@ -155,6 +155,7 @@ export const DE_TEXTS = {
     lintRetrying: 'Wiederholung ({attempt}/{max}) nach Fehler...',
     lintAnalyzingLLM: 'LLM analysiert Wiki-Gesundheit...',
     saveToWikiSuccess: 'Konversation im Wiki gespeichert!',
+    saveSummary: '{entities} Entitäten, {concepts} Konzepte, {pages} Seiten',
     aliasAdded: 'Alias \'{alias}\' zur Seite \'{page}\' hinzugefügt',
 
     // Status Messages
@@ -190,6 +191,11 @@ export const DE_TEXTS = {
     viewSchemaButton: 'Schema ansehen / bearbeiten',
     regenerateSchemaButton: 'Standard-Schema neu generieren',
     schemaRegeneratedNotice: 'Standard-Schema neu generiert.',
+    schemaRegenerateFailed: 'Schema-Generierung fehlgeschlagen',
+
+    // Wiki-Initialisierungsstatus
+    wikiInitStatusReady: 'Wiki initialisiert',
+    wikiInitStatusNotReady: 'Wiki nicht initialisiert — wird beim ersten Ingest automatisch erstellt',
 
     // Wiki Output Language
     wikiLanguageName: 'Wiki-Ausgabesprache',

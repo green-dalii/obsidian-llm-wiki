@@ -155,6 +155,7 @@ export const ES_TEXTS = {
     lintRetrying: 'Reintentando ({attempt}/{max}) tras error...',
     lintAnalyzingLLM: 'La IA está analizando el estado de la Wiki...',
     saveToWikiSuccess: '¡Conversación guardada en la Wiki!',
+    saveSummary: '{entities} entidades, {concepts} conceptos, {pages} páginas',
     aliasAdded: 'Añadido alias \'{alias}\' a la página \'{page}\'',
 
     // Status Messages
@@ -190,6 +191,11 @@ export const ES_TEXTS = {
     viewSchemaButton: 'Ver / editar esquema',
     regenerateSchemaButton: 'Regenerar esquema predeterminado',
     schemaRegeneratedNotice: 'Esquema predeterminado regenerado.',
+    schemaRegenerateFailed: 'Error al generar el esquema',
+
+    // Estado de inicialización del Wiki
+    wikiInitStatusReady: 'Wiki inicializado',
+    wikiInitStatusNotReady: 'Wiki no inicializado — se creará automáticamente en la primera ingestión',
 
     // Wiki Output Language
     wikiLanguageName: 'Idioma de salida de la Wiki',

@@ -60,6 +60,10 @@ export default class LLMWikiPlugin extends Plugin {
       this.settings,
       () => this.llmClient,
       this.schemaManager,
+      // Delayed evaluation: this closure captures autoMaintainManager by reference,
+      // but the variable is assigned at :68 below. By the time wikiEngine calls
+      // this callback (during file writes), autoMaintainManager is guaranteed
+      // to exist. This is intentional — reordering the assignments would break it.
       (path: string) => this.autoMaintainManager.watchWrite(path),
       (msg: string) => this.showProgress(msg),
       (report: IngestReport) => this.onIngestDone(report)
@@ -560,6 +564,21 @@ export default class LLMWikiPlugin extends Plugin {
       console.debug('Test response:', testResponse);
       this.settings.llmReady = true;
       await this.saveSettings();
+
+      // Auto-initialize wiki structure after first successful connection
+      if (this.wikiEngine) {
+        const isInit = await this.isWikiInitialized();
+        if (!isInit) {
+          try {
+            await this.wikiEngine.ensureWikiStructure();
+            console.debug('Wiki structure auto-initialized');
+          } catch (initError) {
+            console.warn('Auto wiki init failed:', initError);
+            // Non-fatal: user can still use plugin, just needs manual init
+          }
+        }
+      }
+
       const providerName = (PREDEFINED_PROVIDERS[this.settings.provider]?.nameEn || this.settings.provider);
 
       return {
@@ -576,6 +595,25 @@ export default class LLMWikiPlugin extends Plugin {
         message: `❌ ${t.testConnectionFailed || 'Connection failed'}: ${errorMsg || t.errorUnknown || 'Unknown error'}`
       };
     }
+  }
+
+  /**
+   * Check if wiki structure exists by IO inspection (no persistent flag).
+   * Handles custom wikiFolder changes gracefully.
+   */
+  private async isWikiInitialized(): Promise<boolean> {
+    const wikiFolder = this.settings.wikiFolder || 'wiki';
+    const requiredFolders = [
+      `${wikiFolder}/entities`,
+      `${wikiFolder}/concepts`,
+      `${wikiFolder}/sources`,
+      `${wikiFolder}/schema`
+    ];
+    for (const folder of requiredFolders) {
+      const folderObj = this.app.vault.getAbstractFileByPath(folder);
+      if (!folderObj) return false;
+    }
+    return true;
   }
 
   private requireLLMReady(): boolean {

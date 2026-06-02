@@ -18,39 +18,9 @@
 - ✅ **Code quality**: 2576 lines added, 503 lines removed across 44 files. Zero side effects, zero breaking changes.
 - ✅ **400 tests** across 17 test files (+200 since v1.13.0).
 
-### Completed (v1.13.0)
-- ✅ **Cross-type duplicate prevention (#54)**: `resolvePagePath()` checks opposite folder (entities ↔ concepts) when same-type matching fails. Cross-type collisions merge content into existing page instead of silently losing information. Contributed by @dmarchevsky.
-- ✅ **Source analysis false abort fix (#61)**: First batch gate changed from `||` to `&&`. Only aborts when BOTH entities and concepts are absent. Contributed by @Indexed-Apogrypha (Matthew Harper).
-- ✅ **NormalizeBatchResponse pure function**: Centralized ~8 scattered `|| []` fallbacks into `BatchValidity`-typed normalization. Fixes hidden TypeError for non-array truthy LLM output.
-- ✅ **Aliases seeding**: `EntityInfo`/`ConceptInfo.aliases?` — extraction pre-generates alias seeds for page generation and multi-round dedup.
-- ✅ **Multi-round extraction context**: Injects already-extracted names+aliases into later round prompts, eliminating LLM internal-state dependency.
-- ✅ **Prompt task 0 rewritten**: Separated field round restrictions from content requirements.
-- ✅ **Alias self-pointing dedup**: `filterRedundantAliases` skips aliases equal to the page's own filename.
-- ✅ **Three-No Principle structured**: Actionable evaluation procedures (call-site audit, data flow trace, breaking-change matrix).
-- ✅ **CI uses npm for build**: Matches Obsidian verification exactly — Build verification passes.
-- ✅ **Think token stripping (Issue #64)**: `cleanMarkdownResponse` strips `<think>`/`<thinking>` blocks. Enables reasoning model support (DeepSeek-R1, QwQ).
-- ✅ **LM Studio compatibility (Issue #65)**: `response_format: json_object` removed from OpenAI-compatible client. Prompt + prefilled `{` is sufficient.
-- ✅ **Sources link constraint (Issue #63)**: `UNIVERSAL_LINK_CONSTRAINTS` injected into 3 previously-unprotected prompts (`generateSummaryPage`, `appendToReviewedPage`, `updateRelatedPage`).
-- ✅ **ConflictResolver pure layer**: `src/core/conflict-resolver.ts` — zero-side-effect conflict detection, 7 unit tests.
-- ✅ **Mock infrastructure**: `createMockContext` for core engine testing without Obsidian runtime.
-- ✅ **firstBatchData type narrowing**: `Partial<SourceAnalysis>` → `NormalizedBatch`.
-- ✅ **Constants centralization**: 16 token budget constants, 8 notice duration constants, retry params, `MAX_PAGE_CONTENT_CHARS`, `WIKI_SUBFOLDERS` activated.
-- ✅ **loadRelevantPages content truncation**: Capped at `MAX_PAGE_CONTENT_CHARS` (~3000 tokens) per page.
-- ✅ **appendAliases + buildPagesListForPrompt tests**: 8 test cases for page-factory core paths.
-- ✅ **198 tests** across 6 test files (+25 since v1.12.4).
+### Earlier Releases
 
-### Completed (v1.12.0)
-- ✅ **Extraction prompt rearchitected**: Full page list removed from prompt. Extraction speed is now independent of wiki size. ~80% faster for typical files.
-- ✅ **Dynamic batch limits + convergence detection**: Short content finishes in 1–2 batches. Long content gets enough batches. Low-yield batches terminate early.
-- ✅ **Short-content auto-downgrade**: Sources <20K chars cap maxTotalItems proportionally, preventing "hard digging".
-- ✅ **Deterministic related_pages matching**: `matchExtractedToExisting()` uses slug + alias matching — zero LLM cost, more reliable.
-- ✅ **esbuild upgraded**: 0.17.3 → 0.28.0 (dev-server vulnerability fixed).
-- ✅ **Production build suppresses console.debug**: `console.debug = function() {}` banner.
-- ✅ **Granularity ≤ notation**: 8 languages synchronized with consistent numbers.
-- ✅ **Extraction and lint progress improvements**: batch counts and cumulative results displayed.
-- ✅ **What's New section in all READMEs**: Localized in 8 languages with proper TOC anchors.
-- ✅ **Test coverage**: 140 tests across 3 test files (+27 since v1.11.0).
-- ✅ **ROADMAP P2/P3 items addressed**: build:dev script, esbuild upgrade, Good First Issue tagging.
+Complete version history (v1.13.0 → v1.0.0) is maintained in [ROADMAP.md](ROADMAP.md). CLAUDE.md tracks only the current phase and active work items.
 
 ### P0 — In Progress
 
@@ -72,9 +42,7 @@
 |------|--------|
 | Good First Issue tagging | 10min |
 
-### Completed (v1.12.0)
-
-### Evaluated & Rejected (v1.12.0)
+### Evaluated & Rejected
 
 | Proposal | Source | Reason |
 |----------|--------|--------|
@@ -84,37 +52,8 @@
 | page-factory try/catch completion | Audit 2 | Exceptions bubble to wiki-engine's centralized error handler by design |
 | API URL validation | Audit 1 | Obsidian's requestUrl already validates; self-phishing impossible |
 
-### Completed (v1.11.0)
-- ✅ **Issue #42 — llmReady gating**: New users must complete Provider → API Key → Fetch Models → Test Connection before core features unlock.
-- ✅ **Issue #43 — Cancel ingestion mid-run**: `AbortController` with checkpoints at batch boundaries. Status bar item (clickable) + command palette (`Cancel current ingestion`). Folder loop breaks on cancel. Immediate Notice feedback.
-- ✅ **Issue #44 — Ribbon icon + ingest current file**: `addRibbonIcon('sticker')` + command `Ingest current file`. Uses `getActiveFile()` to skip file picker. 8-language i18n.
-- ✅ **Issue #41 — 529 "Overloaded" not retried**: Error messages embed HTTP status codes. All retry regex patterns include `overload` keyword. All 3 client classes covered.
-- ✅ **Issue #37 — Double-nested wiki-links**: Three-layer defense (prompt + post-processing + integrity check). Lint auto-fix for historical damage. `updateRelatedPage` returns `boolean`.
-- ✅ **Issue #40 — Opposite-directory stubs**: Slug-equivalence matching in both LLM and deterministic stub safety nets.
-- ✅ **Issue #34 — Extraction prompt rewrite**: Graph-centric ("wiki-link test"). Bibliographic references excluded. Entity Recognition Guide updated.
-- ✅ **Issue #39 — `mentions_in_source` filtering**: `truncateMentions()` caps at 500 chars. 3 replacement points in page-factory.ts.
-- ✅ **ROADMAP P1 — PageFactory refactoring**: 8 methods → 4 generic (563→424 lines, -25%). Public API unchanged.
-- ✅ **ROADMAP P1 — LLM client retry extraction**: Shared `withRetry<T>` helper (-67 lines in llm-client.ts).
-- ✅ **ROADMAP P1 — `createMessageStream` language cleanup**: Removed unused `language` parameter from interface and 3 implementations.
-- ✅ **ROADMAP P2 — All items completed**: Supplemental tests (+15, 113 total), mentions truncation, slugify log reduction, Chinese comment cleanup.
-- ✅ **ROADMAP P2 — #38 Anthropic prompt caching evaluated & rejected**: System prompts too small for cache threshold. User message caching via `cacheBreakpoint` already handles main savings.
-
-### Completed (v1.10.2)
-- ✅ **Custom granularity per-type limits fix**: Three inconsistencies fixed — `source-analyzer.ts` enforces per-type caps, `getGranularityInstruction()` injects concrete numbers, `getGranularityFixLimits()` reads user settings. +6 unit tests.
-
-### Completed (v1.10.1)
-- ✅ **Issue #32 — Slug normalization in resolvePagePath**: Fast path 2 checks title + aliases via normalized slug comparison. +4 unit tests.
-
-### Completed (v1.10.0)
-- ✅ **Issue #30/#31 — Aliases + Granularity expansion**: Minimal/Custom options, UX improvements, i18n across 8 languages.
-
 ### P3 — Nice-to-have
 - #36 — Source title in frontmatter: needs clarification from issue author
-- #38 — Anthropic prompt caching: evaluated & rejected (system prompts too small for cache threshold; `cacheBreakpoint` already handles main savings)
-
-### Test Coverage
-- **113 unit tests** via vitest across 2 test files
-- CI-ready: `pnpm lint && pnpm test && pnpm build && npx tsc --noEmit`
 
 ---
 

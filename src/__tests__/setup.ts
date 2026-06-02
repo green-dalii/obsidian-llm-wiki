@@ -3,6 +3,11 @@
 
 import { vi } from 'vitest';
 
+// Polyfill window for code that uses window.setTimeout (e.g. withRetry)
+// @ts-expect-error — node test environment, window is not native
+// eslint-disable-next-line obsidianmd/no-global-this
+globalThis.window = globalThis;
+
 // Mock obsidian module globally — all tests inherit this
 vi.mock('obsidian', () => ({
   // Basic exports
@@ -55,6 +60,8 @@ vi.mock('obsidian', () => ({
     load() {}
     unload() {}
   },
+  // Network requests — tests control return values via vi.mocked(requestUrl)
+  requestUrl: vi.fn(),
 }));
 
 // Global test environment setup
