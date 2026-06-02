@@ -8,6 +8,7 @@ import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice } from '../../utils';
 import { TOKENS_LINT_ALIAS_BATCH, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
+import { buildWikiLanguageDirective } from '../system-prompts';
 
 export async function runAliasCompletion(
   ctx: LintContext,
@@ -53,6 +54,7 @@ export async function runAliasCompletion(
           const response = await client.createMessage({
             model: ctx.settings.model,
             max_tokens: TOKENS_LINT_ALIAS_BATCH,
+            system: buildWikiLanguageDirective(ctx.settings),
             messages: [{ role: 'user', content: prompt }],
             response_format: { type: 'json_object' }
           });

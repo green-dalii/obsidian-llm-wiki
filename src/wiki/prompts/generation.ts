@@ -27,10 +27,10 @@ export const GENERATION_PROMPTS = {
 4. If the entity already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
 5. **Generate aliases for this page** — provide 1-3 alternative names. This field is REQUIRED:
-   - If the page name is in Chinese, add the English equivalent as alias
-   - If the page name is in English, add a Chinese translation as alias (when Wiki language is Chinese)
-   - Include common acronyms, abbreviations, or alternative phrasings
-   - **If no natural alias exists**, fall back to: a translation in the Wiki language, the source file name, or the entity name itself in the other language. The aliases field MUST NOT be left empty — always provide at least one meaningful alias
+   - Include acronyms, abbreviations, spelling variants, or common alternative technical names
+   - All aliases MUST be in the same language as the wiki (follow the language set in your system instructions)
+   - Do NOT add translations into other languages
+   - **If no natural alias exists**, use the page title itself. The aliases field MUST NOT be left empty — always provide at least one alias
 6. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
@@ -89,10 +89,10 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 4. If the concept already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
 5. **Generate aliases for this page** — provide 1-3 alternative names. This field is REQUIRED:
-   - If the page name is in Chinese, add the English equivalent as alias
-   - If the page name is in English, add a Chinese translation as alias (when Wiki language is Chinese)
-   - Include common acronyms, abbreviations, or alternative phrasings
-   - **If no natural alias exists**, fall back to: a translation in the Wiki language, the source file name, or the concept name itself in the other language. The aliases field MUST NOT be left empty — always provide at least one meaningful alias
+   - Include acronyms, abbreviations, spelling variants, or common alternative technical names
+   - All aliases MUST be in the same language as the wiki (follow the language set in your system instructions)
+   - Do NOT add translations into other languages
+   - **If no natural alias exists**, use the page title itself. The aliases field MUST NOT be left empty — always provide at least one alias
 6. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
@@ -145,9 +145,10 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 4. Highlight key points
 5. Be objective and accurate
 6. **Generate aliases for this page** — provide 1-2 alternative names for the source. This field is REQUIRED:
-   - Add an English translation of the title as alias (if title is in Chinese)
-   - Add a Chinese translation of the title as alias (if title is in English and Wiki language is Chinese)
-   - **If no natural alias exists**, use the source file name or the title itself in the other language. The aliases field MUST NOT be left empty — always provide at least one alias
+   - Include alternative titles, abbreviations, or common alternative names for the source
+   - All aliases MUST be in the same language as the wiki (follow the language set in your system instructions)
+   - Do NOT add translations into other languages
+   - **If no natural alias exists**, use the source file name or the page title itself. The aliases field MUST NOT be left empty — always provide at least one alias
 
 **Output Format:**
 ---
