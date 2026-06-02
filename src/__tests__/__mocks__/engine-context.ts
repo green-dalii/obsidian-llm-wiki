@@ -80,6 +80,8 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   startupCheck: false,
   pageGenerationConcurrency: 1,
   batchDelayMs: 0,
+  copySourcePagesToWiki: false,
+  pagesFolder: 'pages',
   llmReady: true,
 };
 

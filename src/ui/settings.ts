@@ -654,5 +654,25 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       .addToggle(toggle => toggle
         .setValue(this.tempSettings.startupCheck)
         .onChange((value) => { this.tempSettings.startupCheck = value; }));
+
+    new Setting(containerEl)
+      .setName(this.getText('copySourcePagesToggle'))
+      .setDesc(this.getText('copySourcePagesDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.copySourcePagesToWiki)
+        .onChange((value) => { this.tempSettings.copySourcePagesToWiki = value; this.display(); }));
+
+    if (this.tempSettings.copySourcePagesToWiki) {
+      new Setting(containerEl)
+        .setName(this.getText('pagesFolderLabel'))
+        .setDesc(this.getText('pagesFolderDesc'))
+        .addText(text => {
+
+          text.setValue(this.tempSettings.pagesFolder || 'pages');
+          text.onChange((value) => {
+            this.tempSettings.pagesFolder = value.trim() || 'pages';
+          });
+        });
+    }
   }
 }
