@@ -188,6 +188,10 @@ export class WikiEngine {
     return this.lintFixer.fixPollutedPage(oldPath, newBasename);
   }
 
+  async normalizePageCase(oldPath: string): Promise<string> {
+    return this.lintFixer.normalizePageCase(oldPath);
+  }
+
   private get client(): LLMClient {
     const c = this.getLLMClient();
     if (!c) throw new Error('LLM Client not initialized');
