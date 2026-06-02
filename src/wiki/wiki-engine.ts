@@ -254,6 +254,24 @@ export class WikiEngine {
       const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
       let step = 1;
 
+      // Deduplicate by slug before page generation. The LLM can return the same
+      // concept with different capitalizations across extraction rounds. Without
+      // this, parallel tasks race to create both "Schema.md" and "schema.md".
+      const seenEntitySlugs = new Set<string>();
+      analysis.entities = analysis.entities.filter(e => {
+        const s = slugify(e.name);
+        if (seenEntitySlugs.has(s)) return false;
+        seenEntitySlugs.add(s);
+        return true;
+      });
+      const seenConceptSlugs = new Set<string>();
+      analysis.concepts = analysis.concepts.filter(c => {
+        const s = slugify(c.name);
+        if (seenConceptSlugs.has(s)) return false;
+        seenConceptSlugs.add(s);
+        return true;
+      });
+
       const plannedPaths: string[] = [];
       for (const entity of analysis.entities) {
         plannedPaths.push(normalizePath(`${this.settings.wikiFolder}/entities/${slugify(entity.name)}.md`));

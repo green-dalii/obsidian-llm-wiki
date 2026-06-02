@@ -36,7 +36,7 @@ describe('PageFactory — Core Paths', () => {
       const result = await (factory as unknown as { resolvePagePath: (n: string, t: 'entity' | 'concept', s: string) => Promise<{ path: string | null }> })
         .resolvePagePath('New Entity', 'entity', 'A new entity summary');
 
-      expect(result.path).toBe('wiki/entities/New-Entity.md');
+      expect(result.path).toBe('wiki/entities/new-entity.md');
     });
 
     it('detects exact slug match and returns existing path', async () => {
@@ -107,7 +107,7 @@ describe('PageFactory — Core Paths', () => {
       const result = await (factory as unknown as { resolvePagePath: (n: string, t: 'entity' | 'concept', s: string) => Promise<{ path: string | null }> })
         .resolvePagePath('Unique Entity', 'entity', 'Totally unique summary');
 
-      expect(result.path).toBe('wiki/entities/Unique-Entity.md');
+      expect(result.path).toBe('wiki/entities/unique-entity.md');
     });
 
     it('detects cross-type collision and returns collision info', async () => {
@@ -209,7 +209,7 @@ describe('PageFactory — Core Paths', () => {
         []
       );
 
-      const content = vault.read('wiki/entities/Brand-New.md');
+      const content = vault.read('wiki/entities/brand-new.md');
       expect(content).toContain('Fresh content');
     });
 

@@ -43,7 +43,7 @@ describe('slugify', () => {
   });
 
   it('handles mixed CJK and ASCII', () => {
-    expect(slugify('机器学习 Supervised Learning')).toBe('机器学习-Supervised-Learning');
+    expect(slugify('机器学习 Supervised Learning')).toBe('机器学习-supervised-learning');
   });
 
   it('removes angle brackets and quotes', () => {
@@ -61,21 +61,21 @@ describe('slugify', () => {
   });
 
   it('removes commas', () => {
-    expect(slugify('Karpathy, Andrej')).toBe('Karpathy-Andrej');
+    expect(slugify('Karpathy, Andrej')).toBe('karpathy-andrej');
   });
 
   it('normalizes spaces to hyphens for slug-match comparison (Issue #32)', () => {
     // resolvePagePath Fast path 2: slugify(p.title) === slug
     // catches files whose stored name uses spaces instead of hyphens
-    expect(slugify('Metabolisches Syndrom')).toBe('Metabolisches-Syndrom');
-    expect(slugify('Machine Learning Basics')).toBe('Machine-Learning-Basics');
+    expect(slugify('Metabolisches Syndrom')).toBe('metabolisches-syndrom');
+    expect(slugify('Machine Learning Basics')).toBe('machine-learning-basics');
     expect(slugify('hello world') === slugify('hello-world')).toBe(true);
     expect(slugify('Test Page Name') === slugify('Test-Page-Name')).toBe(true);
   });
 
   it('slug-match handles edge cases with dots and spaces combined', () => {
-    expect(slugify('Dr. Smith Report')).toBe('Dr-Smith-Report');
-    expect(slugify('v1.0 Release Notes')).toBe('v1-0-Release-Notes');
+    expect(slugify('Dr. Smith Report')).toBe('dr-smith-report');
+    expect(slugify('v1.0 Release Notes')).toBe('v1-0-release-notes');
     // Mixed separators normalize to same slug
     expect(slugify('hello.world test') === slugify('hello-world-test')).toBe(true);
   });
@@ -88,6 +88,16 @@ describe('slugify', () => {
     expect(slugify('Deep-Learning').toLowerCase() === targetSlug).toBe(true);
     // Different casing in alias
     expect(slugify('Chain of Thought').toLowerCase() === 'chain-of-thought').toBe(true);
+  });
+
+  it('lowercases output to produce canonical filenames', () => {
+    expect(slugify('Schema')).toBe('schema');
+    expect(slugify('Persistent Wiki')).toBe('persistent-wiki');
+    expect(slugify('Machine Learning')).toBe('machine-learning');
+    expect(slugify('UPPERCASE')).toBe('uppercase');
+    // Both variants map to the same slug, preventing case-variant duplicate files
+    expect(slugify('Schema')).toBe(slugify('schema'));
+    expect(slugify('Persistent Wiki')).toBe(slugify('persistent-wiki'));
   });
 
   it('slug-match covers aliases with space/case variants', () => {
