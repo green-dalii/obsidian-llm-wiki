@@ -1,18 +1,52 @@
 // Lint Controller — Wiki health analysis and fix orchestration.
 // Extracted from main.ts to keep the plugin entry point manageable.
 
-import { App, Notice, TFile } from 'obsidian';
+import { App, Notice, TFile, normalizePath } from 'obsidian';
 import { LLMWikiSettings, LLMClient } from '../types';
 import { LintFixCallbacks, LintCounts, LintReportModal, FixReportModal, FixReportPhase } from '../ui/modals';
 import { TEXTS } from '../texts';
 import { PROMPTS } from '../prompts';
-import { cleanMarkdownResponse, parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice, getText } from '../utils';
+import { cleanMarkdownResponse, parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice, getText, parseFrontmatter } from '../utils';
 import { TOKENS_LINT_DEDUP_LLM, NOTICE_NORMAL, NOTICE_RATE_LIMIT } from '../constants';
-import { isPageEmpty, detectPollutedPages, fixDoubleNestedWikiLinks } from './lint-fixes';
+import { isPageEmpty, detectPollutedPages, fixDoubleNestedWikiLinks, getExistingWikiPages } from './lint-fixes';
 import { generateDuplicateCandidates, DuplicateCandidate } from './lint/duplicate-detection';
 import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges } from './lint/fix-runners';
 import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans } from './lint/scanners';
 import { WikiEngine } from './wiki-engine';
+import { insertWikiLinks } from '../core/wikilink-inserter';
+
+async function refreshPagesCopies(ctx: LintContext): Promise<number> {
+  const pagesFolder = normalizePath(ctx.settings.pagesFolder);
+  const wikiPages = await getExistingWikiPages(ctx.app, ctx.settings.wikiFolder, ctx.settings.pagesFolder);
+
+  const copyFiles = ctx.app.vault.getMarkdownFiles().filter(f => f.path.startsWith(pagesFolder + '/'));
+  let refreshed = 0;
+
+  for (const copyFile of copyFiles) {
+    const copyContent = await ctx.app.vault.read(copyFile);
+    const fm = parseFrontmatter(copyContent);
+    const sourcePath = typeof fm?.source === 'string' ? fm.source : null;
+    if (!sourcePath) continue;
+
+    const sourceFile = ctx.app.vault.getAbstractFileByPath(sourcePath);
+    if (!(sourceFile instanceof TFile)) continue;
+
+    const rawContent = await ctx.app.vault.read(sourceFile);
+    const linked = insertWikiLinks(rawContent, wikiPages);
+    const withSource = linked.startsWith('---')
+      ? linked.replace(/^(---[\s\S]*?\n---\n?)/, fm2 => {
+          if (!fm2.includes('source:')) {
+            return fm2.replace(/\n---\n?$/, `\nsource: "${sourcePath}"\n---\n`);
+          }
+          return fm2;
+        })
+      : `---\nsource: "${sourcePath}"\n---\n` + linked;
+
+    await ctx.app.vault.adapter.write(copyFile.path, withSource);
+    refreshed++;
+  }
+  return refreshed;
+}
 
 export interface LintContext {
   app: App;
@@ -611,6 +645,7 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
           let deadLinksFixed = 0;
           let orphansLinked = 0;
           let emptyPagesFilled = 0;
+          let pagesCopiesRefreshed = 0;
 
           // Smart fix strategy: follow causality chain with aliases as foundation
           // Phase -1: Fix polluted pages (structural root cause before everything else)
@@ -694,6 +729,16 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
             }
           }
 
+          // Phase 5: Refresh pages/ copies with updated wiki links (if enabled)
+          if (ctx.settings.copySourcePagesToWiki) {
+            fixAllNotice.setMessage(getText(ctx.settings.language, 'lintRefreshPagesCopiesProgress'));
+            pagesCopiesRefreshed = await refreshPagesCopies(ctx);
+            if (pagesCopiesRefreshed > 0) {
+              allResults.push(`## Refresh Pages Copies\n${getText(ctx.settings.language, 'lintRefreshPagesCopies').replace('{count}', String(pagesCopiesRefreshed))}`);
+              console.debug(`Smart fix: Refreshed ${pagesCopiesRefreshed} pages/ copies`);
+            }
+          }
+
           fixAllNotice.hide();
           if (allResults.length > 0) {
             await ctx.wikiEngine.generateIndexFromEngine();
@@ -736,6 +781,12 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
             phases.push({
               label: t.lintModalExpandEmpty.replace('{count}', String(emptyPages.length)),
               detail: `${emptyPagesFilled}/${emptyPages.length}`
+            });
+          }
+          if (ctx.settings.copySourcePagesToWiki && pagesCopiesRefreshed > 0) {
+            phases.push({
+              label: getText(ctx.settings.language, 'lintRefreshPagesCopies').replace('{count}', String(pagesCopiesRefreshed)),
+              detail: String(pagesCopiesRefreshed)
             });
           }
           new FixReportModal(ctx.app, phases, ctx.settings.language).open();

@@ -275,6 +275,12 @@ export const DE_TEXTS = {
     periodicLintWeekly: 'Wöchentlich',
     startupCheckName: 'Start-Gesundheitsprüfung',
     startupCheckDesc: 'Wiki-Gesundheit beim Plugin-Start prüfen',
+    copySourcePagesToggle: 'Copy source pages with wiki links',
+    copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
+    pagesFolderLabel: 'Pages folder',
+    pagesFolderDesc: 'Vault-relative path where linked copies are saved (default: pages). Can be inside the wiki folder, e.g. wiki/pages.',
+    lintRefreshPagesCopies: 'Refreshed {count} page copies with updated wiki links',
+    lintRefreshPagesCopiesProgress: 'Smart fix: Phase 5 — Refreshing pages/ copies...',
     suggestSchemaCommand: 'Schema-Aktualisierungen vorschlagen',
     autoMaintainCostWarning: '⚠️ Kostenhinweis: Funktionen zur automatischen Wartung verbrauchen API-Tokens. "Automatisch aufnehmen" löst bei jeder Quelldatei-Änderung LLM-Aufrufe aus. "Periodische Prüfung" führt zeitgesteuerte LLM-Gesundheitsprüfungen durch (nur bei erkannten Quelländerungen). Sorgfältig konfigurieren, um unerwartete Kosten zu vermeiden.',
 
