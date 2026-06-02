@@ -110,6 +110,10 @@ export interface LLMWikiSettings {
   // Query dedup
   lastOfferedQueryHash?: string;
 
+  // Source page copying
+  copySourcePagesToWiki: boolean;
+  pagesFolder: string;
+
   // LLM readiness — must pass Test Connection before core features are available
   llmReady: boolean;
 }
@@ -412,6 +416,10 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
 
   // Query dedup
   lastOfferedQueryHash: '',
+
+  // Source page copying
+  copySourcePagesToWiki: false,
+  pagesFolder: 'pages',
 
   // LLM readiness
   llmReady: false,
