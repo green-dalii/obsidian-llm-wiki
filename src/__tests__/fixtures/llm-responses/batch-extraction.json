@@ -1,0 +1,22 @@
+{
+  "entities": [
+    {
+      "name": "Large Language Model",
+      "type": "entity",
+      "description": "AI system trained on vast text data",
+      "mentions": [{"text": "LLM", "context": "LLMs are transforming software"}],
+      "related_pages": [],
+      "confidence": "high"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "Test-Driven Development",
+      "type": "concept",
+      "definition": "Software development approach where tests are written before code",
+      "mentions": [{"text": "TDD", "context": "TDD ensures code quality"}],
+      "related_pages": [],
+      "confidence": "high"
+    }
+  ]
+}

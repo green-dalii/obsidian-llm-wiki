@@ -18,19 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pnpm
-        run: npm install -g pnpm@10.14
-
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "24.x"
-          cache: 'pnpm'
+          node-version: "22.x"
+          cache: 'npm'
 
       - name: Build plugin
         run: |
-          pnpm install
-          pnpm build
+          npm install --legacy-peer-deps
+          npm run build
 
       - name: Generate artifact attestation for main.js
         uses: actions/attest-build-provenance@v1

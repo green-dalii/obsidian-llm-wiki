@@ -311,6 +311,7 @@ export const FR_TEXTS = {
     ingestReportElapsedTime: 'Temps écoulé',
     ingestReportSkippedFiles: 'Ignorés (déjà importés)',
     ingestReportFailedGuidance: "Ces éléments n'ont pas pu être créés automatiquement. Vous pouvez créer manuellement les pages correspondantes, ou réduire la granularité d'extraction et réimporter le fichier source.",
+    ingestReportCollisions: 'Collisions cross-type (fusionnées comme alias)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Importer une source unique',
@@ -329,6 +330,7 @@ export const FR_TEXTS = {
     lintStatusBar: 'Vérification en cours... cliquer pour annuler',
     ingestionCancelling: 'Annulation — arrêt après le lot en cours',
     ingestionCancelled: 'Ingestion annulée',
+    crossTypeCollisionNotice: '{count} éléments fusionnés comme alias cross-type (doublons entité ↔ concept évités)',
 
     // Lint Report
     lintReportTitle: 'Rapport de vérification du wiki',

@@ -1,10 +1,43 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-05-26
+**Last Updated:** 2026-06-01
 
 ---
 
-## Current Phase: v1.12.0 — Production-Grade Performance
+## Current Phase: v1.14.0 — Architecture Quality & Test Infrastructure
+
+### Completed (v1.14.0)
+- ✅ **Model compatibility expansion (Issues #64/#65)**: DeepSeek-R1, QwQ (reasoning models), and LM Studio fully supported. Think token stripping removes reasoning blocks. LM Studio compatibility removes unsupported `response_format: json_object`.
+- ✅ **Test infrastructure expansion**: Mock infrastructure (`createMockContext`, `createMockFile`) enables unit testing of core engine modules without Obsidian runtime. Total tests doubled from ~200 to 400 (+200 tests).
+- ✅ **TypeScript type safety complete**: Fixed 8 type errors in `page-factory-core.test.ts`. Project achieves TypeScript strict mode compliance.
+- ✅ **Dual Gate Verification Mechanism**: Upgraded quality gates to require both ESLint and TypeScript passing (0 errors + 0 warnings each). ESLint alone insufficient for type safety.
+- ✅ **Core architecture refactoring**: Extracted 4 pure function modules to `src/core/`: conflict-resolver (136 lines), dead-link-detector (95 lines), orphan-matcher (82 lines), prompt-builders (104 lines).
+- ✅ **Constants centralization**: Centralized 30+ scattered magic numbers into `src/constants.ts` (192 lines). Activated semantic constants: WIKI_SUBFOLDERS, notice durations, token budgets.
+- ✅ **Query engine stability**: Page content loading capped at 3000 tokens in `loadRelevantPages` to prevent overflow.
+- ✅ **Documentation upgrades**: TDD Standard, Development Protocol, ROADMAP architecture quality plan, Dual Gate Verification documentation.
+- ✅ **Code quality**: 2576 lines added, 503 lines removed across 44 files. Zero side effects, zero breaking changes.
+- ✅ **400 tests** across 17 test files (+200 since v1.13.0).
+
+### Completed (v1.13.0)
+- ✅ **Cross-type duplicate prevention (#54)**: `resolvePagePath()` checks opposite folder (entities ↔ concepts) when same-type matching fails. Cross-type collisions merge content into existing page instead of silently losing information. Contributed by @dmarchevsky.
+- ✅ **Source analysis false abort fix (#61)**: First batch gate changed from `||` to `&&`. Only aborts when BOTH entities and concepts are absent. Contributed by @Indexed-Apogrypha (Matthew Harper).
+- ✅ **NormalizeBatchResponse pure function**: Centralized ~8 scattered `|| []` fallbacks into `BatchValidity`-typed normalization. Fixes hidden TypeError for non-array truthy LLM output.
+- ✅ **Aliases seeding**: `EntityInfo`/`ConceptInfo.aliases?` — extraction pre-generates alias seeds for page generation and multi-round dedup.
+- ✅ **Multi-round extraction context**: Injects already-extracted names+aliases into later round prompts, eliminating LLM internal-state dependency.
+- ✅ **Prompt task 0 rewritten**: Separated field round restrictions from content requirements.
+- ✅ **Alias self-pointing dedup**: `filterRedundantAliases` skips aliases equal to the page's own filename.
+- ✅ **Three-No Principle structured**: Actionable evaluation procedures (call-site audit, data flow trace, breaking-change matrix).
+- ✅ **CI uses npm for build**: Matches Obsidian verification exactly — Build verification passes.
+- ✅ **Think token stripping (Issue #64)**: `cleanMarkdownResponse` strips `<think>`/`<thinking>` blocks. Enables reasoning model support (DeepSeek-R1, QwQ).
+- ✅ **LM Studio compatibility (Issue #65)**: `response_format: json_object` removed from OpenAI-compatible client. Prompt + prefilled `{` is sufficient.
+- ✅ **Sources link constraint (Issue #63)**: `UNIVERSAL_LINK_CONSTRAINTS` injected into 3 previously-unprotected prompts (`generateSummaryPage`, `appendToReviewedPage`, `updateRelatedPage`).
+- ✅ **ConflictResolver pure layer**: `src/core/conflict-resolver.ts` — zero-side-effect conflict detection, 7 unit tests.
+- ✅ **Mock infrastructure**: `createMockContext` for core engine testing without Obsidian runtime.
+- ✅ **firstBatchData type narrowing**: `Partial<SourceAnalysis>` → `NormalizedBatch`.
+- ✅ **Constants centralization**: 16 token budget constants, 8 notice duration constants, retry params, `MAX_PAGE_CONTENT_CHARS`, `WIKI_SUBFOLDERS` activated.
+- ✅ **loadRelevantPages content truncation**: Capped at `MAX_PAGE_CONTENT_CHARS` (~3000 tokens) per page.
+- ✅ **appendAliases + buildPagesListForPrompt tests**: 8 test cases for page-factory core paths.
+- ✅ **198 tests** across 6 test files (+25 since v1.12.4).
 
 ### Completed (v1.12.0)
 - ✅ **Extraction prompt rearchitected**: Full page list removed from prompt. Extraction speed is now independent of wiki size. ~80% faster for typical files.
@@ -13,7 +46,6 @@
 - ✅ **Deterministic related_pages matching**: `matchExtractedToExisting()` uses slug + alias matching — zero LLM cost, more reliable.
 - ✅ **esbuild upgraded**: 0.17.3 → 0.28.0 (dev-server vulnerability fixed).
 - ✅ **Production build suppresses console.debug**: `console.debug = function() {}` banner.
-- ✅ **Silent computeSlug**: `resolvePagePath` bulk matching no longer floods dev console.
 - ✅ **Granularity ≤ notation**: 8 languages synchronized with consistent numbers.
 - ✅ **Extraction and lint progress improvements**: batch counts and cumulative results displayed.
 - ✅ **What's New section in all READMEs**: Localized in 8 languages with proper TOC anchors.
@@ -24,33 +56,33 @@
 
 | Item | Source | Effort |
 |------|--------|--------|
-| Production build strip `console.debug` (esbuild `drop`) | 审计二：213条三版未清理 | 10min |
-| Mock infrastructure + `page-factory.ts` core tests | 两审计共识：~4500行核心零测试 | 1周 |
-| `runLintWiki` phase extraction (835→6×~80行) | 审计二：835行，趋势增长 | 半天 |
+| Wiki-engine full-path tests (ingestSource, mock 6+ LLM calls) | Three independent audit consensus | 1 day |
+| query-engine core tests | Audit consensus | 1 day |
 
 ### P1 — Planned
 
 | Item | Source | Effort |
 |------|--------|--------|
-| Query local keyword filter (Layer 1 only, no vector) | 审计一：60-70%查询零API成本 | 1天 |
-| Architecture diagram (Mermaid) + debug guide | 审计一：新贡献者入门 | 2小时 |
+| page-factory resolvePagePath LLM fallback + merge + append tests | ROADMAP | 1 day |
+| runLintWiki phase extraction (762 → 6 × ~130 lines) | ROADMAP | half day |
 
 ### P2 — Backlog
 
 | Item | Effort |
 |------|--------|
 | Good First Issue tagging | 10min |
-| esbuild upgrade (fix dev-only vulnerability) | 10min |
+
+### Completed (v1.12.0)
 
 ### Evaluated & Rejected (v1.12.0)
 
 | Proposal | Source | Reason |
 |----------|--------|--------|
-| Hexagonal Architecture refactoring | 审计一 | Over-engineering for Obsidian plugin; mock alone enables testing |
-| Vector search (Ollama embeddings) | 审计一 | Requires Ollama + embedding model; <1% of users have this |
-| Hash-bucket dedup optimization | 审计一 | No user-reported perf issue; solve when it hurts |
-| page-factory try/catch 补全 | 审计二 | Exceptions bubble to wiki-engine's centralized error handler by design |
-| API URL validation | 审计一 | Obsidian's requestUrl already validates; self-phishing impossible |
+| Hexagonal Architecture refactoring | Audit 1 | Over-engineering for Obsidian plugin; mock alone enables testing |
+| Vector search (Ollama embeddings) | Audit 1 | Requires Ollama + embedding model; <1% of users have this |
+| Hash-bucket dedup optimization | Audit 1 | No user-reported perf issue; solve when it hurts |
+| page-factory try/catch completion | Audit 2 | Exceptions bubble to wiki-engine's centralized error handler by design |
+| API URL validation | Audit 1 | Obsidian's requestUrl already validates; self-phishing impossible |
 
 ### Completed (v1.11.0)
 - ✅ **Issue #42 — llmReady gating**: New users must complete Provider → API Key → Fetch Models → Test Connection before core features unlock.
@@ -118,21 +150,98 @@ src/
 
 ## 🛡️ Three-No Principle
 
-Every change must satisfy all three before being considered complete. **Automated checks alone are not sufficient** — each item requires explicit manual verification against the modified code.
+Every change must satisfy all three before being considered complete.
+**Automated gates catch syntax/type/test errors; manual review catches logic
+and architectural errors that no linter can see.**
 
-1. **No Side Effects — required manual review**: Changes must not affect behavior outside their intended scope. Refactored code must produce identical output. New features must not alter existing workflows.
-   - **Manual check**: Read every call-site of the modified function. Trace data flow through all consumers. Verify no other module depends on the previous behavior. Check that error propagation paths remain intact.
-2. **No Breaking Changes — required manual review**: No API signature changes without call-site updates. No config format changes. No file format changes. Existing users must not need to reconfigure.
-   - **Manual check**: Compare old and new function signatures. Check settings schema for added/removed fields. Verify saved `data.json` from previous versions still loads correctly.
-3. **No Test Errors or Warnings — automated gates**: `pnpm lint` must produce 0 errors and 0 warnings. `pnpm test` must pass all tests (0 failures). `npx tsc --noEmit` must produce 0 errors. `pnpm build` must exit cleanly.
+### 1. No Side Effects — required structured review
 
-Verification gates:
+**Goal**: The change does not alter behavior outside its intended scope.
+
+#### 1a. Call-site Audit
+Run `grep -rn "<functionName>" src/` to list every call-site. For each:
+- [ ] **Arguments**: check if any caller depends on old return value / side effect
+- [ ] **Return value**: check if any caller would break with new return shape
+- [ ] **Error handling**: check if try/catch or `.catch()` paths still make sense
+
+#### 1b. Data Flow Trace
+For each modified function, trace:
+- [ ] **Inputs**: Where does each parameter value originate? (user input / setting / file / LLM / computed)
+- [ ] **Outputs**: Where does each return value / mutated state go? (file write / UI / downstream function / cache)
+- [ ] **Side effects**: Does the function mutate external state? (file system, Obsidian API, global vars, DOM)
+- [ ] **IO points**: Mark every `await this.ctx.*`, `app.*`, `document.*`, `localStorage.*`
+
+#### 1c. State Mutation Analysis
+- [ ] If the function is async: can it run concurrently with itself or another function touching the same state?
+- [ ] If the function writes files: does it overwrite or append? Is the path deterministic?
+- [ ] If the function reads settings: does it handle missing/new fields gracefully?
+
+#### 1d. Error Propagation Check
+- [ ] New error paths: are they caught by all callers?
+- [ ] Changed error types: do existing catch blocks still match?
+- [ ] Silent failures: are there any paths that swallow errors without logging?
+
+**Deliverable**: A 3-5 sentence side-effect assessment, e.g.:
+> "Modified `resolvePagePath` is called from 2 private methods in PageFactory.
+> The new `collision` return field is consumed by `createOrUpdatePage` and
+> `IngestReportModal` only. No other module touches this path. The function
+> still writes aliases via `appendAliases` (same side effect as before); no
+> new IO introduced."
+
+### 2. No Breaking Changes — required structured review
+
+**Goal**: Existing users do not need to reconfigure or migrate data.
+
+| Dimension | Check | Method | Pass Criteria |
+|-----------|-------|--------|---------------|
+| **API Signature** | Function params / return type changed? | `git diff` + `grep` | All call-sites updated; no new required params without defaults |
+| **Settings Schema** | `data.json` fields added/removed? | Check `types.ts` + `settings.ts` | New fields have defaults in constructor; removed fields are gracefully ignored |
+| **File Format** | Frontmatter / output / index format changed? | Check generation templates | Old files load without error; new format is backward-compatible |
+| **Default Behavior** | Any default value changed? | Check constructor / config init | Old behavior is preserved unless explicitly opted in |
+| **Command/Setting IDs** | Any command palette ID or setting key renamed? | `grep` for IDs/keys | IDs unchanged; if changed, old IDs still map |
+| **Obsidian API** | Minimum Obsidian version requirement changed? | `manifest.json` | `minAppVersion` >= current; no new Obsidian-exclusive APIs |
+
+**Deliverable**: A breaking-change verdict: "None detected" or a specific migration plan.
+
+### 3. No Test Errors or Warnings — **Four automated gates (2026-06-01 upgrade)**
+
+```bash
+# Gate 1: ESLint (code style + logic rules)
+pnpm lint
+# Required: 0 errors, 0 warnings
+# Checks: no-unused-vars, no-floating-promises, Obsidian rules, etc.
+
+# Gate 2: TypeScript (type safety)
+npx tsc --noEmit
+# Required: 0 errors, 0 warnings
+# Checks: type matching, interface completeness, null/undefined handling
+# Critical: ESLint passing does NOT guarantee type safety, must verify separately
+
+# Gate 3: Tests (functional validation)
+pnpm test
+# Required: all pass, 0 failures
+
+# Gate 4: Build (production compilation)
+pnpm build
+# Required: clean exit
 ```
-pnpm lint          # 0 errors, 0 warnings
-pnpm test          # all pass, 0 failures
-npx tsc --noEmit   # 0 errors
-pnpm build         # clean exit
-```
+
+**Critical note (Phase 4 lesson):**
+- **ESLint and TypeScript are complementary tools, must BOTH pass**
+- ESLint does NOT check type matching (e.g., missing required interface fields)
+- TypeScript does NOT check code style (e.g., no-floating-promises)
+- **Single tool passing is insufficient, requires dual verification**
+
+If any gate fails: fix the root cause, do NOT add `@ts-ignore` or `eslint-disable`
+to silence it. Re-run all four gates after each fix.
+
+### ⚠️ Anti-patterns that bypass these checks
+
+- "The tests pass, so it's fine" → Tests only cover what you thought to test
+- "It's just a one-line change" → One-line changes are the most dangerous
+- "I'll add tests later" → Tests must accompany the change, not follow it
+- "The PR review will catch it" → The reviewer has less context than you
+- "ESLint passes, TypeScript errors are fine" → ESLint does NOT check type safety
 
 ## ⚠️ Git Safety Protocol
 
@@ -158,6 +267,8 @@ git checkout main && git pull origin main
 
 ## Tag & Release workflow
 
+**Use `/obsidian-plugin-release` skill for complete release preparation.**
+
 Tags are pushed AFTER the PR is merged to main:
 ```bash
 # Ensure you're on the latest main with the merged commit
@@ -166,6 +277,12 @@ git tag -a X.Y.Z -m "X.Y.Z"
 git push origin X.Y.Z
 # GitHub Actions creates the draft release automatically
 ```
+
+**Before version bump commit**, verify ALL items in skill's Pre-Release Checklist:
+- All 8 READMEs' "What's New" section REPLACED (not appended)
+- TOC links match actual heading text exactly
+- CHANGELOG.md entry added
+- Lockfiles regenerated (pnpm + npm official registry)
 
 ---
 
@@ -202,11 +319,50 @@ git push origin X.Y.Z
 
 English, conventional commits. `feat:` `fix:` `docs:` `refactor:` `test:` `chore:`
 
+## 🧪 Test-Driven Development (TDD) Standard
+
+**Test before code.** For any new function, module, or behavior change:
+
+1. **Write a failing test first** — define the expected behavior as a test case
+2. **Write just enough code** to make the test pass
+3. **Refactor** — clean up, then verify the test still passes
+
+**Pre-existing code** (core engine files without tests): when modifying a function that has zero tests, add at least one test for the path you're changing before making the code change.
+
+**Exceptions**: trivial one-line changes, pure configuration, documentation.
+
+**Why**: Every bug found since v1.0.0 was discovered by users, not by tests. Core engine files (wiki-engine 1017 lines, query-engine 888 lines) remain at zero test coverage. TDD ensures the next change doesn't add to this debt.
+
 ## ✅ Pre-Commit Checklist
 
-- `pnpm lint` (0 errors), `pnpm test` (all pass), `pnpm build` (clean), `npx tsc --noEmit` (0 errors)
+**四重Gate验证（2026-06-01升级）**：
 
-- `pnpm lint` (0 errors), `pnpm test` (all pass), `pnpm build` (clean), `tsc --noEmit` (0 errors)
+```bash
+pnpm lint           # Gate 1: ESLint - 0 errors, 0 warnings
+npx tsc --noEmit    # Gate 2: TypeScript - 0 errors, 0 warnings
+pnpm test           # Gate 3: Tests - all pass, 0 failures
+pnpm build          # Gate 4: Build - clean exit
+```
+
+**重要**：四个命令必须**全部通过**才能提交。单一工具通过不足够（Phase 4教训）。
+
+---
+
+## ⚠️ Development Protocol: Plan First, Then Execute
+
+**Before starting any significant change** (refactoring, new modules, prompt modification, architectural decisions, or anything touching core engine files):
+
+1. **Present your plan** — explain what, why, and how
+2. **Wait for explicit user approval** before writing code or committing
+3. **For multi-phase work**: pause and report after each phase
+
+**Exceptions** (no prior approval needed): trivial one-line fixes, running lint/test/build, reading files, documenting existing code.
+
+**Why**: The user is the domain expert on product vision. The AI has tooling capability but lacks product context. Propose, don't dispose.
+
+## 🧪 TDD: Write Tests First
+
+For any new function or behavior change: write a failing test first, then write the implementation, then refactor. When modifying untested core code, add at least one test for the path you're changing. See TDD Standard above.
 
 ---
 

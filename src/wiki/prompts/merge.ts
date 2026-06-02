@@ -166,6 +166,7 @@ Output ONLY the body content (no frontmatter):
 3. If new info adds genuinely new facts → append them in a "New Information ({{new_source}})" section at the end
 4. DO NOT modify any existing content
 5. DO NOT remove or rewrite any existing sections
+6. {{constraints}}
 
 **Output Format:**
 If no new content: output exactly "NO_NEW_CONTENT"
@@ -185,6 +186,8 @@ Existing content:
 The new source file ("{{source_basename}}") provides additional information about {{page_name}}:
 {{new_info}}
 
-Update the page by adding the new information without deleting existing content. Use wiki-link syntax [[page-name]].
+Update the page by adding the new information without deleting existing content.
+{{constraints}}
+Use wiki-link syntax [[page-name]].
 Output ONLY the updated page BODY content (without frontmatter), no other text.`,
 };

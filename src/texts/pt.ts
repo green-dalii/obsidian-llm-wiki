@@ -311,6 +311,7 @@ export const PT_TEXTS = {
     ingestReportElapsedTime: 'Tempo decorrido',
     ingestReportSkippedFiles: 'Ignorados (já ingeridos)',
     ingestReportFailedGuidance: 'Estes itens não puderam ser criados automaticamente. Você pode criar as páginas manualmente ou reduzir a granularidade da extração e reingerir o arquivo fonte.',
+    ingestReportCollisions: 'Colisões cross-type (fundidas como alias)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Ingerir fonte individual',
@@ -329,6 +330,7 @@ export const PT_TEXTS = {
     lintStatusBar: 'Verificando... clique para cancelar',
     ingestionCancelling: 'Cancelando — irá parar após o lote atual',
     ingestionCancelled: 'Ingestão cancelada',
+    crossTypeCollisionNotice: '{count} elementos fundidos como alias cross-type (duplicatas entidade ↔ conceito evitadas)',
 
     // Lint Report
     lintReportTitle: 'Relatório de verificação da Wiki',

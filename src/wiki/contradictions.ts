@@ -2,6 +2,7 @@
 
 import { EngineContext, ContradictionInfo } from '../types';
 import { slugify, parseFrontmatter, cleanMarkdownResponse } from '../utils';
+import { TOKENS_CONTRADICTION } from '../constants';
 import { PROMPTS } from '../prompts';
 import {
   getSectionLabels,
@@ -179,7 +180,7 @@ ${contradiction.source_page}
 
     const fixedContent = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 4000,
+      max_tokens: TOKENS_CONTRADICTION,
       system: await buildSystemPrompt(
         this.ctx.settings,
         this.ctx.getSchemaContext,

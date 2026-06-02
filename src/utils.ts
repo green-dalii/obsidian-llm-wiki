@@ -1,6 +1,26 @@
 // Utility functions for Wiki processing
 
 import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from './types';
+import { TEXTS } from './texts';
+
+// Type-safe i18n accessor. Falls back to EN_TEXTS when key is missing in target language.
+export function getText<K extends keyof typeof TEXTS.en>(
+  language: string,
+  key: K,
+  replacements?: Record<string, string>
+): string {
+  const texts = TEXTS[language as keyof typeof TEXTS] || TEXTS.en;
+  let text = texts[key] as unknown as string;
+  if (!text) {
+    text = TEXTS.en[key] as unknown as string;
+  }
+  if (replacements) {
+    for (const [k, v] of Object.entries(replacements)) {
+      text = text.replace(`{${k}}`, v);
+    }
+  }
+  return text;
+}
 
 export function slugify(text: string): string {
   console.debug('slugify input:', text, 'length:', text?.length);
@@ -43,6 +63,33 @@ export function computeSlug(text: string): string {
   if (finalSlug.length === 0) return 'untitled-' + Date.now();
 
   return finalSlug;
+}
+
+// Filter out aliases that are redundant against a page's own filename.
+// Obsidian resolves `[[X]]` to a file whose basename equals X (case-insensitive),
+// so an alias that already equals the filename is a self-pointing no-op that only
+// clutters frontmatter. This commonly happens on cross-type collisions where the
+// colliding name is identical to the existing page's name (e.g. adding "Vigilanz"
+// to vigilanz.md). Comparison is exact case-insensitive basename match — NOT slug
+// based — because Obsidian does not collapse spaces/symbols when resolving links,
+// so a space-variant like "Deep Learning" on deep-learning.md IS a useful alias
+// and must be kept.
+// Pure function (no IO) so the dedup rule can be unit-tested in isolation.
+export function filterRedundantAliases(
+  pagePath: string,
+  candidateAliases: string[]
+): string[] {
+  const fileName = pagePath.split('/').pop() || '';
+  const fileKey = fileName.replace(/\.md$/i, '').trim().toLowerCase();
+  const seen = new Set<string>();
+  return candidateAliases.filter(alias => {
+    if (!alias || alias.trim().length === 0) return false;
+    const key = alias.trim().toLowerCase();
+    if (key === fileKey) return false; // already resolves to this file — redundant
+    if (seen.has(key)) return false; // duplicate within the batch (case-insensitive)
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function parseJsonResponse(
@@ -536,14 +583,20 @@ export function preserveFrontmatterReviewTag(originalContent: string, newContent
 export function cleanMarkdownResponse(response: string): string {
   console.debug('cleanMarkdownResponse input length:', response.length);
 
+  let cleaned = response.trim();
+
+  // Strip reasoning/thinking tags from reasoning models (DeepSeek-R1, QwQ, etc.)
+  // These models emit <think>...</think> or <thinking>...</thinking> blocks during
+  // inference that are not part of the intended output. Remove them before any
+  // other processing so downstream parsers see only the final response.
+  cleaned = cleaned.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '');
+  cleaned = cleaned.replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking>/gi, '');
+
   // Remove markdown code block wrapping
   // Pattern 1: ```markdown ... ```
   // Pattern 2: ``` ... ```
   // Pattern 3: ```md ... ```
 
-  let cleaned = response.trim();
-
-  // Try matching code block patterns
   const codeBlockPatterns = [
     /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/gm,  // Complete code block (multiline)
     /^```(?:markdown|md)?\s*([\s\S]*?)```$/gm,       // Complete code block (no newline)
@@ -765,21 +818,12 @@ export function detectRateLimitFailures(
 
 export function formatRateLimitNotice(
   info: RateLimitInfo,
-  texts: Record<string, string>,
+  language: string,
 ): string {
-  const t = texts;
-  // Use full notice if t.rateLimitDetected exists, else build from parts
-  if (t.rateLimitDetected) {
-    return t.rateLimitDetected
-      .replace('{count}', String(info.count))
-      .replace('{suggestedConcurrency}', String(info.suggestedConcurrency))
-      .replace('{suggestedDelay}', String(info.suggestedDelay));
-  }
-  // Fallback: build English notice from scratch
-  const namesHint = info.rateLimitNames.slice(0, 3).join(', ');
-  const moreHint = info.rateLimitNames.length > 3 ? ` (and ${info.rateLimitNames.length - 3} more)` : '';
-  return `Rate limit hit — ${info.count} operation(s) failed${namesHint ? ': ' + namesHint + moreHint : ''}. ` +
-    `Lower concurrency to ${info.suggestedConcurrency} or increase batch delay to ${info.suggestedDelay}ms in Settings → Wiki Configuration.`;
+  return getText(language, 'rateLimitDetected')
+    .replace('{count}', String(info.count))
+    .replace('{suggestedConcurrency}', String(info.suggestedConcurrency))
+    .replace('{suggestedDelay}', String(info.suggestedDelay));
 }
 
 // Truncate mentions to a reasonable token budget for merge/create prompts.
@@ -860,4 +904,14 @@ export function matchExtractedToExisting(
     if (match) matched.add(match.title);
   }
   return [...matched];
+}
+
+// Coerce a potentially non-array value to an array.
+// Used for LLM output normalization where models may omit empty arrays
+// or return non-array truthy values (e.g. entities: true). Pure function.
+export function coerceToArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+  return [];
 }

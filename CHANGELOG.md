@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-06-01
+
+### Added
+- **Model compatibility expansion**: DeepSeek-R1, QwQ (reasoning models), and LM Studio now fully supported. Think token stripping (Issue #64) removes ` Schweizer
+
+<think>`/`<thinking>` blocks from reasoning model outputs. LM Studio compatibility fix (Issue #65) removes unsupported `response_format: json_object` parameter.
+
+- **Test infrastructure expansion**: Mock infrastructure (`createMockContext`, `createMockFile`) enables unit testing of core engine modules without Obsidian runtime. Total tests increased from ~200 to 400 (+200 tests), covering previously untestable core logic.
+
+### Fixed
+- **TypeScript type safety complete**: Fixed 8 type errors in `page-factory-core.test.ts` (interface completeness, null checks, parameter types). Project achieves TypeScript strict mode compliance.
+
+- **Query engine stability**: Page content loading capped at 3000 tokens (MAX_PAGE_CONTENT_CHARS) to prevent token overflow in `loadRelevantPages`.
+
+- **Dual Gate Verification Mechanism**: Upgraded quality gates to require both ESLint and TypeScript passing (0 errors + 0 warnings each). ESLint alone is insufficient for type safety.
+
+### Changed
+- **Core architecture refactoring**: Extracted 4 pure function modules to `src/core/` directory:
+  - `conflict-resolver.ts` — zero-IO conflict detection
+  - `dead-link-detector.ts` — dead link identification
+  - `orphan-matcher.ts` — orphan page matching
+  - `prompt-builders.ts` — prompt template builders
+  
+- **Constants centralization**: Centralized 30+ scattered magic numbers into `src/constants.ts` (192 lines). Activated semantic constants: WIKI_SUBFOLDERS, notice durations, token budgets, retry parameters.
+
+- **lint-fixes.ts refactoring**: Extracted pure logic to core modules, reduced file complexity (~180 lines removed).
+
+- **Documentation upgrades**:
+  - TDD Standard: "write failing test first, then implementation"
+  - Development Protocol: "plan first, then execute"
+  - ROADMAP architecture quality upgrade plan
+  - Dual Gate Verification documentation (ESLint + TypeScript both required)
+
+- **Code quality**: 2576 lines added, 503 lines removed across 44 files. Zero side effects, zero breaking changes, backward-compatible refactorings.
+
+## [1.13.0] - 2026-05-31
+
+### Added
+- **Extraction aliases seeding**: Entity and concept extraction now supports `aliases` field (optional). Pre-generated aliases serve as seeds for page generation and act as signals in multi-round extraction to prevent duplicate extractions. Contributed by @Indexed-Apogrypha (PR #61) and @green-dalii (PR #67).
+- **Multi-round extraction context**: Non-first extraction rounds now receive a list of already-extracted names and aliases, enabling the LLM to reliably avoid duplicates even on small/local models that struggle to maintain session state.
+
+### Fixed
+- **Source analysis false abort (#61)**: First batch gate changed from `||` to `&&` — only aborts when BOTH entities and concepts are absent. Previously a glossary source (entities only, no concepts) would incorrectly abort. Contributed by @Indexed-Apogrypha (Matthew Harper).
+- **Hidden TypeError on non-array LLM output**: `normalizeBatchResponse` uses typed `coerceToArray` to handle models returning `entities: true` (or similar non-array truthy values), preventing `TypeError` in downstream `.filter()` calls.
+- **Alias self-pointing duplication**: `appendAliases` now skips aliases that equal the page's own filename, preventing redundant self-pointing frontmatter entries on cross-type collisions.
+
+### Changed
+- **NormalizeBatchResponse pure function**: Extracted 8 scattered `|| []` fallbacks into a centralized pure function with `BatchValidity` enum (`unusable`/`empty`/`valid`), improving testability and fixing edge case handling.
+- **Prompt task 0 clarified**: Separated "field round restrictions" from "content requirements" — each is now an independent task item with front-loaded scope markers.
+- **Generation prompt receives aliases seeds**: Page creation template now includes `{{extraction_aliases}}` field, enabling the LLM to build on pre-extracted alias suggestions.
+- **Three-No Principle structured**: Replaced abstract manual-check descriptions with actionable evaluation procedures (call-site audit, data flow trace, state mutation analysis, breaking-change matrix).
+- **Official blog links added**: All 8 READMEs now include links to the official blog (CHN: `/zh/blog/`, others: `/blog/`).
+
+## [1.12.6] - 2026-05-30
+
+### Fixed
+- **Build verification failure**: CI workflow switched from `pnpm install + pnpm build` to `npm install --legacy-peer-deps + npm run build` to match Obsidian's verification system exactly. Root cause was different node_modules structures between pnpm and npm causing esbuild to embed different module path comments in `main.js`.
+- **Dependency version pinning**: All dependencies now use exact versions (no `^` ranges or `latest` tag). This prevents lockfile drift between `pnpm-lock.yaml` and `package-lock.json`, ensuring reproducible builds across environments.
+
+### Changed
+- **CI Node version**: Updated from `24.x` to `22.x` for stability and compatibility.
+
+## [1.12.5] - 2026-05-30
+
+### Fixed
+- **Cross-folder entity/concept duplicates prevented (#54)**: `resolvePagePath()` now checks the opposite folder (entities ↔ concepts) when same-type matching fails. When a cross-type collision is found, a new file is no longer created — instead the new content (summary, mentions, sources) is merged into the existing page of the opposite type, and the name is appended as an alias. No more duplicate pages for the same topic in both folders, and no silent loss of ingested information. Contributed by @dmarchevsky.
+- **Historical cross-type duplicate detection in Fast path 1**: When the same-type exact slug match hits, the opposite folder is also checked. If a historical duplicate exists (e.g. both `entities/foo.md` and `concepts/foo.md` existed before this release), an alias is bridged and a warning is logged.
+- **IngestReportModal now displays collisions**: The ingestion report modal now includes a "Cross-type collisions" section listing all items that were merged as aliases. Previously collision info was aggregated but never displayed in the batch report.
+- **Redundant I/O eliminated**: Cross-type collision detection now uses in-memory path matching from `allPages` instead of an additional `tryReadFile()` call, reducing I/O by one file read per extraction.
+
+### Changed
+- **Type-safe i18n access**: Added `getText()` helper to `utils.ts` — replaces 13 instances of `as unknown as Record<string, string>` across 6 files, making missing i18n keys detectable at compile time rather than runtime fallbacks.
+- **README Usage section**: Added sidebar button ingestion method to all 8 language variants (EN/ZH/JA/KO/DE/FR/ES/PT).
+- **Tests**: Added 8 unit tests for `getText()` (multi-language retrieval, placeholder replacement, fallback behavior). Total: 173 tests.
+
 ## [1.12.1] - 2026-05-28
 
 ### Fixed
@@ -26,812 +101,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.12.0] - 2026-05-27
 
 ### Added
-- **What's New section in all READMEs**: Prominent localized section highlighting key improvements per version, with proper TOC anchors in 8 languages.
-- **Deterministic related_pages matching**: After extraction, `matchExtractedToExisting` programmatically matches extracted names against existing wiki pages using slug + alias matching. Zero LLM cost, more reliable than LLM-dependent matching.
-- **Extraction progress detail**: Batch progress now shows "Analyzing batch 2/5 (6 entities, 12 concepts so far)..." instead of generic "Analyzing batch 2...".
-- **Lint duplicate batch progress**: Shows "Checking duplicates: batch 2/5..." instead of static "Checking for duplicate pages...".
-- **build:dev command**: `pnpm build:dev` builds a one-shot dev version with debug output preserved, distinct from `pnpm build` (production, suppresses console.debug) and `pnpm dev` (watch mode).
-- **`computeSlug()` silent slug function**: Bulk slug computation without debug logs, used internally by `resolvePagePath` and `matchExtractedToExisting` — eliminates ~30,000 lines of slugify debug output during a single ingestion.
+- **Extraction prompt rearchitected**: Full page list removed from prompt. Extraction speed independent of wiki size (~80% faster).
+- **Dynamic batch limits + convergence detection**: Short content finishes in 1–2 batches. Low-yield batches terminate early.
+- **Short-content auto-downgrade**: Sources <20K chars cap maxTotalItems proportionally.
+- **Deterministic related_pages matching**: `matchExtractedToExisting()` uses slug + alias matching — zero LLM cost.
+- **build:dev command**: One-shot dev build with debug output preserved.
+- **Silent slug operations**: Eliminates ~30K lines of debug output per ingestion.
 
 ### Changed
-- **Extraction prompt rearchitected**: The full existing wiki page list (~200K chars for 2000+ pages) is no longer embedded in the extraction prompt. This eliminates the largest source of prompt bloat and prevents the LLM from confusing page list content with source content. Extraction speed is now independent of wiki size.
-- **Dynamic batch limits (A)**: `MAX_BATCHES` formula reworked — short sources get fewer batches (2–5), long sources get more (8–15). Previous formula overshot by 3–5× for short content.
-- **Short-content auto-downgrade (C)**: Sources under 20K characters have `maxTotalItems` capped at ~1 item per 600 characters, preventing "hard digging" for wiki-worthy entities beyond what the content actually contains.
-- **Convergence detection (D)**: When a batch yields fewer than half the requested items, batch size is halved once. If the next batch also underperforms, extraction terminates immediately — prevents grinding through many empty rounds.
-- **Silent slug operations**: `resolvePagePath` Fast path 2 now uses `computeSlug` instead of `slugify`, eliminating slugify debug log flood (~30,000 lines per ingestion in dev builds).
-- **Extraction batch progress**: Shows batch count and cumulative entity/concept counts.
-- **Granularity descriptions standardized**: All 8 languages now use ≤ notation with correct numbers (Fine ≤100, Standard ≤50, Coarse ≤10, Minimal ≤5). JA/KO/DE/FR/ES/PT previously had inconsistent values (Fine=unlimited, Coarse=20, Minimal=3).
-- **esbuild upgraded**: 0.17.3 → 0.28.0, fixing dev-server CORS vulnerability (GHSA-67mh-4wv8-2f99).
-- **Production build suppresses console.debug**: Banner injects `console.debug = function() {}` to eliminate all debug output for end users.
+- **esbuild upgraded**: 0.17.3 → 0.28.0 (dev-server vulnerability fixed).
+- **Production build suppresses console.debug**: Clean logs in production.
+- **Granularity ≤ notation**: 8 languages synchronized.
+- **140 tests** across 3 test files (+27 since v1.11.0).
+
+### Evaluated & Rejected
+- Hexagonal Architecture — over-engineering for Obsidian plugin
+- Vector search (Ollama embeddings) — <1% of users have this
+- Hash-bucket dedup optimization — no user-reported perf issue
+- page-factory try/catch completion — exceptions handled at wiki-engine level
+- API URL validation — Obsidian's requestUrl already validates
 
 ## [1.11.0] - 2026-05-26
 
 ### Added
-- **llmReady gating (#42)**: New users must complete Provider → API Key → Fetch Models → Test Connection before core features are available. Each successful connection test sets `llmReady = true`, unlocking all functionality. Connection status indicator (green/orange) in settings. Existing users are auto-migrated — no reconfiguration needed.
-- **Cancel ingestion & lint (#43)**: Click status bar or use `Ctrl+P` → "Cancel current ingestion" to stop running operations at the next batch boundary. AbortController pattern with checks at each batch boundary. Works for both ingest and lint. Folder ingestion loop breaks on cancel. Immediate Notice feedback.
-- **Ribbon icon + one-click ingest (#44)**: `sticker` ribbon icon in left sidebar for quick access. `Ctrl+P` → "Ingest current file" skips the file picker and uses the active editor file directly. Validates non-md files and missing API key.
-- **Lint double-nested link auto-fix**: Lint now programmatically detects and fixes `[[[[entities/Foo|Foo]]]]` patterns across all wiki directory files. Zero LLM cost. Fixes historical damage from #37.
-- **Lint cancel support**: `runLintWiki` accepts `AbortSignal`, checks at batch boundaries (page reads, LLM dedup, LLM analysis). Shares cancel infrastructure with ingest.
+- **llmReady gating (#42)**: New users must complete Provider → API Key → Fetch Models → Test Connection before core features unlock.
+- **Cancel ingestion mid-run (#43)**: `AbortController` with batch boundary checkpoints.
+- **Ribbon icon + ingest current file (#44)**: One-click ingest of active editor tab.
+- **Lint double-nested link auto-fix**: Programmatic detection across all wiki files, zero LLM cost.
+- **Opposite-directory stubs (#40)**: Slug-equivalence matching in stub safety nets.
+- **Extraction prompt rewrite** (#34): Graph-centric "wiki-link test". Bibliographic references excluded.
+- **`mentions_in_source` filtering** (#39): Capped at 500 chars.
+- **529 Overload retry** (#41): All clients cover overload keyword.
+- **PageFactory refactoring**: 8 methods → 4 generic (563→424 lines, -25%).
+- **LLM client retry extraction**: Shared `withRetry<T>` helper.
+- **113 unit tests** via vitest.
 
 ### Fixed
-- **529 "Overloaded" not retried (#41)**: Anthropic serving infrastructure errors returned "Overloaded" which didn't match any retry regex. Error messages now embed HTTP status codes across all client classes. All 6 retry regex patterns include `overload` keyword.
-- **Double-nested wiki-links in log.md (#37)**: Three-layer defense — (1) prompt forces `related_pages` output as plain names; (2) source-analyzer strips `[[...]]` syntax from LLM output; (3) `updateRelatedPage` returns `boolean`, only recording pages actually found and updated.
-- **Opposite-directory stub creation (#40)**: Stub safety nets now check slug-equivalence via `slugify()` in addition to exact title/alias matching. Prevents duplicate stubs when pages exist in opposite directory under variant formatting.
-- **Extraction prompt noise (#34)**: Extraction criteria changed from document-centric to graph-centric ("wiki-link test"). Bibliographic references excluded — LLM guided to extract findings as concepts instead.
-- **Merge prompt token waste (#39)**: `truncateMentions()` caps `mentions_in_source` at 500 characters before passing to LLM in create/merge/append prompts.
+- **#37 Double-nested wiki-links**: Three-layer defense.
+- **#38 Anthropic prompt caching**: Evaluated & rejected — system prompts too small for cache threshold.
+
+## [1.10.x] - 2026-05-20
+
+### Added (v1.10.0)
+- **Aliases support** (#30/#31): EntityInfo/ConceptInfo.aliases? for cross-language dedup.
+- **Minimal + Custom granularity**: 5 levels (Minimal/Coarse/Standard/Fine/Custom).
+- **Slug normalization in resolvePagePath** (#32): Fast path 2 checks title + aliases.
+
+### Fixed (v1.10.x)
+- **Custom granularity per-type limits ignored** (v1.10.2): In custom mode, entity and concept limits now enforced separately.
+- **Numeric inputs accepting text** (v1.10.0): Custom limit and conversation history inputs now restricted to numbers.
+- **Aliases omitted in duplicate detection** (#30): analyzeSource and resolveEntityDedup now include aliases.
+
+## [1.9.x] - 2026-05-19
+
+### Added (v1.9.0)
+- **Pollution defense system (4-layer)**: Write gate → index purification → stub sanitization → detection & repair.
+- **"Fix polluted pages" in Lint report**: One-click repair.
+- **Missing aliases section in Lint report**: Lists each page individually.
+- **Long source ingestion notice**: Files >1000 lines trigger persistent Notice.
+
+### Fixed (v1.9.1)
+- **`renderComponent` memory leak in QueryModal**: Fixed dangling component.
+- **`createMessageStream` language type**: 3 client implementations now accept 8 languages.
+- **Missing i18n keys in zh.ts**: Added `lintNoIssuesFound` and `lintContradictionOpen`.
+- **Batch delay default**: 300ms → 500ms.
+
+## [1.8.x] - 2026-05-17/18
+
+### Added (v1.8.0/v1.8.1)
+- **Full i18n for 8 languages**: 269+ UI fields. English, Chinese, Japanese, Korean, German, French, Spanish, Portuguese.
+- **Dynamic download badge**: Real-time counts from Obsidian's community-plugin-stats.json.
+- **Complete badge suite**: 8 standardized badges across all READMEs.
+- **Rate limit detection**: HTTP 429 errors trigger actionable suggestions.
+- **Smart Fix All completion modal**: Per-phase results report.
+
+### Fixed (v1.8.1)
+- **Single-value aliases crash**: YAML frontmatter with `aliases: single-value` now normalized.
+- **README command accuracy**: Usage table corrected across all 8 language READMEs.
+
+## [1.7.x] - 2026-05-06 to 2026-05-17 (Code Quality Milestone)
+
+### Highlights
+- **Quality Milestone** (v1.7.0): Content truncation protection, lint/command i18n, batch reports.
+- **Multi-source merge** (v1.7.2): Programmatic frontmatter + LLM intelligent fusion.
+- **Ingestion acceleration** (v1.7.3): Configurable 1–5 concurrent page generation.
+- **Parallelization + path fixes** (v1.7.6): Related page update parallelization.
+- **Save-to-wiki quality** (v1.7.7): Smart batch skip, plugin ID rename `llm-wiki` → `karpathywiki`.
+- **Supply chain security** (v1.7.9): GitHub artifact attestations.
+- **Knowledge dedup + error resilience** (v1.7.10): 5xx retry, persistent notices.
+- **Mandatory page aliases** (v1.7.11): Alias deficiency detection, "Complete aliases" button.
+- **README i18n (8 languages)** (v1.7.13): Provider-aware model filtering, alias-aware index.
+- **Query modal overhaul** (v1.7.14): Cmd+Enter to send, Stop button, Copy button, auto-scroll.
+- **Lint UI freeze fix** (v1.7.15/17): Async yield points every 50 pages and 500 comparisons.
+- **Pollution fix** (v1.7.18/20): Folder name leakage defense layer, alias convergence.
+- **Lint modular refactoring** (v1.7.19): Split monolithic files into 4 focused modules.
+
+### Fixed
+- **#37 Double-nested wiki-links**: Three-layer defense.
+- **#40 Opposite-directory stubs**: Slug-equivalence matching.
+- **#43 Cancel ingestion mid-run**: `AbortController` + batch checkpoints.
+- **#14 OpenRouter/Ollama model filtering**: Provider-aware smart filter.
+
+## [1.6.x] - 2026-04-29 to 2026-05-03 (Internationalization & Performance)
+
+### Added
+- **Wiki Output Language (8 languages)**: English LLM prompts with language directive.
+- **Iterative batch extraction**: Adaptive batch sizing, JSON output enforcement.
+- **Dual-layer JSON parsing**: Robust error recovery.
+- **Query-to-Wiki feedback**: Contradiction state machine, conversational ingest.
 
 ### Changed
-- **Anthropic model list uses real API**: `AnthropicClient.listModels()` now calls `api.anthropic.com/v1/models` instead of returning hardcoded list. All providers fetch models from their respective APIs.
-- **PageFactory refactoring**: 8 entity/concept methods unified into 4 generic methods. Code reduced 563→424 lines (-25%). Public API unchanged.
-- **LLM client retry extraction**: Shared `withRetry<T>` helper eliminates duplicated retry loops across all 3 client classes. Code reduced -67 lines in `llm-client.ts`.
-- **Dead code removal**: Removed unused `language` parameter from `createMessageStream` interface and 3 implementations. Auto-detecting question language is the correct behavior.
-- **Slugify debug log reduction**: 6→2 debug logs per normal-path call. Warnings and diagnostic blocks preserved.
-- **Codebase language consistency**: 19 residual Chinese comments and debug strings translated to English.
+- **Schema layer**: Auto-maintenance, modular architecture.
 
-### Test Coverage
-- **113 unit tests** (+15): `parseJsonResponse` repairFn callback (3), mergeFrontmatter edge cases (4), fixDoubleNestedWikiLinks (5), empty object parsing (1), merge dedup (2).
-- CI-ready: `pnpm lint && pnpm test && pnpm build && npx tsc --noEmit`
+## Earlier Versions (v1.4.0–v1.5.x)
 
-## [1.10.2] - 2026-05-20
+- v1.4.0 (2026-04-29): Schema layer, auto-maintenance, ESLint compliance
+- v1.3.0 (2026-04-28): Modular architecture refactor
+- v1.2.0 (2026-04-27): Bidirectional links, entity/concept extraction
+- v1.0.0 (2026-04-26): Multi-page generation, foundational architecture
 
-### Fixed
-- **Custom granularity per-type limits ignored**: In custom mode, entity and concept limits set in settings were not being enforced separately. The extraction loop merged them into a single total cap, `getGranularityInstruction()` returned vague text without the actual numbers, and `getGranularityFixLimits()` used hardcoded values ignoring user settings. All three now read `customEntityLimit`/`customConceptLimit` dynamically and enforce per-type caps.
+## [0.2.0–0.2.2] - Earlier Beta
 
-## [1.10.1] - 2026-05-20
+- Initial plugin development and concept validation.
 
-### Fixed
-- **Slug normalization missing in duplicate detection** (Issue #32): `resolvePagePath()` now checks existing page titles and aliases via normalized slug comparison before falling back to LLM. Catches stale filenames with spaces instead of hyphens (e.g. `Metabolisches Syndrom.md` vs `Metabolisches-Syndrom.md`), alias variants (`"Chain of Thought"` matched via alias of `"CoT"`), and case differences — all without LLM calls. Added 4 unit tests for slug-match coverage (title, alias, case-insensitive, edge cases)
-
-## [1.10.0] - 2026-05-20
-
-### Added
-- **Minimal extraction granularity**: New option limiting extraction to ~5 most important items (entities + concepts), ideal for batch processing 100+ files or testing new sources with minimal token cost
-- **Custom extraction granularity**: User-defined entity/concept limits (1-300 each) via two conditional input fields shown only when "Custom" is selected, enabling fine-grained control for specialized workflows
-- **Number input constraints**: All numeric settings inputs (custom limits, conversation history, debounce delay) now enforce `type='number'` with min/max attributes, auto-clamping to valid range, and Notice feedback when out-of-range values are corrected
-- **CSS class-based input width**: Replaced inline style assignment with `.llm-wiki-number-input` class in styles.css to comply with Obsidian eslint rules
-
-### Fixed
-- **Aliases omitted in duplicate detection** (Issue #30): `analyzeSource()` and `resolveEntityDedup()` now include aliases when building existing pages list, preventing LLM from creating duplicate stub pages for synonym names (e.g., "CoT" vs "思维链")
-- **Numeric inputs accepting text**: Custom limit and conversation history input fields previously allowed arbitrary text input, now restricted to numbers only with HTML5 validation
-
-### Changed
-- **Extraction granularity descriptions**: 8 language files comprehensively updated with selection guide ("Fine: deep analysis, Standard: daily notes, Coarse: quick overview, Minimal: batch 100+ files, Custom: specialized limits") and cost/time optimization tips ("Use Minimal/Coarse for large folders to save time and cost")
-- **Extraction limits unified**: Fine granularity cap changed from unlimited to 100 items, Coarse from 20 to 10 items, providing predictable bounds across all levels
-- **Granularity dropdown labels**: Added `extractionGranularityMinimal` and `extractionGranularityCustom` i18n keys across all 8 languages with language-specific natural translations
-
-## [1.9.1] - 2026-05-19
-
-### Fixed
-- **`renderComponent` memory leak in QueryModal**: Component was created on undeclared property `renderComponent` instead of declared `activeRenderComponent`, leaving it dangling without cleanup
-- **`lintFixer` encapsulation**: `lint-controller.ts` was accessing private `lintFixer` property on WikiEngine; added public proxy method `fixPollutedPage()`
-- **`createMessageStream` language type**: 3 client implementations accepted only `'en' | 'zh'` while interface defined all 8 languages
-- **Missing i18n keys in zh.ts**: `lintNoIssuesFound` and `lintContradictionOpen` were missing from Chinese translations, causing TypeScript compilation errors
-- **Batch delay default**: Changed from 300ms to 500ms to reduce rate-limit risk on default settings
-
-### Added
-- **91 unit tests** across 2 test files: added `parseJsonResponse` (14), `mergeFrontmatter` (9), `preserveFrontmatterReviewTag` (4), `isPageEmpty` (5), `detectPollutedPages` (6). Core prompt-generation LLM instruction: related entities/concepts now always output as `[[wiki-link]]` even for non-existent pages (so Lint can detect dead links)
-- **`tsc --noEmit` passes** with 0 errors: fixed tsconfig `moduleResolution` (node→bundler), `skipLibCheck`, narrowed `include` scope to `src/**`
-
-### Changed
-- **CLAUDE.md and ROADMAP.md**: Comprehensively rewritten, removing version history from v1.7.x (preserved in CHANGELOG) and stale planned items
-- **`testLLMConnection` strings i18n-ized**: Hardcoded Chinese replaced with TEXTS system, test prompt unified to English
-- **`tsconfig.json`**: `moduleResolution: "bundler"`, `skipLibCheck: true`, `include: ["src/**/*.ts"]`
-
-## [1.9.0] - 2026-05-19
-
-### Added
-- **Pollution defense system (4-layer)**: Comprehensive folder-prefix pollution prevention for wiki-links. L1: expanded regex at write gate catches both display-name (`[[X/Y|X/Z]]`) and path-duplication (`[[X/Xname|name]]`) patterns. L2: index purification filters polluted entries before LLM sees them. L3: stub title sanitization strips folder prefixes. L4: `detectPollutedPages()` scans existing pages and `fixPollutedPage()` repairs them (rename file + update all incoming links)
-- **"Fix polluted pages" in Lint report**: New button detects and repairs polluted pages with one click. Integrated into Smart Fix All as Phase -1 (before aliases)
-- **Missing aliases section in Lint report**: Previously only showed count — now lists each page individually with `[[wiki-link]]` format
-- **Long source ingestion notice**: Files exceeding 1000 lines trigger a persistent Notice explaining that iterative batch extraction takes longer and asking for patience. Shows filename, line count, and file size
-
-### Changed
-- **Lint report enhancements**: Polluted pages now listed with clean name suggestions. Enhanced report readability with dedicated sections
-- **Modal language support**: LintReportModal now supports all 8 UI languages (was limited to en/zh)
-- **`getText` type safety**: Replaced `as unknown as Record<string, string>` with `keyof typeof TEXTS.en` for compile-time key validation
-
-### Fixed
-- **Folder-prefix path pollution**: Root cause fix for recurring issue where pages were created with names like `concepts/concepts布局优化.md`. Four-layer defense breaks the pollution amplification cycle: write gate → index purification → stub sanitization → detection & repair
-- **`analyzeMerge` dead code removed**: 50-line method in page-factory.ts with zero callers
-
-## [1.8.1] - 2026-05-18
-
-### Added
-- **Rate limit detection and user notification**: When parallel page generation or batch fixes encounter HTTP 429 errors, the plugin now detects rate-limit patterns across failed items and shows actionable suggestions (lower concurrency, increase batch delay, switch provider). Applies to ingestion, alias completion, and duplicate detection phases
-- **Smart Fix All completion modal**: One-click fix now shows a detailed modal report with per-phase results (aliases completed, duplicates merged, dead links fixed, orphans linked, empty pages expanded) instead of a brief auto-dismiss notice. Individual fix operations continue to show persistent summary notices with fix counts
-
-### Changed
-- **Settings panel reorganization**: Merged four fine-grained sections (Wiki Folder, Extraction, Ingestion Acceleration, Query) into a single "Wiki Configuration" heading, reducing visual clutter. Auto Maintenance remains separate due to its size
-- **Page generation concurrency default**: Changed from 1 (serial) to 3 (parallel) for faster ingestion out of the box. Most providers handle 3 concurrent requests without rate limiting
-- **Settings UX improvements**: Concurrency slider now shows "Current concurrency: X (parallel/serial)" dynamically; batch delay description displays current value in milliseconds; debounce delay unit changed from milliseconds to seconds (1-60s) for clearer understanding
-- **Persistent fix completion notices**: All individual Lint fix operations now show persistent notices (manual dismiss) with combined fix-count + index-updated message, replacing the previous pair of brief auto-dismiss notices
-
-### Fixed
-- **Single-value aliases crash**: YAML frontmatter with `aliases: single-value` (no brackets) was parsed as a string, causing `.some()` calls to fail with `_a2.some is not a function`. Added normalization in `parseFrontmatter()` to wrap string-valued array fields (aliases, sources, tags) in arrays, plus defensive `Array.isArray` guard in alias consumers
-- **README command accuracy**: Usage table in all 8 language READMEs corrected — "Ingest single source" now accurately described as single-file picker (not "processes entire sources/ folder"), command names match actual Obsidian command palette entries, and Commands sections localized per language
-
-## [1.8.0] - 2026-05-17
-
-### Added
-- **Full i18n support for 8 languages**: Extended plugin UI from 2 languages (English, Chinese) to 8 languages (Japanese, Korean, German, French, Spanish, Portuguese). Each language has complete translation of all 269+ UI fields with natural local expressions, proper technical terminology, and sentence case compliance. Language switcher now offers 8 options in all language interfaces
-- **Dynamic download badge**: README download badges across all 8 languages now fetch real-time download counts from Obsidian's official `community-plugin-stats.json` via shields.io dynamic JSON badge, eliminating hardcoded manual updates
-- **Complete badge suite**: Added 8 standardized badges (Version, License, Maintenance, Build Status, Obsidian Compatibility, GitHub Stars, Downloads, Languages, Providers) to all 8 language README files with consistent flat-square styling
-- **Restart notice in language settings**: All 8 languages now include explicit restart instructions in interface language description to inform users that plugin restart is required for command palette language changes
-
-### Changed
-- **Language settings consolidation**: Reorganized settings panel to group all language-related configurations at the top. Interface Language and Wiki Output Language sections now appear consecutively as Section 1 and Section 2 for easier unified configuration
-- **Language type expansion**: Updated `language` setting type in types.ts from `'en' | 'zh'` to `'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt'` with full dropdown support in settings UI
-- **i18n structure modularization**: Split texts.ts barrel file to import 8 language modules (en, zh, ja, ko, de, fr, es, pt), preparing infrastructure for future language additions
-
-## [1.7.20] - 2026-05-17
-
-### Fixed
-- **Aliases convergence in dead link fixes**: Added two-layer alias matching (deterministic pre-check before LLM + safety-net after create_stub) to prevent duplicate page creation. Dead links to "思维链" now correctly match existing "CoT" page with alias "思维链" instead of creating redundant stub, solving non-convergent fix cycle
-- **Wiki-link folder name pollution**: Centralized pollution detection in `createOrUpdateFile()` that strips duplicated folder prefixes (`[[entities/X|entities/X]]` → `[[entities/X|X]]`) from all LLM outputs. Prompt instructions clarified to explicitly forbid folder duplication in display names
-- **Section headers not localized in fix pages**: `fillEmptyPage` now calls `applySectionLabels()` and receives language-specific header list via `buildSectionLabelsHint()`. Empty page expansion generates headers matching user's wiki output language setting
-- **Fabricated source mentions in fix pages**: Prompt now forbids "Mentions in Source" section creation when no verbatim quotes exist in stub content. LLM instructed to note "No source content available" instead of inventing fake citations from training data
-- **Hardcoded entity limits in fixes**: Replaced rigid "max 3" limit with granularity-aware `getGranularityFixLimits()` that respects user's extraction granularity setting (fine→6, standard→3, coarse→2 per type)
-
-### Changed
-- **Prompts modular refactoring**: Split 800-line `src/prompts.ts` into domain modules under `src/wiki/prompts/` (ingestion, generation, merge, fixes, lint, conversation). Each domain isolated in own file; barrel re-exports for zero breaking changes
-- **i18n structure preparation**: Split 742-line `src/texts.ts` into language modules under `src/texts/` (en.ts, zh.ts). Future language additions (ja, ko, de) require only new file creation + barrel import
-
-## [1.7.19] - 2026-05-17
-
-### Fixed
-- **Hardcoded abbreviation removal**: Removed English-only abbreviation expansion map (MoE→mixtureofexperts, CoT→chainofthought, LoRA→lowrankadaptation, etc.) from duplicate candidate generation. These hardcoded rules were language-biased and contradicted the plugin's LLM-driven philosophy. With Phase 0 alias completion (v1.7.17), the LLM now handles cross-language abbreviation matching naturally through aliases.
-
-### Changed
-- **Lint system modular refactoring**: Split 1,675 lines across 2 monolithic files into 4 focused modules under `src/wiki/lint/`:
-  - `duplicate-detection.ts` (171 lines) — Programmatic duplicate candidate generation with 3 signals (sharedLinks, bigram, crossLang)
-  - `fix-runners.ts` (229 lines) — 5 parameterized batch fix execution functions extracted from closure-based runners in lint-controller.ts
-  - `lint-fixes.ts` reduced from ~790 to 610 lines
-  - `lint-controller.ts` reduced from ~820 to 638 lines
-- **Centralized constants** (`src/constants.ts`): Frontmatter keys, default paths, timing values, and tree types extracted from magic strings scattered across the codebase
-
-### Added
-- **Comprehensive upgrade guidance** in README.md and README_CN.md covering all versions from v1.2.x to current, with step-by-step post-upgrade checklist
-- **FAQ section** in README.md and README_CN.md with 12 common questions covering aliases, duplicates, performance, local models, language settings, and API costs
-
-## [1.7.18] - 2026-05-16
-
-### Fixed
-- **Critical: Folder name leakage in LLM prompts**: LLM was receiving full file paths in two repair prompts, causing systematic folder name pollution in generated titles and content.
-  - `mergeDuplicatePages`: Removed `{{source_path}}` parameter — LLM misinterpreted `wiki/entities/DeepSeek-V3` as page title, producing polluted titles like `entitiesDeepSeek-V3`, `concepts表征学习`
-  - `fillEmptyPage`: Removed `{{page_path}}` parameter — same root cause, LLM doesn't need file system paths for content generation
-- **Defense layer**: Added contaminated alias filtering that rejects aliases matching `entities*`, `concepts*`, `sources*` patterns, preventing existing pollution from spreading through future merges
-
-## [1.7.17] - 2026-05-16
-
-### Fixed
-- **Smart Fix All missing aliases phase**: Added Phase 0 aliases completion before duplicate detection, ensuring Tier 1 signals (crossLang, abbreviation) work correctly. Previously, Smart Fix All skipped aliases → duplicate detection missed true duplicates → downstream fixes incomplete
-- **Lint UI freeze on large wikis (10-40s blocking)**: Added async yield points in duplicate candidate generation Phase 1 (frontmatter parsing + link extraction, yield every 50 pages) and Phase 2-3 inner loops (yield every 500 comparisons). Obsidian UI thread now regains control every 0.75-1.5 seconds on 1500+ page wikis
-
-## [1.7.16] - 2026-05-15
-
-### Fixed
-- **Obsidian Bot timer compliance**: Replaced all `activeWindow.setTimeout`/`activeWindow.clearInterval` with `window.*` equivalents. The local `eslint-plugin-obsidianmd` v0.2.8 enforces `activeWindow.*` via `prefer-active-window-timers`, but the Obsidian Bot runs a newer/different rule that enforces `window.*` — these two rules are in direct conflict. `window.*` satisfies both sides (local plugin only flags bare `setTimeout()`, not `window.setTimeout()`)
-- Added custom `no-restricted-syntax` ESLint rule to catch `activeWindow.*` timer usage locally, preventing future regressions before they reach the Bot
-
-## [1.7.15] - 2026-05-15
-
-### Fixed
-- **Obsidian Bot review compliance**: Updated `pnpm lint` script to `--max-warnings=0` matching Obsidian Bot's strict mode; fixed `pnpm-lock.yaml` stale entries
-- **Lint UI freeze**: `generateDuplicateCandidates` (O(n²) pairwise comparisons) now runs asynchronously with event-loop yield points every 200 outer iterations, preventing renderer thread blocking on large wikis (1200+ pages). Page reading batched to 200 files per batch to reduce I/O contention
-- **Type safety**: Added `await` to `generateDuplicateCandidates` call site in `lint-controller.ts` (async return type mismatch caused all `DuplicateCandidate` accesses to resolve as `any`)
-
-## [1.7.14] - 2026-05-15
-
-### Fixed
-- **#17 CORS errors for OpenAI compatible endpoints**: Replaced `openai` npm SDK (browser `fetch()`, CORS-bound) with `requestUrl()`-based `OpenAICompatibleClient` across all non-Anthropic providers. The `requestUrl()` API delegates to Obsidian's Main process (Node.js), bypassing browser CORS restrictions entirely. Also rewrote model fetching in settings to use `requestUrl()`. This eliminates `x-stainless-timeout` header preflight failures and `Access-Control-Allow-Origin` rejections
-- **Query modal `.modal-header` blank space**: Hidden via CSS to remove unused header area
-- **Markdown rendering in Query not matching Obsidian**: Root cause was stale Component lifecycle — reusing the same `Component` across streaming chunks accumulated orphaned child components, causing tables and complex elements to render without proper styles. Fixed by creating a fresh `Component` per render call and explicitly disposing old ones. Added `markdown-reading-view` CSS class to message body containers for theme style compatibility. Added comprehensive explicit CSS for tables (border-collapse, th/td borders, alternating row backgrounds, code blocks, blockquotes) using Obsidian CSS variables
-
-### Added
-- **Query progress indicator overhaul**: Five-phase progress display with real-time updates:
-  - "Analyzing Wiki index..." → "Found 3 pages: Attention, Transformer, CSA" → "Loading page content..." → "Context ready" → "Generating... (elapsed 25s)"
-  - Page names displayed in found-pages phase, persisted into generating phase
-  - Elapsed time counter updates every second during generation
-  - Non-streaming mode clearly labeled with "Non-streaming mode, generating... (elapsed Xs)"
-- **Cmd+Enter to send / Stop button**: Send now requires Cmd+Enter (Ctrl+Enter on Windows) to prevent accidental sends. Button shows keyboard shortcut hint. During LLM processing, send button transforms into red "Stop" button. Stopping preserves input text for editing
-- **Copy button**: Each assistant message has a hover-visible "Copy" button that copies raw markdown to clipboard with "Copied!" feedback
-- **Auto-scroll**: Chat history automatically scrolls to bottom on new messages and during streaming
-
-### Changed
-- Query modal padding removed, overflow fixed to eliminate page-level scrollbar
-- `queryModalPlaceholder` simplified (shortcut hint moved to button)
-- All progress texts synchronized between English and Chinese
-
-### Removed
-- `openai` npm dependency (no longer imported anywhere in src/)
-- `docs/OBSIDIAN_SUBMISSION_GUIDE.md` and `docs/SECURITY.md` (outdated, not relevant for end users)
-
-## [1.7.13] - 2026-05-15
-
-### Fixed
-- **Query alias-based page lookup**: Wiki index (`index.md`) now includes aliases for every page, and the LLM page selector prompt explicitly instructs matching by aliases. Fixes the case where "DSA" query returned no results despite `DeepSeek-Sparse-Attention` page having "DSA" alias
-- **OpenRouter model filtering bug (#14)**: Model IDs containing `/` (e.g., `openai/gpt-4o`) were incorrectly filtered out, preventing OpenRouter users from selecting correct models
-- **Ollama model filtering bug**: Model IDs containing `:` (e.g., `qwen3.5:latest`) were incorrectly filtered out, preventing Ollama users from selecting tagged models
-- Implemented provider-aware smart filter: OpenRouter preserves `/`, Ollama preserves `:`
-- **Aliases unified mechanism**: Fixed `fixDeadLink` creating stubs with hardcoded `aliases: []`, `fillEmptyPage` prompt now requires alias generation (no longer passive "preserve"), `enforceFrontmatterConstraints` empty array check fixed. All fix paths now use the same 3-tier fallback (Wiki language translation → alternative names → abbreviations)
-
-### Changed
-- `generateFlatIndex()` now reads each page's frontmatter `aliases` and appends them in backtick-brackets (`[alias1, alias2]`) to index entries
-- `selectRelevantPagesWithLLM` prompt updated with explicit alias-matching instruction
-
-### Added
-- **README internationalization**: 8-language README expansion (English, Chinese, Japanese, Korean, German, French, Spanish, Portuguese) following Apple translation standards (信达雅: accurate, fluent, professional)
-- Root directory: `README_JA.md` (Japanese), `README_KO.md` (Korean), `README_DE.md` (German)
-- `docs/` directory: `README_FR.md` (French), `README_ES.md` (Spanish), `README_PT.md` (Portuguese)
-- All technical terms kept in English (Wiki-links, Schema, Lint, Entity, Concept, Provider, Model, max_tokens)
-- Official site link unified: https://llmwiki.greenerai.top/ in all language versions
-- Language navigation header with mutual cross-links across 8 languages
-- Interface Language i18n expansion plan (Phase 1-3, zero side effects) documented in project memory
-
-## [1.7.11] - 2026-05-15
-
-### Fixed
-- **Lint duplicate detection 500 error on large wikis**: Removed low-quality `sharedSources` signal (generated 11K+ false-positive candidates), raised `sharedLinks` Jaccard threshold from 0.25 to 0.4, implemented semantic tiering with token-budget batching for LLM verification
-- **Frontmatter corruption**: Fixed missing blank line between closing `---` and body in `enforceFrontmatterConstraints()` and `mergeDuplicatePages()` LLM output path
-- **Frontmatter leaked to LLM in merge**: Stripped frontmatter before sending page content to LLM in `mergeDuplicatePages()`, updated prompt to clarify body-only input
-- **minAppVersion**: Bumped from 1.4.0 to 1.6.6 for `FileManager.trashFile()` API
-
-### Added
-- **Mandatory aliases in page generation**: All three page generation prompts (`generateEntityPage`, `generateConceptPage`, `generateSummaryPage`) now require at least 1 alias with fallback hierarchy (translation → source name → original language name)
-- **`generateAliases` prompt**: New LLM prompt for filling missing aliases on existing pages via Lint
-- **Alias deficiency in Lint**: Detects entity/concept pages without `aliases:` frontmatter field, reports in summary and prepended to report body, "Complete aliases" button with parallel batch processing
-- **Semantic tiering for duplicate candidates**: Tier 1 (crossLang, abbreviation, bigram ≥ 0.6) always sent; Tier 2 (bigram 0.4-0.6, sharedLinks ≥ 0.4) fills remaining token budget (15K input tokens)
-- **Parallel batch LLM verification**: Duplicate candidates split into batches of 100, processed with configurable concurrency via `Promise.allSettled`, batch-level error isolation
-- **`DuplicateCandidate` interface**: Structured candidate with `signal` and `score` fields for tier classification
-- **Smart Fix All button**: Batched causality-aware fix (duplicates → dead links → orphans → empty pages) in Lint report modal
-- **Console logging for alias completion**: `[Alias]` prefix batch/per-page/summary logs
-
-### Changed
-- **Lint report modal redesigned**: 4-layer button layout (pre-flight aliases → causality-ordered fixes → smart fix all → schema analysis)
-- **Lint report summary**: Now includes `{aliasesMissing}` count alongside duplicates, dead links, orphans, empty pages
-- **main.ts**: Fully migrated from legacy shim to complete plugin entry point
-- **CLAUDE.md**: Updated project structure and phase documentation
-
-## [1.7.10] - 2026-05-14
-
-### Added
-- **Knowledge deduplication — 方案C Phase 1+2**: Three-layer duplicate page detection and intelligent merge
-  - Layer 1: Programmatic candidate generation (shared sources, shared wiki-links, title bigram similarity)
-  - Layer 2: LLM title scan for cross-lingual/translation/abbreviation detection
-  - Layer 3: LLM content verification of merged candidates
-  - Duplicate section in lint report with "Merge duplicates" action button
-  - Intelligent merge: LLM fuses content, discovers aliases from both pages, programmatic frontmatter merge (sources appended, updated refreshed)
-  - Source page deleted after merge, all wiki-links rewritten to target
-- **Aliases infrastructure**: `mergeFrontmatter()` and `enforceFrontmatterConstraints()` preserve aliases, `getExistingWikiPages()` reads aliases from frontmatter, `fixDeadLink` fallback checks aliases for case-insensitive matching
-- **5xx retry mechanism**: All three LLM clients (`AnthropicClient`, `AnthropicCompatibleClient`, `OpenAIClient`) retry on HTTP 5xx/429 errors with exponential backoff (max 2 retries)
-- **Persistent progress notices**: All lint/fix/ingest stages use `new Notice('', 0)` + `setMessage()` pattern with per-item detail (target page, source, etc.)
-- **Error handling overhaul**: Per-item failure Notices (8s duration) with specific error messages in all fix loops (dead links, empty pages, orphans, merges); duplicate detection failure shows persistent Notice with error detail; outer catch blocks show error context
-- **Tag validation**: `enforceFrontmatterConstraints()` validates tags against schema-defined subtypes (`VALID_ENTITY_TAGS`, `VALID_CONCEPT_TAGS`), falls back to defaults for invalid values
-- `deleteFile` in EngineContext interface, implemented via `vault.trash()`
-
-### Changed
-- `getExistingWikiPages()` is now async and returns `aliases` array alongside each page entry
-- `FrontmatterData` interface includes optional `aliases: string[]`
-- All lint fix callbacks use `for...let i` loops with proper indices for progress reporting
-- Ingestion progress uses persistent `showProgress()` instead of timed Notices
-- `lintDuplicateCheckFailed` replaced with detailed `lintDuplicateCheckFailedDetail` i18n text
-
-### Fixed
-- **500 error with no retry**: Previously, HTTP 5xx errors from LLM providers were not retried (only network errors were). Now all 5xx/429 errors trigger automatic retry
-- **Missing error Notices**: Dead link fix, orphan linking, and merge fix loops previously only logged errors to console without user-visible feedback
-- **Duplicate detection false negatives**: Cross-lingual duplicates (e.g. "CoT" vs "思维链") were previously undetected by programmatic-only checks
-- **Merge not preserving aliases/sources/updated**: Merged pages now correctly append sources (dedup), add LLM-discovered aliases, and refresh `updated` date
-
----
-
-## [1.7.9] - 2026-05-13
-
-### Added
-- **GitHub artifact attestations** — Added cryptographic provenance verification for release assets (supply chain security)
-  - Workflow now generates attestations for `main.js` and `styles.css` using `actions/attest-build-provenance@v1`
-  - Users can cryptographically verify assets were built from source repository
-  - Added workflow permissions: `attestations: write`, `id-token: write`
-  - Meets Obsidian community plugin submission security requirements
-  - Reference: https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds
-
----
-
-## [1.7.8] - 2026-05-13
-
-### Added
-- **GitHub artifact attestations** — Added cryptographic provenance verification for release assets
-  - Workflow now generates attestations for `main.js` and `styles.css` using `actions/attest-build-provenance@v1`
-  - Users can verify assets were built from source repository (supply chain security)
-  - Added workflow permissions: `attestations: write`, `id-token: write`
-  - Meets Obsidian community submission security requirements
-
-### Fixed
-- **Obsidian Bot review compliance** — Addressed all warnings from official Obsidian community submission review
-  - Replaced `activeWindow.setTimeout` with `window.setTimeout` across 7 locations (llm-client, auto-maintain, wiki-engine) per Obsidian API guidelines
-  - Added type safety to `loadData()` result in main.ts with `Partial<LLMWikiSettings> | null` assertion
-  - Fixed unsafe member access on `savedData.wikiLanguage` by proper type assertion
-  - Expanded short hex color formats in styles.css (4 locations: #666→#666666, #ddd→#dddddd, #999→#999999) for consistency
-  - Removed unused `_retryError` parameter in catch block (wiki-engine.ts)
-
-### Changed
-- **Removed deprecated dependency** — Replaced `builtin-modules` package with Node.js native `module.builtinModules` API in esbuild config
-  - Eliminated third-party dependency, using built-in Node.js (v16+) functionality
-  - No functional changes to build output
-
----
-
-## [1.7.7] - 2026-05-12
-
-### Added
-- **Smart skip mechanism for batch ingestion**: Automatically detects and skips already-ingested source files in folder batch operations
-  - Primary check: Wiki/sources page exists with matching slug → considered ingested
-  - Secondary check: Optional strict verification via frontmatter sources array
-  - Conservative fallback: If wiki page exists but frontmatter is missing/malformed, still skip to protect user edits
-  - Batch ingest report now shows skipped file count: "跳过（已摄入）：X/Y"
-  - Toast notifications: "跳过 X/Y 个已摄入文件，正在摄入 Z 个新文件..."
-
-### Fixed
-- **Conversation summary page template mismatch**: Summary pages generated from Query Wiki now use LLM prompts (same as file ingestion) instead of hardcoded templates
-  - Now uses `PROMPTS.generateSummaryPage` with proper schema context and section labels
-  - Frontmatter now includes `updated` field, consistent with file ingestion
-  - Sources array properly populated with conversation metadata
-
-- **Duplicate save prompts on Query Wiki**: Modal now tracks conversation hash to prevent re-evaluation of unchanged conversations
-  - Added `lastOfferedQueryHash` to settings
-  - Hash computed from conversation messages, checked before LLM evaluation
-  - Updated on both save suggestion and successful save
-
-- **Progress notice stuck on "Generating index..."**: Save-to-wiki operations now guarantee notice dismissal
-  - Both `saveToWiki()` and `doSave()` use try-finally for cleanup
-  - Progress callback wired to notice in both paths
-  - Error handling always hides notice before showing error message
-
-- **Conversation save report missing**: `ingestConversation()` now returns `IngestReport` (same as file ingestion)
-  - Added `onDone` callback to `EngineContext` for unified report handling
-  - Save success notice shows entity/concept count: "3 实体, 2 概念, 6 页"
-  - Report includes elapsed time, created pages, failed items, contradictions
-
-- **Notice messages hardcoded in English**: All Notice() calls now respect Interface Language setting
-  - Added 7 new i18n texts for auto-maintain, query, and batch ingest notices
-  - `auto-maintain.ts`: 7 notices converted to TEXTS system
-  - `query-engine.ts`: 5 notices converted, removed inline ternary operators
-  - `ui/settings.ts`: 1 notice converted
-  - Chinese translations added for all new texts
-
-### Changed
-- **Plugin ID renamed**: `llm-wiki` → `karpathywiki` to avoid conflict with existing plugin and align with Obsidian naming guidelines
-  - Updated in `manifest.json` and `package.json`
-  - Plugin folder name in installation instructions changed from `llm-wiki` to `karpathywiki`
-  - README.md and README_CN.md installation steps updated
-  - No functionality changes — only identifier update for community submission
-
----
-
-## [1.7.6] - 2026-05-09
-
-### Added
-- **Related page update parallelization**: Stage 4 now processes related pages in configurable parallel batches using `Promise.allSettled` for error isolation
-  - Reuses existing `pageGenerationConcurrency` setting (1-5, default 1) for batch size control
-  - Reuses `batchDelayMs` setting for inter-batch API rate limit protection
-  - Per-page automatic retry with 2s delay on failure; single page failure doesn't block the batch
-  - Real-time progress tracking with per-page status callbacks
-
-### Fixed
-- **Hardcoded wiki folder paths**: Several UI components used hardcoded `'wiki'` string instead of the user-configurable `wikiFolder` setting
-  - `FileSuggestModal` and `FolderSuggestModal` now accept `wikiFolder` constructor parameter, correctly filtering wiki files from source selection
-  - `query-engine.ts` wiki-link format instructions now use `settings.wikiFolder` dynamically in LLM prompts (e.g., `[[myWiki/entities/...]]` instead of always `[[wiki/entities/...]]`)
-  - All 3 callers updated: `main.ts` (2 sites), `settings.ts` (1 site)
-
----
-
-## [1.7.5] - 2026-05-09
-
-### Fixed
-- **TypeScript compilation errors** — Fixed 20+ type errors across the codebase
-  - `wiki-engine.ts`: Fixed `SchemaTask` type mismatches and null safety issues
-  - `query-engine.ts`: Added proper `Component` instance for `MarkdownRenderer.render()`
-  - `auto-maintain.ts`: Fixed `metadataCache.on('resolved')` callback signature
-  - `modals.ts` & `settings.ts`: Fixed `TEXTS` type assertions for nested i18n objects
-
----
-
-## [1.7.2] - 2026-05-08
-
-### Fixed
-- **Critical: Multi-source knowledge loss on page update**
-  - Frontmatter `sources` array now programmatically appended (not overwritten) when updating existing pages
-  - `created` date preserved, `updated` date refreshed on each source addition
-  - `reviewed: true` flag preserved in frontmatter
-  - Sources maintain chronological order with deduplication
-
-### Changed
-- **Intelligent content merge architecture** (replaces simple overwrite)
-  - New pages: Full LLM-generated content with complete structure
-  - Existing pages: LLM performs intelligent body merge following schema-defined sections
-  - Reviewed pages: Minimal append-only mode preserving user edits
-  - `NO_NEW_CONTENT` signal allows skipping redundant updates when source adds nothing new
-- **New prompts**:
-  - `mergeEntityPage`: Schema-guided intelligent merge with contradiction preservation
-  - `mergeConceptPage`: Same for concept pages
-  - `appendToReviewedPage`: Minimal mode for user-reviewed content
-- **Schema task**: Added `'merge'` task type for selective schema injection during content fusion
-
-### Deprecated
-- Removed `preserveFrontmatterReviewTag()` (superseded by `mergeFrontmatter()`)
-- Removed old `analyzeMerge()` / `buildMergeStrategyText()` methods (superseded by new architecture)
-
-## [1.7.1] - 2026-05-08
-
-### Added
-- **Multi-folder auto-watch**: `watchedFolders` array replaces single `watchedFolder`; users can watch any number of folders via "Add Folder" buttons in settings
-- **Web Clipper preset**: one-click button adds `Clippings/` folder to watch list for seamless web-clip auto-ingestion
-- **Semantic entity deduplication**: `resolvePagePath()` uses LLM fallback when slug matching fails, handling translations ("Tsinghua University" ↔ "清华大学"), abbreviations, and renamings
-- **Granularity-linked iteration caps**: `coarse`/`standard`/`fine` now control batch count (3/6/12), per-batch quota (10/20/30), and cumulative soft ceiling (20/50/unlimited) — prevents runaway extraction in standard mode
-- **Ingestion Notice feedback**: single-file and folder-ingest commands now show `Notice` with duration guidance so users know the operation is running
-- **Network error actionable messages**: after 3 retries, OpenAI client reports specific causes (VPN, SSL/TLS, firewall, incorrect URL) and suggests using "Test Connection"
-
-### Fixed
-- **Entity name translation leak**: `langHint` now excludes names from language requirement — entity/concept names preserve source language, summaries/descriptions follow `wikiLanguage`
-- **Premature iteration stop**: changed from `rawTotal < currentBatchSize` to `newTotal === 0` (post-deduplication), so legitimate duplicates no longer abort extraction early
-- **`fillEmptyPage` "file not found"**: pre-read content passed directly from lint phase to fix callback, bypassing string→TFile resolution entirely
-- **Settings `watchedFolders` array type migration**: older installs with string `watchedFolder` auto-reset to `[]` on load
-- **Auto-maintain settings sync**: `saveSettings()` now propagates settings reference to `autoMaintainManager`, fixing stale-folder bugs after settings changes
-- **Auto-maintain startup noise**: `workspace.onLayoutReady()` gates watcher registration, preventing false triggers from existing files on plugin load
-- **metadataCache duplicate events**: mtime-level deduplication (`lastSeenPaths`) prevents double-ingestion on external drag-drop
-
-### Changed
-- **analyzeSource prompt quality**: summary target 100-200 → 150-250 words; item summaries 2-4 → 4-6 sentences; `mentions_in_source` now requires 2-4 verbatim source quotes with surrounding context
-- **Expanded network error detection**: `ssl`, `tls`, `protocol_error` added to `isNetworkError()` regex
-
-## [1.7.0] - 2026-05-06
-
-### Added
-- **Content truncation protection**: all page-generation `max_tokens` raised from 1500/2000 → 8000 (entity, concept, summary, fillEmptyPage, updateRelatedPage); Anthropic `stop_reason` and OpenAI `finish_reason` detection with automatic retry at 2x tokens (cap 16000) across all 3 LLM clients
-- **Entity/concept breakdown in ingest reports**: `IngestReport` now includes `entitiesCreated` / `conceptsCreated` counts, displayed in `IngestReportModal`
-- **Batch ingest aggregated report**: folder ingest collects per-file reports and shows a single merged `IngestReportModal` at completion
-
-### Fixed
-- **`fillEmptyPage` persistent "file not found"**: pre-read content now passed directly from lint phase to fix callback, bypassing string→TFile resolution entirely; empty-string content (zero-byte files) handled correctly
-- **Frontmatter `updated` date**: `normalizeFrontmatterDates()` replaces LLM-generated dates with current date before write, preventing chronology breaks
-- **Lint report always in Chinese**: `lintWiki()` now uses `TEXTS` i18n system with dynamic language lookup
-- **Command palette always in English**: all `addCommand` names now use `TEXTS` i18n system
-- **Lint fix log entries meaningless**: `logLintFix` now records per-item details (specific page, before/after, what changed) instead of bare counts
-- **Entity name translation in source extraction**: prompt now enforces preserving original source language for entity/concept names
-- **slugify punctuation**: added `,()'` to filename filter for cleaner Obsidian-compatible filenames
-
-### Changed
-- `fixDeadLink` max_tokens: 300 → 8000 (consistent with page generation)
-- Batch ingest: suppressed per-file modals replaced with aggregated results report
-
-## [1.6.5] - 2026-05-03
-
-### Added
-- **Wiki Output Language**: 8-language dropdown (`en`/`zh`/`ja`/`ko`/`de`/`fr`/`es`/`pt`) with custom input fallback; Wiki content language is now independent of UI language via `wikiLanguage` setting
-
-### Changed
-- **System prompt language directive architecture**: `buildWikiLanguageDirective()` injects `IMPORTANT: You MUST write ALL content in <language>` at the beginning of every LLM system prompt, governing all page titles, summaries, descriptions, and labels
-- **All LLM-facing prompts converted to English**: granularity instructions, batch context, merge strategies, page templates, contradiction notes, and index labels are now in English — using the standard LLM training pattern of "English instruction + target language output" to prevent user-prompt language from overriding the system directive
-- **Belt-and-suspenders language reinforcement**: `finalPrompt` appends a `CRITICAL LANGUAGE REQUIREMENT` hint at the end of the analyzeSource user prompt, ensuring the language directive is present in both system and user prompts
-- **Query engine language alignment**: `buildWikiContext()` now emits language directive in system prompt; Chinese examples replaced with English
-- **Backward-compatible migration**: existing installations with `wikiLanguage` not set inherit from `language` setting automatically
-
-### Removed
-- **"artifact" entity type**: removed from entity extraction (`person|organization|project|product|event|location|other`); type was too vague and produced hollow/generic pages
-
-## [1.6.4] - 2026-05-02
-
-### Added
-- **Prompt caching for Anthropic**: static prompt prefix (source content + existing pages) cached via `cache_control: { type: 'ephemeral' }`, reducing redundant token processing across batches
-- **Entity type expansion**: added `product`, `event`, `artifact` entity types; now 8 types (was 5) to improve entity recognition coverage
-- **Entity extraction balance guidance**: prompt now emphasizes extracting important entities even with low mention frequency, preventing sparse-but-critical entities from being overlooked
-- **Ingestion report enhancements**: elapsed time display (formatted as "X min Y sec"), failed-item guidance text suggesting manual page creation or granularity reduction
-- **Extraction granularity cost labeling**: setting dropdown and description now show relative cost/effect (token consumption and page count) for Fine/Standard/Coarse
-- **API Key password masking**: settings input now uses password field type (dots)
-
-### Changed
-- **JSON parsing**: complete rewrite with dual-layer architecture — Layer 1 normalizer (fences, `{{`/missing `{` correction, "after JSON" truncation) + Layer 2 extractor (brace counting, greedy regex fallback, LLM repair)
-- **Summary quality**: entity/concept summaries upgraded from 1 sentence to 2-4 sentences with richer detail
-- **Prefill safety**: both `AnthropicClient` and `AnthropicCompatibleClient` now detect and recover from prefill `{` being stripped by the provider
-
-### Fixed
-- **`{{` (double brace) JSON parse failures**: normalizer dedupes prefill echo before parsing
-- **"after JSON at position N" parse failures**: normalizer extracts valid JSON prefix when trailing content exists
-- **`source_title` missing validation**: prompt now explicitly requires `source_title`; code falls back to file basename if still omitted
-
-## [1.6.3] - 2026-05-01
-
-### Added
-- **Adaptive batch_size**: when a batch response length exceeds 70% of `max_tokens` (16000 → ~11200 chars), the next batch automatically shrinks by 25% (floor: 5 items) to prevent output truncation. This balances extraction efficiency with output token headroom.
-
-## [1.6.2] - 2026-05-01
-
-### Added
-- **Iterative batch extraction**: `analyzeSource` now extracts entities/concepts in batches of 20, preventing the `max_tokens` bottleneck that limited extraction from long sources (e.g., 700-line paper → 8 entities was capped by single-batch token limit)
-- **Extraction granularity setting**: new `Fine / Standard / Coarse` dropdown in settings panel controls extraction thoroughness
-- **JSON output enforcement**: `AnthropicClient` and `AnthropicCompatibleClient` now use prefill technique (append assistant `{`) to force JSON-structured responses; `OpenAIClient` uses native `response_format: { type: 'json_object' }`
-
-### Changed
-- `analyzeSource` `max_tokens`: 4000 → 16000 (immediate relief for single-batch extraction limit)
-
-## [1.6.1] - 2026-04-30
-
-### Fixed
-- **Query Wiki page loading**: LLM-returned paths with `wiki/` prefix (e.g., `wiki/entities/xxx`) no longer produce invalid `wiki/wiki/entities/xxx.md` paths; prefix is now stripped automatically
-- **Regenerate index command**: added proper async handling, progress Notice, and error feedback (was silently failing with no user indication)
-- **Index format inconsistency**: removed LLM-dependent hierarchical index generation; `generateIndexFromEngine` now uses deterministic `generateFlatIndex` for all cases, producing consistent Obsidian-compatible Markdown
-- **Anthropic Compatible CORS**: new `AnthropicCompatibleClient` uses Obsidian `requestUrl` instead of SDK to avoid `X-Stainless-*` headers causing preflight rejection by third-party providers
-- **Anthropic Compatible model fetching**: corrected endpoint URL (`/v1/models`), auth header (`x-api-key`), and fallback behavior (custom input instead of hardcoded Claude defaults)
-
-### Added
-- **MiniMax provider**: predefined provider with `MiniMax-M2.7` default model
-- **Lint AI Auto-Fix**: `fixDeadLink`, `fillEmptyPage`, `linkOrphanPage` with per-item action buttons in LintReportModal
-- **Stub→fillEmptyPage chaining**: `fixDeadLink` creates stub page then immediately expands with real content
-
-### Changed
-- **Provider list reordered**: OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, MiniMax, Kimi, GLM, Ollama, Custom, Anthropic Compatible
-- **Provider names standardized**: all use English sentence case with `nameZh` for Chinese
-- **Index generation simplified**: removed `generateHierarchicalIndex` prompt; index is always deterministic flat format
-
-## [1.6.0] - 2026-04-29
-
-### Added
-- **Query-to-Wiki Feedback**: `SuggestSaveModal` on query modal close with 3-stage value assessment
-- **Semantic Dedup on Save**: LLM compares conversation against existing Wiki before saving to Wiki
-- **Contradiction State Machine**: `detected → review_ok → resolved` (AI fix) or `detected → pending_fix` (manual)
-- **Conversational Ingest**: `ingestConversation()` extracts entities/concepts from chat history
-- **Anthropic Compatible provider**: custom Anthropic-compatible endpoints (e.g., MiniMax, MiMo)
-- **Google Gemini provider**: via OpenAI-compatible endpoint
-
-### Changed
-- **Multi-Source Knowledge Fusion**: enhanced LLM-powered merge analysis when multiple sources mention the same entity
-- **User Feedback Loop**: `reviewed: true` frontmatter protects manual edits from overwrite during re-ingestion
-
-## [1.4.0] - 2026-04-29
-
-### Fixed (2026-04-29 bot re-scan)
-- **Promise handling**: void fire-and-forget `runStartupCheck()`, wrap async callback in `suggestSchemaUpdate`
-- **Sentence case + i18n**: all hardcoded Chinese Notice strings converted to `TEXTS[].xxx` (10 new i18n keys)
-- **async without await**: `hasSourceFilesChanged()` de-async'd (was synchronous)
-- **Unused variable**: removed `_failed` in wiki-engine.ts
-
-### Added
-- **JSON Output Mode**: forced `response_format: { type: "json_object" }` for all JSON-expected LLM calls (DeepSeek/OpenAI), eliminating malformed JSON at the source
-- **Ingestion Report Modal**: structured report window after each ingest showing created/updated pages, failed items, contradictions found
-- **Progress Notification Lifecycle**: `onDone` callback ensures progress Toast auto-dismisses when ingestion completes
-- **Schema Layer**: `schema/config.md` — the third layer from Karpathy's design. Human-editable config that governs LLM operation on the Wiki
-- **Auto-Maintenance**: file watcher + periodic lint + startup check (all default OFF)
-- **Schema Selective Injection**: `getSchemaContext(task)` clips Schema to relevant sections per task
-- **Hierarchical Index**: LLM-generated tree-structured index grouped by type, flat fallback for large wikis
-- **Schema Suggestion Command**: LLM analyzes Wiki health and proposes schema improvements
-
-### Changed
-- **i18n Completion**: Settings panel fully supports English/Chinese
-- **Module Architecture**: extracted schema-manager + auto-maintain modules
-- **minAppVersion**: 0.15.0 → 1.4.0 to match actual API usage
-- **TypeScript**: 4.7.4 → 5.9.3
-- **UI Text**: pure English per Obsidian sentence case guidelines
-
-### Fixed
-- **Network Resilience**: 5-min timeout + exponential backoff retry (max 3) for transient connection errors
-- **API Throttling**: 300ms delay between LLM calls
-- **Fault Tolerance**: per-entity/concept try-catch with auto-retry; single page failure no longer aborts ingestion
-- **JSON Parsing Robustness**: state-machine content-quote escaping + LLM repair pipeline
-- **Frontmatter Wikilinks**: source references use `[[path]]` format
-- **Index Generation Hang**: large wikis bypass LLM with flat index; `max_tokens` 2000→4000
-- **ReferenceError `analysis`**: variable scoping fix in `ingestSource` catch block
-- **Obsidian Review Compliance**: installed eslint-plugin-obsidianmd, fixed all lint issues (sentence case, API version, types)
-
-### Next — Phase 2 (v1.5.0)
-- **User Feedback Loop**: detect `frontmatter.reviewed: true` and preserve manual edits during re-ingestion
-- **Multi-Source Knowledge Fusion**: LLM-powered diff-and-merge when multiple sources mention the same entity
-
-## [1.3.0] - 2026-04-28
-
-### Added
-- **Schema Layer**: `schema/config.md` — the missing third layer from Karpathy's design. Human-editable config that governs LLM operation on the Wiki (naming conventions, page templates, classification rules)
-- **Auto-Maintenance**: file watcher + periodic lint + startup check. All default OFF to avoid surprise API costs
-- **Schema Selective Injection**: `getSchemaContext(task)` clips Schema to relevant sections per task, saving ~70% token overhead
-- **Hierarchical Index**: LLM-generated tree-structured index grouped by type with importance ranking, flat fallback for large wikis
-- **Schema Suggestion Command**: LLM analyzes Wiki health and proposes schema improvements saved to `schema/suggestions.md`
-
-### Changed
-- **i18n Completion**: Settings panel fully supports English/Chinese with `TEXTS` constant system (65+ keys)
-- **Module Architecture**: extracted schema-manager + auto-maintain modules; main.ts from 2987→305 lines
-
-## [1.2.0] - 2026-04-27
-
-### Changed
-
-**Modular Architecture (main.ts 2987 → 305 lines, -90%)**
-- Extracted 9 focused modules: wiki-engine, query-engine, settings, texts, types, prompts, llm-client, utils, modals
-- Clear separation of concerns: each module has one responsibility
-- Plugin entry point now only handles lifecycle and command routing
-
-**Settings Page Redesign**
-- Replaced vague feature bullets with 3-step workflow (Ingest → Query → Maintain)
-- Merged intro texts into a single paragraph with clickable Karpathy link
-- First-time users can understand the plugin in 10 seconds
-
-**Query Modal Polish**
-- Increased height from 600px to 780px for better readability
-- "Save to Wiki" button now uses Obsidian's accent color (purple)
-
-### Fixed
-
-- JSON parsing: added LLM-based repair fallback for malformed JSON (unescaped quotes, trailing commas)
-- Frontmatter: ensure `---` delimiter at position 0 so Obsidian parses YAML correctly
-- Removed dead code: empty `selectSourceToIngest()`, unused `streamResponse()`, unused imports
-- Replaced brittle regex-based JSON extraction with robust `parseJsonResponse()`
-- Replaced `require()` calls with static ES module imports in settings
-
----
-
-### Added
-
-**Conversational Query Interface**
-- Refactored Query Wiki to ChatGPT-style conversational Modal (800x600px)
-- Real-time streaming LLM responses with visual feedback
-- Full Markdown rendering using Obsidian MarkdownRenderer
-  - Supports [[wiki-links]], callouts, code blocks, Obsidian syntax
-- Multi-turn conversation with follow-up questions
-- Conversation history management with visual scrollable display
-- Enter key shortcut (Shift+Enter for newline)
-- Auto-truncation when exceeding conversation limit (Notice feedback)
-- Clear history button to reset conversation
-
-**Knowledge Extraction from Conversations**
-- New "Save to Wiki" button to extract knowledge from valuable conversations
-- ingestConversation() method converts dialogue to structured Wiki pages
-  - Summary page with conversation topic and key points
-  - Entity pages extracted from discussion
-  - Concept pages with relationships
-- Reuses existing Wiki generation logic for consistency
-
-**Technical Improvements**
-- Extended LLMClient interface with optional createMessageStream() method
-  - Backward compatible (non-streaming fallback)
-- Implemented streaming for AnthropicClient (Anthropic SDK stream API)
-- Implemented streaming for OpenAIClient (OpenAI stream: true option)
-- Language-aware responses (match interface language setting)
-  - English: "Please answer in English."
-  - Chinese: "请用中文回答。"
-- Added maxConversationHistory to LLMWikiSettings (default: 10)
-- New TEXTS entries: 15 strings per language (English + Chinese)
-- Settings UI: "Wiki Query Configuration" section
-  - Input field with validation (1-50 range)
-  - Hint text with recommended value (10-15 rounds)
-
-**User Experience**
-- Immediate feedback: see responses stream in real-time
-- Interactive: follow-up questions without reopening Modal
-- Clean UI: rendered Markdown instead of raw text
-- Knowledge capture: save valuable conversations to Wiki
-- i18n: all UI text and LLM responses respect language setting
-
----
-
-## [1.0.9] - 2026-04-26
-
-### Added
-
-**Internationalization (i18n) Support**
-- Settings panel now supports English and Chinese interface
-- Language switcher dropdown at top of settings panel
-- Default language: English (for international users)
-- All UI text (titles, descriptions, buttons, notices) localized
-- Language preference persisted in plugin settings
-- Real-time UI re-render when switching language
-
-**TEXTS System**
-- Complete English and Chinese translation constants
-- `getText()` helper method for dynamic text retrieval
-- All hardcoded text replaced with TEXTS references
-- Clean separation of content and presentation
-
-**Settings Interface**
-- Added `language` field to `LLMWikiSettings` interface
-- Improved user experience for non-English users
-- Consistent with project's internationalization standards
-
----
-
-## [1.0.0] - 2026-04-26
-
-### Added - Karpathy Complete Implementation
-
-**Multi-page Generation Mechanism**
-- One source file generates 10+ Wiki pages (not just 1)
-- Entity pages (persons, organizations, projects, locations)
-- Concept pages (theories, methods, technologies, terms)
-- Summary pages with bidirectional links
-- Automatic contradiction detection and marking
-
-**Structured Prompt Design**
-- JSON format output for source analysis
-- Entity extraction with types and summaries
-- Concept extraction with related concepts
-- Contradiction detection between new and existing Wiki
-- Related pages identification
-
-**Bidirectional Link Maintenance**
-- Ensure [[Entity]] links point to real entity pages
-- Ensure [[Concept]] links point to real concept pages
-- Automatic link creation in wiki folder structure
-- No broken/red links
-
-**Wiki Folder Structure**
-- `wiki/entities/` - Entity pages
-- `wiki/concepts/` - Concept pages
-- `wiki/sources/` - Summary pages
-- `wiki/index.md` - Classified index
-- `wiki/log.md` - Detailed operation log
-
-**Index Classification**
-- Organized by categories (Entities, Concepts, Sources)
-- Each entry includes one-line summary
-- Using Obsidian `[[links]]` syntax
-- Auto-generated and updated
-
-**Log Detail Recording**
-- Records created pages (all entity/concept/summary pages)
-- Records updated pages (existing related pages)
-- Records discovered contradictions
-- Standard format with parseable timestamps
-
-**Lint Maintenance**
-- Checks contradictions between pages
-- Checks outdated claims
-- Checks orphan pages (no inbound links)
-- Checks missing concept/entity pages
-- Checks broken bidirectional links
-- Checks data gaps
-
-### Changed
-
-**Complete Rewrite**
-- Replaced single-page generation with multi-page mechanism
-- Replaced simple prompt with structured JSON prompt
-- Replaced time-based index with classified index
-- Replaced simple log with detailed operation log
-- Added entity and concept page creation logic
-- Added contradiction detection and marking
-- Added related pages update mechanism
-
-**Folder Structure**
-```
-wiki/
-├── entities/    # New: Entity pages
-├── concepts/    # New: Concept pages
-├── sources/     # New: Summary pages
-├── index.md     # Improved: Classified
-└── log.md       # Improved: Detailed
-```
-
-### Fixed
-
-- ✅ Multi-page generation (Karpathy requirement)
-- ✅ Bidirectional links effectiveness (links point to real pages)
-- ✅ Entity and concept page creation
-- ✅ Existing pages update when new source arrives
-- ✅ Contradiction marking
-- ✅ Classified index structure
-- ✅ Detailed log recording
-
-### Authors
-
-- **Greener-Dalii** - Complete Karpathy implementation
-
----
-
-## [0.3.0] - 2026-04-26
-
-### Added
-- Folder picker for initializing Wiki from existing folders
-- FuzzySuggestModal for folder selection
-- Support for nested folders
-
----
-
-## [0.2.0-0.2.2] - Earlier versions
-
-See git history for details of earlier implementations.

@@ -12,6 +12,34 @@ export interface DuplicateCandidate {
   score: number;
 }
 
+// ── Pure Functions (extracted for testability) ───────────────────────────────
+
+/** Extract character bigrams from string for similarity comparison. */
+export function bigrams(s: string): Set<string> {
+  const result = new Set<string>();
+  const normalized = s.toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
+  for (let i = 0; i < normalized.length - 1; i++) {
+    result.add(normalized.substring(i, i + 2));
+  }
+  return result;
+}
+
+/** Normalize string for cross-language matching. */
+export function normalizeForMatch(s: string): string {
+  return s.toLowerCase().replace(/[\s\-_]+/g, '').replace(/[^a-z0-9一-鿿]/g, '');
+}
+
+/** Compute Jaccard similarity between two sets. */
+export function computeJaccard<T>(setA: Set<T>, setB: Set<T>): number {
+  if (setA.size === 0 || setB.size === 0) return 0;
+  let intersection = 0;
+  for (const item of setA) {
+    if (setB.has(item)) intersection++;
+  }
+  const union = setA.size + setB.size - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
 // Generate duplicate-page candidates using programmatic signals.
 // Returns candidates for LLM verification, capped by the O(n²) algorithm.
 // Three signals, ordered by reliability:
@@ -81,12 +109,7 @@ export async function generateDuplicateCandidates(
 
       const a = metas[i], b = metas[j];
       if (a.links.size === 0 || b.links.size === 0) continue;
-      let intersection = 0;
-      for (const link of a.links) {
-        if (b.links.has(link)) intersection++;
-      }
-      const union = a.links.size + b.links.size - intersection;
-      const jaccard = union > 0 ? intersection / union : 0;
+      const jaccard = computeJaccard(a.links, b.links);
       if (jaccard >= 0.4) {
         addCandidate(a.path, b.path, `Shared wiki-links (${Math.round(jaccard * 100)}% overlap)`, 'sharedLinks', jaccard);
       }
@@ -94,15 +117,6 @@ export async function generateDuplicateCandidates(
   }
 
   // Signal 2: Bigram + cross-language on titles/aliases
-  const bigrams = (s: string): Set<string> => {
-    const result = new Set<string>();
-    const normalized = s.toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
-    for (let i = 0; i < normalized.length - 1; i++) {
-      result.add(normalized.substring(i, i + 2));
-    }
-    return result;
-  };
-
   for (let i = 0; i < metas.length; i++) {
     if (i > 0 && i % YIELD_EVERY === 0) {
       await new Promise(resolve => window.setTimeout(resolve, 0));
@@ -121,14 +135,7 @@ export async function generateDuplicateCandidates(
       let maxSim = 0;
       for (const nameA of namesA) {
         for (const nameB of namesB) {
-          const bgA = bigrams(nameA);
-          const bgB = bigrams(nameB);
-          if (bgA.size === 0 || bgB.size === 0) continue;
-          let intersection = 0;
-          for (const bg of bgA) {
-            if (bgB.has(bg)) intersection++;
-          }
-          const sim = intersection / (bgA.size + bgB.size - intersection);
+          const sim = computeJaccard(bigrams(nameA), bigrams(nameB));
           if (sim > maxSim) maxSim = sim;
         }
       }
@@ -137,8 +144,6 @@ export async function generateDuplicateCandidates(
       }
 
       // 2b: Cross-language alias match
-      const normalizeForMatch = (s: string) => s.toLowerCase().replace(/[\s\-_]+/g, '').replace(/[^a-z0-9一-鿿]/g, '');
-
       const normalizedNamesA = namesA.map(n => normalizeForMatch(n));
       const normalizedAliasesB = b.aliases.map(n => normalizeForMatch(n));
       const normalizedTitleB = normalizeForMatch(b.title);

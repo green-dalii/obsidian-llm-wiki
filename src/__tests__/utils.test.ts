@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugify, computeSlug, parseFrontmatter, detectRateLimitFailures, formatRateLimitNotice, cleanMarkdownResponse, enforceFrontmatterConstraints, parseJsonResponse, mergeFrontmatter, preserveFrontmatterReviewTag, extractBody } from '../utils';
+import { slugify, computeSlug, parseFrontmatter, detectRateLimitFailures, formatRateLimitNotice, cleanMarkdownResponse, enforceFrontmatterConstraints, parseJsonResponse, mergeFrontmatter, preserveFrontmatterReviewTag, extractBody, getText, filterRedundantAliases, coerceToArray } from '../utils';
 import { getGranularityInstruction, getGranularityFixLimits } from '../wiki/system-prompts';
 import { LLMWikiSettings } from '../types';
 
@@ -244,27 +244,24 @@ describe('detectRateLimitFailures', () => {
 });
 
 describe('formatRateLimitNotice', () => {
-  it('uses template when rateLimitDetected key exists', () => {
-    const texts = {
-      rateLimitDetected: 'Rate limit: {count} items. Concurrency → {suggestedConcurrency}, delay → {suggestedDelay}ms',
-    };
+  it('uses template from EN texts', () => {
     const result = formatRateLimitNotice(
       { count: 3, rateLimitNames: ['a', 'b', 'c'], suggestedConcurrency: 2, suggestedDelay: 600 },
-      texts,
+      'en',
     );
     expect(result).toContain('3');
     expect(result).toContain('2');
     expect(result).toContain('600');
   });
 
-  it('builds fallback when key is missing', () => {
+  it('falls back to EN for unknown language', () => {
     const result = formatRateLimitNotice(
       { count: 2, rateLimitNames: ['page1', 'page2'], suggestedConcurrency: 1, suggestedDelay: 500 },
-      {},
+      'xx',
     );
     expect(result).toContain('2');
     expect(result).toContain('1');
-    expect(result).toContain('500ms');
+    expect(result).toContain('500');
   });
 });
 
@@ -292,6 +289,27 @@ describe('cleanMarkdownResponse', () => {
     const result = cleanMarkdownResponse(input);
     expect(result).toContain('{"key": "value"}');
     expect(result).not.toContain('```');
+  });
+
+  it('strips <think>...</think> reasoning tokens', () => {
+    const input = '<think>Let me analyze this entity carefully...</think>\n\n# Entity Name';
+    const result = cleanMarkdownResponse(input);
+    expect(result).not.toContain('<think>');
+    expect(result).toContain('# Entity Name');
+  });
+
+  it('strips <thinking>...</thinking> reasoning tokens', () => {
+    const input = '<thinking>Internal reasoning here</thinking>\n\n# Concept Page';
+    const result = cleanMarkdownResponse(input);
+    expect(result).not.toContain('<thinking>');
+    expect(result).toContain('# Concept Page');
+  });
+
+  it('strips multiple consecutive think blocks', () => {
+    const input = '<think>Step 1</think><think>Step 2</think>\n\n---\ntype: entity\n---';
+    const result = cleanMarkdownResponse(input);
+    expect(result).not.toContain('<think>');
+    expect(result).toContain('type: entity');
   });
 
   it('handles content without code fence unchanged', () => {
@@ -718,5 +736,238 @@ describe('getGranularityFixLimits', () => {
     const limits = getGranularityFixLimits(settings);
     expect(limits.maxEntities).toBe(6);
     expect(limits.maxConcepts).toBe(6);
+  });
+});
+
+// ── getText ──────────────────────────────────────────────────────
+
+describe('getText', () => {
+  it('returns EN text for a known key', () => {
+    const result = getText('en', 'ingestionCancelled');
+    expect(result).toBe('Ingestion cancelled');
+  });
+
+  it('returns ZH text for a known key', () => {
+    const result = getText('zh', 'ingestionCancelled');
+    expect(result).toBe('提取已取消');
+  });
+
+  it('falls back to EN for unknown language code', () => {
+    const result = getText('xx', 'ingestionCancelled');
+    expect(result).toBe('Ingestion cancelled');
+  });
+
+  it('performs single placeholder replacement', () => {
+    const result = getText('en', 'crossTypeCollisionNotice', { count: '3' });
+    expect(result).toContain('3');
+    expect(result).toContain('merged');
+  });
+
+  it('performs multiple placeholder replacements', () => {
+    const result = getText('en', 'rateLimitDetected', {
+      count: '5',
+      suggestedConcurrency: '2',
+      suggestedDelay: '800',
+    });
+    expect(result).toContain('5');
+    expect(result).toContain('2');
+    expect(result).toContain('800');
+  });
+
+  it('returns JA text for a known key', () => {
+    const result = getText('ja', 'ingestionCancelled');
+    expect(result).toBe('取り込みがキャンセルされました');
+  });
+
+  it('returns KO text for a known key', () => {
+    const result = getText('ko', 'ingestionCancelled');
+    expect(result).toBe('수집이 취소되었습니다');
+  });
+
+  it('handles non-existent replacement placeholders gracefully', () => {
+    const result = getText('en', 'ingestionCancelled', { nonexistent: 'foo' });
+    expect(result).toBe('Ingestion cancelled');
+  });
+});
+
+describe('filterRedundantAliases', () => {
+  it('drops an alias identical to the page filename (case-insensitive)', () => {
+    const result = filterRedundantAliases('wiki/entities/vigilanz.md', ['Vigilanz']);
+    expect(result).toEqual([]);
+  });
+
+  it('keeps a genuine alias that differs from the filename', () => {
+    const result = filterRedundantAliases('wiki/entities/vigilanz.md', ['监测']);
+    expect(result).toEqual(['监测']);
+  });
+
+  it('drops self-pointing alias but keeps distinct ones in the same batch', () => {
+    const result = filterRedundantAliases('wiki/entities/openai.md', ['OpenAI', 'OAI']);
+    expect(result).toEqual(['OAI']);
+  });
+
+  it('keeps a space-variant alias because Obsidian does not collapse spaces to dashes', () => {
+    // File is deep-learning.md; [[Deep Learning]] would NOT auto-resolve to it,
+    // so "Deep Learning" is a useful alias and must be kept.
+    const result = filterRedundantAliases('wiki/concepts/deep-learning.md', ['Deep Learning']);
+    expect(result).toEqual(['Deep Learning']);
+  });
+
+  it('removes duplicate aliases within the batch (case-insensitive)', () => {
+    const result = filterRedundantAliases('wiki/entities/foo.md', ['GPT', 'gpt']);
+    expect(result).toEqual(['GPT']);
+  });
+
+  it('skips empty or whitespace-only aliases', () => {
+    const result = filterRedundantAliases('wiki/entities/openai.md', ['', '   ', 'OpenAI Inc']);
+    expect(result).toEqual(['OpenAI Inc']);
+  });
+
+  it('handles paths without a folder prefix', () => {
+    const result = filterRedundantAliases('vigilanz.md', ['Vigilanz', 'Surveillance']);
+    expect(result).toEqual(['Surveillance']);
+  });
+});
+
+// ── normalizeBatchResponse is in source-analyzer.ts ──────────────
+
+import {
+  normalizeBatchResponse,
+} from '../wiki/source-analyzer';
+
+describe('normalizeBatchResponse', () => {
+  it('returns unusable for null input', () => {
+    const { validity } = normalizeBatchResponse(null);
+    expect(validity).toBe('unusable');
+  });
+
+  it('returns unusable when both entities and concepts keys are absent', () => {
+    const { validity } = normalizeBatchResponse({});
+    expect(validity).toBe('unusable');
+  });
+
+  it('returns empty when both arrays are explicitly empty', () => {
+    const { validity } = normalizeBatchResponse({ entities: [], concepts: [] });
+    expect(validity).toBe('empty');
+  });
+
+  it('returns valid when only entities are present (glossary case)', () => {
+    const raw = {
+      entities: [{ name: 'Foo', type: 'other' as const, summary: 'S', mentions_in_source: [] }],
+      // concepts key absent — should not cause unusable
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toHaveLength(1);
+    expect(data.concepts).toHaveLength(0);
+  });
+
+  it('returns valid when only concepts are present', () => {
+    const raw = {
+      concepts: [{ name: 'Bar', type: 'theory' as const, summary: 'S', related_concepts: [], mentions_in_source: [] }],
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toHaveLength(0);
+    expect(data.concepts).toHaveLength(1);
+  });
+
+  it('coerces non-array truthy values to empty (e.g. entities: true)', () => {
+    const raw: Record<string, unknown> = {
+      entities: true,
+      concepts: [{ name: 'Bar', type: 'theory' as const, summary: 'S', related_concepts: [], mentions_in_source: [] }],
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toEqual([]);
+    expect(data.concepts).toHaveLength(1);
+  });
+
+  it('coerces null entities to empty', () => {
+    const raw: Record<string, unknown> = {
+      entities: null,
+      concepts: [{ name: 'Bar', type: 'theory' as const, summary: 'S', related_concepts: [], mentions_in_source: [] }],
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toEqual([]);
+  });
+
+  it('filters items with empty name', () => {
+    const raw = {
+      entities: [
+        { name: '', type: 'other' as const, summary: 'S', mentions_in_source: [] },
+        { name: 'Real', type: 'other' as const, summary: 'S', mentions_in_source: [] },
+      ],
+    };
+    const { validity, data } = normalizeBatchResponse(raw);
+    expect(validity).toBe('valid');
+    expect(data.entities).toHaveLength(1);
+    expect(data.entities[0].name).toBe('Real');
+  });
+
+  it('extracts sourceTitle and summary', () => {
+    const raw = {
+      entities: [{ name: 'Foo', type: 'other' as const, summary: 'S', mentions_in_source: [] }],
+      source_title: 'Test Title',
+      summary: 'Test summary body.',
+    };
+    const { data } = normalizeBatchResponse(raw);
+    expect(data.sourceTitle).toBe('Test Title');
+    expect(data.summary).toBe('Test summary body.');
+  });
+
+  it('strips wiki-link formatting from relatedPages', () => {
+    const raw = {
+      entities: [{ name: 'Foo', type: 'other' as const, summary: 'S', mentions_in_source: [] }],
+      related_pages: ['[[entities/Bar]]', '[[concepts/Baz|Baz Title]]'],
+    };
+    const { data } = normalizeBatchResponse(raw);
+    // [[path]] stays as-is (no pipe separator); [[path|name]] strips to display name
+    expect(data.relatedPages).toEqual(['entities/Bar', 'Baz Title']);
+  });
+
+  it('validity is unusable when both keys absent but overrides for empty arrays', () => {
+    // Absent keys → unusable
+    expect(normalizeBatchResponse({}).validity).toBe('unusable');
+    // Explicit [] → empty (can distinguish from "LLM didn't try")
+    expect(normalizeBatchResponse({ entities: [], concepts: [] }).validity).toBe('empty');
+  });
+});
+
+describe('coerceToArray', () => {
+  it('returns the same array when value is an array', () => {
+    const arr = [1, 2, 3];
+    const result = coerceToArray<number>(arr);
+    expect(result).toBe(arr);
+    expect(result).toEqual([1, 2, 3]);
+  });
+
+  it('returns empty array for null', () => {
+    expect(coerceToArray(null)).toEqual([]);
+  });
+
+  it('returns empty array for undefined', () => {
+    expect(coerceToArray(undefined)).toEqual([]);
+  });
+
+  it('returns empty array for non-array truthy value', () => {
+    expect(coerceToArray(true)).toEqual([]);
+  });
+
+  it('returns empty array for string', () => {
+    expect(coerceToArray('hello')).toEqual([]);
+  });
+
+  it('returns empty array for number', () => {
+    expect(coerceToArray(42)).toEqual([]);
+  });
+
+  it('returns empty array for object', () => {
+    expect(coerceToArray({ foo: 'bar' })).toEqual([]);
+  });
+
+  it('preserves array contents', () => {
+    expect(coerceToArray<string>(['a', 'b'])).toEqual(['a', 'b']);
   });
 });

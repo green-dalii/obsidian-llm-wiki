@@ -1,6 +1,6 @@
 {
   "name": "karpathywiki",
-  "version": "1.12.4",
+  "version": "1.14.0",
   "packageManager": "pnpm@10.14.0",
   "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation with conversational query",
   "main": "main.js",
@@ -26,19 +26,19 @@
   "author": "Greener-Dalii",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^16.11.6",
-    "@typescript-eslint/eslint-plugin": "^8.59.1",
-    "@typescript-eslint/parser": "^8.59.1",
+    "@types/node": "16.18.126",
+    "@typescript-eslint/eslint-plugin": "8.59.1",
+    "@typescript-eslint/parser": "8.59.1",
     "esbuild": "0.28.0",
-    "eslint": "^10.2.1",
-    "eslint-plugin-obsidianmd": "^0.3.0",
-    "obsidian": "latest",
+    "eslint": "10.2.1",
+    "eslint-plugin-obsidianmd": "0.3.0",
+    "obsidian": "1.12.3",
     "tslib": "2.4.0",
     "typescript": "5.9.3",
-    "vitest": "^4.1.6"
+    "vitest": "4.1.6"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.0"
+    "@anthropic-ai/sdk": "0.24.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": ["esbuild"],

@@ -2,11 +2,41 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.12.0 | **Updated:** 2026-05-27
+**Version:** 1.14.0 | **Updated:** 2026-06-01
 
 ---
 
 ## Current Status
+
+### Implemented (v1.14.0) — Architecture Quality & Test Infrastructure
+
+Comprehensive test infrastructure expansion addressing third-party model review feedback, core architecture refactoring with pure function extraction, and model compatibility fixes.
+
+**Key changes:**
+- Model compatibility expansion (Issues #64/#65): DeepSeek-R1, QwQ, LM Studio fully supported
+- Test infrastructure expansion: Mock infrastructure (`createMockContext`), 400 tests (+200), test coverage doubled
+- TypeScript type safety complete: All type errors fixed, dual gate verification enforced
+- Dual Gate Verification: ESLint + TypeScript both required, single tool insufficient
+- Core architecture refactoring: 4 pure function modules in `src/core/` (conflict-resolver, dead-link-detector, orphan-matcher, prompt-builders)
+- Constants centralization: `src/constants.ts` 192 lines, WIKI_SUBFOLDERS, notice durations, token budgets activated
+- Query engine stability: Page content capped at 3000 tokens, prevents overflow
+- Documentation upgrades: TDD Standard, Development Protocol, ROADMAP architecture quality plan
+- Code quality: 2576 lines added, 503 removed, 44 files changed, zero breaking changes
+
+### Implemented (v1.13.0) — Quality & Infrastructure
+
+Extraction reliability, duplicate prevention, and build verification improvements.
+
+**Key changes:**
+- Cross-type duplicate prevention (#54): resolvePagePath checks opposite folder, contributed by @dmarchevsky
+- Multi-round extraction dedup with aliases injection — LLM no longer relies on internal state
+- Extraction aliases seeding (aliases? field) → page generation quality improvement
+- Source analysis false abort fix (#61): gate changed from || to &&, contributed by @Indexed-Apogrypha
+- normalizeBatchResponse pure function + BatchValidity enum (unusable/empty/valid)
+- Alias self-pointing dedup (filterRedundantAliases)
+- Build verification passes (CI matches Obsidian verification exactly)
+- Three-No Principle structured evaluation framework
+- 191 tests across 4 test files (+18 since v1.12.4)
 
 ### Implemented (v1.12.0) — Production-Grade Performance
 
@@ -29,41 +59,98 @@ Production-critical performance release. Extraction fundamentally rearchitected 
 | Hash-bucket dedup (O(n²)→O(n log n)) | No user-reported perf issue; solve when it hurts |
 | Anthropic prompt caching (Issue #38) | System prompts too small for 1024-token cache threshold |
 
-### Next: v1.12.1+ — P3 items + community
+### Next: v1.15.0 — Wiki Engine Full-Path Tests
 
-**P3 — Nice-to-have**
+**P0 — Core Engine Tests (continued)**
 
-| Action | Effort | Why |
-|--------|--------|-----|
-| #36 — Source title in frontmatter | 1h | Needs clarification from issue author |
-| Good First Issue tagging | 10min | Community growth |
-| LLM client retry extraction | 2h | Code quality (low priority)
+| Item | Status |
+|------|--------|
+| mock infrastructure (`createMockContext`) | ✅ Done (v1.14.0) |
+| source-analyzer core tests | ✅ Done (v1.14.0) |
+| page-factory appendAliases tests | ✅ Done (v1.14.0) |
+| ConflictResolver | ✅ Done (v1.14.0) |
+| wiki-engine ingestSource full path | ⬜ ~1 day |
+| query-engine core flow | ⬜ ~1 day |
 
-### Evaluated & Rejected (v1.12.0)
+**P1 — Planned**
+- page-factory.ts full path: resolvePagePath LLM fallback + mergePage + appendToReviewedPage
+- runLintWiki phase extraction (762→6×~130 lines)
+- firstBatchData type narrowing ✅ (merged via PR #69)
+
+**P2 — Backlog**
+- #36 — Source title in frontmatter (1h, needs clarification)
+- Good First Issue tagging (10min)
+- WIKI_SUBFOLDERS full migration in lint-fixes.ts frontmatter writes (10min)
+
+### Evaluated & Rejected
 
 | Proposal | Reason |
 |----------|--------|
 | Hexagonal Architecture (Port-Adapter) | Over-engineering for Obsidian plugin context |
 | Vector search (Ollama embeddings) | Requires infrastructure <1% of users have |
 | Hash-bucket dedup (O(n²)→O(n log n)) | No user-reported perf issue; solve when it hurts |
-| page-factory try/catch 补全 | Exceptions bubble to centralized handler by design |
-| API URL validation | Obsidian's requestUrl already validates |
-
-### Implemented (v1.11.0) — Full Issue Resolution & UX Hardening
+| Anthropic prompt caching (Issue #38) | System prompts too small for 1024-token cache threshold |
+| API URL validation | Obsidian's requestUrl already validates; self-phishing impossible |
 
 ---
 
-## Current Status
+## Known Gaps (from Karpathy audit)
 
-### All P1/P2 Complete — v1.11.0 Milestone
+| # | Gap | Severity |
+|---|-----|----------|
+| 1 | Lint: no stale-claim detection | Medium |
+| 2 | Lint: no missing-important-page detection | Medium |
+| 3 | Lint: no suggested-questions output | Low |
+| 4 | Lint: batch fix without per-item review | Medium |
+| 5 | Ingest: no interactive "discuss key takeaways with user" before writing | Medium |
+| 6 | Query: output format limited to markdown (no tables/slides/charts) | Low |
+| 7 | Schema: rules-engine based, not co-evolved LLM instruction doc | Low |
 
-8 Issues closed. 6 ROADMAP improvements delivered. 113 tests.
+---
 
-**Remaining (P3):**
+## Planned (Postponed)
 
-| Action | Effort | Why |
-|--------|--------|-----|
-| #36 — Source title in frontmatter | 1h | Needs clarification from issue author |
+### Ingest Wizard + Lint Per-Item Review
+
+Karpathy: *"I like to do them one at a time, and be involved myself."*
+
+- **Ingest Wizard** — Step-by-step guided ingest with user review before writing
+- **Lint per-item review** — Preview LLM fix proposals before applying
+- **Proactive schema suggestions** — After ingest, flag new types outside schema categories
+- **Output format diversity** — Tables, comparison views
+
+### Long-term Vision
+
+| Feature | Description |
+|---------|-------------|
+| Wiki Health Dashboard | Obsidian custom view with growth, link density, contradiction trends |
+| Wiki Content Export | GraphML, JSON, static site formats |
+| Agent Mode | Full auto-maintain lifecycle, proactive suggestions |
+| Multi-modal Support | Images, PDF, audio/video knowledge extraction |
+
+---
+
+## Version Timeline
+
+| Version | Date | Key Features | Status |
+|---------|------|-------------|--------|
+| **v1.14.0** | 2026-06 | Architecture quality, test infrastructure, dual gate verification | Released |
+| **v1.13.0** | 2026-05 | Cross-type dedup, normalizeBatchResponse, aliases seeding, Three-No framework | Released |
+| **v1.12.6** | 2026-05 | Build verification fix, dependency pinning | Released |
+| **v1.12.0** | 2026-05 | Extraction rearchitected (~80% faster), dynamic batch limits, convergence detection | Released |
+| **v1.11.0** | 2026-05 | llmReady gating, cancel ingestion, ribbon icon, double-nested link fix | Released |
+| **v1.10.x** | 2026-05 | Aliases support, minimal/custom granularity, slug normalization | Released |
+| **v1.9.x** | 2026-05 | 4-layer pollution defense, code quality upgrade (B+→A-), lint report enhancements | Released |
+| **v1.8.x** | 2026-05 | Full i18n for 8 languages, dynamic download badge, rate limit detection | Released |
+| **v1.7.x** | 2026-05 | Code quality milestone, 20 releases, lint UI freeze fix, modular refactoring | Released |
+| **v1.6.x** | 2026-05 | Wiki output language, iterative batch extraction, query-to-wiki feedback | Released |
+| **v1.4.0** | 2026-04 | Schema layer, auto-maintenance, ESLint compliance | Released |
+| **v1.0.0** | 2026-04 | Multi-page generation, entity/concept extraction, bidirectional links | Released |
+| **v1.15.0** | TBD | Wiki engine full-path tests, query engine core flow | Planned |
+
+---
+
+**Maintainer:** Greener-Dalii
 
 **Evaluated & Rejected:**
 - #38 Anthropic prompt caching — system prompts too small for cache threshold; `cacheBreakpoint` already handles main savings
@@ -130,7 +217,7 @@ Production-critical performance release. Extraction fundamentally rearchitected 
 
 **LLM prompt path leakage**
 - Root cause: Two repair prompts (`mergeDuplicatePages`, `fillEmptyPage`) passed full file paths (`wiki/entities/DeepSeek-V3`) to LLM, causing it to misinterpret folder names as part of page titles
-- Result: merged pages got polluted titles like `entitiesDeepSeek-V3-2`, `concepts表征学习`
+- Result: merged pages got polluted titles like `entitiesDeepSeek-V3-2`, `conceptsBiaozheng Xuexi`
 - Fix: Removed `{{source_path}}` from mergeDuplicatePages and `{{page_path}}` from fillEmptyPage — LLM only needs body content and type, not file system paths
 - Defense layer: Added contaminated alias filtering to reject aliases matching `entities*`, `concepts*`, `sources*` patterns, preventing existing pollution from spreading
 
@@ -186,7 +273,7 @@ Production-critical performance release. Extraction fundamentally rearchitected 
 
 ### Implemented (v1.7.10) — Knowledge Deduplication + Error Resilience
 
-**方案C Phase 1+2 — Duplicate Page Detection & Merge**
+**Plan C Phase 1+2 — Duplicate Page Detection & Merge**
 - Three-layer duplicate detection: Programmatic candidates (shared sources/links/bigram) → LLM title scan (cross-lingual) → LLM content verification
 - Intelligent merge: LLM fuses content and discovers aliases, programmatic frontmatter merge, source page trashed, wiki-links rewritten
 - Aliases infrastructure: Full aliases support in frontmatter parsing, merge, enforcement, dead link fallback
@@ -346,7 +433,8 @@ Karpathy: *"I like to do them one at a time, and be involved myself."*
 
 | Version | Date | Key Features | Status |
 |---------|------|-------------|--------|
-| **v1.7.18** | 2026-05 | Critical fix: folder name leakage in duplicate merge titles, contaminated alias filtering | Released |
+| **v1.13.0** | 2026-05 | Cross-type dedup, normalizeBatchResponse, aliases seeding, Three-No framework | Ready |
+| **v1.12.6** | 2026-05 | Build verification fix, dependency pinning | Released |
 | **v1.7.17** | 2026-05 | Lint UI freeze fix (async yield in Phase 1 + inner loops), Smart Fix All button count fix, Phase 0 aliases completion | Released |
 | **v1.7.13** | 2026-05 | Provider-aware model filtering (OpenRouter/Ollama), alias-aware wiki index & query | Released |
 | **v1.7.11** | 2026-05 | Mandatory page aliases, semantic-tier duplicate detection, token-budget batching, alias completion, Smart Fix All, frontmatter fixes | Released |

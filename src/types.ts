@@ -18,6 +18,7 @@ export interface SourceAnalysis {
 export interface EntityInfo {
   name: string;
   type: 'person' | 'organization' | 'project' | 'product' | 'event' | 'location' | 'other';
+  aliases?: string[];  // Pre-generated aliases from extraction (seeds for page generation)
   summary: string;
   mentions_in_source: string[];
   related_entities?: string[];
@@ -27,6 +28,7 @@ export interface EntityInfo {
 export interface ConceptInfo {
   name: string;
   type: 'theory' | 'method' | 'technology' | 'term' | 'other';
+  aliases?: string[];  // Pre-generated aliases from extraction (seeds for page generation)
   summary: string;
   mentions_in_source: string[];
   related_concepts: string[];
@@ -136,6 +138,17 @@ export interface SchemaSuggestion {
 
 // Ingestion report passed to onDone callback
 
+// Result of page creation/update, with optional collision info
+export interface PageCreationResult {
+  path: string | null;
+  collision?: {
+    name: string;
+    sourceType: 'entity' | 'concept';
+    targetType: 'entity' | 'concept';
+    targetPath: string;
+  };
+}
+
 export interface IngestReport {
   sourceFile: string;
   createdPages: string[];
@@ -143,6 +156,7 @@ export interface IngestReport {
   entitiesCreated: number;
   conceptsCreated: number;
   failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }>;
+  collisions: Array<{ name: string; sourceType: 'entity' | 'concept'; targetType: 'entity' | 'concept'; targetPath: string }>;
   contradictionsFound: number;
   success: boolean;
   errorMessage?: string;

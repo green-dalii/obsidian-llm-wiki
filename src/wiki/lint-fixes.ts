@@ -5,12 +5,29 @@ import { App } from 'obsidian';
 import { EngineContext } from '../types';
 import { PROMPTS } from '../prompts';
 import { slugify, parseJsonResponse, cleanMarkdownResponse, parseFrontmatter, enforceFrontmatterConstraints } from '../utils';
+import { TOKENS_LINT_PAGE_FIX, TOKENS_LINT_ORPHAN_FIX, WIKI_SUBFOLDERS } from '../constants';
 import {
   buildSystemPrompt,
   getSectionLabels,
   applySectionLabels,
   getGranularityFixLimits,
 } from './system-prompts';
+import {
+  findDeadLinkTarget,
+  buildDeadLinkReplacement,
+  replaceDeadLink,
+} from '../core/dead-link-detector';
+import {
+  buildEmptyPagePrompt,
+  cleanWikiIndex,
+  correctLinkPollution,
+} from '../core/prompt-builders';
+import {
+  buildOrphanLinkPrompt,
+  validateOrphanLinkTarget,
+  buildOrphanLinkUpdate,
+  normalizeOrphanPagePath,
+} from '../core/orphan-matcher';
 
 // Regex used to strip markdown syntax for substantive-content measurement.
 // Removes headings, bold/italic, list markers, blockquotes, wiki links, em dashes, whitespace.
@@ -62,33 +79,18 @@ export class LintFixer {
     );
 
     // ---- Pre-check: deterministic title + alias match (avoids unnecessary LLM calls) ----
-    // This prevents the non-convergent fix cycle: without this check, the LLM may
-    // return create_stub for a target whose matching page already exists under a
-    // different name (e.g., dead link "思维链" → existing page "CoT" with alias "思维链").
     const sourceContent =
       (await this.ctx.tryReadFile(sourcePath)) || '(empty)';
     const targetBasename = targetName.includes('/')
       ? targetName.split('/').pop()!
       : targetName;
-    const lowerTarget = targetBasename.toLowerCase();
 
-    let preMatch = existingPages.find(p => p.title.toLowerCase() === lowerTarget);
-    if (!preMatch) {
-      preMatch = existingPages.find(p =>
-        p.aliases?.some(a => a.toLowerCase() === lowerTarget)
-      );
-    }
+    // Extract pure logic to core/dead-link-detector.ts
+    const preMatch = findDeadLinkTarget(existingPages, targetBasename);
 
     if (preMatch) {
-      const newLink = `[[${preMatch.path.replace(this.ctx.settings.wikiFolder + '/', '').replace('.md', '')}|${preMatch.title}]]`;
-      const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
-      const updatedContent = sourceContent.replace(
-        linkRegex,
-        (fullMatch: string, capturedTarget: string) => {
-          if (capturedTarget.trim() === targetName) return newLink;
-          return fullMatch;
-        }
-      );
+      const newLink = buildDeadLinkReplacement(preMatch, this.ctx.settings.wikiFolder);
+      const updatedContent = replaceDeadLink(sourceContent, targetName, newLink);
       await this.ctx.createOrUpdateFile(sourcePath, updatedContent);
       return `pre-check corrected (alias match): ${newLink}`;
     }
@@ -119,7 +121,7 @@ export class LintFixer {
 
     let response = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 8000,
+      max_tokens: TOKENS_LINT_PAGE_FIX,
       system: await buildSystemPrompt(
         this.ctx.settings,
         this.ctx.getSchemaContext,
@@ -136,7 +138,7 @@ export class LintFixer {
       );
       response = await client.createMessage({
         model: this.ctx.settings.model,
-        max_tokens: 8000,
+        max_tokens: TOKENS_LINT_PAGE_FIX,
         system: await buildSystemPrompt(
           this.ctx.settings,
           this.ctx.getSchemaContext,
@@ -204,8 +206,8 @@ export class LintFixer {
 
       const stubType = result.stub_type || 'entity';
       const pluralMap: Record<string, string> = {
-        entity: 'entities',
-        concept: 'concepts',
+        entity: WIKI_SUBFOLDERS.entities,
+        concept: WIKI_SUBFOLDERS.concepts,
       };
       const stubDir = pluralMap[stubType] || `${stubType}s`;
       const stubSlug = slugify(sanitizedTitle);
@@ -332,33 +334,26 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
 
     const beforeLen = content.length;
 
-    const pageType = pagePath.includes('/entities/')
-      ? 'entities'
-      : pagePath.includes('/concepts/')
-        ? 'concepts'
-        : 'sources';
+    const pageType = pagePath.includes(`/${WIKI_SUBFOLDERS.entities}/`)
+      ? WIKI_SUBFOLDERS.entities
+      : pagePath.includes(`/${WIKI_SUBFOLDERS.concepts}/`)
+        ? WIKI_SUBFOLDERS.concepts
+        : WIKI_SUBFOLDERS.sources;
     const indexPath = `${this.ctx.settings.wikiFolder}/index.md`;
-    let wikiIndex = (await this.ctx.tryReadFile(indexPath)) || '';
+    const rawWikiIndex = (await this.ctx.tryReadFile(indexPath)) || '';
 
-    // Purge polluted entries from the index before passing to LLM.
-    wikiIndex = wikiIndex
-      .split('\n')
-      .filter(line => {
-        if (/\[\[(entities|concepts|sources)\/[^\]]*\/\1[^\s\-_|\]]/.test(line)) return false;
-        if (/\[\[(entities|concepts|sources)\/[^|\]]+\|(entities|concepts|sources)\//.test(line)) return false;
-        return true;
-      })
-      .join('\n');
-
+    // Extract pure logic to core/prompt-builders.ts
+    const wikiIndex = cleanWikiIndex(rawWikiIndex);
     const limits = getGranularityFixLimits(this.ctx.settings);
 
-    const prompt = PROMPTS.fillEmptyPage
-      .replace('{{page_type}}', pageType)
-      .replace('{{existing_content}}', content)
-      .replace('{{wiki_index}}', wikiIndex.substring(0, 2000))
-      .replace('{{section_labels}}', buildSectionLabelsHint(this.ctx.settings))
-      .replace('{{max_entities}}', String(limits.maxEntities))
-      .replace('{{max_concepts}}', String(limits.maxConcepts));
+    const prompt = buildEmptyPagePrompt(PROMPTS.fillEmptyPage, {
+      pageType,
+      existingContent: content,
+      wikiIndex,
+      sectionLabelsHint: buildSectionLabelsHint(this.ctx.settings),
+      maxEntities: limits.maxEntities,
+      maxConcepts: limits.maxConcepts,
+    });
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 
@@ -367,7 +362,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
 
     const filledContent = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 8000,
+      max_tokens: TOKENS_LINT_PAGE_FIX,
       system: await buildSystemPrompt(
         this.ctx.settings,
         this.ctx.getSchemaContext,
@@ -378,36 +373,8 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
 
     const cleaned = cleanMarkdownResponse(filledContent);
 
-    // Detect folder-prefix pollution in LLM output before writing
-    const DISPLAY_POLLUTION_REGEX = /\[\[(entities|concepts|sources)\/[^|\]]+\|(entities|concepts|sources)\/[^|\]]+\]\]/g;
-    const PATH_DUP_REGEX = /\[\[(entities|concepts|sources)\/\1([^\s\-_|\]]+)(\|[^\]]+)?\]\]/g;
-    const hasDisplayPollution = DISPLAY_POLLUTION_REGEX.test(cleaned);
-    const hasPathDup = PATH_DUP_REGEX.test(cleaned);
-    if (hasDisplayPollution || hasPathDup) {
-      console.warn(
-        `fillEmptyPage: detected folder-prefix pollution in LLM output for ${pagePath}, auto-correcting`
-      );
-    }
-    let pollutionFree = cleaned.replace(
-      DISPLAY_POLLUTION_REGEX,
-      (match: string) => {
-        const parts = match.match(/\[\[([^|\]]+)\|([^|\]]+)\]\]/);
-        if (parts) {
-          const path = parts[1];
-          const pollutedDisplay = parts[2];
-          const cleanDisplay = pollutedDisplay.replace(/^(entities|concepts|sources)\//, '');
-          return `[[${path}|${cleanDisplay}]]`;
-        }
-        return match;
-      }
-    );
-    pollutionFree = pollutionFree.replace(
-      PATH_DUP_REGEX,
-      (_match: string, folder: string, rest: string, display: string | undefined) => {
-        const displayPart = display || '';
-        return `[[${folder}/${rest}${displayPart}]]`;
-      }
-    );
+    // Extract pure logic to core/prompt-builders.ts
+    const pollutionFree = correctLinkPollution(cleaned);
 
     // Strip any residual stub marker line — LLM may preserve it from the
     // existing content, which would cause isPageEmpty to keep flagging it.
@@ -434,7 +401,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     // its training data (e.g. 2024) which is older than `created`.
     const dateStr = new Date().toISOString().split('T')[0];
     const withDates = normalizeFrontmatterDates(stubFree, dateStr);
-    const pageTypeSingular = pageType === 'entities' ? 'entity' : pageType === 'concepts' ? 'concept' : 'source';
+    const pageTypeSingular = pageType === WIKI_SUBFOLDERS.entities ? 'entity' : pageType === WIKI_SUBFOLDERS.concepts ? 'concept' : 'source';
     const enforced = enforceFrontmatterConstraints(withDates, pageTypeSingular);
 
     await this.ctx.createOrUpdateFile(pagePath, enforced);
@@ -448,28 +415,21 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     if (!orphanContent) return [];
 
     const indexPath = `${this.ctx.settings.wikiFolder}/index.md`;
-    let wikiIndex = (await this.ctx.tryReadFile(indexPath)) || '';
+    const rawWikiIndex = (await this.ctx.tryReadFile(indexPath)) || '';
 
-    // Purge polluted entries from index before passing to LLM (L2)
-    wikiIndex = wikiIndex
-      .split('\n')
-      .filter(line => {
-        if (/\[\[(entities|concepts|sources)\/[^\]]*\/\1[^\s\-_|\]]/.test(line)) return false;
-        if (/\[\[(entities|concepts|sources)\/[^|\]]+\|(entities|concepts|sources)\//.test(line)) return false;
-        return true;
-      })
-      .join('\n');
-
-    const prompt = PROMPTS.linkOrphanPage
-      .replace('{{orphan_content}}', orphanContent.substring(0, 2000))
-      .replace('{{wiki_index}}', wikiIndex.substring(0, 3000));
+    // Extract pure logic to core/orphan-matcher.ts
+    const wikiIndex = cleanWikiIndex(rawWikiIndex);
+    const prompt = buildOrphanLinkPrompt(PROMPTS.linkOrphanPage, {
+      orphanContent,
+      wikiIndex,
+    });
 
     const client = this.ctx.getClient();
     if (!client) return [];
 
     const response = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 800,
+      max_tokens: TOKENS_LINT_ORPHAN_FIX,
       system: await buildSystemPrompt(
         this.ctx.settings,
         this.ctx.getSchemaContext,
@@ -490,22 +450,28 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     if (!result?.related_pages?.length) return [];
 
     const linkedPages: string[] = [];
+    const labels = getSectionLabels(this.ctx.settings);
+
     for (const related of result.related_pages) {
-      const fullPath = related.page_path.startsWith(
+      // Extract pure logic to core/orphan-matcher.ts
+      const fullPath = normalizeOrphanPagePath(
+        related.page_path,
         this.ctx.settings.wikiFolder
-      )
-        ? related.page_path
-        : `${this.ctx.settings.wikiFolder}/${related.page_path}`;
+      );
       const relatedContent = await this.ctx.tryReadFile(fullPath);
       if (!relatedContent) continue;
 
-      if (!relatedContent.includes(related.link_target)) {
-        const labels = getSectionLabels(this.ctx.settings);
-        const header = `## ${labels.related_pages}`;
-        const section = relatedContent.includes(header) ? '' : `\n\n${header}`;
-        const updated =
-          relatedContent +
-          `${section}\n- ${related.link_text} ${related.link_target}`;
+      // Extract pure logic to core/orphan-matcher.ts
+      if (!validateOrphanLinkTarget(relatedContent, related.link_target)) {
+        const updated = buildOrphanLinkUpdate(
+          relatedContent,
+          {
+            pagePath: related.page_path,
+            linkText: related.link_text,
+            linkTarget: related.link_target,
+          },
+          labels.related_pages
+        );
         await this.ctx.createOrUpdateFile(fullPath, updated);
         linkedPages.push(related.page_path);
       }
@@ -568,7 +534,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
 
     // Filter out contaminated aliases: folder-name-prefix leakage
     // e.g. "entitiesDeepSeek-V3-2" → startsWith("entities") && longer than "entities"
-    const wikiSubfolders = ['entities', 'concepts', 'sources'];
+    const wikiSubfolders = [WIKI_SUBFOLDERS.entities, WIKI_SUBFOLDERS.concepts, WIKI_SUBFOLDERS.sources];
     const cleanAliases = allAliases.filter(a => {
       if (!a) return false;
       for (const folder of wikiSubfolders) {
@@ -600,7 +566,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
 
         const mergedContent = await client.createMessage({
           model: this.ctx.settings.model,
-          max_tokens: 8000,
+          max_tokens: TOKENS_LINT_PAGE_FIX,
           system: await buildSystemPrompt(
             this.ctx.settings,
             this.ctx.getSchemaContext,
@@ -660,7 +626,7 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     fmLines.push(`created: ${targetFm?.created || today}`);
     fmLines.push(`updated: ${today}`);
     if (mergedSourcesList.length > 0) {
-      fmLines.push('sources:');
+      fmLines.push(`${WIKI_SUBFOLDERS.sources}:`);
       for (const s of mergedSourcesList) fmLines.push(`  - "${s}"`);
     }
     const tags = Array.isArray(targetFm?.tags) ? targetFm.tags : [];

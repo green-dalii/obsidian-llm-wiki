@@ -6,6 +6,7 @@ import { TEXTS } from '../texts';
 import { WIKI_LANGUAGES } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse, parseIndexForPages, localKeywordMatch } from '../utils';
+import { MAX_PAGE_CONTENT_CHARS, TOKENS_QUERY_PAGE_SELECT, TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 
 // ---- Suggest Save Modal (post-query feedback) ----
 
@@ -78,11 +79,11 @@ class SuggestSaveModal extends Modal {
       const summary = lang === 'en'
         ? `${report.entitiesCreated} entities, ${report.conceptsCreated} concepts, ${report.createdPages.length} pages`
         : `${report.entitiesCreated} 实体, ${report.conceptsCreated} 概念, ${report.createdPages.length} 页`;
-      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, 5000);
+      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, NOTICE_NORMAL);
     } catch (error) {
       console.error('Save failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      new Notice(texts.queryModalErrorPrefix + errorMsg, 8000);
+      new Notice(texts.queryModalErrorPrefix + errorMsg, NOTICE_ERROR);
     } finally {
       progressNotice.hide();
       this.plugin.wikiEngine.setProgressCallback(origProgress);
@@ -274,7 +275,7 @@ export class QueryModal extends Modal {
 
       const response = await this.plugin.llmClient.createMessage({
         model: this.plugin.settings.model,
-        max_tokens: 150,
+        max_tokens: TOKENS_QUERY_SAVE_DEDUP,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
       });
@@ -379,7 +380,7 @@ export class QueryModal extends Modal {
         try {
           fullResponse = await this.plugin.llmClient.createMessageStream({
             model: this.plugin.settings.model,
-            max_tokens: 3000,
+            max_tokens: TOKENS_QUERY_LLM_SELECT,
             system: wikiContext,
             messages: conversationMessages,
             onChunk: (chunk) => {
@@ -405,7 +406,7 @@ export class QueryModal extends Modal {
             try {
               fullResponse = await this.plugin.llmClient.createMessage({
                 model: this.plugin.settings.model,
-                max_tokens: 3000,
+                max_tokens: TOKENS_QUERY_LLM_SELECT,
                 system: wikiContext,
                 messages: conversationMessages
               });
@@ -454,7 +455,7 @@ export class QueryModal extends Modal {
           : texts.queryPhaseNonStreaming;
         const response = await this.plugin.llmClient!.createMessage({
           model: this.plugin.settings.model,
-          max_tokens: 3000,
+          max_tokens: TOKENS_QUERY_LLM_SELECT,
           system: wikiContext,
           messages: conversationMessages
         });
@@ -646,12 +647,12 @@ export class QueryModal extends Modal {
       const summary = lang === 'en'
         ? `${report.entitiesCreated} entities, ${report.conceptsCreated} concepts, ${report.createdPages.length} pages`
         : `${report.entitiesCreated} 实体, ${report.conceptsCreated} 概念, ${report.createdPages.length} 页`;
-      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, 5000);
+      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, NOTICE_NORMAL);
     } catch (error) {
       console.error('Save failed:', error);
       const errorMsg = error instanceof Error ? error.message : String(error);
       const texts = TEXTS[this.plugin.settings.language];
-      new Notice(texts.queryModalErrorPrefix + errorMsg, 8000);
+      new Notice(texts.queryModalErrorPrefix + errorMsg, NOTICE_ERROR);
     } finally {
       progressNotice.hide();
       this.plugin.wikiEngine.setProgressCallback(origProgress);
@@ -666,7 +667,7 @@ export class QueryModal extends Modal {
     void this.plugin.saveSettings();
 
     const texts = TEXTS[this.plugin.settings.language];
-    new Notice(texts.historyCleared, 2000);
+    new Notice(texts.historyCleared, NOTICE_BRIEF);
 
     const maxRounds = this.plugin.settings.maxConversationHistory;
     this.historyCountDisplay.setText(
@@ -828,7 +829,7 @@ Important:
       console.debug('[LLM] Sending selection request...');
       const response = await this.plugin.llmClient!.createMessage({
         model: this.plugin.settings.model,
-        max_tokens: 500,
+        max_tokens: TOKENS_QUERY_PAGE_SELECT,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
       });
@@ -870,7 +871,12 @@ Important:
         console.debug(`[Load Page] content length: ${content.length}`);
         console.debug(`[Load Page] First 100 chars: ${content.substring(0, 100)}`);
         const displayTitle = `${this.plugin.settings.wikiFolder}/${normalizedTitle}`;
-        pages.push(`## ${displayTitle}\n\n${content}`);
+        let body = content;
+        if (body.length > MAX_PAGE_CONTENT_CHARS) {
+          body = body.substring(0, MAX_PAGE_CONTENT_CHARS) + '\n\n... (truncated)';
+          console.debug(`[Load Page] Truncated from ${content.length} to ${MAX_PAGE_CONTENT_CHARS} chars`);
+        }
+        pages.push(`## ${displayTitle}\n\n${body}`);
       } else {
         console.warn(`[Load Page] Cannot read page: ${pagePath}`);
       }

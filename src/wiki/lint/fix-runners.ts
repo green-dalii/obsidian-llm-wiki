@@ -7,6 +7,7 @@ import { LintContext } from '../lint-controller';
 import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice } from '../../utils';
+import { TOKENS_LINT_ALIAS_BATCH, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
 
 export async function runAliasCompletion(
   ctx: LintContext,
@@ -51,7 +52,7 @@ export async function runAliasCompletion(
 
           const response = await client.createMessage({
             model: ctx.settings.model,
-            max_tokens: 500,
+            max_tokens: TOKENS_LINT_ALIAS_BATCH,
             messages: [{ role: 'user', content: prompt }],
             response_format: { type: 'json_object' }
           });
@@ -75,7 +76,7 @@ export async function runAliasCompletion(
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : String(e);
           console.error(`[Alias] ${page.basename}: generation failed — ${errMsg}`);
-          new Notice(t.lintAliasesFillFailed.replace('{page}', page.basename).replace('{error}', errMsg), 8000);
+          new Notice(t.lintAliasesFillFailed.replace('{page}', page.basename).replace('{error}', errMsg), NOTICE_ERROR);
           return { success: false, name: page.basename, reason: errMsg };
         }
       })
@@ -112,7 +113,7 @@ export async function runAliasCompletion(
   if (aliasRateInfo) {
     console.warn(`[Alias Rate Limit] ${aliasRateInfo.count} alias generation(s) failed with 429, ` +
       `suggested concurrency=${aliasRateInfo.suggestedConcurrency}, delay=${aliasRateInfo.suggestedDelay}ms`);
-    new Notice(formatRateLimitNotice(aliasRateInfo, t as unknown as Record<string, string>), 10000);
+    new Notice(formatRateLimitNotice(aliasRateInfo, ctx.settings.language), NOTICE_RATE_LIMIT);
   }
 
   fixNotice.hide();
@@ -151,7 +152,7 @@ export async function runDeadLinkFixes(
     } catch (e) {
       console.error(`Failed to fix dead link: ${dl.source} -> ${dl.target}`, e);
       const errMsg = e instanceof Error ? e.message : String(e);
-      new Notice(t.lintFixItemFailed.replace('{target}', dl.target).replace('{error}', errMsg), 8000);
+      new Notice(t.lintFixItemFailed.replace('{target}', dl.target).replace('{error}', errMsg), NOTICE_ERROR);
     }
   }
   fixNotice.hide();
@@ -177,7 +178,7 @@ export async function runEmptyPageFixes(
     } catch (e) {
       console.error(`Failed to expand empty page: ${ep.path}`, e);
       const errMsg = e instanceof Error ? e.message : String(e);
-      new Notice(t.lintFillFailed.replace('{page}', ep.path).replace('{error}', errMsg), 8000);
+      new Notice(t.lintFillFailed.replace('{page}', ep.path).replace('{error}', errMsg), NOTICE_ERROR);
     }
   }
   fixNotice.hide();
@@ -206,7 +207,7 @@ export async function runOrphanFixes(
     } catch (e) {
       console.error(`Failed to link orphan: ${op}`, e);
       const errMsg = e instanceof Error ? e.message : String(e);
-      new Notice(t.lintLinkItemFailed.replace('{page}', opRel).replace('{error}', errMsg), 8000);
+      new Notice(t.lintLinkItemFailed.replace('{page}', opRel).replace('{error}', errMsg), NOTICE_ERROR);
     }
   }
   fixNotice.hide();
@@ -234,7 +235,7 @@ export async function runDuplicateMerges(
     } catch (e) {
       console.error(`Failed to merge duplicates: ${d.source} → ${d.target}`, e);
       const errMsg = e instanceof Error ? e.message : String(e);
-      new Notice(t.lintMergeItemFailed.replace('{source}', sourceRel).replace('{target}', targetRel).replace('{error}', errMsg), 8000);
+      new Notice(t.lintMergeItemFailed.replace('{source}', sourceRel).replace('{target}', targetRel).replace('{error}', errMsg), NOTICE_ERROR);
     }
   }
   fixNotice.hide();

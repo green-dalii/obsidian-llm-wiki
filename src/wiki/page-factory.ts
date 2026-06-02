@@ -7,18 +7,23 @@ import {
   EntityInfo,
   ConceptInfo,
   SourceAnalysis,
+  PageCreationResult,
 } from '../types';
 import { PROMPTS } from '../prompts';
+import { ConflictResolver } from '../core/conflict-resolver';
+import { WIKI_SUBFOLDERS } from '../constants';
+import { TOKENS_DEDUP_RESOLUTION, TOKENS_PAGE_GENERATION, TOKENS_APPEND_REVIEWED } from '../constants';
 import {
   slugify,
-  computeSlug,
   cleanMarkdownResponse,
   parseFrontmatter,
   mergeFrontmatter,
   parseJsonResponse,
   enforceFrontmatterConstraints,
   truncateMentions,
+  filterRedundantAliases,
 } from '../utils';
+import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { applySectionLabels } from './system-prompts';
 import { getExistingWikiPages } from './lint-fixes';
 
@@ -41,9 +46,15 @@ export class PageFactory {
     const content = await this.ctx.tryReadFile(pagePath);
     if (!content) return;
 
+    // Drop aliases that already equal the page's filename (case-insensitive),
+    // e.g. adding "Vigilanz" to vigilanz.md. Common on cross-type collisions
+    // where the colliding name is identical to the existing page's name.
+    const candidates = filterRedundantAliases(pagePath, newAliases);
+    if (candidates.length === 0) return;
+
     const fm = parseFrontmatter(content);
     const existingAliases = Array.isArray(fm?.aliases) ? fm.aliases : [];
-    const toAdd = newAliases.filter(a => !existingAliases.includes(a));
+    const toAdd = candidates.filter(a => !existingAliases.includes(a));
     if (toAdd.length === 0) return;
 
     const merged = [...existingAliases, ...toAdd];
@@ -73,25 +84,61 @@ export class PageFactory {
 
   // Determine the actual file path for a new entity/concept, using slug-based
   // matching first and falling back to LLM semantic resolution.
-  // Returns null when a cross-type collision is detected (same name exists in the
-  // opposite folder) — callers must skip page creation in that case.
+  // Returns { path: null, collision: {...} } when a cross-type collision is detected
+  // (same name exists in the opposite folder). Callers must NOT create a new file in
+  // that case, but should merge the new content into collision.targetPath so no
+  // information from the source is lost.
   private async resolvePagePath(
     name: string,
     pageType: 'entity' | 'concept',
     summary: string
-  ): Promise<string | null> {
-    const folder = pageType === 'entity' ? 'entities' : 'concepts';
-    const otherFolder = pageType === 'entity' ? 'concepts' : 'entities';
+  ): Promise<PageCreationResult> {
+    const folder = pageType === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
+    const otherFolder = pageType === 'entity' ? WIKI_SUBFOLDERS.concepts : WIKI_SUBFOLDERS.entities;
     const slug = slugify(name);
     const slugPath = `${this.ctx.settings.wikiFolder}/${folder}/${slug}.md`;
 
     // Fast path: exact slug match (same type folder)
     const existing = await this.ctx.tryReadFile(slugPath);
-    if (existing !== null) return slugPath;
+    if (existing !== null) {
+      // Check for historical cross-type duplicate: if the same name exists in the
+      // opposite folder, it means an earlier ingestion classified this item differently.
+      // Append the new name as an alias to bridge the two pages (Bug #1 fix).
+      const otherSlugPath = `${this.ctx.settings.wikiFolder}/${otherFolder}/${slug}.md`;
+      const otherExisting = await this.ctx.tryReadFile(otherSlugPath);
+      if (otherExisting !== null) {
+        console.warn(`Historical cross-type duplicate detected: ${folder}/${slug}.md and ${otherFolder}/${slug}.md both exist — appending alias`);
+        await this.appendAliases(otherSlugPath, [name]);
+      }
+      return { path: slugPath };
+    }
 
     // Fast path 2 + Slow path: share sameTypePages across slug-match and LLM resolution
     try {
       const allPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+
+      // Use ConflictResolver for deterministic slug/alias matching before LLM fallback.
+      const resolver = new ConflictResolver(this.ctx.settings.wikiFolder, allPages);
+      const cr = resolver.resolve({ name, slug, pageType });
+
+      if (cr.action === 'merge' && !cr.reason.includes('Cross-type')) {
+        await this.appendAliases(cr.targetPath, [name]);
+        return { path: cr.targetPath };
+      }
+
+      if (cr.action === 'merge' && cr.reason.includes('Cross-type')) {
+        await this.appendAliases(cr.targetPath, [name]);
+        return {
+          path: null,
+          collision: {
+            name,
+            sourceType: pageType,
+            targetType: cr.existingType || (otherFolder === WIKI_SUBFOLDERS.entities ? 'entity' : 'concept'),
+            targetPath: cr.targetPath
+          }
+        };
+      }
+
       const sameTypePages = allPages
         .filter(p => p.path.includes(`/${folder}/`))
         .filter(p => {
@@ -100,43 +147,10 @@ export class PageFactory {
           return !/^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/.test(bn);
         });
 
-      // Fast path 2: normalized slug match — catches files whose stored name
-      // differs from slugified form (e.g. spaces instead of hyphens).
-      // Checks both title and aliases, case-insensitive, to cover:
-      // - "Metabolisches Syndrom" vs "Metabolisches-Syndrom" (spaces → hyphens)
-      // - "Chain of Thought" matched via alias of existing page "CoT"
-      // - "deep learning" vs "Deep Learning" (case difference)
-      const targetSlug = slug.toLowerCase();
-      const slugMatch = sameTypePages.find(p =>
-        computeSlug(p.title).toLowerCase() === targetSlug ||
-        (p.aliases || []).some(a => computeSlug(a).toLowerCase() === targetSlug)
-      );
-      if (slugMatch) {
-        await this.appendAliases(slugMatch.path, [name]);
-        return slugMatch.path;
-      }
+      // Same-type slug/alias match is handled above by ConflictResolver.
+      // Remaining path: LLM-based semantic dedup for pages that don't match by slug/alias.
 
-      // Cross-type collision check: if the same name already exists in the opposite
-      // folder, skip creation to prevent entity/concept duplicates across folders.
-      const otherTypePages = allPages.filter(p => p.path.includes(`/${otherFolder}/`));
-      const otherSlugPath = `${this.ctx.settings.wikiFolder}/${otherFolder}/${slug}.md`;
-      const otherExact = await this.ctx.tryReadFile(otherSlugPath);
-      if (otherExact !== null) {
-        console.debug(`Cross-type collision: "${name}" already exists in /${otherFolder}/, skipping duplicate`);
-        await this.appendAliases(otherSlugPath, [name]);
-        return null;
-      }
-      const otherMatch = otherTypePages.find(p =>
-        computeSlug(p.title).toLowerCase() === targetSlug ||
-        (p.aliases || []).some(a => computeSlug(a).toLowerCase() === targetSlug)
-      );
-      if (otherMatch) {
-        console.debug(`Cross-type collision (normalized): "${name}" matched ${otherMatch.path}, skipping duplicate`);
-        await this.appendAliases(otherMatch.path, [name]);
-        return null;
-      }
-
-      if (sameTypePages.length === 0) return slugPath;
+      if (sameTypePages.length === 0) return { path: slugPath };
 
       const pagesList = sameTypePages
         .map(p => {
@@ -148,7 +162,7 @@ export class PageFactory {
         .join('\n');
 
       const client = this.ctx.getClient();
-      if (!client) return slugPath;
+      if (!client) return { path: slugPath };
 
       const prompt = PROMPTS.resolveEntityDedup
         .replace('{{entity_name}}', name)
@@ -159,7 +173,7 @@ export class PageFactory {
 
       const response = await client.createMessage({
         model: this.ctx.settings.model,
-        max_tokens: 300,
+        max_tokens: TOKENS_DEDUP_RESOLUTION,
         system: await this.ctx.buildSystemPrompt('full'),
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
@@ -174,13 +188,13 @@ export class PageFactory {
         console.debug(`Entity resolution: "${name}" matched existing page "${result.path}"`);
         // Append the new name as an alias to the existing page to prevent future duplicates
         await this.appendAliases(result.path, [name]);
-        return result.path;
+        return { path: result.path };
       }
     } catch (error) {
       console.debug(`Entity resolution for "${name}" failed, using slug path:`, error);
     }
 
-    return slugPath;
+    return { path: slugPath };
   }
 
   async buildPagesListForPrompt(includePaths: string[] = []): Promise<string> {
@@ -231,7 +245,7 @@ export class PageFactory {
     _analysis: SourceAnalysis,
     sourceFile: TFile | { path: string; basename: string },
     extraPagePaths: string[] = []
-  ): Promise<string | null> {
+  ): Promise<PageCreationResult> {
     return this.createOrUpdatePage(entity, 'entity', sourceFile, extraPagePaths);
   }
 
@@ -240,7 +254,7 @@ export class PageFactory {
     _analysis: SourceAnalysis,
     sourceFile: TFile | { path: string; basename: string },
     extraPagePaths: string[] = []
-  ): Promise<string | null> {
+  ): Promise<PageCreationResult> {
     return this.createOrUpdatePage(concept, 'concept', sourceFile, extraPagePaths);
   }
 
@@ -251,37 +265,56 @@ export class PageFactory {
     pageType: 'entity' | 'concept',
     sourceFile: TFile | { path: string; basename: string },
     extraPagePaths: string[] = []
-  ): Promise<string | null> {
+  ): Promise<PageCreationResult> {
     if (!info.name || info.name.trim().length === 0) {
       console.warn(`${pageType} name is empty, skipping creation`);
-      return null;
+      return { path: null };
     }
 
     console.debug(`=== Creating/Updating ${pageType} page ===`);
     console.debug('name:', info.name);
     console.debug('type:', info.type);
 
-    const path = await this.resolvePagePath(info.name, pageType, info.summary);
-    if (path === null) {
-      console.debug(`Skipping ${pageType} "${info.name}": cross-type duplicate exists`);
-      return null;
+    const result = await this.resolvePagePath(info.name, pageType, info.summary);
+    if (result.path === null) {
+      if (result.collision) {
+        // Cross-type collision: a page for this item already exists in the opposite
+        // folder. Don't create a duplicate file, but merge the new content into the
+        // existing page so the source's summary/mentions/sources aren't lost.
+        // Use the EXISTING page's type for the merge so it keeps its classification.
+        const { targetPath, targetType } = result.collision;
+        const existingContent = await this.ctx.tryReadFile(targetPath);
+        if (existingContent) {
+          const isReviewed = parseFrontmatter(existingContent)?.reviewed === true;
+          if (isReviewed) {
+            await this.appendToReviewedPage(info, sourceFile, existingContent, targetPath);
+          } else {
+            await this.mergePage(info, targetType, sourceFile, existingContent, extraPagePaths, targetPath);
+          }
+          console.debug(`Cross-type collision: merged "${info.name}" content into ${targetType} page ${targetPath}`);
+        }
+      }
+      return result;
     }
-    console.debug('Resolved path:', path);
+    console.debug('Resolved path:', result.path);
 
-    const existingContent = await this.ctx.tryReadFile(path);
+    const existingContent = await this.ctx.tryReadFile(result.path);
 
     if (!existingContent) {
-      return this.createNewPage(info, pageType, sourceFile, extraPagePaths, path);
+      const createdPath = await this.createNewPage(info, pageType, sourceFile, extraPagePaths, result.path);
+      return { path: createdPath };
     }
 
     const isReviewed = parseFrontmatter(existingContent)?.reviewed === true;
 
     if (isReviewed) {
-      console.debug(`${pageType} page has reviewed: true, using minimal append mode:`, path);
-      return this.appendToReviewedPage(info, sourceFile, existingContent, path);
+      console.debug(`${pageType} page has reviewed: true, using minimal append mode:`, result.path);
+      const updatedPath = await this.appendToReviewedPage(info, sourceFile, existingContent, result.path);
+      return { path: updatedPath };
     }
 
-    return this.mergePage(info, pageType, sourceFile, existingContent, extraPagePaths, path);
+    const mergedPath = await this.mergePage(info, pageType, sourceFile, existingContent, extraPagePaths, result.path);
+    return { path: mergedPath };
   }
 
   private async createNewPage(
@@ -304,6 +337,8 @@ export class PageFactory {
       .replace('{{concept_type}}', info.type)
       .replace('{{entity_summary}}', info.summary)
       .replace('{{concept_summary}}', info.summary)
+      .replace('{{extraction_aliases}}', info.aliases?.length
+        ? `[${info.aliases.join(', ')}]` : 'None')
       .replace('{{mentions}}', truncateMentions(info.mentions_in_source) || 'No specific mentions')
       .replace('{{related_entities}}', info.related_entities?.join(', ') || 'No related entities')
       .replace('{{related_concepts}}', info.related_concepts?.join(', ') || 'No related concepts')
@@ -317,7 +352,7 @@ export class PageFactory {
 
     const pageContent = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 8000,
+      max_tokens: TOKENS_PAGE_GENERATION,
       system: await this.ctx.buildSystemPrompt(pageType),
       messages: [{ role: 'user', content: finalPrompt }]
     });
@@ -364,7 +399,7 @@ export class PageFactory {
 
     const mergedBody = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 8000,
+      max_tokens: TOKENS_PAGE_GENERATION,
       system: await this.ctx.buildSystemPrompt('merge'),
       messages: [{ role: 'user', content: finalPrompt }]
     });
@@ -404,13 +439,14 @@ export class PageFactory {
       .replace('{{new_source}}', sourceFile.basename)
       .replace('{{entity_summary}}', info.summary)
       .replace('{{mentions}}', truncateMentions(info.mentions_in_source))
-      .replace('{{key_details}}', info.mentions_in_source?.slice(0, 2).join('; ') || '');
+      .replace('{{key_details}}', info.mentions_in_source?.slice(0, 2).join('; ') || '')
+      .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 
     const newContent = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 4000,
+      max_tokens: TOKENS_APPEND_REVIEWED,
       system: await this.ctx.buildSystemPrompt('merge'),
       messages: [{ role: 'user', content: finalPrompt }]
     });
@@ -456,14 +492,15 @@ export class PageFactory {
       .replace('{{page_name}}', pageName)
       .replace('{{existing_body}}', existingBody)
       .replace('{{source_basename}}', sourceFile.basename)
-      .replace('{{new_info}}', JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName) || 'No directly relevant information'));
+      .replace('{{new_info}}', JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName) || 'No directly relevant information'))
+      .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
 
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
 
     const updatedBody = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 8000,
+      max_tokens: TOKENS_PAGE_GENERATION,
       system: await this.ctx.buildSystemPrompt('related'),
       messages: [{ role: 'user', content: prompt }]
     });

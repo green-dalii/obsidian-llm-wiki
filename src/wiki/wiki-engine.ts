@@ -19,6 +19,7 @@ import {
   parseFrontmatter,
   detectRateLimitFailures,
   formatRateLimitNotice,
+  getText,
 } from '../utils';
 import { SchemaManager, SchemaTask } from '../schema/schema-manager';
 import {
@@ -31,7 +32,9 @@ import {
   getExistingWikiPages,
 } from './lint-fixes';
 import { ContradictionManager } from './contradictions';
+import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
+import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
 
@@ -139,10 +142,8 @@ export class WikiEngine {
   cancelIngestion(): void {
     if (this.abortController) {
       this.abortController.abort();
-      const t = TEXTS[this.settings.language] || TEXTS.en;
-      const msg = (t as unknown as Record<string, string>).ingestionCancelling
-        || 'Cancelling — will stop after current batch completes';
-      new Notice(msg, 6000);
+      const msg = getText(this.settings.language, 'ingestionCancelling');
+      new Notice(msg, NOTICE_ABORT);
       this.onProgress?.(msg);
       console.debug('Ingestion cancellation requested');
     }
@@ -161,11 +162,8 @@ export class WikiEngine {
   cancelLint(): void {
     if (this.lintAbortController) {
       this.lintAbortController.abort();
-      const t = TEXTS[this.settings.language] || TEXTS.en;
-      const msg = (t as unknown as Record<string, string>).lintCancelling
-        || (t as unknown as Record<string, string>).ingestionCancelling
-        || 'Cancelling — will stop after current batch completes';
-      new Notice(msg, 6000);
+      const msg = getText(this.settings.language, 'ingestionCancelling');
+      new Notice(msg, NOTICE_ABORT);
       console.debug('Lint cancellation requested');
     }
   }
@@ -221,14 +219,12 @@ export class WikiEngine {
     const fileContent = await this.app.vault.read(file);
     const lineCount = fileContent.split('\n').length;
     if (lineCount > LONG_SOURCE_LINE_THRESHOLD) {
-      const t = TEXTS[this.settings.language] || TEXTS.en;
       const sizeKB = Math.round(fileContent.length / 1024);
       new Notice(
-        (t as unknown as Record<string, string>).longSourceNotice
-          ?.replace('{filename}', file.basename)
-          ?.replace('{lines}', String(lineCount))
-          ?.replace('{size}', sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)}MB` : `${sizeKB}KB`)
-        || `Large file detected: ${file.basename} (${lineCount} lines). Ingestion may take a while.`,
+        getText(this.settings.language, 'longSourceNotice')
+          .replace('{filename}', file.basename)
+          .replace('{lines}', String(lineCount))
+          .replace('{size}', sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)}MB` : `${sizeKB}KB`),
         0
       );
       console.debug(`[Long Source] ${file.basename}: ${lineCount} lines, ${sizeKB}KB — long ingestion expected`);
@@ -237,6 +233,7 @@ export class WikiEngine {
     this.onProgress?.(`Analyzing: ${file.basename}`);
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
+    const collisions: Array<{ name: string; sourceType: 'entity' | 'concept'; targetType: 'entity' | 'concept'; targetPath: string }> = [];
     let analysis: SourceAnalysis | null = null;
 
     try {
@@ -316,11 +313,15 @@ export class WikiEngine {
             if (task.type === 'entity') {
               const entity = analysis!.entities[task.index];
               try {
-                const entityPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file);
-                if (entityPage) {
-                  analysis!.created_pages.push(entityPage);
+                const entityResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file);
+                if (entityResult.path) {
+                  analysis!.created_pages.push(entityResult.path);
                 }
-                return { success: true as const, name: entity.name, type: 'entity' as const };
+                if (entityResult.collision) {
+                  collisions.push(entityResult.collision);
+                  console.debug(`Entity "${entity.name}" → collision with ${entityResult.collision.targetType}`);
+                }
+                return { success: true as const, name: entity.name, type: 'entity' as const, collision: entityResult.collision };
               } catch (error) {
                 const reason = error instanceof Error ? error.message : String(error);
                 console.error(`Entity "${entity.name}" failed:`, reason);
@@ -329,11 +330,14 @@ export class WikiEngine {
                 // Retry once
                 try {
                   await this.apiDelay(2000);
-                  const retryPage = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file);
-                  if (retryPage) {
-                    analysis!.created_pages.push(retryPage);
+                  const retryResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file);
+                  if (retryResult.path) {
+                    analysis!.created_pages.push(retryResult.path);
                     console.debug(`Entity "${entity.name}" recovered on retry`);
                     failedItems.pop();
+                  }
+                  if (retryResult.collision) {
+                    collisions.push(retryResult.collision);
                   }
                 } catch {
                   console.error(`Entity "${entity.name}" retry also failed`);
@@ -343,11 +347,15 @@ export class WikiEngine {
             } else {
               const concept = analysis!.concepts[task.index];
               try {
-                const conceptPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file);
-                if (conceptPage) {
-                  analysis!.created_pages.push(conceptPage);
+                const conceptResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file);
+                if (conceptResult.path) {
+                  analysis!.created_pages.push(conceptResult.path);
                 }
-                return { success: true as const, name: concept.name, type: 'concept' as const };
+                if (conceptResult.collision) {
+                  collisions.push(conceptResult.collision);
+                  console.debug(`Concept "${concept.name}" → collision with ${conceptResult.collision.targetType}`);
+                }
+                return { success: true as const, name: concept.name, type: 'concept' as const, collision: conceptResult.collision };
               } catch (error) {
                 const reason = error instanceof Error ? error.message : String(error);
                 console.error(`Concept "${concept.name}" failed:`, reason);
@@ -356,11 +364,14 @@ export class WikiEngine {
                 // Retry once
                 try {
                   await this.apiDelay(2000);
-                  const retryPage = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file);
-                  if (retryPage) {
-                    analysis!.created_pages.push(retryPage);
+                  const retryResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file);
+                  if (retryResult.path) {
+                    analysis!.created_pages.push(retryResult.path);
                     console.debug(`Concept "${concept.name}" recovered on retry`);
                     failedItems.pop();
+                  }
+                  if (retryResult.collision) {
+                    collisions.push(retryResult.collision);
                   }
                 } catch {
                   console.error(`Concept "${concept.name}" retry also failed`);
@@ -396,7 +407,7 @@ export class WikiEngine {
       if (pageGenRateInfo) {
         console.warn(`[Rate Limit] Page generation: ${pageGenRateInfo.count} item(s) failed with 429, ` +
           `suggested concurrency=${pageGenRateInfo.suggestedConcurrency}, delay=${pageGenRateInfo.suggestedDelay}ms`);
-        new Notice(formatRateLimitNotice(pageGenRateInfo, TEXTS[this.settings.language] as unknown as Record<string, string>), 10000);
+        new Notice(formatRateLimitNotice(pageGenRateInfo, this.settings.language), NOTICE_RATE_LIMIT);
       }
 
       // Stage 4: Related Pages Update
@@ -479,7 +490,7 @@ export class WikiEngine {
       if (relatedRateInfo) {
         console.warn(`[Rate Limit] Related pages update: ${relatedRateInfo.count} item(s) failed with 429, ` +
           `suggested concurrency=${relatedRateInfo.suggestedConcurrency}, delay=${relatedRateInfo.suggestedDelay}ms`);
-        new Notice(formatRateLimitNotice(relatedRateInfo, TEXTS[this.settings.language] as unknown as Record<string, string>), 10000);
+        new Notice(formatRateLimitNotice(relatedRateInfo, this.settings.language), NOTICE_RATE_LIMIT);
       }  // update step count for subsequent phase numbering
 
       // Stage 5: Contradiction Recording
@@ -511,7 +522,7 @@ export class WikiEngine {
       const totalTime = Date.now() - totalStartTime;
 
       console.debug('=== Ingestion complete ===');
-      console.debug(`Ingestion complete [${modeLabel}]: Created ${created} pages (${entitiesCreated} entities + ${conceptsCreated} concepts), Updated ${updated} pages`);
+      console.debug(`Ingestion complete [${modeLabel}]: Created ${created} pages (${entitiesCreated} entities + ${conceptsCreated} concepts), Updated ${updated} pages, ${collisions.length} cross-type collisions`);
       console.debug(`[Total time] ${totalTime}ms (${Math.round(totalTime/1000)}s)`);
       console.debug('[Phase breakdown]:');
       console.debug(`  - Source analysis: ${analysisTime}ms`);
@@ -521,6 +532,12 @@ export class WikiEngine {
       console.debug(`  - Contradiction recording: ${contradictionTime}ms`);
       console.debug(`  - Index & log: ${indexTime}ms`);
 
+      // Show collision notice if any occurred
+      if (collisions.length > 0) {
+        new Notice(getText(this.settings.language, 'crossTypeCollisionNotice')
+          .replace('{count}', String(collisions.length)), NOTICE_NORMAL);
+      }
+
       this.onDone?.({
         sourceFile: file.path,
         createdPages: analysis.created_pages,
@@ -528,6 +545,7 @@ export class WikiEngine {
         entitiesCreated,
         conceptsCreated,
         failedItems,
+        collisions,
         contradictionsFound: analysis.contradictions.length,
         success: true,
         elapsedSeconds: Math.round(totalTime / 1000)
@@ -539,8 +557,7 @@ export class WikiEngine {
       if (error instanceof DOMException && error.name === 'AbortError') {
         this.wasCancelled = true;
         console.debug('=== Ingestion cancelled by user ===');
-        const t = TEXTS[this.settings.language] || TEXTS.en;
-        new Notice((t as unknown as Record<string, string>).ingestionCancelled || 'Ingestion cancelled', 5000);
+        new Notice(getText(this.settings.language, 'ingestionCancelled'), NOTICE_NORMAL);
         this.onDone?.({
           sourceFile: file.path,
           createdPages,
@@ -548,6 +565,7 @@ export class WikiEngine {
           entitiesCreated: createdPages.filter(p => p.includes('/entities/')).length,
           conceptsCreated: createdPages.filter(p => p.includes('/concepts/')).length,
           failedItems,
+          collisions,
           contradictionsFound: analysis?.contradictions?.length || 0,
           success: false,
           cancelled: true,
@@ -568,6 +586,7 @@ export class WikiEngine {
         entitiesCreated: createdPages.filter(p => p.includes('/entities/')).length,
         conceptsCreated: createdPages.filter(p => p.includes('/concepts/')).length,
         failedItems,
+        collisions,
         contradictionsFound: analysis?.contradictions?.length || 0,
         success: false,
         errorMessage: errorMsg,
@@ -626,13 +645,14 @@ export class WikiEngine {
       .replace('{{created_pages_list}}', createdPagesList || '(none)')
       .replace(/{{source_file}}/g, file.path)
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
-      .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '));
+      .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '))
+      .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
 
     const finalPrompt = this.applySectionLabels(prompt);
 
     const pageContent = await this.client.createMessage({
       model: this.settings.model,
-      max_tokens: 8000,
+      max_tokens: TOKENS_PAGE_GENERATION,
       system: await this.buildSystemPrompt('summary'),
       messages: [{ role: 'user', content: finalPrompt }]
     });

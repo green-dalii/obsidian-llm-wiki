@@ -7,6 +7,7 @@ import {
   LLMClient,
   IngestReport
 } from './types';
+import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR } from './constants';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
 
 function createLLMClient(settings: LLMWikiSettings): LLMClient {
@@ -26,7 +27,7 @@ function createLLMClient(settings: LLMWikiSettings): LLMClient {
   return new OpenAICompatibleClient(apiKey, baseUrl);
 }
 import { TEXTS } from './texts';
-import { slugify, parseFrontmatter } from './utils';
+import { slugify, parseFrontmatter, getText } from './utils';
 import { LLMWikiSettingTab } from './ui/settings';
 import { WikiEngine } from './wiki/wiki-engine';
 import { QueryModal } from './wiki/query-engine';
@@ -110,14 +111,13 @@ export default class LLMWikiPlugin extends Plugin {
       name: t.cmdRegenerateIndex,
       callback: () => {
         void (async () => {
-          const texts = TEXTS[this.settings.language] as unknown as Record<string, string>;
-          new Notice((texts.regenerateIndexCompleted || 'Regenerating index...') + '...');
+          new Notice(getText(this.settings.language, 'regenerateIndexCompleted') + '...');
           try {
             await this.wikiEngine.generateIndexFromEngine();
-            new Notice(texts.regenerateIndexCompleted || 'Index regenerated');
+            new Notice(getText(this.settings.language, 'regenerateIndexCompleted'));
           } catch (err) {
             console.error('Regenerate index failed:', err);
-            new Notice((texts.operationFailed || 'Failed: ') + (err instanceof Error ? err.message : String(err)));
+            new Notice(getText(this.settings.language, 'operationFailed') + (err instanceof Error ? err.message : String(err)));
           }
         })();
       }
@@ -165,8 +165,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.wikiEngine.setIngestionCallbacks(
       () => {
-        const texts = TEXTS[this.settings.language] || TEXTS.en;
-        const label = (texts as unknown as Record<string, string>).ingestionStatusBar || 'Ingesting... click to cancel';
+        const label = getText(this.settings.language, 'ingestionStatusBar');
         if (this.ingestStatusBar) {
           this.ingestStatusBar.setText(label);
           this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
@@ -181,8 +180,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.wikiEngine.setLintCallbacks(
       () => {
-        const texts = TEXTS[this.settings.language] || TEXTS.en;
-        const label = (texts as unknown as Record<string, string>).lintStatusBar || 'Linting... click to cancel';
+        const label = getText(this.settings.language, 'lintStatusBar');
         if (this.ingestStatusBar) {
           this.ingestStatusBar.setText(label);
           this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
@@ -329,7 +327,7 @@ export default class LLMWikiPlugin extends Plugin {
       this.wikiEngine.ingestSource(file).catch(e => {
         console.error('Single ingest failed:', e);
         const errMsg = e instanceof Error ? e.message : String(e);
-        new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, 8000);
+        new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
       });
     }).open();
   }
@@ -343,14 +341,12 @@ export default class LLMWikiPlugin extends Plugin {
 
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile) {
-      const texts = TEXTS[this.settings.language];
-      new Notice((texts as unknown as Record<string, string>).noActiveFile || 'No file is currently open', 5000);
+      new Notice(getText(this.settings.language, 'noActiveFile'), NOTICE_NORMAL);
       return;
     }
 
     if (activeFile.extension !== 'md') {
-      const texts = TEXTS[this.settings.language];
-      new Notice((texts as unknown as Record<string, string>).mdOnlyFile || 'Only Markdown files can be ingested', 5000);
+      new Notice(getText(this.settings.language, 'mdOnlyFile'), NOTICE_NORMAL);
       return;
     }
 
@@ -358,7 +354,7 @@ export default class LLMWikiPlugin extends Plugin {
     this.wikiEngine.ingestSource(activeFile).catch(e => {
       console.error('Ingest active file failed:', e);
       const errMsg = e instanceof Error ? e.message : String(e);
-      new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, 8000);
+      new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
     });
   }
 
@@ -409,7 +405,7 @@ export default class LLMWikiPlugin extends Plugin {
 
       if (ingestCount === 0) {
         const texts = TEXTS[this.settings.language];
-        new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), 5000);
+        new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), NOTICE_NORMAL);
         return;
       }
 
@@ -439,7 +435,7 @@ export default class LLMWikiPlugin extends Plugin {
         } catch (error) {
           console.error(`(${i + 1}/${ingestCount}) ingestion failed: ${file.path}`, error);
           const errMsg = error instanceof Error ? error.message : String(error);
-          new Notice(texts.errorIngestFailed + file.basename + ': ' + errMsg, 8000);
+          new Notice(texts.errorIngestFailed + file.basename + ': ' + errMsg, NOTICE_ERROR);
         }
       }
 
@@ -455,6 +451,7 @@ export default class LLMWikiPlugin extends Plugin {
         const totalContradictions = reports.reduce((sum, r) => sum + r.contradictionsFound, 0);
         const totalElapsed = reports.reduce((sum, r) => sum + (r.elapsedSeconds || 0), 0);
         const allFailedItems = reports.flatMap(r => r.failedItems);
+        const allCollisions = reports.flatMap(r => r.collisions || []);
         const allSuccess = reports.every(r => r.success);
 
         const aggregated: IngestReport = {
@@ -464,6 +461,7 @@ export default class LLMWikiPlugin extends Plugin {
           entitiesCreated: totalEntities,
           conceptsCreated: totalConcepts,
           failedItems: allFailedItems,
+          collisions: allCollisions,
           contradictionsFound: totalContradictions,
           success: allSuccess,
           elapsedSeconds: totalElapsed,
@@ -526,14 +524,14 @@ export default class LLMWikiPlugin extends Plugin {
     try {
       const result = await this.schemaManager.suggestSchemaUpdate('Wiki lint analysis');
       if (result?.changes_needed) {
-        new Notice(TEXTS[this.settings.language].schemaSuggestionGenerated, 8000);
+        new Notice(TEXTS[this.settings.language].schemaSuggestionGenerated, NOTICE_ERROR);
       } else {
-        new Notice(TEXTS[this.settings.language].noSchemaUpdateNeeded, 5000);
+        new Notice(TEXTS[this.settings.language].noSchemaUpdateNeeded, NOTICE_NORMAL);
       }
     } catch (error) {
       console.error('Schema suggestion failed:', error);
       const errMsg = error instanceof Error ? error.message : String(error);
-      new Notice(TEXTS[this.settings.language].schemaSuggestionFailed + ': ' + errMsg, 8000);
+      new Notice(TEXTS[this.settings.language].schemaSuggestionFailed + ': ' + errMsg, NOTICE_ERROR);
     }
   }
 
@@ -552,7 +550,7 @@ export default class LLMWikiPlugin extends Plugin {
 
       const testResponse = await testClient.createMessage({
         model: this.settings.model,
-        max_tokens: 100,
+        max_tokens: TOKENS_QUERY_MODEL_DETECT,
         messages: [{
           role: 'user',
           content: 'Test connection. Please reply "Connection successful".'
@@ -582,8 +580,7 @@ export default class LLMWikiPlugin extends Plugin {
 
   private requireLLMReady(): boolean {
     if (this.settings.llmReady) return true;
-    const t = TEXTS[this.settings.language] || TEXTS.en;
-    new Notice((t as unknown as Record<string, string>).llmNotReady || 'LLM is not configured. Please go to Settings → Karpathy LLM Wiki to configure your provider and pass the connection test.', 8000);
+    new Notice(getText(this.settings.language, 'llmNotReady'), NOTICE_ERROR);
     return false;
   }
 }

@@ -312,6 +312,7 @@ export const KO_TEXTS = {
     ingestReportElapsedTime: '경과 시간',
     ingestReportSkippedFiles: '건너뜀 (이미 수집됨)',
     ingestReportFailedGuidance: '이 항목은 자동으로 생성되지 않았습니다. 해당하는 페이지를 수동으로 생성하거나 추출 세분화를 낮추고 소스 파일을 다시 수집할 수 있습니다.',
+    ingestReportCollisions: '크로스타입 충돌 (별칭으로 병합됨)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: '단일 소스 수집',
@@ -330,6 +331,7 @@ export const KO_TEXTS = {
     lintStatusBar: '점검 중... 클릭하여 취소',
     ingestionCancelling: '취소 중 — 현재 배치 완료 후 중지됩니다',
     ingestionCancelled: '수집이 취소되었습니다',
+    crossTypeCollisionNotice: '{count}개 항목이 크로스타입 별칭으로 병합됨（엔티티 ↔ 컨셉 중복 방지）',
 
     // Lint Report
     lintReportTitle: '위키 린트 보고서',

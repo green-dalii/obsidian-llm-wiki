@@ -10,7 +10,7 @@
 
 [English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md)
 
-[Offizielle Website](https://llmwiki.greenerai.top/) | [Feedback & Diskussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Codebasis mit DeepWiki erkunden](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Offizielle Website](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Diskussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Codebasis mit DeepWiki erkunden](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
 ---
 
@@ -24,7 +24,7 @@
   - [🔑 LLM Provider konfigurieren](#-llm-provider-konfigurieren)
   - [🎮 Nutzung](#-nutzung)
   - [⚠️ Upgrade von einer älteren Version?](#️-upgrade-von-einer-älteren-version)
-- [⚡ Was ist neu in v1.12.0](#-was-ist-neu-in-v1120)
+- [⚡ Was ist neu in v1.14.0](#-was-ist-neu-in-v1140)
 - [✨ Funktionen](#-funktionen)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -145,18 +145,22 @@ Re-Ingesting derselben Source führt zu inkrementellen Updates auf Entity/Concep
 
 ### ⚠️ Upgrade von einer älteren Version?
 
-**Neu in v1.11.0**: Der Verbindungstest ist jetzt Pflicht für Kernfunktionen. Bestehende Konfigurationen werden automatisch migriert (`llmReady = true`). Provider- oder API-Key-Wechsel erfordert erneuten Test.
+**Diese Version ist vollständig abwärtskompatibel.** v1.14.0 enthält keine Breaking Changes — Ihre bestehenden Wiki-Seiten, Einstellungen und Workflows bleiben erhalten. Keine Neukonfiguration oder Datenmigration erforderlich.
 
-Vor v1.11.0 erstellte Wikis: **Lint Wiki** ausführen, um doppelt verschachtelte Links (`[[[[...]]]]`) und Cross-Directory-Stub-Duplikate automatisch zu beheben.
+**Falls Ihr bestehendes Wiki über viele Versionen hinweg gewachsen ist**, fehlen möglicherweise einige neuere Funktionen (Aliases, alias-bewusste Deduplizierung, modernisierte Prompts). Führen Sie **Lint Wiki** aus, um zu sehen, was Aufmerksamkeit benötigt. Smart Fix All erledigt die häufigsten Aufräumarbeiten mit einem Klick.
 
-Wenn Sie von einer Version **vor v1.7.11** (oder noch früher) upgraden, wurden Ihre Wiki-Seiten ohne mehrere Funktionen generiert, die in späteren Versionen hinzugekommen sind. Führen Sie nach dem Upgrade diese Schritte aus, um Ihr Wiki auf den neuesten Stand zu bringen:
+**Bei einem Upgrade von einer Version vor v1.14.0** führen Sie einmalig **Lint Wiki** aus, um historische Probleme automatisch zu beheben:
+- **Doppelt verschachtelte Links** `[[[[entities/Foo|Foo]]]]` in log.md — Lint erkennt und behebt diese ohne LLM-Kosten
+- **Cross-Directory-Stub-Duplikate** — Seiten, die mit demselben Slug sowohl in `entities/` als auch in `concepts/` existieren, werden nun korrekt zusammengeführt
+
+**Für Wikis, die über viele Versionen hinweg gewachsen sind**, führen Sie folgende Schritte aus, um Ihr Wiki auf den aktuellen Stand zu bringen:
 
 **1️⃣ Index neu aufbauen**
 `Cmd+P` → **"Index neu generieren"** — Baut `wiki/index.md` mit Alias-Einträgen für jede Seite neu auf. Dies ermöglicht die Alias-basierte Suche (z. B. findet die Suche nach "DSA" die Seite "DeepSeek-Sparse-Attention"). Das alte Index-Format enthielt nur Seitentitel.
 
 **2️⃣ Wiki prüfen ausführen**
 `Cmd+P` → **"Wiki prüfen"** — Durchsucht Ihr gesamtes Wiki und zeigt Folgendes an:
-- **🏷️ Fehlende Aliases**: Seiten ohne Aliases (alle Seiten vor v1.7.11). Klicken Sie **"Complete Aliases"** — der LLM generiert Übersetzungen, Akronyme und alternative Namen im Batch. Dies ist entscheidend für die Duplikaterkennung.
+- **🏷️ Fehlende Aliases**: Seiten ohne Aliases (jede Version, falls Sie „Complete Aliases" nie ausgeführt haben). Klicken Sie **"Complete Aliases"** — der LLM generiert Übersetzungen, Akronyme und alternative Namen im Batch. Dies ist entscheidend für die Duplikaterkennung.
 - **🔄 Doppelte Seiten**: Seiten mit überlappenden Inhalten (z. B. "CoT" vs "Chain-of-Thought", die von älteren Versionen ohne Alias-basierte Deduplizierung erstellt wurden). Klicken Sie **"Merge Duplicates"**, um sie zu verschmelzen und alle Aliases zu erhalten.
 - **💀 Tote Links / Leere Seiten / Orphans**: Übliche Wiki-Wartungsprobleme.
 
@@ -165,43 +169,47 @@ Klicken Sie im Lint-Report auf **"Smart Fix All"** für eine einmalige, kausal g
 
 **4️⃣ Parallele Seitengenerierung aktivieren**
 Settings → **Ingestion Acceleration**:
-- **⚡ Page Generation Concurrency**: Stellen Sie den Wert auf 3 für die meisten Provider (vor v1.7.3 war der Standardwert 1/seriell). Beschleunigt die Ingestion um das 2- bis 3-Fache bei Quellen mit 10+ Entities.
+- **⚡ Page Generation Concurrency**: Stellen Sie den Wert auf 3 für die meisten Provider. Beschleunigt die Ingestion um das 2- bis 3-Fache bei Quellen mit 10+ Entities.
 - **⏱️ Batch Delay**: Beginnen Sie bei 300 ms. Erhöhen Sie auf 500–800 ms, wenn Sie auf Rate Limits stoßen.
 
-**5️⃣ Neue Einstellungen prüfen (seit v1.4.0–v1.7.x hinzugekommen):**
-- **🌐 Wiki Output Language** (v1.6.5): Unabhängig von der UI-Sprache — Ihr Wiki kann auf Deutsch sein, während die Plugin-Oberfläche auf Englisch bleibt, oder umgekehrt.
-- **📊 Extraktionsgranularität** (v1.6.2, v1.10.0 erweitert): Fünf Optionen steuern, wie tief der LLM Entities aus Quellen extrahiert:
+**5️⃣ Aktuelle Einstellungen prüfen:**
+- **🌐 Wiki Output Language**: Unabhängig von der UI-Sprache — Ihr Wiki kann auf Deutsch sein, während die Plugin-Oberfläche auf Englisch bleibt, oder umgekehrt.
+- **📊 Extraktionsgranularität**: Fünf Optionen steuern, wie tief der LLM Entities aus Quellen extrahiert:
   - **Fein** (~100 Einträge) — Tiefe Analyse, Randfälle eingeschlossen. Hohe Token-Kosten, ideal für Schlüsselquellen.
   - **Standard** (~50 Einträge) — Ausgewogene Extraktion. Gute Voreinstellung für tägliche Notizen.
   - **Groß** (~10 Einträge) — Schneller Überblick, nur Kern-Entities. Niedrige Kosten, schnelle Ingestion.
   - **Minimal** (~5 Einträge) — Nur wesentliche Einträge. Ideal für Batch-Verarbeitung von 100+ Dateien oder Testen neuer Quellen.
   - **Benutzerdefiniert** (1–300 Einträge) — Benutzerdefinierte Entity/Concept-Limits für spezielle Workflows.
   > 💡 **Empfehlung**: Verwenden Sie Minimal oder Groß für große Ordner, um Zeit und API-Kosten zu sparen. Fein nur selektiv für Schlüsseldokumente mit tiefer Analyse.
-- **🔄 Auto-Maintenance** (v1.4.0): Optionaler File Watcher, periodischer Lint und Startup Health Check. Standardmäßig alle AUS — nur aktivieren, wenn Sie automatische Hintergrundverarbeitung wünschen.
+- **🔄 Auto-Maintenance**: Optionaler File Watcher, periodischer Lint und Startup Health Check. Standardmäßig alle AUS — nur aktivieren, wenn Sie automatische Hintergrundverarbeitung wünschen.
 
-> **🛡️ Safety**: Parallele Generierung nutzt `Promise.allSettled` — bei Fehler einer Seite laufen andere weiter. Fehlgeschlagene Seiten werden einzeln mit Exponential Backoff wiederholt. Smart Batch Skip (v1.7.7) erkennt automatisch bereits verarbeitete Dateien und spart so Zeit und API-Kosten.
+> **🛡️ Safety**: Parallele Generierung nutzt `Promise.allSettled` — bei Fehler einer Seite laufen andere weiter. Fehlgeschlagene Seiten werden einzeln mit Exponential Backoff wiederholt. Smart Batch Skip erkennt automatisch bereits verarbeitete Dateien und spart so Zeit und API-Kosten.
 
 ---
 ---
 
-## ⚡ Was ist neu in v1.12.0
+## ⚡ Was ist neu in v1.14.0
 
-Dies ist ein **produktionskritisches Performance-Release**. Der Extraktionsprozess wurde grundlegend überarbeitet — die Seitenliste wird nicht mehr in jedem LLM-Prompt eingebettet. Die Extraktion skaliert nun unabhängig von der Wiki-Größe.
+Diese Version konzentriert sich auf **Architekturqualität und Test-Infrastruktur**. Umfassende Verbesserungen in Code-Qualität, Typ-Sicherheit und Test-Abdeckung.
 
 **Wichtigste Verbesserungen:**
 
-- **Ingestion ist ~80% schneller.** Eine kurze Quelle, die vorher 30–90 Sekunden dauerte, benötigt jetzt nur noch 5–15 Sekunden. Je größer das Wiki, desto größer der Unterschied.
-- **Extraktionsqualität deutlich verbessert.** Ohne die massive Seitenliste wird das LLM nicht mehr abgelenkt — Extraktionen sind sauberer und halluzinieren keine Entitäten aus anderen Wiki-Seiten.
-- **Wiki-Größe verlangsamt die Aufnahme einzelner Dateien nicht mehr.** Ein 10.000-Seiten-Wiki verarbeitet jede Datei genauso schnell wie ein 500-Seiten-Wiki. Produktionsbereit für große Wikis.
-- **Smarter Batch-Kontrolle.** Kurze Artikel werden in 1–2 Runden abgeschlossen. Fortschrittsanzeige zeigt jetzt Batch-Zähler und kumulierte Ergebnisse.
-- **Deterministische Related-Page-Erkennung.** Kreuzreferenzierung erfolgt programmatisch über Slug+Alias-Matching statt LLM-Vermutung — zuverlässiger und ohne Zusatzkosten.
+- **Modell-Kompatibilität erweitert (Issues #64/#65).** DeepSeek-R1, QwQ (Reasoning-Modelle) und LM Studio vollständig unterstützt. Think-Token-Stripping entfernt Reasoning-Blöcke. LM Studio-Kompatibilität entfernt nicht unterstütztes `response_format: json_object`.
+- **Test-Infrastruktur erweitert.** Mock-Infrastruktur (`createMockContext`, `createMockFile`) ermöglicht Unit-Tests der Core-Engine ohne Obsidian-Runtime. Testzahl von ~200 auf 400 verdoppelt (+200 Tests).
+- **TypeScript Typ-Sicherheit vollständig erreicht.** 8 Typ-Fehler in `page-factory-core.test.ts` korrigiert. Dual-Gate-Verifikation erfordert ESLint und TypeScript beide 0 Fehler + 0 Warnungen.
+- **Core-Architektur-Refactoring.** 4 Pure-Function-Module nach `src/core/` extrahiert: conflict-resolver (136 Zeilen), dead-link-detector (95 Zeilen), orphan-matcher (82 Zeilen), prompt-builders (104 Zeilen).
+- **Konstanten-Zentralisierung.** 30+ verteilte Magic Numbers in `src/constants.ts` (192 Zeilen) konsolidiert. Semantische Konstanten aktiviert: WIKI_SUBFOLDERS, Notice-Durations, Token-Budgets.
+- **Query-Engine-Stabilität.** Seiteninhalt-Loading in `loadRelevantPages` auf 3000 Token begrenzt, Overflow verhindert.
+- **Dokumentation verbessert.** TDD Standard, Development Protocol, ROADMAP Architekturqualität-Plan, Dual-Gate-Verifikation-Dokumentation.
+- **Code-Qualität.** 44 Dateien, 2576 Zeilen hinzugefügt, 503 Zeilen entfernt. Null Side-Effects, null Breaking-Changes.
 
-**Von einer älteren Version upgraden?** Führen Sie nach dem Upgrade einmal **Lint Wiki** aus, um historische Probleme automatisch zu beheben. Ihre bestehende Konfiguration bleibt erhalten.
+**400 Tests** (17 Test-Dateien, +200 seit v1.13.0).
+
+**Von einer älteren Version upgraden?** Führen Sie nach dem Upgrade einmal **Lint Wiki** aus, um historische Cross-Type-Duplikate automatisch zu beheben. Ihre bestehende Konfiguration bleibt erhalten.
 
 **Wir empfehlen dringend allen Nutzern das Upgrade auf diese Version.**
 
 ---
-
 
 ## ✨ Funktionen
 
@@ -408,26 +416,26 @@ Sie legen Notizen ab, es extrahiert Personen, Konzepte und Theorien und generier
 **Mindestanforderungen?**
 Obsidian v1.6.6+, Desktop (Windows/macOS/Linux), ein API-Key eines LLM-Providers. Ollama funktioniert lokal ohne API-Key.
 
-**Warum kann ich nach der Installation keine Funktionen nutzen? (v1.11.0)**
+**Warum kann ich nach der Installation keine Funktionen nutzen?**
 Einstellungen → Karpathy LLM Wiki → Provider wählen → API-Key eingeben → Fetch Models → Modell wählen → Test Connection. Grüner "LLM Ready"-Indikator schaltet alle Funktionen frei.
 
-**Wie breche ich eine laufende Aufnahme/Lint ab? (v1.11.0)**
+**Wie breche ich eine laufende Aufnahme/Lint ab?**
 Statusleisten-Text klicken oder Ctrl+P → "Cancel current ingestion". Stoppt sicher nach Abschluss des aktuellen Batch.
 
 **Doppelte Klammern [[[[...]]]] in log.md beheben?**
-Lint Wiki ausführen — erkennt und behebt alle doppelt verschachtelten Links automatisch (v1.11.0+).
+Lint Wiki ausführen — der Scanner erkennt und behebt automatisch alle doppelt verschachtelten Wiki-Links im gesamten Wiki-Verzeichnis (einschließlich log.md) ohne LLM-Kosten. Kein manuelles Aufräumen erforderlich.
 
 
 y.
 
-**Warum kann ich nach der Installation keine Funktionen nutzen? (v1.11.0)**
+**Warum kann ich nach der Installation keine Funktionen nutzen?**
 Einstellungen → Karpathy LLM Wiki → Provider wählen → API-Key eingeben → Fetch Models → Modell wählen → Test Connection. Grüner "LLM Ready"-Indikator schaltet alle Funktionen frei.
 
-**Wie breche ich eine laufende Aufnahme/Lint ab? (v1.11.0)**
+**Wie breche ich eine laufende Aufnahme/Lint ab?**
 Statusleisten-Text klicken oder Ctrl+P → "Cancel current ingestion". Stoppt sicher nach Abschluss des aktuellen Batch.
 
 **Doppelte Klammern [[[[...]]]] in log.md beheben?**
-Lint Wiki ausführen — erkennt und behebt alle doppelt verschachtelten Links automatisch (v1.11.0+).
+Lint Wiki ausführen — der Scanner erkennt und behebt automatisch alle doppelt verschachtelten Wiki-Links im gesamten Wiki-Verzeichnis (einschließlich log.md) ohne LLM-Kosten. Kein manuelles Aufräumen erforderlich.
 
 
 **Welches Modell sollte ich wählen?**

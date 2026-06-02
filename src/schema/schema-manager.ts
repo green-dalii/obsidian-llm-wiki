@@ -4,6 +4,7 @@ import { App, TFile } from 'obsidian';
 import { LLMWikiSettings, WikiSchema, SchemaSuggestion, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, DEFAULT_ENTITY_TAG, DEFAULT_CONCEPT_TAG } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../utils';
+import { TOKENS_SCHEMA_SUGGESTION } from '../constants';
 
 const SCHEMA_FILENAME = 'schema/config.md';
 const SUGGESTIONS_FILENAME = 'schema/suggestions.md';
@@ -295,7 +296,7 @@ ${body}`;
     try {
       const response = await this.client.createMessage({
         model: this.settings.model,
-        max_tokens: 1000,
+        max_tokens: TOKENS_SCHEMA_SUGGESTION,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
       });

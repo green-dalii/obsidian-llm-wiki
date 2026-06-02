@@ -312,6 +312,7 @@ export const ZH_TEXTS = {
     ingestReportElapsedTime: '耗时',
     ingestReportSkippedFiles: '跳过（已摄入）',
     ingestReportFailedGuidance: '这些条目未能自动创建。您可手动创建对应页面，或降低提取颗粒度后重新摄入源文件。',
+    ingestReportCollisions: '跨类型碰撞（已合并为别名）',
 
     // 命令名称（sentence case 遵循 Obsidian Bot 规则）
     cmdIngestSource: '摄入单个源文件',
@@ -330,6 +331,7 @@ export const ZH_TEXTS = {
     lintStatusBar: '维护中... 点击取消',
     ingestionCancelling: '正在取消 — 当前批次完成后将停止',
     ingestionCancelled: '提取已取消',
+    crossTypeCollisionNotice: '{count} 个条目合并为跨类型别名（实体 ↔ 概念重复已防止）',
 
     // 维护报告
     lintReportTitle: 'Wiki 维护报告',

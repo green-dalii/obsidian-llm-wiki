@@ -314,6 +314,7 @@ export const EN_TEXTS = {
     ingestReportElapsedTime: 'Elapsed time',
     ingestReportSkippedFiles: 'Skipped (already ingested)',
     ingestReportFailedGuidance: 'These items could not be automatically created. You can manually create the corresponding pages, or lower the extraction granularity and re-ingest the source file.',
+    ingestReportCollisions: 'Cross-type collisions (merged as aliases)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Ingest single source',
@@ -332,6 +333,7 @@ export const EN_TEXTS = {
     lintStatusBar: 'Linting... click to cancel',
     ingestionCancelling: 'Cancelling — will stop after current batch completes',
     ingestionCancelled: 'Ingestion cancelled',
+    crossTypeCollisionNotice: '{count} items merged as cross-type aliases (entity ↔ concept duplicates prevented)',
 
     // Lint Report
     lintReportTitle: 'Wiki lint report',

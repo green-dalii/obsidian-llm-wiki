@@ -13,29 +13,29 @@ importers:
   .:
     dependencies:
       '@anthropic-ai/sdk':
-        specifier: ^0.24.0
+        specifier: 0.24.3
         version: 0.24.3
     devDependencies:
       '@types/node':
-        specifier: ^16.11.6
+        specifier: 16.18.126
         version: 16.18.126
       '@typescript-eslint/eslint-plugin':
-        specifier: ^8.59.1
+        specifier: 8.59.1
         version: 8.59.1(@typescript-eslint/parser@8.59.1(eslint@10.2.1)(typescript@5.9.3))(eslint@10.2.1)(typescript@5.9.3)
       '@typescript-eslint/parser':
-        specifier: ^8.59.1
+        specifier: 8.59.1
         version: 8.59.1(eslint@10.2.1)(typescript@5.9.3)
       esbuild:
         specifier: 0.28.0
         version: 0.28.0
       eslint:
-        specifier: ^10.2.1
+        specifier: 10.2.1
         version: 10.2.1
       eslint-plugin-obsidianmd:
-        specifier: ^0.3.0
+        specifier: 0.3.0
         version: 0.3.0(@eslint/js@9.39.4)(@eslint/json@0.14.0)(@typescript-eslint/parser@8.59.1(eslint@10.2.1)(typescript@5.9.3))(eslint@10.2.1)(obsidian@1.12.3(@codemirror/state@6.5.0)(@codemirror/view@6.38.6))(typescript-eslint@8.59.1(eslint@10.2.1)(typescript@5.9.3))
       obsidian:
-        specifier: latest
+        specifier: 1.12.3
         version: 1.12.3(@codemirror/state@6.5.0)(@codemirror/view@6.38.6)
       tslib:
         specifier: 2.4.0
@@ -44,7 +44,7 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
       vitest:
-        specifier: ^4.1.6
+        specifier: 4.1.6
         version: 4.1.6(@types/node@16.18.126)(vite@8.0.13(@types/node@16.18.126)(esbuild@0.28.0)(yaml@2.8.3))
 
 packages:

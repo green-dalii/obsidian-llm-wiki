@@ -28,8 +28,8 @@ All four checks must pass before submitting any change:
 
 ```bash
 pnpm lint          # ESLint with Obsidian plugin rules (0 errors, 0 warnings)
-pnpm test          # Vitest unit tests (113 tests, 0 failures)
-npx tsc --noEmit   # TypeScript type check (0 errors)
+pnpm test          # Vitest unit tests (400 tests, 0 failures)
+npx tsc --noEmit   # TypeScript type check (0 errors, 0 warnings) — Dual Gate
 pnpm build         # esbuild production build (must exit cleanly)
 ```
 
@@ -51,8 +51,14 @@ pnpm build         # esbuild production build (must exit cleanly)
 src/
 ├── main.ts              # Plugin entry point
 ├── types.ts             # Shared types + EngineContext
+├── constants.ts         # Centralized constants (token budgets, notice durations, WIKI_SUBFOLDERS)
 ├── utils.ts             # Utilities (slugify, parseJson, frontmatter parsing)
 ├── llm-client.ts        # LLM clients (Anthropic, OpenAI-compatible)
+├── core/                # Pure function modules (zero IO, fully testable)
+│   ├── conflict-resolver.ts    # Conflict detection
+│   ├── dead-link-detector.ts   # Dead link identification
+│   ├── orphan-matcher.ts       # Orphan page matching
+│   └── prompt-builders.ts      # Prompt template builders
 ├── wiki/                # Wiki engine modules
 │   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log)
 │   ├── query-engine.ts  # Conversational query with streaming
@@ -68,18 +74,18 @@ src/
 ├── schema/              # Schema co-evolution
 ├── ui/                  # Settings + Modals
 ├── texts/               # i18n (8 languages)
-└── __tests__/           # Unit tests (vitest)
+└── __tests__/           # Unit tests (vitest, 400 tests across 17 files)
 ```
 
 ## Internationalization
 
 - **UI**: 8 languages (EN/ZH/JA/KO/DE/FR/ES/PT), text keys in `src/texts/`
-- **New text**: add the key to `en.ts` first, then translate to all 7 other languages
+- **New text**: add the key to `en.ts` first, then translate to all 7 other languages (in lockstep)
 - **Wiki output**: 8 languages independent of UI, with custom input option
 
 ## Testing
 
-Unit tests cover pure utility functions in `src/__tests__/` (113 tests across 2 files). Run with:
+Unit tests cover pure utility functions in `src/__tests__/` (400 tests across 17 files). Run with:
 
 ```bash
 pnpm test          # single run

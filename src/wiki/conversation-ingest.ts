@@ -13,6 +13,8 @@ import {
   cleanMarkdownResponse,
 } from '../utils';
 import { applySectionLabels } from './system-prompts';
+import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
+import { TOKENS_CONVERSATION_EXTRACTION, TOKENS_CONVERSATION_PAGE, TOKENS_PAGE_GENERATION, TOKENS_QUERY_SAVE_DEDUP } from '../constants';
 import { PageFactory } from './page-factory';
 
 export interface ConversationOrchestration {
@@ -84,6 +86,7 @@ export class ConversationIngestor {
             entitiesCreated: 0,
             conceptsCreated: 0,
             failedItems: [],
+            collisions: [],
             contradictionsFound: 0,
             success: true,
             errorMessage: 'Knowledge already exists in Wiki',
@@ -148,7 +151,7 @@ CRITICAL RULES:
 
     const analysis = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 5000,
+      max_tokens: TOKENS_CONVERSATION_EXTRACTION,
       system: await this.ctx.buildSystemPrompt('conversation'),
       messages: [{
         role: 'user',
@@ -161,7 +164,7 @@ CRITICAL RULES:
       const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
       return await client.createMessage({
         model: this.ctx.settings.model,
-        max_tokens: 4000,
+        max_tokens: TOKENS_PAGE_GENERATION,
         system: await this.ctx.buildSystemPrompt('conversation'),
         messages: [{ role: 'user', content: repairPrompt }],
         response_format: { type: 'json_object' }
@@ -207,14 +210,15 @@ CRITICAL RULES:
       .replace('{{created_pages_list}}', createdPagesList)
       .replace(/{{source_file}}/g, `Conversation: ${parsed.source_title}`)
       .replace(/{{date}}/g, actualDate)
-      .replace('{{tags}}', tags);
+      .replace('{{tags}}', tags)
+      .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
 
     const finalSummaryPrompt = applySectionLabels(summaryPrompt, this.ctx.settings);
 
     this.ctx.onProgress?.('Generating summary page...');
     const summaryPageContent = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 8000,
+      max_tokens: TOKENS_CONVERSATION_PAGE,
       system: await this.ctx.buildSystemPrompt('summary'),
       messages: [{ role: 'user', content: finalSummaryPrompt }]
     });
@@ -224,14 +228,18 @@ CRITICAL RULES:
     parsed.created_pages.push(summaryPath);
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
+    const collisions: Array<{ name: string; sourceType: 'entity' | 'concept'; targetType: 'entity' | 'concept'; targetPath: string }> = [];
 
     for (const entity of parsed.entities) {
       await this.orch.apiDelay();
       this.ctx.onProgress?.(`Saving entity: ${entity.name}`);
       try {
-        const entityPage = await this.pageFactory.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug }, convPlannedPaths);
-        if (entityPage) {
-          parsed.created_pages.push(entityPage);
+        const entityResult = await this.pageFactory.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug }, convPlannedPaths);
+        if (entityResult.path) {
+          parsed.created_pages.push(entityResult.path);
+        }
+        if (entityResult.collision) {
+          collisions.push(entityResult.collision);
         }
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -244,9 +252,12 @@ CRITICAL RULES:
       await this.orch.apiDelay();
       this.ctx.onProgress?.(`Saving concept: ${concept.name}`);
       try {
-        const conceptPage = await this.pageFactory.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug }, convPlannedPaths);
-        if (conceptPage) {
-          parsed.created_pages.push(conceptPage);
+        const conceptResult = await this.pageFactory.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug }, convPlannedPaths);
+        if (conceptResult.path) {
+          parsed.created_pages.push(conceptResult.path);
+        }
+        if (conceptResult.collision) {
+          collisions.push(conceptResult.collision);
         }
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -270,6 +281,7 @@ CRITICAL RULES:
       entitiesCreated,
       conceptsCreated,
       failedItems,
+      collisions,
       contradictionsFound: parsed.contradictions?.length || 0,
       success: true,
       elapsedSeconds: Math.round((Date.now() - startTime) / 1000),
@@ -293,7 +305,7 @@ CRITICAL RULES:
 
     const response = await client.createMessage({
       model: this.ctx.settings.model,
-      max_tokens: 200,
+      max_tokens: TOKENS_QUERY_SAVE_DEDUP,
       system: await this.ctx.buildSystemPrompt('conversation'),
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' }

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { requestUrl } from 'obsidian';
 import { LLMClient } from './types';
+import { MAX_RETRIES, RETRY_BASE_DELAY_MS, MAX_TOKENS_BATCH } from './constants';
 
 // Shared retry helper — eliminates duplicated retry loops across all client classes.
 const RETRYABLE = /status 5\d{2}|status 429|overload|network|fetch|econnrefused|etimedout|timeout|abort/i;
@@ -11,7 +12,7 @@ function errMsg(err: unknown): string {
 
 async function withRetry<T>(
   fn: () => Promise<T>,
-  maxAttempts = 3,
+  maxAttempts = MAX_RETRIES,
   label = 'API'
 ): Promise<T> {
   let lastError: unknown;
@@ -22,7 +23,7 @@ async function withRetry<T>(
       lastError = error;
       const msg = errMsg(error);
       if (RETRYABLE.test(msg) && attempt < maxAttempts - 1) {
-        const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+        const delay = Math.pow(2, attempt) * RETRY_BASE_DELAY_MS + Math.random() * RETRY_BASE_DELAY_MS;
         console.warn(`${label} error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms: ${msg}`);
         await new Promise(resolve => window.setTimeout(resolve, delay));
         continue;
@@ -95,7 +96,7 @@ export class AnthropicCompatibleClient implements LLMClient {
 
       // Detect truncation: retry once with double the token limit.
       if (data.stop_reason === 'max_tokens') {
-        const retryTokens = Math.min(params.max_tokens * 2, 16000);
+        const retryTokens = Math.min(params.max_tokens * 2, MAX_TOKENS_BATCH);
         console.warn(
           `Anthropic-compatible response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
           `Retrying with ${retryTokens} tokens.`
@@ -111,7 +112,7 @@ export class AnthropicCompatibleClient implements LLMClient {
             },
             body: JSON.stringify({ ...body, max_tokens: retryTokens })
           });
-        }, 2, 'Anthropic-compatible truncation retry');
+        }, MAX_RETRIES, 'Anthropic-compatible truncation retry');
 
         const retryData = retryResponse.json as {
           content?: Array<{ type: string; text?: string }>;
@@ -296,7 +297,7 @@ export class AnthropicClient implements LLMClient {
 
       // Detect truncation: retry once with double the token limit.
       if (response.stop_reason === 'max_tokens') {
-        const retryTokens = Math.min(params.max_tokens * 2, 16000);
+        const retryTokens = Math.min(params.max_tokens * 2, MAX_TOKENS_BATCH);
         console.warn(
           `Anthropic response truncated at ${params.max_tokens} tokens (stop_reason=max_tokens). ` +
           `Retrying with ${retryTokens} tokens.`
@@ -398,14 +399,14 @@ export class OpenAICompatibleClient implements LLMClient {
       ? [{ role: 'system' as const, content: params.system }, ...params.messages]
       : params.messages;
 
+    // response_format: json_object is omitted for OpenAI-compatible endpoints (LM Studio,
+    // Ollama, etc.) because many local backends reject it — the prompt instruction + prefilled
+    // "{" is sufficient to enforce JSON output.
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
       messages
     };
-    if (params.response_format) {
-      body.response_format = params.response_format;
-    }
 
     return withRetry(async () => {
       const response = await requestUrl({
@@ -429,7 +430,7 @@ export class OpenAICompatibleClient implements LLMClient {
 
       // Detect truncation: retry once with double max_tokens
       if (data.choices?.[0]?.finish_reason === 'length') {
-        const retryTokens = Math.min(params.max_tokens * 2, 16000);
+        const retryTokens = Math.min(params.max_tokens * 2, MAX_TOKENS_BATCH);
         console.warn(
           `OpenAI-compatible response truncated at ${params.max_tokens} tokens (finish_reason=length). ` +
           `Retrying with ${retryTokens} tokens.`
@@ -441,7 +442,7 @@ export class OpenAICompatibleClient implements LLMClient {
             headers: this.getHeaders(),
             body: JSON.stringify({ ...body, max_tokens: retryTokens })
           });
-        }, 2, 'OpenAI-compatible truncation retry');
+        }, MAX_RETRIES, 'OpenAI-compatible truncation retry');
 
         const retryData = retryResponse.json as {
           choices?: Array<{ message?: { content?: string } }>;

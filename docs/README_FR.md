@@ -10,7 +10,7 @@
 
 [English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md)
 
-[Site officiel](https://llmwiki.greenerai.top/) | [Retour d'expérience](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explorer le code avec DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Site officiel](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Retour d'expérience](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explorer le code avec DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
 ---
 
@@ -24,7 +24,7 @@
   - [🔑 Configuration d'un Provider LLM](#-configuration-dun-provider-llm)
   - [🎮 Utilisation](#-utilisation)
   - [⚠️ Mise à niveau depuis une version antérieure ?](#️-mise-à-niveau-depuis-une-version-antérieure-)
-- [⚡ Quoi de neuf dans la v1.12.0](#-quoi-de-neuf-dans-la-v1120)
+- [⚡ Quoi de neuf dans la v1.14.0](#-quoi-de-neuf-dans-la-v1140)
 - [✨ Fonctionnalités](#-fonctionnalités)
   - [📊 Qualité des connaissances](#-qualité-des-connaissances)
   - [🛠️ Maintenance](#️-maintenance)
@@ -119,7 +119,7 @@ Ce projet évolue rapidement — de nouvelles fonctionnalités, corrections de b
 
 **🦙 Ollama (local, sans clé API) :** Installez [Ollama](https://ollama.com), téléchargez un modèle (`ollama pull gemma4`), sélectionnez « Ollama (Local) » dans le menu déroulant des providers.
 
-> Consultez [README_CN.md](README_CN.md) pour les instructions spécifiques aux providers chinois.
+> Consultez le [Guide de sélection de modèle](#-guide-de-sélection-de-modèle) pour plus de détails.
 
 ### 🎮 Utilisation
 
@@ -140,18 +140,22 @@ La ré-ingestion d'une même source effectue des mises à jour incrémentales su
 
 ### ⚠️ Mise à niveau depuis une version antérieure ?
 
-**Nouveau dans v1.11.0** : Le test de connexion est obligatoire pour les fonctions principales. Les configs existantes sont migrées automatiquement (`llmReady = true`). Changer de fournisseur ou de clé API nécessite un nouveau test.
+**Cette version est entièrement rétrocompatible.** La v1.14.0 ne contient aucun changement cassant — vos pages Wiki existantes, vos paramètres et vos flux de travail sont préservés. Aucune reconfiguration ni migration de données n'est nécessaire.
 
-Wikis créés avant v1.11.0 : lancez **Lint Wiki** pour corriger automatiquement les liens doublement imbriqués (`[[[[...]]]]`) et les doublons de stub inter-répertoires.
+**Si votre Wiki existant a été construit au fil de nombreuses versions**, certaines pages peuvent manquer de fonctionnalités récentes (alias, déduplication par alias, prompts modernisés). Lancez **Vérifier le wiki** pour voir ce qui nécessite une attention. Smart Fix All gère les nettoyages les plus courants en un clic.
 
-Si vous effectuez une mise à niveau depuis une version **antérieure à la v1.7.11** (ou bien plus ancienne), vos pages Wiki existantes ont été générées sans plusieurs fonctionnalités ajoutées au fil des versions. Suivez ces étapes après la mise à jour pour mettre votre Wiki à jour :
+**Si vous effectuez une mise à niveau depuis une version antérieure à la v1.14.0**, lancez **Vérifier le wiki** une fois pour corriger automatiquement les problèmes historiques :
+- **Liens doublement imbriqués** `[[[[entities/Foo|Foo]]]]` dans log.md — Lint détecte et corrige ces cas sans aucun coût LLM
+- **Doublons de stub inter-répertoires** — les pages existant à la fois dans `entities/` et `concepts/` sous le même slug sont désormais correctement appariées
+
+**Pour les Wikis construits au fil de nombreuses versions**, suivez ces étapes pour amener votre Wiki aux standards actuels :
 
 **1️⃣ Reconstruisez votre index**
 `Cmd+P` → **"Régénérer l'index"** — Cela reconstruit `wiki/index.md` avec les entrées d'alias pour chaque page, activant la recherche par alias dans Query (par ex., rechercher « DSA » trouve « DeepSeek-Sparse-Attention »). L'ancien format d'index ne listait que les titres de pages.
 
 **2️⃣ Exécutez Vérifier le wiki**
 `Cmd+P` → **"Vérifier le wiki"** — Cela scanne l'intégralité de votre Wiki et affiche :
-- **🏷️ Alias manquants** : Pages sans alias (toutes les pages pré-v1.7.11). Cliquez sur **"Complete Aliases"** — le LLM génère traductions, acronymes et noms alternatifs en masse. C'est essentiel pour la détection des doublons.
+- **🏷️ Alias manquants** : Pages sans alias (toute version, si vous n'avez jamais lancé « Complete Aliases »). Cliquez sur **"Complete Aliases"** — le LLM génère traductions, acronymes et noms alternatifs en masse. C'est essentiel pour la détection des doublons.
 - **🔄 Pages en double** : Pages au contenu qui se chevauche (ex. « CoT » vs « chaîne de pensée » créées par des versions plus anciennes sans déduplication basée sur les alias). Cliquez sur **"Merge Duplicates"** pour les fusionner et préserver tous les alias.
 - **💀 Liens morts / Pages vides / Pages orphelines** : Problèmes classiques de maintenance Wiki.
 
@@ -160,43 +164,47 @@ Cliquez sur **"Smart Fix All"** dans le rapport Lint pour une réparation en un 
 
 **4️⃣ Activez la génération parallèle de pages**
 Paramètres → **Ingestion Acceleration** :
-- **⚡ Page Generation Concurrency** : Réglez sur 3 pour la plupart des providers (la valeur par défaut était 1/séquentiel avant v1.7.3). Accélère l'ingestion de 2 à 3× sur les sources avec 10+ entités.
+- **⚡ Page Generation Concurrency** : Réglez sur 3 pour la plupart des providers. Accélère l'ingestion de 2 à 3× sur les sources avec 10+ entités.
 - **⏱️ Batch Delay** : Commencez à 300 ms. Augmentez à 500–800 ms si vous rencontrez des limites de débit.
 
-**5️⃣ Passez en revue les nouveaux paramètres (ajoutés entre v1.4.0 et v1.7.x) :**
-- **🌐 Wiki Output Language** (v1.6.5) : Indépendant de la langue de l'interface — votre Wiki peut être en chinois pendant que l'interface du plugin reste en anglais, ou vice versa.
-- **📊 Granularité d'extraction** (v1.6.2, v1.10.0 étendu) : Cinq options contrôlent la profondeur d'extraction des entités par le LLM :
+**5️⃣ Passez en revue les paramètres actuels :**
+- **🌐 Wiki Output Language** : Indépendant de la langue de l'interface — votre Wiki peut être en chinois pendant que l'interface du plugin reste en anglais, ou vice versa.
+- **📊 Granularité d'extraction** : Cinq options contrôlent la profondeur d'extraction des entités par le LLM :
   - **Fine** (~100 éléments) — Analyse approfondie, mentions marginales incluses. Coût en tokens élevé, idéal pour les sources clés.
   - **Standard** (~50 éléments) — Extraction équilibrée. Bon choix par défaut pour les notes quotidiennes.
   - **Grossière** (~10 éléments) — Aperçu rapide, entités principales uniquement. Coût faible, ingestion rapide.
   - **Minimale** (~5 éléments) — Éléments essentiels uniquement. Idéal pour traiter par lot 100+ fichiers ou tester de nouvelles sources.
   - **Personnalisée** (1–300 éléments) — Limites utilisateur pour entités/concepts, workflows spécialisés.
   > 💡 **Recommandation** : Utilisez Minimale ou Grossière pour les grands dossiers afin d'économiser temps et coûts API. Fine uniquement pour les documents clés nécessitant une analyse approfondie.
-- **🔄 Auto-Maintenance** (v1.4.0) : Surveillance de fichiers optionnelle, Lint périodique et vérification de santé au démarrage. Tout est désactivé par défaut — activez uniquement si vous souhaitez un traitement automatique en arrière-plan.
+- **🔄 Auto-Maintenance** : Surveillance de fichiers optionnelle, Lint périodique et vérification de santé au démarrage. Tout est désactivé par défaut — activez uniquement si vous souhaitez un traitement automatique en arrière-plan.
 
-> **🛡️ Sécurité :** La génération parallèle utilise `Promise.allSettled` — si une page échoue, les autres poursuivent leur traitement. Les pages en échec sont réessayées individuellement avec backoff exponentiel. Smart Batch Skip (v1.7.7) détecte automatiquement les fichiers déjà ingérés pour économiser du temps et des coûts d'API.
+> **🛡️ Sécurité :** La génération parallèle utilise `Promise.allSettled` — si une page échoue, les autres poursuivent leur traitement. Les pages en échec sont réessayées individuellement avec backoff exponentiel. Smart Batch Skip détecte automatiquement les fichiers déjà ingérés pour économiser du temps et des coûts d'API.
 
 ---
 ---
 
-## ⚡ Quoi de neuf dans la v1.12.0
+## ⚡ Quoi de neuf dans la v1.14.0
 
-Il s'agit d'une **mise à jour de performance critique pour la production**. Le processus d'extraction d'ingestion a été fondamentalement repensé — la liste des pages n'est plus intégrée dans chaque appel LLM. L'extraction s'adapte indépendamment de la taille du Wiki.
+Cette version se concentre sur **la qualité d'architecture et l'infrastructure de test**. Améliorations complètes en qualité de code, sécurité de type et couverture de tests.
 
 **Améliorations clés :**
 
-- **L'ingestion est ~80% plus rapide.** Un fichier court qui prenait 30–90 secondes se termine maintenant en 5–15 secondes. Plus le Wiki est grand, plus la différence est marquée.
-- **Qualité d'extraction nettement améliorée.** Sans la liste massive de pages perturbant le LLM, les extractions sont plus précises et n'hallucinent plus d'entités à partir d'autres pages Wiki.
-- **La taille du Wiki ne ralentit plus l'ingestion de fichiers individuels.** Un Wiki de 10 000 pages traite chaque fichier à la même vitesse qu'un Wiki de 500 pages. Prêt pour la production à grande échelle.
-- **Contrôle intelligent des lots.** Les articles courts se terminent en 1–2 tours. L'affichage de progression affiche le nombre de lots et les résultats cumulés.
-- **Correspondance déterministe des pages liées.** La mise en correspondance utilise désormais un algorithme de slug+alias programmatique au lieu de deviner avec le LLM — plus fiable et sans coût supplémentaire.
+- **Extension de compatibilité modèle (Issues #64/#65).** DeepSeek-R1, QwQ (modèles de raisonnement) et LM Studio entièrement supportés. Stripping des think-tokens supprime les blocs de raisonnement. Compatibilité LM Studio retire `response_format: json_object` non supporté.
+- **Extension de l'infrastructure de test.** Infrastructure Mock (`createMockContext`, `createMockFile`) permet les tests unitaires du core engine sans runtime Obsidian. Nombre de tests doublé de ~200 à 400 (+200 tests).
+- **Sécurité de type TypeScript complète.** 8 erreurs de type dans `page-factory-core.test.ts` corrigées. Double gate vérification exige ESLint et TypeScript tous deux 0 erreurs + 0 warnings. ESLint seul ne garantit pas la sécurité de type.
+- **Refactoring de l'architecture core.** 4 modules de fonctions pures extraits vers `src/core/`: conflict-resolver (136 lignes), dead-link-detector (95 lignes), orphan-matcher (82 lignes), prompt-builders (104 lignes).
+- **Centralisation des constantes.** 30+ magic numbers dispersés consolidés dans `src/constants.ts` (192 lignes). Constantes sémantiques activées: WIKI_SUBFOLDERS, durées notice, budgets token.
+- **Stabilité du moteur Query.** Chargement du contenu de page dans `loadRelevantPages` limité à 3000 tokens, empêche l'overflow.
+- **Amélioration de la documentation.** Standard TDD, Protocol de développement, Plan qualité architecture ROADMAP, documentation vérification double gate.
+- **Qualité du code.** 44 fichiers, 2576 lignes ajoutées, 503 lignes supprimées. Zéro side-effects, zéro breaking-changes.
 
-**Mise à niveau depuis une version antérieure ?** Exécutez **Lint Wiki** une fois après la mise à niveau pour corriger automatiquement les problèmes historiques. Votre configuration existante est préservée.
+**400 tests** (17 fichiers de test, +200 depuis v1.13.0).
+
+**Mise à niveau depuis une version antérieure ?** Exécutez **Lint Wiki** une fois après la mise à niveau pour corriger automatiquement les doublons cross-type historiques. Votre configuration existante est préservée.
 
 **Nous recommandons vivement à tous les utilisateurs de mettre à jour vers cette version.**
 
 ---
-
 
 ## ✨ Fonctionnalités
 
@@ -403,27 +411,23 @@ Déposez des notes, il extrait les personnes, concepts et théories, puis génè
 **Configuration minimale ?**
 Obsidian v1.6.6+, bureau (Windows/macOS/Linux), une clé API d'un provider LLM. Ollama fonctionne en local sans clé API.
 
-**Pourquoi les fonctions ne sont-elles pas disponibles après installation ? (v1.11.0)**
+**Pourquoi les fonctions ne sont-elles pas disponibles après installation ?**
 Paramètres → Karpathy LLM Wiki → choisir un fournisseur → entrer la clé API → Fetch Models → sélectionner un modèle → Test Connection. L'indicateur vert "LLM Ready" déverrouille toutes les fonctions.
 
-**Comment annuler une ingestion/Lint en cours ? (v1.11.0)**
-Cliquer sur la barre de statut ou Ctrl+P → "Cancel current ingestion". Arrêt propre à la fin du lot en cours.
+**Comment annuler une ingestion ou un Lint en cours ?**
+Cliquer sur le texte de la barre de statut pendant une opération (il affiche « Ingestion en cours... cliquer pour annuler »), ou utiliser `Ctrl+P` → « Annuler l'ingestion en cours ». L'opération s'arrête proprement à la limite du prochain lot, en préservant tout le travail déjà accompli.
 
-**Crochets doubles [[[[...]]]] dans log.md — comment corriger ?**
-Lancer Lint Wiki — détecte et corrige automatiquement tous les liens doublement imbriqués (v1.11.0+).
+**Comment ingérer rapidement le fichier en cours d'édition ?**
+Cliquez sur l'icône `sticker` dans la barre latérale gauche, ou utilisez `Ctrl+P` → « Ingérer le fichier actuel ». Cela évite le sélecteur de fichier et ingère directement l'onglet actif de l'éditeur.
 
+**Je vois des crochets doubles `[[[[entities/Foo|Foo]]]]` dans log.md — comment corriger ?**
+Lancez **Vérifier le wiki** — le scanner détecte et corrige automatiquement tous les wiki-links doublement imbriqués dans l'ensemble de votre répertoire wiki (y compris log.md), sans aucun coût LLM. Aucun nettoyage manuel n'est nécessaire.
 
-I.
+**Pourquoi j'obtiens des erreurs « Overloaded » ?**
+Le plugin reconnaît désormais l'erreur 529 « Overloaded » d'Anthropic comme retryable. Les erreurs de surcharge sont automatiquement réessayées avec un backoff exponentiel sur tous les providers.
 
-**Pourquoi les fonctions ne sont-elles pas disponibles après installation ? (v1.11.0)**
-Paramètres → Karpathy LLM Wiki → choisir un fournisseur → entrer la clé API → Fetch Models → sélectionner un modèle → Test Connection. L'indicateur vert "LLM Ready" déverrouille toutes les fonctions.
-
-**Comment annuler une ingestion/Lint en cours ? (v1.11.0)**
-Cliquer sur la barre de statut ou Ctrl+P → "Cancel current ingestion". Arrêt propre à la fin du lot en cours.
-
-**Crochets doubles [[[[...]]]] dans log.md — comment corriger ?**
-Lancer Lint Wiki — détecte et corrige automatiquement tous les liens doublement imbriqués (v1.11.0+).
-
+**Pourquoi un stub en double a-t-il été créé alors que la page existe déjà dans entities/ ou concepts/ ?**
+Le plugin utilise désormais l'appariement par slug — différents formatages du même nom se résolvent vers la page existante au lieu de créer un stub en double.
 
 **Quel modèle choisir ?**
 Voir [Recommandations de modèles](#-recommandations-de-modèles) ci-dessus. Les modèles à long contexte sont recommandés — plus votre Wiki est grand, plus le LLM a besoin de contexte.
@@ -497,6 +501,7 @@ Ce plugin est répertorié sur le marché des plugins communautaires Obsidian et
 **L'accès au presse-papiers** est utilisé exclusivement par le bouton « Copier » dans la fenêtre modale de requête, et uniquement lorsque vous cliquez dessus.
 
 Si vous préférez une localité complète des données, utilisez un fournisseur LLM local tel qu'Ollama ou LM Studio. Avec un fournisseur local, vos données ne quittent jamais votre machine.
+
 ## 📜 Licence
 
 MIT License — voir [LICENSE](LICENSE).
