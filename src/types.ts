@@ -404,7 +404,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   autoWatchDebounceMs: 5000,
   watchedFolders: [],
   periodicLint: 'off',
-  startupCheck: false,
+  startupCheck: true,  // Issue #81: default ON for low-level format fixes
 
   // Ingestion acceleration (default: 3 parallel for most providers)
   pageGenerationConcurrency: 3,

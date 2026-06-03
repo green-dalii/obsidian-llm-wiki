@@ -27,6 +27,7 @@ export const EN_TEXTS = {
 
     // Status
     statusTitle: 'LLM Client Status',
+    llmWikiStatusSection: 'LLM-Wiki Status',
     statusInitialized: 'Initialized',
     statusNotInitialized: 'Not initialized',
     statusReady: 'LLM Ready',
@@ -34,7 +35,7 @@ export const EN_TEXTS = {
     currentProvider: 'Current Provider',
 
     // Provider Configuration
-    providerSection: 'LLM Provider Configuration',
+    providerSection: 'LLM Configuration',
     providerName: 'LLM Provider',
     providerDesc: 'Select predefined provider or custom OpenAI-compatible service. For Coding Plan or similar bundles, choose Custom OpenAI/Anthropic and enter the provider\'s Base URL and API Key manually',
 
@@ -96,7 +97,7 @@ export const EN_TEXTS = {
     wikiInitStatusNotReady: 'Wiki not initialized — will auto-create on first ingestion',
 
     // Wiki Folder
-    wikiSection: 'Wiki Folder Configuration',
+    wikiSection: 'Wiki Configuration',
     wikiFolderName: 'Wiki Folder',
     wikiFolderDesc: 'Location for generated Wiki pages',
     wikiFolderPlaceholder: 'wiki',
@@ -245,8 +246,8 @@ export const EN_TEXTS = {
 
     // Ingestion Acceleration
     accelerationSectionTitle: 'Ingestion Acceleration',
-    pageGenerationConcurrencyName: 'Page Generation Concurrency',
-    pageGenerationConcurrencyDesc: 'Number of pages to generate in parallel during single-source ingestion. Higher values speed up ingestion but increase API costs and may trigger rate limits.',
+    pageGenerationConcurrencyName: 'LLM Concurrency',
+    pageGenerationConcurrencyDesc: 'Number of LLM calls in parallel during ingestion and lint operations. Higher values speed up processing but increase API costs and may trigger rate limits.',
     concurrencyValueSingular: 'Current concurrency: {} (serial — safest)',
     concurrencyValuePlural: 'Current concurrency: {} (parallel)',
     batchDelayName: 'Batch Delay (ms)',
@@ -276,8 +277,8 @@ export const EN_TEXTS = {
     periodicLintHourly: 'Hourly',
     periodicLintDaily: 'Daily',
     periodicLintWeekly: 'Weekly',
-    startupCheckName: 'Startup Health Check',
-    startupCheckDesc: 'Scan wiki health when plugin loads',
+    startupCheckName: 'Run quick fixes on startup',
+    startupCheckDesc: 'Auto-fix low-level format issues (sources, double-nested links) on plugin load. Verifies Wiki folder structure. Default ON.',
     suggestSchemaCommand: 'Suggest Schema Updates',
     autoMaintainCostWarning: '⚠️ Cost Notice: Auto-maintenance features consume API tokens. "Auto Ingest" triggers LLM calls on every source file change. "Periodic Lint" runs LLM health checks on schedule (only when source changes are detected). Configure carefully to avoid unexpected charges.',
 
@@ -285,6 +286,16 @@ export const EN_TEXTS = {
     startupCheckSummary: 'Wiki has {pages} pages ({entities} entities, {concepts} concepts, {sources} sources)',
     watcherActiveNotice: 'Wiki: file watcher active — monitoring watched folders',
     watchIngestNotice: 'Wiki: {count} file(s) changed in sources/. Run "Ingest Sources" to process.',
+
+    // Startup quick fixes detail (Issue #81)
+    startupCheckTitle: '✅ Wiki quick fixes complete',
+    startupCheckStructureLabel: '📁 Wiki structure',
+    startupCheckStructureOk: '✓ complete',
+    startupCheckStructureMissing: '⚠️ incomplete — will auto-create on first ingestion',
+    startupCheckSourcesLabel: '🔧 Sources normalized',
+    startupCheckSourcesClean: '✓ already clean',
+    startupCheckSourcesCleaned: '⚠️ cleaned {files} file(s), {entries} entry(ies)',
+    startupCheckDisableHint: '💡 To disable, go to Settings → Auto Maintenance → Run quick fixes on startup',
     autoIngestRunning: 'Auto-ingesting {count} changed file(s)...',
     autoIngestComplete: 'Auto-ingest complete: {success} succeeded, {fail} failed',
     scheduledLintRunning: 'Running scheduled wiki lint...',
@@ -351,6 +362,8 @@ export const EN_TEXTS = {
     lintDuplicateSection: 'Duplicate pages (detected)',
     lintPollutedSection: 'Polluted pages (detected)',
     lintPollutedItem: '- [[{page}]] → should be "{clean}"',
+    lintSourcesNormalizedSection: 'Sources normalized (auto-fixed)',
+    lintSourcesNormalizedItem: 'Cleaned {entries} polluted sources entries across {files} file(s) (external paths, .md extensions, alias pipes removed and deduplicated).',
     lintNoIssuesFound: 'No duplicates, dead links, empty pages, or orphan pages detected.',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (page does not exist){dupFlag}',
     lintDeadLinkMore: '- ... {count} more dead links',

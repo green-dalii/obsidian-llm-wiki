@@ -138,6 +138,23 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     }
 
     // ==========================================
+    // 2.5 LLM-Wiki Status indicators (inline, before LLM Configuration)
+    // ==========================================
+    const readyStatus = this.tempSettings.llmReady
+      ? '✅ ' + (this.getText('statusReady') || 'Ready')
+      : '⚠️ ' + (this.getText('statusNotReady') || 'Not configured — please complete setup below');
+    const clientStatus = this.plugin.llmClient ? this.getText('statusInitialized') : this.getText('statusNotInitialized');
+    const wikiInitCheck = this.isWikiInitialized();
+    const wikiInitStatus = wikiInitCheck
+      ? '✅ ' + (this.getText('wikiInitStatusReady') || 'Wiki initialized')
+      : '⚠️ ' + (this.getText('wikiInitStatusNotReady') || 'Wiki not initialized — will auto-create on first ingestion');
+
+    // Use a Setting row with description for native Obsidian styling (matches other settings)
+    new Setting(containerEl)
+      .setName(this.getText('llmWikiStatusSection'))
+      .setDesc(`${readyStatus} | ${clientStatus}  •  ${wikiInitStatus}`);
+
+    // ==========================================
     // 3. LLM Provider (highest priority — must configure first)
     // ==========================================
     new Setting(containerEl).setName(this.getText('providerSection')).setHeading();
@@ -151,8 +168,11 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       .setDesc(this.getText('providerDesc'))
       .addDropdown(dropdown => {
         Object.values(PREDEFINED_PROVIDERS).forEach(config => {
-          const displayName = this.tempSettings.language === 'en'
-            ? config.nameEn : config.nameZh;
+          // Provider name i18n: use nameZh for Chinese, nameEn for all other languages.
+          // English provider names (Anthropic, OpenAI, DeepSeek, etc.) are international
+          // technical conventions — no per-language translation needed.
+          const lang = this.tempSettings.language;
+          const displayName = lang === 'zh' ? config.nameZh : config.nameEn;
           dropdown.addOption(config.id, displayName);
         });
         dropdown.setValue(this.tempSettings.provider);
@@ -197,6 +217,46 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           .setValue(this.tempSettings.baseUrl)
           .onChange((value) => { this.tempSettings.baseUrl = value; this.tempSettings.llmReady = false; }));
     }
+
+    // LLM execution controls (concurrency + batch delay) — Issue #81 layout refactor
+    // Page Generation Concurrency
+    const concurrencyValue = this.tempSettings.pageGenerationConcurrency ?? 3;
+    const concurrencyDesc = concurrencyValue === 1
+      ? this.getText('concurrencyValueSingular').replace('{}', String(concurrencyValue))
+      : this.getText('concurrencyValuePlural').replace('{}', String(concurrencyValue));
+
+    let concurrencySetting: Setting;
+    new Setting(containerEl)
+      .setName(this.getText('pageGenerationConcurrencyName'))
+      .setDesc(this.getText('pageGenerationConcurrencyDesc') + ' ' + concurrencyDesc)
+      .addSlider(slider => slider
+        .setLimits(1, 5, 1)
+        .setValue(concurrencyValue)
+        .setDynamicTooltip()
+        .onChange((value) => {
+          this.tempSettings.pageGenerationConcurrency = value;
+          const desc = value === 1
+            ? this.getText('concurrencyValueSingular').replace('{}', String(value))
+            : this.getText('concurrencyValuePlural').replace('{}', String(value));
+          concurrencySetting.setDesc(this.getText('pageGenerationConcurrencyDesc') + ' ' + desc);
+        }))
+      .then(s => { concurrencySetting = s; });
+
+    // Batch Delay
+    const batchDelayValue = this.tempSettings.batchDelayMs ?? 300;
+    let batchDelaySetting: Setting;
+    new Setting(containerEl)
+      .setName(this.getText('batchDelayName'))
+      .setDesc(this.getText('batchDelayDesc').replace('{}', String(batchDelayValue)))
+      .addSlider(slider => slider
+        .setLimits(100, 2000, 50)
+        .setValue(batchDelayValue)
+        .setDynamicTooltip()
+        .onChange((value) => {
+          this.tempSettings.batchDelayMs = value;
+          batchDelaySetting.setDesc(this.getText('batchDelayDesc').replace('{}', String(value)));
+        }))
+      .then(s => { batchDelaySetting = s; });
 
     // Model section
     new Setting(containerEl).setName(this.getText('modelSection')).setHeading();
@@ -339,31 +399,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           new Notice(result.message, result.success ? NOTICE_NORMAL : NOTICE_ERROR);
         }));
 
-    // Status — connection readiness
-    const readyStatus = this.tempSettings.llmReady
-      ? '✅ ' + (this.getText('statusReady') || 'Ready')
-      : '⚠️ ' + (this.getText('statusNotReady') || 'Not configured — please complete setup above');
-    containerEl.createEl('p', {
-      text: readyStatus,
-      cls: `llm-wiki-connection-status ${this.tempSettings.llmReady ? 'llm-wiki-status-ready' : 'llm-wiki-status-notready'}`
-    });
-    const clientStatus = this.plugin.llmClient ? this.getText('statusInitialized') : this.getText('statusNotInitialized');
-    const currentProvider = providerConfig
-      ? (this.tempSettings.language === 'en' ? providerConfig.nameEn : providerConfig.nameZh) : 'Custom';
-    containerEl.createEl('p', {
-      text: `${this.getText('statusTitle')}: ${clientStatus} | ${this.getText('currentProvider')}: ${currentProvider}`,
-      cls: 'llm-wiki-plugin-info'
-    });
-
-    // Wiki initialization status
-    const wikiInitCheck = this.isWikiInitialized();
-    const wikiInitStatus = wikiInitCheck
-      ? '✅ ' + (this.getText('wikiInitStatusReady') || 'Wiki initialized')
-      : '⚠️ ' + (this.getText('wikiInitStatusNotReady') || 'Wiki not initialized — will auto-create on first ingestion');
-    containerEl.createEl('p', {
-      text: wikiInitStatus,
-      cls: `llm-wiki-connection-status ${wikiInitCheck ? 'llm-wiki-status-ready' : 'llm-wiki-status-notready'}`
-    });
+    // (Status indicators moved to LLM-Wiki Status section above LLM Configuration)
 
     // ==========================================
     // 4. Wiki Configuration
@@ -468,45 +504,6 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     customConceptSetting.settingEl.style.display =
       this.tempSettings.extractionGranularity === 'custom' ? 'flex' : 'none';
 
-    // Page Generation Concurrency
-    const concurrencyValue = this.tempSettings.pageGenerationConcurrency ?? 3;
-    const concurrencyDesc = concurrencyValue === 1
-      ? this.getText('concurrencyValueSingular').replace('{}', String(concurrencyValue))
-      : this.getText('concurrencyValuePlural').replace('{}', String(concurrencyValue));
-
-    let concurrencySetting: Setting;
-    new Setting(containerEl)
-      .setName(this.getText('pageGenerationConcurrencyName'))
-      .setDesc(this.getText('pageGenerationConcurrencyDesc') + ' ' + concurrencyDesc)
-      .addSlider(slider => slider
-        .setLimits(1, 5, 1)
-        .setValue(concurrencyValue)
-        .setDynamicTooltip()
-        .onChange((value) => {
-          this.tempSettings.pageGenerationConcurrency = value;
-          const desc = value === 1
-            ? this.getText('concurrencyValueSingular').replace('{}', String(value))
-            : this.getText('concurrencyValuePlural').replace('{}', String(value));
-          concurrencySetting.setDesc(this.getText('pageGenerationConcurrencyDesc') + ' ' + desc);
-        }))
-      .then(s => { concurrencySetting = s; });
-
-    // Batch Delay
-    const batchDelayValue = this.tempSettings.batchDelayMs ?? 300;
-    let batchDelaySetting: Setting;
-    new Setting(containerEl)
-      .setName(this.getText('batchDelayName'))
-      .setDesc(this.getText('batchDelayDesc').replace('{}', String(batchDelayValue)))
-      .addSlider(slider => slider
-        .setLimits(100, 2000, 50)
-        .setValue(batchDelayValue)
-        .setDynamicTooltip()
-        .onChange((value) => {
-          this.tempSettings.batchDelayMs = value;
-          batchDelaySetting.setDesc(this.getText('batchDelayDesc').replace('{}', String(value)));
-        }))
-      .then(s => { batchDelaySetting = s; });
-
     // Max Conversation History
     new Setting(containerEl)
       .setName(this.getText('maxConversationHistoryName'))
@@ -567,6 +564,14 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     // 5. Auto Maintenance
     // ==========================================
     new Setting(containerEl).setName(this.getText('autoMaintainSection')).setHeading();
+
+    // 5.0 Startup quick fixes (Issue #81) — first item in this section
+    new Setting(containerEl)
+      .setName(this.getText('startupCheckName'))
+      .setDesc(this.getText('startupCheckDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.startupCheck)
+        .onChange((value) => { this.tempSettings.startupCheck = value; }));
 
     const betaDiv = containerEl.createDiv({
       cls: 'llm-wiki-blue-infobox'
@@ -680,12 +685,5 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         dropdown.setValue(this.tempSettings.periodicLint);
         dropdown.onChange((value: 'off' | 'hourly' | 'daily' | 'weekly') => { this.tempSettings.periodicLint = value; });
       });
-
-    new Setting(containerEl)
-      .setName(this.getText('startupCheckName'))
-      .setDesc(this.getText('startupCheckDesc'))
-      .addToggle(toggle => toggle
-        .setValue(this.tempSettings.startupCheck)
-        .onChange((value) => { this.tempSettings.startupCheck = value; }));
   }
 }
