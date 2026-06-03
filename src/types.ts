@@ -236,7 +236,7 @@ export interface EngineContext {
   deleteFile: (path: string) => Promise<void>;
   buildSystemPrompt: (task: string) => Promise<string | undefined>;
   getSectionLabels: () => Record<string, string>;
-  getExistingWikiPages: () => Promise<Array<{path: string; title: string; wikiLink: string; aliases?: string[]}>>;
+  getExistingWikiPages: () => Promise<Array<{path: string; title: string; wikiLink: string; aliases?: string[]; isStub?: boolean}>>;
   getSchemaContext: (task: string) => Promise<string | undefined>;
   onFileWrite?: (path: string) => void;
   onProgress?: (message: string) => void;

@@ -37,8 +37,10 @@ const STUB_MARKER = 'Auto-generated stub page';
 
 export async function getExistingWikiPages(
   app: App,
-  wikiFolder: string
-): Promise<Array<{ path: string; title: string; wikiLink: string; aliases?: string[] }>> {
+  wikiFolder: string,
+  pagesFolder?: string
+): Promise<Array<{ path: string; title: string; wikiLink: string; aliases?: string[]; isStub?: boolean }>> {
+  const pagesFolderNorm = pagesFolder ? normalizePath(pagesFolder) : null;
   const wikiFiles = app.vault
     .getMarkdownFiles()
     .filter(
@@ -50,7 +52,7 @@ export async function getExistingWikiPages(
         !f.path.includes('/contradictions/')
     );
 
-  const pages: Array<{ path: string; title: string; wikiLink: string; aliases?: string[] }> = [];
+  const pages: Array<{ path: string; title: string; wikiLink: string; aliases?: string[]; isStub?: boolean }> = [];
   for (const f of wikiFiles) {
     const relPath = f.path.replace(wikiFolder + '/', '').replace('.md', '');
     const content = await app.vault.read(f);
@@ -61,6 +63,7 @@ export async function getExistingWikiPages(
       wikiLink: `[[${relPath}|${f.basename}]]`,
       // parseFrontmatter normalizes aliases to array, but guard anyway
       aliases: Array.isArray(fm?.aliases) ? fm.aliases : undefined,
+      isStub: fm?.auto_stub === true,
     });
   }
   return pages;

@@ -221,7 +221,8 @@ export class PageFactory {
     }
     const list = pages.map(p => {
       const aliasSuffix = p.aliases?.length ? ` \`aliases: ${p.aliases.join(', ')}\`` : '';
-      return `- ${p.wikiLink}${aliasSuffix}`;
+      const stubLabel = p.isStub ? ' [stub]' : '';
+      return `- ${p.wikiLink}${stubLabel}${aliasSuffix}`;
     }).join('\n');
     let result = list;
     if (includePaths.length > 0) {
