@@ -141,6 +141,7 @@ describe('insertWikiLinks', () => {
     });
   });
 
+
   describe('markdown link protection', () => {
     const ENTITY_QMD: WikiPage = { title: 'qmd', wikiLink: '[[entities/qmd|qmd]]' };
 
