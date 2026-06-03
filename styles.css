@@ -330,6 +330,14 @@
   color: var(--color-orange);
 }
 
+.llm-wiki-status-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 .llm-wiki-plugin-info {
   margin: 16px 0 8px;
   font-size: 13px;
