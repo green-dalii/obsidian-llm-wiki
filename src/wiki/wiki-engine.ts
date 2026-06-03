@@ -705,7 +705,7 @@ export class WikiEngine {
       .replace('{{content}}', content.substring(0, 500))
       .replace('{{analysis}}', JSON.stringify(analysis))
       .replace('{{created_pages_list}}', createdPagesList || '(none)')
-      .replace(/{{source_file}}/g, file.path)
+      .replace(/{{source_file}}/g, file.path.replace(/\.md$/i, ''))
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
       .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '))
       .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
@@ -1048,7 +1048,7 @@ export class WikiEngine {
     const labels = TEXTS.en.logLabels[langKey];
 
     let entry = `\n\n## [${date}] ${operation} | ${analysis.source_title}\n\n`;
-    entry += `**${labels.createdPages}**：${analysis.created_pages.map(p => `[[${p.replace(this.settings.wikiFolder + '/', '')}]]`).join(', ')}\n\n`;
+    entry += `**${labels.createdPages}**：${analysis.created_pages.map(p => `[[${p.replace(this.settings.wikiFolder + '/', '').replace(/\.md$/i, '')}]]`).join(', ')}\n\n`;
     entry += `**${labels.updatedPages}**：${analysis.updated_pages.map(p => `[[${p}]]`).join(', ')}\n\n`;
 
     if (analysis.contradictions.length > 0) {

@@ -324,4 +324,44 @@ describe('PageFactory — Core Paths', () => {
       expect(content).toContain('Original content');
     });
   });
+
+  describe('createNewPage — prompt template completeness', () => {
+    it('sends prompt with no unfilled {{date}} or .md source_file placeholders', async () => {
+      let capturedPrompt = '';
+      const { ctx } = createMockContext({
+        vaultFiles: {},
+        llmResponses: ['---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n# Entity\nContent'],
+      });
+      const originalGetClient = ctx.getClient;
+      ctx.getClient = () => {
+        const client = originalGetClient();
+        if (!client) return client;
+        return {
+          createMessage: async (params: {
+            model: string;
+            max_tokens: number;
+            system?: string;
+            messages: Array<{role: 'user' | 'assistant'; content: string}>;
+            response_format?: { type: 'json_object' };
+            cacheBreakpoint?: number;
+          }) => {
+            capturedPrompt = params.messages[0]?.content ?? '';
+            return client.createMessage(params);
+          },
+        };
+      };
+
+      const factory = new PageFactory(ctx);
+      await factory.createOrUpdateEntityPage(
+        createMockEntity({ name: 'Capture Test' }),
+        createMockAnalysis(),
+        createMockFile('Clippings/llm-wiki.md'),
+        []
+      );
+
+      expect(capturedPrompt).not.toContain('{{date}}');
+      expect(capturedPrompt).not.toContain('llm-wiki.md');
+      expect(capturedPrompt).toContain('Clippings/llm-wiki');
+    });
+  });
 });
