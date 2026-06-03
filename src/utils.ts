@@ -530,7 +530,7 @@ export function mergeFrontmatter(
   for (const s of existingSources) {
     sourceSet.add(normalizeSourcePath(String(s)));
   }
-  sourceSet.add(newSourcePath);
+  sourceSet.add(newSourcePath.replace(/\.md$/i, ''));
   const mergedSources = Array.from(sourceSet).map(s => `[[${s}]]`);
 
   // Preserve created, update updated

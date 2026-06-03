@@ -546,8 +546,15 @@ describe('mergeFrontmatter', () => {
     const input = '---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\nBody';
     const result = mergeFrontmatter(input, 'sources/test.md');
     expect(result.frontmatter).toContain('type: entity');
-    expect(result.frontmatter).toContain('[[sources/test.md]]');
+    expect(result.frontmatter).toContain('[[sources/test]]');
     expect(result.wasMerged).toBe(true);
+  });
+
+  it('strips .md extension from new source path to avoid ghost nodes', () => {
+    const input = '---\ntype: concept\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\nBody';
+    const result = mergeFrontmatter(input, 'Clippings/llm-wiki.md');
+    expect(result.frontmatter).toContain('[[Clippings/llm-wiki]]');
+    expect(result.frontmatter).not.toContain('[[Clippings/llm-wiki.md]]');
   });
 
   it('preserves created date', () => {
