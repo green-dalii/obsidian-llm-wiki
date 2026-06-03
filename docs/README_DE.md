@@ -24,7 +24,7 @@
   - [🔑 LLM Provider konfigurieren](#-llm-provider-konfigurieren)
   - [🎮 Nutzung](#-nutzung)
   - [⚠️ Upgrade von einer älteren Version?](#️-upgrade-von-einer-älteren-version)
-- [⚡ Was ist neu in v1.14.0](#-was-ist-neu-in-v1140)
+- [⚡ Was ist neu in v1.15.0](#-was-ist-neu-in-v1150)
 - [✨ Funktionen](#-funktionen)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -188,26 +188,25 @@ Settings → **Ingestion Acceleration**:
 ---
 ---
 
-## ⚡ Was ist neu in v1.14.0
+## ⚡ Was ist neu in v1.15.0
 
-Diese Version konzentriert sich auf **Architekturqualität und Test-Infrastruktur**. Umfassende Verbesserungen in Code-Qualität, Typ-Sicherheit und Test-Abdeckung.
+Dieses Release konzentriert sich auf **Wiki-Initialisierung UX und Architektur-Optimierung** – fokussiert auf reibungsloses erstmaliges Einrichten und kontinuierliche Testinfrastruktur-Erweiterung.
 
-**Wichtigste Verbesserungen:**
+**Hauptverbesserungen:**
 
-- **Modell-Kompatibilität erweitert (Issues #64/#65).** DeepSeek-R1, QwQ (Reasoning-Modelle) und LM Studio vollständig unterstützt. Think-Token-Stripping entfernt Reasoning-Blöcke. LM Studio-Kompatibilität entfernt nicht unterstütztes `response_format: json_object`.
-- **Test-Infrastruktur erweitert.** Mock-Infrastruktur (`createMockContext`, `createMockFile`) ermöglicht Unit-Tests der Core-Engine ohne Obsidian-Runtime. Testzahl von ~200 auf 400 verdoppelt (+200 Tests).
-- **TypeScript Typ-Sicherheit vollständig erreicht.** 8 Typ-Fehler in `page-factory-core.test.ts` korrigiert. Dual-Gate-Verifikation erfordert ESLint und TypeScript beide 0 Fehler + 0 Warnungen.
-- **Core-Architektur-Refactoring.** 4 Pure-Function-Module nach `src/core/` extrahiert: conflict-resolver (136 Zeilen), dead-link-detector (95 Zeilen), orphan-matcher (82 Zeilen), prompt-builders (104 Zeilen).
-- **Konstanten-Zentralisierung.** 30+ verteilte Magic Numbers in `src/constants.ts` (192 Zeilen) konsolidiert. Semantische Konstanten aktiviert: WIKI_SUBFOLDERS, Notice-Durations, Token-Budgets.
-- **Query-Engine-Stabilität.** Seiteninhalt-Loading in `loadRelevantPages` auf 3000 Token begrenzt, Overflow verhindert.
-- **Dokumentation verbessert.** TDD Standard, Development Protocol, ROADMAP Architekturqualität-Plan, Dual-Gate-Verifikation-Dokumentation.
-- **Code-Qualität.** 44 Dateien, 2576 Zeilen hinzugefügt, 503 Zeilen entfernt. Null Side-Effects, null Breaking-Changes.
+- **Wiki-Auto-Initialisierung (Issue #80).** Nach erfolgreichem ersten LLM-Verbindungstest erstellt das Plugin automatisch die Wiki-Ordnerstruktur (entities, concepts, sources, schema). Der Statusindikator (✅/⚠️) im Einstellungs-Panel zeigt die Wiki-Gesundheit in Echtzeit. Das Problem, dass die Schaltfläche "Standard-Schema neu generieren" in einem neuen Vault nicht reagiert, ist behoben.
 
-**400 Tests** (17 Test-Dateien, +200 seit v1.13.0).
+- **SSE-Parser-Extraktion.** Die Streaming-Antwort-Parselogik (Anthropic + OpenAI Formate) wurde als gemeinsame reine Funktion in `src/core/sse-parser.ts` extrahiert. 11 Tests decken beide Formate, CRLF-Normalisierung, fehlertolerantes JSON und den `[DONE]]-Terminator ab.
 
-**Von einer älteren Version upgraden?** Führen Sie nach dem Upgrade einmal **Lint Wiki** aus, um historische Cross-Type-Duplikate automatisch zu beheben. Ihre bestehende Konfiguration bleibt erhalten.
+- **Truncation-Retry-Extraktion.** Die Token-Truncation-Retry-Richtlinie (Erkennung von `stop_reason=max_tokens` oder `finish_reason=length`, Verdopplung von max_tokens, einmaliger Retry) wurde in `src/core/truncation-retry.ts` vereinheitlicht. Eliminierung von 3 doppelten Code-Blöcken über LLM-Clients. 7 Tests decken Cap-Verhalten, Fehlerpropagation und Warnungsprotokollierung ab.
 
-**Wir empfehlen dringend allen Nutzern das Upgrade auf diese Version.**
+- **Testinfrastruktur-Wachstum.** +37 Tests (insgesamt 446 in 21 Dateien). AnthropicClient-Truncation-Retry-Tests (9 Tests, einschließlich Prefill-Klammer-Wiederherstellung, MAX_TOKENS_BATCH-Cap, cacheBreakpoint-Durchleitung). Wiki-Initialisierungstests (10 Tests, reine Mocks, kein Obsidian-Runtime erforderlich).
+
+- **Entwicklungsqualitäts-Schleife.** TDD + Planungsschleife wurde formal in CLAUDE.md mit einem realen Verstoßsbeispiel (2026-06-02) dokumentiert. Alle neuen Code-Änderungen folgen der 9-Schritte-Schleife.
+
+**Upgrade von einer älteren Version?** Einfach installieren und verwenden — null Breaking Changes. Bestehende Wiki-Seiten, Einstellungen und Workflows bleiben erhalten. Keine Neukonfiguration erforderlich.
+
+**Wir empfehlen allen Benutzern dringend ein Upgrade auf diese Version.**
 
 ---
 

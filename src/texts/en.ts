@@ -91,6 +91,10 @@ export const EN_TEXTS = {
     testConnectionProvider: 'Provider: ',
     errorUnknown: 'Unknown error',
 
+    // Wiki Init Status
+    wikiInitStatusReady: 'Wiki initialized',
+    wikiInitStatusNotReady: 'Wiki not initialized — will auto-create on first ingestion',
+
     // Wiki Folder
     wikiSection: 'Wiki Folder Configuration',
     wikiFolderName: 'Wiki Folder',
@@ -158,6 +162,7 @@ export const EN_TEXTS = {
     lintRetrying: 'Retrying ({attempt}/{max}) after error...',
     lintAnalyzingLLM: 'LLM analyzing Wiki health...',
     saveToWikiSuccess: 'Conversation saved to Wiki!',
+    saveSummary: '{entities} entities, {concepts} concepts, {pages} pages',
     aliasAdded: 'Added alias \'{alias}\' to page \'{page}\'',
 
     // Status Messages
@@ -193,6 +198,7 @@ export const EN_TEXTS = {
     viewSchemaButton: 'View / Edit Schema',
     regenerateSchemaButton: 'Regenerate Default Schema',
     schemaRegeneratedNotice: 'Default schema regenerated.',
+    schemaRegenerateFailed: 'Schema generation failed',
 
     // Wiki Output Language
     wikiLanguageName: 'Wiki Output Language',

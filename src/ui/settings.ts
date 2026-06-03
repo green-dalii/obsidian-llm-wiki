@@ -38,6 +38,20 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     return (texts[key] as string) ?? TEXTS.en[key] ?? key;
   }
 
+  /**
+   * Check if wiki folder structure exists (entities, concepts, sources, schema).
+   * Uses IO inspection — no persistent flag.
+   */
+  private isWikiInitialized(): boolean {
+    const wikiFolder = this.tempSettings.wikiFolder || 'wiki';
+    return !!(
+      this.app.vault.getAbstractFileByPath(`${wikiFolder}/entities`) &&
+      this.app.vault.getAbstractFileByPath(`${wikiFolder}/concepts`) &&
+      this.app.vault.getAbstractFileByPath(`${wikiFolder}/sources`) &&
+      this.app.vault.getAbstractFileByPath(`${wikiFolder}/schema`)
+    );
+  }
+
   display() {
     const { containerEl } = this;
     containerEl.empty();
@@ -341,6 +355,16 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       cls: 'llm-wiki-plugin-info'
     });
 
+    // Wiki initialization status
+    const wikiInitCheck = this.isWikiInitialized();
+    const wikiInitStatus = wikiInitCheck
+      ? '✅ ' + (this.getText('wikiInitStatusReady') || 'Wiki initialized')
+      : '⚠️ ' + (this.getText('wikiInitStatusNotReady') || 'Wiki not initialized — will auto-create on first ingestion');
+    containerEl.createEl('p', {
+      text: wikiInitStatus,
+      cls: `llm-wiki-connection-status ${wikiInitCheck ? 'llm-wiki-status-ready' : 'llm-wiki-status-notready'}`
+    });
+
     // ==========================================
     // 4. Wiki Configuration
     // ==========================================
@@ -526,8 +550,17 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       .addButton(button => button
         .setButtonText(this.getText('regenerateSchemaButton'))
         .onClick(async () => {
-          await this.plugin.wikiEngine.regenerateDefaultSchema();
-          new Notice(this.getText('schemaRegeneratedNotice'), NOTICE_SHORT);
+          try {
+            // Ensure wiki structure exists before regenerating schema
+            if (!this.isWikiInitialized()) {
+              await this.plugin.wikiEngine.ensureWikiStructure();
+            }
+            await this.plugin.wikiEngine.regenerateDefaultSchema();
+            new Notice(this.getText('schemaRegeneratedNotice'), NOTICE_SHORT);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            new Notice(`${this.getText('schemaRegenerateFailed') || 'Schema generation failed'}: ${msg}`, NOTICE_ERROR);
+          }
         }));
 
     // ==========================================

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-06-03
+
+### Added
+- **Wiki auto-initialization UX (Issue #80)**: Wiki structure auto-creates on first successful LLM connection — no more "Generate Default Schema" button doing nothing on empty vaults. Settings panel shows real-time wiki init status (✅/⚠️).
+- **`saveSummary` i18n**: Query-to-Wiki save dialog now uses localized summary strings across all 8 languages instead of hardcoded English/Chinese.
+
+### Fixed
+- **Issue #80**: Empty vault → "Generate Default Schema" button silently failed because `schema/` folder didn't exist. Now auto-creates via defensive `createFolder()`.
+- **withRetry nesting**: Removed nested `withRetry` in truncation retry paths — reduced from max 9 calls to max 3 per client. Outer `withRetry` handles all network errors.
+
+### Changed
+- **Core architecture**: Extracted 2 new pure function modules to `src/core/`:
+  - `sse-parser.ts` — shared SSE event parser for streaming responses (Anthropic + OpenAI formats)
+  - `truncation-retry.ts` — shared token truncation retry policy (3 clients → 1 helper)
+- **DRY fix**: Extracted `isWikiInitialized()` from duplicate code in `settings.ts`.
+- **Dead code cleanup**: `promptIncludesConstraints` (zero callers) removed; `foundAliases` Array.isArray check simplified.
+- **Constants**: `PAGES_CACHE_TTL_MS` centralized.
+- **Test infrastructure**: +37 tests (446 total across 21 files), covering SSE parsing, AnthropicClient truncation, wiki initialization.
+
 ## [1.14.0] - 2026-06-01
 
 ### Added

@@ -59,28 +59,76 @@ Production-critical performance release. Extraction fundamentally rearchitected 
 | Hash-bucket dedup (O(n²)→O(n log n)) | No user-reported perf issue; solve when it hurts |
 | Anthropic prompt caching (Issue #38) | System prompts too small for 1024-token cache threshold |
 
-### Next: v1.15.0 — Wiki Engine Full-Path Tests
+### Next: v1.15.0 — Core Engine Tests + Client Refinement
 
-**P0 — Core Engine Tests (continued)**
+**P0 — Quick Fixes (This Week)**
 
-| Item | Status |
-|------|--------|
-| mock infrastructure (`createMockContext`) | ✅ Done (v1.14.0) |
-| source-analyzer core tests | ✅ Done (v1.14.0) |
-| page-factory appendAliases tests | ✅ Done (v1.14.0) |
-| ConflictResolver | ✅ Done (v1.14.0) |
-| wiki-engine ingestSource full path | ⬜ ~1 day |
-| query-engine core flow | ⬜ ~1 day |
+| # | Item | Source | Effort | Status |
+|---|------|--------|--------|--------|
+| 0 | Auto-init wiki structure on LLM Ready + wiki init status indicator | Issue #80 | 1h | ⬜ |
+| 1 | `main.ts` initialization timing comment | Model Audit B #6 | 10min | ⬜ |
 
-**P1 — Planned**
-- page-factory.ts full path: resolvePagePath LLM fallback + mergePage + appendToReviewedPage
-- runLintWiki phase extraction (762→6×~130 lines)
-- firstBatchData type narrowing ✅ (merged via PR #69)
+**P1 — Client Refinement (This Week)**
 
-**P2 — Backlog**
-- #36 — Source title in frontmatter (1h, needs clarification)
-- Good First Issue tagging (10min)
-- WIKI_SUBFOLDERS full migration in lint-fixes.ts frontmatter writes (10min)
+| # | Item | Source | Effort | Status |
+|---|------|--------|--------|--------|
+| 2 | Extract `parseSSEEvents` shared function | Model Audit B #2 | 1.5h | ✅ |
+| 3 | Add `AnthropicClient` truncation retry tests | Audit consensus | 30min | ✅ |
+
+**P2 — Core Engine Tests (Next Week)**
+
+| # | Item | Source | Effort | Status |
+|---|------|--------|--------|--------|
+| 4 | wiki-engine `ingestSource` full-path tests | 7th audit repeat | 2-3d | ⬜ **Deferred to P3** |
+| 5 | query-engine core flow tests (Layer 1/2/3) | Audit consensus | 1-2d | ⬜ **Deferred to P3** |
+| 6 | Extract `withTruncationRetry` helper | Model Audit B #2 | 1h | ✅ |
+
+**P3 — Architecture Refactoring (v1.16.0+)**
+
+| # | Item | Source | Effort | Status |
+|---|------|--------|--------|--------|
+| 7 | Local model context-window-aware token budget | Issues #75/#76 | 2-3d | ⬜ Deferred |
+| 8 | Split QueryModal → QueryEngine class | Model Audit B #4 | 2d | ⬜ Deferred |
+| 9 | Extensible SSE parser (reasoning events, etc.) | Issue #64 ext | 1d | ⬜ Deferred |
+| 10 | `source-analyzer.ts` 局部 `MAX_TOKENS` → `MAX_TOKENS_BATCH` | Second audit | 5min | ⬜ |
+| 11 | `parseJsonResponse` 内部 strip think blocks | Second audit | 15min | ⬜ |
+| 12 | `disable_thinking` interface + per-client implementation | Issue #72 | 2-3h | ⬜ |
+| 13 | Restore true streaming for 3rd-party providers (fetch + ReadableStream or SDK option) | User UX feedback 2026-06-02 | 1-2d | ⬜ Deferred |
+| 14 | wiki-engine `ingestSource` full-path integration tests (deferred from P2 — requires heavy Obsidian App + 5 submodule mocks) | 7th audit repeat | 2-3d | ⬜ Deferred |
+| 15 | query-engine core flow tests (deferred from P2 — requires Modal + MarkdownRenderer + DOM + LLMWikiPlugin mocks) | Audit consensus | 1-2d | ⬜ Deferred |
+
+**Second Audit Deep Findings (2026-06-02):**
+- `source-analyzer.ts:113` shadows `MAX_TOKENS_BATCH` with local `MAX_TOKENS = 16000`
+- `parseJsonResponse` (11 call sites) lacks think-block stripping — `extractBalancedJson` can silently extract wrong JSON from `<think>` reasoning pseudocode
+- `disable_thinking?: boolean` on `LLMClient.createMessage` with provider-specific mapping (LM Studio `model_kwargs` vs Anthropic `thinking.type`) is the cleanest #72 fix
+
+**Completed (v1.15.0 — P1 + selective P2)**
+- ✅ `parseSSEEvents` shared function extraction (#2) — pure function, 11 tests
+- ✅ `AnthropicClient` truncation retry tests (#3) — 9 tests, all paths covered
+- ✅ `withTruncationRetry` helper extraction (#6) — pure function, 7 tests
+- ✅ Issue #80 wiki init UX (auto-init on LLM Ready + status indicator)
+- ✅ `isWikiInitialized` helper extraction (DRY fix in settings.ts) + 10 tests
+- ✅ Streaming architecture investigation (P3 #13 documented for future)
+
+**Deferred from P2 (too complex for current ROI):**
+- ⏸ wiki-engine `ingestSource` full-path tests — requires Obsidian App + 5 submodule mocks
+- ⏸ query-engine core flow tests — requires Modal + MarkdownRenderer + DOM mocks
+
+**Completed (v1.14.0)**
+- ✅ `withRetry` nested retry fix (3×→1× calls)
+- ✅ `promptIncludesConstraints` dead code removal
+- ✅ `foundAliases` dead code fix
+- ✅ `PAGES_CACHE_TTL_MS` constant centralization
+- ✅ `saveSummary` i18n (8 languages)
+- ✅ `source-analyzer.test.ts` magic string cleanup
+- ✅ `firstBatchData` type narrowing (`NormalizedBatch`)
+- ✅ `extractedNames` alias indexing (batch-merger)
+- ✅ `WIKI_SUBFOLDERS` full migration (lint-fixes.ts)
+- ✅ `Decision Tree` vs `resolveEntityDedup` — design intentional (different phases)
+- ✅ `UNIVERSAL_LINK_CONSTRAINTS` + `{{constraints}}` injection (all 4 prompts verified)
+
+**Evaluated & Rejected**
+- `{{constraints}}` missing in prompts — FALSE POSITIVE (all 4 prompts verified to have placeholder)
 
 ### Evaluated & Rejected
 

@@ -1,56 +1,27 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-06-01
+**Last Updated:** 2026-06-02
 
 ---
 
-## Current Phase: v1.14.0 — Architecture Quality & Test Infrastructure
+## Current Phase: v1.15.0 — P1 + Selective P2 (Test Infrastructure)
 
-### Completed (v1.14.0)
-- ✅ **Model compatibility expansion (Issues #64/#65)**: DeepSeek-R1, QwQ (reasoning models), and LM Studio fully supported. Think token stripping removes reasoning blocks. LM Studio compatibility removes unsupported `response_format: json_object`.
-- ✅ **Test infrastructure expansion**: Mock infrastructure (`createMockContext`, `createMockFile`) enables unit testing of core engine modules without Obsidian runtime. Total tests doubled from ~200 to 400 (+200 tests).
-- ✅ **TypeScript type safety complete**: Fixed 8 type errors in `page-factory-core.test.ts`. Project achieves TypeScript strict mode compliance.
-- ✅ **Dual Gate Verification Mechanism**: Upgraded quality gates to require both ESLint and TypeScript passing (0 errors + 0 warnings each). ESLint alone insufficient for type safety.
-- ✅ **Core architecture refactoring**: Extracted 4 pure function modules to `src/core/`: conflict-resolver (136 lines), dead-link-detector (95 lines), orphan-matcher (82 lines), prompt-builders (104 lines).
-- ✅ **Constants centralization**: Centralized 30+ scattered magic numbers into `src/constants.ts` (192 lines). Activated semantic constants: WIKI_SUBFOLDERS, notice durations, token budgets.
-- ✅ **Query engine stability**: Page content loading capped at 3000 tokens in `loadRelevantPages` to prevent overflow.
-- ✅ **Documentation upgrades**: TDD Standard, Development Protocol, ROADMAP architecture quality plan, Dual Gate Verification documentation.
-- ✅ **Code quality**: 2576 lines added, 503 lines removed across 44 files. Zero side effects, zero breaking changes.
-- ✅ **400 tests** across 17 test files (+200 since v1.13.0).
+### Completed (v1.15.0)
+- ✅ **`parseSSEEvents` shared extraction** (Issue #207): Pure function module, 11 tests, used by both `AnthropicCompatibleClient` and `OpenAICompatibleClient`. -36 lines.
+- ✅ **`AnthropicClient` truncation tests** (Issue #208): 9 new tests via `vi.mock('@anthropic-ai/sdk')`. Coverage: truncation detection, no-retry on non-max_tokens, outer withRetry, prefill brace restoration, MAX_TOKENS_BATCH cap, cacheBreakpoint passthrough.
+- ✅ **`withTruncationRetry` shared helper** (Issue #211): Pure function module, 7 tests. Eliminated 3 duplicate truncation-retry blocks across LLM clients. -3 lines.
+- ✅ **Issue #80 wiki init UX**: Auto-init wiki on LLM Ready + status indicator. Defensive `createFolder` in `regenerateDefaultSchema`. 8-language i18n.
+- ✅ **`isWikiInitialized` DRY fix**: Extracted from `settings.ts` (2 duplicate sites → 1 method). 10 new tests cover IO check, auto-init, schema button, defensive createFolder.
+- ✅ **Streaming architecture investigation**: Documented in memory + ROADMAP P3. Root cause: commit `13e5777` replaced OpenAI SDK with `requestUrl` for "CORS" (pseudo-reason — Electron actually bypasses CORS). Only Anthropic official has true streaming.
+- ✅ **453 tests** across 22 test files (+53 since v1.14.0).
 
-### Completed (v1.13.0)
-- ✅ **Cross-type duplicate prevention (#54)**: `resolvePagePath()` checks opposite folder (entities ↔ concepts) when same-type matching fails. Cross-type collisions merge content into existing page instead of silently losing information. Contributed by @dmarchevsky.
-- ✅ **Source analysis false abort fix (#61)**: First batch gate changed from `||` to `&&`. Only aborts when BOTH entities and concepts are absent. Contributed by @Indexed-Apogrypha (Matthew Harper).
-- ✅ **NormalizeBatchResponse pure function**: Centralized ~8 scattered `|| []` fallbacks into `BatchValidity`-typed normalization. Fixes hidden TypeError for non-array truthy LLM output.
-- ✅ **Aliases seeding**: `EntityInfo`/`ConceptInfo.aliases?` — extraction pre-generates alias seeds for page generation and multi-round dedup.
-- ✅ **Multi-round extraction context**: Injects already-extracted names+aliases into later round prompts, eliminating LLM internal-state dependency.
-- ✅ **Prompt task 0 rewritten**: Separated field round restrictions from content requirements.
-- ✅ **Alias self-pointing dedup**: `filterRedundantAliases` skips aliases equal to the page's own filename.
-- ✅ **Three-No Principle structured**: Actionable evaluation procedures (call-site audit, data flow trace, breaking-change matrix).
-- ✅ **CI uses npm for build**: Matches Obsidian verification exactly — Build verification passes.
-- ✅ **Think token stripping (Issue #64)**: `cleanMarkdownResponse` strips `<think>`/`<thinking>` blocks. Enables reasoning model support (DeepSeek-R1, QwQ).
-- ✅ **LM Studio compatibility (Issue #65)**: `response_format: json_object` removed from OpenAI-compatible client. Prompt + prefilled `{` is sufficient.
-- ✅ **Sources link constraint (Issue #63)**: `UNIVERSAL_LINK_CONSTRAINTS` injected into 3 previously-unprotected prompts (`generateSummaryPage`, `appendToReviewedPage`, `updateRelatedPage`).
-- ✅ **ConflictResolver pure layer**: `src/core/conflict-resolver.ts` — zero-side-effect conflict detection, 7 unit tests.
-- ✅ **Mock infrastructure**: `createMockContext` for core engine testing without Obsidian runtime.
-- ✅ **firstBatchData type narrowing**: `Partial<SourceAnalysis>` → `NormalizedBatch`.
-- ✅ **Constants centralization**: 16 token budget constants, 8 notice duration constants, retry params, `MAX_PAGE_CONTENT_CHARS`, `WIKI_SUBFOLDERS` activated.
-- ✅ **loadRelevantPages content truncation**: Capped at `MAX_PAGE_CONTENT_CHARS` (~3000 tokens) per page.
-- ✅ **appendAliases + buildPagesListForPrompt tests**: 8 test cases for page-factory core paths.
-- ✅ **198 tests** across 6 test files (+25 since v1.12.4).
+### Deferred to P3 (high mock complexity — current ROI insufficient)
+- ⏸ wiki-engine `ingestSource` full-path tests (P2 #4 → P3 #14): requires Obsidian App + 5 submodule mocks
+- ⏸ query-engine core flow tests (P2 #5 → P3 #15): requires Modal + MarkdownRenderer + DOM mocks
 
-### Completed (v1.12.0)
-- ✅ **Extraction prompt rearchitected**: Full page list removed from prompt. Extraction speed is now independent of wiki size. ~80% faster for typical files.
-- ✅ **Dynamic batch limits + convergence detection**: Short content finishes in 1–2 batches. Long content gets enough batches. Low-yield batches terminate early.
-- ✅ **Short-content auto-downgrade**: Sources <20K chars cap maxTotalItems proportionally, preventing "hard digging".
-- ✅ **Deterministic related_pages matching**: `matchExtractedToExisting()` uses slug + alias matching — zero LLM cost, more reliable.
-- ✅ **esbuild upgraded**: 0.17.3 → 0.28.0 (dev-server vulnerability fixed).
-- ✅ **Production build suppresses console.debug**: `console.debug = function() {}` banner.
-- ✅ **Granularity ≤ notation**: 8 languages synchronized with consistent numbers.
-- ✅ **Extraction and lint progress improvements**: batch counts and cumulative results displayed.
-- ✅ **What's New section in all READMEs**: Localized in 8 languages with proper TOC anchors.
-- ✅ **Test coverage**: 140 tests across 3 test files (+27 since v1.11.0).
-- ✅ **ROADMAP P2/P3 items addressed**: build:dev script, esbuild upgrade, Good First Issue tagging.
+### Earlier Releases
+
+Complete version history (v1.14.0 → v1.0.0) is maintained in [ROADMAP.md](ROADMAP.md). CLAUDE.md tracks only the current phase and active work items.
 
 ### P0 — In Progress
 
@@ -72,9 +43,7 @@
 |------|--------|
 | Good First Issue tagging | 10min |
 
-### Completed (v1.12.0)
-
-### Evaluated & Rejected (v1.12.0)
+### Evaluated & Rejected
 
 | Proposal | Source | Reason |
 |----------|--------|--------|
@@ -84,37 +53,8 @@
 | page-factory try/catch completion | Audit 2 | Exceptions bubble to wiki-engine's centralized error handler by design |
 | API URL validation | Audit 1 | Obsidian's requestUrl already validates; self-phishing impossible |
 
-### Completed (v1.11.0)
-- ✅ **Issue #42 — llmReady gating**: New users must complete Provider → API Key → Fetch Models → Test Connection before core features unlock.
-- ✅ **Issue #43 — Cancel ingestion mid-run**: `AbortController` with checkpoints at batch boundaries. Status bar item (clickable) + command palette (`Cancel current ingestion`). Folder loop breaks on cancel. Immediate Notice feedback.
-- ✅ **Issue #44 — Ribbon icon + ingest current file**: `addRibbonIcon('sticker')` + command `Ingest current file`. Uses `getActiveFile()` to skip file picker. 8-language i18n.
-- ✅ **Issue #41 — 529 "Overloaded" not retried**: Error messages embed HTTP status codes. All retry regex patterns include `overload` keyword. All 3 client classes covered.
-- ✅ **Issue #37 — Double-nested wiki-links**: Three-layer defense (prompt + post-processing + integrity check). Lint auto-fix for historical damage. `updateRelatedPage` returns `boolean`.
-- ✅ **Issue #40 — Opposite-directory stubs**: Slug-equivalence matching in both LLM and deterministic stub safety nets.
-- ✅ **Issue #34 — Extraction prompt rewrite**: Graph-centric ("wiki-link test"). Bibliographic references excluded. Entity Recognition Guide updated.
-- ✅ **Issue #39 — `mentions_in_source` filtering**: `truncateMentions()` caps at 500 chars. 3 replacement points in page-factory.ts.
-- ✅ **ROADMAP P1 — PageFactory refactoring**: 8 methods → 4 generic (563→424 lines, -25%). Public API unchanged.
-- ✅ **ROADMAP P1 — LLM client retry extraction**: Shared `withRetry<T>` helper (-67 lines in llm-client.ts).
-- ✅ **ROADMAP P1 — `createMessageStream` language cleanup**: Removed unused `language` parameter from interface and 3 implementations.
-- ✅ **ROADMAP P2 — All items completed**: Supplemental tests (+15, 113 total), mentions truncation, slugify log reduction, Chinese comment cleanup.
-- ✅ **ROADMAP P2 — #38 Anthropic prompt caching evaluated & rejected**: System prompts too small for cache threshold. User message caching via `cacheBreakpoint` already handles main savings.
-
-### Completed (v1.10.2)
-- ✅ **Custom granularity per-type limits fix**: Three inconsistencies fixed — `source-analyzer.ts` enforces per-type caps, `getGranularityInstruction()` injects concrete numbers, `getGranularityFixLimits()` reads user settings. +6 unit tests.
-
-### Completed (v1.10.1)
-- ✅ **Issue #32 — Slug normalization in resolvePagePath**: Fast path 2 checks title + aliases via normalized slug comparison. +4 unit tests.
-
-### Completed (v1.10.0)
-- ✅ **Issue #30/#31 — Aliases + Granularity expansion**: Minimal/Custom options, UX improvements, i18n across 8 languages.
-
 ### P3 — Nice-to-have
 - #36 — Source title in frontmatter: needs clarification from issue author
-- #38 — Anthropic prompt caching: evaluated & rejected (system prompts too small for cache threshold; `cacheBreakpoint` already handles main savings)
-
-### Test Coverage
-- **113 unit tests** via vitest across 2 test files
-- CI-ready: `pnpm lint && pnpm test && pnpm build && npx tsc --noEmit`
 
 ---
 
@@ -319,19 +259,38 @@ git push origin X.Y.Z
 
 English, conventional commits. `feat:` `fix:` `docs:` `refactor:` `test:` `chore:`
 
-## 🧪 Test-Driven Development (TDD) Standard
+## 🧪 Development Quality Closure (TDD + Planning)
 
-**Test before code.** For any new function, module, or behavior change:
+**Mandatory development loop for every code change** (new feature, bug fix, refactor). This is a quality closure — skipping any step is a violation.
 
-1. **Write a failing test first** — define the expected behavior as a test case
-2. **Write just enough code** to make the test pass
-3. **Refactor** — clean up, then verify the test still passes
+```
+1. Deep thinking    → What is the problem? Edge cases? Failure modes?
+2. Plan             → Files to change, function signatures, side effects
+3. Write test       → Failing test that defines expected behavior
+4. Confirm RED      → Run test, verify it fails for the right reason
+5. Implement        → Minimum code to make the test pass
+6. Confirm GREEN    → Run test, verify it passes
+7. Refactor         → Clean up; tests must still pass
+8. 4-Gate verify    → lint + tsc + test + build all clean
+9. Three-No review  → No side effects, no breaking changes, no warnings
+```
 
-**Pre-existing code** (core engine files without tests): when modifying a function that has zero tests, add at least one test for the path you're changing before making the code change.
+**When tests are required** (mandatory):
+- New exported function, class, or module
+- New behavior branch (any new if/else path)
+- **Bug fix** — the test reproduces the bug; the fix makes the test pass
+- Refactor that changes observable behavior
 
-**Exceptions**: trivial one-line changes, pure configuration, documentation.
+**When tests are optional**:
+- Pure configuration, type-only changes, documentation
 
-**Why**: Every bug found since v1.0.0 was discovered by users, not by tests. Core engine files (wiki-engine 1017 lines, query-engine 888 lines) remain at zero test coverage. TDD ensures the next change doesn't add to this debt.
+**Pre-existing code**: when modifying a function with zero tests, add at least one test for the changed path first.
+
+**Why this is a closure, not a checklist**: Each step depends on the previous. Skipping "design test" leads to misaligned implementation. Skipping "confirm RED" means you don't know if the test actually catches the bug. Skipping "refactor" accumulates technical debt. Skipping "4-Gate" lets broken code reach PR.
+
+**Real example (2026-06-02)**: When extracting `parseSSEEvents`, the initial implementation was written first (TDD violation). User caught it. Corrected flow: 11 failing tests → confirmed all fail with `parseSSEEvents is not a function` → wrote minimal implementation → tests pass → fixed unused import warning + `isolatedModules` type export → 4-Gate green.
+
+**Reference**: [[feedback-tdd-standard]] for full TDD standard with examples.
 
 ## ✅ Pre-Commit Checklist
 

@@ -155,6 +155,7 @@ export const JA_TEXTS = {
     lintRetrying: 'エラー後再試行中（{attempt}/{max}）...',
     lintAnalyzingLLM: 'LLMがWikiの健全性を分析中...',
     saveToWikiSuccess: '会話をWikiに保存しました！',
+    saveSummary: '{entities} エンティティ, {concepts} コンセプト, {pages} ページ',
     aliasAdded: 'ページ「{page}」に別名「{alias}」を追加しました',
 
     // Status Messages
@@ -190,6 +191,11 @@ export const JA_TEXTS = {
     viewSchemaButton: 'スキーマの閲覧 / 編集',
     regenerateSchemaButton: 'デフォルトスキーマを再生成',
     schemaRegeneratedNotice: 'デフォルトスキーマを再生成しました。',
+    schemaRegenerateFailed: 'スキーマの生成に失敗しました',
+
+    // Wiki 初期化状態
+    wikiInitStatusReady: 'Wiki 初期化済み',
+    wikiInitStatusNotReady: 'Wiki 未初期化 — 初回取り込み時に自動作成されます',
 
     // Wiki Output Language
     wikiLanguageName: 'Wiki 出力言語',

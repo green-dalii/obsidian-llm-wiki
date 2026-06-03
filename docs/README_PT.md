@@ -24,7 +24,7 @@
   - [🔑 Configurar um LLM Provider](#-configurar-um-llm-provider)
   - [🎮 Uso](#-uso)
   - [⚠️ Atualizando de uma Versão Anterior?](#️-atualizando-de-uma-versão-anterior)
-- [⚡ Novidades na v1.14.0](#-novidades-na-v1140)
+- [⚡ Novidades na v1.15.0](#-novidades-na-v1150)
 - [✨ Funcionalidades](#-funcionalidades)
   - [📊 Qualidade do Conhecimento](#-qualidade-do-conhecimento)
   - [🛠️ Manutenção](#️-manutenção)
@@ -183,24 +183,23 @@ Configurações → **Ingestion Acceleration**:
 ---
 ---
 
-## ⚡ Novidades na v1.14.0
+## ⚡ Novidades na v1.15.0
 
-Esta versão foca em **qualidade de arquitetura e infraestrutura de testes**. Melhorias completas em qualidade de código, segurança de tipos e cobertura de testes.
+Esta versão foca na **UX de inicialização do Wiki e otimização de arquitetura** – concentrada em configuração inicial suave e expansão contínua da infraestrutura de testes.
 
 **Melhorias principais:**
 
-- **Expansão de compatibilidade de modelos (Issues #64/#65).** DeepSeek-R1, QwQ (modelos de reasoning) e LM Studio completamente suportados. Stripping de think-tokens remove blocos de reasoning. Compatibilidade LM Studio remove `response_format: json_object` não suportado.
-- **Expansão de infraestrutura de testes.** Infraestrutura Mock (`createMockContext`, `createMockFile`) permite testes unitários do core engine sem runtime Obsidian. Total de testes duplicado de ~200 para 400 (+200 testes).
-- **Segurança de tipos TypeScript completa.** 8 erros de tipo em `page-factory-core.test.ts` corrigidos. Mecanismo dual gate exige ESLint e TypeScript ambos 0 erros + 0 warnings. ESLint sozinho não garante segurança de tipos.
-- **Refactoring de arquitetura core.** 4 módulos de funções puras extraídos para `src/core/`: conflict-resolver (136 linhas), dead-link-detector (95 linhas), orphan-matcher (82 linhas), prompt-builders (104 linhas).
-- **Centralização de constantes.** 30+ magic numbers dispersos consolidados em `src/constants.ts` (192 linhas). Constantes semânticas ativadas: WIKI_SUBFOLDERS, durações notice, budgets token.
-- **Estabilidade do motor Query.** Carregamento de conteúdo de página em `loadRelevantPages` limitado a 3000 tokens, previne overflow.
-- **Melhoria de documentação.** Standard TDD, Protocol de desenvolvimento, Plano qualidade arquitetura ROADMAP, documentação verificação dual gate.
-- **Qualidade de código.** 44 arquivos, 2576 linhas adicionadas, 503 linhas removidas. Zero side-effects, zero breaking-changes.
+- **Auto-inicialização do Wiki (Issue #80).** Após o primeiro teste de conexão LLM bem-sucedido, o plugin cria automaticamente a estrutura de pastas do Wiki (entities, concepts, sources, schema). O indicador de status (✅/⚠️) no painel de Configurações mostra a saúde do Wiki em tempo real. O problema do botão "Regenerar esquema padrão" que não respondia em um vault novo foi resolvido.
 
-**400 testes** (17 arquivos de teste, +200 desde v1.13.0).
+- **Extração do parser SSE.** A lógica de parsing de respostas em streaming (formatos Anthropic + OpenAI) foi extraída como função pura compartilhada em `src/core/sse-parser.ts`. 11 testes cobrindo ambos os formatos, normalização CRLF, tolerância a JSON malformado e o terminador `[DONE]`.
 
-**Atualizando de uma versão anterior?** Execute **Lint Wiki** uma vez após a atualização para corrigir automaticamente duplicados cross-type históricos. Sua configuração existente é preservada.
+- **Extração do retry de truncamento.** A política de retry de truncamento de tokens (detecção de `stop_reason=max_tokens` ou `finish_reason=length`, dobrar max_tokens, um retry) foi unificada em `src/core/truncation-retry.ts`. Eliminação de 3 blocos de código duplicados entre clientes LLM. 7 testes cobrindo comportamento de cap, propagação de erro e registro de avisos.
+
+- **Crescimento da infraestrutura de testes.** +37 testes (446 no total em 21 arquivos). Testes de retry de truncamento do AnthropicClient (9 testes, incluindo restauração de chaves prefill, cap MAX_TOKENS_BATCH, passagem de cacheBreakpoint). Testes de inicialização do Wiki (10 testes, mocks puros, sem runtime do Obsidian necessário).
+
+- **Fechamento de qualidade de desenvolvimento.** O ciclo TDD + planejamento está formalmente documentado no CLAUDE.md com um exemplo real de violação (2026-06-02). Todas as novas alterações de código seguem o ciclo de 9 passos.
+
+**Atualizando de uma versão mais antiga?** Apenas instale e use — zero mudanças de ruptura. Suas páginas Wiki, configurações e fluxos de trabalho existentes são preservados. Nenhuma reconfiguração necessária.
 
 **Recomendamos fortemente que todos os usuários atualizem para esta versão.**
 

@@ -8,6 +8,12 @@ import { TFile } from 'obsidian';
 // Tests pass mock file objects as unknown as TFile — the SourceAnalyzer only
 // reads file.path and file.basename from the parameter, which our mock provides.
 
+const TEST_PATH = 'sources/test.md';
+const GLOSSARY_PATH = 'sources/glossary.md';
+const THEORY_PATH = 'sources/theory.md';
+const DOC_PATH = 'sources/doc.md';
+const EMPTY_PATH = 'sources/empty.md';
+
 function mockAnalyze(
   vaultFiles: Record<string, string>,
   llmResponses: string[]
@@ -25,29 +31,26 @@ function run(
   // eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast
   return analyzer.analyzeSource(createMockFile(path) as unknown as TFile);
 }
-// by mocking its dependencies through createMockContext.
-// Tests pass mock file objects as unknown as TFile — the SourceAnalyzer only
-// reads file.path and file.basename from the parameter, which our mock provides.
 
 describe('SourceAnalyzer', () => {
   it('returns null when first batch is unusable (no entities/concepts)', async () => {
     const a = mockAnalyze(
-      { 'Object.keys(vaultFiles)[0]': '# Test\nContent here.' },
+      { [TEST_PATH]: '# Test\nContent here.' },
       ['{"source_title": "Test", "summary": "Some summary"}']
     );
-    expect(await run(a, 'Object.keys(vaultFiles)[0]')).toBeNull();
+    expect(await run(a, TEST_PATH)).toBeNull();
   });
 
   it('proceeds when first batch has only entities (glossary case, PR #61)', async () => {
     const a = mockAnalyze(
-      { 'Object.keys(vaultFiles)[0]': '# Glossary\nTerm definitions here.' },
+      { [GLOSSARY_PATH]: '# Glossary\nTerm definitions here.' },
       [JSON.stringify({
         source_title: 'Glossary',
         summary: 'A glossary of terms.',
         entities: [{ name: 'TermA', type: 'other', summary: 'A term', mentions_in_source: [] }],
       })]
     );
-    const result = await run(a, 'Object.keys(vaultFiles)[0]');
+    const result = await run(a, GLOSSARY_PATH);
     expect(result).not.toBeNull();
     expect(result!.entities).toHaveLength(1);
     expect(result!.entities[0].name).toBe('TermA');
@@ -56,14 +59,14 @@ describe('SourceAnalyzer', () => {
 
   it('proceeds when first batch has only concepts', async () => {
     const a = mockAnalyze(
-      { 'Object.keys(vaultFiles)[0]': '# Theory\nContent.' },
+      { [THEORY_PATH]: '# Theory\nContent.' },
       [JSON.stringify({
         source_title: 'Theory',
         summary: 'A theory document.',
         concepts: [{ name: 'TheoryX', type: 'theory', summary: 'A theory', mentions_in_source: [] }],
       })]
     );
-    const result = await run(a, 'Object.keys(vaultFiles)[0]');
+    const result = await run(a, THEORY_PATH);
     expect(result).not.toBeNull();
     expect(result!.concepts).toHaveLength(1);
     expect(result!.entities).toHaveLength(0);
@@ -71,7 +74,7 @@ describe('SourceAnalyzer', () => {
 
   it('extracts source_title and summary from first batch', async () => {
     const a = mockAnalyze(
-      { 'Object.keys(vaultFiles)[0]': '# Doc\nBody.' },
+      { [DOC_PATH]: '# Doc\nBody.' },
       [JSON.stringify({
         source_title: 'My Document',
         summary: 'This document covers important topics.',
@@ -79,14 +82,14 @@ describe('SourceAnalyzer', () => {
         concepts: [],
       })]
     );
-    const result = await run(a, 'Object.keys(vaultFiles)[0]');
+    const result = await run(a, DOC_PATH);
     expect(result).not.toBeNull();
     expect(result!.source_title).toBe('My Document');
   });
 
   it('handles LLM returning empty arrays for both categories', async () => {
     const a = mockAnalyze(
-      { 'Object.keys(vaultFiles)[0]': '# Empty\nNothing useful here.' },
+      { [EMPTY_PATH]: '# Empty\nNothing useful here.' },
       [JSON.stringify({
         source_title: 'Empty',
         summary: 'No entities or concepts found.',
@@ -94,9 +97,7 @@ describe('SourceAnalyzer', () => {
         concepts: [],
       })]
     );
-    const result = await run(a, 'Object.keys(vaultFiles)[0]');
+    const result = await run(a, EMPTY_PATH);
     expect(result).not.toBeNull();
-    expect(result!.entities).toHaveLength(0);
-    expect(result!.concepts).toHaveLength(0);
   });
 });

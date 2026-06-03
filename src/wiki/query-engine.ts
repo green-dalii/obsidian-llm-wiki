@@ -75,10 +75,10 @@ class SuggestSaveModal extends Modal {
       const report = await this.plugin.wikiEngine.ingestConversation(this.history);
       this.plugin.settings.lastOfferedQueryHash = JSON.stringify(this.history.messages);
       void this.plugin.saveSettings();
-      const lang = this.plugin.settings.language;
-      const summary = lang === 'en'
-        ? `${report.entitiesCreated} entities, ${report.conceptsCreated} concepts, ${report.createdPages.length} pages`
-        : `${report.entitiesCreated} 实体, ${report.conceptsCreated} 概念, ${report.createdPages.length} 页`;
+      const summary = texts.saveSummary
+        .replace('{entities}', String(report.entitiesCreated))
+        .replace('{concepts}', String(report.conceptsCreated))
+        .replace('{pages}', String(report.createdPages.length));
       new Notice(`${texts.saveToWikiSuccess}\n${summary}`, NOTICE_NORMAL);
     } catch (error) {
       console.error('Save failed:', error);

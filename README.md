@@ -24,7 +24,7 @@
   - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
   - [🎮 Usage](#-usage)
   - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-- [⚡ What's New in v1.14.0](#-whats-new-in-v1140)
+- [⚡ What's New in v1.15.0](#-whats-new-in-v1150)
 - [✨ Features](#-features)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -183,25 +183,23 @@ Settings → **Ingestion Acceleration**:
 
 ---
 
-## ⚡ What's New in v1.14.0
+## ⚡ What's New in v1.15.0
 
-This is an **architecture quality & test infrastructure release** addressing critical testing gaps identified by third-party model reviews.
+This is a **wiki initialization UX & architecture refinement** release focused on smoother first-time setup and continued test infrastructure growth.
 
 **Key Improvements:**
 
-- **Model compatibility expansion.** DeepSeek-R1, QwQ (reasoning models), and LM Studio now fully supported. Think token stripping removes reasoning blocks, LM Studio compatibility restored — users can now use these popular models without compatibility errors.
+- **Wiki auto-initialization (Issue #80).** On your first successful LLM connection test, the plugin now silently creates the wiki folder structure (entities, concepts, sources, schema) if it doesn't exist. No more wondering why the "Generate Default Schema" button does nothing on a brand-new vault — the status indicator (✅/⚠️) on the Settings panel shows real-time wiki health.
 
-- **Test infrastructure expansion.** Mock infrastructure (`createMockContext`) enables unit testing of core engine modules without Obsidian runtime. **Total tests doubled from ~200 to 400** (+200 tests), covering previously untestable extraction logic, conflict resolution, and page generation.
+- **SSE parser extraction.** Streaming response parsing logic (Anthropic + OpenAI formats) moved to a shared pure function in `src/core/sse-parser.ts`. More testable, more maintainable — 11 tests covering both formats, CRLF normalization, malformed JSON tolerance, and the `[DONE]` terminator.
 
-- **TypeScript type safety complete.** Fixed all type errors. Dual Gate Verification now requires both ESLint and TypeScript passing — single tool passing insufficient for production quality.
+- **Truncation retry extraction.** Token truncation retry policy (detect `stop_reason=max_tokens` or `finish_reason=length`, double max_tokens, retry once) unified into `src/core/truncation-retry.ts`. Eliminates 3 duplicate code blocks across LLM clients. 7 tests covering cap behavior, error propagation, and warning logging.
 
-- **Core architecture refactoring.** Extracted 4 pure function modules to `src/core/` directory: conflict-resolver, dead-link-detector, orphan-matcher, prompt-builders. Constants centralization (192 lines) activated semantic constants: WIKI_SUBFOLDERS, notice durations, token budgets.
+- **Test infrastructure growth.** +37 tests (446 total across 21 files). AnthropicClient truncation retry tests (9 tests, including prefill brace restoration, MAX_TOKENS_BATCH cap, cacheBreakpoint passthrough). Wiki initialization tests (10 tests, pure mock, no Obsidian runtime).
 
-- **Query engine stability.** Page content loading capped at 3000 tokens to prevent overflow, improving query reliability for large wikis.
+- **Development Quality Closure.** TDD + planning loop formally documented in CLAUDE.md with a real violation example (2026-06-02). All new code changes follow the 9-step loop: deep thinking → plan → write test → confirm RED → implement → confirm GREEN → refactor → 4-Gate verify → Three-No review.
 
-- **Documentation upgrades.** TDD Standard ("write failing test first"), Development Protocol ("plan first, then execute"), ROADMAP architecture quality plan. Dual Gate Verification documented across all standards.
-
-**Upgrading from an older version?** Just install and use — all changes are internal refactoring with zero breaking changes. Your existing wiki pages, settings, and workflows are preserved. No reconfiguration needed.
+**Upgrading from an older version?** Just install and use — zero breaking changes. Your existing wiki pages, settings, and workflows are preserved. No reconfiguration needed.
 
 **We strongly recommend all users upgrade to this version.**
 
