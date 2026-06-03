@@ -91,4 +91,32 @@ describe('insertWikiLinks', () => {
     const result = insertWikiLinks(body, [ENTITY_ALAN]);
     expect(result).toBe('[[entities/alan-turing|Alan Turing]] was great.');
   });
+
+  describe('markdown link protection', () => {
+    const ENTITY_QMD: WikiPage = { title: 'qmd', wikiLink: '[[entities/qmd|qmd]]' };
+
+    it('does not replace entity name inside markdown link display text or URL', () => {
+      const body = '[qmd](https://github.com/tobi/qmd) is a search engine.';
+      const result = insertWikiLinks(body, [ENTITY_QMD]);
+      expect(result).toBe('[qmd](https://github.com/tobi/qmd) is a search engine.');
+    });
+
+    it('does not modify markdown link URL even when entity name appears there', () => {
+      const body = 'See [the project](https://github.com/tobi/qmd) for details.';
+      const result = insertWikiLinks(body, [ENTITY_QMD]);
+      expect(result).toBe('See [the project](https://github.com/tobi/qmd) for details.');
+    });
+
+    it('links entity name in plain text adjacent to a preserved markdown link', () => {
+      const body = 'qmd is available at [qmd](https://github.com/tobi/qmd).';
+      const result = insertWikiLinks(body, [ENTITY_QMD]);
+      expect(result).toBe('[[entities/qmd|qmd]] is available at [qmd](https://github.com/tobi/qmd).');
+    });
+
+    it('does not replace entity name inside image alt text or URL', () => {
+      const body = '![qmd logo](https://example.com/qmd.png)';
+      const result = insertWikiLinks(body, [ENTITY_QMD]);
+      expect(result).toBe('![qmd logo](https://example.com/qmd.png)');
+    });
+  });
 });

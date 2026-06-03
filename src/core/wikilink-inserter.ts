@@ -19,12 +19,12 @@ function escapeRegex(text: string): string {
 }
 
 function splitOnLinks(text: string): { plain: string[]; links: string[] } {
-  const WIKILINK_RE = /\[\[.*?\]\]/g;
+  const PROTECTED_RE = /\[\[.*?\]\]|!?\[.*?\]\(.*?\)/g;
   const plain: string[] = [];
   const links: string[] = [];
   let lastIdx = 0;
   let m: RegExpExecArray | null;
-  while ((m = WIKILINK_RE.exec(text)) !== null) {
+  while ((m = PROTECTED_RE.exec(text)) !== null) {
     plain.push(text.slice(lastIdx, m.index));
     links.push(m[0]);
     lastIdx = m.index + m[0].length;
