@@ -18,6 +18,17 @@ function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// CJK characters sit entirely outside \w, so JavaScript's \b never fires for them.
+// For text that contains CJK we skip the boundary anchors: longest-first candidate
+// ordering already prevents shorter aliases from matching inside longer titles.
+function buildMatchPattern(text: string): RegExp {
+  const escaped = escapeRegex(text);
+  const hasCJK = /[一-鿿㐀-䶿豈-﫿]/.test(text);
+  return hasCJK
+    ? new RegExp(escaped, 'gi')
+    : new RegExp('\\b' + escaped + '\\b', 'gi');
+}
+
 function splitOnLinks(text: string): { plain: string[]; links: string[] } {
   const PROTECTED_RE = /\[\[.*?\]\]|!?\[.*?\]\(.*?\)/g;
   const plain: string[] = [];
@@ -62,7 +73,7 @@ export function insertWikiLinks(content: string, wikiPages: WikiPageEntry[]): st
 
   for (const { text, linkBase } of candidates) {
     const { plain, links } = splitOnLinks(processedBody);
-    const pattern = new RegExp('\\b' + escapeRegex(text) + '\\b', 'gi');
+    const pattern = buildMatchPattern(text);
     const newPlain = plain.map(seg => seg.replace(pattern, match => `[[${linkBase}|${match}]]`));
     processedBody = newPlain.reduce((acc, seg, i) => acc + seg + (links[i] ?? ''), '');
   }

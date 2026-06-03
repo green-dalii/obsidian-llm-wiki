@@ -92,6 +92,55 @@ describe('insertWikiLinks', () => {
     expect(result).toBe('[[entities/alan-turing|Alan Turing]] was great.');
   });
 
+  describe('CJK entity names', () => {
+    const ENTITY_AI: WikiPage = {
+      title: '人工智能',
+      wikiLink: '[[entities/ren-gong-zhi-neng|人工智能]]',
+    };
+    const ENTITY_ML: WikiPage = {
+      title: '机器学习',
+      wikiLink: '[[concepts/ji-qi-xue-xi|机器学习]]',
+    };
+
+    it('links a CJK entity name in Chinese text', () => {
+      const body = '这篇文章讨论了人工智能的应用。';
+      const result = insertWikiLinks(body, [ENTITY_AI]);
+      expect(result).toContain('[[entities/ren-gong-zhi-neng|人工智能]]');
+    });
+
+    it('links a CJK entity surrounded by other CJK characters', () => {
+      const body = '关于人工智能技术的研究';
+      const result = insertWikiLinks(body, [ENTITY_AI]);
+      expect(result).toContain('[[entities/ren-gong-zhi-neng|人工智能]]');
+    });
+
+    it('links multiple CJK entities in one body', () => {
+      const body = '人工智能和机器学习都很重要。';
+      const result = insertWikiLinks(body, [ENTITY_AI, ENTITY_ML]);
+      expect(result).toContain('[[entities/ren-gong-zhi-neng|人工智能]]');
+      expect(result).toContain('[[concepts/ji-qi-xue-xi|机器学习]]');
+    });
+
+    it('longer CJK title wins over shorter alias (longest-first)', () => {
+      const ENTITY_AI_SHORT: WikiPage = {
+        title: '人工',
+        wikiLink: '[[entities/ren-gong|人工]]',
+      };
+      const body = '人工智能的发展很快。';
+      const result = insertWikiLinks(body, [ENTITY_AI, ENTITY_AI_SHORT]);
+      // "人工智能" (4 chars) processed before "人工" (2 chars)
+      expect(result).toContain('[[entities/ren-gong-zhi-neng|人工智能]]');
+      expect(result).not.toContain('[[entities/ren-gong|');
+    });
+
+    it('does not touch frontmatter for CJK content', () => {
+      const content = '---\ntitle: 测试\n---\n人工智能很重要。';
+      const result = insertWikiLinks(content, [ENTITY_AI]);
+      expect(result).toMatch(/^---\ntitle: 测试\n---\n/);
+      expect(result).toContain('[[entities/ren-gong-zhi-neng|人工智能]]');
+    });
+  });
+
   describe('markdown link protection', () => {
     const ENTITY_QMD: WikiPage = { title: 'qmd', wikiLink: '[[entities/qmd|qmd]]' };
 

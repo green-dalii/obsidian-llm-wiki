@@ -35,8 +35,9 @@ import {
 import { ContradictionManager } from './contradictions';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
-import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS } from '../constants';
+import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS, WIKI_SUBFOLDERS } from '../constants';
 import { PageFactory } from './page-factory';
+import { computeStubCandidates } from './stub-candidates';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
 
 /** Injects a `source:` field into the frontmatter of content, or prepends a new frontmatter block. */
@@ -276,6 +277,14 @@ export class WikiEngine {
       }
       for (const concept of analysis.concepts) {
         plannedPaths.push(normalizePath(`${this.settings.wikiFolder}/concepts/${slugify(concept.name)}.md`));
+      }
+
+      // Stage 1.5: Pre-create stubs for frequently co-mentioned related items.
+      // Must run before page generation so stubs appear in the existing-pages
+      // list that the LLM uses when generating links.
+      const stubPaths = await this.preCreateStubsForRelated(analysis, file);
+      if (stubPaths.length > 0) {
+        analysis.created_pages.push(...stubPaths);
       }
 
       this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
@@ -644,6 +653,58 @@ export class WikiEngine {
     await this.schemaManager.ensureSchemaExists();
   }
 
+  // Stage 1.5: Pre-create minimal stubs for related entities/concepts that were
+  // co-mentioned with extracted items but not extracted themselves.
+  // Stubs are created before page generation so the LLM can reference them by
+  // correct path, eliminating dead wiki-links in the graph.
+  //
+  // Adaptive threshold: max(1, min(2, floor(numExtracted / 5)))
+  // Ensures sparse sources (few extracted items) still get stubs for any
+  // non-extracted related item, while large sources filter to frequently
+  // co-mentioned items only.
+  private async preCreateStubsForRelated(
+    analysis: SourceAnalysis,
+    sourceFile: TFile
+  ): Promise<string[]> {
+    const candidates = computeStubCandidates(analysis);
+    if (candidates.length === 0) return [];
+
+    const created: string[] = [];
+    const date = new Date().toISOString().split('T')[0];
+    const sourceSlug = slugify(sourceFile.basename);
+
+    for (const { name, type } of candidates) {
+      const folder = type === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
+      const stubPath = normalizePath(`${this.settings.wikiFolder}/${folder}/${slugify(name)}.md`);
+
+      const existing = await this.tryReadFile(stubPath);
+      if (existing !== null) continue;
+
+      const stubContent = [
+        '---',
+        `type: ${type}`,
+        'auto_stub: true',
+        `created: ${date}`,
+        `sources: ["[[sources/${sourceSlug}]]"]`,
+        'aliases: []',
+        '---',
+        '',
+        `# ${name}`,
+        '',
+        `Auto-generated stub page — referenced by entities/concepts in [[sources/${sourceSlug}]].`,
+        '',
+      ].join('\n');
+
+      await this.createOrUpdateFile(stubPath, stubContent);
+      created.push(stubPath);
+    }
+
+    if (created.length > 0) {
+      console.debug(`[Stage 1.5] Pre-created ${created.length} stubs for related items`);
+    }
+    return created;
+  }
+
   private async copySourcePageWithLinks(file: TFile): Promise<void> {
     const pagesFolder = normalizePath(this.settings.pagesFolder);
     try {
@@ -659,7 +720,7 @@ export class WikiEngine {
     // Inject source: field into frontmatter so lint can locate the original
     const withSource = injectSourceField(linked, file.path);
     const destPath = normalizePath(`${pagesFolder}/${file.name}`);
-    await this.app.vault.adapter.write(destPath, withSource);
+    await this.createOrUpdateFile(destPath, withSource);
     console.debug(`[pages/] Copied ${file.name} with ${wikiPages.length} wiki pages processed`);
   }
 
