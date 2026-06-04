@@ -392,3 +392,57 @@ export class FixReportModal extends Modal {
     this.contentEl.empty();
   }
 }
+
+export class CaseVariantConfirmModal extends Modal {
+  constructor(
+    app: App,
+    private merges: Array<{ target: string; source: string }>,
+    private renames: Array<{ oldPath: string; newBasename: string }>,
+    private onConfirm: () => void,
+  ) {
+    super(app);
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: '🔡 Normalize uppercase page names' });
+
+    contentEl.createEl('p', {
+      text: 'The following changes will be applied to your wiki. Merges are destructive — the source file will be deleted after its content is merged into the target.',
+      attr: { style: 'color: var(--text-muted); font-size: 13px; margin-bottom: 12px;' }
+    });
+
+    if (this.merges.length > 0) {
+      contentEl.createEl('h3', { text: `Merges (${this.merges.length})` });
+      const list = contentEl.createEl('ul', { attr: { style: 'margin-bottom: 12px;' } });
+      for (const m of this.merges) {
+        list.createEl('li', { text: `${m.source} → ${m.target} (merge & delete source)` });
+      }
+    }
+
+    if (this.renames.length > 0) {
+      contentEl.createEl('h3', { text: `Renames (${this.renames.length})` });
+      const list = contentEl.createEl('ul', { attr: { style: 'margin-bottom: 12px;' } });
+      for (const r of this.renames) {
+        list.createEl('li', { text: `${r.oldPath} → ${r.newBasename}` });
+      }
+    }
+
+    const btnRow = contentEl.createDiv({
+      attr: { style: 'margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end;' }
+    });
+    btnRow.createEl('button', { text: 'Cancel' }).addEventListener('click', () => this.close());
+    const confirmBtn = btnRow.createEl('button', {
+      text: 'Confirm & fix',
+      cls: 'mod-warning',
+    });
+    confirmBtn.addEventListener('click', () => {
+      this.close();
+      this.onConfirm();
+    });
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}

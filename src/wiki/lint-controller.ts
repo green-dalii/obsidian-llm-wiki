@@ -3,7 +3,7 @@
 
 import { App, Notice, TFile, normalizePath } from 'obsidian';
 import { LLMWikiSettings, LLMClient } from '../types';
-import { LintFixCallbacks, LintCounts, LintReportModal, FixReportModal, FixReportPhase } from '../ui/modals';
+import { LintFixCallbacks, LintCounts, LintReportModal, FixReportModal, FixReportPhase, CaseVariantConfirmModal } from '../ui/modals';
 import { TEXTS } from '../texts';
 import { PROMPTS } from '../prompts';
 import { cleanMarkdownResponse, parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice, getText, parseFrontmatter } from '../utils';
@@ -613,15 +613,17 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     // Case-variant normalization (Phase -2 root cause — renames uppercase pages before all else)
     if (caseVariantMerges.length > 0 || caseVariantRenames.length > 0) {
       fixCallbacks.onNormalizeCaseVariants = () => {
-        void (async () => {
-          const { fixed, results } = await runCaseNormalizationFixes(ctx, caseVariantMerges, caseVariantRenames);
-          if (fixed > 0) {
-            await ctx.wikiEngine.generateIndexFromEngine();
-            await ctx.wikiEngine.logLintFix('Normalize Case Variants', results.join('\n'));
-          }
-          const total = caseVariantMerges.length + caseVariantRenames.length;
-          new Notice(`Normalized ${fixed}/${total} uppercase page name(s)` + (fixed > 0 ? '\n' + t.lintFixIndexUpdated : ''), 0);
-        })();
+        new CaseVariantConfirmModal(ctx.app, caseVariantMerges, caseVariantRenames, () => {
+          void (async () => {
+            const { fixed, results } = await runCaseNormalizationFixes(ctx, caseVariantMerges, caseVariantRenames);
+            if (fixed > 0) {
+              await ctx.wikiEngine.generateIndexFromEngine();
+              await ctx.wikiEngine.logLintFix('Normalize Case Variants', results.join('\n'));
+            }
+            const total = caseVariantMerges.length + caseVariantRenames.length;
+            new Notice(`Normalized ${fixed}/${total} uppercase page name(s)` + (fixed > 0 ? '\n' + t.lintFixIndexUpdated : ''), 0);
+          })();
+        }).open();
       };
     }
 
