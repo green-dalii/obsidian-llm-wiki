@@ -44,7 +44,7 @@ const BODY_STOPWORDS = new Set([
 export function bodyWordSet(text: string): Set<string> {
   return new Set(
     text.toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/[^\w\s一-鿿]/g, ' ')
       .split(/\s+/)
       .filter(w => w.length > 3 && !BODY_STOPWORDS.has(w)),
   );

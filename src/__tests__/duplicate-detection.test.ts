@@ -47,6 +47,28 @@ describe('bodyWordSet', () => {
     const sim = computeJaccard(wA, wB);
     expect(sim).toBeGreaterThan(0.5);
   });
+
+  it('returns non-empty set for CJK text', () => {
+    // Regression: [^a-z0-9\s] stripped all CJK chars, producing empty sets
+    // that made computeJaccard return 0 and silently blocked CJK duplicate detection.
+    const words = bodyWordSet('深度学习是人工智能的核心技术之一 机器学习是基础');
+    expect(words.size).toBeGreaterThan(0);
+  });
+
+  it('produces high Jaccard for similar CJK texts', () => {
+    const shared = '深度学习是人工智能的核心技术之一 机器学习是深度学习的基础 神经网络架构';
+    const wA = bodyWordSet(shared + ' 图像识别卷积网络');
+    const wB = bodyWordSet(shared + ' 自然语言处理变换器');
+    const sim = computeJaccard(wA, wB);
+    expect(sim).toBeGreaterThanOrEqual(0.2);
+  });
+
+  it('produces low Jaccard for different-topic CJK texts', () => {
+    const wA = bodyWordSet('深度学习是人工智能的核心技术 神经网络用于图像识别任务');
+    const wB = bodyWordSet('历史是人类文明的记录 古代文化与现代社会的联系');
+    const sim = computeJaccard(wA, wB);
+    expect(sim).toBeLessThan(0.2);
+  });
 });
 
 // ── generateDuplicateCandidates — sharedLinks signal ──────────────────────────
