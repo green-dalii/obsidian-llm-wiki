@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse, matchExtractedToExisting, coerceToArray } from '../utils';
+import { MAX_TOKENS_BATCH } from '../constants';
 import { getExistingWikiPages } from './lint-fixes';
 import { getGranularityInstruction } from './system-prompts';
 import { calculateBatchLimits, adjustBatchSizeForResponse, getCustomTypeCaps } from '../core/batch-limits';
@@ -110,7 +111,7 @@ export class SourceAnalyzer {
 
     const customTypeCaps = getCustomTypeCaps(this.ctx.settings);
 
-    const MAX_TOKENS = 16000;  // LLM API max_tokens parameter
+    const maxTokens = MAX_TOKENS_BATCH;
 
     console.debug(`[Batch limits] Initial size: ${limits.initialBatchSize}, Max batches: ${limits.maxBatches}, Max total: ${limits.maxTotalItems || 'none'}`);
 
@@ -188,7 +189,7 @@ export class SourceAnalyzer {
         const systemPrompt = await this.ctx.buildSystemPrompt('analyze');
         const response = await client.createMessage({
           model: this.ctx.settings.model,
-          max_tokens: MAX_TOKENS,
+          max_tokens: maxTokens,
           system: systemPrompt,
           messages: [{ role: 'user', content: finalPrompt }],
           response_format: { type: 'json_object' },
@@ -202,7 +203,7 @@ export class SourceAnalyzer {
           const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
           return await client.createMessage({
             model: this.ctx.settings.model,
-            max_tokens: MAX_TOKENS,
+            max_tokens: maxTokens,
             system: await this.ctx.buildSystemPrompt('analyze'),
             messages: [{ role: 'user', content: repairPrompt }],
             response_format: { type: 'json_object' }

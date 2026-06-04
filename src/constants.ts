@@ -47,11 +47,6 @@ export const MAX_TOKENS_BATCH = 16000;
 export const TOKENS_PAGE_GENERATION = 8000;
 
 /**
- * Token budget for page merge operations (two pages fused).
- */
-export const TOKENS_PAGE_MERGE = 8000;
-
-/**
  * Token budget for append-to-reviewed-page (incremental short addition).
  */
 export const TOKENS_APPEND_REVIEWED = 4000;
@@ -73,13 +68,10 @@ export const TOKENS_CONVERSATION_PAGE = 8000;
 
 /**
  * Token budget for entity dedup resolution (lightweight matching prompt).
+ * Sized for short JSON output (action + path) with headroom for thinking-model
+ * preamble that may consume part of the budget.
  */
-export const TOKENS_DEDUP_RESOLUTION = 300;
-
-/**
- * Token budget for related page update (incremental link update).
- */
-export const TOKENS_RELATED_UPDATE = 8000;
+export const TOKENS_DEDUP_RESOLUTION = 1000;
 
 /**
  * Token budget for lint alias completion batch.
@@ -119,7 +111,7 @@ export const TOKENS_QUERY_LLM_SELECT = 3000;
 /**
  * Token budget for query suggest-save dedup check.
  */
-export const TOKENS_QUERY_SAVE_DEDUP = 150;
+export const TOKENS_QUERY_SAVE_DEDUP = 300;
 
 /**
  * Token budget for schema suggestion generation.

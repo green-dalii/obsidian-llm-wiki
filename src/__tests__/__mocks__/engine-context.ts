@@ -83,6 +83,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   copySourcePagesToWiki: false,
   pagesFolder: 'pages',
   llmReady: true,
+  maxTokensPerCall: 0,
 };
 
 // ── Mock EngineContext ───────────────────────────────────────────

@@ -27,6 +27,7 @@ export const PT_TEXTS = {
 
     // Status
     statusTitle: 'Status do LLM Client',
+    llmWikiStatusSection: 'Status do LLM-Wiki',
     statusInitialized: 'Inicializado',
     statusReady: 'LLM pronto',
     statusNotReady: 'LLM não configurado — complete a configuração acima e passe no teste de conexão',
@@ -34,7 +35,7 @@ export const PT_TEXTS = {
     currentProvider: 'Provedor atual',
 
     // Provider Configuration
-    providerSection: 'Configuração do provedor LLM',
+    providerSection: 'Configuração LLM',
     providerName: 'Provedor LLM',
     providerDesc: 'Selecione um provedor predefinido ou serviço personalizado compatível com OpenAI. Para Coding Plan ou bundles similares: escolha Custom OpenAI/Anthropic, insira manualmente o Base URL e API Key do provedor',
 
@@ -50,6 +51,9 @@ export const PT_TEXTS = {
 
     // Ollama Hint
     ollamaHint: 'O Ollama roda localmente, não requer API Key',
+    lmstudioHint: 'O LM Studio roda localmente, API Key é opcional',
+    maxTokensPerCallName: 'Janela de contexto',
+    maxTokensPerCallDesc: 'Limitar tokens à janela de contexto do modelo. 0 = sem limite (cloud).',
 
     // Model Selection
     modelSection: 'Seleção de modelo',
@@ -90,7 +94,7 @@ export const PT_TEXTS = {
     savedNotice: 'Configurações salvas!',
 
     // Wiki Folder
-    wikiSection: 'Configuração da pasta Wiki',
+    wikiSection: 'Configuração do Wiki',
     wikiFolderName: 'Pasta Wiki',
     wikiFolderDesc: 'Local para as páginas geradas da Wiki',
     wikiFolderPlaceholder: 'wiki',
@@ -242,8 +246,8 @@ export const PT_TEXTS = {
 
     // Ingestion Acceleration
     accelerationSectionTitle: 'Aceleração da ingestão',
-    pageGenerationConcurrencyName: 'Paralelismo na geração de páginas',
-    pageGenerationConcurrencyDesc: 'Número de páginas a gerar em paralelo durante ingestão de uma única fonte. Valores mais altos aceleram a ingestão, mas aumentam custos de API e podem acionar limites de taxa.',
+    pageGenerationConcurrencyName: 'Paralelismo LLM',
+    pageGenerationConcurrencyDesc: 'Número de chamadas LLM em paralelo durante ingestão e operações de lint. Valores mais altos aceleram o processamento, mas aumentam custos de API e podem acionar limites de taxa.',
     concurrencyValueSingular: 'Concorrência atual: {} (serial — mais seguro)',
     concurrencyValuePlural: 'Concorrência atual: {} (paralelo)',
     batchDelayName: 'Atraso entre lotes (ms)',
@@ -273,8 +277,8 @@ export const PT_TEXTS = {
     periodicLintHourly: 'A cada hora',
     periodicLintDaily: 'Diariamente',
     periodicLintWeekly: 'Semanalmente',
-    startupCheckName: 'Verificação de saúde na inicialização',
-    startupCheckDesc: 'Verificar saúde da Wiki quando o plug-in for carregado',
+    startupCheckName: 'Executar correções rápidas na inicialização',
+    startupCheckDesc: 'Corrige automaticamente problemas de formato de baixo nível (campo sources, wikilinks duplamente aninhados) ao carregar o plug-in. Verifica a estrutura de pastas do Wiki. Ativado por padrão.',
     copySourcePagesToggle: 'Copy source pages with wiki links',
     copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
     pagesFolderLabel: 'Pages folder',
@@ -293,6 +297,16 @@ export const PT_TEXTS = {
     scheduledLintRunning: 'Executando verificação agendada da Wiki...',
     wikiLintStats: 'Verificação da Wiki: {pages} páginas ({entities} entidades, {concepts} conceitos, {sources} fontes)',
     wikiHealthStats: 'Saúde da Wiki: {pages} páginas ({entities} entidades, {concepts} conceitos, {sources} fontes){indexStatus}',
+
+    // Startup quick fixes detail (Issue #81)
+    startupCheckTitle: '✅ Correções rápidas Wiki concluídas',
+    startupCheckStructureLabel: '📁 Estrutura Wiki',
+    startupCheckStructureOk: '✓ completa',
+    startupCheckStructureMissing: '⚠️ incompleta — será criada automaticamente na primeira ingestão',
+    startupCheckSourcesLabel: '🔧 Sources normalizados',
+    startupCheckSourcesClean: '✓ já limpo',
+    startupCheckSourcesCleaned: '⚠️ {files} arquivo(s), {entries} entrada(s) limpa(s)',
+    startupCheckDisableHint: '💡 Para desativar: Configurações → Manutenção automática → Executar correções rápidas na inicialização',
     lintWikiStart: 'Iniciando verificação da Wiki...',
     lintWikiComplete: 'Verificação da Wiki concluída',
     lintWikiFailed: 'Verificação da Wiki falhou',
@@ -359,6 +373,8 @@ export const PT_TEXTS = {
     lintOrphanItem: '- [[{page}]] — nenhuma outra página da Wiki linka aqui{dupFlag}',
     lintPollutedSection: 'Páginas com poluição de caminho (detectadas)',
     lintPollutedItem: '- [[{page}]] → deveria ser "{clean}"',
+    lintSourcesNormalizedSection: 'Sources normalizados (auto-corrigidos)',
+    lintSourcesNormalizedItem: 'Limpou {entries} entradas de sources poluídas em {files} arquivo(s) (caminhos externos, extensões .md, pipes de alias removidos e deduplicados).',
     lintDuplicateItem: '- [[{target}]] e [[{source}]] — {reason}',
     lintDeadLinkAffectedByDup: ' (⚠️ envolve página duplicada)',
     lintOrphanIsDuplicate: ' (⚠️ página duplicada)',

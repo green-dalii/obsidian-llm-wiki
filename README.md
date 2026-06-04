@@ -24,7 +24,7 @@
   - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
   - [🎮 Usage](#-usage)
   - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-- [⚡ What's New in v1.15.0](#-whats-new-in-v1150)
+- [⚡ What's New in v1.16.0](#-whats-new-in-v1160)
 - [✨ Features](#-features)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -183,23 +183,27 @@ Settings → **Ingestion Acceleration**:
 
 ---
 
-## ⚡ What's New in v1.15.0
+## ⚡ What's New in v1.16.0
 
-This is a **wiki initialization UX & architecture refinement** release focused on smoother first-time setup and continued test infrastructure growth.
+This release focuses on **local model compatibility** and **data quality** — responding to the most impactful issues reported by the community.
 
 **Key Improvements:**
 
-- **Wiki auto-initialization (Issue #80).** On your first successful LLM connection test, the plugin now silently creates the wiki folder structure (entities, concepts, sources, schema) if it doesn't exist. No more wondering why the "Generate Default Schema" button does nothing on a brand-new vault — the status indicator (✅/⚠️) on the Settings panel shows real-time wiki health.
+- **LM Studio support (new!).** A dedicated LM Studio provider option joins Ollama in the dropdown. API key is optional (LM Studio supports it but doesn't require it). Base URL defaults to `http://localhost:1234/v1`.
 
-- **SSE parser extraction.** Streaming response parsing logic (Anthropic + OpenAI formats) moved to a shared pure function in `src/core/sse-parser.ts`. More testable, more maintainable — 11 tests covering both formats, CRLF normalization, malformed JSON tolerance, and the `[DONE]` terminator.
+- **Context Window setting.** Local model users can now cap LLM output tokens to avoid HTTP 400 errors when requests exceed the model's context window. A dropdown with options from 4K to 1M — shown only for local/custom providers. Also caps truncation retry, preventing retry-timeout loops. Turn it on in Settings → LLM Configuration → Context Window.
 
-- **Truncation retry extraction.** Token truncation retry policy (detect `stop_reason=max_tokens` or `finish_reason=length`, double max_tokens, retry once) unified into `src/core/truncation-retry.ts`. Eliminates 3 duplicate code blocks across LLM clients. 7 tests covering cap behavior, error propagation, and warning logging.
+- **YAML sources field normalization (Issue #81).** 6 pollution patterns (external paths, .md suffixes, alias pipes, duplicates, inline arrays, empty [[]] links) are now automatically normalized to canonical `[[sources/X]]` format. Lint runs the fix before any LLM-dependent phases — 572 files / 1616 entries cleaned on the reporter's ~3800-page vault alone.
 
-- **Test infrastructure growth.** +37 tests (446 total across 21 files). AnthropicClient truncation retry tests (9 tests, including prefill brace restoration, MAX_TOKENS_BATCH cap, cacheBreakpoint passthrough). Wiki initialization tests (10 tests, pure mock, no Obsidian runtime).
+- **Startup quick fixes.** The former "Startup Health Check" now actively repairs low-level format issues (sources normalization, wiki structure verification) on plugin load. A detailed 10-second Notice shows what was fixed with a disable hint. Default ON — turn off in Settings → Auto Maintenance.
 
-- **Development Quality Closure.** TDD + planning loop formally documented in CLAUDE.md with a real violation example (2026-06-02). All new code changes follow the 9-step loop: deep thinking → plan → write test → confirm RED → implement → confirm GREEN → refactor → 4-Gate verify → Three-No review.
+- **Alias language fix.** Replaced hardcoded Chinese↔English translation rules with English-as-linker-language and a "do NOT invent translations for established technical terms" guard. Transformer won't become "变换器" anymore.
 
-**Upgrading from an older version?** Just install and use — zero breaking changes. Your existing wiki pages, settings, and workflows are preserved. No reconfiguration needed.
+- **LM Studio HTTP 400 fix (Issue #75).** Root cause was a shadow `MAX_TOKENS = 16000` constant in `source-analyzer.ts` that bypassed the centralized `MAX_TOKENS_BATCH`. Now fully centralized and configurable.
+
+- **Settings UX refinements.** New "LLM-Wiki Status" section. Section headings simplified: "LLM Configuration" and "Wiki Configuration". LLM Concurrency and Batch Delay moved to LLM Configuration. Status indicators now in a single row with no redundant prefix.
+
+**Upgrading from an older version?** Just install and use — zero breaking changes, zero reconfiguration. The new Context Window setting defaults to 0 (no cap) for cloud users. Local users should set it manually to match their model context.
 
 **We strongly recommend all users upgrade to this version.**
 

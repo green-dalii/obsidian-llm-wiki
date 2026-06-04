@@ -24,7 +24,7 @@
   - [🔑 Configurar um LLM Provider](#-configurar-um-llm-provider)
   - [🎮 Uso](#-uso)
   - [⚠️ Atualizando de uma Versão Anterior?](#️-atualizando-de-uma-versão-anterior)
-- [⚡ Novidades na v1.15.0](#-novidades-na-v1150)
+- [⚡ Novidades na v1.16.0](#-novidades-na-v1160)
 - [✨ Funcionalidades](#-funcionalidades)
   - [📊 Qualidade do Conhecimento](#-qualidade-do-conhecimento)
   - [🛠️ Manutenção](#️-manutenção)
@@ -183,25 +183,23 @@ Configurações → **Ingestion Acceleration**:
 ---
 ---
 
-## ⚡ Novidades na v1.15.0
+## ⚡ Novidades na v1.16.0
 
-Esta versão foca na **UX de inicialização do Wiki e otimização de arquitetura** – concentrada em configuração inicial suave e expansão contínua da infraestrutura de testes.
+Esta versão foca na **compatibilidade com modelos locais** e **qualidade dos dados**.
 
-**Melhorias principais:**
+**Melhorias principais：**
 
-- **Auto-inicialização do Wiki (Issue #80).** Após o primeiro teste de conexão LLM bem-sucedido, o plugin cria automaticamente a estrutura de pastas do Wiki (entities, concepts, sources, schema). O indicador de status (✅/⚠️) no painel de Configurações mostra a saúde do Wiki em tempo real. O problema do botão "Regenerar esquema padrão" que não respondia em um vault novo foi resolvido.
+- **Novo provedor LM Studio.** Opção dedicada no menu suspenso. Chave API opcional. URL padrão `http://localhost:1234/v1`。
 
-- **Extração do parser SSE.** A lógica de parsing de respostas em streaming (formatos Anthropic + OpenAI) foi extraída como função pura compartilhada em `src/core/sse-parser.ts`. 11 testes cobrindo ambos os formatos, normalização CRLF, tolerância a JSON malformado e o terminador `[DONE]`.
+- **Configuração de janela de contexto.** Limite tokens de saída LLM para modelos locais. Menu suspenso 4K–1M. Mostrado apenas para provedores locais/personalizados.
 
-- **Extração do retry de truncamento.** A política de retry de truncamento de tokens (detecção de `stop_reason=max_tokens` ou `finish_reason=length`, dobrar max_tokens, um retry) foi unificada em `src/core/truncation-retry.ts`. Eliminação de 3 blocos de código duplicados entre clientes LLM. 7 testes cobrindo comportamento de cap, propagação de erro e registro de avisos.
+- **Normalização do campo YAML sources (Issue #81).** 6 padrões de poluição normalizados automaticamente. Lint repara antes das fases LLM.
 
-- **Crescimento da infraestrutura de testes.** +37 testes (446 no total em 21 arquivos). Testes de retry de truncamento do AnthropicClient (9 testes, incluindo restauração de chaves prefill, cap MAX_TOKENS_BATCH, passagem de cacheBreakpoint). Testes de inicialização do Wiki (10 testes, mocks puros, sem runtime do Obsidian necessário).
+- **Correções rápidas na inicialização.** A antiga "Verificação de saúde na inicialização" agora repara ativamente problemas de formato. Notificação detalhada de 10s. Ativado por padrão.
 
-- **Fechamento de qualidade de desenvolvimento.** O ciclo TDD + planejamento está formalmente documentado no CLAUDE.md com um exemplo real de violação (2026-06-02). Todas as novas alterações de código seguem o ciclo de 9 passos.
+- **Correção de idioma de alias.** Regras de tradução chinês↔inglês removidas.
 
-**Atualizando de uma versão mais antiga?** Apenas instale e use — zero mudanças de ruptura. Suas páginas Wiki, configurações e fluxos de trabalho existentes são preservados. Nenhuma reconfiguração necessária.
-
-**Recomendamos fortemente que todos os usuários atualizem para esta versão.**
+- **Correção HTTP 400 LM Studio (Issue #75).** Constante shadow removida + nova configuração de janela de contexto.
 
 ---
 

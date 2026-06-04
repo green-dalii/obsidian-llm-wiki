@@ -9,6 +9,7 @@ import { PROMPTS } from '../prompts';
 import { cleanMarkdownResponse, parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice, getText, parseFrontmatter } from '../utils';
 import { TOKENS_LINT_DEDUP_LLM, NOTICE_NORMAL, NOTICE_RATE_LIMIT } from '../constants';
 import { isPageEmpty, detectPollutedPages, fixDoubleNestedWikiLinks, getExistingWikiPages } from './lint-fixes';
+import { fixPollutedSources, scanPollutedSources } from '../core/sources-normalizer';
 import { generateDuplicateCandidates, DuplicateCandidate } from './lint/duplicate-detection';
 import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges, runCaseNormalizationFixes } from './lint/fix-runners';
 import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans, detectUppercasePageNames } from './lint/scanners';
@@ -143,6 +144,27 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     }
     if (doubleNestFixes > 0) {
       console.debug(`lintWiki: total ${doubleNestFixes} double-nested link(s) fixed`);
+    }
+
+    // ---- 0.5 Sources field normalize (programmatic, no LLM) — Issue #81 ----
+    let sourcesNormalizedFiles = 0;
+    let sourcesNormalizedEntries = 0;
+    for (const [path, info] of pageMap) {
+      if (!scanPollutedSources(info.content, ctx.settings.wikiFolder)) continue;
+      const abstractFile = ctx.app.vault.getAbstractFileByPath(path);
+      if (abstractFile instanceof TFile) {
+        const { fixed, content } = fixPollutedSources(info.content, ctx.settings.wikiFolder);
+        if (fixed > 0) {
+          await ctx.app.vault.process(abstractFile, () => content);
+          sourcesNormalizedFiles += 1;
+          sourcesNormalizedEntries += fixed;
+          info.content = content;
+          console.debug(`lintWiki: normalized ${fixed} sources entry(ies) in ${path}`);
+        }
+      }
+    }
+    if (sourcesNormalizedFiles > 0) {
+      console.debug(`lintWiki: sources normalized in ${sourcesNormalizedFiles} files (${sourcesNormalizedEntries} entries)`);
     }
 
     // ---- 1. Alias deficiency check ----
@@ -428,6 +450,14 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
         progReport += `- Uppercase name: \`${oldRel}\` → \`${newBasename}\`\n`;
       }
       progReport += '\n';
+    }
+
+    // 3.7 Sources normalized section (Issue #81)
+    if (sourcesNormalizedFiles > 0) {
+      progReport += `## ${t.lintSourcesNormalizedSection}\n\n`;
+      progReport += t.lintSourcesNormalizedItem
+        .replace('{files}', String(sourcesNormalizedFiles))
+        .replace('{entries}', String(sourcesNormalizedEntries)) + '\n\n';
     }
 
     // 4. Orphans section (mark if is a duplicate page)
