@@ -1,10 +1,11 @@
 import { NOTICE_SHORT, NOTICE_WATCHER } from '../constants';
-// Auto Maintain Manager - File watcher, periodic lint, startup health check
+// Auto Maintain Manager - File watcher, periodic lint, startup quick fixes
 
 import { App, TAbstractFile, TFile, Notice, Plugin } from 'obsidian';
 import { LLMWikiSettings } from '../types';
 import { WikiEngine } from '../wiki/wiki-engine';
 import { TEXTS } from '../texts';
+import { fixPollutedSources, scanPollutedSources } from '../core/sources-normalizer';
 
 export class AutoMaintainManager {
   private app: App;
@@ -316,32 +317,109 @@ export class AutoMaintainManager {
     return false;
   }
 
-  // === Startup Check ===
+  // === Startup Quick Fixes ===
+  // Runs low-level programmatic fixes on plugin load:
+  // - Sources field normalize (Issue #81)
+  // - Wiki folder structure verify
+  // All operations are read-only unless a file actually needs fixing.
 
   async runStartupCheck(): Promise<void> {
     // Wait for vault to settle after startup
     await new Promise(resolve => window.setTimeout(resolve, 3000));
 
     const texts = TEXTS[this.settings.language];
+    console.debug('[QuickFixes] ===== Startup quick fixes START =====');
+    console.debug(`[QuickFixes] Settings: wikiFolder="${this.settings.wikiFolder}", startupCheck=${this.settings.startupCheck}, language=${this.settings.language}`);
 
+    // ---- Phase 1: Wiki structure check ----
+    const wikiFolder = this.settings.wikiFolder;
+    const requiredFolders = [
+      `${wikiFolder}/entities`,
+      `${wikiFolder}/concepts`,
+      `${wikiFolder}/sources`,
+      `${wikiFolder}/schema`,
+    ];
+    let structureOk = true;
+    const missingFolders: string[] = [];
+    for (const folder of requiredFolders) {
+      const folderObj = this.app.vault.getAbstractFileByPath(folder);
+      if (!folderObj) {
+        structureOk = false;
+        missingFolders.push(folder);
+      }
+    }
+    console.debug(`[QuickFixes] Phase 1: Wiki structure ${structureOk ? 'OK' : 'INCOMPLETE'}` +
+      (missingFolders.length > 0 ? `, missing: ${missingFolders.join(', ')}` : ''));
+
+    // ---- Phase 2: Sources field normalize (Issue #81) ----
+    // Scans only files in wikiFolder, only writes files that need fixing.
+    let sourcesFilesCleaned = 0;
+    let sourcesEntriesCleaned = 0;
+    let sourcesFilesScanned = 0;
+    let sourcesFilesPolluted = 0;
+    try {
+      const wikiFiles = this.app.vault.getMarkdownFiles()
+        .filter(f => f.path.startsWith(wikiFolder));
+      console.debug(`[QuickFixes] Phase 2: scanning ${wikiFiles.length} files in "${wikiFolder}"`);
+      for (const file of wikiFiles) {
+        sourcesFilesScanned += 1;
+        const content = await this.app.vault.read(file);
+        if (!scanPollutedSources(content, wikiFolder)) continue;
+        sourcesFilesPolluted += 1;
+        console.debug(`[QuickFixes] Polluted sources detected in ${file.path}`);
+        const { fixed, content: fixedContent } = fixPollutedSources(content, wikiFolder);
+        if (fixed > 0) {
+          await this.app.vault.process(file, () => fixedContent);
+          sourcesFilesCleaned += 1;
+          sourcesEntriesCleaned += fixed;
+          console.debug(`[QuickFixes] Fixed ${file.path} (${fixed} entry normalization)`);
+        } else {
+          console.debug(`[QuickFixes] Scan reported polluted but fix returned 0 for ${file.path} — possible bug`);
+        }
+      }
+      console.debug(`[QuickFixes] Phase 2 complete: ${sourcesFilesScanned} scanned, ${sourcesFilesPolluted} polluted, ${sourcesFilesCleaned} fixed (${sourcesEntriesCleaned} entries)`);
+    } catch (e) {
+      console.warn('[QuickFixes] Phase 2 failed:', e);
+    }
+
+    // ---- Phase 3: Health summary (existing) ----
     const pages = await this.wikiEngine.getExistingWikiPages();
     const entities = pages.filter(p => p.path.includes('/entities/')).length;
     const concepts = pages.filter(p => p.path.includes('/concepts/')).length;
     const sources = pages.filter(p => p.path.includes('/sources/')).length;
 
-    const indexPath = `${this.settings.wikiFolder}/index.md`;
+    const indexPath = `${wikiFolder}/index.md`;
     const hasIndex = await this.wikiEngine.tryReadFile(indexPath);
-
     const indexStatus = hasIndex ? '' : ' — index.md missing';
-    new Notice(
-      texts.wikiHealthStats
+    console.debug(`[QuickFixes] Phase 3: Wiki health — ${pages.length} pages (entities=${entities}, concepts=${concepts}, sources=${sources})${indexStatus}`);
+
+    // ---- Phase 4: Build detailed notice ----
+    const structureLabel = structureOk
+      ? texts.startupCheckStructureOk
+      : texts.startupCheckStructureMissing;
+    const sourcesLabel = sourcesFilesCleaned > 0
+      ? texts.startupCheckSourcesCleaned
+          .replace('{files}', String(sourcesFilesCleaned))
+          .replace('{entries}', String(sourcesEntriesCleaned))
+      : texts.startupCheckSourcesClean;
+
+    const summary = `${texts.startupCheckTitle}\n` +
+      `━━━━━━━━━━━━━━━━\n` +
+      `${texts.startupCheckStructureLabel}: ${structureLabel}\n` +
+      `${texts.startupCheckSourcesLabel}: ${sourcesLabel}\n` +
+      `━━━━━━━━━━━━━━━━\n` +
+      `${texts.wikiHealthStats
         .replace('{pages}', String(pages.length))
         .replace('{entities}', String(entities))
         .replace('{concepts}', String(concepts))
         .replace('{sources}', String(sources))
-        .replace('{indexStatus}', indexStatus),
-      6000
-    );
+        .replace('{indexStatus}', indexStatus)}\n` +
+      `━━━━━━━━━━━━━━━━\n` +
+      `${texts.startupCheckDisableHint}`;
+
+    console.debug(`[QuickFixes] Notice payload:\n${summary.split('\n').map(l => '  ' + l).join('\n')}`);
+    console.debug('[QuickFixes] ===== Startup quick fixes COMPLETE =====');
+    new Notice(summary, 10000);  // 10s — give user time to read
   }
 
   // === Full Stop ===

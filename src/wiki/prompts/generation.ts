@@ -27,10 +27,19 @@ export const GENERATION_PROMPTS = {
 4. If the entity already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
 5. **Generate aliases for this page** — provide 1-3 alternative names. This field is REQUIRED:
-   - If the page name is in Chinese, add the English equivalent as alias
-   - If the page name is in English, add a Chinese translation as alias (when Wiki language is Chinese)
-   - Include common acronyms, abbreviations, or alternative phrasings
-   - **If no natural alias exists**, fall back to: a translation in the Wiki language, the source file name, or the entity name itself in the other language. The aliases field MUST NOT be left empty — always provide at least one meaningful alias
+   - Include acronyms, abbreviations, and same-language alternative names
+   - English is universally acceptable as a "linker language" — when a term originates in English
+     (e.g. "Transformer", "DNA", "API", "RoPE", "CUDA"), keep it as-is even in non-English wikis
+   - **CRITICAL: do NOT invent translations for established technical terms.** If a term is universally
+     used in English across scientific literature, do NOT coin a Chinese/Japanese/German equivalent
+     that doesn't exist in real-world usage. Real-world convention always wins over linguistic purity.
+   - **If no natural alias exists**, use the page title itself as the first alias. The aliases field MUST NOT be left empty — always provide at least one alias
+
+   Examples:
+   - 维生素 B2 (Chinese wiki) → ["维他命 B2", "Vitamin B2", "VB2"]
+   - Transformer (Chinese wiki) → ["Transformers", "BERT"]      ← NO 变换器 (no such usage in Chinese)
+   - Rotary Position Embedding (Japanese wiki) → ["RoPE", "回転位置埋め込み"]
+   - Neural Network (Chinese wiki) → ["神经网络", "NN"]
 6. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
@@ -89,10 +98,19 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 4. If the concept already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
 5. **Generate aliases for this page** — provide 1-3 alternative names. This field is REQUIRED:
-   - If the page name is in Chinese, add the English equivalent as alias
-   - If the page name is in English, add a Chinese translation as alias (when Wiki language is Chinese)
-   - Include common acronyms, abbreviations, or alternative phrasings
-   - **If no natural alias exists**, fall back to: a translation in the Wiki language, the source file name, or the concept name itself in the other language. The aliases field MUST NOT be left empty — always provide at least one meaningful alias
+   - Include acronyms, abbreviations, and same-language alternative names
+   - English is universally acceptable as a "linker language" — when a term originates in English
+     (e.g. "Transformer", "DNA", "API", "RoPE", "CUDA"), keep it as-is even in non-English wikis
+   - **CRITICAL: do NOT invent translations for established technical terms.** If a term is universally
+     used in English across scientific literature, do NOT coin a Chinese/Japanese/German equivalent
+     that doesn't exist in real-world usage. Real-world convention always wins over linguistic purity.
+   - **If no natural alias exists**, use the page title itself as the first alias. The aliases field MUST NOT be left empty — always provide at least one alias
+
+   Examples:
+   - 维生素 B2 (Chinese wiki) → ["维他命 B2", "Vitamin B2", "VB2"]
+   - Transformer (Chinese wiki) → ["Transformers", "BERT"]      ← NO 变换器 (no such usage in Chinese)
+   - Rotary Position Embedding (Japanese wiki) → ["RoPE", "回転位置埋め込み"]
+   - Neural Network (Chinese wiki) → ["神经网络", "NN"]
 6. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
@@ -145,9 +163,12 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 4. Highlight key points
 5. Be objective and accurate
 6. **Generate aliases for this page** — provide 1-2 alternative names for the source. This field is REQUIRED:
-   - Add an English translation of the title as alias (if title is in Chinese)
-   - Add a Chinese translation of the title as alias (if title is in English and Wiki language is Chinese)
-   - **If no natural alias exists**, use the source file name or the title itself in the other language. The aliases field MUST NOT be left empty — always provide at least one alias
+   - Include alternative titles, abbreviations, or common alternative names for the source
+   - English is universally acceptable as a "linker language" — when a term originates in English
+     (e.g. "Transformer", "DNA", "API", "RoPE"), keep it as-is even in non-English wikis
+   - **CRITICAL: do NOT invent translations for established technical terms.** Real-world usage
+     always wins over linguistic purity. Only include translations that actually exist in the target language.
+   - **If no natural alias exists**, use the source file name or the page title itself. The aliases field MUST NOT be left empty — always provide at least one alias
 
 **Output Format:**
 ---

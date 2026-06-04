@@ -27,6 +27,7 @@ export const DE_TEXTS = {
 
     // Status
     statusTitle: 'LLM-Client-Status',
+    llmWikiStatusSection: 'LLM-Wiki-Status',
     statusInitialized: 'Initialisiert',
     statusReady: 'LLM bereit',
     statusNotReady: 'LLM nicht konfiguriert — Einrichtung oben abschließen und Verbindungstest bestehen',
@@ -34,7 +35,7 @@ export const DE_TEXTS = {
     currentProvider: 'Aktueller Anbieter',
 
     // Provider Configuration
-    providerSection: 'LLM-Anbieter-Konfiguration',
+    providerSection: 'LLM-Konfiguration',
     providerName: 'LLM-Anbieter',
     providerDesc: 'Vordefinierten Anbieter oder benutzerdefinierten OpenAI-kompatiblen Dienst wählen. Für Coding Plan oder ähnliche Bundles: Custom OpenAI/Anthropic wählen, Base URL und API Key des Providers manuell eingeben',
 
@@ -50,6 +51,9 @@ export const DE_TEXTS = {
 
     // Ollama Hint
     ollamaHint: 'Ollama läuft lokal, kein API-Schlüssel erforderlich',
+    lmstudioHint: 'LM Studio läuft lokal, API-Key ist optional',
+    maxTokensPerCallName: 'Kontextfenster',
+    maxTokensPerCallDesc: 'Tokens an das Kontextfenster des Modells anpassen. 0 = kein Limit (Cloud).',
 
     // Model Selection
     modelSection: 'Modellauswahl',
@@ -90,7 +94,7 @@ export const DE_TEXTS = {
     savedNotice: 'Einstellungen gespeichert!',
 
     // Wiki Folder
-    wikiSection: 'Wiki-Ordner-Konfiguration',
+    wikiSection: 'Wiki-Konfiguration',
     wikiFolderName: 'Wiki-Ordner',
     wikiFolderDesc: 'Speicherort für generierte Wiki-Seiten',
     wikiFolderPlaceholder: 'wiki',
@@ -242,8 +246,8 @@ export const DE_TEXTS = {
 
     // Ingestion Acceleration
     accelerationSectionTitle: 'Aufnahmen-Beschleunigung',
-    pageGenerationConcurrencyName: 'Seitenerzeugungs-Parallelität',
-    pageGenerationConcurrencyDesc: 'Anzahl parallel generierter Seiten während der Einzelaufnahme. Höhere Werte beschleunigen die Aufnahme, erhöhen aber API-Kosten und können Ratenbegrenzungen auslösen.',
+    pageGenerationConcurrencyName: 'LLM-Parallelität',
+    pageGenerationConcurrencyDesc: 'Anzahl paralleler LLM-Aufrufe während Aufnahme und Lint-Operationen. Höhere Werte beschleunigen die Verarbeitung, erhöhen aber API-Kosten und können Ratenbegrenzungen auslösen.',
     concurrencyValueSingular: 'Aktuelle Parallelität: {} (seriell — am sichersten)',
     concurrencyValuePlural: 'Aktuelle Parallelität: {} (parallel)',
     batchDelayName: 'Batch-Verzögerung (ms)',
@@ -273,8 +277,8 @@ export const DE_TEXTS = {
     periodicLintHourly: 'Stündlich',
     periodicLintDaily: 'Täglich',
     periodicLintWeekly: 'Wöchentlich',
-    startupCheckName: 'Start-Gesundheitsprüfung',
-    startupCheckDesc: 'Wiki-Gesundheit beim Plugin-Start prüfen',
+    startupCheckName: 'Schnellkorrekturen beim Start ausführen',
+    startupCheckDesc: 'Beim Laden des Plugins低级 Formatprobleme (sources-Feld, doppelt verschachtelte Wikilinks) automatisch korrigieren und Wiki-Ordnerstruktur überprüfen. Standardmäßig aktiviert.',
     copySourcePagesToggle: 'Copy source pages with wiki links',
     copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
     pagesFolderLabel: 'Pages folder',
@@ -293,6 +297,16 @@ export const DE_TEXTS = {
     scheduledLintRunning: 'Geplante Wiki-Prüfung wird ausgeführt...',
     wikiLintStats: 'Wiki-Prüfung: {pages} Seiten ({entities} Entitäten, {concepts} Konzepte, {sources} Quellen)',
     wikiHealthStats: 'Wiki-Gesundheit: {pages} Seiten ({entities} Entitäten, {concepts} Konzepte, {sources} Quellen){indexStatus}',
+
+    // Startup quick fixes detail (Issue #81)
+    startupCheckTitle: '✅ Wiki-Schnellkorrekturen abgeschlossen',
+    startupCheckStructureLabel: '📁 Wiki-Struktur',
+    startupCheckStructureOk: '✓ vollständig',
+    startupCheckStructureMissing: '⚠️ unvollständig — wird beim ersten Ingest automatisch erstellt',
+    startupCheckSourcesLabel: '🔧 Sources normalisiert',
+    startupCheckSourcesClean: '✓ bereits sauber',
+    startupCheckSourcesCleaned: '⚠️ {files} Datei(en), {entries} Eintrag/Einträge bereinigt',
+    startupCheckDisableHint: '💡 Zum Deaktivieren: Einstellungen → Auto-Wartung → Schnellkorrekturen beim Start ausführen',
     lintWikiStart: 'Wiki-Prüfung wird gestartet...',
     lintWikiComplete: 'Wiki-Prüfung abgeschlossen',
     lintWikiFailed: 'Wiki-Prüfung fehlgeschlagen',
@@ -359,6 +373,8 @@ export const DE_TEXTS = {
     lintOrphanItem: '- [[{page}]] — keine anderen Wiki-Seiten verweisen hierher{dupFlag}',
     lintPollutedSection: 'Pfadverschmutzte Seiten (erkannt)',
     lintPollutedItem: '- [[{page}]] → sollte "{clean}" sein',
+    lintSourcesNormalizedSection: 'Sources normalisiert (automatisch korrigiert)',
+    lintSourcesNormalizedItem: '{entries} verschmutzte sources-Einträge in {files} Datei(en) bereinigt (externe Pfade, .md-Erweiterungen, Alias-Pipes entfernt und dedupliziert).',
     lintDuplicateItem: '- [[{target}]] und [[{source}]] — {reason}',
     lintDeadLinkAffectedByDup: ' (⚠️ betrifft doppelte Seite)',
     lintOrphanIsDuplicate: ' (⚠️ doppelte Seite)',

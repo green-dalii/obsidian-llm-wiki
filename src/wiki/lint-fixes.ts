@@ -682,6 +682,62 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
     return `merged ${sourceRel} → ${targetRel}`;
   }
 
+  // Rename an uppercase-named wiki page to its lowercase slug equivalent.
+  // Rewrites four link forms (full-path + bare-name, case-insensitive match).
+  // When the lowercase base name is shared by multiple pages, bare-name links
+  // are expanded to full-path form to avoid ambiguity.
+  async normalizePageCase(oldPath: string): Promise<string> {
+    const wikiFolder = this.ctx.settings.wikiFolder;
+    const oldRel = oldPath.replace(wikiFolder + '/', '').replace('.md', '');
+    const parts = oldRel.split('/');
+    const dir = parts.slice(0, -1).join('/');
+    const oldBasename = parts.at(-1)!;
+    const newBasename = oldBasename.toLowerCase();
+    if (oldBasename === newBasename) return `skipped ${oldRel}: already lowercase`;
+
+    const newPath = dir
+      ? `${wikiFolder}/${dir}/${newBasename}.md`
+      : `${wikiFolder}/${newBasename}.md`;
+    const newRel = dir ? `${dir}/${newBasename}` : newBasename;
+
+    const oldContent = await this.ctx.tryReadFile(oldPath);
+    if (oldContent === null) return `cannot normalize ${oldRel}: file not found`;
+
+    await this.ctx.createOrUpdateFile(newPath, oldContent);
+    await this.ctx.deleteFile(oldPath);
+
+    // Count how many pages share the lowercase base name after the rename.
+    // If > 1, bare-name links are ambiguous and must be expanded to full-path.
+    const allPages = await getExistingWikiPages(this.ctx.app, wikiFolder);
+    const sharedCount = allPages.filter(
+      p => p.title.replace('.md', '').toLowerCase() === newBasename
+    ).length;
+    const bareTarget = sharedCount > 1 ? newRel : newBasename;
+
+    // Rewrite four link forms, case-insensitive match:
+    //   [[entities/Schema|D]] → [[entities/schema|D]]
+    //   [[entities/Schema]]   → [[entities/schema]]
+    //   [[Schema|D]]          → [[bareTarget|D]]
+    //   [[Schema]]            → [[bareTarget]]
+    let updatedCount = 0;
+    for (const page of allPages) {
+      if (page.path === oldPath) continue;
+      const content = await this.ctx.tryReadFile(page.path);
+      if (!content) continue;
+      const updated = content
+        .replace(new RegExp(`\\[\\[${escapeRegex(oldRel)}\\|([^\\]]+)\\]\\]`, 'gi'), `[[${newRel}|$1]]`)
+        .replace(new RegExp(`\\[\\[${escapeRegex(oldRel)}\\]\\]`, 'gi'), `[[${newRel}]]`)
+        .replace(new RegExp(`\\[\\[${escapeRegex(oldBasename)}\\|([^\\]]+)\\]\\]`, 'gi'), `[[${bareTarget}|$1]]`)
+        .replace(new RegExp(`\\[\\[${escapeRegex(oldBasename)}\\]\\]`, 'gi'), `[[${bareTarget}]]`);
+      if (updated !== content) {
+        await this.ctx.createOrUpdateFile(page.path, updated);
+        updatedCount++;
+      }
+    }
+
+    return `normalized ${oldRel} → ${newRel} (${updatedCount} pages updated)`;
+  }
+
   // Fix a single polluted page: rename file, update all incoming links,
   // rebuild index. Returns a description of what was done.
   async fixPollutedPage(

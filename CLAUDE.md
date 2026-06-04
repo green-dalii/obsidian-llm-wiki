@@ -4,16 +4,15 @@
 
 ---
 
-## Current Phase: v1.15.0 — P1 + Selective P2 (Test Infrastructure)
+## Current Phase: v1.16.0 — Local model compatibility + data quality
 
-### Completed (v1.15.0)
-- ✅ **`parseSSEEvents` shared extraction** (Issue #207): Pure function module, 11 tests, used by both `AnthropicCompatibleClient` and `OpenAICompatibleClient`. -36 lines.
-- ✅ **`AnthropicClient` truncation tests** (Issue #208): 9 new tests via `vi.mock('@anthropic-ai/sdk')`. Coverage: truncation detection, no-retry on non-max_tokens, outer withRetry, prefill brace restoration, MAX_TOKENS_BATCH cap, cacheBreakpoint passthrough.
-- ✅ **`withTruncationRetry` shared helper** (Issue #211): Pure function module, 7 tests. Eliminated 3 duplicate truncation-retry blocks across LLM clients. -3 lines.
-- ✅ **Issue #80 wiki init UX**: Auto-init wiki on LLM Ready + status indicator. Defensive `createFolder` in `regenerateDefaultSchema`. 8-language i18n.
-- ✅ **`isWikiInitialized` DRY fix**: Extracted from `settings.ts` (2 duplicate sites → 1 method). 10 new tests cover IO check, auto-init, schema button, defensive createFolder.
-- ✅ **Streaming architecture investigation**: Documented in memory + ROADMAP P3. Root cause: commit `13e5777` replaced OpenAI SDK with `requestUrl` for "CORS" (pseudo-reason — Electron actually bypasses CORS). Only Anthropic official has true streaming.
-- ✅ **453 tests** across 22 test files (+53 since v1.14.0).
+### Completed (v1.16.0)
+- ✅ **Issue #81: Sources normalization**: 4 pure functions in `src/core/sources-normalizer.ts`, 22 tests, Lint integration (section 0.5), startup quick fixes. 6 pollution patterns → canonical `[[sources/X]]`. 572 files/1616 entries cleaned on reporter's ~3800-page vault.
+- ✅ **Issue #75: LM Studio 8K + token cap**: Removed `source-analyzer.ts:113` shadow constant. New Context Window setting (dropdown 4K~1M) caps max_tokens + truncation retry. LMStudio provider added. `capMaxTokens` pure function.
+- ✅ **Issue #76: TOKENS_DEDUP_RESOLUTION 300→1000**: Token budget safety margin. Deleted dead constants `TOKENS_PAGE_MERGE`, `TOKENS_RELATED_UPDATE`.
+- ✅ **Alias language fix (replaces PR #82)**: English as linker language, "no invented technical translations" guard. Explicit examples (Transformer≠变换器).
+- ✅ **Startup quick fixes**: Default ON. Auto-repair sources + verify wiki structure. Single 10s aggregated Notice.
+- ✅ **Settings UX redesign**: LLM-Wiki Status section, LLM Configuration/Wiki Configuration rename, Provider dropdown i18n.
 
 ### Deferred to P3 (high mock complexity — current ROI insufficient)
 - ⏸ wiki-engine `ingestSource` full-path tests (P2 #4 → P3 #14): requires Obsidian App + 5 submodule mocks
@@ -193,16 +192,23 @@ to silence it. Re-run all four gates after each fix.
 2. Update relevant docs and memory
 3. Present change summary for user review
 4. Commit locally after user approval (do NOT push directly to main)
-5. When ready to push: create a feature branch, push the branch, create a PR, merge via GitHub UI
-6. Main branch is protected — direct pushes are rejected
+5. When ready to push: create a feature branch, push the branch, create a PR, **merge via `gh pr merge`** (or GitHub UI)
+6. After PR merge: pull main, create tag (NO `v` prefix), push tag
+7. Wait for GitHub Actions to create Draft Release
+8. Generate release notes (via `/obsidian-plugin-release` skill)
+9. **Main branch is protected** — direct pushes are rejected with `GH013`
 
 ```bash
 # Push workflow (main is protected)
-git checkout -b feat/short-description
-git push origin feat/short-description
-gh pr create --title "feat: description" --body "## Summary\n...\n\n## Test plan\n- [x] ..." --base main
+git checkout -b chore/vX.Y.Z-release
+git push origin chore/vX.Y.Z-release
+gh pr create --title "chore: bump version to X.Y.Z" --body "## Summary\n...\n\n## Test plan\n- [x] ..." --base main
 gh pr merge <PR#> --merge --delete-branch
 git checkout main && git pull origin main
+
+# Tag (after PR merge, NO 'v' prefix)
+git tag -a X.Y.Z -m "X.Y.Z"
+git push origin X.Y.Z
 ```
 
 ## Tag & Release workflow
@@ -289,6 +295,26 @@ English, conventional commits. `feat:` `fix:` `docs:` `refactor:` `test:` `chore
 **Why this is a closure, not a checklist**: Each step depends on the previous. Skipping "design test" leads to misaligned implementation. Skipping "confirm RED" means you don't know if the test actually catches the bug. Skipping "refactor" accumulates technical debt. Skipping "4-Gate" lets broken code reach PR.
 
 **Real example (2026-06-02)**: When extracting `parseSSEEvents`, the initial implementation was written first (TDD violation). User caught it. Corrected flow: 11 failing tests → confirmed all fail with `parseSSEEvents is not a function` → wrote minimal implementation → tests pass → fixed unused import warning + `isolatedModules` type export → 4-Gate green.
+
+**🔴 Real example — TDD shell failure (2026-06-02, Issue #81)**: Wrote 4 `fixPollutedSources` tests, all using inline format `sources: ["..."]`. Production code took the **multi-line** path `sources:\n  - "..."`. A regex-only diff returned `fixed=2` but content didn't actually change. User discovered at runtime: "every Notice shows the same number, no real cleanup". This is the **shell test** failure mode — tests pass but don't verify behavior.
+
+**Mandatory test rules (effective 2026-06-02)**:
+1. **Cover ALL production code paths.** If a function branches on input format (inline vs multi-line, JSON vs YAML, etc.), write tests for EACH format. Inspect the production code to find all branches.
+2. **Assert content mutation, not just return values.** After calling a mutating function, assert `output !== input` AND `output` contains the expected new content. Asserting `expect(fixed).toBe(N)` is necessary but not sufficient.
+3. **Re-scan assertion for idempotency tests.** After one fix, re-invoke the detector on the output. If the detector still reports "polluted", the fix didn't actually work — the test must FAIL, not silently pass.
+4. **Inspect actual output during debugging.** When a test passes suspiciously (e.g. "idempotent" passes on first run with no change), run a debug script that prints the function's actual output. Don't trust GREEN without seeing it.
+
+**Test quality principle (root, 2026-06-02)**: A test that passes but does not faithfully simulate real-world behavior, does not cover corner cases, or is written merely to "make it pass" is a **shell test** — it provides false confidence and is worse than no test at all. **High-quality tests are the prerequisite for high-quality code.** If you cannot write a test that would catch a real bug in this function, the test is not yet ready. Write the test that would have caught the production bug — not the test that makes your implementation look right.
+
+**Debug template** for "stuck counter" / "no real change" symptoms:
+```ts
+// src/__tests__/_tmp/debug.test.ts (delete after debugging)
+import { fixX } from '../../core/x';
+it('debug', () => {
+  const r = fixX(input);
+  console.log('OUTPUT:', r);
+});
+```
 
 **Reference**: [[feedback-tdd-standard]] for full TDD standard with examples.
 

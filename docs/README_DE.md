@@ -24,7 +24,7 @@
   - [🔑 LLM Provider konfigurieren](#-llm-provider-konfigurieren)
   - [🎮 Nutzung](#-nutzung)
   - [⚠️ Upgrade von einer älteren Version?](#️-upgrade-von-einer-älteren-version)
-- [⚡ Was ist neu in v1.15.0](#-was-ist-neu-in-v1150)
+- [⚡ Was ist neu in v1.16.0](#-was-ist-neu-in-v1160)
 - [✨ Funktionen](#-funktionen)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -188,25 +188,25 @@ Settings → **Ingestion Acceleration**:
 ---
 ---
 
-## ⚡ Was ist neu in v1.15.0
+## ⚡ Was ist neu in v1.16.0
 
-Dieses Release konzentriert sich auf **Wiki-Initialisierung UX und Architektur-Optimierung** – fokussiert auf reibungsloses erstmaliges Einrichten und kontinuierliche Testinfrastruktur-Erweiterung.
+Dieses Release konzentriert sich auf **Lokale-Modell-Kompatibilität** und **Datenqualität**.
 
-**Hauptverbesserungen:**
+**Hauptverbesserungen：**
 
-- **Wiki-Auto-Initialisierung (Issue #80).** Nach erfolgreichem ersten LLM-Verbindungstest erstellt das Plugin automatisch die Wiki-Ordnerstruktur (entities, concepts, sources, schema). Der Statusindikator (✅/⚠️) im Einstellungs-Panel zeigt die Wiki-Gesundheit in Echtzeit. Das Problem, dass die Schaltfläche "Standard-Schema neu generieren" in einem neuen Vault nicht reagiert, ist behoben.
+- **LM Studio Provider (neu).** Dedizierte Dropdown-Option. API-Key optional. Basis-URL `http://localhost:1234/v1`。
 
-- **SSE-Parser-Extraktion.** Die Streaming-Antwort-Parselogik (Anthropic + OpenAI Formate) wurde als gemeinsame reine Funktion in `src/core/sse-parser.ts` extrahiert. 11 Tests decken beide Formate, CRLF-Normalisierung, fehlertolerantes JSON und den `[DONE]]-Terminator ab.
+- **Kontextfenster-Einstellung.** Lokale Benutzer können LLM-Ausgabetokens begrenzen. 4K–1M Dropdown. Nur für lokale/benutzerdefinierte Anbieter.
 
-- **Truncation-Retry-Extraktion.** Die Token-Truncation-Retry-Richtlinie (Erkennung von `stop_reason=max_tokens` oder `finish_reason=length`, Verdopplung von max_tokens, einmaliger Retry) wurde in `src/core/truncation-retry.ts` vereinheitlicht. Eliminierung von 3 doppelten Code-Blöcken über LLM-Clients. 7 Tests decken Cap-Verhalten, Fehlerpropagation und Warnungsprotokollierung ab.
+- **YAML-Sources-Normalisierung (Issue #81)。** 6 Verschmutzungsmuster automatisch korrigiert. Lint führt Reparatur vor LLM-Phasen durch.
 
-- **Testinfrastruktur-Wachstum.** +37 Tests (insgesamt 446 in 21 Dateien). AnthropicClient-Truncation-Retry-Tests (9 Tests, einschließlich Prefill-Klammer-Wiederherstellung, MAX_TOKENS_BATCH-Cap, cacheBreakpoint-Durchleitung). Wiki-Initialisierungstests (10 Tests, reine Mocks, kein Obsidian-Runtime erforderlich).
+- **Schnellkorrekturen beim Start.** Alte "Start-Gesundheitsprüfung" repariert jetzt low-level-Formatprobleme. 10s detaillierte Benachrichtigung.
 
-- **Entwicklungsqualitäts-Schleife.** TDD + Planungsschleife wurde formal in CLAUDE.md mit einem realen Verstoßsbeispiel (2026-06-02) dokumentiert. Alle neuen Code-Änderungen folgen der 9-Schritte-Schleife.
+- **Alias-Sprachkorrektur.** Hardcodierte Übersetzungsregeln entfernt.
 
-**Upgrade von einer älteren Version?** Einfach installieren und verwenden — null Breaking Changes. Bestehende Wiki-Seiten, Einstellungen und Workflows bleiben erhalten. Keine Neukonfiguration erforderlich.
+- **LM Studio HTTP 400 Fix (Issue #75)。** Shadow-Konstante entfernt + neue Kontextfenster-Einstellung.
 
-**Wir empfehlen allen Benutzern dringend ein Upgrade auf diese Version.**
+- **Settings-UI-Optimierung.** Neuer "LLM-Wiki-Status"-Bereich. Vereinfachte Bereichstitel.
 
 ---
 

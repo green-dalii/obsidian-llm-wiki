@@ -3,6 +3,36 @@
 
 import { parseFrontmatter } from '../../utils';
 
+export interface UppercasePageResult {
+  merges: Array<{ target: string; source: string }>; // target=lowercase path, source=uppercase path
+  renames: Array<{ oldPath: string; newBasename: string }>; // only uppercase exists, needs rename
+}
+
+// Detect wiki pages whose filenames contain uppercase letters.
+// Returns pairs to merge (both uppercase+lowercase exist) and pages to rename (only uppercase exists).
+export function detectUppercasePageNames(
+  pages: Array<{ path: string; basename: string }>,
+  wikiFolder: string
+): UppercasePageResult {
+  const result: UppercasePageResult = { merges: [], renames: [] };
+  const allPaths = new Set(pages.map(p => p.path));
+  for (const page of pages) {
+    const basename = page.basename.replace('.md', '');
+    const lower = basename.toLowerCase();
+    if (basename === lower) continue;
+    const dir = page.path.replace(`${wikiFolder}/`, '').split('/').slice(0, -1).join('/');
+    const lowerPath = dir
+      ? `${wikiFolder}/${dir}/${lower}.md`
+      : `${wikiFolder}/${lower}.md`;
+    if (allPaths.has(lowerPath)) {
+      result.merges.push({ target: lowerPath, source: page.path });
+    } else {
+      result.renames.push({ oldPath: page.path, newBasename: lower });
+    }
+  }
+  return result;
+}
+
 export interface ScannerPage {
   path: string;
   content: string;
@@ -65,11 +95,21 @@ export function scanDeadLinks(
     let match: RegExpExecArray | null;
     while ((match = linkRegex.exec(content)) !== null) {
       const target = match[1].trim();
-      if (!knownTargets.has(target) && !knownTargetsLower.has(target.toLowerCase())) {
-        deadLinks.push({
-          source: path.replace(wikiFolder + '/', '').replace('.md', ''),
-          target
-        });
+      const targetLower = target.toLowerCase();
+      if (!knownTargets.has(target) && !knownTargetsLower.has(targetLower)) {
+        // Slug-normalized fallback: "entities/Claude Code" matches "entities/Claude-Code"
+        const parts = target.split('/');
+        const sluggedBasename = parts[parts.length - 1].replace(/\s+/g, '-');
+        const sluggedTarget = [...parts.slice(0, -1), sluggedBasename].join('/');
+        const isSlugMatch =
+          sluggedTarget !== target &&
+          (knownTargets.has(sluggedTarget) || knownTargetsLower.has(sluggedTarget.toLowerCase()));
+        if (!isSlugMatch) {
+          deadLinks.push({
+            source: path.replace(wikiFolder + '/', '').replace('.md', ''),
+            target,
+          });
+        }
       }
     }
     linkRegex.lastIndex = 0;

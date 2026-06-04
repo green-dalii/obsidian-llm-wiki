@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { requestUrl } from 'obsidian';
 import { LLMClient } from './types';
-import { MAX_RETRIES, RETRY_BASE_DELAY_MS } from './constants';
+import { MAX_RETRIES, RETRY_BASE_DELAY_MS, MAX_TOKENS_BATCH } from './constants';
 import { parseSSEEvents, SSEDelta } from './core/sse-parser';
 import { withTruncationRetry } from './core/truncation-retry';
 
@@ -63,6 +63,7 @@ export class AnthropicCompatibleClient implements LLMClient {
     system?: string;
     messages: Array<{ role: 'user' | 'assistant'; content: string }>;
     response_format?: { type: 'json_object' };
+    maxTokensPerCall?: number;
   }): Promise<string> {
     const body: Record<string, unknown> = {
       model: params.model,
@@ -121,6 +122,7 @@ export class AnthropicCompatibleClient implements LLMClient {
         extractText: (r) => this.extractText(r.content || []),
         getMaxTokens: () => params.max_tokens,
         getStopReason: (r) => r.stop_reason,
+        maxCap: params.maxTokensPerCall || MAX_TOKENS_BATCH,
         label: 'Anthropic-compatible API',
       });
       console.debug('Extracted text length:', text.length);
@@ -244,6 +246,7 @@ export class AnthropicClient implements LLMClient {
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
     cacheBreakpoint?: number;
+    maxTokensPerCall?: number;
   }): Promise<string> {
     // Support prompt caching: split first user message at cacheBreakpoint
     const messages = params.messages.map((msg, idx) => {
@@ -289,6 +292,7 @@ export class AnthropicClient implements LLMClient {
         },
         getMaxTokens: () => params.max_tokens,
         getStopReason: (r) => r.stop_reason,
+        maxCap: params.maxTokensPerCall || MAX_TOKENS_BATCH,
         label: 'Anthropic API',
       });
 
@@ -374,6 +378,7 @@ export class OpenAICompatibleClient implements LLMClient {
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
+    maxTokensPerCall?: number;
   }): Promise<string> {
     const messages = params.system
       ? [{ role: 'system' as const, content: params.system }, ...params.messages]
@@ -432,6 +437,7 @@ export class OpenAICompatibleClient implements LLMClient {
         extractText: (r) => r.choices[0]?.message?.content || r.initialText,
         getMaxTokens: () => params.max_tokens,
         getStopReason: (r) => r.choices[0]?.finish_reason,
+        maxCap: params.maxTokensPerCall || MAX_TOKENS_BATCH,
         label: 'OpenAI-compatible API',
       });
     }, 3, 'OpenAI-compatible API');

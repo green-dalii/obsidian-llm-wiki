@@ -36,7 +36,7 @@ describe('PageFactory — Core Paths', () => {
       const result = await (factory as unknown as { resolvePagePath: (n: string, t: 'entity' | 'concept', s: string) => Promise<{ path: string | null }> })
         .resolvePagePath('New Entity', 'entity', 'A new entity summary');
 
-      expect(result.path).toBe('wiki/entities/New-Entity.md');
+      expect(result.path).toBe('wiki/entities/new-entity.md');
     });
 
     it('detects exact slug match and returns existing path', async () => {
@@ -107,7 +107,7 @@ describe('PageFactory — Core Paths', () => {
       const result = await (factory as unknown as { resolvePagePath: (n: string, t: 'entity' | 'concept', s: string) => Promise<{ path: string | null }> })
         .resolvePagePath('Unique Entity', 'entity', 'Totally unique summary');
 
-      expect(result.path).toBe('wiki/entities/Unique-Entity.md');
+      expect(result.path).toBe('wiki/entities/unique-entity.md');
     });
 
     it('detects cross-type collision and returns collision info', async () => {
@@ -209,7 +209,7 @@ describe('PageFactory — Core Paths', () => {
         []
       );
 
-      const content = vault.read('wiki/entities/Brand-New.md');
+      const content = vault.read('wiki/entities/brand-new.md');
       expect(content).toContain('Fresh content');
     });
 
@@ -322,6 +322,46 @@ describe('PageFactory — Core Paths', () => {
       // Content should remain unchanged
       const content = vault.read('wiki/entities/keep.md');
       expect(content).toContain('Original content');
+    });
+  });
+
+  describe('createNewPage — prompt template completeness', () => {
+    it('sends prompt with no unfilled {{date}} or .md source_file placeholders', async () => {
+      let capturedPrompt = '';
+      const { ctx } = createMockContext({
+        vaultFiles: {},
+        llmResponses: ['---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n# Entity\nContent'],
+      });
+      const originalGetClient = ctx.getClient;
+      ctx.getClient = () => {
+        const client = originalGetClient();
+        if (!client) return client;
+        return {
+          createMessage: async (params: {
+            model: string;
+            max_tokens: number;
+            system?: string;
+            messages: Array<{role: 'user' | 'assistant'; content: string}>;
+            response_format?: { type: 'json_object' };
+            cacheBreakpoint?: number;
+          }) => {
+            capturedPrompt = params.messages[0]?.content ?? '';
+            return client.createMessage(params);
+          },
+        };
+      };
+
+      const factory = new PageFactory(ctx);
+      await factory.createOrUpdateEntityPage(
+        createMockEntity({ name: 'Capture Test' }),
+        createMockAnalysis(),
+        createMockFile('Clippings/llm-wiki.md'),
+        []
+      );
+
+      expect(capturedPrompt).not.toContain('{{date}}');
+      expect(capturedPrompt).not.toContain('llm-wiki.md');
+      expect(capturedPrompt).toContain('Clippings/llm-wiki');
     });
   });
 });

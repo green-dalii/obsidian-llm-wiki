@@ -62,7 +62,10 @@ export function computeSlug(text: string): string {
 
   if (finalSlug.length === 0) return 'untitled-' + Date.now();
 
-  return finalSlug;
+  // Lowercase ensures canonical filenames — prevents case-variant duplicates on
+  // Linux's case-sensitive filesystem when the LLM returns the same concept
+  // with different capitalizations across extraction rounds.
+  return finalSlug.toLowerCase();
 }
 
 // Filter out aliases that are redundant against a page's own filename.
@@ -527,7 +530,7 @@ export function mergeFrontmatter(
   for (const s of existingSources) {
     sourceSet.add(normalizeSourcePath(String(s)));
   }
-  sourceSet.add(newSourcePath);
+  sourceSet.add(newSourcePath.replace(/\.md$/i, ''));
   const mergedSources = Array.from(sourceSet).map(s => `[[${s}]]`);
 
   // Preserve created, update updated

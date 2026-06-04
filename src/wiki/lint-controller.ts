@@ -9,9 +9,10 @@ import { PROMPTS } from '../prompts';
 import { cleanMarkdownResponse, parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice, getText, parseFrontmatter } from '../utils';
 import { TOKENS_LINT_DEDUP_LLM, NOTICE_NORMAL, NOTICE_RATE_LIMIT } from '../constants';
 import { isPageEmpty, detectPollutedPages, fixDoubleNestedWikiLinks, getExistingWikiPages } from './lint-fixes';
+import { fixPollutedSources, scanPollutedSources } from '../core/sources-normalizer';
 import { generateDuplicateCandidates, DuplicateCandidate } from './lint/duplicate-detection';
-import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges } from './lint/fix-runners';
-import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans } from './lint/scanners';
+import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges, runCaseNormalizationFixes } from './lint/fix-runners';
+import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans, detectUppercasePageNames } from './lint/scanners';
 import { WikiEngine } from './wiki-engine';
 import { insertWikiLinks } from '../core/wikilink-inserter';
 
@@ -143,6 +144,27 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     }
     if (doubleNestFixes > 0) {
       console.debug(`lintWiki: total ${doubleNestFixes} double-nested link(s) fixed`);
+    }
+
+    // ---- 0.5 Sources field normalize (programmatic, no LLM) — Issue #81 ----
+    let sourcesNormalizedFiles = 0;
+    let sourcesNormalizedEntries = 0;
+    for (const [path, info] of pageMap) {
+      if (!scanPollutedSources(info.content, ctx.settings.wikiFolder)) continue;
+      const abstractFile = ctx.app.vault.getAbstractFileByPath(path);
+      if (abstractFile instanceof TFile) {
+        const { fixed, content } = fixPollutedSources(info.content, ctx.settings.wikiFolder);
+        if (fixed > 0) {
+          await ctx.app.vault.process(abstractFile, () => content);
+          sourcesNormalizedFiles += 1;
+          sourcesNormalizedEntries += fixed;
+          info.content = content;
+          console.debug(`lintWiki: normalized ${fixed} sources entry(ies) in ${path}`);
+        }
+      }
+    }
+    if (sourcesNormalizedFiles > 0) {
+      console.debug(`lintWiki: sources normalized in ${sourcesNormalizedFiles} files (${sourcesNormalizedEntries} entries)`);
     }
 
     // ---- 1. Alias deficiency check ----
@@ -406,6 +428,38 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
       progReport += '\n';
     }
 
+    // 3.6 Case-variant page names — filenames with uppercase letters
+    const { merges: caseVariantMerges, renames: caseVariantRenames } = detectUppercasePageNames(
+      Array.from(pageMap.values()).map(({ path, basename }) => ({ path, basename })),
+      ctx.settings.wikiFolder
+    );
+    if (caseVariantMerges.length > 0 || caseVariantRenames.length > 0) {
+      console.warn(`[Lint] Detected ${caseVariantMerges.length} case-variant duplicate(s), ${caseVariantRenames.length} uppercase page name(s)`);
+    }
+
+    // 3.6 Case-variant page names section
+    if (caseVariantMerges.length > 0 || caseVariantRenames.length > 0) {
+      progReport += `## Case-Variant Page Names\n\n`;
+      for (const { source, target } of caseVariantMerges) {
+        const srcRel = source.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
+        const tgtRel = target.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
+        progReport += `- Duplicate pair: \`${srcRel}\` ↔ \`${tgtRel}\` (will merge into lowercase)\n`;
+      }
+      for (const { oldPath, newBasename } of caseVariantRenames) {
+        const oldRel = oldPath.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
+        progReport += `- Uppercase name: \`${oldRel}\` → \`${newBasename}\`\n`;
+      }
+      progReport += '\n';
+    }
+
+    // 3.7 Sources normalized section (Issue #81)
+    if (sourcesNormalizedFiles > 0) {
+      progReport += `## ${t.lintSourcesNormalizedSection}\n\n`;
+      progReport += t.lintSourcesNormalizedItem
+        .replace('{files}', String(sourcesNormalizedFiles))
+        .replace('{entries}', String(sourcesNormalizedEntries)) + '\n\n';
+    }
+
     // 4. Orphans section (mark if is a duplicate page)
     let orphanFromDup = 0;
     if (orphans.length > 0) {
@@ -519,7 +573,9 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
       pollutedPages: pollutedPages.length,
       orphans: orphans.length,
       duplicates: duplicates.length,
-      pagesMissingAliases: aliasDeficientPages.length
+      pagesMissingAliases: aliasDeficientPages.length,
+      caseVariantDuplicates: caseVariantMerges.length,
+      uppercasePageNames: caseVariantRenames.length,
     };
 
     // ---- Build callbacks ----
@@ -550,6 +606,21 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
             .replace('{fixed}', String(fixed))
             .replace('{total}', String(pollutedPages.length));
           new Notice(msg, 0);
+        })();
+      };
+    }
+
+    // Case-variant normalization (Phase -2 root cause — renames uppercase pages before all else)
+    if (caseVariantMerges.length > 0 || caseVariantRenames.length > 0) {
+      fixCallbacks.onNormalizeCaseVariants = () => {
+        void (async () => {
+          const { fixed, results } = await runCaseNormalizationFixes(ctx, caseVariantMerges, caseVariantRenames);
+          if (fixed > 0) {
+            await ctx.wikiEngine.generateIndexFromEngine();
+            await ctx.wikiEngine.logLintFix('Normalize Case Variants', results.join('\n'));
+          }
+          const total = caseVariantMerges.length + caseVariantRenames.length;
+          new Notice(`Normalized ${fixed}/${total} uppercase page name(s)` + (fixed > 0 ? '\n' + t.lintFixIndexUpdated : ''), 0);
         })();
       };
     }
@@ -631,7 +702,8 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     }
 
     const totalFixable = deadLinks.length + emptyPages.length + orphans.length + duplicates.length;
-    const totalFixableIncludingAliases = totalFixable + aliasDeficientPages.length + pollutedPages.length;
+    const caseVariantTotal = caseVariantMerges.length + caseVariantRenames.length;
+    const totalFixableIncludingAliases = totalFixable + aliasDeficientPages.length + pollutedPages.length + caseVariantTotal;
     if (totalFixableIncludingAliases > 0) {
       fixCallbacks.onFixAll = () => {
         void (async () => {
@@ -639,6 +711,7 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
           const fixAllNotice = new Notice('', 0);
 
           // Track per-phase counts for final summary
+          let caseNormFixed = 0;
           let pollutedFixed = 0;
           let aliasesFilled = 0;
           let duplicatesMerged = 0;
@@ -648,6 +721,16 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
           let pagesCopiesRefreshed = 0;
 
           // Smart fix strategy: follow causality chain with aliases as foundation
+          // Phase -2: Normalize case variants (must be earliest — creates canonical paths before all else)
+          fixAllNotice.setMessage('Smart fix: Phase -2 — Normalizing case variants...');
+          if (caseVariantTotal > 0) {
+            const { fixed, results } = await runCaseNormalizationFixes(ctx, caseVariantMerges, caseVariantRenames);
+            caseNormFixed = fixed;
+            if (fixed > 0) {
+              allResults.push(`## Normalize Case Variants\n${results.join('\n')}`);
+            }
+          }
+
           // Phase -1: Fix polluted pages (structural root cause before everything else)
           fixAllNotice.setMessage('Smart fix: Phase -1 — Fixing polluted pages...');
           if (pollutedPages.length > 0) {
@@ -747,6 +830,12 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
 
           // Build phase result data for modal report
           const phases: FixReportPhase[] = [];
+          if (caseVariantTotal > 0) {
+            phases.push({
+              label: `🔡 Normalize uppercase page names (${caseVariantTotal})`,
+              detail: `${caseNormFixed}/${caseVariantTotal}`
+            });
+          }
           if (pollutedPages.length > 0) {
             phases.push({
               label: `🧹 Fix polluted pages (${pollutedPages.length})`,

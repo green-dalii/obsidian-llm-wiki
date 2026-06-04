@@ -346,8 +346,8 @@ export class PageFactory {
       .replace('{{existing_pages}}', await this.buildPagesListForPrompt(extraPagePaths))
       .replace('{{related_content}}', 'No existing content')
       .replace('{{merge_strategy}}', 'New page, no merge needed.')
-      .replace('{{date}}', new Date().toISOString().split('T')[0])
-      .replace('{{source_file}}', sourceFile.path);
+      .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
+      .replace('{{source_file}}', sourceFile.path.replace(/\.md$/i, ''));
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 

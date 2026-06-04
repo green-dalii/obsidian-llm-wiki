@@ -9,22 +9,42 @@ import {
 } from './types';
 import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR } from './constants';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
+import { capMaxTokens } from './core/token-cap';
 
 function createLLMClient(settings: LLMWikiSettings): LLMClient {
+  let client: LLMClient;
+
   if (settings.provider === 'anthropic') {
-    return new AnthropicClient(settings.apiKey.trim());
-  }
-  if (settings.provider === 'anthropic-compatible') {
+    client = new AnthropicClient(settings.apiKey.trim());
+  } else if (settings.provider === 'anthropic-compatible') {
     const baseUrl = settings.baseUrl?.trim();
     if (baseUrl) {
-      return new AnthropicCompatibleClient(settings.apiKey.trim(), baseUrl);
+      client = new AnthropicCompatibleClient(settings.apiKey.trim(), baseUrl);
+    } else {
+      client = new AnthropicClient(settings.apiKey.trim());
     }
-    return new AnthropicClient(settings.apiKey.trim());
+  } else {
+    const providerConfig = PREDEFINED_PROVIDERS[settings.provider];
+    const baseUrl = settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
+    const apiKey = (settings.provider === 'ollama' || settings.provider === 'lmstudio')
+      ? (settings.apiKey.trim() || 'lmstudio')
+      : settings.apiKey.trim();
+    client = new OpenAICompatibleClient(apiKey, baseUrl);
   }
-  const providerConfig = PREDEFINED_PROVIDERS[settings.provider];
-  const baseUrl = settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
-  const apiKey = settings.provider === 'ollama' ? 'ollama' : settings.apiKey.trim();
-  return new OpenAICompatibleClient(apiKey, baseUrl);
+
+  // Issue #75: wrap createMessage with token cap when configured
+  if (settings.maxTokensPerCall > 0) {
+    const originalCreate = client.createMessage.bind(client) as (params: Parameters<typeof client.createMessage>[0]) => ReturnType<typeof client.createMessage>;
+    client.createMessage = async (params) => {
+      return originalCreate({
+        ...params,
+        max_tokens: capMaxTokens(params.max_tokens, settings),
+        maxTokensPerCall: settings.maxTokensPerCall,
+      });
+    };
+  }
+
+  return client;
 }
 import { TEXTS } from './texts';
 import { slugify, parseFrontmatter, getText } from './utils';

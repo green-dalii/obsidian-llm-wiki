@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-06-04
+
+### Added
+- **LM Studio provider**: New dedicated provider option (`PREDEFINED_PROVIDERS.lmstudio`). API key is optional — LM Studio runs locally but supports key-based auth. Base URL defaults to `http://localhost:1234/v1`.
+- **Context Window setting**: Configurable cap on LLM output tokens to protect local models with limited context (LM Studio 8K, Ollama 4K, etc.). Dropdown options from 4K to 1M. Shown only for local/custom providers (Ollama, LM Studio, custom OpenAI/Anthropic). Sets `maxCap` on truncation retry for safety.
+- **Startup quick fixes**: Low-level format repairs run automatically on plugin load: sources field normalization, wiki folder structure verification. Default ON. Detailed 10s Notice with cleanup stats + disable hint.
+- **Sources field normalization (Issue #81)**: 4 new pure functions in `src/core/sources-normalizer.ts` handle 6 real-world pollution patterns reported by DocTpoint (external paths, `.md` suffixes, alias pipes, duplicates, inline arrays, empty `[[]]` links). 22 tests covering both inline and multi-line formats.
+- **Lint integration**: `fixPollutedSources` runs in lint section 0.5, normalizes all wiki files before LLM-dependent phases. Reports "Sources normalized" section in lint output.
+- **TDD shell test documentation**: Mandatory test quality rules added to CLAUDE.md — cover all production paths, assert content mutation (not just return values), re-scan for idempotency verification.
+
+### Fixed
+- **Issue #81**: YAML `sources:` field generated 3+ inconsistent formats (external paths, `.md`, `\|alias`) from different code paths. Root cause: `wiki-engine.ts:646` passed `file.path` to `{{source_file}}`, and `utils.ts:518` `normalizeSourcePath` only stripped `[[]]`. Fix: unified `normalizeSourcePath` with external-path remapping + full frontmatter rewrite.
+- **Issue #75**: LM Studio HTTP 400 on batch 2+ — `source-analyzer.ts:113` had local shadow `MAX_TOKENS = 16000` that bypassed centralized `MAX_TOKENS_BATCH`. Replaced with `MAX_TOKENS_BATCH`. Plus new `capMaxTokens()` pure function and `maxTokensPerCall` setting to cap output explicitly.
+- **Issue #76**: `TOKENS_DEDUP_RESOLUTION=300` caused "empty JSON" with thinking models where reasoning consumed the budget, then `stripThinkingTokens` removed it leaving zero JSON. Fixed: 300→1000 (insurance). Also `TOKENS_QUERY_SAVE_DEDUP: 150→300`.
+- **Dead code**: Removed `TOKENS_PAGE_MERGE` and `TOKENS_RELATED_UPDATE` (zero callers). Removed `promptIncludesConstraints`.
+- **Alias language**: Replaced hardcoded Chinese↔English translation rules with English-as-linker-language + "do NOT invent established technical translations" rule. 4 examples (Transformer/Vitamin B2/RoPE/Neural Network) prevent LLM outputting non-existent translations like "变换器" for Transformer.
+- **withTruncationRetry retry cap**: Previously used `MAX_TOKENS_BATCH` (16000) unconditionally, causing retry HTTP 400 on local 8K models. Now respects `maxTokensPerCall` setting as `maxCap`.
+
+### Changed
+- **Settings UX redesign**: New "LLM-Wiki Status" section with inline status indicators. "LLM Provider Configuration" → "LLM Configuration". "Wiki Folder Configuration" → "Wiki Configuration". LLM Concurrency and Batch Delay moved to LLM Configuration section. Startup Quick Fixes toggle moved to first item in Auto Maintenance. Status prefix "LLM Client Status:" removed.
+- **Provider dropdown i18n**: Non-Chinese languages now display English provider names (international technical convention) instead of falling back to Chinese.
+- **CLAUDE.md**: TDD section evolved with mandatory test quality rules, TDD shell failure example, and debug template for "stuck counter" symptoms.
+
+### Removed
+- Dead constants: `TOKENS_PAGE_MERGE`, `TOKENS_RELATED_UPDATE`
+- Dead function: `promptIncludesConstraints`
+- Shadow constant: `source-analyzer.ts:113` local `MAX_TOKENS = 16000`
+- Redundant "LLM Client Status:" prefix from status indicator
+
 ## [1.15.0] - 2026-06-03
 
 ### Added

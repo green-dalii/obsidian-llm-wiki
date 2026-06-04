@@ -205,6 +205,10 @@ export class WikiEngine {
     return this.lintFixer.fixPollutedPage(oldPath, newBasename);
   }
 
+  async normalizePageCase(oldPath: string): Promise<string> {
+    return this.lintFixer.normalizePageCase(oldPath);
+  }
+
   private get client(): LLMClient {
     const c = this.getLLMClient();
     if (!c) throw new Error('LLM Client not initialized');
@@ -270,6 +274,24 @@ export class WikiEngine {
 
       const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
       let step = 1;
+
+      // Deduplicate by slug before page generation. The LLM can return the same
+      // concept with different capitalizations across extraction rounds. Without
+      // this, parallel tasks race to create both "Schema.md" and "schema.md".
+      const seenEntitySlugs = new Set<string>();
+      analysis.entities = analysis.entities.filter(e => {
+        const s = slugify(e.name);
+        if (seenEntitySlugs.has(s)) return false;
+        seenEntitySlugs.add(s);
+        return true;
+      });
+      const seenConceptSlugs = new Set<string>();
+      analysis.concepts = analysis.concepts.filter(c => {
+        const s = slugify(c.name);
+        if (seenConceptSlugs.has(s)) return false;
+        seenConceptSlugs.add(s);
+        return true;
+      });
 
       const plannedPaths: string[] = [];
       for (const entity of analysis.entities) {
@@ -705,6 +727,7 @@ export class WikiEngine {
     return created;
   }
 
+
   private async copySourcePageWithLinks(file: TFile): Promise<void> {
     const pagesFolder = normalizePath(this.settings.pagesFolder);
     try {
@@ -744,7 +767,7 @@ export class WikiEngine {
       .replace('{{content}}', content.substring(0, 500))
       .replace('{{analysis}}', JSON.stringify(analysis))
       .replace('{{created_pages_list}}', createdPagesList || '(none)')
-      .replace(/{{source_file}}/g, file.path)
+      .replace(/{{source_file}}/g, file.path.replace(/\.md$/i, ''))
       .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
       .replace('{{tags}}', analysis.concepts.map(c => c.name).join(', '))
       .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
@@ -1087,7 +1110,7 @@ export class WikiEngine {
     const labels = TEXTS.en.logLabels[langKey];
 
     let entry = `\n\n## [${date}] ${operation} | ${analysis.source_title}\n\n`;
-    entry += `**${labels.createdPages}**：${analysis.created_pages.map(p => `[[${p.replace(this.settings.wikiFolder + '/', '')}]]`).join(', ')}\n\n`;
+    entry += `**${labels.createdPages}**：${analysis.created_pages.map(p => `[[${p.replace(this.settings.wikiFolder + '/', '').replace(/\.md$/i, '')}]]`).join(', ')}\n\n`;
     entry += `**${labels.updatedPages}**：${analysis.updated_pages.map(p => `[[${p}]]`).join(', ')}\n\n`;
 
     if (analysis.contradictions.length > 0) {

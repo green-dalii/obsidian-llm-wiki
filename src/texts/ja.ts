@@ -27,6 +27,7 @@ export const JA_TEXTS = {
 
     // Status
     statusTitle: 'LLM Client の状態',
+    llmWikiStatusSection: 'LLM-Wiki 状態',
     statusInitialized: '初期化済み',
     statusReady: 'LLM 準備完了',
     statusNotReady: 'LLM 未設定 — 上記の設定と接続テストを完了してください',
@@ -34,7 +35,7 @@ export const JA_TEXTS = {
     currentProvider: '現在のプロバイダー',
 
     // Provider Configuration
-    providerSection: 'LLM プロバイダー設定',
+    providerSection: 'LLM 設定',
     providerName: 'LLM プロバイダー',
     providerDesc: '定義済みプロバイダーまたはカスタムOpenAI互換サービスを選択。Coding Plan等のバンドルの場合、カスタムOpenAI/Anthropicを選択し、プロバイダーのBase URLとAPI Keyを手動入力',
 
@@ -50,6 +51,9 @@ export const JA_TEXTS = {
 
     // Ollama Hint
     ollamaHint: 'Ollamaはローカルで動作するため、API Keyは不要です',
+    lmstudioHint: 'LM Studioはローカルで動作します。API Keyは任意です',
+    maxTokensPerCallName: 'コンテキストウィンドウ',
+    maxTokensPerCallDesc: '生成Tokenをモデルのコンテキストウィンドウに制限。0 = 無制限（クラウドデフォルト）。',
 
     // Model Selection
     modelSection: 'モデル選択',
@@ -90,7 +94,7 @@ export const JA_TEXTS = {
     savedNotice: '設定を保存しました！',
 
     // Wiki Folder
-    wikiSection: 'Wiki フォルダー設定',
+    wikiSection: 'Wiki設定',
     wikiFolderName: 'Wiki フォルダー',
     wikiFolderDesc: '生成されたWikiページの保存先',
     wikiFolderPlaceholder: 'wiki',
@@ -242,8 +246,8 @@ export const JA_TEXTS = {
 
     // Ingestion Acceleration
     accelerationSectionTitle: '取り込み高速化',
-    pageGenerationConcurrencyName: 'ページ生成の並列度',
-    pageGenerationConcurrencyDesc: '単一ソース取り込み中に並列生成するページ数。値を高くすると取り込みが高速化されますが、APIコストの増加やレートリミットのトリガーに注意してください。',
+    pageGenerationConcurrencyName: 'LLM 並列度',
+    pageGenerationConcurrencyDesc: '取り込みおよびLint操作中の並列LLM呼び出し数。値を高くすると処理が高速化されますが、APIコストの増加やレートリミットのトリガーに注意してください。',
     concurrencyValueSingular: '現在の並列度：{}（直列 — 最も安全）',
     concurrencyValuePlural: '現在の並列度：{}（並列）',
     batchDelayName: 'バッチ遅延（ms）',
@@ -273,8 +277,8 @@ export const JA_TEXTS = {
     periodicLintHourly: '毎時',
     periodicLintDaily: '毎日',
     periodicLintWeekly: '毎週',
-    startupCheckName: '起動時ヘルスチェック',
-    startupCheckDesc: 'プラグイン読み込み時にWikiの健全性をスキャンします',
+    startupCheckName: '起動時にクイック修正を実行',
+    startupCheckDesc: 'プラグイン読み込み時に低レベル書式の問題（sources フィールド、二重 wikilink）を自動修正し、Wiki ディレクトリ構造を検証します。デフォルトで有効。',
     copySourcePagesToggle: 'Copy source pages with wiki links',
     copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
     pagesFolderLabel: 'Pages folder',
@@ -293,6 +297,16 @@ export const JA_TEXTS = {
     scheduledLintRunning: 'スケジュールされたWiki Lintを実行中...',
     wikiLintStats: 'Wiki Lint: {pages}ページ（{entities}エンティティ、{concepts}概念、{sources}ソース）',
     wikiHealthStats: 'Wiki健全性: {pages}ページ（{entities}エンティティ、{concepts}概念、{sources}ソース）{indexStatus}',
+
+    // Startup quick fixes detail (Issue #81)
+    startupCheckTitle: '✅ Wiki クイック修正完了',
+    startupCheckStructureLabel: '📁 Wiki 構造',
+    startupCheckStructureOk: '✓ 完了',
+    startupCheckStructureMissing: '⚠️ 不完全 — 初回取り込み時に自動作成されます',
+    startupCheckSourcesLabel: '🔧 Sources 正規化',
+    startupCheckSourcesClean: '✓ 既に正規化済み',
+    startupCheckSourcesCleaned: '⚠️ {files} ファイル、{entries} エントリを修正',
+    startupCheckDisableHint: '💡 無効化するには 設定 → 自動メンテナンス → 起動時にクイック修正を実行',
     lintWikiStart: 'Wiki Lintを開始中...',
     lintWikiComplete: 'Wiki Lint完了',
     lintWikiFailed: 'Wiki Lint失敗',
@@ -359,6 +373,8 @@ export const JA_TEXTS = {
     lintOrphanItem: '- [[{page}]] — 他のWikiページからリンクされていません{dupFlag}',
     lintPollutedSection: 'パス汚染ページ（プログラム検出）',
     lintPollutedItem: '- [[{page}]] → "{clean}"に修正必要',
+    lintSourcesNormalizedSection: 'Sources 正規化済み（自動修正）',
+    lintSourcesNormalizedItem: '{files} ファイル内の {entries} 件の sources エントリを修正しました（外部パス、.md 拡張子、エイリアスパイプを削除し重複排除）。',
     lintDuplicateItem: '- [[{target}]] と [[{source}]] — {reason}',
     lintDeadLinkAffectedByDup: ' （⚠️ 重複ページが関連）',
     lintOrphanIsDuplicate: ' （⚠️ 重複ページ）',

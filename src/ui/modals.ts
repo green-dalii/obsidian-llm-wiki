@@ -75,6 +75,7 @@ export interface LintFixCallbacks {
   onMergeDuplicates?: () => void;
   onFixAll?: () => void;
   onFixPollutedPages?: () => void;
+  onNormalizeCaseVariants?: () => void;
 }
 
 export interface LintCounts {
@@ -84,6 +85,8 @@ export interface LintCounts {
   duplicates: number;
   pagesMissingAliases: number;
   pollutedPages: number;
+  caseVariantDuplicates: number;
+  uppercasePageNames: number;
 }
 
 export class LintReportModal extends Modal {
@@ -156,6 +159,21 @@ export class LintReportModal extends Modal {
       });
     }
 
+    // === Layer 1c: Case-variant normalization (structural root cause) ===
+    const totalCaseIssues = this.counts.caseVariantDuplicates + this.counts.uppercasePageNames;
+    if (totalCaseIssues > 0 && this.fixCallbacks.onNormalizeCaseVariants) {
+      const row = actionSection.createDiv({ attr: { style: 'margin-bottom: 10px;' } });
+      const btn = row.createEl('button', {
+        text: `🔡 Normalize uppercase page names (${totalCaseIssues})`,
+        cls: 'mod-cta',
+        attr: { style: 'font-weight: bold;' }
+      });
+      btn.addEventListener('click', () => {
+        this.fixCallbacks.onNormalizeCaseVariants?.();
+        this.close();
+      });
+    }
+
     // === Layer 2: Causality-ordered fix buttons (duplicates → dead links → orphans → empty pages) ===
     const fixableItems = [
       { count: this.counts.duplicates, cb: this.fixCallbacks.onMergeDuplicates, text: t.lintModalMergeDuplicates },
@@ -181,7 +199,7 @@ export class LintReportModal extends Modal {
     }
 
     // === Layer 3: Smart Fix All (batched all-in-one) ===
-    const totalFixable = this.counts.deadLinks + this.counts.emptyPages + this.counts.orphans + this.counts.duplicates + this.counts.pagesMissingAliases;
+    const totalFixable = this.counts.deadLinks + this.counts.emptyPages + this.counts.orphans + this.counts.duplicates + this.counts.pagesMissingAliases + this.counts.caseVariantDuplicates + this.counts.uppercasePageNames;
     if (totalFixable > 0 && this.fixCallbacks.onFixAll) {
       const row = actionSection.createDiv({ attr: { style: 'margin-bottom: 10px;' } });
       const btn = row.createEl('button', {

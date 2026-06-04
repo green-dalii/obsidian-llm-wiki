@@ -27,6 +27,7 @@ export const KO_TEXTS = {
 
     // Status
     statusTitle: 'LLM 클라이언트 상태',
+    llmWikiStatusSection: 'LLM-Wiki 상태',
     statusInitialized: '초기화됨',
     statusReady: 'LLM 준비 완료',
     statusNotReady: 'LLM 미구성 — 위 설정을 완료하고 연결 테스트를 통과하세요',
@@ -34,7 +35,7 @@ export const KO_TEXTS = {
     currentProvider: '현재 Provider',
 
     // Provider Configuration
-    providerSection: 'LLM Provider 설정',
+    providerSection: 'LLM 설정',
     providerName: 'LLM Provider',
     providerDesc: '사전 정의된 Provider 또는 사용자 정의 OpenAI 호환 서비스 선택. Coding Plan 등의 번들 경우, 사용자 정의 OpenAI/Anthropic 선택 후 Provider의 Base URL과 API Key 수동 입력',
 
@@ -50,6 +51,9 @@ export const KO_TEXTS = {
 
     // Ollama Hint
     ollamaHint: 'Ollama는 로컬에서 실행되며 API 키가 필요하지 않습니다',
+    lmstudioHint: 'LM Studio는 로컬에서 실행됩니다. API 키는 선택 사항입니다',
+    maxTokensPerCallName: '컨텍스트 창',
+    maxTokensPerCallDesc: '컨텍스트 창에 맞게 토큰 제한. 0 = 제한 없음(클라우드 기본값).',
 
     // Model Selection
     modelSection: '모델 선택',
@@ -90,7 +94,7 @@ export const KO_TEXTS = {
     savedNotice: '설정이 저장되었습니다!',
 
     // Wiki Folder
-    wikiSection: '위키 폴더 설정',
+    wikiSection: 'Wiki 설정',
     wikiFolderName: '위키 폴더',
     wikiFolderDesc: '생성된 위키 페이지의 저장 위치',
     wikiFolderPlaceholder: 'wiki',
@@ -243,8 +247,8 @@ export const KO_TEXTS = {
 
     // Ingestion Acceleration
     accelerationSectionTitle: '수집 가속화',
-    pageGenerationConcurrencyName: '페이지 생성 동시성',
-    pageGenerationConcurrencyDesc: '단일 소스 수집 중 병렬로 생성할 페이지 수. 값이 높을수록 수집이 빨라지지만 API 비용이 증가하고 속도 제한이 발생할 수 있습니다.',
+    pageGenerationConcurrencyName: 'LLM 동시성',
+    pageGenerationConcurrencyDesc: '수집 및 Lint 작업 중 병렬 LLM 호출 수. 값이 높을수록 처리가 빨라지지만 API 비용이 증가하고 속도 제한이 발생할 수 있습니다.',
     concurrencyValueSingular: '현재 동시성: {} (직렬 — 가장 안전)',
     concurrencyValuePlural: '현재 동시성: {} (병렬)',
     batchDelayName: '배치 지연 (ms)',
@@ -274,8 +278,8 @@ export const KO_TEXTS = {
     periodicLintHourly: '매시간',
     periodicLintDaily: '매일',
     periodicLintWeekly: '매주',
-    startupCheckName: '시작 시 건강 검사',
-    startupCheckDesc: '플러그인 로딩 시 위키 건강 상태 스캔',
+    startupCheckName: '시작 시 빠른 수정 실행',
+    startupCheckDesc: '플러그인 로딩 시低级 형식 문제(sources 필드, 이중 wikilink)를 자동 수정하고 Wiki 폴더 구조를 검증합니다. 기본 활성화.',
     copySourcePagesToggle: 'Copy source pages with wiki links',
     copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
     pagesFolderLabel: 'Pages folder',
@@ -294,6 +298,16 @@ export const KO_TEXTS = {
     scheduledLintRunning: '일정된 위키 린트 실행 중...',
     wikiLintStats: '위키 린트: {pages}개의 페이지 ({entities} 엔티티, {concepts} 컨셉, {sources} 소스)',
     wikiHealthStats: '위키 건강: {pages}개의 페이지 ({entities} 엔티티, {concepts} 컨셉, {sources} 소스){indexStatus}',
+
+    // Startup quick fixes detail (Issue #81)
+    startupCheckTitle: '✅ Wiki 빠른 수정 완료',
+    startupCheckStructureLabel: '📁 Wiki구조',
+    startupCheckStructureOk: '✓ 완료',
+    startupCheckStructureMissing: '⚠️ 불완전 — 첫 수집 시 자동 생성',
+    startupCheckSourcesLabel: '🔧 Sources 정규화',
+    startupCheckSourcesClean: '✓ 이미 정규화됨',
+    startupCheckSourcesCleaned: '⚠️ {files}개 파일, {entries}개 항목 정리',
+    startupCheckDisableHint: '💡 비활성화하려면 설정 → 자동 유지보수 → 시작 시 빠른 수정 실행',
     lintWikiStart: '위키 린트 시작 중...',
     lintWikiComplete: '위키 린트 완료',
     lintWikiFailed: '위키 린트 실패',
@@ -360,6 +374,8 @@ export const KO_TEXTS = {
     lintOrphanItem: '- [[{page}]] — 다른 위키 페이지에서 링크하지 않음{dupFlag}',
     lintPollutedSection: '경로 오염 페이지 (프로그램 감지)',
     lintPollutedItem: '- [[{page}]] → "{clean}"(으)로 수정 필요',
+    lintSourcesNormalizedSection: 'Sources 정규화됨 (자동 수정)',
+    lintSourcesNormalizedItem: '{files}개 파일에서 {entries}개의 sources 항목을 정리했습니다 (외부 경로, .md 확장자, 별칭 파이프 제거 및 중복 제거).',
     lintDuplicateItem: '- [[{target}]] 및 [[{source}]] — {reason}',
     lintDeadLinkAffectedByDup: ' (⚠️ 중복 페이지 관련)',
     lintOrphanIsDuplicate: ' (⚠️ 중복 페이지)',

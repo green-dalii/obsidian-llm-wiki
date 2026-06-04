@@ -27,6 +27,7 @@ export const ZH_TEXTS = {
 
     // 状态
     statusTitle: 'LLM Client 状态',
+    llmWikiStatusSection: 'LLM-Wiki 状态',
     statusInitialized: '已初始化',
     statusReady: 'LLM 已就绪',
     statusNotReady: 'LLM 未配置 — 请完成上方设置并通过连接测试',
@@ -34,7 +35,7 @@ export const ZH_TEXTS = {
     currentProvider: '当前提供商',
 
     // Provider 设置
-    providerSection: 'LLM Provider 配置',
+    providerSection: 'LLM 配置',
     providerName: 'LLM Provider',
     providerDesc: '选择预定义提供商或自定义 OpenAI 兼容服务。对于 Coding Plan 等套餐，建议选择自定义 OpenAI/Anthropic 并手工填写对应 URL 和 API Key',
 
@@ -50,6 +51,9 @@ export const ZH_TEXTS = {
 
     // Ollama 提示
     ollamaHint: 'Ollama 本地运行，无需 API Key',
+    lmstudioHint: 'LM Studio 本地运行，API Key 可选',
+    maxTokensPerCallName: '上下文窗口',
+    maxTokensPerCallDesc: '限制生成 Token 以适配模型上下文窗口。0 = 无限制（云端默认）。',
 
     // 模型选择
     modelSection: '模型选择',
@@ -90,7 +94,7 @@ export const ZH_TEXTS = {
     savedNotice: '设置已保存！',
 
     // Wiki 文件夹
-    wikiSection: 'Wiki 文件夹配置',
+    wikiSection: 'Wiki 配置',
     wikiFolderName: 'Wiki 文件夹',
     wikiFolderDesc: '存放生成的 Wiki 页面',
     wikiFolderPlaceholder: 'wiki',
@@ -243,8 +247,8 @@ export const ZH_TEXTS = {
 
     // 摄入加速
     accelerationSectionTitle: '摄入加速',
-    pageGenerationConcurrencyName: '页面生成并发度',
-    pageGenerationConcurrencyDesc: '单文件摄入时并行生成页面的数量。数值越高速度越快，但会增加 API 消耗并可能触发限流。',
+    pageGenerationConcurrencyName: 'LLM 并发度',
+    pageGenerationConcurrencyDesc: '摄入和 Lint 操作中的并行 LLM 调用数。数值越高处理越快，但会增加 API 消耗并可能触发限流。',
     concurrencyValueSingular: '当前并发度：{}（串行 — 最安全）',
     concurrencyValuePlural: '当前并发度：{}（并行）',
     batchDelayName: '批次延迟 (ms)',
@@ -274,8 +278,8 @@ export const ZH_TEXTS = {
     periodicLintHourly: '每小时',
     periodicLintDaily: '每天',
     periodicLintWeekly: '每周',
-    startupCheckName: '启动健康检查',
-    startupCheckDesc: '插件加载时扫描 Wiki 健康状况',
+    startupCheckName: '启动时执行快速修复',
+    startupCheckDesc: '插件加载时自动修复低级格式问题（sources 字段、双层 wikilink），并验证 Wiki 目录结构。默认开启。',
     copySourcePagesToggle: 'Copy source pages with wiki links',
     copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
     pagesFolderLabel: 'Pages folder',
@@ -294,6 +298,16 @@ export const ZH_TEXTS = {
     scheduledLintRunning: '正在执行定时 Wiki 维护...',
     wikiLintStats: 'Wiki 维护: 共 {pages} 页（{entities} 实体, {concepts} 概念, {sources} 来源）',
     wikiHealthStats: 'Wiki 健康: 共 {pages} 页（{entities} 实体, {concepts} 概念, {sources} 来源）{indexStatus}',
+
+    // Startup quick fixes detail (Issue #81)
+    startupCheckTitle: '✅ Wiki 快速修复完成',
+    startupCheckStructureLabel: '📁 Wiki 结构',
+    startupCheckStructureOk: '✓ 完整',
+    startupCheckStructureMissing: '⚠️ 不完整 — 将在首次摄入时自动创建',
+    startupCheckSourcesLabel: '🔧 Sources 归一化',
+    startupCheckSourcesClean: '✓ 已规范',
+    startupCheckSourcesCleaned: '⚠️ 清理了 {files} 个文件，{entries} 处条目',
+    startupCheckDisableHint: '💡 如需关闭，前往 设置 → 自动维护 → 启动时执行快速修复',
     lintWikiStart: '开始维护 wiki...',
     lintWikiComplete: '维护完成',
     lintWikiFailed: '维护失败',
@@ -396,6 +410,8 @@ export const ZH_TEXTS = {
     lintDuplicateSection: '重复页面（程序检测）',
     lintPollutedSection: '路径污染页面（程序检测）',
     lintPollutedItem: '- [[{page}]] → 应为 "{clean}"',
+    lintSourcesNormalizedSection: 'Sources 已归一化（自动修复）',
+    lintSourcesNormalizedItem: '清理了 {files} 个文件中的 {entries} 处 sources 条目（已移除外部路径、.md 后缀、别名管道，并去重）。',
     lintDuplicateItem: '- [[{target}]] 与 [[{source}]] — {reason}',
     lintMergeProgress: '合并 {current}/{total}：{source} → {target}',
     lintMergeComplete: '重复页面合并完成。已合并 {merged}/{total} 对。',

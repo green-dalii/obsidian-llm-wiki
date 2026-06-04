@@ -8,6 +8,7 @@ import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice } from '../../utils';
 import { TOKENS_LINT_ALIAS_BATCH, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
+import { buildWikiLanguageDirective } from '../system-prompts';
 
 export async function runAliasCompletion(
   ctx: LintContext,
@@ -53,6 +54,7 @@ export async function runAliasCompletion(
           const response = await client.createMessage({
             model: ctx.settings.model,
             max_tokens: TOKENS_LINT_ALIAS_BATCH,
+            system: buildWikiLanguageDirective(ctx.settings),
             messages: [{ role: 'user', content: prompt }],
             response_format: { type: 'json_object' }
           });
@@ -240,4 +242,49 @@ export async function runDuplicateMerges(
   }
   fixNotice.hide();
   return { merged, results };
+}
+
+export async function runCaseNormalizationFixes(
+  ctx: LintContext,
+  merges: Array<{ target: string; source: string }>,
+  renames: Array<{ oldPath: string; newBasename: string }>,
+): Promise<{ fixed: number; results: string[] }> {
+  let fixed = 0;
+  const results: string[] = [];
+  const total = merges.length + renames.length;
+  const fixNotice = new Notice('', 0);
+
+  for (let i = 0; i < merges.length; i++) {
+    const { target, source } = merges[i];
+    const sourceRel = source.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
+    const targetRel = target.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
+    fixNotice.setMessage(`Case normalization ${i + 1}/${total}: merging ${sourceRel} → ${targetRel}`);
+    console.debug(`[CaseNorm] merge ${i + 1}/${total}: ${sourceRel} → ${targetRel}`);
+    try {
+      const result = await ctx.wikiEngine.mergeDuplicatePages(target, source);
+      results.push(`- merged (case): ${sourceRel} → ${targetRel}: ${result}`);
+      fixed++;
+    } catch (e) {
+      console.error(`[CaseNorm] Merge failed: ${source}`, e);
+      results.push(`- error merging ${sourceRel}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  for (let i = 0; i < renames.length; i++) {
+    const { oldPath } = renames[i];
+    const oldRel = oldPath.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
+    fixNotice.setMessage(`Case normalization ${merges.length + i + 1}/${total}: normalizing ${oldRel}`);
+    console.debug(`[CaseNorm] rename ${merges.length + i + 1}/${total}: ${oldRel}`);
+    try {
+      const result = await ctx.wikiEngine.normalizePageCase(oldPath);
+      results.push(`- ${result}`);
+      fixed++;
+    } catch (e) {
+      console.error(`[CaseNorm] Rename failed: ${oldPath}`, e);
+      results.push(`- error normalizing ${oldRel}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  fixNotice.hide();
+  return { fixed, results };
 }

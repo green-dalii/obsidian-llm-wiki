@@ -88,7 +88,11 @@ If source adds nothing new, still output the target body AND any aliases found.`
 {{body}}
 
 **What to generate:**
-- Translations: if the title is Chinese, suggest English translations, and vice versa
+- **CRITICAL: do NOT invent translations for established technical terms.** Only suggest
+  translations that genuinely exist in real-world usage (e.g. "Neural Network" ↔ "神经网络",
+  not "Transformer" ↔ "变换器"). Real-world convention always wins.
+- English is universally acceptable as a "linker language" — established English technical terms
+  (e.g. "Transformer", "DNA", "API", "RoPE", "CUDA") may be kept as-is across all wikis
 - Abbreviations: e.g. "Chain of Thought" → "CoT", "Mixture of Experts" → "MoE"
 - Spelling variants: "Mixture-of-Experts", "Mixture of Experts", "Sparse MoE"
 - Common alternative names in the field
