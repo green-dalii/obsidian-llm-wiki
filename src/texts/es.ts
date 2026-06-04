@@ -282,9 +282,9 @@ export const ES_TEXTS = {
     copySourcePagesToggle: 'Copy source pages with wiki links',
     copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
     pagesFolderLabel: 'Pages folder',
-    pagesFolderDesc: 'Vault-relative path where linked copies are saved (default: pages). Can be inside the wiki folder, e.g. wiki/pages.',
+    pagesFolderDesc: 'Vault-relative path where linked copies are saved. Default: wiki/source-copies (inside the wiki folder, safe from collisions with non-wiki content).',
     lintRefreshPagesCopies: 'Refreshed {count} page copies with updated wiki links',
-    lintRefreshPagesCopiesProgress: 'Smart fix: Phase 5 — Refreshing pages/ copies...',
+    lintRefreshPagesCopiesProgress: 'Smart fix: Phase 5 — Refreshing source copies...',
     suggestSchemaCommand: 'Sugerir actualizaciones del esquema',
     autoMaintainCostWarning: '⚠️ Aviso de coste: Las funciones de mantenimiento automático consumen tokens de API. "Ingestión automática" dispara llamadas LLM en cada cambio de archivo fuente. "Verificación lint periódica" ejecuta comprobaciones de salud programadas (solo cuando se detectan cambios). Configura con cuidado para evitar cargos inesperados.',
 

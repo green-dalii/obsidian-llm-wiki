@@ -92,6 +92,36 @@ describe('insertWikiLinks', () => {
     expect(result).toBe('[[entities/alan-turing|Alan Turing]] was great.');
   });
 
+  describe('CJK entity linking', () => {
+    const ENTITY_ZH: WikiPage = { title: '机器学习', wikiLink: '[[concepts/machine-learning|机器学习]]' };
+    const ENTITY_JA: WikiPage = { title: 'ニューラルネットワーク', wikiLink: '[[concepts/neural-network|ニューラルネットワーク]]' };
+    const ENTITY_KO: WikiPage = { title: '기계학습', wikiLink: '[[concepts/machine-learning|기계학습]]' };
+
+    it('links a Chinese entity name in plain text', () => {
+      const body = '深度学习和机器学习是人工智能的核心领域。';
+      const result = insertWikiLinks(body, [ENTITY_ZH]);
+      expect(result).toBe('深度学习和[[concepts/machine-learning|机器学习]]是人工智能的核心领域。');
+    });
+
+    it('does not double-wrap a Chinese entity already inside [[...]]', () => {
+      const body = '[[concepts/machine-learning|机器学习]]在现代技术中非常重要。';
+      const result = insertWikiLinks(body, [ENTITY_ZH]);
+      expect(result).toBe('[[concepts/machine-learning|机器学习]]在现代技术中非常重要。');
+    });
+
+    it('links a Japanese katakana entity name', () => {
+      const body = 'ニューラルネットワークは深層学習の基礎です。';
+      const result = insertWikiLinks(body, [ENTITY_JA]);
+      expect(result).toBe('[[concepts/neural-network|ニューラルネットワーク]]は深層学習の基礎です。');
+    });
+
+    it('links a Korean Hangul entity name', () => {
+      const body = '기계학습은 인공지능의 핵심 분야입니다.';
+      const result = insertWikiLinks(body, [ENTITY_KO]);
+      expect(result).toBe('[[concepts/machine-learning|기계학습]]은 인공지능의 핵심 분야입니다.');
+    });
+  });
+
   describe('markdown link protection', () => {
     const ENTITY_QMD: WikiPage = { title: 'qmd', wikiLink: '[[entities/qmd|qmd]]' };
 

@@ -436,7 +436,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
 
   // Source page copying
   copySourcePagesToWiki: false,
-  pagesFolder: 'pages',
+  pagesFolder: 'wiki/source-copies',
 
   // LLM readiness
   llmReady: false,

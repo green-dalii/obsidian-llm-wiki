@@ -725,9 +725,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .setDesc(this.getText('pagesFolderDesc'))
         .addText(text => {
 
-          text.setValue(this.tempSettings.pagesFolder || 'pages');
+          text.setValue(this.tempSettings.pagesFolder || 'wiki/source-copies');
           text.onChange((value) => {
-            this.tempSettings.pagesFolder = value.trim() || 'pages';
+            this.tempSettings.pagesFolder = value.trim() || 'wiki/source-copies';
           });
         });
     }

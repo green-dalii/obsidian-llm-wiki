@@ -18,6 +18,13 @@ function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// CJK: Hiragana, Katakana, CJK Unified, CJK Ext-A, Hangul, CJK Compatibility
+const CJK_RE = /[぀-ヿ㐀-䶿一-鿿가-힯豈-﫿]/;
+
+function hasCJK(text: string): boolean {
+  return CJK_RE.test(text);
+}
+
 function splitOnLinks(text: string): { plain: string[]; links: string[] } {
   const PROTECTED_RE = /\[\[.*?\]\]|!?\[.*?\]\(.*?\)/g;
   const plain: string[] = [];
@@ -62,7 +69,9 @@ export function insertWikiLinks(content: string, wikiPages: WikiPageEntry[]): st
 
   for (const { text, linkBase } of candidates) {
     const { plain, links } = splitOnLinks(processedBody);
-    const pattern = new RegExp('\\b' + escapeRegex(text) + '\\b', 'gi');
+    const pattern = hasCJK(text)
+      ? new RegExp(escapeRegex(text), 'gi')
+      : new RegExp('\\b' + escapeRegex(text) + '\\b', 'gi');
     const newPlain = plain.map(seg => seg.replace(pattern, match => `[[${linkBase}|${match}]]`));
     processedBody = newPlain.reduce((acc, seg, i) => acc + seg + (links[i] ?? ''), '');
   }
