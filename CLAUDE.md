@@ -185,9 +185,38 @@ to silence it. Re-run all four gates after each fix.
 ## ⚠️ Git Safety Protocol
 
 - **NEVER commit or push without explicit user permission.** Non-negotiable.
+- **NEVER write code on `main`.** Before touching any file, run `git branch --show-current`. If the result is `main`, create a feature branch first. This applies to every task — features, fixes, refactors, and tests alike.
+- **Branch naming convention** (mirrors commit prefix):
+  - `feat/<kebab-description>` — new feature or capability
+  - `fix/<kebab-description>` — bug fix
+  - `refactor/<kebab-description>` — internal restructuring, no behavior change
+  - `test/<kebab-description>` — test-only additions
+  - `chore/<kebab-description>` — maintenance, docs, version bumps
+
+  Example: `git checkout -b fix/graph-dead-nodes`
+
+### Branch Lifecycle
+
+**On task completion (PR merged):**
+```bash
+gh pr merge <PR#> --merge --delete-branch   # deletes remote branch
+git checkout main && git pull origin main
+git branch -d <branch-name>                 # delete local branch
+```
+
+**On task abandonment** (user cancels, pivots, or the work is discarded):
+- Explicitly delete the local branch: `git branch -D <branch-name>`
+- Tell the user: "Branch `<name>` has been deleted."
+
+**Periodic clean-up** (before starting new work if many branches exist):
+```bash
+git fetch --prune                                                  # drop stale remote-tracking refs
+git branch --merged main | grep -v main | xargs git branch -d    # delete merged locals
+```
 
 ## 📦 Development Workflow
 
+0. **Check branch** — run `git branch --show-current`. If on `main`, create a feature branch now: `git checkout -b <prefix>/<description>`. Never skip this step.
 1. `pnpm lint && pnpm test && npx tsc --noEmit && pnpm build` — all four must pass (Three-No Principle)
 2. Update relevant docs and memory
 3. Present change summary for user review
@@ -337,8 +366,8 @@ pnpm build          # Gate 4: Build - clean exit
 
 **Before starting any significant change** (refactoring, new modules, prompt modification, architectural decisions, or anything touching core engine files):
 
-1. **Present your plan** — explain what, why, and how
-2. **Wait for explicit user approval** before writing code or committing
+1. **Present your plan** — explain what, why, and how; state which branch you will create
+2. **Wait for explicit user approval** before creating the branch or writing code or committing
 3. **For multi-phase work**: pause and report after each phase
 
 **Exceptions** (no prior approval needed): trivial one-line fixes, running lint/test/build, reading files, documenting existing code.
