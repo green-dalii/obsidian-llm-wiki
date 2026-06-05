@@ -11,7 +11,7 @@ import {
   WIKI_LANGUAGES,
 } from '../types';
 import { PROMPTS } from '../prompts';
-import { parseJsonResponse, matchExtractedToExisting, coerceToArray } from '../utils';
+import { parseJsonResponse, matchExtractedToExisting, crossLinkWithExistingPages, coerceToArray } from '../utils';
 import { MAX_TOKENS_BATCH } from '../constants';
 import { getExistingWikiPages } from './lint-fixes';
 import { getGranularityInstruction } from './system-prompts';
@@ -333,6 +333,13 @@ export class SourceAnalyzer {
         const existingPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
         accumulation.relatedPages = matchExtractedToExisting(allExtractedNames, existingPages);
         console.debug('[Related pages] Programmatic matching:', accumulation.relatedPages.length, 'pages matched');
+        // Augment each entity/concept's related fields with existing wiki pages
+        // whose names appear in the item's text. This ensures cross-source links:
+        // entities from Source 1 get linked from Source 2 pages when mentioned.
+        crossLinkWithExistingPages(
+          [...accumulation.entities, ...accumulation.concepts],
+          existingPages
+        );
       } catch (err) {
         console.warn('[Related pages] Programmatic matching failed:', err);
       }
