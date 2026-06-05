@@ -690,6 +690,8 @@ describe('getGranularityInstruction', () => {
     startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
     llmReady: false,
     maxTokensPerCall: 0,
+    copySourcePagesToWiki: false,
+    pagesFolder: 'pages',
   };
 
   it('injects concrete entity and concept limits for custom mode', () => {
@@ -735,6 +737,8 @@ describe('getGranularityFixLimits', () => {
     startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
     llmReady: false,
     maxTokensPerCall: 0,
+    copySourcePagesToWiki: false,
+    pagesFolder: 'pages',
   };
 
   it('returns user-defined limits for custom mode', () => {

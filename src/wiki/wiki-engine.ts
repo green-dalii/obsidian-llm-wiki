@@ -38,6 +38,21 @@ import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL,
 import { PageFactory } from './page-factory';
 import { computeStubCandidates } from './stub-candidates';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
+import { insertWikiLinks } from '../core/wikilink-inserter';
+
+function injectSourceField(content: string, sourcePath: string): string {
+  if (content.startsWith('---')) {
+    const end = content.indexOf('\n---', 3);
+    if (end !== -1) {
+      const fmBody = content.slice(3, end);
+      if (!fmBody.includes('source:')) {
+        return '---' + fmBody + `\nsource: "${sourcePath}"` + content.slice(end);
+      }
+      return content;
+    }
+  }
+  return `---\nsource: "${sourcePath}"\n---\n` + content;
+}
 
 export class WikiEngine {
   private app: App;

@@ -1,7 +1,7 @@
 // Lint Fix Methods — dead link correction, empty page expansion, orphan linking,
 // and duplicate merge. Extracted from WikiEngine.
 
-import { App } from 'obsidian';
+import { App, normalizePath } from 'obsidian';
 import { EngineContext } from '../types';
 import { PROMPTS } from '../prompts';
 import { slugify, parseJsonResponse, cleanMarkdownResponse, parseFrontmatter, enforceFrontmatterConstraints } from '../utils';
@@ -49,7 +49,8 @@ export async function getExistingWikiPages(
         !f.path.includes('index.md') &&
         !f.path.includes('log.md') &&
         !f.path.includes('/schema/') &&
-        !f.path.includes('/contradictions/')
+        !f.path.includes('/contradictions/') &&
+        !(pagesFolderNorm && f.path.startsWith(pagesFolderNorm + '/'))
     );
 
   const pages: Array<{ path: string; title: string; wikiLink: string; aliases?: string[]; isStub?: boolean }> = [];

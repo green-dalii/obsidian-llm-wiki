@@ -284,6 +284,12 @@ export const JA_TEXTS = {
     periodicLintWeekly: '毎週',
     startupCheckName: '起動時にクイック修正を実行',
     startupCheckDesc: 'プラグイン読み込み時に低レベル書式の問題（sources フィールド、二重 wikilink）を自動修正し、Wiki ディレクトリ構造を検証します。デフォルトで有効。',
+    copySourcePagesToggle: 'Copy source pages with wiki links',
+    copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
+    pagesFolderLabel: 'Pages folder',
+    pagesFolderDesc: 'Vault-relative path where linked copies are saved (default: pages). Can be inside the wiki folder, e.g. wiki/pages.',
+    lintRefreshPagesCopies: 'Refreshed {count} page copies with updated wiki links',
+    lintRefreshPagesCopiesProgress: 'Smart fix: Phase 5 — Refreshing pages/ copies...',
     suggestSchemaCommand: 'スキーマ更新を提案',
     autoMaintainCostWarning: '⚠️ コストのお知らせ：自動メンテナンス機能はAPIトークンを消費します。「自動取り込み」はソースファイルの変更ごとにLLM呼び出しをトリガーします。「定期Lint」はスケジュールに従ってLLMヘルスチェックを実行します（ソースの変更が検出された場合のみ）。想定外の課金を避けるため、慎重に設定してください。',
 

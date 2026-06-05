@@ -82,6 +82,8 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   batchDelayMs: 0,
   llmReady: true,
   maxTokensPerCall: 0,
+  copySourcePagesToWiki: false,
+  pagesFolder: 'pages',
 };
 
 // ── Mock EngineContext ───────────────────────────────────────────

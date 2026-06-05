@@ -285,6 +285,12 @@ export const ZH_TEXTS = {
     periodicLintWeekly: '每周',
     startupCheckName: '启动时执行快速修复',
     startupCheckDesc: '插件加载时自动修复低级格式问题（sources 字段、双层 wikilink），并验证 Wiki 目录结构。默认开启。',
+    copySourcePagesToggle: 'Copy source pages with wiki links',
+    copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
+    pagesFolderLabel: 'Pages folder',
+    pagesFolderDesc: 'Vault-relative path where linked copies are saved (default: pages). Can be inside the wiki folder, e.g. wiki/pages.',
+    lintRefreshPagesCopies: 'Refreshed {count} page copies with updated wiki links',
+    lintRefreshPagesCopiesProgress: 'Smart fix: Phase 5 — Refreshing pages/ copies...',
     suggestSchemaCommand: '建议 Schema 更新',
     autoMaintainCostWarning: '⚠️ 费用提醒：自动维护功能会消耗 API Token。"自动摄入"模式在每次源文件变更时触发 LLM 调用。"定时维护"定期运行 LLM 健康检查（仅在有新变更时执行）。请谨慎配置以避免意外费用。',
 

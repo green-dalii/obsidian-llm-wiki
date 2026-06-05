@@ -284,6 +284,12 @@ export const PT_TEXTS = {
     periodicLintWeekly: 'Semanalmente',
     startupCheckName: 'Executar correções rápidas na inicialização',
     startupCheckDesc: 'Corrige automaticamente problemas de formato de baixo nível (campo sources, wikilinks duplamente aninhados) ao carregar o plug-in. Verifica a estrutura de pastas do Wiki. Ativado por padrão.',
+    copySourcePagesToggle: 'Copy source pages with wiki links',
+    copySourcePagesDesc: 'After ingestion, save a linked copy of each source file in the pages folder with entity and concept names auto-linked to their wiki pages.',
+    pagesFolderLabel: 'Pages folder',
+    pagesFolderDesc: 'Vault-relative path where linked copies are saved (default: pages). Can be inside the wiki folder, e.g. wiki/pages.',
+    lintRefreshPagesCopies: 'Refreshed {count} page copies with updated wiki links',
+    lintRefreshPagesCopiesProgress: 'Smart fix: Phase 5 — Refreshing pages/ copies...',
     suggestSchemaCommand: 'Sugerir atualizações de Schema',
     autoMaintainCostWarning: '⚠️ Aviso de custo: Recursos de manutenção automática consomem tokens de API. "Ingerir automaticamente" aciona chamadas LLM em cada alteração de arquivo fonte. "Verificação periódica" executa verificações de saúde LLM agendadas (somente quando alterações são detectadas). Configure com cuidado para evitar cobranças inesperadas.',
 
