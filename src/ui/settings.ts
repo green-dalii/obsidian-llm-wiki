@@ -6,6 +6,7 @@ import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES } from '../types';
 import { TEXTS } from '../texts';
 import { FolderSuggestModal } from './modals';
+import { classifyFetchError } from './settings-helpers';
 
 export class LLMWikiSettingTab extends PluginSettingTab {
   plugin: LLMWikiPlugin;
@@ -180,11 +181,11 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         dropdown.onChange((value) => {
           this.tempSettings.provider = value;
           this.tempSettings.llmReady = false;
+          this.tempSettings.availableModels = [];
+          this.tempSettings.useCustomModel = false;
+          this.tempSettings.model = '';
           const config = PREDEFINED_PROVIDERS[value];
-          if (config) {
-            this.tempSettings.model = config.defaultModel || '';
-            if (value !== 'custom') this.tempSettings.baseUrl = config.baseUrl;
-          }
+          if (config && value !== 'custom') this.tempSettings.baseUrl = config.baseUrl;
           this.display();
         });
       });
@@ -316,7 +317,17 @@ export class LLMWikiSettingTab extends PluginSettingTab {
                   } else throw new Error(`HTTP ${altResponse.status}`);
                 }
               } else {
-                this.tempSettings.availableModels = ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001'];
+                // Anthropic official or Anthropic-Compatible without custom baseUrl → fetch from api.anthropic.com
+                const response = await requestUrl({
+                  url: 'https://api.anthropic.com/v1/models',
+                  headers: { 'x-api-key': apiKey, 'Anthropic-Version': '2023-06-01' }
+                });
+                if (response.status >= 200 && response.status < 300) {
+                  const data = response.json as { data?: Array<{ id: string }> };
+                  if (data.data?.length) {
+                    this.tempSettings.availableModels = data.data.map(m => m.id).filter(modelFilter).sort();
+                  } else throw new Error('empty model list');
+                } else throw new Error(`HTTP ${response.status}`);
               }
             } else {
               const modelsUrl = (baseUrl || 'https://api.openai.com/v1') + '/models';
@@ -335,6 +346,8 @@ export class LLMWikiSettingTab extends PluginSettingTab {
               if (!this.tempSettings.model || !this.tempSettings.availableModels.includes(this.tempSettings.model)) {
                 this.tempSettings.model = this.tempSettings.availableModels[0];
               }
+              // Auto-switch from text input to dropdown on successful fetch
+              this.tempSettings.useCustomModel = false;
             } else {
               new Notice(this.getText('fetchFailed'), NOTICE_NORMAL);
               this.tempSettings.useCustomModel = true;
@@ -342,8 +355,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             this.display();
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            new Notice(this.getText('errorFetchFailed').replace('{}', errorMsg), NOTICE_ERROR);
+            const category = classifyFetchError(errorMsg);
+            new Notice(this.getText(`fetchError${category}`), NOTICE_ERROR);
             this.tempSettings.useCustomModel = true;
+            this.tempSettings.availableModels = [];
             this.display();
           }
           button.setButtonText(this.getText('fetchModelsButton'));
@@ -370,9 +385,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .setName(this.getText('modelName'))
         .setDesc(this.tempSettings.availableModels?.length
           ? this.getText('modelDescCustom')
-          : providerConfig ? this.getText('modelDescRecommended').replace('{}', providerConfig.defaultModel || '') : this.getText('modelDescManual'))
+          : this.getText('modelDescFetchFailed'))
         .addText(text => text
-          .setPlaceholder(providerConfig?.defaultModel || 'model-name')
+          .setPlaceholder(this.getText('modelInputPlaceholder'))
           .setValue(this.tempSettings.model)
           .onChange((value) => { this.tempSettings.model = value; }))
         .addExtraButton(button => {

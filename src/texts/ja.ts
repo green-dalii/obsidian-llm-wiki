@@ -64,6 +64,11 @@ export const JA_TEXTS = {
     fetchSuccess: '取得成功！{}件のモデルが利用可能です',
     fetchFailed: '取得に失敗したかリストが空です。モデル名を手動で入力してください',
     fetchNotSupported: 'このプロバイダーはモデル一覧の取得に対応していません',
+    fetchErrorAuth: '認証に失敗しました（HTTP 401/403）。API キーを確認するか、モデル ID を直接入力して「テスト接続」をクリックして検証してください。',
+    fetchErrorEndpoint: 'エンドポイントが見つかりません（HTTP 404）。BaseURL を確認するか、モデル ID を直接入力して「テスト接続」をクリックして検証してください。',
+    fetchErrorServer: 'プロバイダーサーバーエラー（HTTP 5xx）。後でもう一度お試しいただくか、モデル ID を直接入力して「テスト接続」をクリックして検証してください。',
+    fetchErrorEmpty: 'このエンドポイントはモデル一覧を提供していません。モデル ID を直接入力して「テスト接続」をクリックして検証してください。',
+    fetchErrorNetwork: 'ネットワークリクエストが失敗しました。インターネット接続、BaseURL、またはプロキシ設定を確認してください。モデル ID を直接入力して「テスト接続」をクリックして検証することもできます。',
 
     selectModelName: 'モデルを選択',
     selectModelDesc: '{}件の利用可能なモデルから選択',
@@ -72,8 +77,8 @@ export const JA_TEXTS = {
 
     modelName: 'モデル名',
     modelDescCustom: 'カスタムモデルを使用中（上のボタンをクリックして一覧を再取得）',
-    modelDescRecommended: '推奨：{}',
-    modelDescManual: 'モデル名を手動で入力',
+    modelDescFetchFailed: 'モデル一覧の取得に失敗しました。API キーとエンドポイント URL を確認するか、モデル ID を直接入力して「テスト接続」をクリックして検証してください。',
+    modelInputPlaceholder: 'モデル ID を入力してテスト接続',
 
     switchToDropdown: 'ドロップダウン選択に切り替え',
     useDropdownButton: 'ドロップダウンを使用',

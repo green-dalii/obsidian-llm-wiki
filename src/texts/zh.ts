@@ -64,6 +64,11 @@ export const ZH_TEXTS = {
     fetchSuccess: '获取成功！共 {} 个可用模型',
     fetchFailed: '获取失败或列表为空，请手动输入模型名称',
     fetchNotSupported: '该 Provider 不支持模型列表查询',
+    fetchErrorAuth: '认证失败（HTTP 401/403）。请检查 API Key 是否正确，或直接输入模型 ID 后点击测试连接进行验证。',
+    fetchErrorEndpoint: '接入点未找到（HTTP 404）。请检查 BaseURL 是否正确，或直接输入模型 ID 后点击测试连接。',
+    fetchErrorServer: 'Provider 服务端错误（HTTP 5xx）。稍后重试，或直接输入模型 ID 后点击测试连接。',
+    fetchErrorEmpty: '该接入点不支持列出模型列表。请直接输入模型 ID 后点击测试连接进行验证。',
+    fetchErrorNetwork: '网络请求失败。请检查网络连接、BaseURL 或代理设置。您也可以直接输入模型 ID 后点击测试连接进行验证。',
 
     selectModelName: '选择模型',
     selectModelDesc: '从 {} 个可用模型中选择',
@@ -72,8 +77,8 @@ export const ZH_TEXTS = {
 
     modelName: '模型名称',
     modelDescCustom: '当前使用自定义模型（可重新获取列表）',
-    modelDescRecommended: '推荐：{}',
-    modelDescManual: '手动输入模型名称',
+    modelDescFetchFailed: '模型列表获取失败。请检查 API Key 和接入点 URL，或直接输入模型 ID 后点击测试连接进行验证。',
+    modelInputPlaceholder: '输入模型 ID，然后点击测试连接',
 
     switchToDropdown: '切换到下拉选择',
     useDropdownButton: '使用下拉选择',

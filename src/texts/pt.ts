@@ -64,6 +64,11 @@ export const PT_TEXTS = {
     fetchSuccess: 'Sucesso! {} modelos disponíveis',
     fetchFailed: 'Falha ou lista vazia. Insira o nome do modelo manualmente',
     fetchNotSupported: 'O provedor não suporta consulta à lista de modelos',
+    fetchErrorAuth: 'Falha de autenticação (HTTP 401/403). Verifique a chave API, ou insira um ID de modelo e clique em Testar conexão.',
+    fetchErrorEndpoint: 'Endpoint não encontrado (HTTP 404). Verifique a URL do endpoint, ou insira um ID de modelo e clique em Testar conexão.',
+    fetchErrorServer: 'Erro do servidor do provedor (HTTP 5xx). Tente novamente mais tarde, ou insira um ID de modelo e clique em Testar conexão.',
+    fetchErrorEmpty: 'Este endpoint não expõe lista de modelos. Insira um ID de modelo e clique em Testar conexão.',
+    fetchErrorNetwork: 'Falha na requisição de rede. Verifique sua conexão com a internet, URL do endpoint ou configurações de proxy. Você também pode inserir um ID de modelo e clicar em Testar conexão.',
 
     selectModelName: 'Selecionar modelo',
     selectModelDesc: 'Escolha entre {} modelos disponíveis',
@@ -72,8 +77,8 @@ export const PT_TEXTS = {
 
     modelName: 'Nome do modelo',
     modelDescCustom: 'Usando modelo personalizado (clique no botão acima para buscar a lista novamente)',
-    modelDescRecommended: 'Recomendado: {}',
-    modelDescManual: 'Insira o nome do modelo manualmente',
+    modelDescFetchFailed: 'Falha ao buscar lista de modelos. Verifique a chave API e URL do endpoint, ou insira um ID de modelo e clique em Testar conexão.',
+    modelInputPlaceholder: 'Insira o ID do modelo e teste a conexão',
 
     switchToDropdown: 'Alternar para seleção por lista',
     useDropdownButton: 'Usar lista suspensa',

@@ -64,6 +64,11 @@ export const FR_TEXTS = {
     fetchSuccess: 'Succès ! {} modèles disponibles',
     fetchFailed: 'Échec ou liste vide, veuillez saisir le nom du modèle manuellement',
     fetchNotSupported: 'Le fournisseur ne prend pas en charge la requête de liste de modèles',
+    fetchErrorAuth: 'Échec d\'authentification (HTTP 401/403). Vérifiez la clé API, ou entrez un ID de modèle puis cliquez sur Tester la connexion.',
+    fetchErrorEndpoint: 'Point d\'accès introuvable (HTTP 404). Vérifiez l\'URL du point d\'accès, ou entrez un ID de modèle puis cliquez sur Tester la connexion.',
+    fetchErrorServer: 'Erreur du serveur du fournisseur (HTTP 5xx). Réessayez plus tard, ou entrez un ID de modèle puis cliquez sur Tester la connexion.',
+    fetchErrorEmpty: 'Ce point d\'accès n\'expose pas de liste de modèles. Entrez un ID de modèle puis cliquez sur Tester la connexion.',
+    fetchErrorNetwork: 'Échec de la requête réseau. Vérifiez votre connexion Internet, l\'URL du point d\'accès ou les paramètres du proxy. Vous pouvez aussi entrer un ID de modèle puis cliquer sur Tester la connexion.',
 
     selectModelName: 'Sélectionner un modèle',
     selectModelDesc: 'Choisir parmi {} modèles disponibles',
@@ -72,8 +77,8 @@ export const FR_TEXTS = {
 
     modelName: 'Nom du modèle',
     modelDescCustom: 'Modèle personnalisé utilisé (cliquez ci-dessus pour récupérer la liste)',
-    modelDescRecommended: 'Recommandé : {}',
-    modelDescManual: 'Saisir manuellement le nom du modèle',
+    modelDescFetchFailed: 'Échec de récupération de la liste des modèles. Vérifiez la clé API et l\'URL du point d\'accès, ou entrez un ID de modèle puis cliquez sur Tester la connexion.',
+    modelInputPlaceholder: 'Saisir l\'ID du modèle, puis Tester la connexion',
 
     switchToDropdown: 'Passer à la sélection par liste déroulante',
     useDropdownButton: 'Utiliser la liste déroulante',

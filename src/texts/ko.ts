@@ -64,6 +64,11 @@ export const KO_TEXTS = {
     fetchSuccess: '성공! {}개의 모델 사용 가능',
     fetchFailed: '가져오기 실패 또는 빈 목록. 모델 이름을 수동으로 입력하세요',
     fetchNotSupported: 'Provider가 모델 목록 조회를 지원하지 않습니다',
+    fetchErrorAuth: '인증 실패 (HTTP 401/403). API 키를 확인하거나 모델 ID를 직접 입력한 후 테스트 연결을 클릭하여 검증하세요.',
+    fetchErrorEndpoint: '엔드포인트를 찾을 수 없음 (HTTP 404). BaseURL을 확인하거나 모델 ID를 직접 입력한 후 테스트 연결을 클릭하여 검증하세요.',
+    fetchErrorServer: 'Provider 서버 오류 (HTTP 5xx). 나중에 다시 시도하거나 모델 ID를 직접 입력한 후 테스트 연결을 클릭하여 검증하세요.',
+    fetchErrorEmpty: '이 엔드포인트는 모델 목록을 제공하지 않습니다. 모델 ID를 직접 입력한 후 테스트 연결을 클릭하여 검증하세요.',
+    fetchErrorNetwork: '네트워크 요청 실패. 인터넷 연결, BaseURL 또는 프록시 설정을 확인하세요. 모델 ID를 직접 입력한 후 테스트 연결을 클릭하여 검증할 수도 있습니다.',
 
     selectModelName: '모델 선택',
     selectModelDesc: '{}개의 사용 가능한 모델 중에서 선택',
@@ -72,8 +77,8 @@ export const KO_TEXTS = {
 
     modelName: '모델 이름',
     modelDescCustom: '사용자 정의 모델 사용 (위 버튼으로 목록 다시 가져오기)',
-    modelDescRecommended: '추천: {}',
-    modelDescManual: '모델 이름을 수동으로 입력',
+    modelDescFetchFailed: '모델 목록 가져오기 실패. API 키와 엔드포인트 URL을 확인하거나 모델 ID를 직접 입력한 후 테스트 연결을 클릭하여 검증하세요.',
+    modelInputPlaceholder: '모델 ID 입력 후 테스트 연결',
 
     switchToDropdown: '드롭다운 선택으로 전환',
     useDropdownButton: '드롭다운 사용',

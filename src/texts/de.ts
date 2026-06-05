@@ -64,6 +64,11 @@ export const DE_TEXTS = {
     fetchSuccess: 'Erfolg! {} Modelle verfügbar',
     fetchFailed: 'Abruf fehlgeschlagen oder leere Liste, bitte Modellnamen manuell eingeben',
     fetchNotSupported: 'Anbieter unterstützt keine Modelllistenabfrage',
+    fetchErrorAuth: 'Authentifizierung fehlgeschlagen (HTTP 401/403). Überprüfen Sie den API-Schlüssel, oder geben Sie eine Modell-ID ein und klicken Sie auf Verbindung testen.',
+    fetchErrorEndpoint: 'Endpunkt nicht gefunden (HTTP 404). Überprüfen Sie die Endpunkt-URL, oder geben Sie eine Modell-ID ein und klicken Sie auf Verbindung testen.',
+    fetchErrorServer: 'Anbieter-Serverfehler (HTTP 5xx). Versuchen Sie es später erneut, oder geben Sie eine Modell-ID ein und klicken Sie auf Verbindung testen.',
+    fetchErrorEmpty: 'Dieser Endpunkt stellt keine Modellliste bereit. Geben Sie eine Modell-ID ein und klicken Sie auf Verbindung testen.',
+    fetchErrorNetwork: 'Netzwerkanfrage fehlgeschlagen. Überprüfen Sie Internetverbindung, Endpunkt-URL oder Proxy-Einstellungen. Sie können auch eine Modell-ID eingeben und auf Verbindung testen klicken.',
 
     selectModelName: 'Modell auswählen',
     selectModelDesc: 'Aus {} verfügbaren Modellen wählen',
@@ -72,8 +77,8 @@ export const DE_TEXTS = {
 
     modelName: 'Modellname',
     modelDescCustom: 'Benutzerdefiniertes Modell wird verwendet (Schaltfläche oben klicken, um Liste erneut abzurufen)',
-    modelDescRecommended: 'Empfohlen: {}',
-    modelDescManual: 'Modellnamen manuell eingeben',
+    modelDescFetchFailed: 'Abruf der Modellliste fehlgeschlagen. Überprüfen Sie API-Schlüssel und Endpunkt-URL, oder geben Sie eine Modell-ID ein und klicken Sie auf Verbindung testen.',
+    modelInputPlaceholder: 'Modell-ID eingeben, dann Verbindung testen',
 
     switchToDropdown: 'Zur Dropdown-Auswahl wechseln',
     useDropdownButton: 'Dropdown verwenden',
