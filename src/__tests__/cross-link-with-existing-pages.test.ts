@@ -88,4 +88,18 @@ describe('crossLinkWithExistingPages', () => {
     expect(items[0].related_entities).toHaveLength(0);
     expect(items[0].related_concepts).toHaveLength(0);
   });
+
+  it('does not match page title as substring of a longer word', () => {
+    const items: Item[] = [{ name: 'Project X', summary: 'Uses JavaScript and TypeScript.', mentions_in_source: [], related_entities: [], related_concepts: [] }];
+    const pages: Page[] = [entityPage('Java')];
+    crossLinkWithExistingPages(items, pages);
+    expect(items[0].related_entities).toHaveLength(0);
+  });
+
+  it('does not match alias as substring of a longer word', () => {
+    const items: Item[] = [{ name: 'Project X', summary: 'Uses TypeScript extensively.', mentions_in_source: [], related_entities: [], related_concepts: [] }];
+    const pages: Page[] = [entityPage('Type-system', ['Type'])];
+    crossLinkWithExistingPages(items, pages);
+    expect(items[0].related_entities).toHaveLength(0);
+  });
 });

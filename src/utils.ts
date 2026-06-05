@@ -907,6 +907,16 @@ export function matchExtractedToExisting(
 }
 
 // Augment each extracted entity/concept's related fields with existing wiki
+// Word-boundary aware substring check. CJK text has no \w chars so \b anchors
+// never fire — fall back to plain includes(). ASCII uses \b to prevent "Java"
+// from matching inside "JavaScript".
+function wordInText(needle: string, haystack: string): boolean {
+  const hasCJK = /[一-鿿㐀-䶿豈-﫿぀-ヿ가-힯]/.test(needle);
+  if (hasCJK) return haystack.includes(needle);
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`).test(haystack);
+}
+
 // pages whose names or aliases appear in the item's text content.
 // Enables cross-source wiki-links: pages created during Source 1 ingestion
 // become linked from Source 2 entity/concept pages when Source 2 mentions them.
@@ -939,7 +949,7 @@ export function crossLinkWithExistingPages(
       if (titleLower === selfLower) continue;
       if (item.related_entities.some(e => e.toLowerCase() === titleLower)) continue;
       const aliases = (page.aliases ?? []).map(a => a.toLowerCase());
-      if (searchText.includes(titleLower) || aliases.some(a => a.length >= 3 && searchText.includes(a))) {
+      if (wordInText(titleLower, searchText) || aliases.some(a => a.length >= 3 && wordInText(a, searchText))) {
         item.related_entities.push(page.title);
       }
     }
@@ -950,7 +960,7 @@ export function crossLinkWithExistingPages(
       if (titleLower === selfLower) continue;
       if (item.related_concepts.some(c => c.toLowerCase() === titleLower)) continue;
       const aliases = (page.aliases ?? []).map(a => a.toLowerCase());
-      if (searchText.includes(titleLower) || aliases.some(a => a.length >= 3 && searchText.includes(a))) {
+      if (wordInText(titleLower, searchText) || aliases.some(a => a.length >= 3 && wordInText(a, searchText))) {
         item.related_concepts.push(page.title);
       }
     }

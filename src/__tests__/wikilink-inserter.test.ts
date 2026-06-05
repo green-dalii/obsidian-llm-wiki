@@ -139,6 +139,20 @@ describe('insertWikiLinks', () => {
       expect(result).toMatch(/^---\ntitle: 测试\n---\n/);
       expect(result).toContain('[[entities/ren-gong-zhi-neng|人工智能]]');
     });
+
+    it('links a Korean (Hangul) entity name', () => {
+      const ENTITY_KO: WikiPage = { title: '인공지능', wikiLink: '[[entities/in-gong-ji-neung|인공지능]]' };
+      const body = '이 논문은 인공지능의 응용을 다룬다.';
+      const result = insertWikiLinks(body, [ENTITY_KO]);
+      expect(result).toContain('[[entities/in-gong-ji-neung|인공지능]]');
+    });
+
+    it('links a Japanese Katakana entity name', () => {
+      const ENTITY_JA: WikiPage = { title: 'ニューラルネット', wikiLink: '[[entities/neural-net-ja|ニューラルネット]]' };
+      const body = 'ニューラルネットの研究が進んでいる。';
+      const result = insertWikiLinks(body, [ENTITY_JA]);
+      expect(result).toContain('[[entities/neural-net-ja|ニューラルネット]]');
+    });
   });
 
 

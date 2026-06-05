@@ -14,6 +14,40 @@ import { generateDuplicateCandidates, DuplicateCandidate } from './lint/duplicat
 import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges } from './lint/fix-runners';
 import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans } from './lint/scanners';
 import { WikiEngine } from './wiki-engine';
+import { insertWikiLinks } from '../core/wikilink-inserter';
+
+async function refreshPagesCopies(ctx: LintContext): Promise<number> {
+  const pagesFolder = normalizePath(ctx.settings.pagesFolder);
+  const wikiPages = await getExistingWikiPages(ctx.app, ctx.settings.wikiFolder, ctx.settings.pagesFolder);
+
+  const copyFiles = ctx.app.vault.getMarkdownFiles().filter(f => f.path.startsWith(pagesFolder + '/'));
+  let refreshed = 0;
+
+  for (const copyFile of copyFiles) {
+    const copyContent = await ctx.app.vault.read(copyFile);
+    const fm = parseFrontmatter(copyContent);
+    const sourcePath = typeof fm?.source === 'string' ? fm.source : null;
+    if (!sourcePath) continue;
+
+    const sourceFile = ctx.app.vault.getAbstractFileByPath(sourcePath);
+    if (!(sourceFile instanceof TFile)) continue;
+
+    const rawContent = await ctx.app.vault.read(sourceFile);
+    const linked = insertWikiLinks(rawContent, wikiPages);
+    const withSource = linked.startsWith('---')
+      ? linked.replace(/^(---[\s\S]*?\n---\n?)/, fm2 => {
+          if (!fm2.includes('source:')) {
+            return fm2.replace(/\n---\n?$/, `\nsource: "${sourcePath}"\n---\n`);
+          }
+          return fm2;
+        })
+      : `---\nsource: "${sourcePath}"\n---\n` + linked;
+
+    await ctx.app.vault.modify(copyFile, withSource);
+    refreshed++;
+  }
+  return refreshed;
+}
 
 export interface LintContext {
   app: App;

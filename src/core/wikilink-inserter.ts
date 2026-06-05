@@ -23,7 +23,7 @@ function escapeRegex(text: string): string {
 // ordering already prevents shorter aliases from matching inside longer titles.
 function buildMatchPattern(text: string): RegExp {
   const escaped = escapeRegex(text);
-  const hasCJK = /[一-鿿㐀-䶿豈-﫿]/.test(text);
+  const hasCJK = /[一-鿿㐀-䶿豈-﫿぀-ヿ가-힯]/.test(text);
   return hasCJK
     ? new RegExp(escaped, 'gi')
     : new RegExp('\\b' + escaped + '\\b', 'gi');
