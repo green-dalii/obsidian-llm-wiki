@@ -480,7 +480,7 @@ describe('OpenAICompatibleClient — disableThinking', () => {
     expect(body.thinking).toEqual({ type: 'disabled' });
   });
 
-  it('omits thinking for Gemini (backward compat) OpenAI-compat baseUrl to avoid 400 errors', async () => {
+  it('sends thinking.type=disabled for Gemini baseUrl (probe cache keeps it enabled for this baseUrl)', async () => {
     mockRequestUrl.mockResolvedValueOnce(
       makeOpenAIResponse('ok', 'stop')
     );

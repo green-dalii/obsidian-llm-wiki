@@ -869,7 +869,7 @@ export class WikiEngine {
   }
 
   // Issue #103: delete empty stubs without running full lint pipeline
-  async deleteEmptyStubs(wikiFolder: string): Promise<number> {
+  async deleteEmptyStubs(wikiFolder: string): Promise<{ deleted: number; failed: number; errors: string[] }> {
     return this.lintFixer.deleteEmptyStubs(wikiFolder);
   }
 

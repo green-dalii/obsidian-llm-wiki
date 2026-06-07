@@ -11,6 +11,14 @@ import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR } from './consta
 import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
 import { capMaxTokens } from './core/token-cap';
 
+// Issue #243: derive a consistent cache key for the thinking-control cache.
+// Used in both the read (createLLMClient) and write (testLLMConnection) paths
+// so they stay aligned when the user picks a predefined provider without
+// overriding baseUrl.
+function getThinkingControlCacheKey(settings: LLMWikiSettings): string {
+  return settings.baseUrl?.trim() || PREDEFINED_PROVIDERS[settings.provider]?.baseUrl || '';
+}
+
 function createLLMClient(settings: LLMWikiSettings): LLMClient {
   let client: LLMClient;
 
@@ -34,7 +42,7 @@ function createLLMClient(settings: LLMWikiSettings): LLMClient {
 
   // Sync thinking control cache from settings to client
   if (client instanceof OpenAICompatibleClient) {
-    const cacheKey = settings.baseUrl || PREDEFINED_PROVIDERS[settings.provider]?.baseUrl || '';
+    const cacheKey = getThinkingControlCacheKey(settings);
     if (cacheKey && settings.thinkingControlCache?.[cacheKey] !== undefined) {
       client.thinkingControlSupported = settings.thinkingControlCache[cacheKey];
     }
@@ -607,20 +615,28 @@ export default class LLMWikiPlugin extends Plugin {
           if (testClient instanceof OpenAICompatibleClient) {
             testClient.thinkingControlSupported = true;
           }
-          this.settings.thinkingControlCache = {
-            ...this.settings.thinkingControlCache,
-            [this.settings.baseUrl]: true,
-          };
-          console.debug('Thinking control supported by', this.settings.baseUrl);
+          // Issue #243: skip writing when cacheKey is empty to avoid
+          // polluting the cache with an unusable key.
+          const cacheKey = getThinkingControlCacheKey(this.settings);
+          if (cacheKey) {
+            this.settings.thinkingControlCache = {
+              ...this.settings.thinkingControlCache,
+              [cacheKey]: true,
+            };
+            console.debug('Thinking control supported by', cacheKey);
+          }
         } catch {
           if (testClient instanceof OpenAICompatibleClient) {
             testClient.thinkingControlSupported = false;
           }
-          this.settings.thinkingControlCache = {
-            ...this.settings.thinkingControlCache,
-            [this.settings.baseUrl]: false,
-          };
-          console.debug('Thinking control NOT supported by', this.settings.baseUrl);
+          const cacheKey = getThinkingControlCacheKey(this.settings);
+          if (cacheKey) {
+            this.settings.thinkingControlCache = {
+              ...this.settings.thinkingControlCache,
+              [cacheKey]: false,
+            };
+            console.debug('Thinking control NOT supported by', cacheKey);
+          }
         }
       }
       await this.saveSettings();

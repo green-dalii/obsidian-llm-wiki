@@ -413,7 +413,12 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
   // Issue #103: Delete empty stubs without running the full lint pipeline.
   // Scans wiki pages, deletes those that `isPageEmpty` considers empty,
   // and skips pages that have been manually reviewed (reviewed: true).
-  async deleteEmptyStubs(wikiFolder: string): Promise<number> {
+  //
+  // Issue #244: resilient against per-file errors. A single vault read or
+  // deleteFile failure must not abort the entire loop (which would leave
+  // the vault in a half-deleted state with no feedback). Returns a result
+  // object so the caller can surface a useful Notice to the user.
+  async deleteEmptyStubs(wikiFolder: string): Promise<{ deleted: number; failed: number; errors: string[] }> {
     const files = this.ctx.app.vault.getMarkdownFiles()
       .filter(f => f.path.startsWith(wikiFolder) &&
                    !f.path.endsWith('/index.md') &&
@@ -423,15 +428,24 @@ tags: [${stubType === 'entity' ? 'other' : 'term'}]
                    !f.path.includes('log.md'));
 
     let deleted = 0;
+    let failed = 0;
+    const errors: string[] = [];
     for (const file of files) {
-      const content = await this.ctx.app.vault.read(file);
-      if (!isPageEmpty(content)) continue;
-      const fm = parseFrontmatter(content);
-      if (fm?.reviewed === true) continue;
-      await this.ctx.deleteFile(file.path);
-      deleted++;
+      try {
+        const content = await this.ctx.app.vault.read(file);
+        if (!isPageEmpty(content)) continue;
+        const fm = parseFrontmatter(content);
+        if (fm?.reviewed === true) continue;
+        await this.ctx.deleteFile(file.path);
+        deleted++;
+      } catch (e) {
+        failed++;
+        const errMsg = e instanceof Error ? e.message : String(e);
+        errors.push(`${file.path}: ${errMsg}`);
+        console.error(`[deleteEmptyStubs] Failed: ${file.path}`, e);
+      }
     }
-    return deleted;
+    return { deleted, failed, errors };
   }
 
   async linkOrphanPage(orphanPath: string): Promise<string[]> {

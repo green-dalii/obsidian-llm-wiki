@@ -7,9 +7,16 @@ import { withTruncationRetry } from './core/truncation-retry';
 // Shared retry helper — eliminates duplicated retry loops across all client classes.
 const RETRYABLE = /status 5\d{2}|status 429|overload|network|fetch|econnrefused|etimedout|timeout|abort/i;
 
+// Issue #248: tighter detection — must be a 400-class response AND mention a
+// rejected field/parameter. This avoids false positives from generic errors
+// that happen to contain the word "thinking" (e.g. a model that says
+// "I was thinking about..." in its error string), and avoids triggering
+// the fallback path for non-400 errors (5xx, 429) where the field might
+// not be the actual problem.
 const isThinkingControlError = (e: unknown): boolean => {
   const msg = e instanceof Error ? e.message : '';
-  return msg.includes('unknown field') || msg.includes('reasoning_effort') || msg.includes('thinking');
+  if (!/status 400|HTTP 400|Bad Request/i.test(msg)) return false;
+  return /unknown field|unsupported field|invalid parameter|not supported|reasoning_effort|thinking/i.test(msg);
 };
 
 function errMsg(err: unknown): string {
@@ -521,6 +528,9 @@ export class OpenAICompatibleClient implements LLMClient {
       return await doRequest(body);
     } catch (e) {
       if (params.disableThinking && isThinkingControlError(e)) {
+        // Issue #245: remember that this baseUrl rejects thinking control
+        // so subsequent calls skip the probe-and-fail round-trip.
+        this.thinkingControlSupported = false;
         console.debug(`[OpenAICompat] thinking.type='disabled' not supported by ${this.baseUrl}, falling back`);
         const fallbackBody: Record<string, unknown> = {
           model: params.model,
@@ -619,6 +629,9 @@ export class OpenAICompatibleClient implements LLMClient {
       return await doRequest(body);
     } catch (e) {
       if (params.disableThinking && isThinkingControlError(e)) {
+        // Issue #245: cache the negative result so we don't pay the
+        // 400-error round-trip on every subsequent call to this baseUrl.
+        this.thinkingControlSupported = false;
         console.debug(`[OpenAICompat SSE] thinking.type='disabled' not supported by ${this.baseUrl}, falling back`);
         const fallbackBody: Record<string, unknown> = {
           model: params.model,

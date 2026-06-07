@@ -636,13 +636,25 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     // Issue #103: independent delete action (not a fix phase) — always available
     fixCallbacks.onDeleteEmptyStubs = () => {
       void runFixPhase(async (signal) => {
-        const deleted = await ctx.wikiEngine.deleteEmptyStubs(ctx.settings.wikiFolder);
-        const msg = t.lintDeleteCompleted.replace('{count}', String(deleted));
-        if (deleted > 0) {
+        const result = await ctx.wikiEngine.deleteEmptyStubs(ctx.settings.wikiFolder);
+        if (result.deleted > 0) {
           await ctx.wikiEngine.generateIndexFromEngine();
-          await ctx.wikiEngine.logLintFix('Delete Empty Stubs', `Deleted ${deleted} empty stubs`);
+          await ctx.wikiEngine.logLintFix('Delete Empty Stubs', `Deleted ${result.deleted} empty stubs`);
         }
-        new Notice(msg, 0);
+        // Issue #244: surface success + failure breakdown to the user.
+        const parts: string[] = [];
+        if (result.deleted > 0) {
+          parts.push(t.lintDeleteCompleted.replace('{count}', String(result.deleted)));
+        }
+        if (result.failed > 0) {
+          parts.push(t.lintDeleteFailed
+            .replace('{failed}', String(result.failed))
+            .replace('{total}', String(result.deleted + result.failed)));
+        }
+        if (parts.length === 0) {
+          parts.push(t.lintDeleteCompleted.replace('{count}', '0'));
+        }
+        new Notice(parts.join('\n'), 0);
       });
     };
 
