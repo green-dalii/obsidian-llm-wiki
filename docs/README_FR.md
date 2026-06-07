@@ -26,7 +26,7 @@
   - [🔑 Configuration d'un Provider LLM](#-configuration-dun-provider-llm)
   - [🎮 Utilisation](#-utilisation)
   - [⚠️ Mise à niveau depuis une version antérieure ?](#️-mise-à-niveau-depuis-une-version-antérieure-)
-- [⚡ Quoi de neuf dans la v1.16.2](#-quoi-de-neuf-dans-la-v1162)
+- [⚡ Quoi de neuf dans la v1.16.3](#-quoi-de-neuf-dans-la-v1163)
 - [✨ Fonctionnalités](#-fonctionnalités)
   - [📊 Qualité des connaissances](#-qualité-des-connaissances)
   - [🛠️ Maintenance](#️-maintenance)
@@ -61,24 +61,27 @@ Vous écrivez. L'IA organise. Vous interrogez. Rien de plus.
 
 ---
 
-## ⚡ Quoi de neuf dans la v1.16.2
+## ⚡ Quoi de neuf dans la v1.16.3
 
-Cette version est un **lot de corrections de bugs** qui résout l'annulation du Lint, l'application de la granularité d'extraction en maintenance, les fuites de tokens de raisonnement des modèles de raisonnement, et ajoute une action pratique "Supprimer les stubs vides" — aucune breaking change, aucune reconfiguration nécessaire.
+Cette **version corrective** complète le lot de corrections de bugs P0 de la v1.16.2. La correction de la barre d'état d'annulation de Lint de la v1.16.2 était incomplète (la modale se fermait immédiatement après le clic sur un bouton de correction, masquant la barre d'état avant que l'utilisateur puisse annuler), et les cinq points de nettoyage de la revue v1.16.2 sont désormais inclus. **Aucun changement incompatible, aucune reconfiguration.**
 
-**Corrections principales：**
+**Corrections principales :**
 
-- **Annulation du Lint corrigée (Issue #94).** Le clic sur "Annuler" dans la barre d'état fonctionne désormais correctement pendant les phases de correction (liens morts, pages vides, orphelines, alias, doublons) — le signal AbortSignal se propage à travers les 5 fonctions fix-runner. Toutes les notifications persistantes sont encapsulées dans des blocs try/finally pour qu'elles disparaissent même en cas d'annulation.
+- **La barre d'état d'annulation de Lint fonctionne maintenant réellement (Issue #94).** La v1.16.2 propageait bien l'AbortSignal aux fix-runners, mais la modale se fermait au clic du bouton — déclenchant onClose → endLintOperation et masquant la barre d'état avant que l'utilisateur puisse annuler. La correction donne à chaque phase de correction son propre cycle de vie d'opération lint : `startLintOperation` au clic du bouton de correction, `endLintOperation` une fois la correction terminée. La modale se ferme immédiatement (préservation de l'UX d'origine) ; l'utilisateur voit la notification de progression en haut et la barre d'état en bas reste visible pendant toute la correction — clic pour annuler.
 
-- **Le Lint respecte la granularité d'extraction (Issue #96).** L'étape d'analyse LLM du Lint n'était auparavant pas contrainte. Elle respecte désormais votre paramètre extractionGranularity — les utilisateurs "Minimal" bénéficient d'une analyse restreinte, les utilisateurs "Fine" du traitement complet.
+- **Le compteur de progression de la vérification des doublons correspond à la console (Issue #94 suite).** Affichait "1/4" (compteur de tours externe) au lieu de "1-4/16" (plage de lots interne). Corrigé pour que la notification et le log de la console restent synchronisés — plus de confusion sur la progression.
 
-- **Fuites de tokens de raisonnement éliminées (Issue #99 + #86).** Les modèles de raisonnement qui émettent du texte préliminaire ou des blocs <think> avant leur sortie réelle ne corrompent plus les pages Wiki. Triple défense : (1) la couche API envoie uniformément thinking.type=disabled avec repli automatique 400 ; (2) les réponses JSON suppriment les tokens think avant l'analyse ; (3) les réponses Markdown rejettent tout préambule avant le premier --- ou en-tête #. Test Connection détecte et met en cache le résultat par fournisseur.
+- **Correction de la clé thinkingControlCache (Issue #243).** Avec les fournisseurs prédéfinis sans surcharge de baseUrl, l'écriture du cache utilisait une clé vide, la lecture utilisait l'URL prédéfinie — le cache ratait toujours, déclenchant un aller-retour 400 gaspillé à chaque appel. Les chemins lecture/écriture utilisent maintenant le même helper `getThinkingControlCacheKey()`.
 
-- **"Supprimer les stubs vides" ajouté (Issue #103).** Nouveau bouton dans la fenêtre du rapport Lint à côté du bouton "Développer" existant — un clic pour nettoyer les stubs vides sans exécuter l'intégralité du pipeline Lint. Ignore les pages avec reviewed: true. Aucune configuration nécessaire.
+- **deleteEmptyStubs est maintenant résilient (Issue #244).** Un seul échec de lecture vault ou de deleteFile n'interrompt plus la boucle entière. Chaque fichier est indépendamment entouré de try/catch, et l'utilisateur reçoit une notification claire avec le nombre de suppressions/échecs.
 
-**Mise à jour depuis une version antérieure ?** Aucune breaking change, aucune reconfiguration. Les wikis, paramètres et flux de travail existants sont préservés.
+- **Le fallback après thinking-control cache le résultat négatif (Issue #245).** `OpenAICompatibleClient` définit maintenant `thinkingControlSupported = false` après un fallback 400 réussi, pour que les appels ultérieurs à la même baseUrl évitent l'aller-retour probe-échec redondant.
 
-**Nous recommandons vivement à tous les utilisateurs de mettre à jour vers cette version** — la correction de l'annulation du Lint, l'application de la granularité et la protection contre les tokens de raisonnement améliorent considérablement la fiabilité de la maintenance quotidienne.
----
+- **Nettoyage i18n (Issue #94 suite + #248) :** 3 chaînes de progression anglaises codées en dur remplacées par des clés i18n officielles (`lintCheckingDuplicatesProgress`, `lintFixingPolluted`, `lintModalFixPolluted`), en 8 langues. La détection d'erreur thinking-control exige désormais à la fois un statut HTTP 400 ET un mot-clé de champ rejeté — auparavant, toute erreur contenant "thinking" déclenchait un faux fallback.
+
+**Mise à niveau depuis une version antérieure ?** Aucun changement incompatible, aucune reconfiguration. Les wikis, paramètres et flux de travail existants sont préservés.
+
+**Nous recommandons vivement à tous les utilisateurs de passer à cette version** — la correction d'annulation Lint complète l'histoire de l'UX d'annulation, et les corrections de cache et de résilience opèrent silencieusement à chaque appel Lint.---
 
 ## ✨ Fonctionnalités
 

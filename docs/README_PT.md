@@ -26,7 +26,7 @@
   - [🔑 Configurar um LLM Provider](#-configurar-um-llm-provider)
   - [🎮 Uso](#-uso)
   - [⚠️ Atualizando de uma Versão Anterior?](#️-atualizando-de-uma-versão-anterior)
-- [⚡ Novidades na v1.16.2](#-novidades-na-v1162)
+- [⚡ Novidades na v1.16.3](#-novidades-na-v1163)
 - [✨ Funcionalidades](#-funcionalidades)
   - [📊 Qualidade do Conhecimento](#-qualidade-do-conhecimento)
   - [🛠️ Manutenção](#️-manutenção)
@@ -61,24 +61,27 @@ Você escreve. A IA organiza. Você pergunta. Simples assim.
 
 ---
 
-## ⚡ Novidades na v1.16.2
+## ⚡ Novidades na v1.16.3
 
-Esta é uma **versão de correção de bugs** que resolve o cancelamento do Lint, a aplicação da granularidade de extração na manutenção, o vazamento de tokens de raciocínio de modelos de raciocínio e adiciona uma ação conveniente "Excluir stubs vazios" — sem alterações disruptivas, sem necessidade de reconfiguração.
+Esta **versão de hotfix** completa o lote de correções de bugs P0 da v1.16.2. A correção da barra de estado de cancelamento do Lint da v1.16.2 estava incompleta (o modal fechava imediatamente após clicar em um botão de correção, ocultando a barra de estado antes que o usuário pudesse cancelar), e os cinco itens de limpeza da revisão da v1.16.2 agora estão incluídos. **Sem mudanças incompatíveis, sem reconfiguração.**
 
-**Correções principais：**
+**Correções principais:**
 
-- **Cancelamento do Lint corrigido (Issue #94).** Clicar em "Cancelar" na barra de status agora funciona corretamente durante as fases de correção (links mortos, páginas vazias, órfãs, aliases, duplicatas) — o sinal AbortSignal se propaga por todas as 5 funções fix-runner. Todos os avisos persistentes estão encapsulados em try/finally para que desapareçam mesmo ao cancelar.
+- **A barra de estado de cancelamento do Lint agora realmente funciona (Issue #94).** A v1.16.2 propagava o AbortSignal para os fix-runners, mas o modal fechava ao clicar no botão — disparando onClose → endLintOperation e ocultando a barra de estado antes que o usuário pudesse cancelar. A correção dá a cada fase de correção seu próprio ciclo de vida de operação de lint: `startLintOperation` ao clicar em um botão de correção, `endLintOperation` ao finalizar a correção. O modal fecha imediatamente (preservando a UX original); o usuário vê a notificação de progresso no topo e a barra de estado na parte inferior permanece visível durante toda a correção — clique para cancelar.
 
-- **Lint respeita a granularidade de extração (Issue #96).** A etapa de análise LLM do Lint anteriormente não tinha restrições. Agora ela respeita sua configuração extractionGranularity — usuários "Minimal" obtêm análise limitada, usuários "Fine" obtêm o tratamento completo.
+- **O contador de progresso da verificação de duplicados agora coincide com o console (Issue #94 continuação).** Antes mostrava "1/4" (contador de rodadas externo) em vez de "1-4/16" (intervalo de lotes interno). Corrigido para que a notificação e o log do console permaneçam sincronizados — não há mais confusão sobre o progresso.
 
-- **Vazamento de tokens de raciocínio eliminado (Issue #99 + #86).** Modelos de raciocínio que emitem texto preliminar ou blocos <think> antes de sua saída real não corrompem mais as páginas Wiki. Defesa em três camadas: (1) a camada API envia thinking.type=disabled uniformemente com fallback automático 400; (2) respostas JSON removem tokens think antes da análise; (3) respostas Markdown descartam qualquer preâmbulo antes do primeiro --- ou cabeçalho #. O Test Connection detecta e armazena em cache o resultado por provedor.
+- **Correção da chave de thinkingControlCache (Issue #243).** Com provedores predefinidos sem substituição de baseUrl, a escrita do cache usava uma chave vazia, a leitura usava a URL predefinida — o cache falhava para sempre, disparando um round-trip 400 desperdiçado em cada chamada. Os caminhos de leitura/escritura agora usam o mesmo helper `getThinkingControlCacheKey()`.
 
-- **"Excluir stubs vazios" adicionado (Issue #103).** Novo botão na janela do relatório Lint ao lado do botão "Expandir" existente — um clique para limpar stubs vazios sem executar o pipeline completo do Lint. Ignora páginas com reviewed: true. Sem configuração necessária.
+- **deleteEmptyStubs agora é resiliente (Issue #244).** Uma única falha de leitura de vault ou de deleteFile não interrompe mais o loop completo. Cada arquivo é independentemente envolvido em try/catch, e o usuário recebe uma notificação clara com a contagem de excluídos/falhos.
 
-**Atualizando de uma versão anterior?** Sem alterações disruptivas, sem reconfiguração. Os wikis, configurações e fluxos de trabalho existentes são preservados.
+- **O fallback após thinking-control agora cacheia o resultado negativo (Issue #245).** `OpenAICompatibleClient` agora define `thinkingControlSupported = false` após um fallback 400 bem-sucedido, para que chamadas subsequentes à mesma baseUrl pulem o round-trip redundante de probe-falha.
 
-**Recomendamos fortemente que todos os usuários atualizem para esta versão** — a correção de cancelamento do Lint, a aplicação de granularidade e a proteção contra tokens de raciocínio melhoram significativamente a confiabilidade da manutenção diária.
----
+- **Limpeza i18n (Issue #94 continuação + #248):** 3 strings de progresso em inglês codificadas de forma rígida substituídas por chaves i18n oficiais (`lintCheckingDuplicatesProgress`, `lintFixingPolluted`, `lintModalFixPolluted`), em 8 idiomas. A detecção de erros de thinking-control agora requer tanto um status HTTP 400 quanto uma palavra-chave de campo rejeitado — antes correspondia a qualquer erro que contivesse "thinking", causando fallbacks falsos.
+
+**Atualizar de uma versão anterior?** Sem mudanças incompatíveis, sem reconfiguração. Wikis, configurações e fluxos de trabalho existentes são preservados.
+
+**Recomendamos enfaticamente a todos os usuários atualizar para esta versão** — a correção de cancelamento do Lint completa a história de UX de cancelamento, e as correções de cache e resiliência operam silenciosamente em cada chamada do Lint.---
 
 ---
 

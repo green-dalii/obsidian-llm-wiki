@@ -26,7 +26,7 @@
   - [🔑 LLM Provider konfigurieren](#-llm-provider-konfigurieren)
   - [🎮 Nutzung](#-nutzung)
   - [⚠️ Upgrade von einer älteren Version?](#️-upgrade-von-einer-älteren-version)
-- [⚡ Was ist neu in v1.16.2](#-was-ist-neu-in-v1162)
+- [⚡ Was ist neu in v1.16.3](#-was-ist-neu-in-v1163)
 - [✨ Funktionen](#-funktionen)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -68,24 +68,27 @@ Notizen schreiben. KI organisiert. Fragen stellen. Das ist alles.
 
 ---
 
-## ⚡ Was ist neu in v1.16.2
+## ⚡ Was ist neu in v1.16.3
 
-Dies ist ein **Bugfix-Release**, das die Lint-Abbrechfunktion repariert, die Einhaltung der Extraktionsgranularität in der Wartung erzwingt, das Durchsickern von Reasoning-Token bei Reasoning-Modellen unterbindet und eine praktische Aktion "Leere Stubs löschen" hinzufügt — keine Breaking Changes, keine Neukonfiguration erforderlich.
+Dieses **Hotfix-Release** schließt die v1.16.2 P0-Bugfix-Batch ab. Die Lint-Abbruch-Statusleisten-Korrektur aus v1.16.2 war unvollständig (das Modal schloss sich unmittelbar nach Klick auf eine Reparaturschaltfläche, wodurch die Statusleiste verschwand, bevor der Nutzer abbrechen konnte), und die fünf Cleanup-Punkte aus der v1.16.2-Review sind jetzt enthalten. **Keine Breaking Changes, keine Neukonfiguration.**
 
 **Wichtigste Korrekturen:**
 
-- **Lint-Abbrechfunktion repariert (Issue #94).** Das Klicken auf "Abbrechen" in der Statusleiste funktioniert jetzt während der Reparaturphasen (tote Links, leere Seiten, Verwaiste, Aliase, Dubletten) korrekt — das AbortSignal wird an alle 5 Fix-Runner-Funktionen weitergegeben. Alle persistenten Notices sind in try/finally eingebettet, sodass sie auch bei Abbruch verschwinden.
+- **Lint-Abbruch-Statusleiste funktioniert jetzt wirklich (Issue #94).** v1.16.2 propagierte zwar das AbortSignal zu den Fix-Runnern, aber das Modal schloss sich beim Button-Klick — was onClose → endLintOperation auslöste und die Statusleiste verschwand, bevor der Nutzer abbrechen konnte. Die Korrektur gibt jeder Reparaturphase einen eigenen lint-operation-Lebenszyklus: `startLintOperation` beim Klick auf eine Reparaturschaltfläche, `endLintOperation` nach Abschluss der Reparatur. Das Modal schließt sich sofort (erhält die ursprüngliche UX); der Nutzer sieht oben die Fortschrittsmeldung und unten die Statusleiste dauerhaft während der gesamten Reparatur — Klick zum Abbrechen.
 
-- **Lint respektiert Extraktionsgranularität (Issue #96).** Der LLM-Analyseschritt von Lint war zuvor uneingeschränkt. Er berücksichtigt jetzt Ihre extractionGranularity-Einstellung — "Minimal"-Nutzer erhalten eine eingeschränkte Analyse, "Fine"-Nutzer die vollständige Behandlung.
+- **Fortschrittszähler bei Duplikatprüfung stimmt mit Konsole überein (Issue #94-Folgebug).** Zeigte vorher "1/4" (äußere Runde) statt "1-4/16" (innerer Batch-Bereich). Korrigiert, damit Meldung und Konsolen-Log übereinstimmen — keine Verwechslung des Fortschritts mehr.
 
-- **Reasoning-Token-Durchsickern beseitigt (Issue #99 + #86).** Reasoning-Modelle, die Präambeltext oder <think>-Blöcke vor ihrer eigentlichen Ausgabe erzeugen, verschmutzen keine Wiki-Seiten mehr. Drei Verteidigungsschichten: (1) API-Ebene sendet einheitlich thinking.type=disabled mit automatischem 400-Fallback; (2) JSON-Antworten entfernen Think-Token vor dem Parsen; (3) Markdown-Antworten verwerfen alle Präambel vor der ersten --- oder #-Überschrift. Test Connection prüft und speichert das Ergebnis pro Anbieter.
+- **thinkingControlCache-Schlüssel-Korrektur (Issue #243).** Bei vordefinierten Anbietern ohne baseUrl-Überschreibung verwendete das Schreiben einen leeren Schlüssel, das Lesen die vordefinierte URL — der Cache verfehlte für immer und löste bei jedem Aufruf einen verschwendeten 400-Roundtrip aus. Lese- und Schreibpfad verwenden jetzt denselben `getThinkingControlCacheKey()`-Helfer.
 
-- **"Leere Stubs löschen" hinzugefügt (Issue #103).** Neuer Button im Lint-Report-Modal neben dem vorhandenen "Erweitern"-Button — ein Klick löscht leere Stubs, ohne die vollständige Lint-Pipeline auszuführen. Überspringt Seiten mit reviewed: true. Keine Konfiguration erforderlich.
+- **deleteEmptyStubs ist jetzt belastbar (Issue #244).** Ein einzelner vault-read- oder deleteFile-Fehler bricht nicht mehr die gesamte Schleife ab. Jede Datei ist unabhängig in try/catch gewickelt, und der Nutzer erhält eine klare Meldung mit Anzahl der gelöschten/fehlgeschlagenen.
+
+- **Fallback nach Thinking-Control cached das negative Ergebnis (Issue #245).** `OpenAICompatibleClient` setzt jetzt nach erfolgreichem 400-Fallback `thinkingControlSupported = false`, sodass nachfolgende Aufrufe an dieselbe baseUrl den redundanten Probe-und-Fail-Roundtrip überspringen.
+
+- **i18n-Bereinigung (Issue #94-Folgebug + #248):** 3 hartkodierte englische Fortschrittsmeldungen durch offizielle i18n-Schlüssel ersetzt (`lintCheckingDuplicatesProgress`, `lintFixingPolluted`, `lintModalFixPolluted`), in 8 Sprachen. Die Thinking-Control-Fehlererkennung verlangt jetzt sowohl einen HTTP-400-Status als auch ein abgelehntes-Feld-Schlüsselwort — passte vorher auf jeden Fehler, der "thinking" enthielt, was zu falschen Fallbacks führte.
 
 **Upgrade von einer älteren Version?** Keine Breaking Changes, keine Neukonfiguration. Bestehende Wikis, Einstellungen und Workflows bleiben erhalten.
 
-**Wir empfehlen allen Nutzern dringend ein Upgrade auf diese Version** — die Lint-Abbrechkorrektur, die Granularitätsdurchsetzung und der Reasoning-Token-Schutz verbessern die Zuverlässigkeit der täglichen Wartung erheblich.
----
+**Wir empfehlen allen Nutzern dringend ein Upgrade auf diese Version** — die Lint-Abbruch-Korrektur vervollständigt die Cancel-UX-Story, und die Cache- und Belastbarkeitskorrekturen wirken leise bei jedem Lint-Aufruf.---
 
 ## ✨ Funktionen
 

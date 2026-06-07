@@ -1,6 +1,6 @@
 {
   "name": "karpathywiki",
-  "version": "1.16.2",
+  "version": "1.16.3",
   "packageManager": "pnpm@10.14.0",
   "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation with conversational query",
   "main": "main.js",
@@ -38,7 +38,9 @@
     "vitest": "4.1.6"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"],
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
     "overrides": {
       "fast-uri": "3.1.2",
       "brace-expansion": "5.0.6"

@@ -25,7 +25,7 @@
   - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
   - [🎮 Usage](#-usage)
   - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-- [⚡ What's New in v1.16.2](#-whats-new-in-v1162)
+- [⚡ What's New in v1.16.3](#-whats-new-in-v1163)
 - [✨ Features](#-features)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -184,23 +184,27 @@ Settings → **Ingestion Acceleration**:
 
 ---
 
-## ⚡ What's New in v1.16.2
+## ⚡ What's New in v1.16.3
 
-This is a **bug-fix batch** that addresses Lint cancellation, extraction granularity enforcement in maintenance, thinking-token bleeding from reasoning models, and adds a "Delete empty stubs" convenience action — no breaking changes, no reconfiguration needed.
+This is a **hotfix release** that completes the v1.16.2 P0 bug-fix batch. The Lint cancel status-bar fix from v1.16.2 was incomplete (the modal closed immediately after clicking a fix button, hiding the status bar before the user could cancel), and five small cleanup items from the v1.16.2 review are now shipped. **Zero breaking changes, zero reconfiguration needed.**
 
 **Key Fixes:**
 
-- **Lint cancellation fixed (Issue #94).** Clicking the status bar "click to cancel" during fix phases (dead links, orphans, empty pages, duplicates, aliases) now works as intended — the AbortSignal propagates through all fix-runner functions. All persistent Notices are wrapped in `try/finally` so they dismiss even on cancellation.
+- **Lint cancel status bar now actually works (Issue #94).** v1.16.2 wired the AbortSignal to the fix-runners but the modal still closed on button click — firing `onClose` → `endLintOperation` and hiding the status bar before the user could cancel. The fix gives each fix phase its own lint-operation lifecycle: `startLintOperation` runs when you click a fix button, `endLintOperation` runs when the fix finishes. Modal closes immediately (preserving the original UX); the user gets a top-right progress notice and the bottom-right status bar stays visible throughout the fix — click it to cancel.
 
-- **Lint respects extraction granularity (Issue #96).** The Lint LLM analysis step was previously unconstrained. It now honors your `extractionGranularity` setting — "Minimal" users get constrained analysis, "Fine" users get the full treatment.
+- **Duplicate-check progress count now matches the console (Issue #94 followup).** Was showing "1/4" (outer round) instead of "1-4/16" (inner batch range). Fixed so the Notice and console log stay in sync — no more confusion about progress.
 
-- **Thinking-token bleeding eliminated (Issue #99 + #86).** Reasoning models that emit preamble text or `<think>` blocks before their actual output no longer corrupt wiki pages. Three-layer defense: (1) API-level `disableThinking` sends `thinking.type='disabled'` uniformly to all providers, with automatic 400 fallback; (2) JSON responses strip think tokens before parsing; (3) Markdown responses discard any preamble before the first `---` or `# ` header. Test Connection probes and caches the result per provider.
+- **thinkingControlCache key fix (Issue #243).** Predefined providers without a baseUrl override caused cache writes to use an empty key while reads used the predefined URL — the cache would forever-miss, triggering a wasted 400 round-trip on every call. Read and write paths now use the same `getThinkingControlCacheKey()` helper.
 
-- **"Delete empty stubs" added (Issue #103).** New button in the Lint report modal alongside the existing "Expand" button — one click to clean up empty stubs without running the full lint pipeline. Skips pages with `reviewed: true`. No configuration needed.
+- **deleteEmptyStubs is now resilient (Issue #244).** A single vault read or deleteFile failure no longer aborts the whole loop. Each file is independently try/caught, and the user gets a clear Notice showing deleted/failed counts.
+
+- **Fallback-after-thinking-control caches the negative result (Issue #245).** `OpenAICompatibleClient` now sets `thinkingControlSupported = false` after a successful 400-fallback, so subsequent calls to the same baseUrl skip the redundant probe-and-fail round-trip.
+
+- **i18n cleanup (Issue #94 followup + #248):** 3 hardcoded English progress strings replaced with proper i18n keys (`lintCheckingDuplicatesProgress`, `lintFixingPolluted`, `lintModalFixPolluted`) in 8 locales. The thinking-control error detector now requires both an HTTP 400 status AND a rejected-field keyword — was matching any error containing "thinking", causing false-positive fallbacks.
 
 **Upgrading from an older version?** Zero breaking changes, zero reconfiguration. Existing wikis, settings, and workflows are preserved.
 
-**We strongly recommend all users upgrade to this version** — the Lint cancellation fix, granularity enforcement, and thinking-token protection improve day-to-day maintenance reliability.
+**We strongly recommend all users upgrade to this version** — the Lint cancel fix completes the cancel-UX story, and the cache and resilience fixes are quietly running on every Lint invocation.
 
 ### 📊 Knowledge Quality
 
