@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Auto Smart Fix (new setting).** When enabled, lint automatically runs all Smart Fix phases (alias cleanup, duplicate merges, dead-link removal, orphan fixes, empty-stub deletion, tag retag) after analysis completes, without showing the report modal. A before/after Notice summarises what changed. Default: off — existing users see no behaviour change.
+
 ## [1.18.2] - 2026-06-12
 
 ### Fixed

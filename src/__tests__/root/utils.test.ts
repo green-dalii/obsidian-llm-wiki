@@ -905,7 +905,7 @@ describe('getGranularityInstruction', () => {
     maxConversationHistory: 30, extractionGranularity: 'standard',
     enableSchema: true, autoWatchSources: false, autoWatchMode: 'notify',
     autoWatchDebounceMs: 5000, watchedFolders: [], periodicLint: 'off',
-    startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
+    startupCheck: false, autoSmartFix: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
     llmReady: false,
     maxTokensPerCall: 0,
     tagVocabularyMode: 'default',
@@ -959,7 +959,7 @@ describe('appendGranularityToPrompt', () => {
     maxConversationHistory: 30, extractionGranularity: 'standard',
     enableSchema: true, autoWatchSources: false, autoWatchMode: 'notify',
     autoWatchDebounceMs: 5000, watchedFolders: [], periodicLint: 'off',
-    startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
+    startupCheck: false, autoSmartFix: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
     llmReady: false,
     maxTokensPerCall: 0,
     tagVocabularyMode: 'default',
@@ -1010,7 +1010,7 @@ describe('getGranularityFixLimits', () => {
     maxConversationHistory: 30, extractionGranularity: 'standard',
     enableSchema: true, autoWatchSources: false, autoWatchMode: 'notify',
     autoWatchDebounceMs: 5000, watchedFolders: [], periodicLint: 'off',
-    startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
+    startupCheck: false, autoSmartFix: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
     llmReady: false,
     maxTokensPerCall: 0,
     tagVocabularyMode: 'default',
@@ -1672,6 +1672,7 @@ describe('buildActiveTagVocabularySection (Issue #85 v6 — prompt injection)', 
     tagVocabularyMode: 'default',
     customEntityTags: '',
     customConceptTags: '',
+    autoSmartFix: false,
     slugCase: 'lower' as const,
   };
 
@@ -1748,6 +1749,7 @@ describe('appendTagVocabularyToPrompt (Issue #85 v6 — end-to-end prompt inject
     tagVocabularyMode: 'default',
     customEntityTags: '',
     customConceptTags: '',
+    autoSmartFix: false,
     slugCase: 'lower' as const,
   };
 
@@ -1823,6 +1825,7 @@ describe('enforceFrontmatterConstraints (Issue #85 v6 — preserve LLM intent)',
     tagVocabularyMode: 'default',
     customEntityTags: '',
     customConceptTags: '',
+    autoSmartFix: false,
     slugCase: 'lower' as const,
   };
 
@@ -1931,6 +1934,7 @@ describe('getActiveSourceTags (Issue #85 v7)', () => {
     tagVocabularyMode: 'default',
     customEntityTags: '',
     customConceptTags: '',
+    autoSmartFix: false,
     slugCase: 'lower' as const,
   };
 
