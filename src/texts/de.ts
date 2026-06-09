@@ -383,6 +383,11 @@ export const DE_TEXTS = {
     // Ingestion status bar
     ingestionStatusBar: 'Aufnahme läuft... zum Abbrechen klicken',
     lintStatusBar: 'Prüfung läuft... zum Abbrechen klicken',
+    ingestStatusAnalyzing: 'Aufnahme… Analyse',
+    lintStatusReading: 'Prüfung… lesen ({current}/{total})',
+    lintStatusDuplicates: 'Prüfung… Duplikate ({current}/{total})',
+    lintStatusScanningLinks: 'Prüfung… Links prüfen',
+    lintStatusAnalyzing: 'Prüfung… KI-Analyse',
     ingestionCancelling: 'Wird abgebrochen — Stopp nach aktuellem Batch',
     ingestionCancelled: 'Aufnahme abgebrochen',
     crossTypeCollisionNotice: '{count} Einträge als Cross-Type-Alias zusammengeführt (Entity ↔ Concept Duplikate verhindert)',

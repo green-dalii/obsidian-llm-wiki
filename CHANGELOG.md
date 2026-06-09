@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Status bar mirrors popup progress during ingest and lint.** All ingestion progress messages (batch counts, per-entity steps) now update both the popup Notice and the Obsidian status bar simultaneously. Lint shows four dedicated status-bar checkpoints: reading pages, checking duplicates, scanning links, and AI analysis. Fix-runner Notices (alias completion, dead links, empty pages, orphan fixes, duplicate merges) mirror every `setMessage()` call to the status bar via the new `makeMirroredNotice()` wrapper in `fix-runners.ts`. `onFixAll` callback type corrected to `() => Promise<void>` so it properly participates in the AbortSignal / `runFixPhase` lifecycle.
 - **Configurable file name casing (Issue #111).** A new `File Name Casing` setting (`lower` / `preserve`) controls whether generated wiki filenames are lowercased. The default `lower` preserves backwards-compatible behaviour. `preserve` is recommended for languages where lowercase changes meaning — most notably German, where all nouns are capitalised (`Mitochondrien`, not `mitochondrien`). The setting applies consistently across all file-creation paths (ingest, lint stub creation, summary pages). Slug-based comparison for deduplication and conflict detection always uses lowercase internally, so matching remains correct regardless of the chosen casing mode. Available in all 8 interface languages.
 
 ### Fixed

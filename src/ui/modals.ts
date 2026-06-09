@@ -74,7 +74,7 @@ export interface LintFixCallbacks {
   onLinkOrphans?: () => void;
   onAnalyzeSchema?: () => void;
   onMergeDuplicates?: () => void;
-  onFixAll?: () => void;
+  onFixAll?: () => Promise<void>;
   onFixPollutedPages?: () => void;
   // Issue #85 v7: LLM-assisted retag of pages with out-of-vocabulary tags
   onRetagViolations?: () => void;
@@ -217,7 +217,7 @@ export class LintReportModal extends Modal {
         attr: { style: 'font-weight: bold;' }
       });
       btn.addEventListener('click', () => {
-        this.fixCallbacks.onFixAll?.();
+        void this.fixCallbacks.onFixAll?.();
         this.close();
       });
     }

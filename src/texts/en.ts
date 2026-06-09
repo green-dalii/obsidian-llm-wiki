@@ -391,6 +391,11 @@ export const EN_TEXTS = {
     // Ingestion status bar
     ingestionStatusBar: 'Ingesting... click to cancel',
     lintStatusBar: 'Linting... click to cancel',
+    ingestStatusAnalyzing: 'Ingesting… analyzing',
+    lintStatusReading: 'Linting… reading ({current}/{total})',
+    lintStatusDuplicates: 'Linting… duplicates ({current}/{total})',
+    lintStatusScanningLinks: 'Linting… scanning links',
+    lintStatusAnalyzing: 'Linting… AI analysis',
     ingestionCancelling: 'Cancelling — will stop after current batch completes',
     ingestionCancelled: 'Ingestion cancelled',
     crossTypeCollisionNotice: '{count} items merged as cross-type aliases (entity ↔ concept duplicates prevented)',
