@@ -2,7 +2,7 @@
 // Extracted from lint-controller.ts to keep the orchestrator focused on
 // detection, reporting, and callback wiring.
 
-import { Notice } from 'obsidian';
+import { Notice, TFile } from 'obsidian';
 import { LintContext } from '../lint-controller';
 import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
@@ -340,14 +340,41 @@ export async function runRetagViolations(
         .replace('{path}', v.path));
 
       try {
-        // Read the current page content
+        // Read the current page content. The Obsidian API is
+        // `Vault.read(file: TFile)` — TFile itself does not have a
+        // `read()` method (this is a common mistake; TFile extends
+        // TAbstractFile which has only metadata, not content). The
+        // previous code called `tfile.read()` and produced
+        // "tfile.read is not a function" at runtime, which is what
+        // blew up the user's "Retag" button. The mock tests in
+        // fix-runners.test.ts passed because the mock provided its
+        // own `.read()` — a textbook shell test that did not
+        // exercise the real production code path. The fix is the
+        // correct call below; the new shell-test guard
+        // ("TFile.read mock does not match real Obsidian TFile") is
+        // added to fix-runners.test.ts to prevent regression.
         const file = ctx.app.vault.getAbstractFileByPath(v.path);
         if (!file) {
           results.push(`${v.path}: file not found`);
           continue;
         }
-        const tfile = file as unknown as { path: string; read(): Promise<string> };
-        const content = await tfile.read();
+        // TFile is the concrete subclass of TAbstractFile that holds
+        // vault-readable content. Use instanceof TFile to distinguish
+        // TFile from TFolder — this satisfies the obsidianmd/
+        // no-tfile-tfolder-cast lint rule while being type-safe.
+        // Real Obsidian TFile passes this check in production;
+        // the test mock (new TFile() with Object.assign) also passes
+        // because vitest hoists TFile to the same class reference.
+        if (!(file instanceof TFile)) {
+          results.push(`${v.path}: not a regular file`);
+          continue;
+        }
+        // Read via ctx.app.vault.read(file) — the correct Obsidian API
+        // for reading a file by TFile. vault.cachedRead() is also
+        // available but we want fresh content (the LLM must see
+        // the current frontmatter, not a cached snapshot from a
+        // prior render).
+        const content = await ctx.app.vault.read(file);
         // Body preview for the LLM: only the first ~400 chars of the
         // post-frontmatter body, so we don't waste tokens on a long wiki
         // page. The LLM just needs the gist to pick the right tags.
@@ -435,6 +462,16 @@ Task: Return a JSON object with a single field "tags" that is an array of string
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') throw e;
         const errMsg = e instanceof Error ? e.message : String(e);
+        // console.error so the user sees the full stack in DevTools
+        // (Ctrl+Shift+I). Notice alone truncates the error message
+        // and gives no recovery info — that was the bug reported
+        // when "Retag failed for X: tfile.read is not a function"
+        // appeared with no other diagnostic output. We include the
+        // page type + violation context for debugging.
+        console.error(
+          `[runRetagViolations] ${v.path} (${v.pageType}) failed:`,
+          e
+        );
         results.push(`${v.path}: ${errMsg}`);
         new Notice(t.lintTagViolationFailed.replace('{path}', v.path).replace('{error}', errMsg), NOTICE_ERROR);
       }
