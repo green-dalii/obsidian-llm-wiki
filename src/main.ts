@@ -235,6 +235,12 @@ export default class LLMWikiPlugin extends Plugin {
       }
     );
 
+    this.wikiEngine.setStatusBarUpdateCallback((text) => {
+      if (this.ingestStatusBar) {
+        this.ingestStatusBar.setText(text);
+      }
+    });
+
     this.addSettingTab(new LLMWikiSettingTab(this.app, this));
 
     console.debug('LLM Wiki Plugin loaded - Karpathy implementation');

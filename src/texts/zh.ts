@@ -384,6 +384,11 @@ export const ZH_TEXTS = {
     // Ingestion status bar
     ingestionStatusBar: '提取中... 点击取消',
     lintStatusBar: '维护中... 点击取消',
+    ingestStatusAnalyzing: '提取中… 分析中',
+    lintStatusReading: '维护中… 读取 ({current}/{total})',
+    lintStatusDuplicates: '维护中… 重复 ({current}/{total})',
+    lintStatusScanningLinks: '维护中… 扫描链接',
+    lintStatusAnalyzing: '维护中… AI分析',
     ingestionCancelling: '正在取消 — 当前批次完成后将停止',
     ingestionCancelled: '提取已取消',
     crossTypeCollisionNotice: '{count} 个条目合并为跨类型别名（实体 ↔ 概念重复已防止）',

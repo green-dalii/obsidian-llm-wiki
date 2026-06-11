@@ -60,6 +60,7 @@ export class WikiEngine {
   private onIngestionEnd: (() => void) | null = null;
   private onLintStart: (() => void) | null = null;
   private onLintEnd: (() => void) | null = null;
+  private onStatusBarUpdate: ((text: string) => void) | null = null;
   private pagesCache: Array<{path: string; title: string; wikiLink: string; aliases?: string[]}> | null = null;
   private pagesCacheTime = 0;
   private readonly PAGES_CACHE_TTL_MS = PAGES_CACHE_TTL_MS;
@@ -97,7 +98,7 @@ export class WikiEngine {
         getExistingWikiPages(this.app, this.settings.wikiFolder),
       getSchemaContext: t => this.schemaManager.getSchemaContext(t as SchemaTask),
       onFileWrite: path => this.onFileWrite?.(path),
-      onProgress: msg => this.onProgress?.(msg),
+      onProgress: msg => this.notifyProgress(msg),
       onDone: report => this.onDone?.(report),
     };
 
@@ -142,12 +143,25 @@ export class WikiEngine {
     this.onLintEnd = onEnd;
   }
 
+  setStatusBarUpdateCallback(cb: ((text: string) => void) | null): void {
+    this.onStatusBarUpdate = cb;
+  }
+
+  updateStatusBar(text: string): void {
+    this.onStatusBarUpdate?.(text);
+  }
+
+  private notifyProgress(msg: string): void {
+    this.onProgress?.(msg);
+    this.updateStatusBar(msg);
+  }
+
   cancelIngestion(): void {
     if (this.abortController) {
       this.abortController.abort();
       const msg = getText(this.settings.language, 'ingestionCancelling');
       new Notice(msg, NOTICE_ABORT);
-      this.onProgress?.(msg);
+      this.notifyProgress(msg);
       console.debug('Ingestion cancellation requested');
     }
   }
@@ -220,6 +234,7 @@ export class WikiEngine {
     this.wasCancelled = false;
     this.abortController = new AbortController();
     this.onIngestionStart?.();
+    this.notifyProgress(getText(this.settings.language, 'ingestStatusAnalyzing'));
 
     // Long-source warning: read file early to estimate processing time.
     // Large files trigger iterative batch extraction (multiple LLM passes),
@@ -239,7 +254,7 @@ export class WikiEngine {
       console.debug(`[Long Source] ${file.basename}: ${lineCount} lines, ${sizeKB}KB — long ingestion expected`);
     }
 
-    this.onProgress?.(`Analyzing: ${file.basename}`);
+    this.notifyProgress(`Analyzing: ${file.basename}`);
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
     const collisions: Array<{ name: string; sourceType: 'entity' | 'concept'; targetType: 'entity' | 'concept'; targetPath: string }> = [];
@@ -272,7 +287,7 @@ export class WikiEngine {
         plannedPaths.push(normalizePath(`${this.settings.wikiFolder}/concepts/${slugify(concept.name, preserveCase)}.md`));
       }
 
-      this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
+      this.notifyProgress(`[${step}/${totalSteps}] Creating summary...`);
       await this.apiDelay();
 
       // Stage 2: Summary Page Generation
@@ -318,7 +333,8 @@ export class WikiEngine {
         const batchResults = await Promise.allSettled(
           batch.map(async (task) => {
             step++;
-            this.onProgress?.(`[${step}/${totalSteps}] ${task.type === 'entity' ? 'Entity' : 'Concept'}: ${task.name}`);
+            const progressText = `[${step}/${totalSteps}] ${task.type === 'entity' ? 'Entity' : 'Concept'}: ${task.name}`;
+            this.notifyProgress(progressText);
 
             if (task.type === 'entity') {
               const entity = analysis!.entities[task.index];
@@ -444,7 +460,7 @@ export class WikiEngine {
         // Execute batch updates in parallel
         const batchResults = await Promise.allSettled(
           batch.map(async (task) => {
-            this.onProgress?.(`[${task.stepNum}/${totalSteps}] Updating: ${task.name}`);
+            this.notifyProgress(`[${task.stepNum}/${totalSteps}] Updating: ${task.name}`);
 
             try {
               const updated = await this.pageFactory.updateRelatedPage(task.name, analysis!, file);
@@ -518,7 +534,7 @@ export class WikiEngine {
       // Stage 6: Index & Log Update
       const indexStart = Date.now();
       step++;
-      this.onProgress?.(`[${step}/${totalSteps}] Generating index...`);
+      this.notifyProgress(`[${step}/${totalSteps}] Generating index...`);
       await this.generateIndexFromEngine();
       await this.updateLog('ingest', analysis);
       const indexTime = Date.now() - indexStart;

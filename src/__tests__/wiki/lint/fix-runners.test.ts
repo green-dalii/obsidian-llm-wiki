@@ -27,6 +27,7 @@ const makeCtx = (overrides: Partial<LintContext> = {}): LintContext => {
       fillEmptyPage: vi.fn().mockResolvedValue('expanded'),
       linkOrphanPage: vi.fn().mockResolvedValue(['wiki/OtherPage']),
       mergeDuplicatePages: vi.fn().mockResolvedValue('merged'),
+      updateStatusBar: vi.fn(),
     } as unknown as LintContext['wikiEngine'],
     onAnalyzeSchema: vi.fn(),
   };
