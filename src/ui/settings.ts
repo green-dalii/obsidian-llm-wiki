@@ -818,5 +818,12 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         dropdown.setValue(this.tempSettings.periodicLint);
         dropdown.onChange((value: 'off' | 'hourly' | 'daily' | 'weekly') => { this.tempSettings.periodicLint = value; });
       });
+
+    new Setting(containerEl)
+      .setName(this.getText('autoSmartFixName'))
+      .setDesc(this.getText('autoSmartFixDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.autoSmartFix)
+        .onChange((value) => { this.tempSettings.autoSmartFix = value; }));
   }
 }

@@ -193,6 +193,7 @@ describe('scanTagViolations', () => {
     tagVocabularyMode: 'default',
     customEntityTags: '',
     customConceptTags: '',
+    autoSmartFix: false,
     slugCase: 'lower' as const,
   };
 
