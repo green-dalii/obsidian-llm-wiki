@@ -15,14 +15,17 @@
  * no alias pipe.
  */
 
+import { computeSlug } from '../utils';
+
 /**
  * Normalize a single raw source entry to its canonical form.
  *
  * @param raw - Raw string from frontmatter (may include `[[ ]]`, `.md`, `|alias`, or external path)
  * @param wikiFolder - User's wiki folder name (used to strip the prefix and detect internal paths)
+ * @param preserveCase - Match the user's slugCase setting when slugifying a remapped external filename
  * @returns Normalized relative path (e.g. `sources/Foo`), or empty string for unfixable inputs
  */
-export function normalizeSourcePath(raw: string, wikiFolder: string): string {
+export function normalizeSourcePath(raw: string, wikiFolder: string, preserveCase = true): string {
   let s = raw.trim();
   if (!s || s === '[[]]') return '';
 
@@ -53,9 +56,11 @@ export function normalizeSourcePath(raw: string, wikiFolder: string): string {
   ) {
     // Already canonical internal path
   } else {
-    // External: remap to sources/<filename>
+    // External: remap to sources/<filename>, slugified so the link resolves to the
+    // canonical source page (e.g. "Notizen/Autonome Dysregulation" → "sources/Autonome-Dysregulation",
+    // "AGEs (Advanced Glycation End Products)" → "sources/AGEs-Advanced-Glycation-End-Products").
     const filename = s.split('/').pop() || s;
-    s = `sources/${filename}`;
+    s = `sources/${computeSlug(filename, preserveCase)}`;
   }
 
   return s;
@@ -67,13 +72,14 @@ export function normalizeSourcePath(raw: string, wikiFolder: string): string {
  *
  * @param rawList - Array of raw source strings from frontmatter
  * @param wikiFolder - User's wiki folder name
+ * @param preserveCase - Match the user's slugCase setting when slugifying remapped external filenames
  * @returns Array of normalized wikilink strings `[[path]]` (no `.md`, no `|alias`)
  */
-export function normalizeSourcesField(rawList: string[], wikiFolder: string): string[] {
+export function normalizeSourcesField(rawList: string[], wikiFolder: string, preserveCase = true): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const raw of rawList) {
-    const normalized = normalizeSourcePath(String(raw), wikiFolder);
+    const normalized = normalizeSourcePath(String(raw), wikiFolder, preserveCase);
     if (!normalized) continue;
     if (seen.has(normalized)) continue;
     seen.add(normalized);
@@ -88,13 +94,14 @@ export function normalizeSourcesField(rawList: string[], wikiFolder: string): st
  *
  * @param content - File content (full markdown including frontmatter)
  * @param wikiFolder - User's wiki folder name
+ * @param preserveCase - Match the user's slugCase setting (must agree with fixPollutedSources)
  * @returns true if any sources entry would change
  */
-export function scanPollutedSources(content: string, wikiFolder: string): boolean {
+export function scanPollutedSources(content: string, wikiFolder: string, preserveCase = true): boolean {
   const entries = extractRawSourcesEntries(content);
   if (entries.length === 0) return false;
   return entries.some(e => {
-    const canonical = normalizeSourcePath(e, wikiFolder);
+    const canonical = normalizeSourcePath(e, wikiFolder, preserveCase);
     if (!canonical) return true; // empty link — pollution
     // Strip brackets to compare
     const stripped = e.replace(/^\[\[/, '').replace(/\]\]$/, '');
@@ -145,18 +152,20 @@ function extractRawSourcesEntries(content: string): string[] {
  *
  * @param content - File content (full markdown including frontmatter)
  * @param wikiFolder - User's wiki folder name
+ * @param preserveCase - Match the user's slugCase setting when slugifying remapped external filenames
  * @returns Object with `fixed` (number of changes made) and `content` (potentially modified)
  */
 export function fixPollutedSources(
   content: string,
-  wikiFolder: string
+  wikiFolder: string,
+  preserveCase = true
 ): { fixed: number; content: string } {
   const rawEntries = extractRawSourcesEntries(content);
   if (rawEntries.length === 0) return { fixed: 0, content };
   console.debug(`[fixPollutedSources] rawEntries (${rawEntries.length}): ${JSON.stringify(rawEntries)}`);
 
   // Compute the normalized entries
-  const normalized = normalizeSourcesField(rawEntries, wikiFolder);
+  const normalized = normalizeSourcesField(rawEntries, wikiFolder, preserveCase);
   console.debug(`[fixPollutedSources] normalized (${normalized.length}): ${JSON.stringify(normalized)}`);
 
   // Always perform the fix; the diff between before/after content is the truth.

@@ -55,6 +55,23 @@ describe('normalizeSourcePath', () => {
   it('handles custom wikiFolder', () => {
     expect(normalizeSourcePath('Notes/Foo.md', 'my-wiki')).toBe('sources/Foo');
   });
+
+  // Issue #125: external-path remap must slugify the filename so the resulting
+  // [[sources/X]] link resolves to the canonical (hyphenated) source page.
+  it('slugifies spaces in remapped external filenames', () => {
+    expect(normalizeSourcePath('[[Notizen/Autonome Dysregulation.md]]', WIKI))
+      .toBe('sources/Autonome-Dysregulation');
+  });
+
+  it('strips parentheses and slugifies remapped external filenames', () => {
+    expect(normalizeSourcePath('[[Notizen/AGEs (Advanced Glycation End Products).md]]', WIKI))
+      .toBe('sources/AGEs-Advanced-Glycation-End-Products');
+  });
+
+  it('lowercases the remapped slug when preserveCase is false', () => {
+    expect(normalizeSourcePath('Notizen/Autonome Dysregulation.md', WIKI, false))
+      .toBe('sources/autonome-dysregulation');
+  });
 });
 
 describe('normalizeSourcesField', () => {

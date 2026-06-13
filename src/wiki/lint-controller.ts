@@ -117,11 +117,12 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     // ---- 0.5 Sources field normalize (programmatic, no LLM) — Issue #81 ----
     let sourcesNormalizedFiles = 0;
     let sourcesNormalizedEntries = 0;
+    const sourcesPreserveCase = ctx.settings.slugCase === 'preserve';
     for (const [path, info] of pageMap) {
-      if (!scanPollutedSources(info.content, ctx.settings.wikiFolder)) continue;
+      if (!scanPollutedSources(info.content, ctx.settings.wikiFolder, sourcesPreserveCase)) continue;
       const abstractFile = ctx.app.vault.getAbstractFileByPath(path);
       if (abstractFile instanceof TFile) {
-        const { fixed, content } = fixPollutedSources(info.content, ctx.settings.wikiFolder);
+        const { fixed, content } = fixPollutedSources(info.content, ctx.settings.wikiFolder, sourcesPreserveCase);
         if (fixed > 0) {
           await ctx.app.vault.process(abstractFile, () => content);
           sourcesNormalizedFiles += 1;

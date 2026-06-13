@@ -33,6 +33,7 @@ import {
   getExistingWikiPages,
 } from './lint-fixes';
 import { ContradictionManager } from './contradictions';
+import { fixPollutedSources } from '../core/sources-normalizer';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
 import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS } from '../constants';
@@ -732,6 +733,20 @@ export class WikiEngine {
           return `[[${folder}/${rest}${displayPart}]]`;
         }
       );
+    }
+
+    // Issue #125: normalize the `sources:` frontmatter field on every write.
+    // The LLM emits raw note paths ("[[Notizen/Autonome Dysregulation.md]]"),
+    // `.md` extensions, `|alias` pipes, and space/paren-containing titles. Left
+    // unfixed these become dead links that previously required a post-ingest
+    // cleanup script. normalizeSourcesField (Issue #81) already exists and is
+    // unit-tested but was only wired into the lint/auto-maintain paths — not the
+    // generation/merge write path that produces this pollution in the first place.
+    const preserveCase = this.settings.slugCase === 'preserve';
+    const sourcesFix = fixPollutedSources(content, this.settings.wikiFolder, preserveCase);
+    if (sourcesFix.fixed > 0) {
+      console.warn(`createOrUpdateFile: normalized polluted sources field in ${path}`);
+      content = sourcesFix.content;
     }
 
     for (let attempt = 0; attempt < 3; attempt++) {

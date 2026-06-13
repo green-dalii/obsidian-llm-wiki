@@ -361,13 +361,14 @@ export class AutoMaintainManager {
       const wikiFiles = this.app.vault.getMarkdownFiles()
         .filter(f => f.path.startsWith(wikiFolder));
       console.debug(`[QuickFixes] Phase 2: scanning ${wikiFiles.length} files in "${wikiFolder}"`);
+      const sourcesPreserveCase = this.settings.slugCase === 'preserve';
       for (const file of wikiFiles) {
         sourcesFilesScanned += 1;
         const content = await this.app.vault.read(file);
-        if (!scanPollutedSources(content, wikiFolder)) continue;
+        if (!scanPollutedSources(content, wikiFolder, sourcesPreserveCase)) continue;
         sourcesFilesPolluted += 1;
         console.debug(`[QuickFixes] Polluted sources detected in ${file.path}`);
-        const { fixed, content: fixedContent } = fixPollutedSources(content, wikiFolder);
+        const { fixed, content: fixedContent } = fixPollutedSources(content, wikiFolder, sourcesPreserveCase);
         if (fixed > 0) {
           await this.app.vault.process(file, () => fixedContent);
           sourcesFilesCleaned += 1;
