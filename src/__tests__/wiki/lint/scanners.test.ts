@@ -190,6 +190,7 @@ describe('scanTagViolations', () => {
     startupCheck: false, pageGenerationConcurrency: 3, batchDelayMs: 500,
     llmReady: false,
     maxTokensPerCall: 0,
+    repetitionPenalty: 0,
     tagVocabularyMode: 'default',
     customEntityTags: '',
     customConceptTags: '',

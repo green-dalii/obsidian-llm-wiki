@@ -716,3 +716,78 @@ describe('AnthropicClient — disableThinking fallback', () => {
     expect(secondBody.thinking).toBeUndefined();
   });
 });
+
+describe('repetition_penalty in request body (#128 follow-up)', () => {
+  beforeEach(() => {
+    mockRequestUrl.mockClear();
+  });
+
+  it('OpenAICompatibleClient sends repetition_penalty when set', async () => {
+    mockRequestUrl.mockResolvedValueOnce(makeOpenAIResponse('ok'));
+    const client = new OpenAICompatibleClient('key', 'http://localhost:1234/v1');
+    await client.createMessage({
+      model: 'm',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+      repetition_penalty: 1.1,
+    });
+    const body = JSON.parse((mockRequestUrl.mock.calls[0][0] as { body: string }).body) as { repetition_penalty?: number };
+    expect(body.repetition_penalty).toBe(1.1);
+  });
+
+  it('OpenAICompatibleClient omits repetition_penalty when unset', async () => {
+    mockRequestUrl.mockResolvedValueOnce(makeOpenAIResponse('ok'));
+    const client = new OpenAICompatibleClient('key', 'http://localhost:1234/v1');
+    await client.createMessage({
+      model: 'm',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    const body = JSON.parse((mockRequestUrl.mock.calls[0][0] as { body: string }).body) as { repetition_penalty?: number };
+    expect(body.repetition_penalty).toBeUndefined();
+  });
+
+  it('AnthropicCompatibleClient sends repetition_penalty when set', async () => {
+    mockRequestUrl.mockResolvedValueOnce(makeAnthropicResponse('ok'));
+    const client = new AnthropicCompatibleClient('key', 'http://localhost:1234');
+    await client.createMessage({
+      model: 'm',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+      repetition_penalty: 1.1,
+    });
+    const body = JSON.parse((mockRequestUrl.mock.calls[0][0] as { body: string }).body) as { repetition_penalty?: number };
+    expect(body.repetition_penalty).toBe(1.1);
+  });
+});
+
+describe('chat_template_kwargs in request body (#99 completion)', () => {
+  beforeEach(() => {
+    mockRequestUrl.mockClear();
+  });
+
+  it('OpenAICompatibleClient forwards chat_template_kwargs to disable reasoning', async () => {
+    mockRequestUrl.mockResolvedValueOnce(makeOpenAIResponse('{}'));
+    const client = new OpenAICompatibleClient('key', 'http://localhost:1234/v1');
+    await client.createMessage({
+      model: 'm',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+      chat_template_kwargs: { enable_thinking: false },
+    });
+    const body = JSON.parse((mockRequestUrl.mock.calls[0][0] as { body: string }).body) as { chat_template_kwargs?: { enable_thinking?: boolean } };
+    expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+
+  it('OpenAICompatibleClient omits chat_template_kwargs when unset', async () => {
+    mockRequestUrl.mockResolvedValueOnce(makeOpenAIResponse('{}'));
+    const client = new OpenAICompatibleClient('key', 'http://localhost:1234/v1');
+    await client.createMessage({
+      model: 'm',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    const body = JSON.parse((mockRequestUrl.mock.calls[0][0] as { body: string }).body) as { chat_template_kwargs?: unknown };
+    expect(body.chat_template_kwargs).toBeUndefined();
+  });
+});

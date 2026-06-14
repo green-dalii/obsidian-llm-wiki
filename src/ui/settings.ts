@@ -1,4 +1,4 @@
-import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIMIT_MIN } from '../constants';
+import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIMIT_MIN, LOCAL_LIKE_PROVIDERS } from '../constants';
 // Settings panel UI for LLM Wiki Plugin
 
 import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl, BaseComponent } from 'obsidian';
@@ -402,8 +402,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     }
 
     // Issue #75: max tokens per call — shown for local/custom providers only
-    const localLikeProviders = ['ollama', 'lmstudio', 'custom', 'anthropic-compatible'];
-    if (localLikeProviders.includes(this.tempSettings.provider)) {
+    if (LOCAL_LIKE_PROVIDERS.includes(this.tempSettings.provider)) {
       const tokenOptions = [0, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576];
       const tokenLabels = ['0 (No limit)', '4K', '8K', '16K', '32K', '64K', '128K', '256K', '512K', '1M'];
       const currentVal = this.tempSettings.maxTokensPerCall ?? 0;
@@ -419,6 +418,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             this.tempSettings.maxTokensPerCall = parseInt(value);
           });
         });
+      // #128 follow-up: repetition_penalty (default 1.1) is auto-applied for
+      // local providers in the createMessage wrapper — no UI knob needed. The
+      // value lives in data.json as an escape hatch for the rare model that
+      // needs it tuned or disabled.
     }
 
     // Test Connection

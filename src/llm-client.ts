@@ -79,13 +79,15 @@ export class AnthropicCompatibleClient implements LLMClient {
     response_format?: { type: 'json_object' };
     maxTokensPerCall?: number;
     disableThinking?: boolean;
+    repetition_penalty?: number;  // #128 follow-up
   }): Promise<string> {
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
       messages: params.response_format?.type === 'json_object'
         ? [...params.messages, { role: 'assistant', content: '{' }]
-        : params.messages
+        : params.messages,
+      ...(params.repetition_penalty !== undefined ? { repetition_penalty: params.repetition_penalty } : {}),
     };
     if (params.system) body.system = params.system;
     // ROADMAP P3 #12: explicit thinking disable for thinking-capable models
@@ -187,6 +189,7 @@ export class AnthropicCompatibleClient implements LLMClient {
     messages: Array<{ role: 'user' | 'assistant'; content: string }>;
     onChunk: (chunk: string) => void;
     disableThinking?: boolean;
+    repetition_penalty?: number;  // #128 follow-up
   }): Promise<string> {
     const messages = params.system ? params.messages : [
       ...params.messages,
@@ -298,6 +301,7 @@ export class AnthropicClient implements LLMClient {
     cacheBreakpoint?: number;
     maxTokensPerCall?: number;
     disableThinking?: boolean;
+    repetition_penalty?: number;  // #128 follow-up
   }): Promise<string> {
     const messages: Array<Record<string, unknown>> = params.response_format?.type === 'json_object'
       ? [...params.messages, { role: 'assistant', content: '{' }]
@@ -416,6 +420,7 @@ export class AnthropicClient implements LLMClient {
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     onChunk: (chunk: string) => void;
     disableThinking?: boolean;
+    repetition_penalty?: number;  // #128 follow-up
   }): Promise<string> {
     const messagesWithLanguageHint = params.system
       ? params.messages
@@ -508,6 +513,8 @@ export class OpenAICompatibleClient implements LLMClient {
     response_format?: { type: 'json_object' };
     maxTokensPerCall?: number;
     disableThinking?: boolean;
+    repetition_penalty?: number;  // #128 follow-up
+    chat_template_kwargs?: Record<string, unknown>;  // #99 completion: e.g. { enable_thinking: false } for Gemma/Qwen on LM Studio/Ollama
   }): Promise<string> {
     const messages = params.system
       ? [{ role: 'system' as const, content: params.system }, ...params.messages]
@@ -519,7 +526,9 @@ export class OpenAICompatibleClient implements LLMClient {
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
-      messages
+      messages,
+      ...(params.repetition_penalty !== undefined ? { repetition_penalty: params.repetition_penalty } : {}),
+      ...(params.chat_template_kwargs !== undefined ? { chat_template_kwargs: params.chat_template_kwargs } : {}),
     };
     // Unified thinking control: use Anthropic-style `thinking.type` which
     // works for DeepSeek and Anthropic. Cache from Test Connection probe
@@ -606,6 +615,8 @@ export class OpenAICompatibleClient implements LLMClient {
           messages: params.system
             ? [{ role: 'system' as const, content: params.system }, ...params.messages]
             : params.messages,
+          ...(params.repetition_penalty !== undefined ? { repetition_penalty: params.repetition_penalty } : {}),
+          ...(params.chat_template_kwargs !== undefined ? { chat_template_kwargs: params.chat_template_kwargs } : {}),
         };
         return await doRequest(fallbackBody);
       }
@@ -620,6 +631,7 @@ export class OpenAICompatibleClient implements LLMClient {
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     onChunk: (chunk: string) => void;
     disableThinking?: boolean;
+    repetition_penalty?: number;  // #128 follow-up
   }): Promise<string> {
     const messages = params.system
       ? [{ role: 'system' as const, content: params.system }, ...params.messages]

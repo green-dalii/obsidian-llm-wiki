@@ -7,7 +7,7 @@ import {
   LLMClient,
   IngestReport
 } from './types';
-import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR } from './constants';
+import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, LOCAL_LIKE_PROVIDERS } from './constants';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
 import { capMaxTokens } from './core/token-cap';
 import { runSchemaAnalyze } from './wiki/schema-analyze';
@@ -49,17 +49,32 @@ function createLLMClient(settings: LLMWikiSettings): LLMClient {
     }
   }
 
-  // Issue #75: wrap createMessage with token cap when configured
-  if (settings.maxTokensPerCall > 0) {
-    const originalCreate = client.createMessage.bind(client) as (params: Parameters<typeof client.createMessage>[0]) => ReturnType<typeof client.createMessage>;
-    client.createMessage = async (params) => {
-      return originalCreate({
-        ...params,
-        max_tokens: capMaxTokens(params.max_tokens, settings),
-        maxTokensPerCall: settings.maxTokensPerCall,
-      });
-    };
-  }
+  // Issue #75: cap max_tokens per call when configured.
+  // #128 follow-up: inject repetition_penalty for local models prone to
+  // repetition loops (a llama.cpp extension honored by LM Studio / Ollama on
+  // the OpenAI- and Anthropic-compatible endpoints).
+  const capTokens = settings.maxTokensPerCall > 0;
+  // Only inject repetition_penalty for local llama.cpp-style providers — real
+  // OpenAI/Anthropic reject the param. Auto-applies (default 1.1) without the
+  // user touching the advanced field.
+  const injectRepPenalty = settings.repetitionPenalty > 0 && LOCAL_LIKE_PROVIDERS.includes(settings.provider);
+  // #99 completion: the wired `disableThinking` sends Anthropic-style
+  // `thinking:{type:'disabled'}`, which LM Studio's OpenAI-compatible endpoint
+  // ignores/rejects for template-based reasoning models (Gemma/Qwen) — so the
+  // model reasons until it exhausts the token budget and returns empty content.
+  // The working mechanism there is the chat-template kwarg. Inject it for local
+  // providers; cloud providers never receive it.
+  const injectNoThink = settings.disableThinking === true && LOCAL_LIKE_PROVIDERS.includes(settings.provider);
+  const originalCreate = client.createMessage.bind(client) as (params: Parameters<typeof client.createMessage>[0]) => ReturnType<typeof client.createMessage>;
+  client.createMessage = async (params) => {
+    return originalCreate({
+      ...params,
+      ...(capTokens ? { max_tokens: capMaxTokens(params.max_tokens, settings), maxTokensPerCall: settings.maxTokensPerCall } : {}),
+      ...(injectRepPenalty && params.repetition_penalty === undefined ? { repetition_penalty: settings.repetitionPenalty } : {}),
+      ...(injectNoThink && params.chat_template_kwargs === undefined ? { chat_template_kwargs: { enable_thinking: false } } : {}),
+    });
+  };
+
 
   return client;
 }

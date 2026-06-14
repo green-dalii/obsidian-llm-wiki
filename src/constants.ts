@@ -201,3 +201,12 @@ export const TIMER_UPDATE_INTERVAL_MS = 1000;
  * Every N outer iterations, await a setTimeout(0) to prevent UI thread blocking.
  */
 export const YIELD_EVERY_ITERATIONS = 200;
+
+/**
+ * Providers backed by a local llama.cpp-style runtime (LM Studio, Ollama, or a
+ * custom OpenAI-/Anthropic-compatible endpoint). These accept llama.cpp
+ * extensions like `repetition_penalty` and benefit from a `max_tokens` cap.
+ * Used to gate local-only settings (Issue #75) and the auto-applied
+ * repetition penalty (#128 follow-up).
+ */
+export const LOCAL_LIKE_PROVIDERS = ['ollama', 'lmstudio', 'custom', 'anthropic-compatible'];

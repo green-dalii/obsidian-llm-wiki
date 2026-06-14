@@ -139,6 +139,11 @@ export interface LLMWikiSettings {
   // Recommended for local models with small context windows.
   maxTokensPerCall: number;
 
+  // #128 follow-up: repetition penalty sent with every request. 0 = off (not sent).
+  // A llama.cpp extension honored by LM Studio / Ollama; prevents the repetition
+  // loops that a low extraction temperature can induce on some inputs.
+  repetitionPenalty: number;
+
   // Issue #111: slug casing for generated filenames.
   // 'lower' preserves backwards-compatible all-lowercase filenames.
   // 'preserve' keeps the casing the LLM produces — required for languages
@@ -211,6 +216,8 @@ export interface LLMClient {
     cacheBreakpoint?: number;
     maxTokensPerCall?: number;  // Issue #75: cap for truncation retry
     disableThinking?: boolean;  // ROADMAP P3 #12: disable thinking for thinking-capable models
+    repetition_penalty?: number;  // #128 follow-up: per-request repetition penalty (llama.cpp extension)
+    chat_template_kwargs?: Record<string, unknown>;  // #99 completion: e.g. { enable_thinking: false } to disable reasoning on local template-based models
   }): Promise<string>;
 
   createMessageStream?(params: {
@@ -472,6 +479,15 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // Local model users can set this when the provider is Ollama, LM Studio,
   // custom, or anthropic-compatible.
   maxTokensPerCall: 0,
+
+  // Issue #128: default low extraction temp kills CJK/script-mixing in
+  // verbatim text; chat default keeps answers fluent.
+
+  // #128 follow-up: repetition penalty. Default 1.1 to prevent the repetition
+  // loops a low extraction temperature can induce. Auto-applied ONLY for local
+  // llama.cpp-style providers (gated in main.ts); never sent to real
+  // OpenAI/Anthropic, which reject the param. 0 disables it.
+  repetitionPenalty: 1.1,
 
   // Issue #99 v2: default ON so thinking-capable models (Gemma 4,
   // DeepSeek-R1, QwQ) output final answer only — no mid-response CoT
