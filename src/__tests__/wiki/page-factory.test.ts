@@ -1,6 +1,23 @@
-import { describe, it, expect } from 'vitest';
-import { createMockContext } from '../__support__/engine-context';
+import { describe, it, expect, vi } from 'vitest';
+import { createMockContext, createMockFile } from '../__support__/engine-context';
 import { PageFactory } from '../../wiki/page-factory';
+import type { SourceAnalysis } from '../../types';
+
+function makeAnalysis(over: Partial<SourceAnalysis> = {}): SourceAnalysis {
+  return {
+    source_file: 'Notizen/New-Source.md',
+    source_title: 'New Source',
+    summary: '',
+    entities: [],
+    concepts: [],
+    contradictions: [],
+    related_pages: [],
+    key_points: [],
+    created_pages: [],
+    updated_pages: [],
+    ...over,
+  };
+}
 
 function makeFactory(vaultFiles: Record<string, string>) {
   const { ctx, vault } = createMockContext({ vaultFiles });
@@ -99,5 +116,54 @@ describe('PageFactory — buildPagesListForPrompt', () => {
 
   it('handles empty pages', async () => {
     expect('').toBe('');
+  });
+});
+
+describe('PageFactory — updateRelatedPage no-op skip (Issue #131)', () => {
+  it('skips the LLM call when the source extracted nothing matching the related page', async () => {
+    const { ctx, vault } = createMockContext({
+      vaultFiles: {
+        'wiki/concepts/Dysbiose.md':
+          '---\ntype: concept\nsources:\n  - "[[sources/Old]]"\n---\n\n## Description\nOriginal body, must stay verbatim.',
+      },
+    });
+    // Spy on the LLM client to assert it is never invoked.
+    const spy = vi.spyOn(ctx.getClient()!, 'createMessage');
+
+    const factory = new PageFactory(ctx);
+    // related_pages references Dysbiose, but it is not among extracted entities/concepts
+    const analysis = makeAnalysis({ related_pages: ['Dysbiose'] });
+    const sourceFile = createMockFile('Notizen/New-Source.md');
+
+    const result = await factory.updateRelatedPage('Dysbiose', analysis, sourceFile);
+
+    expect(spy).not.toHaveBeenCalled();  // LLM never invoked
+    expect(result).toBe(true);        // page still counts as updated
+    const content = vault.read('wiki/concepts/Dysbiose.md')!;
+    expect(content).toContain('Original body, must stay verbatim.');  // body untouched
+    expect(content).toContain('[[Notizen/New-Source.md]]');           // source recorded in frontmatter
+  });
+
+  it('still calls the LLM when the related page matches an extracted entity', async () => {
+    const { ctx, vault } = createMockContext({
+      vaultFiles: {
+        'wiki/entities/Butyrat.md': '---\ntype: entity\n---\n\n## Description\nOld body.',
+      },
+      llmResponses: ['## Description\nNew merged body.'],
+    });
+    const spy = vi.spyOn(ctx.getClient()!, 'createMessage');
+
+    const factory = new PageFactory(ctx);
+    const analysis = makeAnalysis({
+      related_pages: ['Butyrat'],
+      entities: [{ name: 'Butyrat', type: 'other', summary: 'An SCFA', mentions_in_source: [] }],
+    });
+    const sourceFile = createMockFile('Notizen/New-Source.md');
+
+    const result = await factory.updateRelatedPage('Butyrat', analysis, sourceFile);
+
+    expect(spy).toHaveBeenCalledTimes(1);  // LLM invoked because there is new info
+    expect(result).toBe(true);
+    expect(vault.read('wiki/entities/Butyrat.md')!).toContain('New merged body.');
   });
 });

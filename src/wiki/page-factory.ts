@@ -493,11 +493,24 @@ export class PageFactory {
     // 1. Programmatic frontmatter merge (sources + updated)
     const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
 
+    // Issue #131: a "related page" is an existing page topically related to the
+    // source — a different set from the entities/concepts this source extracted.
+    // When the source extracted nothing matching this page, there is no new body
+    // content to weave in; the previous behaviour regenerated the whole body via
+    // the LLM anyway (a no-op rewrite that wastes a call and re-rolls verbatim
+    // text through the model, a known corruption vector). Skip the LLM entirely:
+    // record the new source in frontmatter and leave the body untouched.
+    const newInfo = analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName);
+    if (!newInfo) {
+      await this.ctx.createOrUpdateFile(page.path, `${frontmatter}\n\n${existingBody}`);
+      return true;
+    }
+
     const prompt = PROMPTS.updateRelatedPage
       .replace('{{page_name}}', pageName)
       .replace('{{existing_body}}', existingBody)
       .replace('{{source_basename}}', sourceFile.basename)
-      .replace('{{new_info}}', JSON.stringify(analysis.entities.find(e => e.name === pageName) || analysis.concepts.find(c => c.name === pageName) || 'No directly relevant information'))
+      .replace('{{new_info}}', JSON.stringify(newInfo))
       .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
 
     const client = this.ctx.getClient();
