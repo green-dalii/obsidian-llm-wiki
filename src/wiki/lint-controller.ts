@@ -1006,7 +1006,12 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     // nests correctly under the log heading.
     const logReport = nestReportUnderParent(fullReport);
     await ctx.wikiEngine.logLintFix(t.lintReportTitle, logReport);
-    new LintReportModal(ctx.app, fullReport, fixCallbacks, counts, ctx.settings.language).open();
+    if (ctx.settings.autoSmartFix && fixCallbacks.onFixAll) {
+      new Notice(getText(ctx.settings.language, 'autoSmartFixNotice'));
+      void fixCallbacks.onFixAll();
+    } else {
+      new LintReportModal(ctx.app, fullReport, fixCallbacks, counts, ctx.settings.language).open();
+    }
     await ctx.wikiEngine.generateIndexFromEngine();
     new Notice(TEXTS[ctx.settings.language].lintWikiComplete);
 

@@ -93,6 +93,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   watchedFolders: [],
   periodicLint: 'off',
   startupCheck: false,
+  autoSmartFix: false,
   pageGenerationConcurrency: 1,
   batchDelayMs: 0,
   llmReady: true,

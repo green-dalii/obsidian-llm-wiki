@@ -106,6 +106,7 @@ export interface LLMWikiSettings {
   watchedFolders: string[];
   periodicLint: 'off' | 'hourly' | 'daily' | 'weekly';
   startupCheck: boolean;
+  autoSmartFix: boolean;
 
   // Ingestion acceleration
   pageGenerationConcurrency: number;
@@ -457,6 +458,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   watchedFolders: [],
   periodicLint: 'off',
   startupCheck: true,  // Issue #81: default ON for low-level format fixes
+  autoSmartFix: false,
 
   // Ingestion acceleration (default: 3 parallel for most providers)
   pageGenerationConcurrency: 3,
