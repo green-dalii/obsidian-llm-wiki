@@ -382,6 +382,7 @@ export class QueryModal extends Modal {
           fullResponse = await this.plugin.llmClient.createMessageStream({
             model: this.plugin.settings.model,
             max_tokens: TOKENS_QUERY_LLM_SELECT,
+            temperature: this.plugin.settings.chatTemperature,  // Issue #128
             system: wikiContext,
             messages: conversationMessages,
             onChunk: (chunk) => {
@@ -409,6 +410,7 @@ export class QueryModal extends Modal {
               fullResponse = await this.plugin.llmClient.createMessage({
                 model: this.plugin.settings.model,
                 max_tokens: TOKENS_QUERY_LLM_SELECT,
+                temperature: this.plugin.settings.chatTemperature,  // Issue #128
                 system: wikiContext,
                 messages: conversationMessages
               });

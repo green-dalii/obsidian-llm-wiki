@@ -101,6 +101,8 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   customEntityTags: '',
   customConceptTags: '',
   slugCase: 'lower' as const,
+  extractionTemperature: 0.15,
+  chatTemperature: 0.7,
 };
 
 // ── Mock EngineContext ───────────────────────────────────────────

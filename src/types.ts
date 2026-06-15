@@ -139,6 +139,13 @@ export interface LLMWikiSettings {
   // Recommended for local models with small context windows.
   maxTokensPerCall: number;
 
+  // Issue #128: per-task sampling temperature sent with every request.
+  // Low for extraction (source analysis, verbatim Mentions) to maximize
+  // fidelity and avoid script-mixing corruption from sampling the logit
+  // tail; higher for chat answers. 0 = greedy.
+  extractionTemperature: number;
+  chatTemperature: number;
+
   // Issue #111: slug casing for generated filenames.
   // 'lower' preserves backwards-compatible all-lowercase filenames.
   // 'preserve' keeps the casing the LLM produces — required for languages
@@ -205,6 +212,7 @@ export interface LLMClient {
   createMessage(params: {
     model: string;
     max_tokens: number;
+    temperature?: number;  // Issue #128: per-request sampling temperature
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
@@ -216,6 +224,7 @@ export interface LLMClient {
   createMessageStream?(params: {
     model: string;
     max_tokens: number;
+    temperature?: number;  // Issue #128: per-request sampling temperature
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     onChunk: (chunk: string) => void;
@@ -472,6 +481,11 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // Local model users can set this when the provider is Ollama, LM Studio,
   // custom, or anthropic-compatible.
   maxTokensPerCall: 0,
+
+  // Issue #128: default low extraction temp kills CJK/script-mixing in
+  // verbatim text; chat default keeps answers fluent.
+  extractionTemperature: 0.15,
+  chatTemperature: 0.7,
 
   // Issue #99 v2: default ON so thinking-capable models (Gemma 4,
   // DeepSeek-R1, QwQ) output final answer only — no mid-response CoT

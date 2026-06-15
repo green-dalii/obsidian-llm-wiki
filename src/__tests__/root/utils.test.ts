@@ -912,6 +912,8 @@ describe('getGranularityInstruction', () => {
     customEntityTags: '',
     customConceptTags: '',
     slugCase: 'lower' as const,
+    extractionTemperature: 0.15,
+    chatTemperature: 0.7,
   };
 
   it('injects concrete entity and concept limits for custom mode', () => {
@@ -966,6 +968,8 @@ describe('appendGranularityToPrompt', () => {
     customEntityTags: '',
     customConceptTags: '',
     slugCase: 'lower' as const,
+    extractionTemperature: 0.15,
+    chatTemperature: 0.7,
   };
 
   it('appends granularity instruction to existing prompt', () => {
@@ -1017,6 +1021,8 @@ describe('getGranularityFixLimits', () => {
     customEntityTags: '',
     customConceptTags: '',
     slugCase: 'lower' as const,
+    extractionTemperature: 0.15,
+    chatTemperature: 0.7,
   };
 
   it('returns user-defined limits for custom mode', () => {
@@ -1673,6 +1679,8 @@ describe('buildActiveTagVocabularySection (Issue #85 v6 — prompt injection)', 
     customEntityTags: '',
     customConceptTags: '',
     slugCase: 'lower' as const,
+    extractionTemperature: 0.15,
+    chatTemperature: 0.7,
   };
 
   it('in default mode, lists the hardcoded VALID_ENTITY_TAGS', () => {
@@ -1749,6 +1757,8 @@ describe('appendTagVocabularyToPrompt (Issue #85 v6 — end-to-end prompt inject
     customEntityTags: '',
     customConceptTags: '',
     slugCase: 'lower' as const,
+    extractionTemperature: 0.15,
+    chatTemperature: 0.7,
   };
 
   it('appends active tag vocabulary section after the base prompt', () => {
@@ -1824,6 +1834,8 @@ describe('enforceFrontmatterConstraints (Issue #85 v6 — preserve LLM intent)',
     customEntityTags: '',
     customConceptTags: '',
     slugCase: 'lower' as const,
+    extractionTemperature: 0.15,
+    chatTemperature: 0.7,
   };
 
   it('retains out-of-vocab tags (does NOT silently drop them)', () => {
@@ -1932,6 +1944,8 @@ describe('getActiveSourceTags (Issue #85 v7)', () => {
     customEntityTags: '',
     customConceptTags: '',
     slugCase: 'lower' as const,
+    extractionTemperature: 0.15,
+    chatTemperature: 0.7,
   };
 
   it('returns the hardcoded VALID_SOURCE_TAGS list', () => {

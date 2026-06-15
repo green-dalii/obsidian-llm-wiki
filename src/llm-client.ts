@@ -74,6 +74,7 @@ export class AnthropicCompatibleClient implements LLMClient {
   async createMessage(params: {
     model: string;
     max_tokens: number;
+    temperature?: number;  // Issue #128
     system?: string;
     messages: Array<{ role: 'user' | 'assistant'; content: string }>;
     response_format?: { type: 'json_object' };
@@ -83,6 +84,7 @@ export class AnthropicCompatibleClient implements LLMClient {
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
+      ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
       messages: params.response_format?.type === 'json_object'
         ? [...params.messages, { role: 'assistant', content: '{' }]
         : params.messages
@@ -167,6 +169,7 @@ export class AnthropicCompatibleClient implements LLMClient {
         const fallbackBody: Record<string, unknown> = {
           model: params.model,
           max_tokens: params.max_tokens,
+          ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
           messages: params.system
             ? [{ role: 'system' as const, content: params.system }, ...params.messages]
             : params.messages,
@@ -183,6 +186,7 @@ export class AnthropicCompatibleClient implements LLMClient {
   async createMessageStream(params: {
     model: string;
     max_tokens: number;
+    temperature?: number;  // Issue #128
     system?: string;
     messages: Array<{ role: 'user' | 'assistant'; content: string }>;
     onChunk: (chunk: string) => void;
@@ -199,6 +203,7 @@ export class AnthropicCompatibleClient implements LLMClient {
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
+      ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
       messages,
       stream: true
     };
@@ -292,6 +297,7 @@ export class AnthropicClient implements LLMClient {
   async createMessage(params: {
     model: string;
     max_tokens: number;
+    temperature?: number;  // Issue #128
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
@@ -318,6 +324,7 @@ export class AnthropicClient implements LLMClient {
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
+      ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
       messages,
     };
     if (params.system) body.system = params.system;
@@ -396,6 +403,7 @@ export class AnthropicClient implements LLMClient {
         const fallbackBody: Record<string, unknown> = {
           model: params.model,
           max_tokens: params.max_tokens,
+          ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
           messages: params.system
             ? [{ role: 'system' as const, content: params.system }, ...params.messages]
             : [...params.messages],
@@ -412,6 +420,7 @@ export class AnthropicClient implements LLMClient {
   async createMessageStream(params: {
     model: string;
     max_tokens: number;
+    temperature?: number;  // Issue #128
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     onChunk: (chunk: string) => void;
@@ -430,6 +439,7 @@ export class AnthropicClient implements LLMClient {
     const streamBody: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
+      ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
       messages: messagesWithLanguageHint,
       stream: true,
     };
@@ -503,6 +513,7 @@ export class OpenAICompatibleClient implements LLMClient {
   async createMessage(params: {
     model: string;
     max_tokens: number;
+    temperature?: number;  // Issue #128
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     response_format?: { type: 'json_object' };
@@ -519,6 +530,7 @@ export class OpenAICompatibleClient implements LLMClient {
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
+      ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
       messages
     };
     // Unified thinking control: use Anthropic-style `thinking.type` which
@@ -603,6 +615,7 @@ export class OpenAICompatibleClient implements LLMClient {
         const fallbackBody: Record<string, unknown> = {
           model: params.model,
           max_tokens: params.max_tokens,
+          ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
           messages: params.system
             ? [{ role: 'system' as const, content: params.system }, ...params.messages]
             : params.messages,
@@ -616,6 +629,7 @@ export class OpenAICompatibleClient implements LLMClient {
   async createMessageStream(params: {
     model: string;
     max_tokens: number;
+    temperature?: number;  // Issue #128
     system?: string;
     messages: Array<{role: 'user' | 'assistant'; content: string}>;
     onChunk: (chunk: string) => void;
@@ -634,6 +648,7 @@ export class OpenAICompatibleClient implements LLMClient {
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
+      ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
       messages,
       stream: true
     };
@@ -704,6 +719,7 @@ export class OpenAICompatibleClient implements LLMClient {
         const fallbackBody: Record<string, unknown> = {
           model: params.model,
           max_tokens: params.max_tokens,
+          ...(params.temperature !== undefined ? { temperature: params.temperature } : {}),
           messages,
           stream: true,
         };

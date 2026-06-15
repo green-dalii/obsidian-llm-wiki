@@ -49,17 +49,20 @@ function createLLMClient(settings: LLMWikiSettings): LLMClient {
     }
   }
 
-  // Issue #75: wrap createMessage with token cap when configured
-  if (settings.maxTokensPerCall > 0) {
-    const originalCreate = client.createMessage.bind(client) as (params: Parameters<typeof client.createMessage>[0]) => ReturnType<typeof client.createMessage>;
-    client.createMessage = async (params) => {
-      return originalCreate({
-        ...params,
-        max_tokens: capMaxTokens(params.max_tokens, settings),
-        maxTokensPerCall: settings.maxTokensPerCall,
-      });
-    };
-  }
+  // Issue #128: inject task-appropriate sampling temperature (default:
+  // extraction) when the caller didn't set one — chat call sites override
+  // by passing chatTemperature explicitly.
+  // Issue #75: cap max_tokens per call when configured.
+  const capTokens = settings.maxTokensPerCall > 0;
+  const originalCreate = client.createMessage.bind(client) as (params: Parameters<typeof client.createMessage>[0]) => ReturnType<typeof client.createMessage>;
+  client.createMessage = async (params) => {
+    return originalCreate({
+      ...params,
+      ...(params.temperature === undefined ? { temperature: settings.extractionTemperature } : {}),
+      ...(capTokens ? { max_tokens: capMaxTokens(params.max_tokens, settings), maxTokensPerCall: settings.maxTokensPerCall } : {}),
+    });
+  };
+
 
   return client;
 }

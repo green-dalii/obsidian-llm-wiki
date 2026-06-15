@@ -147,6 +147,31 @@ describe('OpenAICompatibleClient.createMessage', () => {
     expect(mockRequestUrl).toHaveBeenCalledTimes(1);
   });
 
+  it('forwards temperature to the request body when set (#128)', async () => {
+    mockRequestUrl.mockResolvedValueOnce(makeOpenAIResponse('Hello world'));
+    const client = new OpenAICompatibleClient('key', 'https://api.openai.com');
+    await client.createMessage({
+      model: 'test-model',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+      temperature: 0.15,
+    });
+    const body = JSON.parse((mockRequestUrl.mock.calls[0][0] as { body: string }).body) as { temperature?: number };
+    expect(body.temperature).toBe(0.15);
+  });
+
+  it('omits temperature from the request body when unset (#128)', async () => {
+    mockRequestUrl.mockResolvedValueOnce(makeOpenAIResponse('Hello world'));
+    const client = new OpenAICompatibleClient('key', 'https://api.openai.com');
+    await client.createMessage({
+      model: 'test-model',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    const body = JSON.parse((mockRequestUrl.mock.calls[0][0] as { body: string }).body) as { temperature?: number };
+    expect(body.temperature).toBeUndefined();
+  });
+
   it('detects truncation (finish_reason=length) and retries with doubled max_tokens', async () => {
     mockRequestUrl.mockResolvedValueOnce(makeOpenAIResponse('Hello', 'length'));
     mockRequestUrl.mockResolvedValueOnce(makeOpenAIResponse('Hello world'));

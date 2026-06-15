@@ -194,6 +194,8 @@ describe('scanTagViolations', () => {
     customEntityTags: '',
     customConceptTags: '',
     slugCase: 'lower' as const,
+    extractionTemperature: 0.15,
+    chatTemperature: 0.7,
   };
 
   function makeEntityPage(path: string, tags: string[] | string, withTitle = false): ScannerPage {
