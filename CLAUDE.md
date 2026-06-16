@@ -18,7 +18,7 @@
 - ✅ **Lint report enhanced:** summary includes ungroundedQuotes + tagViolations counts. `lintTagViolationSection` fully i18n'd.
 - ✅ **Internal refactoring:** lint-controller modularization (phases/report-builder), schema-analyze to schema/, LintContext to lint/types, lint-controller + lint-fixes into lint/ directory.
 - ✅ **Core module refactor (post-v1.19.0).** `utils.ts` god-module split into 10 focused `core/` modules (i18n, slug, json, frontmatter, tag-vocab, index-search, rate-limit, report, arrays, markdown). `LintFixer` god-class split into 6 module-level functions under `wiki/lint/` plus shared `wiki/lint/utils.ts` and `get-existing-pages.ts`.
-- ✅ **Tests: 697 passing (was 728 before refactor, 31 old `utils.test.ts` tests replaced by 10 modular test files).** 43 test files, 0 regressions.
+- ✅ **Tests: 723 passing.** 50 test files, 0 regressions.
 
 ### P0 — Bug fixes / quality regressions
 All v1.18.x P0 items closed. Next window opens with post-v1.19.0 feedback.
@@ -131,7 +131,7 @@ src/
 │   ├── sse-parser.ts               # SSE event parser
 │   ├── token-cap.ts                # max_tokens cap helper
 │   └── conflict-resolver.ts        # Conflict detection
-└── __tests__/                      # Unit tests (vitest, 697 tests)
+└── __tests__/                      # Unit tests (vitest, 723 tests)
 ```
 
 ---
