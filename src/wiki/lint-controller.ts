@@ -12,8 +12,7 @@
 // Duplicate detection and LLM analysis remain in this file because they
 // require rich ctx wiring that does not pay off in module isolation.
 
-import { App, Notice } from 'obsidian';
-import { LLMWikiSettings, LLMClient } from '../types';
+import { Notice } from 'obsidian';
 import { LintFixCallbacks, LintCounts, LintReportModal, FixReportModal, FixReportPhase } from '../ui/modals';
 import { TEXTS } from '../texts';
 import { PROMPTS } from '../prompts';
@@ -26,16 +25,11 @@ import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes
 import { runPreparationPhase } from './lint/phases/preparation';
 import { runProgrammaticPhase } from './lint/phases/programmatic';
 import { buildLintReport } from './lint/report-builder';
-import { LintPhaseContext, ProgrammaticFindings } from './lint/types';
-import { WikiEngine } from './wiki-engine';
+import { LintContext, LintPhaseContext, ProgrammaticFindings } from './lint/types';
 
-export interface LintContext {
-  app: App;
-  settings: LLMWikiSettings;
-  llmClient: LLMClient | null;
-  wikiEngine: WikiEngine;
-  onAnalyzeSchema: () => void;
-}
+// Re-export LintContext for back-compat — external callers (e.g. main.ts,
+// modals.ts indirect import) still reference `LintContext` from this file.
+export type { LintContext } from './lint/types';
 
 /**
  * Extract just the per-section body from a full Lint report.

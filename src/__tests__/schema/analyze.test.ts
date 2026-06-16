@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Notice } from 'obsidian';
-import { runSchemaAnalyze, type SchemaAnalyzeCtx } from '../../wiki/schema-analyze';
+import { runSchemaAnalyze, type SchemaAnalyzeCtx } from '../../schema/analyze';
 
 const NoticeMock = Notice as unknown as {
   instances: Array<{ message: string }>;

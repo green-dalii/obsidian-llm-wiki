@@ -1,8 +1,25 @@
 // Shared types for the lint pipeline.
-// These are internal to src/wiki/lint/ and are not exported from the package
-// surface. LintController is the only public entry point.
+// These are internal to src/wiki/lint/. LintController is the only public
+// entry point.
+//
+// History:
+//   - v1.18.3: extracted LintContext here so fix-runners.ts can stop
+//     importing from lint-controller.ts (cycle risk).
 
-import { LLMWikiSettings } from '../../types';
+import type { App } from 'obsidian';
+import { LLMWikiSettings, LLMClient } from '../../types';
+import { WikiEngine } from '../wiki-engine';
+
+// Public ctx for the entire lint run. The controller creates one of these
+// and passes it down to every phase (preparation, programmatic, llm-assisted,
+// fix-runners) and to report-builder / fix-callback assembly.
+export interface LintContext {
+  app: App;
+  settings: LLMWikiSettings;
+  llmClient: LLMClient | null;
+  wikiEngine: WikiEngine;
+  onAnalyzeSchema: () => void;
+}
 
 export interface LintPhaseContext {
   app: {

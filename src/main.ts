@@ -10,7 +10,7 @@ import {
 import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR } from './constants';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
 import { wrapWithAdvancedSettings } from './llm-client-wrapper';
-import { runSchemaAnalyze } from './wiki/schema-analyze';
+import { runSchemaAnalyze } from './schema/analyze';
 
 // Issue #243: derive a consistent cache key for the thinking-control cache.
 // Used in both the read (createLLMClient) and write (testLLMConnection) paths

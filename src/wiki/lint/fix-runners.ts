@@ -3,7 +3,7 @@
 // detection, reporting, and callback wiring.
 
 import { Notice, TFile } from 'obsidian';
-import { LintContext } from '../lint-controller';
+import { LintContext } from './types';
 import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse, detectRateLimitFailures, formatRateLimitNotice, getActiveEntityTags, getActiveConceptTags, getActiveSourceTags, enforceFrontmatterConstraints } from '../../utils';
