@@ -110,6 +110,13 @@ describe('enforceFrontmatterConstraints', () => {
     expect(result).toContain('思维链');
   });
 
+  it('preserves multi-line sources array (regression)', () => {
+    const input = '---\ntype: entity\nsources:\n  - "[[books/old]]"\n  - "[[books/new]]"\n---\n\nBody';
+    const result = enforceFrontmatterConstraints(input, 'entity');
+    expect(result).toContain('[[books/old]]');
+    expect(result).toContain('[[books/new]]');
+  });
+
   it('preserves reviewed field', () => {
     const input = '---\ntype: entity\nreviewed: true\n---\n\nBody';
     const result = enforceFrontmatterConstraints(input, 'entity');

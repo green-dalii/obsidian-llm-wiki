@@ -293,6 +293,29 @@ export function enforceFrontmatterConstraints(
         j++;
       }
       if (j > i + 1) i = j - 1;
+    } else if (line.startsWith('sources:')) {
+      const sourcesValue = line.substring(8).trim();
+      if (sourcesValue.startsWith('[') && sourcesValue.endsWith(']')) {
+        const inner = sourcesValue.slice(1, -1).trim();
+        if (inner) {
+          newLines.push(`sources: [${inner}]`);
+        } else {
+          newLines.push('sources:');
+        }
+      } else {
+        const sourceLines: string[] = [`sources:`];
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim().startsWith('- ')) {
+          sourceLines.push(lines[j].trim());
+          j++;
+        }
+        if (j > i + 1) {
+          newLines.push(...sourceLines);
+          i = j - 1;
+        } else {
+          newLines.push('sources:');
+        }
+      }
     } else if (!line.startsWith('- ')) {
       newLines.push(line);
     }

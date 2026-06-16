@@ -9,7 +9,7 @@ describe('mergeDuplicatePages', () => {
     const { ctx, vault } = createMockContext({
       vaultFiles: {
         [targetPath]: '---\ntype: entity\naliases: [Canonical]\n---\n# Canonical\n\nOriginal target body content.\n',
-        [sourcePath]: '---\ntype: entity\naliases: [Duplicate]\n---\n# Duplicate\n\nBody content from the duplicate page being merged into canonical.\n',
+        [sourcePath]: '---\ntype: entity\naliases: [Duplicate]\nsources:\n  - "[[books/old]]"\n  - "[[books/new]]"\n---\n# Duplicate\n\nBody content from the duplicate page being merged into canonical.\n',
         // An external page that links to the source — should be rewritten to target
         'wiki/entities/other.md': '# Other\n\nSee [[entities/duplicate]] for more.\n',
       },
@@ -27,9 +27,11 @@ describe('mergeDuplicatePages', () => {
     // Target should now contain merged body
     const mergedTarget = vault.read(targetPath);
     expect(mergedTarget).toContain('Merged body content combining both pages');
-    // Note: enforceFrontmatterConstraints drops sources (existing bug, not in scope for this test)
     // Source page should be deleted
     expect(vault.read(sourcePath)).toBeNull();
+    // Multi-line sources from source page are preserved
+    expect(mergedTarget).toContain('[[books/old]]');
+    expect(mergedTarget).toContain('[[books/new]]');
     // External page link should be rewritten to target
     const otherUpdated = vault.read('wiki/entities/other.md');
     expect(otherUpdated).toContain('[[entities/canonical]]');
