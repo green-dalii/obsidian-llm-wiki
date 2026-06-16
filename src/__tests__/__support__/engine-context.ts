@@ -47,6 +47,7 @@ class MockVault {
   has(path: string): boolean { return this.files.has(path); }
   read(path: string): string | null { return this.files.get(path) ?? null; }
   write(path: string, content: string): void { this.files.set(path, content); }
+  remove(path: string): void { this.files.delete(path); }
   list(): string[] { return [...this.files.keys()]; }
   get size(): number { return this.files.size; }
 }
@@ -119,7 +120,7 @@ export function createMockContext(opts: MockContextOptions = {}): { ctx: EngineC
   const settings = { ...DEFAULT_SETTINGS, ...opts.settings };
 
   // Build mock files array for getMarkdownFiles
-  const mockFiles = Object.keys(opts.vaultFiles ?? {}).map(path => ({
+  const buildMockFiles = () => vault.list().map(path => ({
     path,
     basename: path.split('/').pop()?.replace('.md', '') || '',
   }));
@@ -128,7 +129,7 @@ export function createMockContext(opts: MockContextOptions = {}): { ctx: EngineC
     app: {
       vault: {
         read: async (file: { path: string }) => vault.read(file.path),
-        getMarkdownFiles: () => mockFiles.map(f => ({
+        getMarkdownFiles: () => buildMockFiles().map(f => ({
           ...f,
           extension: 'md',
           parent: null,
@@ -147,7 +148,7 @@ export function createMockContext(opts: MockContextOptions = {}): { ctx: EngineC
     getClient: () => client,
     createOrUpdateFile: async (path, content) => { vault.write(path, content); },
     tryReadFile: async (path) => vault.read(path),
-    deleteFile: async () => {},
+    deleteFile: async (path: string) => { vault.remove(path); },
     buildSystemPrompt: async () => undefined,
     getSectionLabels: () => ({
       section_basic_information: 'Basic Information',
@@ -168,7 +169,38 @@ export function createMockContext(opts: MockContextOptions = {}): { ctx: EngineC
       resolution_suggestion: 'Resolution Suggestion',
       source_page: 'Source Page',
     }),
-    getExistingWikiPages: async () => [],
+    getExistingWikiPages: async () => {
+      const pages: Array<{ path: string; title: string; wikiLink: string; aliases?: string[] }> = [];
+      for (const path of vault.list()) {
+        if (path.startsWith('wiki/') &&
+            !path.includes('index.md') &&
+            !path.includes('log.md') &&
+            !path.includes('/schema/') &&
+            !path.includes('/contradictions/')) {
+          const content = vault.read(path) ?? '';
+          const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+          let aliases: string[] | undefined;
+          if (fmMatch) {
+            const aliasesLine = fmMatch[1].split('\n').find(l => l.startsWith('aliases:'));
+            if (aliasesLine) {
+              const match = aliasesLine.match(/aliases:\s*\[([^\]]*)\]/);
+              if (match && match[1].trim()) {
+                aliases = match[1].split(',').map(a => a.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+              }
+            }
+          }
+          const relPath = path.replace('wiki/', '').replace('.md', '');
+          const title = path.split('/').pop()?.replace('.md', '') || '';
+          pages.push({
+            path,
+            title,
+            wikiLink: `[[${relPath}|${title}]]`,
+            aliases,
+          });
+        }
+      }
+      return pages;
+    },
     getSchemaContext: async () => undefined,
     onFileWrite: undefined,
     onProgress: undefined,
