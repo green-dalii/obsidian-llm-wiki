@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseJsonResponse, extractBalancedJson } from '../../core/json';
+import { parseJsonResponse, extractBalancedJson, escapeContentQuotes } from '../../core/json';
 describe('parseJsonResponse', () => {
   it('parses valid JSON directly', async () => {
     const result = await parseJsonResponse('{"key": "value"}');
@@ -129,6 +129,27 @@ The answer should be...
     const firstBrace = text.indexOf('{');
     const result = extractBalancedJson(text, firstBrace);
     expect(result).toBe(text);
+  });
+
+  it('escapeContentQuotes preserves trailing backslash in string context', () => {
+    // Edge case: input ends with `\` inside a string. The state machine
+    // must not overshoot `json.length` when reading the escape's second
+    // character, and the trailing `\` must be preserved verbatim.
+    expect(escapeContentQuotes('"x\\')).toBe('"x\\');
+  });
+
+  it('escapeContentQuotes preserves backslash sequence at end of input', () => {
+    // Trailing `\\` (two backslashes forming an escape sequence at the
+    // end of input) must be preserved as-is.
+    expect(escapeContentQuotes('"x\\\\')).toBe('"x\\\\');
+  });
+
+  it('escapeContentQuotes does not throw on lone trailing backslash', () => {
+    // Defensive: even if input is malformed, escapeContentQuotes must
+    // not throw — it is part of the LLM-response repair pipeline.
+    expect(() => escapeContentQuotes('\\')).not.toThrow();
+    expect(() => escapeContentQuotes('"\\')).not.toThrow();
+    expect(() => escapeContentQuotes('"\\\\\\')).not.toThrow();
   });
 });
 
