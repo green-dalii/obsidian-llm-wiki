@@ -125,7 +125,7 @@ export async function parseJsonResponse(
 }
 
 /** Extract the first balanced {…} JSON object via brace counting. */
-function extractBalancedJson(text: string, startPos: number): string | null {
+export function extractBalancedJson(text: string, startPos: number): string | null {
   let depth = 0;
   let inString = false;
   let escape = false;
@@ -138,7 +138,7 @@ function extractBalancedJson(text: string, startPos: number): string | null {
       continue;
     }
 
-    if (ch === '\\\\' && inString) {
+    if (ch === '\\' && inString) {
       escape = true;
       continue;
     }
@@ -170,7 +170,7 @@ function fixCommonJsonIssues(json: string): string {
   return fixed;
 }
 
-function escapeContentQuotes(json: string): string {
+export function escapeContentQuotes(json: string): string {
   const out: string[] = [];
   let inString = false;
   let i = 0;
@@ -178,7 +178,7 @@ function escapeContentQuotes(json: string): string {
   while (i < json.length) {
     const ch = json[i];
 
-    if (ch === '\\\\' && inString) {
+    if (ch === '\\' && inString) {
       out.push(ch);
       i++;
       if (i < json.length) out.push(json[i]);

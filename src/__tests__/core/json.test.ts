@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseJsonResponse } from '../../core/json';
+import { parseJsonResponse, extractBalancedJson } from '../../core/json';
 describe('parseJsonResponse', () => {
   it('parses valid JSON directly', async () => {
     const result = await parseJsonResponse('{"key": "value"}');
@@ -118,6 +118,17 @@ The answer should be...
   it('parses empty object', async () => {
     const result = await parseJsonResponse('{}');
     expect(result).toEqual({});
+  });
+
+  it('handles escaped backslash followed by quote in extractBalancedJson (regression)', () => {
+    // Regression: the state machine had `ch === '\\\\'` (a 2-char literal
+    // compared against the 1-char iterator value), so the escape flag
+    // never engaged. A `"` following a `\\` was treated as a string
+    // terminator and the depth counter misbehaved.
+    const text = '{"a": "x\\\\\\"y", "b": 1}';
+    const firstBrace = text.indexOf('{');
+    const result = extractBalancedJson(text, firstBrace);
+    expect(result).toBe(text);
   });
 });
 
