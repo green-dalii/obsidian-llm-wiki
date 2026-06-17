@@ -107,7 +107,7 @@ function yamlStringify(value: unknown): string {
     return '\n' + value.map(v => `  - "${v}"`).join('\n');
   }
   if (typeof value === 'string') {
-    if (/[":[]{}\n]/.test(value)) {
+    if (/[":[\]{}\n]/.test(value)) {
       return `"${value.replace(/"/g, '\\"')}"`;
     }
     return value;

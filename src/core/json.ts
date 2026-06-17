@@ -138,7 +138,7 @@ function extractBalancedJson(text: string, startPos: number): string | null {
       continue;
     }
 
-    if (ch === '\\\\' && inString) {
+    if (ch === '\\' && inString) {
       escape = true;
       continue;
     }
@@ -178,7 +178,7 @@ function escapeContentQuotes(json: string): string {
   while (i < json.length) {
     const ch = json[i];
 
-    if (ch === '\\\\' && inString) {
+    if (ch === '\\' && inString) {
       out.push(ch);
       i++;
       if (i < json.length) out.push(json[i]);
