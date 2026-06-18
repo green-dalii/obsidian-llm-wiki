@@ -117,3 +117,17 @@ export function extractThinkingBlocks(content: string): {
 
   return { thinkingBlocks, visibleContent: visibleContent.trimStart() };
 }
+
+/**
+ * Encode reasoning_content into a <think> block and prepend to visible text.
+ * This is the encoding counterpart to extractThinkingBlocks() — the two
+ * functions share the same `<think>...</think>` delimiter contract.
+ *
+ * @param reasoning - Raw reasoning content (e.g. DeepSeek reasoning_content)
+ * @param text - Visible response text
+ * @returns Combined string with reasoning wrapped in <think> tags, or just text
+ */
+export function wrapReasoningContent(reasoning: string, text: string): string {
+  if (!reasoning) return text;
+  return '<think>' + reasoning + '</think>\n\n' + text;
+}

@@ -4,6 +4,7 @@ import { MAX_RETRIES, RETRY_BASE_DELAY_MS, MAX_TOKENS_BATCH } from './constants'
 import { getText } from './core/i18n';
 import { parseSSEEvents, SSEDelta } from './core/sse-parser';
 import { withTruncationRetry } from './core/truncation-retry';
+import { wrapReasoningContent } from './core/markdown';
 
 // Issue #137: thinking-control dialect state. Each OpenAI-compatible
 // backend uses a different field name for the same "disable thinking"
@@ -763,9 +764,8 @@ export class OpenAICompatibleClient implements LLMClient {
       // v1.20.0: extract reasoning_content (DeepSeek thinking) from non-stream
       // response and prepend as <think> block so extractThinkingBlocks can find it.
       const reasoning = data.choices?.[0]?.message?.reasoning_content || '';
-      const initialText = (data.choices?.[0]?.message?.content || '')
-        ? (reasoning ? '<think>' + reasoning + '</think>\n\n' : '') + (data.choices?.[0]?.message?.content || '')
-        : '';
+      const content = data.choices?.[0]?.message?.content || '';
+      const initialText = wrapReasoningContent(reasoning, content);
 
       return withTruncationRetry<{ choices: NonNullable<typeof data.choices>; initialText: string; usage?: typeof data.usage }>({
         initialFn: async () => {
@@ -1056,7 +1056,7 @@ export class OpenAICompatibleClient implements LLMClient {
         // to avoid double-render; only included in the returned string so the
         // Query Wiki's extractThinkingBlocks can find it).
         if (reasoningContent) {
-          fullText = '<think>' + reasoningContent + '</think>\n\n' + fullText;
+          fullText = wrapReasoningContent(reasoningContent, fullText);
         }
 
         // Fallback: if SSE parsing yielded nothing, try non-streaming JSON format.
@@ -1072,7 +1072,7 @@ export class OpenAICompatibleClient implements LLMClient {
             const reasoning = data.choices?.[0]?.message?.reasoning_content || '';
             if (text || reasoning) {
               console.debug('[OpenAICompat SSE] Non-streaming fallback successful, length:', text.length);
-              fullText = (reasoning ? '<think>' + reasoning + '</think>\n\n' : '') + text;
+              fullText = wrapReasoningContent(reasoning, text);
               if (text) params.onChunk(text);
             }
           } catch (parseErr) {

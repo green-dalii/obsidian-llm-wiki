@@ -17,6 +17,8 @@ beforeEach(() => {
   // eslint-disable-next-line obsidianmd/no-global-this
   globalThis.document = dom.window.document;
   // eslint-disable-next-line obsidianmd/no-global-this
+  (globalThis as Record<string, unknown>).activeDocument = dom.window.document;
+  // eslint-disable-next-line obsidianmd/no-global-this
   globalThis.HTMLElement = dom.window.HTMLElement;
 });
 

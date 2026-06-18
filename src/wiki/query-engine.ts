@@ -35,10 +35,9 @@ export function renderThinkingBlocksUI(
   const stepsLabel = langTexts?.queryThinkingSteps
     ?? (language === 'zh' ? '步' : language === 'ja' ? 'ステップ' : 'steps');
 
-  // v1.20.0: use activeDocument for popout-window compatibility (Obsidian
-  // review rule). The test environment stubs activeDocument on globalThis.
-  // eslint-disable-next-line obsidianmd/prefer-active-doc
-  const doc = activeDocument ?? document;
+  // v1.20.0: use activeDocument for popout-window compatibility.
+  // Test environment stubs activeDocument on globalThis (see setup.ts).
+  const doc = activeDocument;
   const details = doc.createElement('details');
   details.className = 'llm-wiki-query-thinking-block';
 
@@ -465,7 +464,8 @@ export class QueryModal extends Modal {
                 model: this.plugin.settings.model,
                 max_tokens: TOKENS_QUERY_LLM_SELECT,
                 system: wikiContext,
-                messages: conversationMessages
+                messages: conversationMessages,
+                ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),
               });
               if (this.aborted) {
                 cleanupTimer();
@@ -597,7 +597,12 @@ export class QueryModal extends Modal {
     // v1.20.0: extract thinking blocks BEFORE rendering so the visible
     // markdown goes to MarkdownRenderer and the reasoning goes into a
     // collapsible <details> panel above it (default collapsed, ChatGPT-style).
-    const { thinkingBlocks, visibleContent } = extractThinkingBlocks(content);
+    // Fast guard: skip regex during streaming (onChunk only receives text deltas,
+    // never <think> tags). Only run the full extraction when delimiters are present.
+    const hasThinkTags = content.includes('<think>') || content.includes('<thinking');
+    const { thinkingBlocks, visibleContent } = hasThinkTags
+      ? extractThinkingBlocks(content)
+      : { thinkingBlocks: [] as string[], visibleContent: content };
     const normalizedContent = normalizeWikiLinkContent(
       visibleContent,
       this.plugin.settings.wikiFolder
