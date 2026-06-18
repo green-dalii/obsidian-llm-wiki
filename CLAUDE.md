@@ -4,7 +4,11 @@
 
 ---
 
-## Current Phase: v1.20.1 — Post-v1.20.0 Feedback (Planned)
+## Current Phase: v1.21.0 — Schema Coherence Phase 1 (Planned)
+
+### Completed (v1.20.1) — Hotfix 2026-06-18
+- ✅ **AnthropicClient prefill rejection fix (#141, #147).** Newer Claude models (Opus 4.8+, Sonnet 4.6+, Fable 5, Mythos 5) reject assistant prefill messages. Auto-fallback to no-prefill retry with caching. 4 regression tests.
+- ✅ **Tests: 775 passing.** +4 tests from `llm-client-anthropic-prefill` suite.
 
 ### Completed (v1.20.0) — Released 2026-06-18
 - ✅ **Provider-first thinking control.** Default `disableThinking: false` — no thinking-control field sent. 3-tier dialect fallback when user explicitly enables "Disable thinking". Collapsible thinking UI in Query Wiki.

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.1] - 2026-06-18
+
+### Fixed
+- **AnthropicClient prefill rejection on newer Claude models (Issues #141, #147).** Claude Opus 4.8, 4.7, 4.6, Sonnet 4.6, Claude Fable 5, Claude Mythos 5, Claude Mythos Preview do not support assistant message prefilling. When `response_format=json_object` is requested, `AnthropicClient` previously added `{ role: 'assistant', content: '{' }` unconditionally — newer models return `400 "Prefilling assistant messages is not supported for this model."` Fix: detect this specific 400, cache the rejection per-client, and auto-retry without prefill. Subsequent requests to the same client skip prefill entirely. The existing brace-prefix + `parseJsonResponse` repair logic handles non-prefill responses robustly. See [Anthropic API Errors — Common Validation Errors](https://platform.claude.com/docs/en/api/errors#common-validation-errors).
+
+### Tests
+- **775 tests passing** (was 771; +4 from new `llm-client-anthropic-prefill` suite).
+
 ## [1.20.0] - 2026-06-18
 
 ### Added

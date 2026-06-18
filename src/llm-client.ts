@@ -145,6 +145,9 @@ export class AnthropicCompatibleClient implements LLMClient {
   // Cached result from fallback — same semantics as OpenAICompatibleClient.
   thinkingControlSupported?: boolean;
 
+  // v1.20.1: Cache prefill-not-supported (#141, #147).
+  private prefillingNotSupported = false;
+
   constructor(apiKey: string, baseUrl: string) {
     this.apiKey = apiKey;
     // Normalize: strip trailing /v1 and trailing slashes
@@ -169,10 +172,11 @@ export class AnthropicCompatibleClient implements LLMClient {
     repetition_penalty?: number;
     chat_template_kwargs?: Record<string, unknown>;
   }): Promise<string> {
+    const shouldPrefill = params.response_format?.type === 'json_object' && !this.prefillingNotSupported;
     const body: Record<string, unknown> = {
       model: params.model,
       max_tokens: params.max_tokens,
-      messages: params.response_format?.type === 'json_object'
+      messages: shouldPrefill
         ? [...params.messages, { role: 'assistant', content: '{' }]
         : params.messages
     };
@@ -201,6 +205,22 @@ export class AnthropicCompatibleClient implements LLMClient {
           },
           body: JSON.stringify(requestBody)
         });
+
+        // v1.20.0 hotfix #141/#147 debug: see AnthropicClient equivalent comment.
+        if (response.status >= 400) {
+          const errBody = (response as { text?: string }).text?.slice(0, 2000) ?? JSON.stringify(response).slice(0, 1000);
+          console.error('[AnthropicCompat DEBUG] HTTP', response.status, 'on', this.baseUrl + '/messages',
+            '| model:', requestBody.model,
+            '| system_len:', typeof requestBody.system === 'string' ? requestBody.system.length : 'n/a',
+            '| messages:', Array.isArray(requestBody.messages) ? requestBody.messages.length : 'n/a',
+            '| last_msg_role:', Array.isArray(requestBody.messages) && requestBody.messages.length > 0
+              ? (requestBody.messages[requestBody.messages.length - 1] as { role?: string }).role
+              : 'n/a',
+            '| last_msg_content_prefix:', Array.isArray(requestBody.messages) && requestBody.messages.length > 0
+              ? String((requestBody.messages[requestBody.messages.length - 1] as { content?: string }).content ?? '').slice(0, 60)
+              : 'n/a',
+            '| response:', errBody);
+        }
 
       const data = response.json as {
         content?: Array<{ type: string; text?: string }>;
@@ -253,6 +273,23 @@ export class AnthropicCompatibleClient implements LLMClient {
     try {
       return await anthropicDoRequest(body);
     } catch (e) {
+      // v1.20.1 hotfix #141/#147: Same prefill-not-supported detection as AnthropicClient.
+      const errMsg = e instanceof Error ? e.message : String(e);
+      if (IS_400.test(errMsg) && /prefilling assistant messages is not supported/i.test(errMsg)) {
+        this.prefillingNotSupported = true;
+        console.debug('[AnthropicCompat] prefill not supported, retrying without prefill');
+        const noPrefillBody: Record<string, unknown> = {
+          model: params.model,
+          max_tokens: params.max_tokens,
+          messages: params.system
+            ? [{ role: 'system' as const, content: params.system }, ...params.messages]
+            : [...params.messages],
+        };
+        if (params.system) noPrefillBody.system = params.system;
+        if (params.temperature !== undefined) noPrefillBody.temperature = params.temperature;
+        return await anthropicDoRequest(noPrefillBody);
+      }
+
       if (params.enableThinking === false && isThinkingControlError(e)) {
         this.thinkingControlSupported = false;
         console.debug(`[AnthropicCompat] thinking.type='disabled' not supported by ${this.baseUrl}, falling back`);
@@ -380,6 +417,13 @@ export class AnthropicClient implements LLMClient {
   // Cached result from fallback — same semantics as OpenAICompatibleClient.
   thinkingControlSupported?: boolean;
 
+  // v1.20.1: Cache prefill-not-supported per client instance.
+  // Newer Claude models (Opus 4.8, 4.7, 4.6, Sonnet 4.6, Fable 5,
+  // Mythos 5, Mythos Preview) reject assistant prefill messages.
+  // Once detected, skip prefill on all subsequent requests to avoid
+  // the 400 round-trip.
+  private prefillingNotSupported = false;
+
   constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
     // Issue #141 / #134: normalize baseUrl to include /v1 suffix. The official
@@ -405,7 +449,11 @@ export class AnthropicClient implements LLMClient {
     repetition_penalty?: number;
     chat_template_kwargs?: Record<string, unknown>;
   }): Promise<string> {
-    const messages: Array<Record<string, unknown>> = params.response_format?.type === 'json_object'
+    // v1.20.1: Skip prefill when model previously rejected it (#141, #147).
+    // Newer Claude models (Opus 4.8+, Sonnet 4.6+, Fable 5, Mythos 5)
+    // return 400 "Prefilling assistant messages is not supported".
+    const shouldPrefill = params.response_format?.type === 'json_object' && !this.prefillingNotSupported;
+    const messages: Array<Record<string, unknown>> = shouldPrefill
       ? [...params.messages, { role: 'assistant', content: '{' }]
       : [...params.messages];
 
@@ -449,6 +497,25 @@ export class AnthropicClient implements LLMClient {
           },
           body: JSON.stringify(requestBody),
         });
+
+        // v1.20.0 hotfix #141/#147 debug: surface 4xx/5xx responses so we can
+        // distinguish "wrong URL" / "wrong model" / "assistant prefill rejected"
+        // / "thinking field rejected" causes. Test Connection passes, Ingestion
+        // fails — this debug will reveal the actual server response.
+        if (response.status >= 400) {
+          const errBody = (response as { text?: string }).text?.slice(0, 2000) ?? JSON.stringify(response).slice(0, 1000);
+          console.error('[AnthropicClient DEBUG] HTTP', response.status, 'on', this.baseUrl + '/messages',
+            '| model:', requestBody.model,
+            '| system_len:', typeof requestBody.system === 'string' ? requestBody.system.length : 'n/a',
+            '| messages:', Array.isArray(requestBody.messages) ? requestBody.messages.length : 'n/a',
+            '| last_msg_role:', Array.isArray(requestBody.messages) && requestBody.messages.length > 0
+              ? (requestBody.messages[requestBody.messages.length - 1] as { role?: string }).role
+              : 'n/a',
+            '| last_msg_content_prefix:', Array.isArray(requestBody.messages) && requestBody.messages.length > 0
+              ? String((requestBody.messages[requestBody.messages.length - 1] as { content?: string }).content ?? '').slice(0, 60)
+              : 'n/a',
+            '| response:', errBody);
+        }
 
         const data = response.json as {
           content?: Array<{ type: string; text?: string }>;
@@ -499,6 +566,25 @@ export class AnthropicClient implements LLMClient {
     try {
       return await anthropicDoRequest(body);
     } catch (e) {
+      // v1.20.1 hotfix #141/#147: Detect "Prefilling assistant messages is not
+      // supported" 400 from newer Claude models (Opus 4.8+, Sonnet 4.6+,
+      // Fable 5, Mythos 5). Cache the rejection and retry without prefill.
+      const errMsg = e instanceof Error ? e.message : String(e);
+      if (IS_400.test(errMsg) && /prefilling assistant messages is not supported/i.test(errMsg)) {
+        this.prefillingNotSupported = true;
+        console.debug('[AnthropicClient] prefill not supported for this model, retrying without prefill');
+        const noPrefillBody: Record<string, unknown> = {
+          model: params.model,
+          max_tokens: params.max_tokens,
+          messages: params.system
+            ? [{ role: 'system' as const, content: params.system }, ...params.messages]
+            : [...params.messages],
+        };
+        if (params.system) noPrefillBody.system = params.system;
+        if (params.temperature !== undefined) noPrefillBody.temperature = params.temperature;
+        return await anthropicDoRequest(noPrefillBody);
+      }
+
       if (params.enableThinking === false && isThinkingControlError(e)) {
         this.thinkingControlSupported = false;
         console.debug(`[AnthropicClient] thinking.type='disabled' not supported, falling back`);
@@ -509,9 +595,7 @@ export class AnthropicClient implements LLMClient {
             ? [{ role: 'system' as const, content: params.system }, ...params.messages]
             : [...params.messages],
         };
-        if (params.response_format?.type === 'json_object') {
-          fallbackBody.messages = [...(fallbackBody.messages as Array<Record<string, unknown>>), { role: 'assistant', content: '{' }];
-        }
+        // Note: no prefill here either — the model already rejected it above.
         return await anthropicDoRequest(fallbackBody);
       }
       throw e;
