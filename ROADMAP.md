@@ -2,11 +2,15 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.20.0 | **Updated:** 2026-06-18
+**Version:** 1.20.1 | **Updated:** 2026-06-18
 
 ---
 
 ## Current Status
+
+### Implemented (v1.20.1) — Anthropic Prefill Hotfix (2026-06-18)
+
+- ✅ **#141/#147 — AnthropicClient prefill rejection on newer Claude models.** Claude Opus 4.8, 4.7, 4.6, Sonnet 4.6, Claude Fable 5, Claude Mythos 5, Claude Mythos Preview reject assistant prefill messages with 400. Auto-fallback to no-prefill retry with per-client caching. 4 regression tests.
 
 ### Implemented (v1.20.0) — Provider-First Thinking Control & Reasoning UI (2026-06-18)
 
