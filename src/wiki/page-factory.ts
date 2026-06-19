@@ -504,6 +504,15 @@ export class PageFactory {
       return true;
     }
 
+    // Parity with createOrUpdatePage: a `reviewed: true` page must never have its
+    // body LLM-rewritten — not even when a *different* source extracts it here in
+    // Stage 4. Route to the minimal append path so the curated body is preserved
+    // exactly and genuinely new content lands in the `## New Information` section.
+    if (parseFrontmatter(existingContent)?.reviewed === true) {
+      await this.appendToReviewedPage(newInfo, sourceFile, existingContent, page.path);
+      return true;
+    }
+
     const prompt = PROMPTS.updateRelatedPage
       .replace('{{page_name}}', pageName)
       .replace('{{existing_body}}', existingBody)

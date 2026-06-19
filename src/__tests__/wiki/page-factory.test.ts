@@ -167,3 +167,31 @@ describe('PageFactory — updateRelatedPage no-op skip (Issue #131)', () => {
     expect(vault.read('wiki/entities/Butyrat.md')!).toContain('New merged body.');
   });
 });
+
+describe('PageFactory — updateRelatedPage reviewed guard (Stage 4)', () => {
+  it('preserves a reviewed page body instead of LLM-rewriting it when another source extracts it', async () => {
+    const { ctx, vault } = createMockContext({
+      vaultFiles: {
+        'wiki/entities/Butyrat.md':
+          '---\ntype: entity\nreviewed: true\n---\n\n## Description\nCurated body, must stay verbatim.',
+      },
+      // Routed to appendToReviewedPage: NO_NEW_CONTENT => existing body preserved exactly.
+      // Without the guard, updateRelatedPage would write this string as the whole body.
+      llmResponses: ['NO_NEW_CONTENT'],
+    });
+
+    const factory = new PageFactory(ctx);
+    const analysis = makeAnalysis({
+      related_pages: ['Butyrat'],
+      entities: [{ name: 'Butyrat', type: 'other', summary: 'An SCFA', mentions_in_source: [] }],
+    });
+    const sourceFile = createMockFile('Notizen/New-Source.md');
+
+    const result = await factory.updateRelatedPage('Butyrat', analysis, sourceFile);
+
+    expect(result).toBe(true);
+    const content = vault.read('wiki/entities/Butyrat.md')!;
+    expect(content).toContain('Curated body, must stay verbatim.');  // curated body survives
+    expect(content).not.toContain('NO_NEW_CONTENT');                 // not the buggy full rewrite
+  });
+});
