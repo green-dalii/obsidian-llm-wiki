@@ -26,7 +26,7 @@
   - [🔑 LLMプロバイダーの設定](#-llmプロバイダーの設定)
   - [🎮 使い方](#-使い方)
   - [⚠️ 旧バージョンからのアップグレード](#️-旧バージョンからのアップグレード)
-- [⚡ v1.20.2 更新のポイント](#-v1202-更新のポイント)
+- [⚡ v1.20.3 更新のポイント](#-v1203-更新のポイント)
 - [✨ 特徴](#-特徴)
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -155,19 +155,16 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 
 ---
 
-## ⚡ v1.20.2 更新のポイント
+## ⚡ v1.20.3 更新のポイント
 
-v1.20.2は、新しいClaudeモデル（Opus 4.8、Sonnet 4.6、Fable 5、Mythos 5）に対するAnthropic API互換性を修正した**パッチリリース**です。v1.20.0のプロバイダー優先の思考制御とv1.20.1のprefill検出と組み合わせることで、完全なAnthropicサポートを実現します。
+v1.20.3は、wiki書き込みパスの3つの潜在バグを修正する**パッチホットフィックス**です。新機能はありません——3つの修正はすべて、最初から存在するべきだった動作を復元する「整合性／潜在バグ」修正です。
 
-- **🔧 Anthropic フォールバック修正（PR #151）。** Anthropic Messages APIはmessages内のuser/assistantロールのみ受け付けます——systemはトップレベルでなければなりません。以前のフォールバックパスでは`{role: 'system'}`をmessagesに注入していたため、2回目の400エラーが発生していました。@Indexed-Apogryphaによる修正。
-- **🧠 プロバイダー優先の思考制御（v1.20.0）。** デフォルトでは思考制御フィールドを送信しません。プロバイダーが決定します。
-- **💭 折りたたみ可能な思考UI（v1.20.0）。** 推論コンテンツを回答の上の折りたたみパネルに表示。8言語対応。
-- **🔧 Anthropic baseUrl修正（v1.20.0、#141、#134）。** テスト接続時の404エラーを修正。
-- **🔧 gpt-5 max_completion_tokens（v1.20.0、#143）。** 正しいトークンパラメータを使用。
-- **💬 Query Wiki UX（v1.20.0）。** wikiFolderの尊重、自動スクロール、ユーザーメッセージの右寄せ。
-- **🔄 自動マイグレーション。** 旧ユーザーのdisableThinkingが自動的にfalseにリセット。
+- **🔧 ソースページslug衝突修正（Issue #155, PR #156）。** 2つのソースファイルがフォルダをまたいでファイル名を共有している場合（例：11個の Academy コースの `About this course.md`）、`slugify(basename)` が両方に同じ slug を生成し、2回目の取り込みが**静かに上書き**し、すべての `[[sources/<slug>]]` バックリンクが誤ったソースに解決されていました。修正：各ソース slug は `<basename>_<6桁全パス FNV-1a ハッシュ>` 形式に。既存 vault の再取り込みで `sources/` ページがリネームされ、バックリンクは即座に更新されます。@Indexed-Apogrypha による貢献。
+- **🔧 `mergeFrontmatter` alias 重複排除（PR #154）。** 繰り返しの取り込みで `aliases` 配列が無制限に増加する可能性がありました——実環境のあるページでは同じ alias ブロックが~15回（86行の重複）累積していました。`mergeFrontmatter` は `enforceFrontmatterConstraints` と整合して `fm.aliases` を重複排除します。@DocTpoint による貢献。
+- **🔧 Stage-4 `reviewed: true` ガード（PR #158）。** 関係のないノートを取り込むと、LLM が `reviewed: true` ページの本文を書き換える可能性がありました——reviewed ロックは `createOrUpdatePage` パスでのみ機能し、Stage-4 パスでは機能していませんでした。修正：`updateRelatedPage` は `reviewed: true` ページを `appendToReviewedPage` にルーティングします。@DocTpoint による貢献。
+- **🛠 tsconfig 整理。** `lib` を ES2021 に更新；不要な `baseUrl` を削除。
 
-すべてのユーザーに、完全なAnthropic互換性とすべての最新機能を得るために、このバージョンへのアップグレードを強くお勧めします。
+フォルダをまたいで同名ファイルを多数取り込むユーザーや、`reviewed: true` ページロックを使用するユーザーは、特に本バージョンへのアップグレードを強く推奨します。
 
 詳細は [CHANGELOG.md](../CHANGELOG.md) を参照。
 

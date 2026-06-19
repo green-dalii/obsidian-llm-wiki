@@ -1,10 +1,16 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-06-19
+**Last Updated:** 2026-06-20
 
 ---
 
-## Current Phase: v1.21.0 — Schema Coherence Phase 1 (Planned)
+## Current Phase: v1.20.3 Released — v1.21.0 Schema Coherence Phase 1 (Planned)
+
+### Completed (v1.20.3) — Hotfix 2026-06-20
+- ✅ **Source-slug fingerprint (PR #156, Closes #155).** Every source slug now `<basename>_<6hex FNV-1a of full path>` — fixes silent overwrite when two source files share a basename across folders. Contributed by @Indexed-Apogrypha.
+- ✅ **mergeFrontmatter alias dedup (PR #154).** `mergeFrontmatter` now dedups `fm.aliases` parity with `enforceFrontmatterConstraints`. Closes latent alias-accumulation bug. Contributed by @DocTpoint.
+- ✅ **Stage-4 reviewed guard (PR #158).** `updateRelatedPage` now respects `reviewed: true` and routes to `appendToReviewedPage`. Contributed by @DocTpoint.
+- ✅ **Tests: 791 passing.** +12 tests (9 source-slug + 2 frontmatter + 1 page-factory).
 
 ### Completed (v1.20.2) — Hotfix 2026-06-19
 - ✅ **Anthropic fallback system-role fix (#141, #147, PR #151).** All 4 Anthropic fallback retry paths now keep system as top-level field. Contributed by @Indexed-Apogrypha.

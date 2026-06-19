@@ -2,11 +2,17 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.20.2 | **Updated:** 2026-06-19
+**Version:** 1.20.3 | **Updated:** 2026-06-20
 
 ---
 
 ## Current Status
+
+### Implemented (v1.20.3) — Parity/Latent-Bug Hotfix (2026-06-20)
+
+- ✅ **#155 — Source-page slug collision (PR #156).** Every source slug now `<basename>_<6hex FNV-1a of full path>`. Fixes silent overwrite when two source files share a basename across folders. Re-ingest renames existing pages but backlinks update in place. Contributed by @Indexed-Apogrypha.
+- ✅ **mergeFrontmatter alias dedup (PR #154).** `mergeFrontmatter` now dedups `fm.aliases` parity with `enforceFrontmatterConstraints`. Closes a latent "aliases accumulated ~15× in long-lived vaults" bug. Contributed by @DocTpoint.
+- ✅ **Stage-4 reviewed guard (PR #158).** `updateRelatedPage` now respects `reviewed: true` and routes to `appendToReviewedPage`. Closes a latent bug where re-ingesting an unrelated source would LLM-rewrite a curated page's body. Contributed by @DocTpoint.
 
 ### Implemented (v1.20.1) — Anthropic Prefill Hotfix (2026-06-18)
 

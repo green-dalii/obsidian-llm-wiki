@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.3] - 2026-06-20
+
+### Fixed
+- **`mergeFrontmatter` accumulated duplicate aliases on re-ingest (PR #154).** Repeated re-ingests of the same source could grow the `aliases` array without bound — one real-world page accumulated the same alias block ~15× (86 duplicate lines). `mergeFrontmatter` now dedups `fm.aliases` parity with `enforceFrontmatterConstraints` (first occurrence wins, empty strings dropped). Contributed by @DocTpoint.
+- **Source provenance pages silently overwritten when basenames collide (PR #156, closes #155).** When two source files shared a basename across folders (e.g. 11× `About this course.md` across Academy courses), `slugify(basename)` produced the same slug for both — second ingest silently overwrote the first, and every `[[sources/<slug>]]` backlink then resolved to the wrong source. Fix: every source slug is now `<basename>_<6hex FNV-1a of full path>`. Single computation point in `wiki-engine.ts`; pure `core/source-slug.ts` module. Re-ingest renames existing `sources/` pages but backlinks update in place. Contributed by @Indexed-Apogrypha.
+- **`updateRelatedPage` ignored `reviewed: true` in Stage 4 (PR #158).** Re-ingesting an unrelated note could LLM-rewrite a curated `reviewed: true` page's body — the reviewed lock did not hold on the Stage-4 path, only on `createOrUpdatePage`. Fix: `updateRelatedPage` now routes `reviewed: true` pages to `appendToReviewedPage` (parity with `createOrUpdatePage`). The curated body survives verbatim. Contributed by @DocTpoint.
+- **tsconfig housekeeping (PR #156 follow-up).** `lib` bumped to ES2021 (so `trimEnd` resolves cleanly under newer TS language servers); vestigial `baseUrl` dropped (no `paths` map; clears TS 6/7 deprecation warning).
+
+### Tests
+- **791 tests passing** (was 779; +12 — 9 new `source-slug` tests, 2 new `mergeFrontmatter` regression tests, 1 new `updateRelatedPage` reviewed-guard test).
+
 ## [1.20.2] - 2026-06-19
 
 ### Fixed
