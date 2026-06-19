@@ -243,18 +243,20 @@ export class PageFactory {
     entity: EntityInfo,
     _analysis: SourceAnalysis,
     sourceFile: TFile | { path: string; basename: string },
-    extraPagePaths: string[] = []
+    extraPagePaths: string[] = [],
+    sourceSlug?: string
   ): Promise<PageCreationResult> {
-    return this.createOrUpdatePage(entity, 'entity', sourceFile, extraPagePaths);
+    return this.createOrUpdatePage(entity, 'entity', sourceFile, extraPagePaths, sourceSlug);
   }
 
   async createOrUpdateConceptPage(
     concept: ConceptInfo,
     _analysis: SourceAnalysis,
     sourceFile: TFile | { path: string; basename: string },
-    extraPagePaths: string[] = []
+    extraPagePaths: string[] = [],
+    sourceSlug?: string
   ): Promise<PageCreationResult> {
-    return this.createOrUpdatePage(concept, 'concept', sourceFile, extraPagePaths);
+    return this.createOrUpdatePage(concept, 'concept', sourceFile, extraPagePaths, sourceSlug);
   }
 
   // ── Generic page CRUD (entity/concept unified) ──────────────────────
@@ -263,7 +265,8 @@ export class PageFactory {
     info: EntityInfo | ConceptInfo,
     pageType: 'entity' | 'concept',
     sourceFile: TFile | { path: string; basename: string },
-    extraPagePaths: string[] = []
+    extraPagePaths: string[] = [],
+    sourceSlug?: string
   ): Promise<PageCreationResult> {
     if (!info.name || info.name.trim().length === 0) {
       console.warn(`${pageType} name is empty, skipping creation`);
@@ -286,9 +289,9 @@ export class PageFactory {
         if (existingContent) {
           const isReviewed = parseFrontmatter(existingContent)?.reviewed === true;
           if (isReviewed) {
-            await this.appendToReviewedPage(info, sourceFile, existingContent, targetPath);
+            await this.appendToReviewedPage(info, sourceFile, existingContent, targetPath, sourceSlug);
           } else {
-            await this.mergePage(info, targetType, sourceFile, existingContent, extraPagePaths, targetPath);
+            await this.mergePage(info, targetType, sourceFile, existingContent, extraPagePaths, targetPath, sourceSlug);
           }
           console.debug(`Cross-type collision: merged "${info.name}" content into ${targetType} page ${targetPath}`);
         }
@@ -300,7 +303,7 @@ export class PageFactory {
     const existingContent = await this.ctx.tryReadFile(result.path);
 
     if (!existingContent) {
-      const createdPath = await this.createNewPage(info, pageType, sourceFile, extraPagePaths, result.path);
+      const createdPath = await this.createNewPage(info, pageType, sourceFile, extraPagePaths, result.path, sourceSlug);
       return { path: createdPath };
     }
 
@@ -308,11 +311,11 @@ export class PageFactory {
 
     if (isReviewed) {
       console.debug(`${pageType} page has reviewed: true, using minimal append mode:`, result.path);
-      const updatedPath = await this.appendToReviewedPage(info, sourceFile, existingContent, result.path);
+      const updatedPath = await this.appendToReviewedPage(info, sourceFile, existingContent, result.path, sourceSlug);
       return { path: updatedPath };
     }
 
-    const mergedPath = await this.mergePage(info, pageType, sourceFile, existingContent, extraPagePaths, result.path);
+    const mergedPath = await this.mergePage(info, pageType, sourceFile, existingContent, extraPagePaths, result.path, sourceSlug);
     return { path: mergedPath };
   }
 
@@ -321,7 +324,8 @@ export class PageFactory {
     pageType: 'entity' | 'concept',
     sourceFile: TFile | { path: string; basename: string },
     extraPagePaths: string[],
-    path: string
+    path: string,
+    sourceSlug?: string
   ): Promise<string | null> {
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
@@ -345,7 +349,10 @@ export class PageFactory {
       .replace('{{related_content}}', 'No existing content')
       .replace('{{merge_strategy}}', 'New page, no merge needed.')
       .replace('{{date}}', new Date().toISOString().split('T')[0])
-      .replace('{{source_file}}', sourceFile.path);
+      // Issue #155: entity/concept pages cite the canonical source PAGE
+      // ([[sources/<slug>]]), not the raw note path — so a collision-disambiguated
+      // source slug is honored and the normalizer passes it through unchanged.
+      .replace(/\{\{source_file\}\}/g, sourceSlug ? `sources/${sourceSlug}` : sourceFile.path);
 
     const finalPrompt = appendTagVocabularyToPrompt(applySectionLabels(prompt, this.ctx.settings), this.ctx.settings);
 
@@ -373,14 +380,17 @@ export class PageFactory {
     sourceFile: TFile | { path: string; basename: string },
     existingContent: string,
     extraPagePaths: string[],
-    path: string
+    path: string,
+    sourceSlug?: string
   ): Promise<string | null> {
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
 
     try {
       // 1. Programmatic frontmatter merge
-      const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
+      // Issue #155: add the canonical source PAGE link so a disambiguated source
+      // slug is recorded, while existing sources are preserved by mergeFrontmatter.
+      const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceSlug ? `sources/${sourceSlug}` : sourceFile.path);
 
     // 2. LLM intelligent body merge
     const mergePrompt = pageType === 'entity' ? PROMPTS.mergeEntityPage : PROMPTS.mergeConceptPage;
@@ -426,14 +436,16 @@ export class PageFactory {
     info: EntityInfo | ConceptInfo,
     sourceFile: TFile | { path: string; basename: string },
     existingContent: string,
-    path: string
+    path: string,
+    sourceSlug?: string
   ): Promise<string | null> {
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');
 
     try {
       // 1. Programmatic frontmatter merge
-      const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
+      // Issue #155: record the canonical source PAGE link (disambiguated slug).
+      const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceSlug ? `sources/${sourceSlug}` : sourceFile.path);
 
     // 2. Minimal LLM check for genuinely new content
     const prompt = PROMPTS.appendToReviewedPage
@@ -471,7 +483,7 @@ export class PageFactory {
     }
   }
 
-  async updateRelatedPage(pageName: string, analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }): Promise<boolean> {
+  async updateRelatedPage(pageName: string, analysis: SourceAnalysis, sourceFile: TFile | { path: string; basename: string }, sourceSlug?: string): Promise<boolean> {
     const existingPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
     const page = existingPages.find(p => p.title === pageName);
 
@@ -489,7 +501,8 @@ export class PageFactory {
     const existingContent = await this.ctx.app.vault.read(abstractFile);
 
     // 1. Programmatic frontmatter merge (sources + updated)
-    const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceFile.path);
+    // Issue #155: cite the canonical source PAGE link (disambiguated slug).
+    const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceSlug ? `sources/${sourceSlug}` : sourceFile.path);
 
     // Issue #131: a "related page" is an existing page topically related to the
     // source — a different set from the entities/concepts this source extracted.

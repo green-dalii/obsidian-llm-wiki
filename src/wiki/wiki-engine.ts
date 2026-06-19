@@ -15,6 +15,7 @@ import { PROMPTS } from '../prompts';
 import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
 import { slugify } from '../core/slug';
+import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter } from '../core/frontmatter';
 import { detectRateLimitFailures, formatRateLimitNotice } from '../core/rate-limit';
 import { extractSourceTags } from '../core/arrays';
@@ -294,9 +295,14 @@ export class WikiEngine {
       this.onProgress?.(`[${step}/${totalSteps}] Creating summary...`);
       await this.apiDelay();
 
+      // Issue #155: derive the source slug (<basename>-<path fingerprint>) ONCE,
+      // before any page is written, so the summary page, entity/concept backlinks,
+      // and related pages all reference the same canonical [[sources/<slug>]].
+      const sourceSlug = resolveSourceSlug(file.path, { preserveCase });
+
       // Stage 2: Summary Page Generation
       const summaryStart = Date.now();
-      const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths);
+      const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths, sourceSlug);
       const summaryTime = Date.now() - summaryStart;
       console.debug(`[Time] Summary page generation: ${summaryTime}ms`);
       analysis.created_pages.push(summaryPage);
@@ -342,7 +348,7 @@ export class WikiEngine {
             if (task.type === 'entity') {
               const entity = analysis!.entities[task.index];
               try {
-                const entityResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file);
+                const entityResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file, [], sourceSlug);
                 if (entityResult.path) {
                   analysis!.created_pages.push(entityResult.path);
                 }
@@ -359,7 +365,7 @@ export class WikiEngine {
                 // Retry once
                 try {
                   await this.apiDelay(2000);
-                  const retryResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file);
+                  const retryResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file, [], sourceSlug);
                   if (retryResult.path) {
                     analysis!.created_pages.push(retryResult.path);
                     console.debug(`Entity "${entity.name}" recovered on retry`);
@@ -376,7 +382,7 @@ export class WikiEngine {
             } else {
               const concept = analysis!.concepts[task.index];
               try {
-                const conceptResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file);
+                const conceptResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file, [], sourceSlug);
                 if (conceptResult.path) {
                   analysis!.created_pages.push(conceptResult.path);
                 }
@@ -393,7 +399,7 @@ export class WikiEngine {
                 // Retry once
                 try {
                   await this.apiDelay(2000);
-                  const retryResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file);
+                  const retryResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file, [], sourceSlug);
                   if (retryResult.path) {
                     analysis!.created_pages.push(retryResult.path);
                     console.debug(`Concept "${concept.name}" recovered on retry`);
@@ -466,7 +472,7 @@ export class WikiEngine {
             this.onProgress?.(`[${task.stepNum}/${totalSteps}] Updating: ${task.name}`);
 
             try {
-              const updated = await this.pageFactory.updateRelatedPage(task.name, analysis!, file);
+              const updated = await this.pageFactory.updateRelatedPage(task.name, analysis!, file, sourceSlug);
               return { success: updated, name: task.name };
             } catch (error) {
               const reason = error instanceof Error ? error.message : String(error);
@@ -475,7 +481,7 @@ export class WikiEngine {
               // Retry once (same pattern as page generation)
               try {
                 await this.apiDelay(2000);
-                const updated = await this.pageFactory.updateRelatedPage(task.name, analysis!, file);
+                const updated = await this.pageFactory.updateRelatedPage(task.name, analysis!, file, sourceSlug);
                 console.debug(`Related page "${task.name}" recovered on retry`);
                 return { success: updated, name: task.name };
               } catch {
@@ -652,9 +658,9 @@ export class WikiEngine {
     await this.schemaManager.ensureSchemaExists();
   }
 
-  async createSummaryPage(file: TFile, analysis: SourceAnalysis, plannedPaths: string[] = []): Promise<string> {
+  async createSummaryPage(file: TFile, analysis: SourceAnalysis, plannedPaths: string[] = [], sourceSlug?: string): Promise<string> {
     const preserveCase = this.settings.slugCase === 'preserve';
-    const slug = slugify(file.basename, preserveCase);
+    const slug = sourceSlug ?? slugify(file.basename, preserveCase);
     const path = normalizePath(`${this.settings.wikiFolder}/sources/${slug}.md`);
     const content = await this.app.vault.read(file);
 
