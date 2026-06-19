@@ -185,7 +185,11 @@ export function mergeFrontmatter(
   }
 
   if (Array.isArray(fm.aliases) && fm.aliases.length > 0) {
-    lines.push(`aliases:${yamlStringify(fm.aliases)}`);
+    // Dedup parity with enforceFrontmatterConstraints (keeps first occurrence, drops empties).
+    const dedupedAliases = fm.aliases.filter((v, i, a) => a.indexOf(v) === i && v);
+    if (dedupedAliases.length > 0) {
+      lines.push(`aliases:${yamlStringify(dedupedAliases)}`);
+    }
   }
 
   lines.push('---');

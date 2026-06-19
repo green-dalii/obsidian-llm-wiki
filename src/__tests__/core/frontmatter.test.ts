@@ -335,6 +335,20 @@ describe('mergeFrontmatter', () => {
     const result = mergeFrontmatter(input, 'sources/new');
     expect(result.frontmatter).toContain('[[sources/new]]');
   });
+
+  it('deduplicates repeated aliases (parity with enforceFrontmatterConstraints)', () => {
+    const input = '---\ntype: concept\ncreated: 2026-01-01\nupdated: 2026-01-01\naliases:\n  - "UPF"\n  - "Ultra-processed food"\n  - "UPF"\n  - "Ultra-processed food"\n---\n\nBody';
+    const result = mergeFrontmatter(input, 'sources/new');
+    expect((result.frontmatter.match(/- "UPF"/g) || []).length).toBe(1);
+    expect((result.frontmatter.match(/- "Ultra-processed food"/g) || []).length).toBe(1);
+  });
+
+  it('drops empty-string aliases', () => {
+    const input = '---\ntype: concept\ncreated: 2026-01-01\nupdated: 2026-01-01\naliases:\n  - "Foo"\n  - ""\n---\n\nBody';
+    const result = mergeFrontmatter(input, 'sources/new');
+    expect(result.frontmatter).toContain('- "Foo"');
+    expect(result.frontmatter).not.toContain('- ""');
+  });
 });
 
 describe('preserveFrontmatterReviewTag', () => {
