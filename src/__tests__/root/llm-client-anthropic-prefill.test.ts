@@ -14,6 +14,8 @@ import { AnthropicClient } from '../../llm-client';
 const mockRequestUrl = vi.mocked(requestUrl);
 
 function makePrefillErrorResponse(): Awaited<ReturnType<typeof requestUrl>> {
+  // With throw:false, requestUrl returns a response object even on 400.
+  // The Anthropic error body contains the specific "Prefilling" message.
   return {
     status: 400,
     text: JSON.stringify({
