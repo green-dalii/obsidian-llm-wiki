@@ -25,7 +25,7 @@
   - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
   - [🎮 Usage](#-usage)
   - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-- [⚡ What's New in v1.20.2](#-whats-new-in-v1202)
+- [⚡ What's New in v1.20.3](#-whats-new-in-v1203)
 
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -186,19 +186,16 @@ Settings → **LLM Configuration**:
 
 ---
 
-## ⚡ What's New in v1.20.2
+## ⚡ What's New in v1.20.3
 
-v1.20.2 is a **PATCH release** that fixes Anthropic API compatibility for newer Claude models (Opus 4.8, Sonnet 4.6, Fable 5, Mythos 5). Combined with v1.20.0's provider-first thinking control and v1.20.1's prefill detection, this release ensures full Anthropic support across all current models.
+v1.20.3 is a **PATCH hotfix** that fixes three latent bugs in the wiki write path. No new features — all three fixes are parity/latent-bug fixes that restore behavior that *should* have been there from the start.
 
-- **🔧 Anthropic fallback fix (PR #151).** Anthropic Messages API only accepts `user`/`assistant` roles in the messages array — system instructions must be a top-level field. Previous fallback retry paths incorrectly injected `{role: 'system'}` into messages, causing a second 400. Fix contributed by @Indexed-Apogrypha.
-- **🧠 Provider-first thinking control (v1.20.0).** Default mode sends NO thinking-control field — the provider decides whether to reason. Users who explicitly want to suppress thinking can enable "Disable thinking" in Custom Advanced Settings.
-- **💭 Collapsible thinking UI (v1.20.0).** When a thinking-capable model (DeepSeek, etc.) returns reasoning content, it appears in a collapsed panel above the answer. Fully localized in 8 languages.
-- **🔧 Anthropic baseUrl fix (v1.20.0, Issues #141, #134).** `AnthropicClient` normalizes `/v1` in the base URL, preventing 404 errors.
-- **🔧 gpt-5 max_completion_tokens (v1.20.0, Issue #143).** GPT-5 series models use the correct token parameter.
-- **💬 Query Wiki UX (v1.20.0).** Respects `wikiFolder`, auto-scrolls, user messages right-aligned.
-- **🔄 Automatic migration.** Old users upgrading from v1.19.x get `disableThinking` automatically reset to `false`.
+- **🔧 Source-slug collision fix (Issue #155, PR #156).** When two source files shared a basename across folders (e.g. 11× `About this course.md` across Academy courses), `slugify(basename)` produced the same slug for both — second ingest silently overwrote the first, and every `[[sources/<slug>]]` backlink resolved to the wrong source. Fix: every source slug is now `<basename>_<6hex FNV-1a of full path>`. Re-ingesting an existing vault renames its `sources/` pages; backlinks update in place. Contributed by @Indexed-Apogrypha.
+- **🔧 `mergeFrontmatter` alias dedup (PR #154).** Repeated re-ingests could grow the `aliases` array without bound — one real-world page accumulated the same alias block ~15× (86 duplicate lines). `mergeFrontmatter` now dedups `fm.aliases` parity with `enforceFrontmatterConstraints`. Contributed by @DocTpoint.
+- **🔧 Stage-4 `reviewed: true` guard (PR #158).** Re-ingesting an unrelated note could LLM-rewrite a curated `reviewed: true` page's body — the reviewed lock did not hold on the Stage-4 path, only on `createOrUpdatePage`. Fix: `updateRelatedPage` now routes `reviewed: true` pages to `appendToReviewedPage`. Contributed by @DocTpoint.
+- **🛠 tsconfig housekeeping.** `lib` bumped to ES2021; vestigial `baseUrl` dropped.
 
-We strongly recommend all users upgrade to this version, especially if you use Anthropic Claude models.
+We strongly recommend all users upgrade to this version, especially if you ingest multiple notes sharing filenames across folders, or use the `reviewed: true` page lock.
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 

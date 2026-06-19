@@ -26,7 +26,7 @@
   - [🔑 Configurer un fournisseur LLM](#-configurer-un-fournisseur-llm)
   - [🎮 Utilisation](#-utilisation)
   - [⚠️ Mise à niveau depuis une ancienne version ?](#️-mise-à-niveau-depuis-une-ancienne-version-)
-- [⚡ Nouveautés de la v1.20.2](#-nouveautés-de-la-v1202)
+- [⚡ Nouveautés de la v1.20.3](#-nouveautés-de-la-v1203)
 - [✨ Fonctionnalités](#-fonctionnalités)
   - [📊 Qualité des connaissances](#-qualité-des-connaissances)
   - [🛠️ Maintenance](#️-maintenance)
@@ -145,17 +145,16 @@ Ce projet évolue rapidement. Nous vous recommandons de rester à jour :
 
 ---
 
-## ⚡ Nouveautés de la v1.20.2
+## ⚡ Nouveautés de la v1.20.3
 
-v1.20.2 est un **correctif** qui résout la compatibilité API Anthropic pour les modèles Claude les plus récents (Opus 4.8, Sonnet 4.6, Fable 5, Mythos 5). Combiné avec le contrôle de réflexion fournisseur-prioritaire de v1.20.0 et la détection prefill de v1.20.1, cette version garantit un support Anthropic complet.
+v1.20.3 est un **correctif** qui résout trois bogues latents dans le chemin d'écriture du wiki. Aucune nouvelle fonctionnalité — les trois corrections sont des correctifs de parité/bogues latents qui restaurent un comportement qui aurait dû être présent dès le départ.
 
-- **🔧 Correction du fallback Anthropic (PR #151).** L'API Messages d'Anthropic n'accepte que les rôles user/assistant dans les messages — system doit être au niveau supérieur. Les chemins de fallback précédents injectaient `{role: 'system'}` dans les messages, provoquant un second 400. Correction par @Indexed-Apogrypha.
-- **🧠 Contrôle de réflexion fournisseur-prioritaire (v1.20.0).** Par défaut, aucun champ de contrôle envoyé. Le fournisseur décide.
-- **💭 UI de réflexion pliable (v1.20.0).** Contenu de raisonnement dans un panneau pliable au-dessus de la réponse. 8 langues.
-- **🔧 Correction baseUrl Anthropic (v1.20.0, #141, #134).** Empêche les erreurs 404 lors du test de connexion.
-- **🔧 gpt-5 max_completion_tokens (v1.20.0, #143).** Paramètres de token corrects.
-- **💬 Query Wiki UX (v1.20.0).** Respecte wikiFolder, défilement automatique, bulles utilisateur à droite.
-- **🔄 Migration automatique.** `disableThinking` réinitialisé automatiquement à `false`.
+- **🔧 Correction de collision de slug source (Issue #155, PR #156).** Quand deux fichiers source partageaient un nom de base à travers des dossiers (p. ex. 11× `About this course.md` dans les cours Academy), `slugify(basename)` produisait le même slug pour les deux — le second écrasait **silencieusement** le premier, et chaque backlink `[[sources/<slug>]]` pointait vers la mauvaise source. Correction : chaque slug source est désormais `<basename>_<empreinte FNV-1a 6 hex du chemin complet>`. La ré-ingestion d'un coffre existant renomme les pages `sources/` ; les backlinks sont mis à jour sur place. Contribution de @Indexed-Apogrypha.
+- **🔧 Déduplication des alias `mergeFrontmatter` (PR #154).** Des ré-ingestions répétées pouvaient faire croître le tableau `aliases` sans limite — une page réelle avait accumulé le même bloc d'alias ~15× (86 lignes en double). `mergeFrontmatter` déduplique désormais `fm.aliases` en parité avec `enforceFrontmatterConstraints`. Contribution de @DocTpoint.
+- **🔧 Garde Stage-4 `reviewed: true` (PR #158).** La ré-ingestion d'une note non liée pouvait faire réécrire par le LLM le corps d'une page `reviewed: true` — le verrou `reviewed` ne s'appliquait pas sur le chemin Stage 4, seulement sur `createOrUpdatePage`. Correction : `updateRelatedPage` route désormais les pages `reviewed: true` vers `appendToReviewedPage`. Contribution de @DocTpoint.
+- **🛠 Nettoyage tsconfig.** `lib` relevé à ES2021 ; `baseUrl` superflu supprimé.
+
+Nous recommandons vivement la mise à jour, en particulier si vous ingérez plusieurs notes partageant des noms de fichiers à travers des dossiers, ou utilisez le verrou `reviewed: true`.
 
 Nous recommandons vivement la mise à jour vers cette version pour une compatibilité Anthropic complète et toutes les dernières fonctionnalités.
 
