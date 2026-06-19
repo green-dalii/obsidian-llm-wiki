@@ -195,7 +195,6 @@ export class AnthropicCompatibleClient implements LLMClient {
     // is mandatory). Try with thinking disabled; on 400, retry without it.
     const anthropicDoRequest = async (requestBody: Record<string, unknown>): Promise<string> =>
       withRetry(async () => {
-        // v1.20.2: throw:false to read Anthropic error body on 400.
         const response = await requestUrl({
           url: this.baseUrl + '/messages',
           method: 'POST',
@@ -204,21 +203,32 @@ export class AnthropicCompatibleClient implements LLMClient {
             'Anthropic-Version': this.apiVersion,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestBody),
-          throw: false,
+          body: JSON.stringify(requestBody)
         });
+
+        // v1.20.0 hotfix #141/#147 debug: see AnthropicClient equivalent comment.
+        if (response.status >= 400) {
+          const errBody = (response as { text?: string }).text?.slice(0, 2000) ?? JSON.stringify(response).slice(0, 1000);
+          console.error('[AnthropicCompat DEBUG] HTTP', response.status, 'on', this.baseUrl + '/messages',
+            '| model:', requestBody.model,
+            '| system_len:', typeof requestBody.system === 'string' ? requestBody.system.length : 'n/a',
+            '| messages:', Array.isArray(requestBody.messages) ? requestBody.messages.length : 'n/a',
+            '| last_msg_role:', Array.isArray(requestBody.messages) && requestBody.messages.length > 0
+              ? (requestBody.messages[requestBody.messages.length - 1] as { role?: string }).role
+              : 'n/a',
+            '| last_msg_content_prefix:', Array.isArray(requestBody.messages) && requestBody.messages.length > 0
+              ? String((requestBody.messages[requestBody.messages.length - 1] as { content?: string }).content ?? '').slice(0, 60)
+              : 'n/a',
+            '| response:', errBody);
+        }
 
       const data = response.json as {
         content?: Array<{ type: string; text?: string }>;
         stop_reason?: string;
-        error?: { type?: string; message?: string };
+        error?: { message: string };
       };
 
-      if (response.status >= 400 || data.error) {
-        const errMsg = data.error?.message || `HTTP ${response.status}`;
-        console.error('[AnthropicCompat]', response.status, errMsg);
-        throw new Error(`status ${response.status}: ${errMsg}`);
-      }
+      if (data.error) throw new Error(`status ${response.status}: ${data.error.message}`);
       console.debug('Anthropic API response:', {
         stop_reason: data.stop_reason,
         content_length: data.content?.length || 0,
@@ -263,12 +273,13 @@ export class AnthropicCompatibleClient implements LLMClient {
     try {
       return await anthropicDoRequest(body);
     } catch (e) {
-      // v1.20.2 hotfix #141/#147: With throw:false, we now have the actual
-      // Anthropic error body. Detect "Prefilling" specifically.
+      // v1.20.1 hotfix #141/#147: Same approach as AnthropicClient.
+      // Obsidian's requestUrl throws on 4xx WITHOUT the response body.
+      // Detect "400 + we were using prefill" → single non-prefill retry.
       const errMsg = e instanceof Error ? e.message : String(e);
-      if (shouldPrefill && /prefilling assistant messages is not supported/i.test(errMsg)) {
+      if (shouldPrefill && IS_400.test(errMsg)) {
         this.prefillingNotSupported = true;
-        console.debug('[AnthropicCompat] prefill rejected — retrying without prefill');
+        console.debug('[AnthropicCompat] 400 with prefill — retrying without prefill');
         const noPrefillBody: Record<string, unknown> = {
           model: params.model,
           max_tokens: params.max_tokens,
@@ -481,9 +492,6 @@ export class AnthropicClient implements LLMClient {
     // models like Claude Fable 5 / Mythos 5), retry without thinking field.
     const anthropicDoRequest = async (requestBody: Record<string, unknown>): Promise<string> =>
       withRetry(async () => {
-        // v1.20.2: throw:false so we can read the Anthropic error body on 400.
-        // Default throw:true discards the response body, making it impossible
-        // to detect "Prefilling assistant messages is not supported".
         const response = await requestUrl({
           url: `${this.baseUrl}/messages`,
           method: 'POST',
@@ -493,20 +501,34 @@ export class AnthropicClient implements LLMClient {
             'Anthropic-Version': this.apiVersion,
           },
           body: JSON.stringify(requestBody),
-          throw: false,
         });
+
+        // v1.20.0 hotfix #141/#147 debug: surface 4xx/5xx responses so we can
+        // distinguish "wrong URL" / "wrong model" / "assistant prefill rejected"
+        // / "thinking field rejected" causes. Test Connection passes, Ingestion
+        // fails — this debug will reveal the actual server response.
+        if (response.status >= 400) {
+          const errBody = (response as { text?: string }).text?.slice(0, 2000) ?? JSON.stringify(response).slice(0, 1000);
+          console.error('[AnthropicClient DEBUG] HTTP', response.status, 'on', this.baseUrl + '/messages',
+            '| model:', requestBody.model,
+            '| system_len:', typeof requestBody.system === 'string' ? requestBody.system.length : 'n/a',
+            '| messages:', Array.isArray(requestBody.messages) ? requestBody.messages.length : 'n/a',
+            '| last_msg_role:', Array.isArray(requestBody.messages) && requestBody.messages.length > 0
+              ? (requestBody.messages[requestBody.messages.length - 1] as { role?: string }).role
+              : 'n/a',
+            '| last_msg_content_prefix:', Array.isArray(requestBody.messages) && requestBody.messages.length > 0
+              ? String((requestBody.messages[requestBody.messages.length - 1] as { content?: string }).content ?? '').slice(0, 60)
+              : 'n/a',
+            '| response:', errBody);
+        }
 
         const data = response.json as {
           content?: Array<{ type: string; text?: string }>;
           stop_reason?: string;
-          error?: { type?: string; message?: string };
+          error?: { message: string };
         };
 
-        if (response.status >= 400 || data.error) {
-          const errMsg = data.error?.message || `HTTP ${response.status}`;
-          console.error('[AnthropicClient]', response.status, errMsg);
-          throw new Error(`status ${response.status}: ${errMsg}`);
-        }
+        if (data.error) throw new Error(`status ${response.status}: ${data.error.message}`);
 
         const text = await withTruncationRetry({
           initialFn: async () => data,
@@ -551,14 +573,21 @@ export class AnthropicClient implements LLMClient {
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
 
-      // v1.20.2 hotfix #141/#147: With throw:false, we now have the actual
-      // Anthropic error body. Detect "Prefilling assistant messages is not
-      // supported" specifically — this is the only 400 we should retry
-      // without prefill. Other 400s (bad model, content filter, etc.)
-      // should propagate as-is.
-      if (shouldPrefill && /prefilling assistant messages is not supported/i.test(errMsg)) {
+      // v1.20.1 hotfix #141/#147: On 400 with prefill, retry without prefill.
+      //
+      // Root cause: Obsidian's `requestUrl` throws on HTTP 4xx WITHOUT
+      // including the response body in the error. We cannot check for the
+      // specific "Prefilling assistant messages is not supported" string.
+      // Instead: "400 + we were using prefill" → single non-prefill retry.
+      //
+      // Safety:
+      //   - `withRetry` already exhausted its 3 attempts (400 non-retryable)
+      //   - This is one additional request, cached to prevent future 400s
+      //   - If 400 was not from prefill (e.g., bad model), the retry also
+      //     fails and the error propagates normally
+      if (shouldPrefill && IS_400.test(errMsg)) {
         this.prefillingNotSupported = true;
-        console.debug('[AnthropicClient] prefill rejected — retrying without prefill');
+        console.debug('[AnthropicClient] 400 with prefill — retrying without prefill');
         const noPrefillBody: Record<string, unknown> = {
           model: params.model,
           max_tokens: params.max_tokens,
