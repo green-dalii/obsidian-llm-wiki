@@ -273,11 +273,13 @@ export class AnthropicCompatibleClient implements LLMClient {
     try {
       return await anthropicDoRequest(body);
     } catch (e) {
-      // v1.20.1 hotfix #141/#147: Same prefill-not-supported detection as AnthropicClient.
+      // v1.20.1 hotfix #141/#147: Same approach as AnthropicClient.
+      // Obsidian's requestUrl throws on 4xx WITHOUT the response body.
+      // Detect "400 + we were using prefill" → single non-prefill retry.
       const errMsg = e instanceof Error ? e.message : String(e);
-      if (IS_400.test(errMsg) && /prefilling assistant messages is not supported/i.test(errMsg)) {
+      if (shouldPrefill && IS_400.test(errMsg)) {
         this.prefillingNotSupported = true;
-        console.debug('[AnthropicCompat] prefill not supported, retrying without prefill');
+        console.debug('[AnthropicCompat] 400 with prefill — retrying without prefill');
         const noPrefillBody: Record<string, unknown> = {
           model: params.model,
           max_tokens: params.max_tokens,
@@ -287,6 +289,9 @@ export class AnthropicCompatibleClient implements LLMClient {
         };
         if (params.system) noPrefillBody.system = params.system;
         if (params.temperature !== undefined) noPrefillBody.temperature = params.temperature;
+        if (params.repetition_penalty !== undefined) noPrefillBody.repetition_penalty = params.repetition_penalty;
+        if (params.chat_template_kwargs !== undefined) noPrefillBody.chat_template_kwargs = params.chat_template_kwargs;
+        if (params.enableThinking === false) noPrefillBody.thinking = { type: 'disabled' };
         return await anthropicDoRequest(noPrefillBody);
       }
 
@@ -566,13 +571,23 @@ export class AnthropicClient implements LLMClient {
     try {
       return await anthropicDoRequest(body);
     } catch (e) {
-      // v1.20.1 hotfix #141/#147: Detect "Prefilling assistant messages is not
-      // supported" 400 from newer Claude models (Opus 4.8+, Sonnet 4.6+,
-      // Fable 5, Mythos 5). Cache the rejection and retry without prefill.
       const errMsg = e instanceof Error ? e.message : String(e);
-      if (IS_400.test(errMsg) && /prefilling assistant messages is not supported/i.test(errMsg)) {
+
+      // v1.20.1 hotfix #141/#147: On 400 with prefill, retry without prefill.
+      //
+      // Root cause: Obsidian's `requestUrl` throws on HTTP 4xx WITHOUT
+      // including the response body in the error. We cannot check for the
+      // specific "Prefilling assistant messages is not supported" string.
+      // Instead: "400 + we were using prefill" → single non-prefill retry.
+      //
+      // Safety:
+      //   - `withRetry` already exhausted its 3 attempts (400 non-retryable)
+      //   - This is one additional request, cached to prevent future 400s
+      //   - If 400 was not from prefill (e.g., bad model), the retry also
+      //     fails and the error propagates normally
+      if (shouldPrefill && IS_400.test(errMsg)) {
         this.prefillingNotSupported = true;
-        console.debug('[AnthropicClient] prefill not supported for this model, retrying without prefill');
+        console.debug('[AnthropicClient] 400 with prefill — retrying without prefill');
         const noPrefillBody: Record<string, unknown> = {
           model: params.model,
           max_tokens: params.max_tokens,
@@ -582,6 +597,9 @@ export class AnthropicClient implements LLMClient {
         };
         if (params.system) noPrefillBody.system = params.system;
         if (params.temperature !== undefined) noPrefillBody.temperature = params.temperature;
+        if (params.repetition_penalty !== undefined) noPrefillBody.repetition_penalty = params.repetition_penalty;
+        if (params.chat_template_kwargs !== undefined) noPrefillBody.chat_template_kwargs = params.chat_template_kwargs;
+        if (params.enableThinking === false) noPrefillBody.thinking = { type: 'disabled' };
         return await anthropicDoRequest(noPrefillBody);
       }
 
@@ -595,7 +613,9 @@ export class AnthropicClient implements LLMClient {
             ? [{ role: 'system' as const, content: params.system }, ...params.messages]
             : [...params.messages],
         };
-        // Note: no prefill here either — the model already rejected it above.
+        if (params.system) fallbackBody.system = params.system;
+        if (params.temperature !== undefined) fallbackBody.temperature = params.temperature;
+        if (params.repetition_penalty !== undefined) fallbackBody.repetition_penalty = params.repetition_penalty;
         return await anthropicDoRequest(fallbackBody);
       }
       throw e;
