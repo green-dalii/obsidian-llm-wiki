@@ -1,0 +1,522 @@
+export const IT_TEXTS = {
+    // Informazioni Plugin
+    pluginTitle: 'Impostazioni Karpathy LLM Wiki',
+    pluginIntro: "Questo plugin implementa il concetto di {{link}} per Obsidian. Legge le tue note, usa l'IA per estrarre entità e concetti, e costruisce una Wiki strutturata e interconnessa nel tuo vault.",
+    karpathyLinkText: 'LLM Wiki di Andrej Karpathy',
+
+    // Sezione Funzionalità
+    featuresTitle: 'Come funziona',
+    workflow1Title: '1. Acquisisci',
+    workflow1Desc: "Seleziona una nota — l'IA estrae entità, concetti e relazioni in pagine Wiki.",
+    workflow2Title: '2. Interroga',
+    workflow2Desc: 'Conversa con la tua Wiki — le risposte si basano sulla conoscenza acquisita.',
+    workflow3Title: '3. Mantieni',
+    workflow3Desc: 'Indice auto-generato, collegamenti incrociati e controlli Lint mantengono la Wiki in salute.',
+
+    // Selettore Lingua
+    languageTitle: 'Lingua interfaccia',
+    languageDesc: 'Seleziona la lingua preferita per il pannello delle impostazioni. Riavvia il plugin per applicare le modifiche di lingua alla palette dei comandi.',
+    languageEn: 'English',
+    languageZh: '中文',
+    languageJa: '日本語',
+    languageKo: '한국어',
+    languageDe: 'Deutsch',
+    languageFr: 'Français',
+    languageEs: 'Español',
+    languagePt: 'Português',
+    languageIt: 'Italiano',
+
+    // Stato
+    statusTitle: 'Stato client LLM',
+    llmWikiStatusSection: 'Stato LLM-Wiki',
+    statusInitialized: 'Inizializzato',
+    statusNotInitialized: 'Non inizializzato',
+    statusReady: 'LLM pronto',
+    statusNotReady: 'LLM non configurato — completa la configurazione e supera il test di connessione',
+    currentProvider: 'Provider attuale',
+
+    // Configurazione Provider
+    providerSection: 'Configurazione LLM',
+    providerName: 'Provider LLM',
+    providerDesc: "Seleziona un provider predefinito o un servizio personalizzato compatibile con OpenAI. Per Coding Plan o pacchetti simili, scegli Custom OpenAI/Anthropic e inserisci manualmente l'URL di base e la chiave API del provider",
+
+    // Chiave API
+    apiKeyName: 'Chiave API',
+    apiKeyDesc: 'Inserisci la chiave API del tuo provider',
+    apiKeyPlaceholder: 'Inserisci la chiave API',
+
+    // URL di base
+    baseUrlName: 'URL di base API',
+    baseUrlDescCustom: 'Obbligatorio: endpoint personalizzato compatibile con OpenAI',
+    baseUrlDescOverride: "Facoltativo: sovrascrivi l'URL di base predefinito",
+
+    // Suggerimento Ollama
+    ollamaHint: 'Ollama gira in locale, nessuna chiave API richiesta',
+    // Suggerimento LM Studio
+    lmstudioHint: 'LM Studio gira in locale, la chiave API è facoltativa',
+
+    // Limite esecuzione LLM
+    maxTokensPerCallName: 'Finestra di contesto',
+    maxTokensPerCallDesc: 'Limita i token di generazione per adattarli alla finestra di contesto del tuo modello. 0 = nessun limite (predefinito cloud).',
+
+    // Issue #111: maiuscole/minuscole slug
+    slugCaseName: 'Maiuscole/minuscole nome file',
+    slugCaseDesc: 'Controlla se i nomi dei file wiki generati vengono convertiti in minuscolo. "Preserva" è consigliato per le lingue in cui il minuscolo cambia il significato (es. i sostantivi tedeschi).',
+    slugCaseLower: 'Minuscolo (predefinito)',
+    slugCasePreserve: 'Preserva maiuscole/minuscole',
+
+    // Selezione Modello
+    modelSection: 'Selezione modello',
+    fetchModelsName: 'Recupera modelli disponibili',
+    fetchModelsDesc: 'Ottieni la lista più recente di modelli dalla API del provider',
+    fetchModelsButton: 'Recupera modelli',
+    fetchingModels: 'Recupero in corso...',
+    fetchSuccess: 'Riuscito! {} modelli disponibili',
+    fetchFailed: 'Operazione fallita o lista vuota, inserisci manualmente il nome del modello',
+    fetchNotSupported: 'Il provider non supporta la query della lista modelli',
+    fetchErrorAuth: 'Autenticazione fallita (HTTP 401/403). Verifica la tua chiave API, oppure inserisci un ID modello qui sotto e clicca Testa connessione per validare.',
+    fetchErrorEndpoint: "Endpoint non trovato (HTTP 404). Verifica l'URL di base, oppure inserisci un ID modello e clicca Testa connessione per validare.",
+    fetchErrorServer: 'Errore del server del provider (HTTP 5xx). Riprova più tardi, oppure inserisci un ID modello e clicca Testa connessione per validare.',
+    fetchErrorEmpty: "Il provider non ha un endpoint per la lista modelli. Inserisci un ID modello qui sotto e clicca Testa connessione per validare.",
+    fetchErrorNetwork: "Richiesta di rete fallita. Controlla la connessione internet, l'URL di base o le impostazioni del proxy. Puoi anche inserire un ID modello qui sotto e cliccare Testa connessione per validare.",
+
+    selectModelName: 'Seleziona modello',
+    selectModelDesc: 'Scegli tra {} modelli disponibili',
+    customInputOption: 'Inserimento personalizzato...',
+    customInputHint: 'Per usare altri modelli, seleziona "Inserimento personalizzato..."',
+
+    modelName: 'Nome modello',
+    modelDescCustom: 'Uso di modello personalizzato (clicca il pulsante sopra per ri-recuperare la lista)',
+    modelDescFetchFailed: "Recupero della lista modelli fallito. Verifica la tua chiave API e l'URL dell'endpoint, oppure inserisci un ID modello qui sotto e clicca Testa connessione per validare.",
+    modelInputPlaceholder: 'Inserisci ID modello, poi Testa connessione',
+
+    switchToDropdown: 'Passa alla selezione a tendina',
+    useDropdownButton: 'Usa menu a tendina',
+
+    // Test e Salvataggio
+    testConnectionName: 'Testa connessione',
+    testConnectionDesc: 'Verifica che la configurazione possa chiamare con successo la API LLM',
+    testButton: 'Testa connessione',
+    testing: 'Test in corso...',
+
+    saveSettingsName: 'Salva impostazioni',
+    saveSettingsDesc: 'Salva la configurazione attuale',
+    saveButton: 'Salva impostazioni',
+    savedNotice: 'Impostazioni salvate!',
+
+    // Test Connessione
+    testConnectionSuccessful: 'Connessione riuscita',
+    testConnectionFailed: 'Connessione fallita',
+    testConnectionProvider: 'Provider: ',
+    errorUnknown: 'Errore sconosciuto',
+
+    // Issue #137: avvisi di fallback LLM (mostrati quando avviene un
+    // fallback del dialetto di ragionamento o uno strip di parametri durante una richiesta).
+    fallbackThinkingDialect: 'Controllo ragionamento: passato al dialetto "{dialect}" (questo provider usa un formato di controllo del ragionamento diverso). L\'output rimane invariato.',
+    fallbackThinkingNone: 'Controllo del ragionamento completamente disabilitato per questo provider. Il contenuto del ragionamento potrebbe comunque apparire; in tal caso, prova un modello diverso.',
+    fallbackParamStripped: 'Parametro "{field}" non supportato da questo provider. Rimosso dalla richiesta; il comportamento potrebbe differire dalla configurazione.',
+
+    // Stato Inizializzazione Wiki
+    wikiInitStatusReady: 'Wiki inizializzata',
+    wikiInitStatusNotReady: 'Wiki non inizializzata — verrà creata automaticamente alla prima acquisizione',
+
+    // Cartella Wiki
+    wikiSection: 'Configurazione Wiki',
+    wikiFolderName: 'Cartella Wiki',
+    wikiFolderDesc: 'Posizione delle pagine Wiki generate',
+    wikiFolderPlaceholder: 'wiki',
+
+    // Errori
+    errorNoApiKey: 'Configura prima la chiave API',
+    llmNotReady: 'LLM non configurato. Vai su Impostazioni → Karpathy LLM Wiki per configurare il tuo provider, recuperare i modelli disponibili e superare il test di connessione.',
+    errorFetchFailed: 'Fallito: {}',
+
+    // Impostazioni Query
+    querySectionTitle: 'Configurazione query Wiki',
+    maxConversationHistoryName: 'Cronologia conversazione massima',
+    maxConversationHistoryDesc: 'Limita i messaggi della conversazione per evitare il superamento dei token',
+    maxConversationHistoryHint: 'Consigliato: non superare 50 turni',
+    numberRangeValidation: 'Inserisci un numero tra 1 e 50',
+    numberRangeClamped: 'Il valore supera il range (1-500), impostato automaticamente a {}',
+
+    // UI Modale Query
+    queryModalTitle: 'Query Wiki - Query conversazionale',
+    queryModalPlaceholder: 'Inserisci una domanda...',
+    queryModalSendButton: 'Invia',
+    queryModalStopButton: 'Ferma',
+    queryModalSaveButton: 'Salva nella Wiki',
+    queryModalClearButton: 'Cancella cronologia',
+    queryModalHistoryCount: 'Cronologia conversazione: {}/{} turni',
+    queryModalStreaming: 'Streaming...',
+    queryModalFallbackStreaming: 'Streaming non supportato, passato a non-streaming. Attendere...',
+    queryPhaseSearching: "Analisi dell'indice Wiki, selezione delle pagine pertinenti...",
+    queryPhaseFoundPages: 'Trovate {count} pagina/e: {pages}',
+    queryPhaseLoadingPages: 'Caricamento del contenuto della pagina...',
+    queryPhaseContextReady: 'Contesto pronto. Generazione della risposta...',
+    queryPhaseGenerating: 'Generazione... (trascorsi {time}s)',
+    queryPhaseNonStreaming: 'Modalità non-streaming, generazione della risposta... (trascorsi {time}s)',
+    queryModalErrorPrefix: 'Errore: ',
+    queryModalHint: 'Le query si basano sul contenuto della Wiki. Clicca "Salva nella Wiki" per estrarre le conversazioni preziose come pagine Wiki.',
+
+    // v1.20.0: riepilogo collassabile del blocco di ragionamento in Query Wiki
+    queryThinkingSummary: 'Processo di ragionamento',
+    queryThinkingSteps: 'passaggi',
+
+    // Messaggi di errore
+    errorLLMClientNotInit: 'Client LLM non inizializzato. Salva le impostazioni.',
+    errorIngestFailed: 'Acquisizione fallita: ',
+    errorQueryFailed: 'Query fallita: ',
+
+    // Messaggi di successo
+    ingestSuccess: 'Acquisizione riuscita: {} pagine create, {} pagine aggiornate',
+    querySuccess: 'Query completata',
+    lintSuccess: 'Lint della Wiki completato',
+    lintReadingPages: 'Lettura di {count} pagine Wiki...',
+    lintReadingPagesProgress: 'Lettura pagine Wiki: {current}/{total}...',
+    lintScanningLinks: 'Scansione dei collegamenti interrotti...',
+    lintScanningLinksProgress: 'Scansione collegamenti interrotti: {current}/{total}...',
+    lintCheckingDuplicates: 'Controllo delle pagine duplicate...',
+    lintCheckingDuplicatesProgress: 'Verifica duplicati: batch {current} ...',
+    lintFixingPolluted: 'Correzione pagina inquinata {current}/{total}: {title} → {newTitle}',
+    lintModalFixPolluted: '🧹 Correggi pagine inquinate ({count})',
+    lintDuplicateCheckFailed: 'Rilevamento duplicati fallito — vedi la console per i dettagli',
+    lintDuplicateCheckFailedDetail: 'Controllo duplicati fallito a {step}: {error}',
+    lintMergeItemFailed: 'Unione fallita: {source} → {target} — {error}',
+    lintAliasesMissing: 'Alias mancanti: {count} pagina/e senza alias',
+    lintAliasesSection: 'Pagine senza alias [{count}]',
+    lintAliasesItem: '- [[{page}]]',
+    lintAliasesCompleteBtn: 'Completa alias ({count})',
+    lintAliasesFilling: 'Generazione alias {current}/{total}: {page}',
+    lintAliasesFilled: 'Completamento alias terminato. Compilate {filled}/{total} pagine.',
+    lintAliasesFillFailed: 'Generazione alias fallita: {page} — {error}',
+    // Issue #85 v7: notifiche di ri-tagging per violazione tag
+    lintTagViolationFiring: 'Ri-tagging {current}/{total}: {path}',
+    lintTagViolationFailed: 'Ri-tagging fallito per {path}: {error}',
+    lintTagViolationFixed: 'Ri-tagging completato. Corrette {fixed}/{total} pagina/e.',
+    lintTagViolationFixedNone: "Ri-tagging completato. Nessuna pagina necessitava correzioni (l'LLM ha mantenuto i tag attuali).",
+    lintTagViolationSection: 'Pagine con tag fuori vocabolario [{count}]',
+    lintTagViolationItem: '- [[{path}]] — non validi: {tags}',
+    lintTagViolationRetagBtn: '🏷️ Ri-tagga {count} pagina/e con LLM',
+    lintFixItemFailed: 'Correzione fallita: [[{target}]] — {error}',
+    lintLinkItemFailed: 'Collegamento fallito: {page} — {error}',
+    lintRetrying: 'Nuovo tentativo ({attempt}/{max}) dopo errore...',
+    lintAnalyzingLLM: "LLM sta analizzando la salute della Wiki...",
+    saveToWikiSuccess: 'Conversazione salvata nella Wiki!',
+    saveSummary: '{entities} entità, {concepts} concetti, {pages} pagine',
+    aliasAdded: "Aggiunto alias '{alias}' alla pagina '{page}'",
+
+    // Messaggi di stato
+    ingestingSources: 'Acquisizione delle sorgenti...',
+    queryingWiki: 'Interrogazione della Wiki...',
+    lintingWiki: 'Lint della Wiki...',
+    savingToWiki: 'Salvataggio della conversazione nella Wiki...',
+    clearingHistory: 'Cancellazione della cronologia conversazione...',
+
+    // Pulsanti
+    ingestButton: 'Acquisisci',
+    queryButton: 'Interroga',
+    lintButton: 'Lint',
+    cancelButton: 'Annulla',
+
+    // Collegamenti
+    karpathyGistLink: 'Gist della LLM Wiki di Karpathy',
+    obsidianPluginAPI: 'Obsidian Plugin API',
+    anthropicSDK: 'Anthropic SDK',
+    openaiSDK: 'OpenAI SDK',
+
+    // Altro
+    availableModelsLoading: 'Caricamento dei modelli disponibili...',
+    noModelsAvailable: 'Nessun modello disponibile',
+
+    // Suggerimento Lingua LLM
+    llmLanguageHint: 'Rispondi in italiano.',
+
+    // Configurazione Schema
+    schemaSection: 'Configurazione Schema',
+    enableSchemaName: 'Abilita Schema',
+    enableSchemaDesc: 'Genera e inietta schema/config.md in tutti i prompt LLM per un output Wiki strutturato',
+    viewSchemaButton: 'Visualizza / Modifica Schema',
+    regenerateSchemaButton: 'Rigenera Schema predefinito',
+    schemaRegeneratedNotice: 'Schema predefinito rigenerato.',
+    schemaRegenerateFailed: 'Generazione dello Schema fallita',
+
+    // Lingua di output Wiki
+    wikiLanguageName: 'Lingua di output Wiki',
+    wikiLanguageDesc: "Tutte le pagine wiki generate, l'indice, il log e le risposte alle query usano questa lingua",
+    customWikiLanguageOption: 'Personalizzata...',
+    customWikiLanguageHint: "Inserisci il nome di una lingua (es. Italiano, Arabo). Verrà passato all'LLM come direttiva di lingua di output.",
+    customWikiLanguagePlaceholder: 'es. Italiano',
+
+    // Etichette Indice e Log (per lingua)
+    indexLabels: {
+      en: { subtitle: 'Auto-generated knowledge base directory', entities: 'Entities', concepts: 'Concepts', sources: 'Sources' },
+      zh: { subtitle: '自动生成的知识库目录', entities: '实体', concepts: '概念', sources: '来源' },
+      ja: { subtitle: '自動生成ナレッジベースディレクトリ', entities: 'エンティティ', concepts: '概念', sources: 'ソース' },
+      ko: { subtitle: '자동 생성 지식 베이스 디렉토리', entities: '엔티티', concepts: '컨셉', sources: '소스' },
+      de: { subtitle: 'Automatisch generiertes Wissensdatenbank-Verzeichnis', entities: 'Entitäten', concepts: 'Konzepte', sources: 'Quellen' },
+      fr: { subtitle: 'Répertoire de base de connaissances généré automatiquement', entities: 'Entités', concepts: 'Concepts', sources: 'Sources' },
+      es: { subtitle: 'Directorio de base de conocimiento generado automáticamente', entities: 'Entidades', concepts: 'Conceptos', sources: 'Fuentes' },
+      pt: { subtitle: 'Diretório de base de conhecimento gerado automaticamente', entities: 'Entidades', concepts: 'Conceitos', sources: 'Fontes' },
+    },
+    logLabels: {
+      en: { createdPages: 'Created pages', updatedPages: 'Updated pages', contradictionsFound: 'Contradictions found' },
+      zh: { createdPages: '创建页面', updatedPages: '更新页面', contradictionsFound: '发现矛盾' },
+      ja: { createdPages: '作成ページ', updatedPages: '更新ページ', contradictionsFound: '矛盾を発見' },
+      ko: { createdPages: '생성 페이지', updatedPages: '업데이트 페이지', contradictionsFound: '모순 발견' },
+      de: { createdPages: 'Erstellte Seiten', updatedPages: 'Aktualisierte Seiten', contradictionsFound: 'Widersprüche gefunden' },
+      fr: { createdPages: 'Pages créées', updatedPages: 'Pages mises à jour', contradictionsFound: 'Contradictions trouvées' },
+      es: { createdPages: 'Páginas creadas', updatedPages: 'Páginas actualizadas', contradictionsFound: 'Contradicciones encontradas' },
+      pt: { createdPages: 'Páginas criadas', updatedPages: 'Páginas atualizadas', contradictionsFound: 'Contradições encontradas' },
+    },
+
+    // Impostazioni Estrazione
+    extractionSectionTitle: 'Estrazione',
+    extractionGranularityName: 'Granularità estrazione',
+    extractionGranularityDesc: 'Controlla le entità/concetti estratti per file sorgente. Più alto = più pagine, più token API.\nFine: analisi approfondita. Standard: note quotidiane. Grossolana: panoramica rapida. Minima: batch di oltre 100 file. Personalizzata: imposta i tuoi limiti (fino a 500).\nSuggerimento: usa Minima/Grossolana per cartelle con molti file per risparmiare tempo e costi.',
+    extractionGranularityFine: 'Fine — analisi approfondita (≤100 elementi)',
+    extractionGranularityStandard: 'Standard — note quotidiane (≤50 elementi)',
+    extractionGranularityCoarse: 'Grossolana — panoramica rapida (≤10 elementi)',
+    extractionGranularityMinimal: 'Minima — batch di oltre 100 file (≤5 elementi)',
+    extractionGranularityCustom: 'Personalizzata — imposta i tuoi limiti (1~500)',
+    customEntityLimitName: 'Limite entità personalizzato',
+    customEntityLimitDesc: 'Numero massimo di entità da estrarre per file sorgente (1-500)',
+    customConceptLimitName: 'Limite concetti personalizzato',
+    customConceptLimitDesc: 'Numero massimo di concetti da estrarre per file sorgente (1-500)',
+
+    // Issue #85 v2: Vocabolario tag (UX a chip, integrato in Configurazione Wiki)
+    tagVocabularyInlineDesc: 'Vocabolario controllato per i tag del frontmatter di entità e concetti. I tag annidati di Obsidian con "/" vengono preservati.',
+    tagVocabularyModeName: 'Configurazione vocabolario tag',
+    tagVocabularyModeDescDefault: 'Il predefinito usa i tag integrati: {}. Passa a Personalizzato per definire i tuoi.',
+    tagVocabularyModeDescCustom: 'Personalizzato: definisci qui sotto i tuoi tag per entità e concetti. Usa l\'input a chip — Invio o virgola per aggiungere, × per rimuovere.',
+    tagVocabularyModeDefault: 'Predefinito (tag di sottotipo integrati)',
+    tagVocabularyModeCustom: 'Personalizzato (definito dall\'utente)',
+    customEntityTagsName: 'Tag entità personalizzati',
+    customEntityTagsDesc: 'Premi Invio o virgola per aggiungere una chip. Clicca × per rimuovere. I tag annidati con "/" vengono preservati.',
+    customEntityTagsPlaceholder: 'persona, organizzazione, progetto, luogo',
+    customConceptTagsName: 'Tag concetti personalizzati',
+    customConceptTagsDesc: 'Premi Invio o virgola per aggiungere una chip. Clicca × per rimuovere. I tag annidati con "/" vengono preservati.',
+    customConceptTagsPlaceholder: 'teoria, metodo, campo, fenomeno, termine',
+    chipDuplicateHint: 'Tag duplicato ignorato',
+
+    // Accelerazione Acquisizione
+    accelerationSectionTitle: 'Accelerazione acquisizione',
+    pageGenerationConcurrencyName: 'Concorrenza LLM',
+    pageGenerationConcurrencyDesc: 'Numero di chiamate LLM in parallelo durante le operazioni di acquisizione e lint. Valori più alti accelerano l\'elaborazione ma aumentano i costi API e possono attivare limiti di frequenza.',
+    concurrencyValueSingular: 'Concorrenza attuale: {} (seriale — più sicura)',
+    concurrencyValuePlural: 'Concorrenza attuale: {} (parallela)',
+    batchDelayName: 'Ritardo batch (ms)',
+    batchDelayDesc: 'Ritardo tra batch paralleli per prevenire il rate limiting delle API (100-2000ms). Attuale: {}ms. Aumentalo se vedi errori 429.',
+
+    // Manutenzione Automatica
+    autoMaintainSection: 'Manutenzione automatica',
+    autoMaintainBetaBadge: 'BETA — Funzionalità sperimentale. Potrebbe presentare problemi. Consigliata solo per utenti esperti.',
+    autoWatchName: 'Monitora cartelle',
+    autoWatchDesc: 'Rileva automaticamente i file .md nuovi o modificati nelle cartelle monitorate e notifica o acquisisce automaticamente',
+    watchedFoldersName: 'Cartelle monitorate',
+    watchedFoldersDesc: 'Cartelle da monitorare per nuovi contenuti. Clicca "Aggiungi cartella" per selezionarla dal tuo vault.',
+    addWatchedFolderButton: 'Aggiungi cartella',
+    removeWatchedFolderButton: 'Rimuovi',
+    webClipperPresetName: 'Monitora Clippings (Web Clipper)',
+    webClipperPresetDesc: 'Aggiungi alla lista di monitoraggio la cartella Clippings/ usata da Obsidian Web Clipper. I tuoi ritagli web verranno acquisiti automaticamente nella Wiki.',
+    noWatchedFoldersHint: 'Nessuna cartella configurata. Aggiungi una cartella o abilita il preset Clippings.',
+    autoWatchModeName: 'Modalità monitoraggio',
+    autoWatchModeDesc: '"Solo notifica" mostra un avviso. "Acquisizione automatica" elabora in silenzio.',
+    watchModeNotify: 'Solo notifica',
+    watchModeAuto: 'Acquisizione automatica',
+    autoWatchDebounceName: 'Ritardo debounce (secondi)',
+    autoWatchDebounceDesc: 'Tempo di attesa prima di avviare l\'acquisizione dopo una modifica di file (1-60 secondi)',
+    periodicLintName: 'Lint periodico',
+    periodicLintDesc: 'Esegui il lint LLM su pianificazione, solo quando i file sorgente sono cambiati dall\'ultimo controllo',
+    periodicLintOff: 'Disattivato',
+    periodicLintHourly: 'Ogni ora',
+    periodicLintDaily: 'Giornaliero',
+    periodicLintWeekly: 'Settimanale',
+    autoSmartFixName: 'Correzione intelligente automatica',
+    autoSmartFixDesc: 'Quando viene eseguito il lint, applica automaticamente tutte le correzioni (Correzione intelligente totale) senza mostrare la modale del report. Il riepilogo delle correzioni viene comunque mostrato al completamento.',
+    autoSmartFixNotice: 'Correzione intelligente automatica: applicazione di tutte le correzioni...',
+    startupCheckName: 'Esegui correzioni rapide all\'avvio',
+    startupCheckDesc: 'Corregge automaticamente problemi di formato di basso livello (sorgenti, collegamenti doppiamente annidati) al caricamento del plugin. Verifica la struttura della cartella Wiki. Predefinito ATTIVO.',
+    suggestSchemaCommand: 'Suggerisci aggiornamenti Schema',
+    autoMaintainCostWarning: '⚠️ Avviso costi: le funzionalità di manutenzione automatica consumano token API. "Acquisizione automatica" attiva chiamate LLM a ogni modifica di file sorgente. "Lint periodico" esegue controlli di salute LLM su pianificazione (solo quando vengono rilevate modifiche alle sorgenti). Configura con attenzione per evitare addebiti imprevisti.',
+
+    // Avvisi
+    startupCheckSummary: 'La Wiki ha {pages} pagine ({entities} entità, {concepts} concetti, {sources} sorgenti)',
+    watcherActiveNotice: 'Wiki: monitoraggio file attivo — sorveglianza delle cartelle monitorate',
+    watchIngestNotice: 'Wiki: {count} file modificati in sources/. Esegui "Acquisisci sorgenti" per elaborarli.',
+
+    // Dettagli correzioni rapide all'avvio (Issue #81)
+    startupCheckTitle: 'Correzioni rapide della Wiki completate',
+    startupCheckStructureLabel: 'Struttura Wiki',
+    startupCheckStructureOk: 'completa',
+    startupCheckStructureMissing: 'incompleta — verrà creata automaticamente alla prima acquisizione',
+    startupCheckSourcesLabel: 'Sorgenti normalizzate',
+    startupCheckSourcesClean: 'già pulite',
+    startupCheckSourcesCleaned: 'pulite {files} file, {entries} voce/i',
+    startupCheckDisableHint: 'Per disabilitare, vai su Impostazioni → Manutenzione automatica → Esegui correzioni rapide all\'avvio',
+    autoIngestRunning: 'Acquisizione automatica di {count} file modificato/i...',
+    autoIngestComplete: 'Acquisizione automatica completata: {success} riusciti, {fail} falliti',
+    scheduledLintRunning: 'Esecuzione del lint Wiki pianificato...',
+    wikiLintStats: 'Lint Wiki: {pages} pagine ({entities} entità, {concepts} concetti, {sources} sorgenti)',
+    wikiHealthStats: 'Salute Wiki: {pages} pagine ({entities} entità, {concepts} concetti, {sources} sorgenti){indexStatus}',
+    lintWikiStart: 'Avvio del lint Wiki...',
+    lintWikiComplete: 'Lint Wiki completato',
+    lintWikiFailed: 'Lint Wiki fallito',
+    analyzingSchema: 'Analisi della Wiki e generazione di suggerimenti per lo schema...',
+    schemaSuggestionGenerated: 'Suggerimenti schema generati, vedi wiki/schema/suggestions.md',
+    noSchemaUpdateNeeded: 'Nessun aggiornamento dello schema necessario.',
+    schemaSuggestionFailed: 'Suggerimento dello schema fallito',
+    schemaNotFoundNotice: 'File schema non trovato. Abilita lo schema per crearlo.',
+    selectFolderNoMdFiles: 'Nessun file Markdown nella cartella: {path}',
+    batchIngestSkipNotice: 'Saltati {skipped}/{total} file già acquisiti. Acquisizione di {new} nuovi file...',
+    batchIngestAllIngested: 'Tutti i {total} file in questa cartella sono già stati acquisiti.',
+    batchIngestStarting: 'Acquisizione di {count} file da "{folder}" — potrebbe richiedere alcuni minuti. Un report apparirà al completamento.',
+    batchIngestComplete: 'Acquisizione batch completata: {success}/{total} riusciti, {fail} falliti',
+    batchIngestFailedFiles: 'File falliti:',
+    historyTruncated: 'Cronologia troncata agli ultimi {max} turni',
+    historyCleared: 'Cronologia cancellata',
+
+    // Ciclo di feedback utente
+    reviewedPagePreserved: 'Conservazione del contenuto revisionato dall\'utente per: {}',
+
+    // Feedback da Query a Wiki
+    querySuggestSaveTitle: 'Salvare nella Wiki?',
+    querySuggestSaveDesc: 'Questa conversazione contiene conoscenza preziosa. Salvarla nella tua Wiki?',
+    querySuggestSaveYes: 'Salva',
+    querySuggestSaveNo: 'Ignora',
+
+    // Report Acquisizione
+    ingestReportElapsedTime: 'Tempo trascorso',
+    ingestReportSkippedFiles: 'Saltati (già acquisiti)',
+    ingestReportFailedGuidance: 'Questi elementi non sono stati creati automaticamente. Puoi creare manualmente le pagine corrispondenti, oppure abbassare la granularità di estrazione e ri-acquisire il file sorgente.',
+    ingestReportCollisions: 'Collisioni inter-tipo (unite come alias)',
+
+    // Nomi Comandi (sentence case secondo la regola 1 dell'Obsidian Bot)
+    cmdIngestSource: 'Acquisisci singola sorgente',
+    cmdIngestFolder: 'Acquisisci da cartella',
+    cmdQueryWiki: 'Interroga wiki',
+    cmdLintWiki: 'Lint wiki',
+    cmdRegenerateIndex: 'Rigenera indice',
+    cmdSuggestSchema: 'Suggerisci aggiornamenti schema',
+    cmdCancelIngestion: 'Annulla acquisizione corrente',
+    cmdIngestActiveFile: 'Acquisisci file corrente',
+    noActiveFile: 'Nessun file è attualmente aperto',
+    mdOnlyFile: 'Solo i file Markdown possono essere acquisiti',
+
+    // Barra di stato acquisizione
+    ingestionStatusBar: 'Acquisizione... clicca per annullare',
+    lintStatusBar: 'Lint... clicca per annullare',
+    ingestStatusAnalyzing: 'Acquisizione… (clicca per annullare)',
+    lintStatusReading: 'Lint… (clicca per annullare)',
+    lintStatusDuplicates: 'Lint… (clicca per annullare)',
+    lintStatusScanningLinks: 'Lint… (clicca per annullare)',
+    lintStatusAnalyzing: 'Lint… (clicca per annullare)',
+    ingestionCancelling: 'Annullamento — si fermerà al completamento del batch corrente',
+    ingestionCancelled: 'Acquisizione annullata',
+    crossTypeCollisionNotice: '{count} elementi uniti come alias inter-tipo (duplicati entità ↔ concetto prevenuti)',
+
+    // Report Lint
+    lintReportTitle: 'Report lint Wiki',
+    lintReportSummary: 'Panoramica stato Wiki: {total} pagine totali, {aliasesMissing} pagine senza alias, {duplicates} pagine duplicate, {deadLinks} collegamenti interrotti ({deadLinkFromDup} coinvolgono duplicati), {orphans} pagine orfane ({orphanFromDup} sono duplicati), {emptyPages} pagine vuote, {ungroundedQuotes} citazioni non fondate, {tagViolations} tag fuori vocabolario. Lint completato in: {elapsedSeconds}s',
+
+    // Impostazioni LLM avanzate (v1.20.0: predefinito = nessun override specifico del provider)
+    advancedSettingsModeName: 'Impostazioni parametri avanzate',
+    advancedSettingsModeDesc: 'Il predefinito usa il comportamento del tuo provider — non vengono inviati campi di controllo del ragionamento, temperatura o penalità di ripetizione. Questo funziona per la maggior parte degli utenti. Passa a Personalizzato solo se hai bisogno di sovrascrivere esplicitamente i valori predefiniti del provider (es. forzare uno specifico dialetto di controllo del ragionamento, impostare una temperatura non predefinita, ecc.).',
+    advancedSettingsDefault: 'Predefinito (usa comportamento del provider)',
+    advancedSettingsCustom: 'Personalizzato (sovrascrivi i valori predefiniti del provider)',
+    disableThinkingName: 'Disabilita ragionamento',
+    disableThinkingDesc: 'Opt-in. Quando abilitato, il plugin invia una direttiva di controllo del ragionamento al provider e percorre una catena di fallback a 3 livelli (anthropic → openai → none) se il provider la rifiuta. Usalo solo se il tuo provider fa trapelare il contenuto del ragionamento nella risposta e devi sopprimerlo. La maggior parte dei provider gestisce il ragionamento correttamente da sé — lasciarlo disattivato offre qualità migliore.',
+    // Issue #137: suggerimenti di compatibilità per le impostazioni avanzate (tenuti brevi; nessuna
+    // lista di provider per evitare oneri di manutenzione quando i provider cambiano).
+    extractionTemperatureName: 'Temperatura estrazione',
+    extractionTemperatureDesc: 'Range 0–2. Valori più bassi rendono l\'output dell\'LLM più deterministico e fedele. Valori più alti lo rendono più creativo. Lascia vuoto per usare il valore predefinito del tuo provider. Se il tuo provider rifiuta questo valore, il plugin rimuove automaticamente il campo e mostra un avviso una tantum.',
+    chatTemperatureName: 'Temperatura query',
+    chatTemperatureDesc: 'Range 0–2. Come la Temperatura estrazione, ma influisce solo sulle risposte di chat/query. Lascia vuoto per usare il valore predefinito del tuo provider. Se il tuo provider rifiuta questo valore, il plugin rimuove automaticamente il campo e mostra un avviso una tantum.',
+    repetitionPenaltyName: 'Penalità di ripetizione',
+    repetitionPenaltyDesc: 'Range 0–2. Valori più alti riducono i pattern ripetitivi. Lascia vuoto per usare il valore predefinito del tuo provider. Nota di compatibilità: molti provider cloud non accettano questo campo. Il plugin lo rimuove automaticamente su errore 400 e mostra un avviso una tantum.',
+    temperaturePlaceholder: 'vuoto = predefinito provider',
+    lintDeadLinkSection: 'Collegamenti interrotti (rilevati) [{count}]',
+    lintEmptyPageSection: 'Pagine vuote (rilevate) [{count}]',
+    lintOrphanSection: 'Pagine orfane (rilevate) [{count}]',
+    lintContradictionSection: 'Contraddizioni (rilevate)',
+    lintDuplicateSection: 'Pagine duplicate (rilevate)',
+    lintPollutedSection: 'Pagine inquinate (rilevate) [{count}]',
+    lintPollutedItem: '- [[{page}]] → dovrebbe essere "{clean}"',
+    lintSourcesNormalizedSection: 'Sorgenti normalizzate (corrette automaticamente) [{files} file / {entries} voci]',
+    lintSourcesNormalizedItem: 'Pulite {entries} voci sorgenti inquinate in {files} file (percorsi esterni, estensioni .md, pipe degli alias rimossi e deduplicati).',
+    lintNoIssuesFound: 'Nessun duplicato, collegamento interrotto, pagina vuota, pagina orfana o citazione non fondata rilevato.',
+    lintQuoteGroundingSection: 'Citazioni non fondate (rilevate) [{count}]',
+    lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: "{quote}"',
+    lintDeadLinkItem: '- [[{source}]] → **{target}** (la pagina non esiste){dupFlag}',
+    lintDeadLinkMore: '- ... {count} altri collegamenti interrotti',
+    lintEmptyPageItem: '- [[{page}]] — meno di 50 caratteri di contenuto sostanziale',
+    lintOrphanItem: '- [[{page}]] — nessun\'altra pagina Wiki collega qui{dupFlag}',
+    lintDuplicateItem: '- [[{target}]] e [[{source}]] — {reason}',
+    lintDeadLinkAffectedByDup: ' (⚠️ coinvolge una pagina duplicata)',
+    lintOrphanIsDuplicate: ' (⚠️ pagina duplicata)',
+    lintContradictionOpen: 'Contraddizioni aperte: {count}',
+    lintContradictionAutoFixed: '({count} corrette automaticamente in questa esecuzione)',
+    lintContradictionItem: '- [{status}] [[{page}]] — {claim}',
+    lintContradictionStatusDetected: 'Rilevata',
+    lintContradictionStatusPendingFix: 'Correzione in attesa',
+    lintLLMAnalysisHeading: '## Analisi LLM',
+
+    // Prompt di analisi Lint
+    lintAnalysisPrompt: 'Sei un assistente per la manutenzione della Wiki. Controlla la salute della Wiki in base alle seguenti informazioni.\n\nIndice Wiki:\n{index}\n\nCampione di contenuto delle pagine Wiki ({total} pagine totali, mostrate {sample} pagine):\n{contentSample}\n\nRisultati dei controlli programmatici (già verificati, non ripetere):\n{progReport}\n\nControlla i seguenti aspetti (salta collegamenti interrotti/vuoti/orfani già rilevati dai controlli programmatici):\n1. **Contraddizioni** — se pagine diverse si contraddicono sugli stessi fatti\n2. **Obsolescenza** — se qualche affermazione è chiaramente datata\n3. **Mancanti** — quali concetti importanti mancano di pagine autonome\n4. **Struttura** — se la struttura delle pagine è ragionevole e i riferimenti incrociati sono adeguati\n\nFormato di output: usa Markdown, iniziando con "## Analisi LLM". Ogni risultato su una riga "- [problema specifico]". Se non ci sono problemi, scrivi "Nessun problema evidente trovato."',
+
+    // Avanzamento Correzioni Lint
+    lintFixProgress: 'Correzione {current}/{total}: [[{target}]]',
+    lintFixDeadComplete: 'Correzione collegamenti interrotti completata. Corretti {fixed}/{total} elementi.',
+    lintFillProgress: 'Espansione {current}/{total}: {page}',
+    lintFillComplete: 'Espansione delle pagine completata. Compilate {filled}/{total} pagine.',
+    lintDeleteCompleted: 'Eliminati {count} stub vuoti',
+    lintDeleteFailed: 'Eliminazione fallita di {failed}/{total} stub vuoti (vedi la console per i dettagli)',
+    lintFillFailed: 'Espansione fallita: {page} — {error}',
+    lintLinkProgress: 'Collegamento {current}/{total}: {page}',
+    lintLinkComplete: 'Collegamento delle orfane completato. Collegate {linked} pagine.',
+    lintFixNoAction: 'Nessuna azione intrapresa (nessun client)',
+    lintFixIndexUpdated: 'Indice e log della Wiki aggiornati.',
+    lintFixAllComplete: 'Tutte le correzioni completate. Vedi il log per i dettagli.',
+    lintPollutedFixed: 'Pagine inquinate corrette: {fixed}/{total}. Indice rigenerato.',
+    regenerateIndexCompleted: 'Indice rigenerato',
+    operationFailed: 'Fallito: ',
+
+    // Modale Report Lint
+    lintModalActionsTitle: 'Suggerimenti di correzione (richiede token LLM):',
+    lintLogReference: 'Report completo salvato in log.md',
+    lintModalFixDeadLinks: 'Correggi collegamenti interrotti ({count})',
+    lintModalExpandEmpty: 'Espandi pagine vuote ({count})',
+    lintModalDeleteEmpty: 'Elimina stub vuoti ({count})',
+    lintModalLinkOrphans: 'Collega pagine orfane ({count})',
+    lintModalAnalyzeSchema: 'Analizza schema',
+    lintModalMergeDuplicates: 'Unisci duplicati ({count})',
+    lintModalFixAll: 'Correzione intelligente totale ({count} problemi)',
+    lintMergeProgress: 'Unione {current}/{total}: {source} → {target}',
+    lintMergeComplete: 'Unione duplicati completata. Unite {merged}/{total} coppie.',
+
+    // Modale Report Acquisizione
+    ingestReportTitle: 'Report acquisizione',
+    ingestReportSourceFile: 'File sorgente',
+    ingestReportCreated: 'Create',
+    ingestReportUpdated: 'Aggiornate',
+    ingestReportContradictions: 'Contraddizioni trovate',
+    ingestReportFailedTitle: 'Acquisizione fallita',
+    ingestReportErrorDetail: 'Dettaglio errore',
+    ingestReportClose: 'Chiudi',
+    ingestReportCreatedPages: 'Pagine create: {count}',
+    ingestReportUpdatedPages: 'Pagine aggiornate: {count}',
+    ingestReportEntitiesCount: '{count} entità',
+    ingestReportConceptsCount: '{count} concetti',
+    ingestReportContradictionsFound: 'Contraddizioni trovate: {count}',
+    ingestReportEntityType: 'Entità',
+    ingestReportConceptType: 'Concetto',
+    timeMinutes: 'min',
+    timeSeconds: 'sec',
+
+    // Avvisi Limite di Frequenza
+    rateLimitDetected: '⚠️ Limite di frequenza rilevato: {count} pagina/e fallita/e con errori 429. Prova: (1) Abbassa la concorrenza a {suggestedConcurrency} o 1 (seriale), (2) Aumenta il ritardo batch a {suggestedDelay}ms, (3) Passa a un provider con limiti di frequenza più alti.',
+    rateLimitDetectedShort: '⚠️ Limite di frequenza raggiunto — considera di abbassare la concorrenza o aumentare il ritardo batch in Impostazioni → Accelerazione acquisizione.',
+
+    // Avviso sorgente lunga
+    longSourceNotice: '📄 "{filename}" ha {lines} righe ({size}). I testi lunghi richiedono un\'estrazione iterativa a batch — l\'LLM legge l\'intero documento in più passaggi. Questo potrebbe richiedere alcuni minuti. Abbi pazienza.',
+    longSourceNoticeShort: '📄 File di grandi dimensioni rilevato ({lines} righe). L\'acquisizione potrebbe richiedere del tempo.',
+} as const;

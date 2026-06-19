@@ -9,6 +9,7 @@ import { DE_TEXTS } from './texts/de';
 import { FR_TEXTS } from './texts/fr';
 import { ES_TEXTS } from './texts/es';
 import { PT_TEXTS } from './texts/pt';
+import { IT_TEXTS } from './texts/it';
 
 export const TEXTS = {
   en: EN_TEXTS,
@@ -19,4 +20,5 @@ export const TEXTS = {
   fr: FR_TEXTS,
   es: ES_TEXTS,
   pt: PT_TEXTS,
+  it: IT_TEXTS,
 } as const;

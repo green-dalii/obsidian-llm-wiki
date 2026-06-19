@@ -24,6 +24,7 @@ export const KO_TEXTS = {
     languageFr: 'Français',
     languageEs: 'Español',
     languagePt: 'Português',
+    languageIt: 'Italiano',
 
     // Status
     statusTitle: 'LLM 클라이언트 상태',

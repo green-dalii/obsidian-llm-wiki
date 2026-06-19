@@ -24,6 +24,7 @@ export const FR_TEXTS = {
     languageFr: 'Français',
     languageEs: 'Español',
     languagePt: 'Português',
+    languageIt: 'Italiano',
 
     // Status
     statusTitle: 'État du client LLM',

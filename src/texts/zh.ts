@@ -24,6 +24,7 @@ export const ZH_TEXTS = {
     languageFr: 'Français',
     languageEs: 'Español',
     languagePt: 'Português',
+    languageIt: 'Italiano',
 
     // 状态
     statusTitle: 'LLM Client 状态',

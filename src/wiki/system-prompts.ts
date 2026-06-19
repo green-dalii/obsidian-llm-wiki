@@ -107,6 +107,18 @@ export const SECTION_LABELS: Record<string, Record<string, string>> = {
     existing_knowledge: 'Conhecimento existente', resolution_suggestion: 'Sugestão de resolução',
     source_page: 'Página de origem', related_pages: 'Páginas relacionadas', updated: 'Atualizado',
   },
+  it: {
+    basic_information: 'Informazioni di base', description: 'Descrizione',
+    related_content: 'Contenuti correlati', mentions_in_source: 'Menzioni nella sorgente',
+    new_information: 'Nuove informazioni', definition: 'Definizione',
+    key_characteristics: 'Caratteristiche principali', applications: 'Applicazioni',
+    related_concepts: 'Concetti correlati', related_entities: 'Entità correlate',
+    source: 'Sorgente', core_content: 'Contenuto principale', key_entities: 'Entità chiave',
+    key_concepts: 'Concetti chiave', main_points: 'Punti principali',
+    resolved_contradictions: 'Contraddizioni risolte', new_claim: 'Nuova affermazione',
+    existing_knowledge: 'Conoscenza esistente', resolution_suggestion: 'Suggerimento di risoluzione',
+    source_page: 'Pagina sorgente', related_pages: 'Pagine correlate', updated: 'Aggiornato',
+  },
 };
 
 export function getSectionLabels(settings: LLMWikiSettings): Record<string, string> {

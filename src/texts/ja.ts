@@ -24,6 +24,7 @@ export const JA_TEXTS = {
     languageFr: 'Français',
     languageEs: 'Español',
     languagePt: 'Português',
+    languageIt: 'Italiano',
 
     // Status
     statusTitle: 'LLM Client の状態',

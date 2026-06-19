@@ -78,7 +78,7 @@ export interface LLMWikiSettings {
   baseUrl: string;
   model: string;
   wikiFolder: string;
-  language: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt';
+  language: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it';
   wikiLanguage: string;
   useCustomWikiLanguage?: boolean;
   availableModels?: string[];
@@ -267,6 +267,7 @@ export const WIKI_LANGUAGES: Record<string, string> = {
   'fr': 'Français',
   'es': 'Español',
   'pt': 'Português',
+  'it': 'Italiano',
 };
 
 // Valid frontmatter tag values per schema classification rules.

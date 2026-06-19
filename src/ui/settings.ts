@@ -84,8 +84,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         dropdown.addOption('fr', this.getText('languageFr'));
         dropdown.addOption('es', this.getText('languageEs'));
         dropdown.addOption('pt', this.getText('languagePt'));
+        dropdown.addOption('it', this.getText('languageIt'));
         dropdown.setValue(this.tempSettings.language);
-        dropdown.onChange((value: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt') => {
+        dropdown.onChange((value: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it') => {
           this.tempSettings.language = value;
           this.display();
         });
