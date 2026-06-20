@@ -95,37 +95,33 @@ Major quality release addressing previously-unprocessable large sources and a cl
 
 ---
 
-## Next Milestone: v1.20.0 — Core Module Refactor Landing & Schema Coherence
+## Next Milestone: v1.21.0 — Schema Coherence Phase 1 (in progress)
 
-Release focus: land the modular-structure refactor (already fully absorbed into main via incremental PRs across v1.18.0–v1.19.1), then schema coherence, graph-based features, and workflow scale-up. The old `refactor/modular-structure` branch (pre-v1.18.0 base) has 0 unique commits — its entire diff was absorbed into main across ~470 commits from v1.18.0 to v1.19.1. No batch merge needed.
+v1.20.0 (2026-06-18) shipped provider-first thinking control + reasoning UI; v1.20.1–v1.20.3 (2026-06-18 to 2026-06-20) shipped four parity/latent-bug hotfixes (Anthropic prefill, Anthropic system-role, source-slug fingerprint, Stage-4 reviewed guard) and added Italian locale (9 languages total).
 
-### Phase 1: Post-refactor cleanup & stabilization (v1.20.0)
-- Delete stale `refactor/modular-structure` branch (all content already in main).
-- **LintFixer god-class decomposition to module-level functions** (6 functions, already done in main).
-- **`utils.ts` god-module → `core/` modules split** (10 modules, already done in main).
-- Validate that all 102 refactor-delta src files are accounted for in current `main` file layout.
-- Consolidate any remaining technical debt from the manual split (file relocation, adapter exports).
+Release focus: ship Schema Coherence Phase 1 (`SchemaContext` + `buildSchemaSectionTemplate` + tag vocabulary injection), then continue to Phase 2/3. Italian locale + i18n-parity test already in main from v1.20.3 hotfix cycle.
 
-### Phase 2: Schema Coherence
-- **#124 — Schema Page Template truth source.** Page Template as body-structure authority; header language decoupled from `wikiLanguage`; `tagVocabularyMode` synced with schema Classification Rules. 2 PRs.
-- **#131 Tier 2 — Replace Stage 4 LLM rewrite with deterministic Mentions append.** Full Stage 4 cost removal.
+### Phase 1: Schema Coherence (in progress)
+- **`SchemaContext`** shared parsed representation of `schema/config.md`, used by both system prompts and generation prompts (eliminates the "schema template overridden by hardcoded sections" bug from #124).
+- **`buildSchemaSectionTemplate(ctx, pageType)`** extracts user-defined sections from `**Sections:**` lists; `hasUserSections` flag for backward compat.
+- **`buildActiveTagVocabularySection` injection into system prompt** with dedup guard. Custom tags now active in every LLM call that needs them.
+- **Settings UI default mode** previews user-defined custom tags with activation hint.
+- **v1.20.0 migration** resets `disableThinking` to `false` and `advancedSettingsMode` to `'default'` (already shipped).
 
-### Phase 3: Graph-based features & Workflow scale-up
-- **#117 — Graph-based domain tag inference.** `in_degree × out_degree` hub detection; hub domain labeling via cheap LLM call; tag propagation with explainability.
-- **#97 — One-click schema apply + backup.** Needs backup/restore design pass.
-- **#122 — Ingestion history panel.** Start with log.md UI layer.
-- **#130 — In-place batch ingest queue.** Composes with #122 and `pageGenerationConcurrency`.
+### Phase 2 (next, after Phase 1 lands)
+- Wire `generation.ts` to consume `buildSchemaSectionTemplate` (replace hardcoded `## {{section_xxx}}`).
+- Custom section name syntax extensions.
+- #97 one-click apply with auto-backup + diff preview (depends on Phase 1 single-source-of-truth).
 
-### Out of scope (v1.20.0+)
+### Out of scope (v1.21.0+)
 
-- **#91 (nested tags)** — awaiting #85 in-the-wild feedback; chip input already accepts `/`.
 - **#36 — Source title in frontmatter** — needs clarification from issue author.
 - **P3 test infrastructure:** wiki-engine full-path integration tests; query-engine core flow tests (requires Obsidian App + Modal + DOM mocks).
 - **Restore true streaming for 3rd-party providers** (requires Obsidian native streaming).
 - **Missing Concept Pages tracker** (parse Lint LLM prose into structured reports).
 - **Lint performance:** hash-bucket dedup prefilter; hierarchical LLM health analysis.
 
-### v1.20.0+ Theme — Query Engine Evolution (P3 research)
+### v1.21.0+ Theme — Query Engine Evolution (P3 research)
 
 Query engine is currently a "structured-context RAG" (keyword + LLM semantic selection + 3-5 page context), not pure Karpathy full-context reasoning. Four-tier improvement roadmap:
 - **Tier A (low cost, no new LLM calls):** enhance index with `rel:` field; multi-hop link expansion from selected pages
