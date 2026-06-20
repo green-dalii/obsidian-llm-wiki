@@ -97,8 +97,8 @@ src/
 ├── main.ts                         # Plugin entry point
 ├── types.ts                        # Shared types + EngineContext
 ├── constants.ts                    # Centralized constants (token budgets, notice durations)
-├── prompts.ts                      # Prompt barrel (8 languages)
-├── texts.ts                        # i18n texts (barrel, 8 languages)
+├── prompts.ts                      # Prompt barrel (9 languages)
+├── texts.ts                        # i18n texts (barrel, 9 languages)
 ├── llm-client.ts                   # LLM clients (Anthropic, AnthropicCompat, OpenAICompat)
 ├── llm-client-wrapper.ts           # Advanced settings injection wrapper
 ├── wiki/                           # Wiki engine
@@ -157,7 +157,7 @@ src/
 │   ├── sse-parser.ts               # SSE event parser (anthropic + openai formats)
 │   ├── token-cap.ts                # max_tokens cap helper
 │   └── conflict-resolver.ts        # Conflict detection
-└── __tests__/                      # Unit tests (vitest, 771 tests)
+└── __tests__/                      # Unit tests (vitest, 813 tests)
 ```
 
 ---
@@ -388,8 +388,8 @@ git push origin X.Y.Z
 
 ## 🌍 Internationalization
 
-- **UI**: 8 languages, 269+ fields
-- **Wiki output**: 8 languages + custom input
+- **UI**: 9 languages, 269+ fields
+- **Wiki output**: 9 languages + custom input
 - **Code**: English only, minimal comments
 
 ## 📋 Git Commit Standards

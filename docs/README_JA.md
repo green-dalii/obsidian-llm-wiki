@@ -6,9 +6,9 @@
 >
 > **Obsidian公式評価95/100** | 8言語ネイティブ対応 | 活発に維持、継続進化
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-8-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-9-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
 
-[English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | [Italiano](README_IT.md)
+[English](../README.md) | [中文文档](README_CN.md) | **日本語** | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | [Italiano](README_IT.md)
 
 [公式サイト](https://llmwiki.greenerai.top/) | [ブログ](https://llmwiki.greenerai.top/blog/) | [フィードバック](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 DeepWiki でコードベースを探索](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -139,6 +139,8 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 
 **本リリースは完全に後方互換性があります。** v1.0.0以降、破壊的変更はありません。
 
+**v1.20.3へアップグレードする場合**：ソースページのスラッグにフィンガープリントが付与されます（すべての `sources/<slug>.md` が `sources/<ベース名>_<6桁hex>.md` になります）。次回の取り込み時に、既存の `sources/` ページはその場でリネームされ、すべての `[[sources/<slug>]]` バックリンクが自動更新されます。操作は不要ですが、Obsidian のファイルエクスプローラーで一瞬リネームが表示されることがあります。`sources/<slug>.md` パスを直接参照する外部スクリプトやブックマークがある場合は、新しいフィンガープリント付きパスに更新してください。
+
 **v1.16.0以前のバージョンからアップグレードする場合**、一度 **Lint Wiki** を実行して過去の問題を自動修正してください。
 
 **複数バージョンにわたって構築されたWikiの場合：**
@@ -200,7 +202,7 @@ v1.20.3は、wiki書き込みパスの3つの潜在バグを修正する**パッ
 - **🔄 5xx Auto Retry** — 全clientsでHTTP 5xx/429/529エラー時exponential backoff retry（max 2）
 - **📋 Dynamic Model List** — Provider APIからreal-time fetch
 - **🌐 Wiki Output Language** — Interface独立の8言語（English/Chinese/Japanese/Korean/German/French/Spanish/Portuguese）、custom inputサポート
-- **🌍 Full UI Internationalization** — プラグインUIが8言語対応（EN/ZH/JA/KO/DE/FR/ES/PT）、269+ UIフィールド完全翻訳、自然なローカル表現
+- **🌍 Full UI Internationalization** — プラグインUIが9言語対応（EN/ZH/JA/KO/DE/FR/ES/PT/IT）、269+ UIフィールド完全翻訳、自然なローカル表現
 - **⚡ Rate Limit Guardian** — 並列生成でレート制限発生時自動検出し提案：並列度を下げる、バッチ遅延を増やす、Providerを切り替える
 - **🦙 Web Clipper Compatible** — Obsidian Web Clipperの`Clippings/`フォルダを1クリックで監視リストに追加、Webクリップを自動Wiki化
 
@@ -435,6 +437,12 @@ v1.7.17+にアップグレード — Lintは50ページごとにObsidianのUIス
 **安全なアップグレード方法は？**
 プラグインはソースファイルを変更しません。`wiki/` をバックアップ → プラグイン更新 → **Regenerate index** → **Lint Wiki** → 選択的に修正。
 
+**v1.20.3 へのアップグレード後、`sources/` ファイル名が変更されました。問題ですか？（v1.20.3+）**
+いいえ — 新しい衝突回避のためのソースページスラッグフィンガープリントが機能しています。すべての `sources/<slug>.md` が `sources/<ベース名>_<6桁hex>.md` になります（hex はファイルのフルパスの FNV-1a ハッシュ）。別フォルダで同じベース名のファイル（例：Academy コースの 11 個の `About this course.md`）が衝突しなくなります。再取り込み時に既存の `sources/` ページはその場でリネームされ、すべての `[[sources/<slug>]]` バックリンクが自動更新されます。`sources/<古いslug>.md` を指す外部スクリプトやブックマークがある場合は、新しいフィンガープリント付きパスに更新してください。
+
+**無関係なソースを再取り込みすると、`reviewed: true` でロックしたページを上書きしますか？（v1.20.3+）**
+いいえ — Stage 4（`updateRelatedPage`）も `reviewed: true` を尊重し、append-only パスにルーティングされます。取り込みパスと同じ動作です。編集済みの本文はそのまま保持され、本当に新しいコンテンツのみが追加されます。
+
 **ヘルプを得るには？**
 - [GitHub Issues](https://github.com/green-dalii/obsidian-llm-wiki/issues) — バグ報告
 - [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions) — 質問とフィードバック
@@ -464,7 +472,7 @@ MIT License — [LICENSE](LICENSE)を参照
 
 - **💡 Concept:** [Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — Original LLM Wiki concept
 - **🛠️ Platform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + OpenAI SDK (3rd-party OpenAI互換 Provider)
+- **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + 手書きの OpenAI 互換 HTTP クライアント（サードパーティ OpenAI 互換 Provider）
 
 ---
 

@@ -52,8 +52,8 @@ src/
 ├── main.ts              # Plugin entry point
 ├── types.ts             # Shared types + EngineContext
 ├── constants.ts         # Centralized constants (token budgets, notice durations, WIKI_SUBFOLDERS)
-├── texts.ts             # i18n texts (barrel, 8 languages)
-├── prompts.ts           # Prompt barrel (8 languages)
+├── texts.ts             # i18n texts (barrel, 9 languages)
+├── prompts.ts           # Prompt barrel (9 languages)
 ├── llm-client.ts        # LLM clients (Anthropic via requestUrl, OpenAI-compatible)
 ├── llm-client-wrapper.ts # Advanced settings injection wrapper
 ├── core/                # Pure function modules (zero IO, fully testable)
@@ -110,15 +110,15 @@ src/
 │   ├── auto-maintain.ts # File watcher, periodic lint, startup quick fixes
 │   └── analyze.ts       # Schema-analyze with cancel wiring
 ├── ui/                  # Settings + Modals
-├── texts/               # i18n (8 languages)
-└── __tests__/           # Unit tests (vitest, 697 tests across 43 files)
+├── texts/               # i18n (9 languages)
+└── __tests__/           # Unit tests (vitest, 813 tests across 54 files)
 ```
 
 ## Internationalization
 
-- **UI**: 8 languages (EN/ZH/JA/KO/DE/FR/ES/PT), text keys in `src/texts/`
-- **New text**: add the key to `en.ts` first, then translate to all 7 other languages (in lockstep)
-- **Wiki output**: 8 languages independent of UI, with custom input option
+- **UI**: 9 languages (EN/ZH/JA/KO/DE/FR/ES/PT/IT), text keys in `src/texts/`
+- **New text**: add the key to `en.ts` first, then translate to all 8 other languages (in lockstep). The i18n-parity test (`src/__tests__/root/i18n-parity.test.ts`) prevents silent EN fallback if a locale is missing keys.
+- **Wiki output**: 9 languages independent of UI, with custom input option
 
 ## Testing
 

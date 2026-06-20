@@ -4,11 +4,11 @@
 
 > Base de connaissances structurée alimentée par IA. Ingestion automatique des notes et génération d'un Wiki interconnecté — inspiré du concept de [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) d'Andrej Karpathy.
 >
-> **Note officielle Obsidian 95/100** | Support natif de 8 langues | Maintenance active, évolution continue
+> **Note officielle Obsidian 95/100** | Support natif de 9 langues | Maintenance active, évolution continue
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-8-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-9-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
 
-[English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | [Italiano](README_IT.md)
+[English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | **Français** | [Español](README_ES.md) | [Português](README_PT.md) | [Italiano](README_IT.md)
 
 [Site officiel](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Retour d'expérience](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explorer le code avec DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -136,6 +136,8 @@ Ce projet évolue rapidement. Nous vous recommandons de rester à jour :
 
 **Cette version est entièrement rétrocompatible.** Aucun changement cassant depuis la v1.0.0.
 
+**Mise à niveau vers v1.20.3 depuis toute version antérieure** : les slugs des pages source portent désormais une empreinte (chaque `sources/<slug>.md` devient `sources/<nom_de_base>_<6 hex>.md`). Lors de votre prochaine ingestion, les pages `sources/` existantes sont renommées sur place et tous les backlinks `[[sources/<slug>]]` sont mis à jour automatiquement — aucune action requise, mais le renommage de fichier peut apparaître brièvement dans l'explorateur de fichiers d'Obsidian. Si vous avez des scripts externes ou des marque-pages qui référencent directement des chemins `sources/<slug>.md`, mettez-les à jour vers les nouveaux chemins avec empreinte.
+
 **Pour les wikis construits sur plusieurs versions :**
 1️⃣ Reconstruisez votre index — « Régénérer l'index »
 2️⃣ Lancez Vérifier le wiki — scanne les problèmes
@@ -191,8 +193,8 @@ Détails dans [CHANGELOG.md](../CHANGELOG.md).
 - **🔌 Multi-Provider** — Anthropic, Anthropic Compatible (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, MiniMax, LM Studio, OpenRouter, Ollama, endpoints personnalisés
 - **🔄 5xx Retry** — Retry automatique avec backoff exponentiel (max 2) sur les erreurs HTTP 5xx/429/529 pour tous les clients
 - **📋 Dynamic Model List** — Récupération en temps réel depuis les APIs des providers
-- **🌐 Wiki Output Language** — 8 langues indépendantes de l'UI (EN/ZH/JA/KO/DE/FR/ES/PT), avec entrée personnalisée
-- **🌍 Internationalisation complète de l'UI** — Interface du plugin en 8 langues (EN/ZH/JA/KO/DE/FR/ES/PT), 269+ champs UI entièrement traduits, expressions locales naturelles
+- **🌐 Wiki Output Language** — 9 langues indépendantes de l'UI (EN/ZH/JA/KO/DE/FR/ES/PT/IT), avec entrée personnalisée
+- **🌍 Internationalisation complète de l'UI** — Interface du plugin en 9 langues (EN/ZH/JA/KO/DE/FR/ES/PT/IT), 269+ champs UI entièrement traduits, expressions locales naturelles
 - **⚡ Rate Limit Guardian** — Quand la génération parallèle déclenche des rate limits, auto-détection et suggestions : réduire la concurrence, augmenter le délai batch, changer de provider
 - **🦙 Web Clipper Compatible** — Ajout en un clic du dossier `Clippings/` d'Obsidian Web Clipper à la watchlist, clips web auto-ingérés dans le Wiki
 
@@ -440,6 +442,12 @@ Oui. Définissez `reviewed: true` dans le frontmatter pour protéger de l'écras
 **Mise à niveau sécurisée ?**
 Le plugin ne modifie jamais vos fichiers sources. Sauvegardez `wiki/` → mettez à jour le plugin → **Regenerate index** → **Lint Wiki** → corrigez sélectivement.
 
+**Mes fichiers `sources/` ont été renommés après la mise à niveau vers v1.20.3 — y a-t-il un problème ? (v1.20.3+)**
+Non — c'est la nouvelle empreinte de slug source anti-collision en action. Chaque `sources/<slug>.md` est désormais `sources/<nom_de_base>_<6 hex>.md` (le hex est un hash FNV-1a du chemin complet du fichier). Les fichiers ayant le même nom de base dans des dossiers différents (p. ex. 11× `About this course.md` dans les cours Academy) n'entrent plus en collision. La ré-ingestion renomme les pages `sources/` existantes sur place et tous les backlinks `[[sources/<slug>]]` sont mis à jour automatiquement. Si vous avez des scripts externes ou des marque-pages pointant vers `sources/<ancien-slug>.md`, mettez-les à jour vers les nouveaux chemins avec empreinte.
+
+**La ré-ingestion d'une source non liée écrasera-t-elle une page verrouillée avec `reviewed: true` ? (v1.20.3+)**
+Non — Stage 4 (`updateRelatedPage`) respecte désormais `reviewed: true` et route vers le chemin append-only, comme le chemin d'ingestion. Votre corps curé survit tel quel ; seuls les contenus véritablement nouveaux sont ajoutés.
+
 **Comment obtenir de l'aide ?**
 - [GitHub Issues](https://github.com/green-dalii/obsidian-llm-wiki/issues) — signaler des bugs
 - [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions) — questions & retours
@@ -468,6 +476,6 @@ MIT License — voir [LICENSE](LICENSE).
 
 - **💡 Concept :** [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) d'Andrej Karpathy — la vision originale ayant inspiré ce plugin
 - **🛠️ Plateforme :** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **🔌 Transport LLM :** `requestUrl` d'Obsidian (Anthropic) + OpenAI SDK (fournisseurs tiers compatibles OpenAI)
+- **🔌 Transport LLM :** `requestUrl` d'Obsidian (Anthropic) + client HTTP compatible OpenAI codé à la main (fournisseurs tiers compatibles OpenAI)
 
 **Closes:** #90 — Les pages source héritent désormais des tags du frontmatter de la note source au lieu de noms de concepts générés par LLM.

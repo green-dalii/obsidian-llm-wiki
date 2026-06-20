@@ -4,9 +4,9 @@
 
 > Base di conoscenza strutturata e potenziata dall'IA che acquisisce le tue note e genera un Wiki interconnesso — basato sul [concetto di LLM Wiki di Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 >
-> **Punteggio ufficiale Obsidian 95/100** | Supporto nativo per 8 lingue | Manutenzione attiva, evoluzione continua
+> **Punteggio ufficiale Obsidian 95/100** | Supporto nativo per 9 lingue | Manutenzione attiva, evoluzione continua
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-8-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-9-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
 
 [English](../README.md) | [中文文档](README_CN.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | **Italiano**
 
@@ -25,7 +25,8 @@
   - [🔑 Configurare un provider LLM](#-configurare-un-provider-llm)
   - [🎮 Utilizzo](#-utilizzo)
   - [⚠️ Aggiornamento da una versione precedente?](#️-aggiornamento-da-una-versione-precedente)
-- [⚡ Novità nella v1.20.2](#-novità-nella-v1202)
+- [⚡ Novità nella v1.20.3](#-novità-nella-v1203)
+- [✨ Funzionalità](#-funzionalità)
 
   - [📊 Qualità della conoscenza](#-qualità-della-conoscenza)
   - [🛠️ Manutenzione](#️-manutenzione)
@@ -146,6 +147,8 @@ Riacquisire la stessa sorgente esegue aggiornamenti incrementali sulle pagine di
 
 **Questa release è completamente retrocompatibile.** Nessuna modifica che comprometta la compatibilità dalla v1.0.0 — le tue pagine Wiki, le impostazioni e i flussi di lavoro esistenti vengono preservati. Non sono necessarie riconfigurazioni o migrazioni di dati.
 
+**Aggiornamento a v1.20.3 da qualsiasi versione precedente**: gli slug delle pagine sorgente ora hanno un'impronta digitale (ogni `sources/<slug>.md` diventa `sources/<nome_base>_<6 hex>.md`). Alla tua prossima acquisizione, le pagine `sources/` esistenti vengono rinominate sul posto e tutti i backlink `[[sources/<slug>]]` vengono aggiornati automaticamente — nessuna azione richiesta, ma la ridenominazione del file può apparire brevemente nell'esploratore file di Obsidian. Se hai script esterni o segnalibri che fanno riferimento direttamente a percorsi `sources/<slug>.md`, aggiornali ai nuovi percorsi con impronta.
+
 **Se il tuo Wiki esistente è stato costruito attraverso molte versioni**, alcune pagine potrebbero non disporre delle funzionalità più recenti (alias, deduplicazione consapevole degli alias, prompt modernizzati). Esegui **Lint Wiki** per vedere cosa richiede attenzione. Smart Fix All gestisce le pulizie più comuni con un clic.
 
 **Se aggiorni da una versione precedente alla v1.16.0**, esegui **Lint Wiki** una volta per correggere automaticamente i problemi storici:
@@ -186,21 +189,70 @@ Impostazioni → **LLM Configuration**:
 
 ---
 
-## ⚡ Novità nella v1.20.2
+## ⚡ Novità nella v1.20.3
 
-La v1.20.2 è una **release PATCH** che corregge la compatibilità con l'API Anthropic per i modelli Claude più recenti (Opus 4.8, Sonnet 4.6, Fable 5, Mythos 5). Combinata con il controllo del thinking provider-first della v1.20.0 e con il rilevamento del prefill della v1.20.1, questa release garantisce il pieno supporto di Anthropic su tutti i modelli attuali.
+La v1.20.3 è un **hotfix PATCH** che corregge tre bug latenti nel percorso di scrittura del wiki. Nessuna nuova funzionalità — le tre correzioni sono fix di parità/bug latenti che ripristinano un comportamento che avrebbe dovuto esserci fin dall'inizio.
 
-- **🔧 Correzione del fallback Anthropic (PR #151).** L'API Messages di Anthropic accetta solo i ruoli `user`/`assistant` nell'array dei messaggi — le istruzioni di sistema devono essere un campo di primo livello. I precedenti percorsi di retry del fallback inserivano erroneamente `{role: 'system'}` nei messaggi, causando un secondo errore 400. Correzione contribuita da @Indexed-Apogrypha.
-- **🧠 Controllo del thinking provider-first (v1.20.0).** La modalità predefinita NON invia alcun campo di controllo del thinking — è il provider a decidere se ragionare. Gli utenti che desiderano esplicitamente sopprimere il thinking possono abilitare "Disable thinking" nelle Custom Advanced Settings.
-- **💭 UI del thinking richiudibile (v1.20.0).** Quando un modello in grado di ragionare (DeepSeek, ecc.) restituisce contenuto di ragionamento, questo appare in un pannello richiudibile sopra la risposta. Completamente localizzato in 8 lingue.
-- **🔧 Correzione baseUrl Anthropic (v1.20.0, Issue #141, #134).** `AnthropicClient` normalizza `/v1` nell'URL di base, prevenendo gli errori 404.
-- **🔧 gpt-5 max_completion_tokens (v1.20.0, Issue #143).** I modelli della serie GPT-5 usano il parametro di token corretto.
-- **💬 Query Wiki UX (v1.20.0).** Rispetta `wikiFolder`, scorre automaticamente, allinea a destra i messaggi dell'utente.
-- **🔄 Migrazione automatica.** Gli utenti che aggiornano dalla v1.19.x hanno `disableThinking` reimpostato automaticamente su `false`.
+- **🔧 Correzione collisione slug delle pagine sorgente (Issue #155, PR #156).** Quando due file sorgente condividevano lo stesso basename tra cartelle (es. 11× `About this course.md` nei corsi Academy), `slugify(basename)` produceva lo stesso slug per entrambi — il secondo ingest **sovrascriveva silenziosamente** il primo, e ogni backlink `[[sources/<slug>]]` puntava alla sorgente sbagliata. Fix: ogni slug sorgente è ora `<basename>_<FNV-1a 6 hex del percorso completo>`. Re-ingerendo un vault esistente, le pagine `sources/` vengono rinominate; i backlink si aggiornano sul posto. Contributo di @Indexed-Apogrypha.
+- **🔧 Dedup degli alias in `mergeFrontmatter` (PR #154).** Re-ingest ripetuti potevano far crescere senza limiti l'array `aliases` — una pagina reale aveva accumulato lo stesso blocco di alias ~15× (86 righe duplicate). `mergeFrontmatter` ora deduplica `fm.aliases` in parità con `enforceFrontmatterConstraints`. Contributo di @DocTpoint.
+- **🔧 Guardia Stage-4 `reviewed: true` (PR #158).** Re-ingerendo una nota non correlata, l'LLM poteva riscrivere il corpo di una pagina `reviewed: true` curata — il blocco reviewed si applicava solo su `createOrUpdatePage`, non su Stage 4. Fix: `updateRelatedPage` ora instrada le pagine `reviewed: true` verso `appendToReviewedPage`. Contributo di @DocTpoint.
+- **🛠 Manutenzione tsconfig.** `lib` aggiornato a ES2021; rimosso `baseUrl` non più utilizzato.
 
-Consigliamo vivamente a tutti gli utenti di aggiornare a questa versione, in particolare se usi i modelli Claude di Anthropic.
+Consigliamo vivamente a tutti gli utenti di aggiornare a questa versione, in particolare se si importano più note che condividono nomi di file tra cartelle, o se si usa il blocco pagina `reviewed: true`.
 
 Vedi [CHANGELOG.md](../CHANGELOG.md) per i dettagli completi.
+
+## ✨ Funzionalità
+
+### 📊 Qualità della conoscenza
+
+- **🔍 Estrazione di entità/concetti** — l'LLM estrae entità (persone, organizzazioni, prodotti, eventi, ecc.) e concetti (teorie, metodi, termini, ecc.) dalle tue note e genera pagine Wiki autonome. Granularità di estrazione flessibile (minima ~5, grossolana ~10, standard ~50, fine ~100, personalizzata 1–500) bilancia la profondità di analisi con il costo delle API.
+- **🏷️ Alias di pagina obbligatori** — ogni pagina generata include almeno 1 alias (traduzione, abbreviazione, variante) per il rilevamento dei duplicati tra lingue.
+- **🔄 Rilevamento e fusione dei duplicati** — rilevamento semantico a livelli cattura i veri duplicati (traduzioni, abbreviazioni, varianti ortografiche); la fusione intelligente tramite LLM unisce i contenuti preservando gli alias.
+- **🧩 Fusione intelligente della conoscenza** — gli aggiornamenti multi-fonte fondono le nuove informazioni senza duplicati; le contraddizioni vengono preservate con attribuzione della fonte; le pagine `reviewed: true` sono protette dalla sovrascrittura.
+- **📏 Guardia di troncamento del contenuto** — 8000 max_tokens con rilevamento automatico di stop_reason e retry con 2× token, su tutti i provider.
+- **📝 Conservazione delle citazioni originali** — le sezioni Menzioni nella sorgente conservano le citazioni nella lingua originale (traduzione opzionale) per la tracciabilità completa.
+
+### 🛠️ Manutenzione
+
+- **🔍 Scansione di integrità Lint** — un unico report completo rileva: pagine duplicate, link morti, pagine vuote, orfani, alias mancanti, contraddizioni.
+- **🎯 Rilevamento duplicati semantico a livelli** — Livello 1 (corrispondenza nome diretta: cross-lingua, abbreviazione, titoli ad alta similarità) sempre verificato; Livello 2 (segnali indiretti: link condivisi, similarità media) riempie il budget di token.
+- **⚡ Smart Fix All con un clic** — correzioni in batch in ordine causale: completa alias → unisci duplicati → correggi link morti → collega orfani → espandi pagine vuote, con report popup per fase.
+- **🏷️ Completamento alias** — generazione batch parallela con un clic degli alias mancanti, migliorando il rilevamento futuro dei duplicati.
+- **🔄 Auto-manutenzione** — monitoraggio multi-cartella, Lint programmato, controllo di integrità all'avvio (tutti opzionali).
+- **⚠️ Macchina a stati delle contraddizioni** — `rilevata → revisione-superata → risolta` (correzione AI) o `rilevata → non risolta` (manuale).
+
+### 💬 Query e feedback
+
+- **🤖 Query conversazionale** — dialogo in stile ChatGPT con output Markdown in streaming, `[[wiki-links]]` automatici e cronologia multi-turno.
+- **📤 Feedback Query → Wiki** — salva le conversazioni preziose nel Wiki, con estrazione di entità/concetti e deduplicazione semantica pre-salvataggio.
+- **🔒 Guardia salvataggio duplicati** — tracciamento hash che impedisce la ri-valutazione di conversazioni invariate.
+
+### 🌐 LLM e lingua
+
+- **🔌 Supporto multi-provider** — Anthropic, Anthropic-compatibile (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, MiniMax, LM Studio, OpenRouter, Ollama, endpoint personalizzato.
+- **🔄 Retry automatico 5xx** — backoff esponenziale su HTTP 5xx / 429 / 529 su tutti i client (max 2 retry).
+- **📋 Lista modelli dinamica** — recuperata in tempo reale dall'API del provider.
+- **🌐 Lingua di output del Wiki** — 9 lingue indipendenti dalla UI (English / 中文 / 日本語 / 한국어 / Deutsch / Français / Español / Português / Italiano), con opzione di input personalizzato.
+- **🌍 Internazionalizzazione completa della UI** — interfaccia plugin in 9 lingue con 269+ campi UI completamente tradotti in espressione locale naturale.
+- **⚡ Guardia rate-limit** — rileva automaticamente quando la generazione parallela innesca rate limit e suggerisce di ridurre la concorrenza, aumentare il delay tra batch o cambiare provider.
+- **🦙 Compatibilità Web Clipper** — aggiunta con un clic della cartella `Clippings/` dell'Obsidian Web Clipper ufficiale alla lista di monitoraggio; le pagine web clippate vengono auto-importate nel Wiki.
+
+### 🏗️ Architettura e prestazioni
+
+- **⚡ Generazione parallela delle pagine** — 1–5 pagine concorrenti configurabili, predefinito 3 (parallelo), speedup 2–3× su sorgenti grandi; isolamento errori per pagina.
+- **📚 Estrazione iterativa a batch** — dimensione batch adattiva elimina il collo di bottiglia max_tokens sui documenti lunghi.
+- **🏛️ Architettura a tre livelli** — `sources/` (sola lettura) → `wiki/` (generato dall'LLM) → `schema/` (configurazione co-evoluta).
+- **🧩 Base di codice modulare** — 20+ moduli focalizzati in `src/`.
+
+### 🔒 Privacy e sicurezza
+
+- **Nessun backend, nessun tracciamento.** Il plugin funziona interamente dentro Obsidian — nessun server esterno, nessuna analisi, nessuna raccolta dati di alcun tipo. A meno che tu non configuri attivamente un provider LLM, le tue note non lasciano mai il tuo vault.
+- **I dati restano locali per impostazione predefinita.** Il plugin non memorizza, mette in cache o trasmette i tuoi contenuti al di fuori dell'API LLM che hai scelto. Solo il testo che invii per l'ingest o la query lascia il tuo dispositivo — e solo verso il provider che hai configurato.
+- **Modalità completamente locale tramite Ollama, LM Studio o provider locali.** Per la completa sovranità dei dati, usa un LLM in esecuzione locale. Le tue note sono elaborate interamente sulla tua macchina — senza toccare internet.
+- **Permessi minimi.** L'accesso ai file del vault è usato per la gestione del Wiki (lettura note, generazione pagine, rilevamento link morti). L'accesso alla rete è usato solo per comunicare con l'API del provider LLM scelto. L'accesso agli appunti è limitato al pulsante "Copia" nel modale Query — usato solo quando lo clicchi.
+
+---
 
 ## ⌨️ Comandi
 
@@ -422,6 +474,12 @@ Sì. Imposta `reviewed: true` nel frontmatter per proteggerle dalla sovrascrittu
 **Aggiornamento sicuro?**
 Il plugin non modifica mai i tuoi file sorgente. Fai il backup di `wiki/` → aggiorna il plugin → **Regenerate index** → **Lint Wiki** → correggi in modo selettivo.
 
+**I miei file `sources/` sono stati rinominati dopo l'aggiornamento a v1.20.3 — c'è un problema? (v1.20.3+)**
+No — è in azione la nuova impronta digitale anti-collisione degli slug delle pagine sorgente. Ogni `sources/<slug>.md` è ora `sources/<nome_base>_<6 hex>.md` (l'hex è un hash FNV-1a del percorso completo del file). File con lo stesso nome base in cartelle diverse (es. 11× `About this course.md` nei corsi Academy) non entrano più in collisione. La ri-acquisizione rinomina le pagine `sources/` esistenti sul posto e tutti i backlink `[[sources/<slug>]]` vengono aggiornati automaticamente. Se hai script esterni o segnalibri che puntano a `sources/<vecchio-slug>.md`, aggiornali ai nuovi percorsi con impronta.
+
+**La ri-acquisizione di una fonte non correlata sovrascriverà una pagina bloccata con `reviewed: true`? (v1.20.3+)**
+No — Stage 4 (`updateRelatedPage`) ora rispetta `reviewed: true` e instrada verso il percorso append-only, come il percorso di acquisizione. Il tuo corpo curato sopravvive identico; solo i contenuti genuinamente nuovi vengono aggiunti.
+
 **Come ottengo assistenza?**
 - [GitHub Issues](https://github.com/green-dalii/obsidian-llm-wiki/issues) — segnalazioni di bug
 - [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions) — domande e feedback
@@ -459,4 +517,4 @@ Licenza MIT — vedi [LICENSE](../LICENSE).
 
 - **💡 Concetto:** [LLM Wiki di Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — la visione originale che ha ispirato questo plugin
 - **🛠️ Piattaforma:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **🔌 Trasporto LLM:** `requestUrl` di Obsidian (Anthropic) + OpenAI SDK (provider terzi compatibili con OpenAI)
+- **🔌 Trasporto LLM:** `requestUrl` di Obsidian (Anthropic) + client HTTP compatibile con OpenAI scritto a mano (provider terzi compatibili con OpenAI)

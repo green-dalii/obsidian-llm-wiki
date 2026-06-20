@@ -4,11 +4,11 @@
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
 >
-> **Obsidian official score 95/100** | Native support for 8 languages | Actively maintained, continuously evolving
+> **Obsidian official score 95/100** | Native support for 9 languages | Actively maintained, continuously evolving
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-8-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-9-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
 
-[English](README.md) | [中文文档](docs/README_CN.md) | [日本語](docs/README_JA.md) | [한국어](docs/README_KO.md) | [Deutsch](docs/README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md) | [Italiano](docs/README_IT.md)
+**English** | [中文文档](docs/README_CN.md) | [日本語](docs/README_JA.md) | [한국어](docs/README_KO.md) | [Deutsch](docs/README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md) | [Italiano](docs/README_IT.md)
 
 [Official Site](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explore Repo with DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -26,6 +26,7 @@
   - [🎮 Usage](#-usage)
   - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
 - [⚡ What's New in v1.20.3](#-whats-new-in-v1203)
+- [✨ Features](#-features)
 
   - [📊 Knowledge Quality](#-knowledge-quality)
   - [🛠️ Maintenance](#️-maintenance)
@@ -146,6 +147,8 @@ Re-ingesting the same source does incremental updates on entity/concept pages (n
 
 **This release is fully backward-compatible.** No breaking changes since v1.0.0 — your existing wiki pages, settings, and workflows are preserved. No reconfiguration or data migration needed.
 
+**Upgrading to v1.20.3 from any earlier version**: source-page slugs are now fingerprinted (every `sources/<slug>.md` becomes `sources/<basename>_<6hex>.md`). On your next ingest, existing `sources/` pages are renamed in place and all `[[sources/<slug>]]` backlinks update automatically — no action required, but the file rename may briefly appear in your Obsidian file explorer. If you have external scripts or bookmarks that reference `sources/<slug>.md` paths directly, update them to use the new fingerprinted names.
+
 **If your existing Wiki was built across many versions**, some pages may lack recent capabilities (aliases, alias-aware dedup, modernized prompts). Run **Lint Wiki** to see what needs attention. Smart Fix All handles the most common cleanups in one click.
 
 **If upgrading from a version before v1.16.0**, run **Lint Wiki** once to automatically fix historical issues:
@@ -198,6 +201,58 @@ v1.20.3 is a **PATCH hotfix** that fixes three latent bugs in the wiki write pat
 We strongly recommend all users upgrade to this version, especially if you ingest multiple notes sharing filenames across folders, or use the `reviewed: true` page lock.
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+## ✨ Features
+
+### 📊 Knowledge Quality
+
+- **🔍 Entity/Concept extraction** — LLM extracts entities (people, organizations, products, events, etc.) and concepts (theories, methods, terms, etc.) from your notes and generates standalone Wiki pages. Flexible extraction granularity (minimal ~5, coarse ~10, standard ~50, fine ~100, custom 1–500) balances analysis depth with API cost.
+- **🏷️ Mandatory page aliases** — every generated page includes at least 1 alias (translation, abbreviation, variant) for cross-language duplicate detection.
+- **🔄 Duplicate detection & merge** — semantic tiered detection catches true duplicates (cross-language translations, abbreviations, spelling variants); smart LLM fusion merges content while preserving aliases.
+- **🧩 Intelligent knowledge fusion** — multi-source updates merge new information without duplication; contradictions are preserved with source attribution; `reviewed: true` pages are protected from overwrite.
+- **📏 Content truncation guard** — 8000 max_tokens with automatic stop_reason detection and 2× token retry, covering all providers.
+- **📝 Original quote preservation** — Mentions-in-Source sections preserve quotes in their original language (optional translation) for full traceability.
+
+### 🛠️ Maintenance
+
+- **🔍 Lint health scan** — single comprehensive report detects: duplicate pages, dead links, empty pages, orphans, missing aliases, contradictions.
+- **🎯 Tiered semantic duplicate detection** — Tier 1 (direct name match: cross-language, abbreviation, high-similarity titles) always verified; Tier 2 (indirect signals: shared links, medium similarity) fills token budget.
+- **⚡ One-click Smart Fix All** — batch fixes in causal order: fill aliases → merge duplicates → fix dead links → link orphans → expand empty pages, with per-phase popup report.
+- **🏷️ Alias completion** — one-click parallel batch generation of missing aliases, improving future duplicate detection.
+- **🔄 Auto-maintenance** — multi-folder watching, scheduled Lint, startup health check (all optional).
+- **⚠️ Contradiction state machine** — `detected → review-passed → resolved` (AI-fix) or `detected → unresolved` (manual).
+
+### 💬 Query & Feedback
+
+- **🤖 Conversational query** — ChatGPT-style dialog with streaming Markdown output, automatic `[[wiki-links]]`, and multi-turn history.
+- **📤 Query → Wiki feedback** — save valuable conversations back into the Wiki, with entity/concept extraction and pre-save semantic dedup.
+- **🔒 Duplicate-save guard** — hash tracking prevents unchanged conversations from re-evaluating.
+
+### 🌐 LLM & Language
+
+- **🔌 Multi-provider support** — Anthropic, Anthropic-compatible (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, MiniMax, LM Studio, OpenRouter, Ollama, custom endpoint.
+- **🔄 5xx auto-retry** — exponential backoff on HTTP 5xx / 429 / 529 across all clients (max 2 retries).
+- **📋 Dynamic model list** — fetched live from the provider API.
+- **🌐 Wiki output language** — 9 languages independent of UI (English / 中文 / 日本語 / 한국어 / Deutsch / Français / Español / Português / Italiano), with custom input option.
+- **🌍 Full UI internationalization** — plugin UI in 9 languages with 269+ UI fields fully translated to natural local expression.
+- **⚡ Rate-limit guardian** — automatically detects when parallel generation triggers rate limits and prompts to lower concurrency, increase batch delay, or switch provider.
+- **🦙 Web Clipper compatibility** — one-click addition of the official Obsidian Web Clipper's `Clippings/` folder to the watch list; clipped web pages auto-ingest into the Wiki.
+
+### 🏗️ Architecture & Performance
+
+- **⚡ Parallel page generation** — configurable 1–5 concurrent pages, default 3 (parallel), 2–3× speedup on large sources; per-page error isolation.
+- **📚 Iterative batched extraction** — adaptive batch sizing eliminates the long-document max_tokens bottleneck.
+- **🏛️ Three-layer architecture** — `sources/` (read-only) → `wiki/` (LLM-generated) → `schema/` (co-evolved configuration).
+- **🧩 Modular codebase** — 20+ focused modules in `src/`.
+
+### 🔒 Privacy & Security
+
+- **No backend, no tracking.** The plugin runs entirely inside Obsidian — no external servers, no analytics, no data collection of any kind. Unless you actively configure an LLM provider, your notes never leave your vault.
+- **Data stays local by default.** The plugin does not store, cache, or transmit your content anywhere outside of the LLM API you have chosen. Only the text you send for ingestion or query leaves your device — and only to the provider you configured.
+- **Full local mode via Ollama, LM Studio, or local providers.** For complete data sovereignty, use a locally running LLM. Your notes are processed entirely on your machine — never touching the internet.
+- **Minimal permissions.** Vault file access is used for Wiki management (reading notes, generating pages, detecting dead links). Network access is used only for communicating with your chosen LLM provider's API. Clipboard access is limited to the "Copy" button in the Query modal — used only when you click it.
+
+---
 
 ## ⌨️ Commands
 
@@ -419,6 +474,12 @@ Yes. Set `reviewed: true` in frontmatter to protect from overwrite. Manual alias
 **Safe upgrade?**
 The plugin never modifies your source files. Backup `wiki/` → update plugin → **Regenerate index** → **Lint Wiki** → fix selectively.
 
+**My `sources/` files got renamed after upgrading to v1.20.3 — is something wrong? (v1.20.3+)**
+No — this is the new collision-safe source-slug fingerprint at work. Every `sources/<slug>.md` is now `sources/<basename>_<6hex>.md` (the hex is an FNV-1a hash of the file's full path). Files with the same basename across different folders (e.g. 11× `About this course.md` in Academy courses) no longer collide. Re-ingest renames existing `sources/` pages in place and all `[[sources/<slug>]]` backlinks update automatically. If you have external scripts or bookmarks pointing to `sources/<old-slug>.md`, update them to the new fingerprinted names.
+
+**Will re-ingesting an unrelated source overwrite a page I locked with `reviewed: true`? (v1.20.3+)**
+No — Stage 4 (`updateRelatedPage`) now respects `reviewed: true` and routes to the append-only path, same as the ingest path. Your curated body survives verbatim; only genuinely new content is appended.
+
 **How do I get help?**
 - [GitHub Issues](https://github.com/green-dalii/obsidian-llm-wiki/issues) — bug reports
 - [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions) — questions & feedback
@@ -456,4 +517,4 @@ MIT License — see [LICENSE](LICENSE).
 
 - **💡 Concept:** [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — the original vision that inspired this plugin
 - **🛠️ Platform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + OpenAI SDK (3rd-party OpenAI-compatible providers)
+- **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + handcrafted OpenAI-compatible HTTP client (3rd-party OpenAI-compatible providers)
