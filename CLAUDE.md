@@ -1,10 +1,15 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-06-20
+**Last Updated:** 2026-06-21
 
 ---
 
-## Current Phase: v1.20.3 Released — v1.21.0 Schema Coherence Phase 1 (Planned)
+## Current Phase: v1.20.3 Released — v1.21.0 Schema Coherence Phase 1 (in development)
+
+### In Progress — v1.21.0
+- 🔴 **#164 — Empty-content hallucinated entity bug.** Reported by @Indexed-Apogrypha 2026-06-21; root cause confirmed (missing empty-content guard in `WikiEngine.ingestSource` and `SourceAnalyzer.analyzeSource`). PR incoming; fold into v1.21.0 (not v1.20.4 hotfix) per user decision.
+- 🟢 **#124 — Schema Coherence Phase 1.** Local branch `feat/v1.21.0-schema-coherence-phase1` (commit `4251aa9`).
+- 🟢 **Italian locale + i18n-parity test (PR #159).** 9th locale shipped.
 
 ### Completed (v1.20.3) — Hotfix 2026-06-20
 - ✅ **Source-slug fingerprint (PR #156, Closes #155).** Every source slug now `<basename>_<6hex FNV-1a of full path>` — fixes silent overwrite when two source files share a basename across folders. Contributed by @Indexed-Apogrypha.
@@ -47,8 +52,8 @@
 - ✅ **Tests: 744 passing (was 728).** 36 test files, 0 regressions. +16 tests since v1.19.0 (new `llm-client-gemini-fallback` + `settings-thinkcache` suites).
 
 ### P0 — Bug fixes / quality regressions
-All v1.18.x P0 items closed. Next window opens with post-v1.19.0 feedback.
-All v1.18.x P0 items closed. Next window opens with post-v1.19.0 feedback.
+- 🔴 **#164 — Empty-content hallucinated entity (v1.21.0, in PR).** Critical bug. Reported by @Indexed-Apogrypha 2026-06-21. Fix path: guard at `WikiEngine.ingestSource` entry + unit + integration tests + 9-locale i18n.
+- All v1.20.x P0 items closed (Anthropic prefill v1.20.1, system-role v1.20.2, source-slug/alias-dedup/reviewed-guard v1.20.3).
 
 ### P1 — Cleanup (v1.19.0 target, deferred items from v1.18.x)
 
