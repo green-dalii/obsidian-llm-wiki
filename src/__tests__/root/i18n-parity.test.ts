@@ -35,11 +35,16 @@ describe('UI text parity across all locales', () => {
     expect(empties, `empty values in ${locale}`).toEqual([]);
   });
 
-  // The newly added Italian locale is held to strict bidirectional parity:
-  // no missing keys and no extra keys versus en.
-  it('it locale is at exact bidirectional parity with en', () => {
-    const itKeys = Object.keys(TEXTS.it).sort();
-    expect(itKeys).toEqual(EN_KEYS);
+  // Every locale (including the legacy ones) is held to strict bidirectional
+  // parity: no missing keys and no extra keys versus en. Real-world hit:
+  // ZH had `lintReportPageCount` as an orphan from PR #110 (status-bar
+  // mirror) without an EN counterpart — exactly the bug this guard exists
+  // to prevent. Italian's check is now part of this parameterization
+  // (instead of a one-off) so any new locale automatically gets the same
+  // strict coverage.
+  it.each(LOCALES)('locale "%s" is at exact bidirectional parity with en', (locale) => {
+    const keys = Object.keys(TEXTS[locale]).sort();
+    expect(keys).toEqual(EN_KEYS);
   });
 });
 

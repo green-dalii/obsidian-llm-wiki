@@ -408,7 +408,6 @@ export const ZH_TEXTS = {
 
     // 维护报告
     lintReportTitle: 'Wiki 维护报告',
-    lintReportPageCount: '共 {count} 个 Wiki 页面',
     lintReportSummary: 'Wiki 状态概览：共 {total} 个页面，{aliasesMissing} 个缺失别名，重复 {duplicates} 个，断链 {deadLinks} 个（其中 {deadLinkFromDup} 个涉及重复页面），孤立 {orphans} 个（其中 {orphanFromDup} 个是重复页面），空洞 {emptyPages} 个，无来源引证 {ungroundedQuotes} 个，标签越界 {tagViolations} 个。本次 Lint 耗时 {elapsedSeconds} 秒',
 
     // Advanced LLM Settings (Issues #99 / #128)
