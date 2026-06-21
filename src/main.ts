@@ -86,6 +86,7 @@ import { LLMWikiSettingTab } from './ui/settings';
 import { WikiEngine } from './wiki/wiki-engine';
 import { QueryModal } from './wiki/query-engine';
 import { FileSuggestModal, FolderSuggestModal, IngestReportModal } from './ui/modals';
+import { HistoryModal } from './ui/history-modal';
 import { SchemaManager } from './schema/schema-manager';
 import { AutoMaintainManager } from './schema/auto-maintain';
 import { runLintWiki } from './wiki/lint/controller';
@@ -204,6 +205,20 @@ export default class LLMWikiPlugin extends Plugin {
       id: 'ingest-active-file',
       name: t.cmdIngestActiveFile,
       callback: () => this.ingestActiveFile()
+    });
+
+    // Ingestion History (#122) — command palette entry.
+    // Most discoverable way to reach the history panel; the Settings-tab button
+    // is a secondary entry point for users exploring configuration.
+    this.addCommand({
+      id: 'view-ingestion-history',
+      name: t.cmdViewHistory,
+      callback: () => {
+        new HistoryModal(this.app, {
+          language: this.settings.language,
+          wikiFolder: this.settings.wikiFolder || 'wiki',
+        }).open();
+      }
     });
 
     this.addRibbonIcon('sticker', t.cmdIngestActiveFile, () => {

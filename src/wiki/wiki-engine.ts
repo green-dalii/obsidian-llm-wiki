@@ -545,7 +545,15 @@ export class WikiEngine {
       step++;
       this.onProgress?.(`[${step}/${totalSteps}] Generating index...`);
       await this.generateIndexFromEngine();
-      await this.updateLog('ingest', analysis);
+      // Compute total elapsed wall time + source bytes BEFORE updateLog so the
+      // log entry can record both (issue #122 v3.1: ingest history needs timing).
+      const totalTime = Date.now() - totalStartTime;
+      const sourceSize = fileContent?.length ?? 0;
+      await this.updateLog('ingest', analysis, {
+        durationSec: Math.round(totalTime / 1000),
+        model: this.settings.model,
+        sourceBytes: sourceSize,
+      });
       const indexTime = Date.now() - indexStart;
       console.debug(`[Time] Index Index & log update: ${indexTime}ms`);
 
@@ -554,7 +562,7 @@ export class WikiEngine {
       const entitiesCreated = analysis.created_pages.filter(p => p.includes('/entities/')).length;
       const conceptsCreated = analysis.created_pages.filter(p => p.includes('/concepts/')).length;
       const modeLabel = (this.settings.pageGenerationConcurrency ?? 1) > 1 ? `parallel(concurrency:${this.settings.pageGenerationConcurrency})` : 'serial';
-      const totalTime = Date.now() - totalStartTime;
+      // totalTime was computed above; do not redeclare here.
 
       console.debug('=== Ingestion complete ===');
       console.debug(`Ingestion complete [${modeLabel}]: Created ${created} pages (${entitiesCreated} entities + ${conceptsCreated} concepts), Updated ${updated} pages, ${collisions.length} cross-type collisions`);
@@ -1052,15 +1060,27 @@ export class WikiEngine {
     return [];
   }
 
-  async updateLog(operation: string, analysis: SourceAnalysis) {
+  async updateLog(
+    operation: string,
+    analysis: SourceAnalysis,
+    metrics?: { durationSec?: number; model?: string; sourceBytes?: number },
+  ) {
     const logPath = `${this.settings.wikiFolder}/log.md`;
-    const date = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const time = now.toTimeString().slice(0, 5); // HH:MM
     const lang = this.settings.wikiLanguage || 'en';
     type LogLangKey = keyof typeof TEXTS.en.logLabels;
     const langKey: LogLangKey = (lang in TEXTS.en.logLabels) ? lang as LogLangKey : 'en';
     const labels = TEXTS.en.logLabels[langKey];
 
-    let entry = `\n\n## [${date}] ${operation} | ${analysis.source_title}\n\n`;
+    // H2 line: ingest | source_title [HH:MM] · metrics
+    // Add HH:MM timestamp so multiple ingests in one day are distinguishable
+    // (matches the format maintenance entries already use).
+    const h2Suffix = metrics
+      ? this.formatIngestMetricsSuffix(metrics)
+      : '';
+    let entry = `\n\n## [${date} ${time}] ${operation} | ${analysis.source_title}${h2Suffix}\n\n`;
     entry += `**${labels.createdPages}**：${analysis.created_pages.map(p => `[[${p.replace(this.settings.wikiFolder + '/', '')}]]`).join(', ')}\n\n`;
     entry += `**${labels.updatedPages}**：${analysis.updated_pages.map(p => `[[${p}]]`).join(', ')}\n\n`;
 
@@ -1073,6 +1093,30 @@ export class WikiEngine {
 
     const existingLog = await this.tryReadFile(logPath) || `# Wiki ${lang === 'zh' ? '操作日志' : 'Operation Log'}\n\n`;
     await this.createOrUpdateFile(logPath, existingLog + entry);
+  }
+
+  /** Format an ingest metrics suffix for the H2 line: ` · 28s · claude-sonnet-4 · 4.2KB`. */
+  private formatIngestMetricsSuffix(m: { durationSec?: number; model?: string; sourceBytes?: number }): string {
+    const parts: string[] = [];
+    if (typeof m.durationSec === 'number' && m.durationSec > 0) {
+      parts.push(`${m.durationSec}s`);
+    }
+    if (m.model) {
+      // Keep only the last segment of the model id ("claude-sonnet-4-5-20250929" → "claude-sonnet-4-5").
+      // Avoid leaking internal provider IDs into the user's log.
+      parts.push(m.model.replace(/-\d{8}$/, ''));
+    }
+    if (typeof m.sourceBytes === 'number' && m.sourceBytes > 0) {
+      parts.push(this.formatBytes(m.sourceBytes));
+    }
+    return parts.length > 0 ? ` · ${parts.join(' · ')}` : '';
+  }
+
+  /** Render byte count with KB / MB units. */
+  private formatBytes(n: number): string {
+    if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)}MB`;
+    if (n >= 1024) return `${(n / 1024).toFixed(1)}KB`;
+    return `${n}B`;
   }
 
   /** Merge a duplicate source page into a target page. */

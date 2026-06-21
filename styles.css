@@ -536,3 +536,27 @@
    vocabulary (e.g. person/organization/…) as fully-editable chips —
    visually identical to user-added ones, with a × remove button.
    They are an editable baseline, not a read-only preview. */
+
+/* Operation History Panel: custom date range inputs */
+.llm-wiki-custom-range {
+  display: none;
+  gap: 6px;
+  align-items: center;
+}
+.llm-wiki-custom-range-visible {
+  display: flex !important;
+}
+/* Date input: calendar icon left-aligned, text right-aligned */
+.llm-wiki-date-input {
+  padding: 4px 8px 4px 28px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  min-width: 120px;
+  text-align: right;
+}
+/* Ensure calendar icon doesn't overlap text */
+.llm-wiki-date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  left: 8px;
+  cursor: pointer;
+}

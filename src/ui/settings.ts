@@ -6,6 +6,7 @@ import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from '../types';
 import { TEXTS } from '../texts';
 import { FolderSuggestModal } from './modals';
+import { HistoryModal } from './history-modal';
 import { classifyFetchError } from './settings-helpers';
 import { TagChipInputComponent } from './tag-chip-input';
 
@@ -838,6 +839,21 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             const msg = error instanceof Error ? error.message : String(error);
             new Notice(`${this.getText('schemaRegenerateFailed') || 'Schema generation failed'}: ${msg}`, NOTICE_ERROR);
           }
+        }));
+
+    // Ingestion History (#122) — sits inside Wiki Configuration (next to Schema
+    // Management) because it reads wiki/log.md, a wiki-internal artifact. Same
+    // visual style as its neighbors: name + desc + button, no emoji on the name.
+    new Setting(containerEl)
+      .setName(this.getText('historyButton'))
+      .setDesc(this.getText('historyButtonDesc'))
+      .addButton(button => button
+        .setButtonText(this.getText('historyButtonOpen'))
+        .onClick(() => {
+          new HistoryModal(this.app, {
+            language: this.tempSettings.language,
+            wikiFolder: this.tempSettings.wikiFolder || 'wiki',
+          }).open();
         }));
 
     // ==========================================

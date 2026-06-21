@@ -101,6 +101,15 @@ Release focus: unify schema as the single source of truth for both system prompt
 
 ### Phase 1: Schema → Prompt Unification (v1.21.0)
 
+### Phase 1: Schema Coherence (in progress)
+- **`SchemaContext`** shared parsed representation of `schema/config.md`, used by both system prompts and generation prompts (eliminates the "schema template overridden by hardcoded sections" bug from #124).
+- **`buildSchemaSectionTemplate(ctx, pageType)`** extracts user-defined sections from `**Sections:**` lists; `hasUserSections` flag for backward compat.
+- **`buildActiveTagVocabularySection` injection into system prompt** with dedup guard. Custom tags now active in every LLM call that needs them.
+- **Settings UI default mode** previews user-defined custom tags with activation hint.
+- **v1.20.0 migration** resets `disableThinking` to `false` and `advancedSettingsMode` to `'default'` (already shipped).
+- 🔴 **#164 — Empty-content hallucinated entity guard** (in PR by @Indexed-Apogrypha). Add early-return in `WikiEngine.ingestSource` (line ~248, right after `vault.read`): if `fileContent.trim().length === 0` → emit `emptySourceNotice` + return. Plus 9-locale i18n + unit + integration tests. Closes a critical bug where local models (Ollama gemma4, qwen-coder) hallucinate entity names from empty input prompts.
+- ✅ **#122 — Ingestion History Panel** (implemented, merged). Pure-function `parseLogEntries` + `HistoryModal` with date grouping, search, filter, clickable page links. 21 new tests (842 total). Pending merge into main.
+
 **Problem:** Three concrete inconsistencies between user-configured schema (`schema/config.md`) and runtime prompt construction:
 
 1. **Section structure hardcoded in user prompts.** `src/wiki/prompts/generation.ts` lines 57-70 hardcode `## {{section_basic_information}}`, `## {{section_description}}`, etc. in the user prompt, while `schema/config.md` templates go into the system prompt. Two conflicting definitions in one LLM call.
