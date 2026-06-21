@@ -378,6 +378,10 @@ export const JA_TEXTS = {
     // Ingestion Report
     ingestReportElapsedTime: '経過時間',
     ingestReportSkippedFiles: 'スキップ済み（取り込み済み）',
+    ingestReportRejectedFiles: 'スキップ',
+    rejectionReasonEmpty: '空',
+    rejectionReasonType: '非対応の形式',
+    rejectionReasonDuplicate: '重複コンテンツ',
     ingestReportFailedGuidance: 'これらの項目は自動作成できませんでした。対応するページを手動で作成するか、抽出粒度を下げてソースファイルを再取り込みしてください。',
     ingestReportCollisions: 'クロスタイプ衝突（エイリアスとして統合）',
 
@@ -507,6 +511,14 @@ export const JA_TEXTS = {
     rateLimitDetected: '⚠️ レートリミットを検出：{count}ページが429エラーで失敗しました。対処法：(1) 並列度を{suggestedConcurrency}または1（直列）に下げる、(2) バッチ遅延を{suggestedDelay}msに増やす、(3) より高いレートリミットを持つプロバイダーに切り替える。',
     rateLimitDetectedShort: '⚠️ レートリミット発生 — 設定→取り込み加速で並列度を下げるかバッチ遅延を増やすことを推奨。',
 
+    sourceRejectedEmpty: '⏭️ 「{filename}」には取り込む内容がないためスキップしました。空のノートやフロントマターのみのノートはWikiページを生成しません。',
+    sourceRejectedType: '⏭️ 「{filename}」はサポートされていないファイル形式のためスキップしました。取り込めるのはテキストノート（.md、.txt など）のみです。',
+    sourceRejectedDuplicate: '⏭️ 「{filename}」をスキップしました — 内容はすでにWikiに存在します。',
+    ingestRejectedSummary: '{count} 個のファイルをスキップしました（空・重複・非対応形式）。',
+    reingestConfirmTitle: 'このファイルを再取り込みしますか？',
+    reingestConfirmBody: '「{filename}」の内容はすでにWikiに存在します。それでも再取り込みしますか？',
+    reingestConfirmYes: '再取り込み',
+    reingestConfirmNo: 'スキップ',
     longSourceNotice: '"📄 「{filename}」は{lines}行（{size}）です。長文は複数パスの反復抽出が必要で、LLMが全文書を分析するため数分かかる場合があります。しばらくお待ちください。"',
     longSourceNoticeShort: '"📄 大きなファイル（{lines}行）を検出しました。取り込みに時間がかかることがあります。"',
 

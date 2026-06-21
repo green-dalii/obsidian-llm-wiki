@@ -378,6 +378,10 @@ export const FR_TEXTS = {
     // Ingestion Report
     ingestReportElapsedTime: 'Temps écoulé',
     ingestReportSkippedFiles: 'Ignorés (déjà importés)',
+    ingestReportRejectedFiles: 'Ignorés',
+    rejectionReasonEmpty: 'vide',
+    rejectionReasonType: 'type non pris en charge',
+    rejectionReasonDuplicate: 'contenu en double',
     ingestReportFailedGuidance: "Ces éléments n'ont pas pu être créés automatiquement. Vous pouvez créer manuellement les pages correspondantes, ou réduire la granularité d'extraction et réimporter le fichier source.",
     ingestReportCollisions: 'Collisions cross-type (fusionnées comme alias)',
 
@@ -507,6 +511,14 @@ export const FR_TEXTS = {
     rateLimitDetected: "⚠️ Limite de débit détectée : {count} page(s) ont échoué avec des erreurs 429. Suggestions : (1) Réduire la concurrence à {suggestedConcurrency} ou 1 (séquentiel), (2) Augmenter le délai entre lots à {suggestedDelay}ms, (3) Passer à un fournisseur avec des limites de débit plus élevées.",
     rateLimitDetectedShort: "⚠️ Limite de débit atteinte — envisagez de réduire la concurrence ou d'augmenter le délai entre lots dans Paramètres → Accélération d'import.",
 
+    sourceRejectedEmpty: '⏭️ « {filename} » n\'a aucun contenu à ingérer — ignoré. Les notes vides ou ne contenant que des métadonnées ne créent pas de pages wiki.',
+    sourceRejectedType: '⏭️ « {filename} » n\'est pas un type de fichier pris en charge — ignoré. Seules les notes texte (.md, .txt, etc.) peuvent être ingérées.',
+    sourceRejectedDuplicate: '⏭️ « {filename} » ignoré — son contenu est déjà dans le wiki.',
+    ingestRejectedSummary: '{count} fichier(s) ignoré(s) (vide, doublon ou type non pris en charge).',
+    reingestConfirmTitle: 'Ré-ingérer ce fichier ?',
+    reingestConfirmBody: 'Le contenu de « {filename} » est déjà dans le wiki. Le ré-ingérer quand même ?',
+    reingestConfirmYes: 'Ré-ingérer',
+    reingestConfirmNo: 'Ignorer',
     longSourceNotice: '📄 "{filename}" contient {lines} lignes ({size}). Les textes longs nécessitent une extraction itérative par lots — le LLM lit le document complet en plusieurs passes. Cela peut prendre plusieurs minutes. Veuillez patienter.',
     longSourceNoticeShort: '📄 Fichier volumineux détecté ({lines} lignes). Ingestion peut prendre du temps.',
 

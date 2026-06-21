@@ -1,6 +1,55 @@
 import { describe, it, expect } from 'vitest';
 import { LLMWikiSettings } from '../../types';
-import { enforceFrontmatterConstraints, mergeFrontmatter, parseFrontmatter, preserveFrontmatterReviewTag } from '../../core/frontmatter';
+import { enforceFrontmatterConstraints, isBlankSource, mergeFrontmatter, parseFrontmatter, preserveFrontmatterReviewTag, upsertFrontmatterField } from '../../core/frontmatter';
+
+describe('isBlankSource', () => {
+  it('is true for empty or whitespace-only content', () => {
+    expect(isBlankSource('')).toBe(true);
+    expect(isBlankSource('   \n\t\n  ')).toBe(true);
+  });
+
+  it('is true for frontmatter-only content (no body)', () => {
+    expect(isBlankSource('---\ntags: [x]\n---')).toBe(true);
+    expect(isBlankSource('---\ntags: [x]\n---\n   \n')).toBe(true);
+  });
+
+  it('is false when a real body exists', () => {
+    expect(isBlankSource('# Note\nText')).toBe(false);
+    expect(isBlankSource('---\ntags: [x]\n---\nBody here.')).toBe(false);
+    expect(isBlankSource('![[image.png]]')).toBe(false);
+  });
+});
+
+describe('upsertFrontmatterField', () => {
+  it('adds a new field to existing frontmatter, preserving the body', () => {
+    const input = '---\ntype: source\ncreated: 2026-01-01\n---\n\nBody text';
+    const result = upsertFrontmatterField(input, 'contentHash', '5-1a2b3c4d');
+    expect(result).toContain('contentHash: 5-1a2b3c4d');
+    expect(result).toContain('type: source');
+    expect(result).toContain('\n\nBody text');
+    // The metadata block must still close exactly once.
+    expect(result.match(/^---$/gm)?.length).toBe(2);
+  });
+
+  it('replaces an existing field rather than duplicating it', () => {
+    const input = '---\ntype: source\ncontentHash: old-value\n---\n\nBody';
+    const result = upsertFrontmatterField(input, 'contentHash', 'new-value');
+    expect(result).toContain('contentHash: new-value');
+    expect(result).not.toContain('old-value');
+    expect(result.match(/contentHash:/g)?.length).toBe(1);
+  });
+
+  it('prepends a frontmatter block when none exists', () => {
+    const result = upsertFrontmatterField('Just a body', 'contentHash', '3-deadbeef');
+    expect(result).toBe('---\ncontentHash: 3-deadbeef\n---\n\nJust a body');
+  });
+
+  it('round-trips through parseFrontmatter', () => {
+    const input = '---\ntype: source\n---\n\nBody';
+    const result = upsertFrontmatterField(input, 'contentHash', '5-1a2b3c4d');
+    expect(parseFrontmatter(result)?.contentHash).toBe('5-1a2b3c4d');
+  });
+});
 describe('parseFrontmatter', () => {
   it('returns null for content without frontmatter', () => {
     expect(parseFrontmatter('# Just a heading\nSome content')).toBeNull();

@@ -4,6 +4,7 @@ import { App, TFile, TFolder, Modal, FuzzySuggestModal, MarkdownRenderer, Compon
 import { IngestReport } from '../types';
 import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
+import type { RejectionReason } from '../core/source-requirements';
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   onSelect: (file: TFile) => void;
@@ -256,8 +257,15 @@ export class IngestReportModal extends Modal {
     return getText(this.language, key as keyof typeof TEXTS.en) || key;
   }
 
+  /** Map a gate rejection reason to its short localized label key. Mirrors WikiEngine.rejectionNoticeKey. */
+  private reasonLabelKey(reason: RejectionReason): string {
+    if (reason === 'incompatible-type') return 'rejectionReasonType';
+    if (reason === 'duplicate') return 'rejectionReasonDuplicate';
+    return 'rejectionReasonEmpty';
+  }
+
   onOpen() {
-    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, collisions, elapsedSeconds, skippedFiles, totalFilesInFolder } = this.report;
+    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, collisions, elapsedSeconds, skippedFiles, totalFilesInFolder, rejectedFiles } = this.report;
 
     const statusEmoji = success ? '✅' : '⚠️';
     this.contentEl.createEl('h2', { text: `${statusEmoji} ${this.t('ingestReportTitle')}` });
@@ -338,6 +346,16 @@ export class IngestReportModal extends Modal {
       });
     }
 
+    // Rejected / skipped files (requirements gate, #164)
+    if (rejectedFiles && rejectedFiles.length > 0) {
+      this.contentEl.createEl('h3', { text: '⏭️ ' + this.t('ingestReportRejectedFiles') + ` (${rejectedFiles.length})` });
+      const list = this.contentEl.createEl('ul');
+      for (const r of rejectedFiles) {
+        const name = r.path.split('/').pop() || r.path;
+        list.createEl('li', { text: `${name} — ${this.t(this.reasonLabelKey(r.reason))}` });
+      }
+    }
+
     // Error
     if (errorMessage) {
       this.contentEl.createEl('p', {
@@ -353,6 +371,46 @@ export class IngestReportModal extends Modal {
 
   onClose() {
     this.contentEl.empty();
+  }
+}
+
+/**
+ * Small reusable yes/no confirmation modal (#164). `onChoice` fires exactly once:
+ * true on confirm, false on cancel / Escape / dismiss.
+ */
+export class ConfirmModal extends Modal {
+  private decided = false;
+
+  constructor(
+    app: App,
+    private opts: { title: string; body: string; confirmText: string; cancelText: string; onChoice: (confirmed: boolean) => void }
+  ) {
+    super(app);
+  }
+
+  onOpen() {
+    this.contentEl.createEl('h2', { text: this.opts.title });
+    this.contentEl.createEl('p', { text: this.opts.body });
+    const btnRow = this.contentEl.createDiv({ attr: { style: 'margin-top: 16px; text-align: right;' } });
+    btnRow.createEl('button', { text: this.opts.cancelText })
+      .addEventListener('click', () => this.decide(false));
+    btnRow.createEl('button', { text: this.opts.confirmText, cls: 'mod-cta', attr: { style: 'margin-left: 8px;' } })
+      .addEventListener('click', () => this.decide(true));
+  }
+
+  private decide(confirmed: boolean) {
+    this.decided = true;
+    this.opts.onChoice(confirmed);
+    this.close();
+  }
+
+  onClose() {
+    this.contentEl.empty();
+    // Escape / X / click-outside → treat as cancel, exactly once.
+    if (!this.decided) {
+      this.decided = true;
+      this.opts.onChoice(false);
+    }
   }
 }
 

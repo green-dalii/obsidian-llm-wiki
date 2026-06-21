@@ -101,6 +101,29 @@ describe('SourceAnalyzer', () => {
     expect(result).not.toBeNull();
   });
 
+  it('returns null and never calls the LLM for blank / frontmatter-only sources (#164)', async () => {
+    // Reproduction of the "Yinmin Zhong" bug: a blank prompt made small/local
+    // models fabricate entities to satisfy the JSON schema. The guard must
+    // short-circuit BEFORE any LLM call, for empty, whitespace-only, and
+    // frontmatter-only files alike.
+    for (const blank of ['', '   \n\n\t ', '---\ntags: [draft]\n---']) {
+      const { ctx } = createMockContext({
+        vaultFiles: { [EMPTY_PATH]: blank },
+        llmResponses: [JSON.stringify({
+          source_title: 'Hallucinated',
+          summary: 'fabricated from nothing',
+          entities: [{ name: 'Yinmin Zhong', type: 'person', summary: 'who?', mentions_in_source: [] }],
+        })],
+      });
+      const spy = vi.spyOn(ctx.getClient()!, 'createMessage');
+      const analyzer = new SourceAnalyzer(ctx);
+      // eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast
+      const result = await analyzer.analyzeSource(createMockFile(EMPTY_PATH) as unknown as TFile);
+      expect(result).toBeNull();
+      expect(spy).not.toHaveBeenCalled();
+    }
+  });
+
   it('hard-caps entities and concepts to customEntityLimit / customConceptLimit (#120)', async () => {
     // LLM returns 5 entities and 5 concepts, but limits are set to 2/2.
     // The hard cap must slice the accumulation before buildSourceAnalysis —

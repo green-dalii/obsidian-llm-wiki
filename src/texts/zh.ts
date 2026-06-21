@@ -379,6 +379,10 @@ export const ZH_TEXTS = {
     // 摄入报告
     ingestReportElapsedTime: '耗时',
     ingestReportSkippedFiles: '跳过（已摄入）',
+    ingestReportRejectedFiles: '已跳过',
+    rejectionReasonEmpty: '空内容',
+    rejectionReasonType: '不支持的类型',
+    rejectionReasonDuplicate: '重复内容',
     ingestReportFailedGuidance: '这些条目未能自动创建。您可手动创建对应页面，或降低提取颗粒度后重新摄入源文件。',
     ingestReportCollisions: '跨类型碰撞（已合并为别名）',
 
@@ -509,6 +513,14 @@ export const ZH_TEXTS = {
     rateLimitDetectedShort: '⚠️ 触发速率限制 — 建议在设置 → 摄入加速中降低并发度或增大批次延迟。',
 
     // 长文本摄入提示
+    sourceRejectedEmpty: '⏭️ "{filename}" 没有可提取的内容，已跳过。空笔记或仅含 frontmatter 的笔记不会生成 Wiki 页面。',
+    sourceRejectedType: '⏭️ "{filename}" 不是受支持的文件类型，已跳过。仅可提取文本笔记（如 .md、.txt）。',
+    sourceRejectedDuplicate: '⏭️ "{filename}" 已跳过——其内容已存在于 Wiki 中。',
+    ingestRejectedSummary: '已跳过 {count} 个文件（空文件、重复或不支持的类型）。',
+    reingestConfirmTitle: '重新提取该文件？',
+    reingestConfirmBody: '"{filename}" 的内容已存在于 Wiki 中。仍要重新提取吗？',
+    reingestConfirmYes: '重新提取',
+    reingestConfirmNo: '跳过',
     longSourceNotice: '📄 "{filename}" 包含 {lines} 行（{size}）。长文本需要多轮迭代提取，LLM 将完整读取文档进行多次分析，耗时可能较长，请耐心等待。',
     longSourceNoticeShort: '📄 检测到大文件（{lines} 行），摄入可能需要较长时间。',
 

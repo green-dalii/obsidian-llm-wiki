@@ -32,6 +32,7 @@ import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../core/json';
 import { matchExtractedToExisting } from '../core/index-search';
 import { coerceToArray } from '../core/arrays';
+import { isBlankSource } from '../core/frontmatter';
 import { MAX_TOKENS_BATCH, TOKENS_PER_ITEM_BUDGET, SOURCE_ANALYZER_RETRY_MULTIPLIER } from '../constants';
 import { getExistingWikiPages } from './lint/get-existing-pages';
 import { getGranularityInstruction, buildActiveTagVocabularySection } from './system-prompts';
@@ -120,6 +121,15 @@ export class SourceAnalyzer {
 
     const content = await this.ctx.app.vault.read(file);
     console.debug('File content length:', content.length);
+
+    // #164 defense-in-depth: a blank source (empty / whitespace / frontmatter-only)
+    // makes small/local models hallucinate entities to satisfy the JSON schema.
+    // Never send a blank prompt to the LLM. The ingest gate normally rejects these
+    // first; this guards any other/future caller of analyzeSource.
+    if (isBlankSource(content)) {
+      console.debug('[Source analysis] blank body — skipping LLM call, returning null');
+      return null;
+    }
 
     console.debug('Existing Wiki pages count: — delayed until post-extraction matching');
 

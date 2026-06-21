@@ -21,6 +21,17 @@ export const WIKI_SUBFOLDERS = {
 } as const;
 
 // ============================================================================
+// Source Ingestion
+// ============================================================================
+
+/**
+ * File extensions (lowercase, no dot) accepted by the ingestion gate (#164).
+ * Text-based notes the LLM can meaningfully read; everything else (binaries
+ * like .pdf/.png) is rejected before any LLM call.
+ */
+export const COMPATIBLE_SOURCE_EXTENSIONS = ['md', 'markdown', 'txt', 'text'] as const;
+
+// ============================================================================
 // Lint & Performance Thresholds
 // ============================================================================
 

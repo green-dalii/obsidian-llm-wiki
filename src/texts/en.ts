@@ -387,6 +387,10 @@ export const EN_TEXTS = {
     // Ingestion Report
     ingestReportElapsedTime: 'Elapsed time',
     ingestReportSkippedFiles: 'Skipped (already ingested)',
+    ingestReportRejectedFiles: 'Skipped',
+    rejectionReasonEmpty: 'empty',
+    rejectionReasonType: 'unsupported type',
+    rejectionReasonDuplicate: 'duplicate content',
     ingestReportFailedGuidance: 'These items could not be automatically created. You can manually create the corresponding pages, or lower the extraction granularity and re-ingest the source file.',
     ingestReportCollisions: 'Cross-type collisions (merged as aliases)',
 
@@ -518,6 +522,14 @@ export const EN_TEXTS = {
     rateLimitDetectedShort: '⚠️ Rate limit hit — consider lowering concurrency or increasing batch delay in Settings → Ingestion Acceleration.',
 
     // Long source warning
+    sourceRejectedEmpty: '⏭️ "{filename}" has no content to ingest — skipped. Empty or frontmatter-only notes don\'t create wiki pages.',
+    sourceRejectedType: '⏭️ "{filename}" is not a supported file type — skipped. Only text notes (e.g. .md, .txt) can be ingested.',
+    sourceRejectedDuplicate: '⏭️ "{filename}" skipped — its content is already in the wiki.',
+    ingestRejectedSummary: '{count} file(s) skipped (empty, duplicate, or unsupported type).',
+    reingestConfirmTitle: 'Re-ingest this file?',
+    reingestConfirmBody: 'The content of "{filename}" is already in the wiki. Re-ingest it anyway?',
+    reingestConfirmYes: 'Re-ingest',
+    reingestConfirmNo: 'Skip',
     longSourceNotice: '📄 "{filename}" has {lines} lines ({size}). Long texts require iterative batch extraction — the LLM reads the full document in multiple passes. This may take several minutes. Please be patient.',
     longSourceNoticeShort: '📄 Large file detected ({lines} lines). Ingestion may take a while.',
 

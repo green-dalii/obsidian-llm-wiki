@@ -131,6 +131,43 @@ export function extractBody(content: string): string {
   return content.substring(endIdx + 4).trim();
 }
 
+/**
+ * True when a source file has no extractable body — empty, whitespace-only, or
+ * frontmatter-only (e.g. a tags-only stub). Used to gate ingestion before any
+ * LLM call: small/local models hallucinate entities from a blank prompt (#164).
+ */
+export function isBlankSource(content: string): boolean {
+  return extractBody(content).trim().length === 0;
+}
+
+/**
+ * Add or replace a single `key: value` line in a document's frontmatter block,
+ * returning the updated content. Used to programmatically stamp fields the LLM
+ * can't be trusted to emit (e.g. the #164 content hash). If the document has no
+ * frontmatter, a new block is prepended. The value is written verbatim, so the
+ * caller is responsible for YAML safety.
+ */
+export function upsertFrontmatterField(content: string, key: string, value: string): string {
+  const line = `${key}: ${value}`;
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const keyRe = new RegExp(`^${escapedKey}:.*$`, 'm');
+
+  if (content.startsWith('---')) {
+    const endIdx = content.indexOf('\n---', 3);
+    if (endIdx !== -1) {
+      const fmBlock = content.substring(0, endIdx); // '---\n<fields>'
+      const rest = content.substring(endIdx);       // '\n---<body>'
+      if (keyRe.test(fmBlock)) {
+        return fmBlock.replace(keyRe, line) + rest;
+      }
+      return `${fmBlock}\n${line}${rest}`;
+    }
+  }
+
+  // No frontmatter — prepend a fresh block.
+  return `---\n${line}\n---\n\n${content}`;
+}
+
 export function mergeFrontmatter(
   existingContent: string,
   newSourcePath: string

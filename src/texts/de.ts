@@ -378,6 +378,18 @@ export const DE_TEXTS = {
     // Ingestion Report
     ingestReportElapsedTime: 'Verstrichene Zeit',
     ingestReportSkippedFiles: 'Übersprungen (bereits aufgenommen)',
+    ingestReportRejectedFiles: 'Übersprungen',
+    rejectionReasonEmpty: 'leer',
+    rejectionReasonType: 'nicht unterstützter Typ',
+    rejectionReasonDuplicate: 'doppelter Inhalt',
+    sourceRejectedEmpty: '⏭️ „{filename}" hat keinen Inhalt zum Einlesen — übersprungen. Leere oder nur aus Frontmatter bestehende Notizen erzeugen keine Wiki-Seiten.',
+    sourceRejectedType: '⏭️ „{filename}" ist kein unterstützter Dateityp — übersprungen. Nur Textnotizen (z. B. .md, .txt) können eingelesen werden.',
+    sourceRejectedDuplicate: '⏭️ „{filename}" übersprungen — der Inhalt ist bereits im Wiki vorhanden.',
+    ingestRejectedSummary: '{count} Datei(en) übersprungen (leer, doppelt oder nicht unterstützter Typ).',
+    reingestConfirmTitle: 'Diese Datei erneut einlesen?',
+    reingestConfirmBody: 'Der Inhalt von „{filename}" ist bereits im Wiki. Trotzdem erneut einlesen?',
+    reingestConfirmYes: 'Erneut einlesen',
+    reingestConfirmNo: 'Überspringen',
     ingestReportFailedGuidance: 'Diese Elemente konnten nicht automatisch erstellt werden. Du kannst die entsprechenden Seiten manuell erstellen oder die Extraktions-Granularität senken und die Quelldatei erneut aufnehmen.',
     ingestReportCollisions: 'Cross-Type-Kollisionen (als Aliase zusammengeführt)',
 

@@ -1,6 +1,7 @@
 // Core Wiki data structures
 
 import { App } from 'obsidian';
+import type { RejectionReason } from './core/source-requirements';
 
 export interface SourceAnalysis {
   source_file: string;
@@ -223,6 +224,28 @@ export interface IngestReport {
   skippedFiles?: number;
   totalFilesInFolder?: number;
   cancelled?: boolean;
+  /** True when the file was skipped by the pre-ingest requirements gate (#164). */
+  skipped?: boolean;
+  /** Files rejected by the requirements gate, with the reason for each. */
+  rejectedFiles?: Array<{ path: string; reason: RejectionReason; detail?: string }>;
+}
+
+/** Cross-file dedup state shared across a folder/batch ingest run (#164). */
+export interface BatchRequirementsContext {
+  /** Content hashes of files already ingested earlier in this batch. */
+  seen: Set<string>;
+  /** Content hashes already present in the wiki (snapshot at batch start). */
+  ingested: Set<string>;
+}
+
+/** Options for WikiEngine.ingestSource (all optional, backward-compatible). */
+export interface IngestOptions {
+  /** Shared dedup context for folder/batch ingest. */
+  batchCtx?: BatchRequirementsContext;
+  /** Interactive (explicit single-file) ingest — prompt the user on a duplicate. */
+  interactive?: boolean;
+  /** Bypass the uniqueness check (the user confirmed re-ingest). */
+  forceReingest?: boolean;
 }
 
 // LLM Client interface

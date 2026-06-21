@@ -387,6 +387,18 @@ export const IT_TEXTS = {
     // Report Acquisizione
     ingestReportElapsedTime: 'Tempo trascorso',
     ingestReportSkippedFiles: 'Saltati (già acquisiti)',
+    ingestReportRejectedFiles: 'Saltati',
+    rejectionReasonEmpty: 'vuoto',
+    rejectionReasonType: 'tipo non supportato',
+    rejectionReasonDuplicate: 'contenuto duplicato',
+    sourceRejectedEmpty: '⏭️ "{filename}" non ha contenuto da acquisire — saltato. Le note vuote o con solo frontmatter non creano pagine wiki.',
+    sourceRejectedType: '⏭️ "{filename}" non è un tipo di file supportato — saltato. Possono essere acquisite solo note di testo (.md, .txt, ecc.).',
+    sourceRejectedDuplicate: '⏭️ "{filename}" saltato — il suo contenuto è già nel wiki.',
+    ingestRejectedSummary: '{count} file saltati (vuoti, duplicati o di tipo non supportato).',
+    reingestConfirmTitle: 'Riacquisire questo file?',
+    reingestConfirmBody: 'Il contenuto di "{filename}" è già nel wiki. Riacquisirlo comunque?',
+    reingestConfirmYes: 'Riacquisisci',
+    reingestConfirmNo: 'Salta',
     ingestReportFailedGuidance: 'Questi elementi non sono stati creati automaticamente. Puoi creare manualmente le pagine corrispondenti, oppure abbassare la granularità di estrazione e ri-acquisire il file sorgente.',
     ingestReportCollisions: 'Collisioni inter-tipo (unite come alias)',
 

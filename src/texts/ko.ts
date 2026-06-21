@@ -379,6 +379,18 @@ export const KO_TEXTS = {
     // Ingestion Report
     ingestReportElapsedTime: '경과 시간',
     ingestReportSkippedFiles: '건너뜀 (이미 수집됨)',
+    ingestReportRejectedFiles: '건너뜀',
+    rejectionReasonEmpty: '비어 있음',
+    rejectionReasonType: '지원되지 않는 형식',
+    rejectionReasonDuplicate: '중복 콘텐츠',
+    sourceRejectedEmpty: '⏭️ 「{filename}」에 가져올 내용이 없어 건너뛰었습니다. 비어 있거나 프론트매터만 있는 노트는 위키 페이지를 만들지 않습니다.',
+    sourceRejectedType: '⏭️ 「{filename}」은(는) 지원되지 않는 파일 형식이라 건너뛰었습니다. 텍스트 노트(.md, .txt 등)만 가져올 수 있습니다.',
+    sourceRejectedDuplicate: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 내용이 이미 위키에 있습니다.',
+    ingestRejectedSummary: '{count}개 파일을 건너뛰었습니다(비어 있음, 중복 또는 미지원 형식).',
+    reingestConfirmTitle: '이 파일을 다시 가져올까요?',
+    reingestConfirmBody: '「{filename}」의 내용이 이미 위키에 있습니다. 그래도 다시 가져올까요?',
+    reingestConfirmYes: '다시 가져오기',
+    reingestConfirmNo: '건너뛰기',
     ingestReportFailedGuidance: '이 항목은 자동으로 생성되지 않았습니다. 해당하는 페이지를 수동으로 생성하거나 추출 세분화를 낮추고 소스 파일을 다시 수집할 수 있습니다.',
     ingestReportCollisions: '크로스타입 충돌 (별칭으로 병합됨)',
 

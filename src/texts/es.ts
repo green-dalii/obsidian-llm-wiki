@@ -378,6 +378,18 @@ export const ES_TEXTS = {
     // Ingestion Report
     ingestReportElapsedTime: 'Tiempo transcurrido',
     ingestReportSkippedFiles: 'Omitidos (ya ingeridos)',
+    ingestReportRejectedFiles: 'Omitidos',
+    rejectionReasonEmpty: 'vacío',
+    rejectionReasonType: 'tipo no compatible',
+    rejectionReasonDuplicate: 'contenido duplicado',
+    sourceRejectedEmpty: '⏭️ "{filename}" no tiene contenido para ingerir — omitido. Las notas vacías o solo con frontmatter no crean páginas wiki.',
+    sourceRejectedType: '⏭️ "{filename}" no es un tipo de archivo compatible — omitido. Solo se pueden ingerir notas de texto (.md, .txt, etc.).',
+    sourceRejectedDuplicate: '⏭️ "{filename}" omitido — su contenido ya está en el wiki.',
+    ingestRejectedSummary: '{count} archivo(s) omitido(s) (vacío, duplicado o tipo no compatible).',
+    reingestConfirmTitle: '¿Volver a ingerir este archivo?',
+    reingestConfirmBody: 'El contenido de "{filename}" ya está en el wiki. ¿Volver a ingerirlo de todos modos?',
+    reingestConfirmYes: 'Volver a ingerir',
+    reingestConfirmNo: 'Omitir',
     ingestReportFailedGuidance: 'Estos elementos no pudieron crearse automáticamente. Puedes crear manualmente las páginas correspondientes, o reducir la granularidad de extracción y volver a ingerir el archivo fuente.',
     ingestReportCollisions: 'Colisiones cross-type (fusionadas como alias)',
 

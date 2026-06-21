@@ -7,7 +7,7 @@ import {
   LLMClient,
   IngestReport
 } from './types';
-import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR } from './constants';
+import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, COMPATIBLE_SOURCE_EXTENSIONS } from './constants';
 import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
 import { wrapWithAdvancedSettings } from './llm-client-wrapper';
 import { runSchemaAnalyze } from './schema/analyze';
@@ -85,7 +85,7 @@ import { normalizeVocabularyCsv } from './core/tag-vocab';
 import { LLMWikiSettingTab } from './ui/settings';
 import { WikiEngine } from './wiki/wiki-engine';
 import { QueryModal } from './wiki/query-engine';
-import { FileSuggestModal, FolderSuggestModal, IngestReportModal } from './ui/modals';
+import { FileSuggestModal, FolderSuggestModal, IngestReportModal, ConfirmModal } from './ui/modals';
 import { HistoryModal } from './ui/history-modal';
 import { SchemaManager } from './schema/schema-manager';
 import { AutoMaintainManager } from './schema/auto-maintain';
@@ -124,6 +124,19 @@ export default class LLMWikiPlugin extends Plugin {
       (msg: string) => this.showProgress(msg),
       (report: IngestReport) => this.onIngestDone(report)
     );
+
+    // #164: when an interactive ingest hits a duplicate, ask the user whether to
+    // re-ingest. Folder/watcher ingests leave this unused and auto-skip.
+    this.wikiEngine.onConfirmReingest = (file) => new Promise<boolean>((resolve) => {
+      const lang = this.settings.language;
+      new ConfirmModal(this.app, {
+        title: getText(lang, 'reingestConfirmTitle'),
+        body: getText(lang, 'reingestConfirmBody').replace('{filename}', file.basename),
+        confirmText: getText(lang, 'reingestConfirmYes'),
+        cancelText: getText(lang, 'reingestConfirmNo'),
+        onChoice: resolve,
+      }).open();
+    });
 
     this.autoMaintainManager = new AutoMaintainManager(
       this.app,
@@ -444,7 +457,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     new FileSuggestModal(this.app, this.settings.wikiFolder, (file) => {
       this.showProgress(`Ingesting: ${file.basename}`);
-      this.wikiEngine.ingestSource(file).catch(e => {
+      this.wikiEngine.ingestSource(file, { interactive: true }).catch(e => {
         console.error('Single ingest failed:', e);
         const errMsg = e instanceof Error ? e.message : String(e);
         new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
@@ -465,13 +478,11 @@ export default class LLMWikiPlugin extends Plugin {
       return;
     }
 
-    if (activeFile.extension !== 'md') {
-      new Notice(getText(this.settings.language, 'mdOnlyFile'), NOTICE_NORMAL);
-      return;
-    }
-
+    // File-type validation is handled centrally by the ingest gate (#164),
+    // which accepts the text allowlist (.md, .txt, …) and shows a localized
+    // notice for anything else.
     this.showProgress(`Ingesting: ${activeFile.basename}`);
-    this.wikiEngine.ingestSource(activeFile).catch(e => {
+    this.wikiEngine.ingestSource(activeFile, { interactive: true }).catch(e => {
       console.error('Ingest active file failed:', e);
       const errMsg = e instanceof Error ? e.message : String(e);
       new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
@@ -487,8 +498,12 @@ export default class LLMWikiPlugin extends Plugin {
 
     new FolderSuggestModal(this.app, this.settings.wikiFolder, (folder) => {
       void (async () => {
-      const files = this.app.vault.getMarkdownFiles()
-        .filter(f => f.path.startsWith(folder.path));
+      // #164: scan the compatible text-file allowlist (not just .md), so .txt
+      // sources in the folder are picked up too. The ingest gate is the final
+      // arbiter of type/empty/duplicate.
+      const allowedExts: readonly string[] = COMPATIBLE_SOURCE_EXTENSIONS;
+      const files = this.app.vault.getFiles()
+        .filter(f => f.path.startsWith(folder.path) && allowedExts.includes(f.extension.toLowerCase()));
 
       if (files.length === 0) {
         const msg = TEXTS[this.settings.language].selectFolderNoMdFiles.replace('{path}', folder.path);
@@ -541,13 +556,17 @@ export default class LLMWikiPlugin extends Plugin {
         .replace('{count}', String(ingestCount))
         .replace('{folder}', folder.name));
 
+      // #164: shared dedup context for this batch — catches content duplicates
+      // within the run and against pages already in the wiki.
+      const batchCtx = this.wikiEngine.createBatchContext();
+
       for (let i = 0; i < newFiles.length; i++) {
         const file = newFiles[i];
 
         try {
           this.showProgress(`[${i + 1}/${ingestCount}] ${file.basename}`);
           console.debug(`(${i + 1}/${ingestCount}) ingesting: ${file.path}`);
-          await this.wikiEngine.ingestSource(file);
+          await this.wikiEngine.ingestSource(file, { batchCtx });
           if (this.wikiEngine.wasCancelled) {
             console.debug(`Folder ingestion cancelled at file ${i + 1}/${ingestCount}`);
             break;
@@ -573,6 +592,7 @@ export default class LLMWikiPlugin extends Plugin {
         const totalElapsed = reports.reduce((sum, r) => sum + (r.elapsedSeconds || 0), 0);
         const allFailedItems = reports.flatMap(r => r.failedItems);
         const allCollisions = reports.flatMap(r => r.collisions || []);
+        const allRejectedFiles = reports.flatMap(r => r.rejectedFiles || []);
         const allSuccess = reports.every(r => r.success);
 
         const aggregated: IngestReport = {
@@ -588,6 +608,7 @@ export default class LLMWikiPlugin extends Plugin {
           elapsedSeconds: totalElapsed,
           skippedFiles: skippedCount,
           totalFilesInFolder: totalFiles,
+          rejectedFiles: allRejectedFiles,
         };
 
         new IngestReportModal(this.app, aggregated, this.settings.language).open();
