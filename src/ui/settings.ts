@@ -6,6 +6,7 @@ import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from '../types';
 import { TEXTS } from '../texts';
 import { FolderSuggestModal } from './modals';
+import { HistoryModal } from './history-modal';
 import { classifyFetchError } from './settings-helpers';
 import { TagChipInputComponent } from './tag-chip-input';
 
@@ -955,5 +956,18 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       .addToggle(toggle => toggle
         .setValue(this.tempSettings.autoSmartFix)
         .onChange((value) => { this.tempSettings.autoSmartFix = value; }));
+
+    // Ingestion History Panel (#122)
+    new Setting(containerEl)
+      .setName(this.getText('historyButton'))
+      .addButton(button => button
+        .setButtonText(this.getText('historyButton'))
+        .setCta()
+        .onClick(() => {
+          new HistoryModal(this.app, {
+            language: this.tempSettings.language,
+            wikiFolder: this.tempSettings.wikiFolder || 'wiki',
+          }).open();
+        }));
   }
 }
