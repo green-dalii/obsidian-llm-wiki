@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pre-ingest requirements gate (#164).** Every source file is now validated *before* any LLM call — **non-empty**, **compatible file type**, and **unique** — and files that fail are logged and skipped instead of reaching the model. New `core/source-requirements.ts` holds an extensible, ordered `CONTENT_CHECKS` registry so future checks (e.g. prompt-injection) can be added as a single entry. Contributed by @Indexed-Apogrypha.
   - **Non-empty** (`isBlankSource`): empty, whitespace-only, and frontmatter-only notes are skipped — closing the #164 root cause where small/local models (e.g. Ollama) hallucinated entities/concepts from blank content interpolated into the extraction prompt.
   - **Compatible file type**: case-insensitive allowlist `['md', 'markdown', 'txt', 'text']`. Folder and active-file ingest now accept `.txt`/`.text` (was `.md`-only).
-  - **Uniqueness** (`hashBody`): content-hash de-duplication (length-prefixed FNV-1a over the normalized body) catches duplicate content even across different file paths, plus within-batch dedup for folder ingests; the hash is stamped into the source page frontmatter as `contentHash`.
+  - **Uniqueness** (`hashBody`): content-hash de-duplication (length-prefixed FNV-1a over the normalized body) catches duplicate content even across different file paths, plus within-batch dedup for folder **and watcher** ingests (both share one `createBatchContext()`); the hash is stamped into the source page frontmatter as `contentHash`.
 - **Re-ingest confirmation prompt.** Interactive ingests (file picker / active file) prompt before re-ingesting a duplicate (new `ConfirmModal`); folder/watcher ingests auto-skip duplicates. The ingest report now lists skipped files with a localized reason (empty / unsupported type / duplicate content). New i18n keys across all 8 locales. Contributed by @Indexed-Apogrypha.
 
 ### Fixed
@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 - New coverage for the gate: `core/source-requirements`, `isBlankSource`/`upsertFrontmatterField` in `core/frontmatter`, the #164 reproduction in `wiki/source-analyzer`, and a new in-memory `WikiEngine` ingest-gate harness (`wiki/wiki-engine-ingest`).
+- Watcher batch-context wiring (`schema/auto-maintain`) and the `buildIngestedHashes` TTL-cache + write-invalidation paths (`wiki/wiki-engine-ingest`).
 
 ## [1.20.3] - 2026-06-20
 

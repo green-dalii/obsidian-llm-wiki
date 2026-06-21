@@ -23,7 +23,7 @@ export interface WikiEngineHarness {
   /** In-memory vault contents. */
   files: Map<string, string>;
   /** Mutable call stats. */
-  stats: { llmCalls: number };
+  stats: { llmCalls: number; vaultMarkdownScans: number };
 }
 
 export interface HarnessOptions {
@@ -46,7 +46,7 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
   const files = new Map<string, string>(Object.entries(opts.files ?? {}));
   const writtenPaths: string[] = [];
   const reports: IngestReport[] = [];
-  const stats = { llmCalls: 0 };
+  const stats = { llmCalls: 0, vaultMarkdownScans: 0 };
   let llmIdx = 0;
 
   const app = {
@@ -59,7 +59,7 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
       modify: async (f: { path: string }, c: string) => { files.set(f.path, c); },
       createFolder: async () => { /* no-op */ },
       getAbstractFileByPath: (p: string) => (files.has(p) ? mkFile(p) : null),
-      getMarkdownFiles: () => [...files.keys()].filter(p => p.endsWith('.md')).map(mkFile),
+      getMarkdownFiles: () => { stats.vaultMarkdownScans++; return [...files.keys()].filter(p => p.endsWith('.md')).map(mkFile); },
       getFiles: () => [...files.keys()].map(mkFile),
     },
     metadataCache: {

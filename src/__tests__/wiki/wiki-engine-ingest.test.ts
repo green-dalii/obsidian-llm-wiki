@@ -127,3 +127,38 @@ describe('WikiEngine.ingestSource — requirements gate (#164)', () => {
     expect(h.stats.llmCalls).toBeGreaterThan(0);
   });
 });
+
+describe('WikiEngine.buildIngestedHashes — TTL cache (#164 review)', () => {
+  it('reuses one vault walk across back-to-back checks within the TTL window', () => {
+    // createBatchContext() is the public entry to buildIngestedHashes(). The cache
+    // should make a second call within the TTL window read the snapshot instead of
+    // re-walking vault.getMarkdownFiles() — the reviewer's perf concern.
+    const h = createWikiEngineHarness({
+      files: { 'wiki/sources/a.md': `---\ntype: source\ncontentHash: abc\n---\n\na` },
+    });
+
+    h.engine.createBatchContext();
+    h.engine.createBatchContext();
+
+    expect(h.stats.vaultMarkdownScans).toBe(1);
+  });
+
+  it('rebuilds the snapshot after a write invalidates the cache', async () => {
+    // A fresh ingest writes a source page → invalidatePageCaches() must drop the
+    // hash cache so the next check sees the just-written content (correctness, not
+    // just perf — a 5s-stale snapshot would miss an immediate duplicate).
+    const h = createWikiEngineHarness({
+      files: { 'wiki/sources/a.md': `---\ntype: source\ncontentHash: abc\n---\n\na` },
+    });
+
+    h.engine.createBatchContext();
+    expect(h.stats.vaultMarkdownScans).toBe(1);
+
+    // A write (happy path: create) invalidates the cache without scanning itself.
+    await h.engine.createOrUpdateFile('wiki/sources/b.md', `---\ntype: source\ncontentHash: def\n---\n\nb`);
+    expect(h.stats.vaultMarkdownScans).toBe(1);
+
+    h.engine.createBatchContext();
+    expect(h.stats.vaultMarkdownScans).toBe(2);
+  });
+});

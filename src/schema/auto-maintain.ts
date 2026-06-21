@@ -209,10 +209,15 @@ export class AutoMaintainManager {
       let successCount = 0;
       let failCount = 0;
 
+      // #164: shared dedup context for this watcher batch — mirrors the folder
+      // ingest in main.ts. Catches identical content across files in one run and
+      // builds the ingested-hash snapshot once instead of per file.
+      const batchCtx = this.wikiEngine.createBatchContext();
+
       for (const file of sourceFiles) {
         try {
           this.markRecentWrite(file.path);
-          await this.wikiEngine.ingestSource(file);
+          await this.wikiEngine.ingestSource(file, { batchCtx });
           successCount++;
         } catch (error) {
           console.error(`Auto-ingest failed for ${file.path}:`, error);

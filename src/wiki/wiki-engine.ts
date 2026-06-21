@@ -76,6 +76,10 @@ export class WikiEngine {
   private pagesCache: Array<{path: string; title: string; wikiLink: string; aliases?: string[]}> | null = null;
   private pagesCacheTime = 0;
   private readonly PAGES_CACHE_TTL_MS = PAGES_CACHE_TTL_MS;
+  // #164: ingested content-hash snapshot, cached on the same TTL/lifecycle as
+  // pagesCache so back-to-back single-file ingests don't re-walk the vault.
+  private ingestedHashesCache: Set<string> | null = null;
+  private ingestedHashesCacheTime = 0;
   private ctx: EngineContext;
 
   constructor(
@@ -251,8 +255,18 @@ export class WikiEngine {
     return { seen: new Set<string>(), ingested: this.buildIngestedHashes() };
   }
 
-  /** Content hashes already present in the wiki, read from source-page frontmatter. */
+  /**
+   * Content hashes already present in the wiki, read from source-page
+   * frontmatter. Cached on the same TTL as pagesCache and invalidated on every
+   * file write (via invalidatePageCaches), so a fresh ingest is always seen on
+   * the next call while back-to-back rejected/skip checks reuse one snapshot.
+   * The returned set is read-only to callers (only `seen` is mutated per batch).
+   */
   private buildIngestedHashes(): Set<string> {
+    const now = Date.now();
+    if (this.ingestedHashesCache && (now - this.ingestedHashesCacheTime) < this.PAGES_CACHE_TTL_MS) {
+      return this.ingestedHashesCache;
+    }
     const hashes = new Set<string>();
     const prefix = normalizePath(`${this.settings.wikiFolder}/sources`) + '/';
     for (const f of this.app.vault.getMarkdownFiles()) {
@@ -260,7 +274,15 @@ export class WikiEngine {
       const fm = this.app.metadataCache.getFileCache(f)?.frontmatter as { contentHash?: unknown } | undefined;
       if (typeof fm?.contentHash === 'string' && fm.contentHash) hashes.add(fm.contentHash);
     }
+    this.ingestedHashesCache = hashes;
+    this.ingestedHashesCacheTime = Date.now();
     return hashes;
+  }
+
+  /** Invalidate both write-dependent caches. Called after every vault write/delete. */
+  private invalidatePageCaches(): void {
+    this.pagesCache = null;
+    this.ingestedHashesCache = null;
   }
 
   /**
@@ -896,14 +918,14 @@ export class WikiEngine {
           await this.app.vault.process(file, () => content);
           console.debug('Update success:', path);
           this.onFileWrite?.(path);
-          this.pagesCache = null;
+          this.invalidatePageCaches();
           return;
         } else {
           console.debug(`Attempt ${attempt + 1}: File not found, creating:`, path);
           await this.app.vault.create(path, content);
           console.debug('Create success:', path);
           this.onFileWrite?.(path);
-          this.pagesCache = null;
+          this.invalidatePageCaches();
           return;
         }
       } catch (error) {
@@ -925,7 +947,7 @@ export class WikiEngine {
             await this.app.vault.process(resolved, () => content);
             console.debug('Update succeeded after file resolution:', path);
             this.onFileWrite?.(path);
-            this.pagesCache = null;
+            this.invalidatePageCaches();
             return;
           }
           console.debug('File exists anomaly, retrying after 100ms:', path);
@@ -952,7 +974,7 @@ export class WikiEngine {
       await this.app.vault.process(file, () => content);
       console.debug('Final update succeeded:', path);
       this.onFileWrite?.(path);
-      this.pagesCache = null;
+      this.invalidatePageCaches();
     } else {
       throw new Error(`无法创建或更新文件: ${path}`);
     }
@@ -962,7 +984,7 @@ export class WikiEngine {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (file instanceof TFile) {
       await this.app.fileManager.trashFile(file);
-      this.pagesCache = null;
+      this.invalidatePageCaches();
       console.debug('deleteFile:', path);
     }
   }
