@@ -162,6 +162,11 @@ Nous recommandons vivement à tous les utilisateurs de mettre à niveau vers cet
 
 Détails dans [CHANGELOG.md](../CHANGELOG.md).
 
+### v1.21.1 — 2026-06-22 (PATCH)
+
+- **🔧 #173 Symptôme A — boucle de création createOrUpdateFile。** Lorsque `getAbstractFileByPath` retournait null (p. ex. incohérence de normalisation NFC/NFD sur macOS), la boucle à 3 tentatives continuait d'appeler `vault.create` sans d'abord résoudre via `resolveFileInVault`。 Maintenant, la résolution a lieu dès la première tentative。 @Indexed-Apogrypha (signalement)。
+- **📦 esbuild 0.28.0 → 0.28.1。** Corrige GHSA-g7r4-m6w7-qqqr (faible sévérité, développement uniquement)。
+
 ## ✨ Fonctionnalités
 
 ### 📊 Qualité des connaissances

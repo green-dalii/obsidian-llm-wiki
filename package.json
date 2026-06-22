@@ -1,6 +1,6 @@
 {
   "name": "karpathywiki",
-  "version": "1.21.0",
+  "version": "1.21.1",
   "packageManager": "pnpm@10.14.0",
   "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation with conversational query",
   "main": "main.js",
@@ -30,7 +30,7 @@
     "@types/node": "16.18.126",
     "@typescript-eslint/eslint-plugin": "8.59.1",
     "@typescript-eslint/parser": "8.59.1",
-    "esbuild": "0.28.0",
+    "esbuild": "0.28.1",
     "eslint": "10.2.1",
     "eslint-plugin-obsidianmd": "0.3.0",
     "jsdom": "^29.1.1",

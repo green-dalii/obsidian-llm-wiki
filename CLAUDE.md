@@ -4,7 +4,12 @@
 
 ---
 
-## Current Phase: v1.21.0 Released — v1.22.0 Schema Phase 2 (planned)
+## Current Phase: v1.21.1 Released — v1.22.0 Schema Phase 2 (planned)
+
+### Completed (v1.21.1) — Hotfix 2026-06-22
+- ✅ **#173 Symptom A — createOrUpdateFile create-retry loop.** NFC/NFD path resolution before `vault.create`.
+- ✅ **esbuild 0.28.0 → 0.28.1.** Low-severity dev-only patch.
+- ✅ **Tests: 941 passing.** +2 tests since v1.21.0.
 
 ### Completed (v1.21.0) — Pre-Ingest Gate + Schema Phase 1 + History Panel (2026-06-21)
 - ✅ **#164 — Pre-ingest requirements gate (PR #174).** Empty/whitespace/frontmatter-only notes rejected before LLM call. Extensible `CONTENT_CHECKS` registry + `hashBody` dedup + `ConfirmModal`. Contributed by @Indexed-Apogrypha.
@@ -14,7 +19,7 @@
 - ✅ **#124 — Schema Coherence Phase 1 (PR #167).** `SchemaContext` + `buildSchemaSectionTemplate` + tag vocab injection.
 - ✅ **#122 — Operation History Panel (PR #171).** Pure-function log parser + `HistoryModal`.
 - ✅ **#159 — Italian locale (PR #159).** 9th language. Contributed by @FrancoTampieri.
-- ✅ **Tests: 939 passing.** +148 tests, 67 test files.
+- ✅ **Tests: 939 passing.** +150 tests, 67 test files.
 
 ### Completed (v1.20.3) — Hotfix 2026-06-20
 - ✅ **#155 — Source-slug fingerprint (PR #156, Closes #155).** Every source slug now `<basename>_<6hex FNV-1a of full path>`. Contributed by @Indexed-Apogrypha.
@@ -142,7 +147,7 @@ src/
 │   ├── sse-parser.ts               # SSE event parser (anthropic + openai formats)
 │   ├── token-cap.ts                # max_tokens cap helper
 │   └── conflict-resolver.ts        # Conflict detection
-└── __tests__/                      # Unit tests (vitest, 939 tests)
+└── __tests__/                      # Unit tests (vitest, 941 tests)
 ```
 
 ---

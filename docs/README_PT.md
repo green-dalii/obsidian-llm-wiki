@@ -162,6 +162,11 @@ Recomendamos fortemente atualizar para esta versão, especialmente se usa LLMs l
 
 Detalhes em [CHANGELOG.md](../CHANGELOG.md).
 
+### v1.21.1 — 2026-06-22 (PATCH)
+
+- **🔧 #173 Sintoma A — loop de repetição de createOrUpdateFile。** Quando `getAbstractFileByPath` retornava null (p. ex., diferença de normalização NFC/NFD no macOS), o loop de 3 tentativas continuava chamando `vault.create` sem resolver primeiro via `resolveFileInVault`。 Agora resolve na primeira tentativa。 @Indexed-Apogrypha (relatório)。
+- **📦 esbuild 0.28.0 → 0.28.1。** Corrige GHSA-g7r4-m6w7-qqqr (gravidade baixa, apenas desenvolvimento)。
+
 ## ✨ Funcionalidades
 
 ### 📊 Qualidade do Conhecimento

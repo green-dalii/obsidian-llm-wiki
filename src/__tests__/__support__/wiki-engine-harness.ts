@@ -7,7 +7,7 @@
 // createOrUpdateFile, which fires onFileWrite). That lets a test assert the real
 // #164 symptom: "an empty file must create ZERO wiki pages."
 
-import { App, TFile } from 'obsidian'; // mocked in setup.ts
+import { App, TFile, TFolder } from 'obsidian'; // mocked in setup.ts
 import { IngestReport, LLMClient, LLMWikiSettings } from '../../types';
 import { SchemaManager } from '../../schema/schema-manager';
 import { WikiEngine } from '../../wiki/wiki-engine';
@@ -30,6 +30,9 @@ export interface HarnessOptions {
   files?: Record<string, string>;
   llmResponses?: string[];
   settings?: Partial<LLMWikiSettings>;
+  /** Paths where getAbstractFileByPath returns null despite the file existing.
+   *  Simulates macOS NFC/NFD normalization mismatch (Issue #173 Symptom A). */
+  nfcNfdPaths?: string[];
 }
 
 function mkFile(path: string): TFile {
@@ -37,6 +40,7 @@ function mkFile(path: string): TFile {
   const dot = name.lastIndexOf('.');
   return Object.assign(new TFile(), {
     path,
+    name,
     basename: dot > 0 ? name.slice(0, dot) : name,
     extension: dot > 0 ? name.slice(dot + 1) : 'md',
   });
@@ -58,7 +62,23 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
       },
       modify: async (f: { path: string }, c: string) => { files.set(f.path, c); },
       createFolder: async () => { /* no-op */ },
-      getAbstractFileByPath: (p: string) => (files.has(p) ? mkFile(p) : null),
+      getAbstractFileByPath: (p: string) => {
+        if (opts.nfcNfdPaths?.includes(p)) return null;
+        if (files.has(p)) return mkFile(p);
+        // Return a TFolder stub for any intermediate directory path that has
+        // children in the file map — needed by resolveFileInVault (Issue #173).
+        const prefix = p.endsWith('/') ? p : p + '/';
+        const children = [...files.keys()].filter(k => k.startsWith(prefix)).map(k =>
+          files.has(k) ? mkFile(k) : null
+        ).filter(Boolean) as TFile[];
+        if (children.length > 0) {
+          const folder = new TFolder();
+          folder.path = p;
+          folder.children = children;
+          return folder;
+        }
+        return null;
+      },
       getMarkdownFiles: () => { stats.vaultMarkdownScans++; return [...files.keys()].filter(p => p.endsWith('.md')).map(mkFile); },
       getFiles: () => [...files.keys()].map(mkFile),
     },

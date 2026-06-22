@@ -967,15 +967,33 @@ export class WikiEngine {
           this.onFileWrite?.(path);
           this.invalidatePageCaches();
           return;
-        } else {
-          console.debug(`Attempt ${attempt + 1}: File not found, creating:`, path);
-          await this.app.vault.create(path, content);
-          console.debug('Create success:', path);
-          this.markPageComplete(path);
-          this.onFileWrite?.(path);
-          this.invalidatePageCaches();
-          return;
         }
+
+        // getAbstractFileByPath returned null — could be an NFC/NFD normalization
+        // mismatch on macOS where the file exists but with a different Unicode form.
+        // Try resolveFileInVault (walks parent directory, no full vault scan) first,
+        // rather than guessing vault.create() will succeed.
+        if (attempt === 0) {
+          const resolved = this.resolveFileInVault(path);
+          if (resolved instanceof TFile) {
+            console.debug('createOrUpdateFile: resolved via directory scan:', path);
+            await this.app.vault.process(resolved, () => content);
+            console.debug('Update success (resolved path):', path);
+            this.markPageComplete(path);
+            this.onFileWrite?.(path);
+            this.invalidatePageCaches();
+            return;
+          }
+        }
+
+        // File genuinely does not appear to exist — attempt to create it.
+        console.debug(`Attempt ${attempt + 1}: File not found, creating:`, path);
+        await this.app.vault.create(path, content);
+        console.debug('Create success:', path);
+        this.markPageComplete(path);
+        this.onFileWrite?.(path);
+        this.invalidatePageCaches();
+        return;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         console.error(`Attempt ${attempt + 1} failed:`, errorMsg);
