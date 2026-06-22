@@ -9,6 +9,7 @@
     "build": "node esbuild.config.mjs production",
     "build:dev": "node esbuild.config.mjs dev",
     "lint": "eslint src/ --max-warnings=0",
+    "css-lint": "! grep -n '!important' styles.css",
     "test": "vitest run",
     "test:watch": "vitest"
   },

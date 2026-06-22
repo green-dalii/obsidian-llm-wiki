@@ -543,8 +543,11 @@
   gap: 6px;
   align-items: center;
 }
-.llm-wiki-custom-range-visible {
-  display: flex !important;
+/* Chain selector to override base display:none without the specificity hack.
+   Obsidian review bot flags inline specificity overrides; higher specificity
+   (2 classes) wins over the single-class base rule regardless of CSS load order. */
+.llm-wiki-custom-range.llm-wiki-custom-range-visible {
+  display: flex;
 }
 /* Date input: calendar icon left-aligned, text right-aligned */
 .llm-wiki-date-input {

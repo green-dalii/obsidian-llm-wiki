@@ -178,14 +178,14 @@ Every change must pass all six gates before being considered complete. Gates 1-4
 
 | Gate | Constraint | How | Who |
 |------|-----------|-----|-----|
-| **1. Code correct** | `pnpm lint` 0/0 + `npx tsc --noEmit` 0/0 + `pnpm test` all pass + `pnpm build` clean | 4-Gate script | Developer |
+| **1. Code correct** | `pnpm lint` 0/0 + `npx tsc --noEmit` 0/0 + `pnpm test` all pass + `pnpm build` clean + `pnpm css-lint` 0 | 5-Gate script | Developer |
 | **2. No side effects** | Call-site audit + data flow trace + state mutation check + error propagation check | Structured review | Developer |
 | **3. No breaking changes** | API/Schema/File format/Default behavior/Command IDs/Obsidian API all backward-compatible | Breaking-change matrix | Developer |
 | **4. No performance regression** | CPU/memory/IO/network/token usage — 5-dim walkthrough, written assessment table | simplify + code-review + Gate 4 table | Developer |
 | **5. Docs complete** | 8 READMEs + ROADMAP + CLAUDE.md + CHANGELOG + memory all updated | pre-release-gate | Gate |
 | **6. Release clean (superset of 1-5)** | Gate 1-5 all green, PLUS TOC anchors + localization + Release Notes + Contributors + git hygiene + **Gate 4 perf re-verification** | pre-release-gate | Gate |
 
-### Gate 1: Four-Gate automated
+### Gate 1: Five-Gate automated
 
 Must all pass sequentially. If any fails, fix root cause (no `@ts-ignore` or `eslint-disable` to silence):
 
@@ -194,9 +194,18 @@ pnpm lint           # ESLint + Obsidian rules: 0 errors, 0 warnings
 npx tsc --noEmit    # TypeScript: 0 errors (ESLint does NOT check type safety)
 pnpm test           # Vitest: all pass, 0 failures
 pnpm build          # esbuild: clean exit
+pnpm css-lint       # CSS: 0 !important declarations in styles.css
 ```
 
-**Dual Gate critical note**: ESLint and TypeScript are complementary — ESLint does not check type matching, TypeScript does not check code style. Single tool passing is insufficient.
+**Five-gate critical note**: ESLint checks code style, TypeScript checks type safety, css-lint checks Obsidian review compliance — three complementary checks. Single tool passing is insufficient.
+
+```bash
+pnpm lint           # Gate 1: ESLint - 0 errors, 0 warnings
+npx tsc --noEmit    # Gate 1: TypeScript - 0 errors, 0 warnings
+pnpm test           # Gate 1: Tests - all pass, 0 failures
+pnpm build          # Gate 1: Build - clean exit
+pnpm css-lint       # Gate 1: CSS - 0 !important declarations
+```
 
 ### Gate 2: No Side Effects — structured review
 
@@ -334,7 +343,7 @@ main (protected) ─────────────────────
 
 1. **Branch from main:** `git checkout -b feat/xxx` or `git checkout -b fix/xxx`
 2. **Develop on the branch** — multiple commits OK, each with meaningful content
-3. **Gate 1 verification:** `pnpm lint && npx tsc --noEmit && pnpm test && pnpm build`
+3. **Gate 1 verification:** `pnpm lint && npx tsc --noEmit && pnpm test && pnpm build && pnpm css-lint`
 4. **Only after user confirmation** — push branch, create PR
 5. **After PR merge** — switch back to main, pull, tag (if needed)
 
@@ -351,7 +360,7 @@ main (protected) ─────────────────────
 
 ## 📦 Development Workflow
 
-1. `pnpm lint && pnpm test && npx tsc --noEmit && pnpm build` — all four must pass (Six-Gate Gate 1)
+1. `pnpm lint && pnpm test && npx tsc --noEmit && pnpm build && pnpm css-lint` — all five must pass (Six-Gate Gate 1)
 
 ### Build modes
 
