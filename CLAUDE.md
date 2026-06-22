@@ -1,10 +1,14 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-06-22
+**Last Updated:** 2026-06-22 (ingest status bar UX)
 
 ---
 
 ## Current Phase: v1.21.1 Released — v1.22.0 Schema Phase 2 (planned)
+
+### Completed (Unreleased) — Ingest status bar UX 2026-06-22
+- ✅ **Ingest status bar shows document name + batch progress.** Single-file ingest now shows `<doc> · Ingesting...`; folder batch ingest shows `[current/total] <doc> · Ingesting... click to cancel`. New pure-function `core/status-bar.ts` (`buildIngestStatusBarText`) composes from the existing localized label — no new i18n keys. `WikiEngine` ingestion-start callback passes the source basename (optional param, backward-compatible). `batchProgress` field in `main.ts` tracks loop position.
+- ✅ **Tests: 948 passing.** +7 (`core/status-bar` suite).
 
 ### Completed (v1.21.1) — Hotfix 2026-06-22
 - ✅ **#173 Symptom A — createOrUpdateFile create-retry loop.** NFC/NFD path resolution before `vault.create`.
@@ -146,8 +150,9 @@ src/
 │   ├── convergence-detector.ts     # Early-stop on low-yield batches
 │   ├── sse-parser.ts               # SSE event parser (anthropic + openai formats)
 │   ├── token-cap.ts                # max_tokens cap helper
+│   ├── status-bar.ts               # Ingest status bar text composition (name + batch progress)
 │   └── conflict-resolver.ts        # Conflict detection
-└── __tests__/                      # Unit tests (vitest, 941 tests)
+└── __tests__/                      # Unit tests (vitest, 948 tests)
 ```
 
 ---

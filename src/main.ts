@@ -82,6 +82,7 @@ import { getText } from './core/i18n';
 import { slugify } from './core/slug';
 import { parseFrontmatter } from './core/frontmatter';
 import { normalizeVocabularyCsv } from './core/tag-vocab';
+import { buildIngestStatusBarText, BatchProgress } from './core/status-bar';
 import { LLMWikiSettingTab } from './ui/settings';
 import { WikiEngine } from './wiki/wiki-engine';
 import { QueryModal } from './wiki/query-engine';
@@ -99,6 +100,9 @@ export default class LLMWikiPlugin extends Plugin {
   autoMaintainManager: AutoMaintainManager;
   private progressNotice: Notice | null = null;
   private ingestStatusBar: HTMLElement | null = null;
+  // Tracks the current document position during a folder batch ingest so the
+  // status bar can show "[current/total] <doc> · …". Null for single-file ingest.
+  private batchProgress: BatchProgress | null = null;
 
   async onload() {
     await this.loadSettings();
@@ -251,10 +255,12 @@ export default class LLMWikiPlugin extends Plugin {
     };
 
     this.wikiEngine.setIngestionCallbacks(
-      () => {
+      (filename?: string) => {
         const label = getText(this.settings.language, 'ingestionStatusBar');
         if (this.ingestStatusBar) {
-          this.ingestStatusBar.setText(label);
+          this.ingestStatusBar.setText(
+            buildIngestStatusBarText(label, filename, this.batchProgress)
+          );
           this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
         }
       },
@@ -564,6 +570,7 @@ export default class LLMWikiPlugin extends Plugin {
         const file = newFiles[i];
 
         try {
+          this.batchProgress = { current: i + 1, total: ingestCount };
           this.showProgress(`[${i + 1}/${ingestCount}] ${file.basename}`);
           console.debug(`(${i + 1}/${ingestCount}) ingesting: ${file.path}`);
           await this.wikiEngine.ingestSource(file, { batchCtx });
@@ -579,6 +586,7 @@ export default class LLMWikiPlugin extends Plugin {
         }
       }
 
+      this.batchProgress = null;
       this.wikiEngine.setDoneCallback((report: IngestReport) => this.onIngestDone(report));
 
       this.dismissProgress();

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Ingestion status bar now shows the current document name.** Single-file ingest displays `<doc> · Ingesting... click to cancel` instead of the bare label, so the active source is visible at a glance.
+- **Folder batch ingest surfaces progress in the status bar.** During a folder batch run the status bar shows `[current/total] <doc> · Ingesting... click to cancel` (e.g. `[4/10] My Note · Ingesting... click to cancel`), mirroring the existing progress Notice. New pure-function `core/status-bar.ts` (`buildIngestStatusBarText`) composes the text from the existing localized label — no new i18n keys, all 9 locales covered automatically. The `WikiEngine` ingestion-start callback now passes the source basename (optional param, backward-compatible).
+
+### Tests
+- New `core/status-bar` suite (7 tests) for single/batch/empty composition. **948 tests passing** (was 941 in v1.21.1; +7).
+
 ## [1.21.1] - 2026-06-22
 
 ### Fixed

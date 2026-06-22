@@ -87,7 +87,7 @@ export class WikiEngine {
   private abortController: AbortController | null = null;
   private lintAbortController: AbortController | null = null;
   wasCancelled = false;
-  private onIngestionStart: (() => void) | null = null;
+  private onIngestionStart: ((filename?: string) => void) | null = null;
   private onIngestionEnd: (() => void) | null = null;
   private onLintStart: (() => void) | null = null;
   private onLintEnd: (() => void) | null = null;
@@ -205,7 +205,7 @@ export class WikiEngine {
     this.onDone = cb;
   }
 
-  setIngestionCallbacks(onStart: (() => void) | null, onEnd: (() => void) | null): void {
+  setIngestionCallbacks(onStart: ((filename?: string) => void) | null, onEnd: (() => void) | null): void {
     this.onIngestionStart = onStart;
     this.onIngestionEnd = onEnd;
   }
@@ -410,7 +410,7 @@ export class WikiEngine {
     // Setup cancellation support
     this.wasCancelled = false;
     this.abortController = new AbortController();
-    this.onIngestionStart?.();
+    this.onIngestionStart?.(file.basename);
 
     // Long-source warning: large files trigger iterative batch extraction
     // (multiple LLM passes), which takes significantly longer than small files.
