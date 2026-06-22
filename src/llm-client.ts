@@ -714,7 +714,7 @@ export class OpenAICompatibleClient implements LLMClient {
   // createLLMClient so that queueFallbackNotice can resolve templates via
   // getText() instead of hard-coding TEXTS.en (which would discard the
   // per-locale translations just added to the 8 text files).
-  language: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it' = 'en';
+  language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it' = 'en';
 
   constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;

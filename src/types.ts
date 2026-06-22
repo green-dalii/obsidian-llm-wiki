@@ -79,7 +79,7 @@ export interface LLMWikiSettings {
   baseUrl: string;
   model: string;
   wikiFolder: string;
-  language: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it';
+  language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it';
   wikiLanguage: string;
   useCustomWikiLanguage?: boolean;
   availableModels?: string[];
@@ -284,6 +284,7 @@ export interface LLMClient {
 export const WIKI_LANGUAGES: Record<string, string> = {
   'en': 'English',
   'zh': '中文',
+  'zh-Hant': '繁體中文',  // v1.22.0: Traditional Chinese
   'ja': '日本語',
   'ko': '한국어',
   'de': 'Deutsch',

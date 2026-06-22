@@ -68,3 +68,35 @@ describe('Italian locale wiring', () => {
     }
   });
 });
+
+// === v1.22.0: Traditional Chinese (zh-Hant) locale — 10th language ===
+// BCP-47 distinguishes zh-Hans (Simplified) from zh-Hant (Traditional).
+// Target users: Hong Kong / Macao / Taiwan / Malaysia / Singapore.
+//
+// TEXTS uses BCP-47 keys to match settings.language / WIKI_LANGUAGES exactly
+// (vs. the previous CamelCase convention). This keeps every consumer
+// `TEXTS[settings.language]` type-safe without per-language aliases.
+describe('Traditional Chinese (zh-Hant) locale wiring', () => {
+  it('exposes the Traditional Chinese UI locale (TEXTS["zh-Hant"])', () => {
+    expect(TEXTS['zh-Hant']).toBeDefined();
+    // Self-naming key follows the existing `languageXxx` convention.
+    // Cast through `unknown` to bypass the deeply-inferred nested type
+    // (TS otherwise complains about indexLabels and other sub-records).
+    const hantTexts = TEXTS['zh-Hant'] as unknown as Record<string, string>;
+    expect(hantTexts.languageZhHant).toBe('繁體中文');
+  });
+
+  it('registers zh-Hant as a selectable wiki output language with BCP-47 tag', () => {
+    expect(WIKI_LANGUAGES['zh-Hant']).toBe('繁體中文');
+  });
+
+  it('provides Traditional Chinese wiki section labels with full coverage', () => {
+    expect(SECTION_LABELS['zh-Hant']).toBeDefined();
+    const enLabelKeys = Object.keys(SECTION_LABELS.en).sort();
+    const hantLabelKeys = Object.keys(SECTION_LABELS['zh-Hant']).sort();
+    expect(hantLabelKeys).toEqual(enLabelKeys);
+    for (const value of Object.values(SECTION_LABELS['zh-Hant'])) {
+      expect(value.trim().length).toBeGreaterThan(0);
+    }
+  });
+});

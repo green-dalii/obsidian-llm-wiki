@@ -77,17 +77,20 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       .setName(this.getText('languageTitle'))
       .setDesc(this.getText('languageDesc'))
       .addDropdown(dropdown => {
-        dropdown.addOption('en', this.getText('languageEn'));
-        dropdown.addOption('zh', this.getText('languageZh'));
-        dropdown.addOption('ja', this.getText('languageJa'));
-        dropdown.addOption('ko', this.getText('languageKo'));
-        dropdown.addOption('de', this.getText('languageDe'));
-        dropdown.addOption('fr', this.getText('languageFr'));
-        dropdown.addOption('es', this.getText('languageEs'));
-        dropdown.addOption('pt', this.getText('languagePt'));
-        dropdown.addOption('it', this.getText('languageIt'));
+        // v1.22.0: use WIKI_LANGUAGES (BCP-47 → native name) as the single
+        // source of truth for BOTH dropdowns. Previously the Interface
+        // Language dropdown hardcoded 9 `addOption('xx', getText('languageXxx'))`
+        // lines, which (a) required manual sync when a locale was added, and
+        // (b) could show locale-translated labels (e.g. '日文') that didn't
+        // match the canonical name used in Wiki Output Language. Sharing
+        // WIKI_LANGUAGES means a single edit covers both dropdowns and every
+        // label is the language's own native name — same convention as
+        // BCP-47 + IANA subtag registry.
+        for (const [key, label] of Object.entries(WIKI_LANGUAGES)) {
+          dropdown.addOption(key, label);
+        }
         dropdown.setValue(this.tempSettings.language);
-        dropdown.onChange((value: 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it') => {
+        dropdown.onChange((value: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it') => {
           this.tempSettings.language = value;
           this.display();
         });

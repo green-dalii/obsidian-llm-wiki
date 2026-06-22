@@ -18,6 +18,7 @@ export const KO_TEXTS = {
     languageDesc: '설정 패널에서 사용할 언어를 선택하세요. 언어 변경을 명령 팔레트에 적용하려면 플러그인을 재시작하세요.',
     languageEn: 'English',
     languageZh: '中文',
+    languageZhHant: '繁體中文',
     languageJa: '日本語',
     languageKo: '한국어',
     languageDe: 'Deutsch',

@@ -18,6 +18,7 @@ export const EN_TEXTS = {
     languageDesc: 'Select your preferred language for settings panel. Restart plugin to apply language changes to command palette.',
     languageEn: 'English',
     languageZh: '中文',
+    languageZhHant: '繁體中文',
     languageJa: '日本語',
     languageKo: '한국어',
     languageDe: 'Deutsch',

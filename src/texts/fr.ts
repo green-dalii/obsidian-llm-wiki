@@ -18,6 +18,7 @@ export const FR_TEXTS = {
     languageDesc: 'Sélectionnez la langue du panneau des paramètres. Redémarrez le plugin pour appliquer les changements de langue à la palette de commandes.',
     languageEn: 'English',
     languageZh: '中文',
+    languageZhHant: '繁體中文',
     languageJa: '日本語',
     languageKo: '한국어',
     languageDe: 'Deutsch',

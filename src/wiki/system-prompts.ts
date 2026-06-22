@@ -35,6 +35,19 @@ export const SECTION_LABELS: Record<string, Record<string, string>> = {
     existing_knowledge: '已有知识', resolution_suggestion: '解决建议',
     source_page: '来源页面', related_pages: '相关页面', updated: '更新于',
   },
+  // v1.22.0: Traditional Chinese (zh-Hant) for HK/MO/TW/MY/SG users
+  'zh-Hant': {
+    basic_information: '基本資訊', description: '描述',
+    related_content: '相關內容', mentions_in_source: '來源提及',
+    new_information: '新資訊', definition: '定義',
+    key_characteristics: '關鍵特徵', applications: '應用',
+    related_concepts: '相關概念', related_entities: '相關實體',
+    source: '來源', core_content: '核心內容', key_entities: '關鍵實體',
+    key_concepts: '關鍵概念', main_points: '要點',
+    resolved_contradictions: '已解決的矛盾', new_claim: '新主張',
+    existing_knowledge: '已有知識', resolution_suggestion: '解決建議',
+    source_page: '來源頁面', related_pages: '相關頁面', updated: '更新於',
+  },
   ja: {
     basic_information: '基本情報', description: '説明',
     related_content: '関連コンテンツ', mentions_in_source: 'ソースでの言及',

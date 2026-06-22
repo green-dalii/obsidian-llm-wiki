@@ -18,6 +18,7 @@ export const DE_TEXTS = {
     languageDesc: 'Wähle deine bevorzugte Sprache für das Einstellungsfenster. Starte das Plugin neu, um die Sprachänderungen auf die Befehlspalette anzuwenden.',
     languageEn: 'English',
     languageZh: '中文',
+    languageZhHant: '繁體中文',
     languageJa: '日本語',
     languageKo: '한국어',
     languageDe: 'Deutsch',

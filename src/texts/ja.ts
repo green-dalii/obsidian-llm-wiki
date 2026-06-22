@@ -18,6 +18,7 @@ export const JA_TEXTS = {
     languageDesc: '設定パネルの表示言語を選択してください。言語変更をコマンドパレットに適用するには、プラグインを再起動してください。',
     languageEn: 'English',
     languageZh: '中文',
+    languageZhHant: '繁體中文',
     languageJa: '日本語',
     languageKo: '한국어',
     languageDe: 'Deutsch',

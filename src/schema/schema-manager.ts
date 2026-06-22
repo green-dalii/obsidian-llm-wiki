@@ -4,6 +4,7 @@ import { App, TFile } from 'obsidian';
 import { LLMWikiSettings, WikiSchema, SchemaSuggestion, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, DEFAULT_ENTITY_TAG, DEFAULT_CONCEPT_TAG } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../core/json';
+import { getActiveEntityTags, getActiveConceptTags } from '../core/tag-vocab';
 import { TOKENS_SCHEMA_SUGGESTION } from '../constants';
 
 const SCHEMA_FILENAME = 'schema/config.md';
@@ -27,14 +28,25 @@ const TASK_SECTIONS: Record<SchemaTask, string[]> = {
   full: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules', 'Maintenance Policies'],
 };
 
-export function buildDefaultSchemaBody(): string {
+export function buildDefaultSchemaBody(settings?: LLMWikiSettings): string {
+  // v1.22.0 Phase 2: dynamic tag vocabulary. When settings are provided and
+  // tagVocabularyMode === 'custom', the active tag list comes from
+  // getActiveEntityTags / getActiveConceptTags — keeping the schema body
+  // and the prompt's Active Tag Vocabulary section in lockstep, so the LLM
+  // never sees two conflicting tag lists. When settings are undefined
+  // (first-ever load, before any settings are persisted), we fall back to
+  // the hardcoded defaults — preserving the original public-API behavior.
+  const entityTags = settings ? getActiveEntityTags(settings) : [...VALID_ENTITY_TAGS];
+  const conceptTags = settings ? getActiveConceptTags(settings) : [...VALID_CONCEPT_TAGS];
+  const entityList = entityTags.join(', ');
+  const conceptList = conceptTags.join(', ');
   return `# Wiki Schema Configuration
 
 This file governs how the LLM builds and maintains your Wiki. Edit it freely.
 
 ## Wiki Structure
-- Entity pages: \`entities/\` (person, organization, project, product, event, place, other)
-- Concept pages: \`concepts/\` (theory, method, field, phenomenon, standard, term, other)
+- Entity pages: \`entities/\` (${entityList})
+- Concept pages: \`concepts/\` (${conceptList})
 - Source pages: \`sources/\`
 - Index: \`index.md\`
 - Log: \`log.md\`
@@ -46,7 +58,7 @@ Pages in \`entities/\` MUST follow this structure:
 - \`type: entity\` — page category (MUST be exactly "entity")
 - \`created:\` — ISO date of first creation
 - \`sources:\` — array of source file wiki-links
-- \`tags:\` — entity subtype, MUST be one of: person, organization, project, product, event, place, other
+- \`tags:\` — entity subtype, MUST be one of: ${entityList}
 - \`aliases:\` (optional) — alternative names (translations, abbreviations)
 - \`reviewed:\` (optional) — if true, page is human-verified and protected
 
@@ -64,7 +76,7 @@ Pages in \`concepts/\` MUST follow this structure:
 - \`type: concept\` — page category (MUST be exactly "concept")
 - \`created:\` — ISO date of first creation
 - \`sources:\` — array of source file wiki-links
-- \`tags:\` — concept subtype, MUST be one of: theory, method, field, phenomenon, standard, term, other
+- \`tags:\` — concept subtype, MUST be one of: ${conceptList}
 - \`aliases:\` (optional) — alternative names (translations, abbreviations)
 - \`reviewed:\` (optional) — if true, page is human-verified and protected
 
@@ -119,8 +131,8 @@ Rules:
 ## Classification Rules
 - **type field:** entity | concept | source — the page category
 - **tags field:** stores the subtype (entity_type or concept_type)
-- Entity subtypes (valid tags for type=entity): person, organization, project, product, event, place, other
-- Concept subtypes (valid tags for type=concept): theory, method, field, phenomenon, standard, term, other
+- Entity subtypes (valid tags for type=entity): ${entityList}
+- Concept subtypes (valid tags for type=concept): ${conceptList}
 - Source types: document, conversation, note
 - **Rule:** tags MUST only contain values from the corresponding subtype list above. A tag not in the valid list will be removed by the system.
 
@@ -272,7 +284,7 @@ ${selectedBody}
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const body = buildDefaultSchemaBody();
+    const body = buildDefaultSchemaBody(this.settings);
     const content = `---
 version: 1
 updated: ${today}
@@ -291,7 +303,7 @@ ${body}`;
   async regenerateDefaultSchema(): Promise<void> {
     const path = this.getSchemaPath();
     const today = new Date().toISOString().slice(0, 10);
-    const body = buildDefaultSchemaBody();
+    const body = buildDefaultSchemaBody(this.settings);
     const content = `---
 version: 1
 updated: ${today}

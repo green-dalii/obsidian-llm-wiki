@@ -18,6 +18,7 @@ export const ZH_TEXTS = {
     languageDesc: '选择设置面板的显示语言。重启插件以将语言更改应用到命令面板。',
     languageEn: 'English',
     languageZh: '中文',
+    languageZhHant: '繁體中文',
     languageJa: '日本語',
     languageKo: '한국어',
     languageDe: 'Deutsch',

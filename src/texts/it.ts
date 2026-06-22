@@ -18,6 +18,7 @@ export const IT_TEXTS = {
     languageDesc: 'Seleziona la lingua preferita per il pannello delle impostazioni. Riavvia il plugin per applicare le modifiche di lingua alla palette dei comandi.',
     languageEn: 'English',
     languageZh: '中文',
+    languageZhHant: '繁體中文',
     languageJa: '日本語',
     languageKo: '한국어',
     languageDe: 'Deutsch',

@@ -2,35 +2,27 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.22.0 (planned) | **Updated:** 2026-06-22
+**Version:** 1.20.2 | **Updated:** 2026-06-19
 
 ---
 
 ## Current Status
 
-### Implemented (v1.21.1) — Hotfix 2026-06-22
+### In Progress — v1.20.3 Hotfix (3 parity/latent-bug PRs pending merge)
 
-- ✅ **#173 Symptom A — createOrUpdateFile create-retry loop.** When `getAbstractFileByPath` returns null (macOS NFC/NFD normalization), `resolveFileInVault` is now consulted before `vault.create`, eliminating 3× failed retry overhead. Contributed by @Indexed-Apogrypha (reporting).
-- ✅ **esbuild 0.28.0 → 0.28.1.** Patch GHSA-g7r4-m6w7-qqqr (low severity, dev-only).
-- ✅ **Tests: 941 passing.** +2 tests (844 total pre-v1.21.0 → 941), 67 test files.
+Three open PRs from the 2026-06-19/20 triage, scoped for a single hotfix release (all parity/latent-bug fixes, zero new behavior for existing users):
 
-### Implemented (v1.21.0) — Pre-Ingest Gate + Schema Phase 1 + History Panel (2026-06-21)
+- ✅ **PR #154 — mergeFrontmatter alias dedup** (@DocTpoint). `mergeFrontmatter` now dedups `fm.aliases` parity with `enforceFrontmatterConstraints` — closes a latent "aliases accumulated ~15× in long-lived vaults" bug. 2 regression tests; +5/-1 LOC in `core/frontmatter.ts`. No breaking changes.
+- ✅ **PR #156 — Source-page slug fingerprint** (@Indexed-Apogrypha). Every source slug now `<basename>_<6hex FNV-1a of full path>` — fixes Issue #155 (silent overwrite when two source files share a basename across folders). Single-computation point in `wiki-engine.ts` + pure `core/source-slug.ts` module + 9 unit tests + live e2e. Breaking only for re-ingest: existing source pages rename but backlinks update.
+- ✅ **PR #158 — Stage-4 reviewed guard** (@DocTpoint). `updateRelatedPage` now respects `reviewed: true` and routes to `appendToReviewedPage` (same as `createOrUpdatePage`). Closes a latent bug where re-ingesting an unrelated source would LLM-rewrite a curated `reviewed: true` page's body. 1 regression test using `NO_NEW_CONTENT` LLM response to prove "curated body survives"; +9/-0 LOC in `page-factory.ts`.
 
-- ✅ **#164 — Pre-ingest requirements gate (PR #174).** Empty/whitespace/frontmatter-only notes are now rejected before any LLM call, preventing small/local models from hallucinating fabricated entity names. Extensible `CONTENT_CHECKS` registry + `hashBody` content-hash dedup + `ConfirmModal` re-ingest prompt. Contributed by @Indexed-Apogrypha.
-- ✅ **#170 — Incomplete-page cleaner (PR #177).** `generation_complete` frontmatter flag + startup QuickFixes Phase 3 self-scan archives pages left in a partial state after interrupted ingests. Recoverable from `.trash`.
-- ✅ **#172 — i18n: hardcoded Chinese error string (PR #176).** `createOrUpdateFile` final-fallback now uses `getText('fileWriteFailed')` across 9 locales.
-- ✅ **#173 — dedup createdPages (PR #176).** `dedupPages()` pure-function helper prevents duplicated surface-forms from inflating the ingest report.
-- ✅ **#124 — Schema Coherence Phase 1 (PR #167).** `SchemaContext` + `buildSchemaSectionTemplate` + tag vocabulary injection into system prompt.
-- ✅ **#122 — Operation History Panel (PR #171).** Pure-function log parser + `HistoryModal` with insight-driven visualization.
-- ✅ **#159 — Italian locale (PR #159).** 9th language. Contributed by @FrancoTampieri.
+**Hotfix rationale:** all 3 fixes are parity/latent-bug — they restore behavior that *should* have been there from the start. Single hotfix keeps change log coherent.
 
-### Implemented (v1.20.3) — Parity/Latent-Bug Hotfix (2026-06-20)
+### In Progress — v1.21.0 Schema Coherence Phase 1 (local branch `feat/v1.21.0-schema-coherence-phase1`)
 
-- ✅ **#155 — Source-page slug collision (PR #156).** Every source slug now `<basename>_<6hex FNV-1a of full path>`. Fixes silent overwrite when two source files share a basename across folders. Re-ingest renames existing pages but backlinks update in place. Contributed by @Indexed-Apogrypha.
-- ✅ **mergeFrontmatter alias dedup (PR #154).** `mergeFrontmatter` now dedups `fm.aliases` parity with `enforceFrontmatterConstraints`. Closes a latent "aliases accumulated ~15× in long-lived vaults" bug. Contributed by @DocTpoint.
-- ✅ **Stage-4 reviewed guard (PR #158).** `updateRelatedPage` now respects `reviewed: true` and routes to `appendToReviewedPage`. Closes a latent bug where re-ingesting an unrelated source would LLM-rewrite a curated page's body. Contributed by @DocTpoint.
+Address Issue #124 (hardcoded page section structure) via `SchemaContext` + `buildSchemaSectionTemplate`. Also fixes Issue #97's prerequisite: schema as single source of truth before one-click apply can deliver value. Schema Phase 2 (generation.ts wired to schema template + custom section names) and Phase 3 (#97 auto-backup) follow.
 
-### Implemented (v1.20.1) — Anthropic Prefill Hotfix (2026-06-18)
+### Implemented (v1.20.2) — Anthropic Fallback System-Role Hotfix (2026-06-19)
 
 - ✅ **#141/#147 — Anthropic fallback retry system-role fix.** PR #151 by @Indexed-Apogrypha: all 4 Anthropic fallback paths now keep system as top-level field (not in messages array). +4 regression tests with Anthropic API simulator.
 
@@ -111,37 +103,43 @@ Major quality release addressing previously-unprocessable large sources and a cl
 
 ---
 
-## Next Milestone: v1.22.0 — Schema Coherence Phase 2 + Tech Debt
+## Next Milestone: v1.21.0 — Schema Coherence Phase 1 + Hotfix Carryover
 
-Release focus: complete schema unification, address accumulated code quality debt (history-modal, llm-client), adopt Obsidian Keychain, and ship graph-based improvements.
+Release focus: ship Schema Coherence Phase 1 (`SchemaContext` + `buildSchemaSectionTemplate` + tag vocabulary injection), optionally carry v1.20.3 hotfix PRs (#154 + #156) if they merge first.
 
-### Phase 2: Custom section names + #97 one-click apply (v1.22.0)
+### Phase 1: Schema Coherence (in progress)
+- **`SchemaContext` shared parsed representation** of `schema/config.md`, used by both system prompts and generation prompts (eliminates the "schema template overridden by hardcoded sections" bug from #124).
+- **`buildSchemaSectionTemplate(ctx, pageType)`** extracts user-defined sections from `**Sections:**` lists; `hasUserSections` flag for backward compat.
+- **`buildActiveTagVocabularySection` injection into system prompt** with dedup guard. Custom tags now active in every LLM call that needs them.
+- **Settings UI default mode** previews user-defined custom tags with activation hint.
+- **v1.20.0 migration** resets `disableThinking` to `false` and `advancedSettingsMode` to `'default'`.
 
-- Schema supports custom section names (not just multi-language translation)
-- One-click apply schema suggestions with auto-backup
-- Schema diff preview before apply
-- Rollback mechanism
+### Phase 2 (next, after Phase 1 lands)
+- Wire `generation.ts` to consume `buildSchemaSectionTemplate` (replace hardcoded `## {{section_xxx}}`).
+- Custom section name syntax extensions.
+- #97 one-click apply with auto-backup + diff preview (depends on Phase 1 single-source-of-truth).
 
-### Phase 3: Graph-based features & Workflow scale-up (v1.22.0+)
+### Pending v1.20.3 Hotfix PRs (waiting on user merge decision)
+- PR #154 — mergeFrontmatter alias dedup
+- PR #156 — Source-page slug fingerprint
+- PR #158 — Stage-4 reviewed guard
 
-- **Wiki Link Graph (NEW).** Shared `core/wiki-graph.ts` exposing degree centrality, shared-link ratio, and second-degree relatedness — all from the existing `[[wiki-link]]` graph, zero embedding API, zero new deps, all providers. Powers #117, #157 hub-level decisions and dedup prefilter as opt-in modes.
-  - Degree centrality → hub detection (#117) — `hubDetection: 'degree' | 'llm' | 'disabled'`
-  - Shared-link ratio `shared(P,T)/outDegree(T)` → link distinctiveness (#157) — `hubLinkPolicy: 'graph' | 'tag' | 'disabled'`
-  - Second-degree common-neighbors → related-page suggestion
-- **#117 — Graph-based domain tag inference.** Hub detection + LLM labeling + tag propagation.
-- **#130 — In-place batch ingest queue.** Composes with #122 (history panel) and `pageGenerationConcurrency`.
-- **#168 — Single-file vs batch granularity split.** Replace single `extractionGranularity` with two independent settings: `singleFileGranularity` + `batchGranularity`.
-- **#169 — Better status reporting** (deferred split scope). Phase 1: richer progress text (batch count, ETA, current model). Phase 2: live file preview.
-- **#157 — Hub-link distinctiveness.** **Updated:** Wiki Link Graph (shared-link ratio) replaces the earlier embedding approach. Supersedes the cosine-based proposal; archived as a design reference.
+If merged → roll into v1.20.3 hotfix; otherwise carry forward.
 
-### Phase 4: Code quality & security (v1.22.0, refactoring)
+### Pending v1.21.0 Normal Release PRs
+- PR #159 — Italian (it) locale + i18n-parity test (@FrancoTampieri, first-time contributor). Adds 9th locale with strict bidirectional parity, plus a build-time parity guard that prevents silent EN fallback in any future locale. Recommended to ship alongside v1.21.0 Schema Coherence Phase 1.
 
-- **P2 — history-modal.ts split.** Extract pure-function analysis layer (`core/history-analytics.ts`, ~400 lines) from UI modal (`ui/history-modal.ts`, down to ~800 lines). Makes insight calculations testable.
-- **P2 — llm-client.ts strategy extraction.** Extract `ThinkingControlCache` and `PrefillCache` as independent testable classes. Reduce `llm-client.ts` from 1253 to ~900 lines.
-- **P3 — Lint performance (controller.ts TODOs).** Worker pool for dedup batches + LLM health analysis + Missing Concept Pages tracker.
-- **#182 — Obsidian Keychain (SecretStorage API).** Migrate `apiKey` from plaintext `data.json` to OS-level credential storage via Obsidian's `SecretStorage` API. Requires `minAppVersion` bump to 1.11.4.
+### Deferred (v1.22.0+ backlog)
+- #91 Nested tags (depends on #85 in-the-wild feedback)
+- #97 One-click schema apply + backup (Phase 2/3 dependency)
+- #112 Event marker/type (frontmatter-only approach settled)
+- #117 Graph-based hub detection
+- #122 Ingest History Panel (cheap first step: log.md UI tab)
+- #130 In-place batch ingest queue
+- #142 Multiple wikis (long-term; current workaround: wikiFolder switch)
+- **#157 — Embedding-distinctiveness hub filter** (DocTpoint probe). Replace target-only hub-strip with `cos(P,Hub) − mean_cos(Hub)` distinctiveness. Opt-in via `hubLinkPolicy: 'embedding'`; self-gating when no embedding endpoint. Awaits v1.22.0+ dedicated embedding-and-relevance phase.
 
-### Out of scope (v1.22.0)
+### Out of scope (v1.21.0+)
 
 - **#36 — Source title in frontmatter** — needs clarification from issue author.
 - **P3 test infrastructure:** wiki-engine full-path integration tests; query-engine core flow tests (requires Obsidian App + Modal + DOM mocks).
@@ -149,7 +147,7 @@ Release focus: complete schema unification, address accumulated code quality deb
 - **Missing Concept Pages tracker** (parse Lint LLM prose into structured reports).
 - **Lint performance:** hash-bucket dedup prefilter; hierarchical LLM health analysis.
 
-### v1.21.0+ Theme — Query Engine Evolution (P3 research)
+### v1.20.0+ Theme — Query Engine Evolution (P3 research)
 
 Query engine is currently a "structured-context RAG" (keyword + LLM semantic selection + 3-5 page context), not pure Karpathy full-context reasoning. Four-tier improvement roadmap:
 - **Tier A (low cost, no new LLM calls):** enhance index with `rel:` field; multi-hop link expansion from selected pages
@@ -165,14 +163,14 @@ Documented in `~/.claude/projects/.../memory/project_v1.19.0_query_evolution.md`
 
 | Version | Date | Headline |
 |---------|------|----------|
-| **1.21.1** | 2026-06-22 (hotfix) | #173 Symptom A create-retry loop fix + esbuild 0.28.0→0.28.1 |
-| **1.21.0** | 2026-06-21 | Pre-ingest gate (Closes #164) + Schema Coherence Phase 1 (Closes #124) + History Panel (Closes #122) + Incomplete-page cleaner (Closes #170) + Italian locale (Closes #159) — 939 tests |
-| **1.20.3** | 2026-06-20 | Source-slug fingerprint (Closes #155) + alias dedup + Stage-4 reviewed guard — 791 tests |
-| **1.19.1** | 2026-06-17 | Gemini HTTP 400 hotfix (Closes #137) — 3-tier dialect fallback, settings tab cache persistence, stream field-strip fix |
-| 1.19.0 | 2026-06-16 | Ingest quality & cost hardening — advanced LLM params, quote grounding, compact slugs |
-| 1.18.2 | 2026-06-12 | Custom extraction limits hard-enforced (Closes #120) + #114 tags preservation + #111 slug casing |
-| 1.18.1 | 2026-06-11 | Obsidian review compliance (document ban + prefer-active-doc) |
-| 1.18.0 | 2026-06-10 | Tag controlled vocabulary (Closes #85) — chip input UX, end-to-end customTags pipeline |
+| **1.20.2** | 2026-06-19 | Anthropic fallback system-role hotfix (PR #151 by @Indexed-Apogrypha, Closes #141/#147) |
+| **1.20.1** | 2026-06-18 | Anthropic prefill rejection hotfix (Closes #141/#147) |
+| **1.20.0** | 2026-06-18 | Provider-first thinking control + reasoning UI (Closes #141/#134/#143) |
+| **1.19.0** | 2026-06-16 | Ingest quality & cost hardening — advanced LLM params, quote grounding, compact slugs |
+| **1.18.2** | 2026-06-12 | Custom extraction limits hard-enforced (Closes #120) + #114 tags preservation + #111 slug casing |
+| **1.18.1** | 2026-06-11 | Obsidian review compliance (document ban + prefer-active-doc) |
+| **1.18.0** | 2026-06-10 | Tag controlled vocabulary (Closes #85) v6/v7/v8 — chip input UX, end-to-end customTags pipeline |
+| **1.18.0** | 2026-06-10 | Tag controlled vocabulary (Closes #85) |
 | 1.17.0 | 2026-06-08 | Long-document ingestion + source attribution (Closes #90) |
 | 1.16.3 | 2026-06-07 | v1.16.2 P0 hotfix completion |
 | 1.16.2 | 2026-06-07 | Lint cancel + thinking token bleeding + delete empty stubs |
