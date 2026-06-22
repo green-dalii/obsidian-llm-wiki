@@ -204,6 +204,11 @@ Consigliamo vivamente a tutti gli utenti di aggiornare a questa versione, in par
 
 Vedi [CHANGELOG.md](../CHANGELOG.md) per i dettagli completi.
 
+### v1.21.1 — 2026-06-22 (PATCH)
+
+- **🔧 #173 Sintomo A — ciclo di tentativi di createOrUpdateFile。** Quando `getAbstractFileByPath` restituiva null (es. discrepanza di normalizzazione NFC/NFD su macOS), il ciclo a 3 tentativi continuava a chiamare `vault.create` senza prima risolvere tramite `resolveFileInVault`。 Ora risolve al primo tentativo。 @Indexed-Apogrypha (segnalazione)。
+- **📦 esbuild 0.28.0 → 0.28.1。** Corregge GHSA-g7r4-m6w7-qqqr (bassa gravità, solo sviluppo)。
+
 ## ✨ Funzionalità
 
 ### 📊 Qualità della conoscenza

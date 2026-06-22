@@ -2,16 +2,17 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.21.1 (in progress) | **Updated:** 2026-06-22
+**Version:** 1.22.0 (planned) | **Updated:** 2026-06-22
 
 ---
 
 ## Current Status
 
-### Hotfix (v1.21.1) — In progress (2026-06-22)
+### Implemented (v1.21.1) — Hotfix 2026-06-22
 
-- 🔴 **#173 Symptom A — createOrUpdateFile create-retry loop.** When `getAbstractFileByPath` returns null (macOS NFC/NFD normalization), the 3-attempt loop keeps calling `vault.create` instead of switching to `resolveFileInVault`. Fix: resolve early on first null.
-- 🔴 **esbuild 0.28.0 → 0.28.1.** Patch GHSA-g7r4-m6w7-qqqr (low severity, dev-only arbitrary file read).
+- ✅ **#173 Symptom A — createOrUpdateFile create-retry loop.** When `getAbstractFileByPath` returns null (macOS NFC/NFD normalization), `resolveFileInVault` is now consulted before `vault.create`, eliminating 3× failed retry overhead. Contributed by @Indexed-Apogrypha (reporting).
+- ✅ **esbuild 0.28.0 → 0.28.1.** Patch GHSA-g7r4-m6w7-qqqr (low severity, dev-only).
+- ✅ **Tests: 941 passing.** +2 tests (844 total pre-v1.21.0 → 941), 67 test files.
 
 ### Implemented (v1.21.0) — Pre-Ingest Gate + Schema Phase 1 + History Panel (2026-06-21)
 

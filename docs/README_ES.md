@@ -162,6 +162,11 @@ Recomendamos encarecidamente actualizar a esta versión, especialmente si usa LL
 
 Detalles en [CHANGELOG.md](../CHANGELOG.md).
 
+### v1.21.1 — 2026-06-22 (PATCH)
+
+- **🔧 #173 Síntoma A — bucle de reintento de createOrUpdateFile。** Cuando `getAbstractFileByPath` devolvía null (p. ej., diferencia de normalización NFC/NFD en macOS), el bucle de 3 intentos seguía llamando a `vault.create` sin resolver primero mediante `resolveFileInVault`。 Ahora se resuelve en el primer intento。 @Indexed-Apogrypha (informe)。
+- **📦 esbuild 0.28.0 → 0.28.1。** Parches GHSA-g7r4-m6w7-qqqr (gravedad baja, solo desarrollo)。
+
 ## ✨ Características
 
 ### 📊 Calidad del Conocimiento

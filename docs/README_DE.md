@@ -179,6 +179,11 @@ Wir empfehlen allen Nutzern dringend ein Upgrade auf diese Version, insbesondere
 
 Details unter [CHANGELOG.md](../CHANGELOG.md).
 
+### v1.21.1 — 2026-06-22 (PATCH)
+
+- **🔧 #173 Symptom A — createOrUpdateFile create-retry loop。** Wenn `getAbstractFileByPath` null zurückgab (z. B. macOS NFC/NFD-Normalisierungsfehler), rief die 3-fache Schleife weiterhin `vault.create` auf, anstatt zuerst über `resolveFileInVault` aufzulösen。 Jetzt wird beim ersten Versuch aufgelöst。 Von @Indexed-Apogrypha (Meldung)。
+- **📦 esbuild 0.28.0 → 0.28.1。** Patches GHSA-g7r4-m6w7-qqqr (geringe Schwere, nur Entwicklungsumgebung)。
+
 ## ✨ Funktionen
 
 ### 📊 Knowledge Quality

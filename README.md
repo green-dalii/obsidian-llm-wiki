@@ -26,6 +26,7 @@
   - [🎮 Usage](#-usage)
   - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
 - [⚡ What's New in v1.21.0](#-whats-new-in-v1210)
+  - [v1.21.1 — 2026-06-22 (PATCH)](#v1211--2026-06-22-patch)
 - [✨ Features](#-features)
 
   - [📊 Knowledge Quality](#-knowledge-quality)
@@ -203,6 +204,11 @@ v1.21.0 is a **MINOR feature release** that delivers three major improvements: a
 We strongly recommend all users upgrade to this version, especially if you use local LLMs (Ollama, LM Studio) — the pre-ingest gate prevents the empty-file hallucination class of bugs (small models filling in made-up entity names when given a blank prompt).
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+### v1.21.1 — 2026-06-22 (PATCH)
+
+- **🔧 #173 Symptom A — createOrUpdateFile create-retry loop.** When `getAbstractFileByPath` returned null (e.g. macOS NFC/NFD normalization mismatch), the 3-attempt loop kept calling `vault.create` instead of first resolving via `resolveFileInVault`. Now resolves at the earliest attempt. Contributed by @Indexed-Apogrypha (reporting).
+- **📦 esbuild 0.28.0 → 0.28.1.** Patches GHSA-g7r4-m6w7-qqqr (low severity, dev-only).
 
 ## ✨ Features
 
