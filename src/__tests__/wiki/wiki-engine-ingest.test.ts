@@ -162,3 +162,37 @@ describe('WikiEngine.buildIngestedHashes — TTL cache (#164 review)', () => {
     expect(h.stats.vaultMarkdownScans).toBe(2);
   });
 });
+
+describe('WikiEngine.createOrUpdateFile — NFC/NFD path resolution (#173 Symptom A)', () => {
+  it('resolves an existing file via directory scan when getAbstractFileByPath returns null', async () => {
+    // Simulate macOS NFC/NFD normalization: the file exists in the vault but
+    // getAbstractFileByPath returns null (the resolved path uses a different
+    // Unicode normalization form from the stored filename).
+    const h = createWikiEngineHarness({
+      files: { 'wiki/sources/existing.md': `---\ntype: source\n---\n\nexisting content` },
+      nfcNfdPaths: ['wiki/sources/existing.md'],
+    });
+
+    // The file is in the vault; nfcNfdPaths makes getAbstractFileByPath return
+    // null for it. createOrUpdateFile should resolve it via resolveFileInVault
+    // (directory-level scan, not full getMarkdownFiles) and call process().
+    await h.engine.createOrUpdateFile('wiki/sources/existing.md', `---\ntype: source\n---\n\nupdated content`);
+
+    // Content was updated (process was called, not create).
+    expect(h.files.get('wiki/sources/existing.md')).toContain('updated content');
+
+    // resolveFileInVault does a parent-directory listing, NOT a full
+    // vault.getMarkdownFiles() scan — so vaultMarkdownScans must stay 0.
+    expect(h.stats.vaultMarkdownScans).toBe(0);
+  });
+
+  it('still creates a new file normally when the path genuinely does not exist', async () => {
+    const h = createWikiEngineHarness({});
+
+    await h.engine.createOrUpdateFile('wiki/sources/new.md', 'fresh content');
+
+    expect(h.files.get('wiki/sources/new.md')).toBe('fresh content');
+    // A new file creation should not trigger vaultMarkdownScans either.
+    expect(h.stats.vaultMarkdownScans).toBe(0);
+  });
+});

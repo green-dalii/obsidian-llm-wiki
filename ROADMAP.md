@@ -2,11 +2,16 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.22.0 (planned) | **Updated:** 2026-06-22
+**Version:** 1.21.1 (in progress) | **Updated:** 2026-06-22
 
 ---
 
 ## Current Status
+
+### Hotfix (v1.21.1) — In progress (2026-06-22)
+
+- 🔴 **#173 Symptom A — createOrUpdateFile create-retry loop.** When `getAbstractFileByPath` returns null (macOS NFC/NFD normalization), the 3-attempt loop keeps calling `vault.create` instead of switching to `resolveFileInVault`. Fix: resolve early on first null.
+- 🔴 **esbuild 0.28.0 → 0.28.1.** Patch GHSA-g7r4-m6w7-qqqr (low severity, dev-only arbitrary file read).
 
 ### Implemented (v1.21.0) — Pre-Ingest Gate + Schema Phase 1 + History Panel (2026-06-21)
 
@@ -105,9 +110,9 @@ Major quality release addressing previously-unprocessable large sources and a cl
 
 ---
 
-## Next Milestone: v1.22.0 — Schema Coherence Phase 2
+## Next Milestone: v1.22.0 — Schema Coherence Phase 2 + Tech Debt
 
-Release focus: complete the schema unification started in v1.21.0 by adding custom section names, one-click apply, schema diff preview, and the graph-based / workflow improvements (P3 backlog).
+Release focus: complete schema unification, address accumulated code quality debt (history-modal, llm-client), adopt Obsidian Keychain, and ship graph-based improvements.
 
 ### Phase 2: Custom section names + #97 one-click apply (v1.22.0)
 
@@ -118,13 +123,24 @@ Release focus: complete the schema unification started in v1.21.0 by adding cust
 
 ### Phase 3: Graph-based features & Workflow scale-up (v1.22.0+)
 
-- **#117 — Graph-based domain tag inference.** Hub detection + cheap LLM labeling + tag propagation with explainability.
+- **Wiki Link Graph (NEW).** Shared `core/wiki-graph.ts` exposing degree centrality, shared-link ratio, and second-degree relatedness — all from the existing `[[wiki-link]]` graph, zero embedding API, zero new deps, all providers. Powers #117, #157 hub-level decisions and dedup prefilter as opt-in modes.
+  - Degree centrality → hub detection (#117) — `hubDetection: 'degree' | 'llm' | 'disabled'`
+  - Shared-link ratio `shared(P,T)/outDegree(T)` → link distinctiveness (#157) — `hubLinkPolicy: 'graph' | 'tag' | 'disabled'`
+  - Second-degree common-neighbors → related-page suggestion
+- **#117 — Graph-based domain tag inference.** Hub detection + LLM labeling + tag propagation.
 - **#130 — In-place batch ingest queue.** Composes with #122 (history panel) and `pageGenerationConcurrency`.
-- **#168 — Single-file vs batch granularity split** (design approved 2026-06-21). Replace single `extractionGranularity` with two independent settings: `singleFileGranularity` + `batchGranularity`. Rationale: single-file ingest is pre-vetted (expects depth), folder ingest is bulk (expects noise reduction).
-- **#169 — Better status reporting** (deferred split scope). Phase 1 (v1.22.0): richer progress text (batch count, ETA, current model). Phase 2 (backlog): live file preview (needs new UI component).
-- **#157 — Embedding-distinctiveness hub-link policy** (DocTpoint proposal). Replace tag-based stripping with cosine-based distinctiveness. Opt-in via `hubLinkPolicy: 'embedding'` mode. 252-link empirical evidence on bge-m3.
+- **#168 — Single-file vs batch granularity split.** Replace single `extractionGranularity` with two independent settings: `singleFileGranularity` + `batchGranularity`.
+- **#169 — Better status reporting** (deferred split scope). Phase 1: richer progress text (batch count, ETA, current model). Phase 2: live file preview.
+- **#157 — Hub-link distinctiveness.** **Updated:** Wiki Link Graph (shared-link ratio) replaces the earlier embedding approach. Supersedes the cosine-based proposal; archived as a design reference.
 
-### Out of scope (v1.21.0+)
+### Phase 4: Code quality & security (v1.22.0, refactoring)
+
+- **P2 — history-modal.ts split.** Extract pure-function analysis layer (`core/history-analytics.ts`, ~400 lines) from UI modal (`ui/history-modal.ts`, down to ~800 lines). Makes insight calculations testable.
+- **P2 — llm-client.ts strategy extraction.** Extract `ThinkingControlCache` and `PrefillCache` as independent testable classes. Reduce `llm-client.ts` from 1253 to ~900 lines.
+- **P3 — Lint performance (controller.ts TODOs).** Worker pool for dedup batches + LLM health analysis + Missing Concept Pages tracker.
+- **#182 — Obsidian Keychain (SecretStorage API).** Migrate `apiKey` from plaintext `data.json` to OS-level credential storage via Obsidian's `SecretStorage` API. Requires `minAppVersion` bump to 1.11.4.
+
+### Out of scope (v1.22.0)
 
 - **#36 — Source title in frontmatter** — needs clarification from issue author.
 - **P3 test infrastructure:** wiki-engine full-path integration tests; query-engine core flow tests (requires Obsidian App + Modal + DOM mocks).
@@ -148,6 +164,7 @@ Documented in `~/.claude/projects/.../memory/project_v1.19.0_query_evolution.md`
 
 | Version | Date | Headline |
 |---------|------|----------|
+| **1.21.1** | 2026-06-22 (hotfix) | #173 Symptom A create-retry loop fix + esbuild 0.28.0→0.28.1 |
 | **1.21.0** | 2026-06-21 | Pre-ingest gate (Closes #164) + Schema Coherence Phase 1 (Closes #124) + History Panel (Closes #122) + Incomplete-page cleaner (Closes #170) + Italian locale (Closes #159) — 939 tests |
 | **1.20.3** | 2026-06-20 | Source-slug fingerprint (Closes #155) + alias dedup + Stage-4 reviewed guard — 791 tests |
 | **1.19.1** | 2026-06-17 | Gemini HTTP 400 hotfix (Closes #137) — 3-tier dialect fallback, settings tab cache persistence, stream field-strip fix |
