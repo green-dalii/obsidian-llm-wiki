@@ -40,6 +40,9 @@ interface MockApp {
     getFiles: () => TFile[];
     getMarkdownFiles: () => TFile[];
   };
+  fileManager: {
+    trashFile: (f: TFile) => Promise<void>;
+  };
 }
 
 function mkMockVault(initial: Record<string, string>): MockApp {
@@ -56,6 +59,9 @@ function mkMockVault(initial: Record<string, string>): MockApp {
       getAbstractFileByPath: (p) => files.has(p) ? mkFile(p) : null,
       getFiles: () => [...files.keys()].map(mkFile),
       getMarkdownFiles: () => [...files.keys()].filter(k => k.endsWith('.md')).map(mkFile),
+    },
+    fileManager: {
+      trashFile: async (f) => { files.delete(f.path); },
     },
   };
 }

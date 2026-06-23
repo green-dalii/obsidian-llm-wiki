@@ -7,12 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **Ingestion status bar now shows the current document name.** Single-file ingest displays `<doc> · Ingesting... click to cancel` instead of the bare label, so the active source is visible at a glance.
-- **Folder batch ingest surfaces progress in the status bar.** During a folder batch run the status bar shows `[current/total] <doc> · Ingesting... click to cancel` (e.g. `[4/10] My Note · Ingesting... click to cancel`), mirroring the existing progress Notice. New pure-function `core/status-bar.ts` (`buildIngestStatusBarText`) composes the text from the existing localized label — no new i18n keys, all 9 locales covered automatically. The `WikiEngine` ingestion-start callback now passes the source basename (optional param, backward-compatible).
+## [1.22.0] - 2026-06-23
+
+### Added
+- **#97 — One-click schema apply with IDE-style diff Modal + auto-backup.** `SchemaDiffModal` class (dual-pane IDE-style diff, Apply/Cancel/Open file buttons, Regenerate hidden for v1.22). `applySchemaSuggestion()` with auto-backup to `.llm-wiki-backups/schema/` (rotation MAX_BACKUPS=3 via `core/backup-rotation.ts`). `lineDiff()` LCS algorithm in `core/diff.ts`. Lint "Update Schema" button removed from command palette — schema updates flow through Lint Modal only (single entry point).
+- **Schema dynamic tag sync.** Schema vocabulary is now the single source of truth; tag vocab injected into generation prompts via `SchemaContext` + `buildSchemaSectionTemplate`. `parse-suggestion.ts` for structured LLM response parsing.
+- **Traditional Chinese (zh-TW) locale.** 10th language (zh-Hant). Parity guard extended to all 10 locales (bidirectional). 8 new i18n keys per language for schema diff modal.
+- **#189 — Ingest status bar shows document name + batch progress (PR by @YounianC).** Single-file ingest displays `<doc> · Ingesting... click to cancel` instead of the bare label. Folder batch ingest shows `[current/total] <doc> · Ingesting... click to cancel`. New pure-function `core/status-bar.ts` (`buildIngestStatusBarText`) composes from the existing localized `ingestionStatusBar` label — no new i18n keys, all 10 locales covered automatically. `WikiEngine` ingestion-start callback now passes the source basename (optional param, backward-compatible). `batchProgress` field in `main.ts` tracks loop position.
+
+### Fixed
+- **Lint: `apply-suggestion.ts` used `vault.delete()` fallback.** Simplified to direct `app.fileManager.trashFile` call — respects user's file deletion preference per Obsidian review rule `obsidianmd/prefer-file-manager-trash-file`. Test mock updated accordingly.
+- **Lint: `parse-suggestion.ts` unnecessary type assertion.** `as LLMSchemaResponse` cast removed (receiver already accepts the original type).
 
 ### Tests
-- New `core/status-bar` suite (7 tests) for single/batch/empty composition. **948 tests passing** (was 941 in v1.21.1; +7).
+- **1003 tests passing** (was 948 in v1.21.1; +55: schema suite 48 tests + status-bar suite 7 tests).
 
 ## [1.21.1] - 2026-06-22
 

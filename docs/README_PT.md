@@ -8,7 +8,7 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
 
-[English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README.zh-Hant.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | **Português** | [Italiano](README_IT.md)
+[English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README_ZH-Hant.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | **Português** | [Italiano](README_IT.md)
 
 [Site oficial](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback e discussão](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explorar código com DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -26,7 +26,7 @@
   - [🔑 Configurar um provedor LLM](#-configurar-um-provedor-llm)
   - [🎮 Uso](#-uso)
   - [⚠️ Atualizando de uma versão anterior?](#️-atualizando-de-uma-versão-anterior)
-- [⚡ Novidades da v1.21.0](#-novidades-da-v1210)
+- [⚡ Novidades da v1.22.0](#-novidades-da-v1220)
 - [✨ Funcionalidades](#-funcionalidades)
   - [📊 Qualidade do Conhecimento](#-qualidade-do-conhecimento)
   - [🛠️ Manutenção](#️-manutenção)
@@ -147,25 +147,18 @@ Este projeto evolui rapidamente. Recomendamos manter-se atualizado:
 
 ---
 
-## ⚡ Novidades da v1.21.0
+## ⚡ Novidades da v1.22.0
 
-A v1.21.0 é uma **release MINOR** que traz três melhorias principais: um portal de pré-ingestão que para entidades alucinadas, um painel de histórico de operações e a coerência do Esquema Fase 1. Italiano é adicionado como 9º idioma, um limpador de páginas incompletas e várias correções de bugs.
+A v1.22.0 é uma **release MINOR** que traz um fluxo de atualização do esquema com um único clique, chinês tradicional como 10º idioma e uma barra de status de ingestão melhorada.
 
-- **🛡️ Portal de pré-ingestão (Issue #164, PR #174).** Cada arquivo fonte é validado *antes* de qualquer chamada LLM — notas vazias/em branco/apenas frontmatter são rejeitadas, impedindo que modelos locais (ex. Ollama) alucinem nomes de entidades. O dedup por hash de conteúdo detecta arquivos idênticos através de caminhos. As ingestões interativas pedem confirmação antes de re-ingerir duplicatas. Contribuição de @Indexed-Apogrypha.
-- **📊 Painel de histórico de operações (Issue #122, PR #171).** Veja ingestões recentes, relatórios de lint e execuções de manutenção em uma UI pesquisável e filtrável. Visualização orientada por insights com cartões KPI, detalhes de entrada e links clicáveis para páginas. Paleta de comandos: "View Ingestion History".
-- **🔗 Coerência do Esquema Fase 1 (Issue #124, PR #167).** A configuração do esquema (`schema/config.md`) é agora a fonte única de verdade para prompts de sistema e geração. Seções personalizadas e vocabulário de tags definidos pelo usuário são injetados em cada chamada LLM.
-- **🇮🇹 Italiano (Issue #159, PR #159).** A interface do plugin e a saída Wiki agora suportam italiano como 9º idioma. Contribuição de @FrancoTampieri.
-- **🧹 Limpador de páginas incompletas (Issue #170, PR #177).** Páginas Wiki deixadas em estado parcial após ingestões interrompidas são automaticamente limpas ao iniciar. As páginas são arquivadas no `.trash` do Obsidian (recuperável).
-- **🔧 Correções de bugs.** String de erro chinês hardcoded em interfaces não chinesas (#172); entradas duplicadas inflando contagens de relatórios de ingestão (#173).
+- **📝 Aplicação de esquema com um clique (Issue #97).** As sugestões geradas pelo LLM são agora exibidas em um Modal de diff de duplo painel estilo IDE, com botões Aplicar/Cancelar/Abrir arquivo. Ao aplicar uma sugestão, o esquema anterior é automaticamente backupado (rotação, máx. 3 backups) antes de gravar o novo. "Atualizar esquema" é agora acessível a partir do Modal de Lint — a entrada da paleta de comandos foi removida para forçar um único ponto de entrada.
+- **🏷️ Sincronização dinâmica de tags do esquema.** O vocabulário do esquema é agora a única fonte de verdade — as tags ativas são injetadas automaticamente em cada chamada LLM, eliminando o bug de "template do esquema sobrescrito por seções hardcoded" da v1.21.0 Fase 1.
+- **🇹🇼 Chinês Tradicional (zh-TW).** A interface do plugin e a saída Wiki agora suportam chinês tradicional como 10º idioma. A proteção de paridade bidirecional foi estendida a todos os 10 idiomas.
+- **📊 Barra de status de ingestão com nome do documento (PR #189).** A barra de status agora exibe o nome do documento atual (`Minha Nota · Ingerindo...`) e o progresso do lote durante ingestão de pastas (`[4/10] Minha Nota · Ingerindo...`). Contribuição de @YounianC.
 
-Recomendamos fortemente atualizar para esta versão, especialmente se usa LLMs locais (Ollama, LM Studio) — o portal de pré-ingestão previne a classe de bugs "arquivo vazio → alucinação" (modelos pequenos inventam nomes de entidades para preencher o esquema JSON com um prompt vazio).
+Recomendamos fortemente atualizar — a função de aplicação de esquema com um clique transforma o refinamento do esquema em uma operação de um passo, e o idioma chinês tradicional melhora significativamente a experiência para os usuários zh-TW.
 
 Detalhes em [CHANGELOG.md](../CHANGELOG.md).
-
-### v1.21.1 — 2026-06-22 (PATCH)
-
-- **🔧 #173 Sintoma A — loop de repetição de createOrUpdateFile。** Quando `getAbstractFileByPath` retornava null (p. ex., diferença de normalização NFC/NFD no macOS), o loop de 3 tentativas continuava chamando `vault.create` sem resolver primeiro via `resolveFileInVault`。 Agora resolve na primeira tentativa。 @Indexed-Apogrypha (relatório)。
-- **📦 esbuild 0.28.0 → 0.28.1。** Corrige GHSA-g7r4-m6w7-qqqr (gravidade baixa, apenas desenvolvimento)。
 
 ## ✨ Funcionalidades
 

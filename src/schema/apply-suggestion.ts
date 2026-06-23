@@ -74,13 +74,9 @@ export async function applySchemaSuggestion(
   }
   allBackups.sort(); // ISO timestamps sort lexically correct
   const toDelete = rotateBackups(allBackups);
-  const fileManager = (app as unknown as { fileManager?: { trashFile(f: TFile): Promise<void> } }).fileManager;
-  const deleteFn: (f: TFile) => Promise<void> = fileManager
-    ? (f) => fileManager.trashFile(f)
-    : (f) => app.vault.delete(f);
   for (const p of toDelete) {
     const f = app.vault.getAbstractFileByPath(p);
-    if (f instanceof TFile) await deleteFn(f);
+    if (f instanceof TFile) await app.fileManager.trashFile(f);
   }
 
   // 4. Write the new body, preserving the existing frontmatter

@@ -176,7 +176,7 @@ graph TD
 1. Run `pnpm lint && pnpm test && npx tsc --noEmit && pnpm build` — all must pass
 2. Add or update unit tests for any changed pure logic
 3. Update CHANGELOG.md if the change is user-visible
-4. Update all 8 README language variants if the change affects user-facing features or workflow
+4. Update all 9 README language variants if the change affects user-facing features or workflow
 5. Update CLAUDE.md and memory files to reflect completed work
 6. Commit with English conventional commit message
 7. Open a PR against `main` branch

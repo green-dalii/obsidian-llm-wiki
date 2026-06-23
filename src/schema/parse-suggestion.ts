@@ -39,7 +39,7 @@ export function parseSchemaSuggestion(raw: string): ParsedSchemaSuggestion {
     const stripped = stripCodeFence(raw);
     const intermediate: unknown = JSON.parse(stripped);
     if (intermediate && typeof intermediate === 'object') {
-      parsed = intermediate as LLMSchemaResponse;
+      parsed = intermediate;
     }
   } catch {
     parsed = null;

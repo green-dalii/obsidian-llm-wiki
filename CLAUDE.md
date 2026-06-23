@@ -1,14 +1,18 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-06-22 (ingest status bar UX)
+**Last Updated:** 2026-06-23
 
 ---
 
-## Current Phase: v1.21.1 Released — v1.22.0 Schema Phase 2 (planned)
+## Current Phase: v1.22.0 Released
 
-### Completed (Unreleased) — Ingest status bar UX 2026-06-22
-- ✅ **Ingest status bar shows document name + batch progress.** Single-file ingest now shows `<doc> · Ingesting...`; folder batch ingest shows `[current/total] <doc> · Ingesting... click to cancel`. New pure-function `core/status-bar.ts` (`buildIngestStatusBarText`) composes from the existing localized label — no new i18n keys. `WikiEngine` ingestion-start callback passes the source basename (optional param, backward-compatible). `batchProgress` field in `main.ts` tracks loop position.
-- ✅ **Tests: 948 passing.** +7 (`core/status-bar` suite).
+### Completed (v1.22.0) — Schema One-Click Apply + Dynamic Tag Sync + zh-Hant + Status Bar (2026-06-23)
+- ✅ **#97 — Schema one-click apply with IDE-style diff Modal + auto-backup.** `SchemaDiffModal` class (dual-pane IDE-style diff, Apply/Cancel/Open file buttons, Regenerate hidden for v1.22). `applySchemaSuggestion()` with auto-backup to `.llm-wiki-backups/schema/` (rotation MAX_BACKUPS=3 via `core/backup-rotation.ts`). `lineDiff()` LCS algorithm in `core/diff.ts`. Lint "Update Schema" button removed from command palette — schema updates flow through Lint Modal only.
+- ✅ **Schema dynamic tag sync.** Schema vocabulary is now the single source of truth; tag vocab injected into generation prompts. `SchemaContext` + `buildSchemaSectionTemplate` + tag vocabulary injection.
+- ✅ **Traditional Chinese (zh-TW) locale.** 10th language (zh-Hant). Parity guard extended to all 10 locales (bidirectional).
+- ✅ **Ingest status bar UX (#189).** Document name + batch progress in status bar. Pure-function `core/status-bar.ts` (`buildIngestStatusBarText`). Contributed by @YounianC.
+- ✅ **Lint fixes.** `apply-suggestion.ts` simplified to direct `app.fileManager.trashFile` (removed unnecessary fallback). `parse-suggestion.ts` removed unnecessary type assertion.
+- ✅ **Tests: 1003 passing.** +55 tests since v1.21.1 (schema suite + status-bar suite).
 
 ### Completed (v1.21.1) — Hotfix 2026-06-22
 - ✅ **#173 Symptom A — createOrUpdateFile create-retry loop.** NFC/NFD path resolution before `vault.create`.
@@ -91,8 +95,8 @@ src/
 ├── main.ts                         # Plugin entry point
 ├── types.ts                        # Shared types + EngineContext
 ├── constants.ts                    # Centralized constants (token budgets, notice durations)
-├── prompts.ts                      # Prompt barrel (9 languages)
-├── texts.ts                        # i18n texts (barrel, 9 languages)
+├── prompts.ts                      # Prompt barrel (10 languages)
+├── texts.ts                        # i18n texts (barrel, 10 languages)
 ├── llm-client.ts                   # LLM clients (Anthropic, AnthropicCompat, OpenAICompat)
 ├── llm-client-wrapper.ts           # Advanced settings injection wrapper
 ├── wiki/                           # Wiki engine
@@ -117,6 +121,7 @@ src/
 │   │   ├── merge-duplicates.ts     # Duplicate page merge
 │   │   ├── delete-empty-stubs.ts   # Empty stub deletion
 │   │   ├── get-existing-pages.ts   # Wiki page index reader
+│   │   ├── lint-analysis-context.ts # Lint analysis context builder
 │   │   ├── utils.ts                # Shared lint helpers
 │   │   └── phases/
 │   │       ├── preparation.ts      # Page read, link fix, sources normalize
@@ -125,10 +130,14 @@ src/
 ├── schema/                         # Schema co-evolution
 │   ├── manager.ts                  # SchemaManager (read/write schema config)
 │   ├── auto-maintain.ts            # File watcher, periodic lint, startup quick fixes
-│   └── analyze.ts                  # Schema-analyze with cancel wiring
+│   ├── analyze.ts                  # Schema-analyze with cancel wiring
+│   ├── schema-context.ts           # SchemaContext (parsed representation)
+│   ├── parse-suggestion.ts         # Parse LLM schema suggestion response
+│   └── apply-suggestion.ts         # Apply suggestion with auto-backup
 ├── ui/
 │   ├── settings.ts                 # Settings panel
-│   └── modals.ts                   # Lint/Ingest/Query modals
+│   ├── modals.ts                   # Lint/Ingest/Query modals
+│   └── schema-diff-modal.ts        # IDE-style schema diff Modal
 ├── core/                           # Pure function modules (zero IO, fully testable)
 │   ├── i18n.ts                     # Type-safe i18n accessor
 │   ├── slug.ts                     # Slug computation + alias filtering
@@ -151,8 +160,11 @@ src/
 │   ├── sse-parser.ts               # SSE event parser (anthropic + openai formats)
 │   ├── token-cap.ts                # max_tokens cap helper
 │   ├── status-bar.ts               # Ingest status bar text composition (name + batch progress)
+│   ├── diff.ts                     # LCS line diff algorithm
+│   ├── backup-rotation.ts          # Backup file rotation (MAX_BACKUPS=3)
+│   ├── detail-renderer.ts          # Detail block rendering
 │   └── conflict-resolver.ts        # Conflict detection
-└── __tests__/                      # Unit tests (vitest, 948 tests)
+└── __tests__/                      # Unit tests (vitest, 1003 tests)
 ```
 
 ---
@@ -167,7 +179,7 @@ Every change must pass all six gates before being considered complete. Gates 1-4
 | **2. No side effects** | Call-site audit + data flow trace + state mutation check + error propagation check | Structured review | Developer |
 | **3. No breaking changes** | API/Schema/File format/Default behavior/Command IDs/Obsidian API all backward-compatible | Breaking-change matrix | Developer |
 | **4. No performance regression** | CPU/memory/IO/network/token usage — 5-dim walkthrough, written assessment table | simplify + code-review + Gate 4 table | Developer |
-| **5. Docs complete** | 8 READMEs + ROADMAP + CLAUDE.md + CHANGELOG + memory all updated | pre-release-gate | Gate |
+| **5. Docs complete** | 9 READMEs + ROADMAP + CLAUDE.md + CHANGELOG + memory all updated | pre-release-gate | Gate |
 | **6. Release clean (superset of 1-5)** | Gate 1-5 all green, PLUS TOC anchors + localization + Release Notes + Contributors + git hygiene + **Gate 4 perf re-verification** | pre-release-gate | Gate |
 
 ### Gate 1: Five-Gate automated
@@ -387,8 +399,8 @@ For full release workflow (commit + push + tag + release notes), use the `obsidi
 
 ## 🌍 Internationalization
 
-- **UI**: 9 languages, 269+ fields
-- **Wiki output**: 9 languages + custom input
+- **UI**: 10 languages, 277+ fields
+- **Wiki output**: 10 languages + custom input
 - **Code**: English only, minimal comments
 
 ## 📋 Git Commit Standards

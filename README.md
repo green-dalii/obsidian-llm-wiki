@@ -8,7 +8,7 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
 
-**English** | [简体中文](docs/README_CN.md) | [繁體中文](docs/README.zh-Hant.md) | [日本語](docs/README_JA.md) | [한국어](docs/README_KO.md) | [Deutsch](docs/README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md) | [Italiano](docs/README_IT.md)
+**English** | [简体中文](docs/README_CN.md) | [繁體中文](docs/README_ZH-Hant.md) | [日本語](docs/README_JA.md) | [한국어](docs/README_KO.md) | [Deutsch](docs/README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md) | [Italiano](docs/README_IT.md)
 
 [Official Site](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explore Repo with DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -25,8 +25,7 @@
   - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
   - [🎮 Usage](#-usage)
   - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-- [⚡ What's New in v1.21.0](#-whats-new-in-v1210)
-  - [v1.21.1 — 2026-06-22 (PATCH)](#v1211--2026-06-22-patch)
+- [⚡ What's New in v1.22.0](#-whats-new-in-v1220)
 - [✨ Features](#-features)
 
   - [📊 Knowledge Quality](#-knowledge-quality)
@@ -190,25 +189,18 @@ Settings → **LLM Configuration**:
 
 ---
 
-## ⚡ What's New in v1.21.0
+## ⚡ What's New in v1.22.0
 
-v1.21.0 is a **MINOR feature release** that delivers three major improvements: a pre-ingest requirements gate that stops hallucinated entities, an operation history panel, and Schema Coherence Phase 1. Also includes Italian as the 9th language, an incomplete-page cleaner, and several bug fixes.
+v1.22.0 is a **MINOR feature release** that delivers a long-requested one-click schema update workflow, Traditional Chinese as the 10th language, and an improved ingestion status bar.
 
-- **🛡️ Pre-ingest requirements gate (Issue #164, PR #174).** Every source file is now validated *before* any LLM call — empty/whitespace/frontmatter-only notes are rejected, stopping small/local models (e.g. Ollama) from hallucinating entity names. Content-hash dedup catches identical files across paths. Interactive ingests prompt before re-ingesting duplicates. Contributed by @Indexed-Apogrypha.
-- **📊 Operation History Panel (Issue #122, PR #171).** View recent ingestions, lint reports, and maintenance runs in a searchable, filterable UI. Insight-driven visualization with KPI cards, entry-level details, and clickable page links. Command palette: "View Ingestion History".
-- **🔗 Schema Coherence Phase 1 (Issue #124, PR #167).** Schema configuration (`schema/config.md`) is now the single source of truth for both system prompts and generation prompts. User-defined custom sections and tag vocabulary are injected into every LLM call.
-- **🇮🇹 Italian locale (Issue #159, PR #159).** Plugin UI and wiki output now support Italian as the 9th language. Contributed by @FrancoTampieri.
-- **🧹 Incomplete-page cleaner (Issue #170, PR #177).** Wiki pages left in a partial state after interrupted ingests are automatically cleaned on startup. Pages are archived to Obsidian's `.trash` (recoverable).
-- **🔧 Bug fixes.** Hardcoded Chinese error string in non-Chinese UIs (#172); duplicate entries inflating ingest report counts (#173).
+- **📝 Schema one-click apply (Issue #97).** LLM-generated schema suggestions are now displayed in an IDE-style dual-pane diff Modal, with Apply / Cancel / Open File buttons. Applying a suggestion automatically backs up the previous schema (rotated, max 3 backups) before writing. "Update Schema" is now accessed from the Lint Modal — the command palette entry was removed to enforce a single entry point.
+- **🏷️ Schema dynamic tag sync.** Schema vocabulary is now the single source of truth — active tags are automatically injected into every LLM call, eliminating the "schema template overridden by hardcoded sections" bug from v1.21.0 Phase 1.
+- **🇹🇼 Traditional Chinese (zh-TW) locale.** Plugin UI and wiki output now support Traditional Chinese as the 10th language. Bidirectional parity guard extended to all 10 locales.
+- **📊 Ingest status bar with document name (PR #189).** The status bar now shows the current document name (`My Note · Ingesting...`) and batch progress during folder ingest (`[4/10] My Note · Ingesting...`). Contributed by @YounianC.
 
-We strongly recommend all users upgrade to this version, especially if you use local LLMs (Ollama, LM Studio) — the pre-ingest gate prevents the empty-file hallucination class of bugs (small models filling in made-up entity names when given a blank prompt).
+We strongly recommend upgrading — the schema one-click apply feature makes schema refinement a one-step operation, and Traditional Chinese locale significantly improves the experience for zh-TW users.
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
-
-### v1.21.1 — 2026-06-22 (PATCH)
-
-- **🔧 #173 Symptom A — createOrUpdateFile create-retry loop.** When `getAbstractFileByPath` returned null (e.g. macOS NFC/NFD normalization mismatch), the 3-attempt loop kept calling `vault.create` instead of first resolving via `resolveFileInVault`. Now resolves at the earliest attempt. Contributed by @Indexed-Apogrypha (reporting).
-- **📦 esbuild 0.28.0 → 0.28.1.** Patches GHSA-g7r4-m6w7-qqqr (low severity, dev-only).
 
 ## ✨ Features
 

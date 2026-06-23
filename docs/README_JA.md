@@ -8,7 +8,7 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
 
-[English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README.zh-Hant.md) | **日本語** | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | [Italiano](README_IT.md)
+[English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README_ZH-Hant.md) | **日本語** | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | [Italiano](README_IT.md)
 
 [公式サイト](https://llmwiki.greenerai.top/) | [ブログ](https://llmwiki.greenerai.top/blog/) | [フィードバック](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 DeepWiki でコードベースを探索](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -26,7 +26,7 @@
   - [🔑 LLMプロバイダーの設定](#-llmプロバイダーの設定)
   - [🎮 使い方](#-使い方)
   - [⚠️ 旧バージョンからのアップグレード](#️-旧バージョンからのアップグレード)
-- [⚡ v1.21.0 更新のポイント](#-v1210-更新のポイント)
+- [⚡ v1.22.0 更新のポイント](#-v1220-更新のポイント)
 - [✨ 特徴](#-特徴)
   - [📊 ナレッジ品質](#-ナレッジ品質)
   - [🛠️ メンテナンス](#️-メンテナンス)
@@ -157,25 +157,18 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 
 ---
 
-## ⚡ v1.21.0 更新のポイント
+## ⚡ v1.22.0 更新のポイント
 
-v1.21.0は3つの主要な改善を提供する**マイナーリリース**です：幻覚エンティティを防ぐプリインゲスト要件ゲート、操作履歴パネル、Schema整合性Phase 1。第9言語としてイタリア語を追加、不完全ページクリーナー、複数のバグ修正も含みます。
+v1.22.0は、長らく期待されていたスキーマワンクリック更新ワークフロー、繁体字中国語として10番目の言語の追加、および改善されたインジェストステータスバーを提供する**マイナーリリース**です。
 
-- **🛡️ プリインゲスト要件ゲート（Issue #164, PR #174）。** すべてのソースファイルがLLM呼び出し**前**に検証されます——空ファイル/空白のみ/frontmatterのみのノートは拒否され、ローカルモデル（Ollama等）によるエンティティ名の幻覚を防ぎます。コンテンツハッシュの重複排除でパスをまたぐ同一ファイルを検出。インタラクティブインゲストでは重複ファイルの再インゲスト前に確認を求めます。@Indexed-Apogrypha による貢献。
-- **📊 操作履歴パネル（Issue #122, PR #171）。** 検索・フィルタリング可能なUIで最近のインゲスト、レントレポート、メンテナンス実行を表示。インサイト駆動の可視化でKPIカード、エントリ詳細、クリック可能なページリンクを提供。コマンドパレット："View Ingestion History"。
-- **🔗 Schema整合性Phase 1（Issue #124, PR #167）。** Schema設定（`schema/config.md`）がシステムプロンプトと生成プロンプトの単一の信頼できる情報源になりました。ユーザー定義のカスタムセクションとタグ語彙がすべてのLLM呼び出しに注入されます。
-- **🇮🇹 イタリア語（Issue #159, PR #159）。** プラグインUIとWiki出力が第9言語としてイタリア語をサポート。@FrancoTampieri による貢献。
-- **🧹 不完全ページクリーナー（Issue #170, PR #177）。** 中断されたインゲストで残された部分状態のWikiページが起動時に自動クリーンアップ。ページはObsidianの`.trash`にアーカイブ（復元可能）。
-- **🔧 バグ修正。** 非中国語UIでのハードコード中国語エラー文字列（#172）；重複エントリによるインゲストレポート件数の膨張（#173）。
+- **📝 スキーマワンクリック適用（Issue #97）。** LLMが生成したスキーマ提案が、IDEスタイルのデュアルペインDiffモーダルで表示されるようになりました。適用/キャンセル/ファイルを開くボタン付き。提案を適用すると、新しい内容を書き込む前に以前のスキーマが自動的にバックアップされます（ローテーション、最大3件）。「スキーマの更新」はLintモーダルからアクセス可能になりました——コマンドパレットのエントリは単一のエントリポイントを強制するために削除されました。
+- **🏷️ スキーマダイナミックタグ同期。** スキーマ語彙が単一の信頼できる情報源になりました——アクティブなタグがすべてのLLM呼び出しに自動的に注入され、v1.21.0 Phase 1の「スキーマテンプレートがハードコードされたセクションによって上書きされる」バグが解消されます。
+- **🇹🇼 繁体字中国語（zh-TW）。** プラグインUIとWiki出力が繁体字中国語を10番目の言語としてサポート。双方向パリティ保護がすべての10言語に拡張されました。
+- **📊 ドキュメント名付きインジェストステータスバー（PR #189）。** ステータスバーに現在のドキュメント名（`My Note · 取り込み中... クリックでキャンセル`）と、フォルダインジェスト時のバッチ進行状況（`[4/10] My Note · 取り込み中... クリックでキャンセル`）が表示されます。@YounianC による貢献。
 
-ローカルLLM（Ollama、LM Studio）を使用しているユーザーは特に、本バージョンへのアップグレードを強く推奨します——プリインゲストゲートが「空ファイル幻覚」クラスのバグを防ぎます（小さなモデルが空のプロンプトに対してJSONスキーマを満たすための偽のエンティティ名を発明してしまう問題）。
+アップグレードを強く推奨します——スキーマワンクリック適用機能により、スキーマの改良がワンステップ操作になります。繁体字中国語はzh-TWユーザーの体験を大幅に向上させます。
 
 詳細は [CHANGELOG.md](../CHANGELOG.md) を参照。
-
-### v1.21.1 — 2026-06-22（PATCH）
-
-- **🔧 #173 症状A — createOrUpdateFile作成再試行ループ。** `getAbstractFileByPath`がnullを返した場合（macOS NFC/NFD正規化の不一致など）、3回の再試行ループが`vault.create`を呼び続け、`resolveFileInVault`で先に解決しませんでした。現在は最初の試行で解決されます。@Indexed-Apogrypha による報告。
-- **📦 esbuild 0.28.0 → 0.28.1。** GHSA-g7r4-m6w7-qqqr（低重要度、開発環境のみ）に対応。
 
 ## ✨ 特徴
 
