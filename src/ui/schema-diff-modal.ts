@@ -29,6 +29,11 @@
 import { App, Modal } from 'obsidian';
 import { lineDiff } from '../core/diff';
 import { TEXTS } from '../texts';
+import {
+  applyDiffModalClasses,
+  normalizeEmptyMode,
+  removeDiffModalClasses,
+} from './schema-diff-modal-classes';
 
 export interface SchemaDiffModalOptions {
   currentBody: string;
@@ -161,9 +166,8 @@ export class SchemaDiffModal extends Modal {
     // i18n-parity.test.ts.
     const t = (TEXTS as unknown as Record<string, Record<string, string>>)[this.options.language ?? 'en']
       ?? TEXTS.en as unknown as Record<string, string>;
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass('llm-wiki-schema-diff-modal');
+    const { modalEl, contentEl } = this;
+    applyDiffModalClasses(modalEl, contentEl); // v1.22.1: width on outer .modal (was :has() selector)
 
     // Title
     contentEl.createEl('h2', { text: t.schemaDiffTitle ?? 'Schema update preview' });
@@ -344,6 +348,7 @@ export class SchemaDiffModal extends Modal {
   }
 
   onClose() {
+    removeDiffModalClasses(this.modalEl);
     this.contentEl.empty();
   }
 }
@@ -354,13 +359,7 @@ export class SchemaDiffModal extends Modal {
  * no awkward blank right pane. When not in empty mode, return the
  * LLM's proposed newBody verbatim.
  *
- * Exported for unit testing the invariant in isolation (the constructor
- * uses it too).
+ * NOTE: Implementation lives in `schema-diff-modal-classes.ts` so it can
+ * be unit-tested without triggering Vite's import-analysis on `obsidian`.
  */
-export function normalizeEmptyMode(opts: {
-  isEmpty: boolean;
-  currentBody: string;
-  newBody: string;
-}): string {
-  return opts.isEmpty ? opts.currentBody : opts.newBody;
-}
+export { normalizeEmptyMode } from './schema-diff-modal-classes';

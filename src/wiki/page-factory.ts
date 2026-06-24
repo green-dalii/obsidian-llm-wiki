@@ -14,13 +14,14 @@ import { ConflictResolver } from '../core/conflict-resolver';
 import { WIKI_SUBFOLDERS } from '../constants';
 import { TOKENS_DEDUP_RESOLUTION, TOKENS_PAGE_GENERATION, TOKENS_APPEND_REVIEWED } from '../constants';
 import { slugify, filterRedundantAliases } from '../core/slug';
+import { correctRelatedLinkPrefixes } from '../core/related-link-corrector';
 import { parseJsonResponse } from '../core/json';
 import { parseFrontmatter, mergeFrontmatter, enforceFrontmatterConstraints } from '../core/frontmatter';
 import { truncateMentions } from '../core/report';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { normalizeLLMPath } from '../core/prompt-builders';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
-import { applySectionLabels, appendTagVocabularyToPrompt } from './system-prompts';
+import { applySectionLabels, appendTagVocabularyToPrompt, getSectionLabels } from './system-prompts';
 import { getExistingWikiPages } from './lint/get-existing-pages';
 
 // Wrap errors with entity/concept context for better diagnostics
@@ -367,7 +368,18 @@ export class PageFactory {
     const cleanedContent = cleanMarkdownResponse(pageContent);
     // Issue #85: pass settings so custom tag vocabulary is honored
     const enforcedContent = enforceFrontmatterConstraints(cleanedContent, pageType, this.ctx.settings);
-    await this.ctx.createOrUpdateFile(path, enforcedContent);
+    // Re-assert the known type of related links (deterministic; fixes the model's
+    // `sources/` guess against a truncated existing-pages list).
+    const labels = getSectionLabels(this.ctx.settings);
+    const correctedContent = correctRelatedLinkPrefixes(
+      enforcedContent,
+      info.related_entities,
+      info.related_concepts,
+      labels.related_entities,
+      labels.related_concepts,
+      this.ctx.settings.slugCase === 'preserve'
+    );
+    await this.ctx.createOrUpdateFile(path, correctedContent);
     return path;
     } catch (error) {
       throw contextualizeError(error, info.name, pageType);
@@ -423,8 +435,17 @@ export class PageFactory {
       return path;
     }
 
-    // 3. Assemble final content
-    const finalContent = `${frontmatter}\n\n${cleanedBody}`;
+    // 3. Assemble final content (re-assert related-link types deterministically)
+    const labels = getSectionLabels(this.ctx.settings);
+    const correctedBody = correctRelatedLinkPrefixes(
+      cleanedBody,
+      info.related_entities,
+      info.related_concepts,
+      labels.related_entities,
+      labels.related_concepts,
+      this.ctx.settings.slugCase === 'preserve'
+    );
+    const finalContent = `${frontmatter}\n\n${correctedBody}`;
     await this.ctx.createOrUpdateFile(path, finalContent);
     return path;
     } catch (error) {

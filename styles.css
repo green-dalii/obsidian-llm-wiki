@@ -573,9 +573,11 @@
 }
 
 /* Obsidian's default modal width is too narrow for a side-by-side
- * diff. We target the modal-container that wraps our content via the
- * .llm-wiki-schema-diff-modal class (added to contentEl in onOpen). */
-.modal:has(.llm-wiki-schema-diff-modal) {
+ * diff. We target the modal-container via the .llm-wiki-schema-diff-modal
+ * class added to BOTH modalEl (outer .modal) and contentEl (inner content)
+ * in onOpen. Direct class selector avoids :has() (Obsidian review warning:
+ * :has causes broad selector invalidation → perf cost). */
+.modal.llm-wiki-schema-diff-modal {
   width: min(90vw, 1100px);
 }
 

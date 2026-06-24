@@ -31,6 +31,62 @@ function replaceTargetLink(sourceContent: string, targetName: string, newLink: s
   );
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// #197 stub-content builders — honest placeholders, NOT LLM-filled stubs.
+//
+// Why these are pure functions: the LLM-stub-creating branch of fixDeadLink
+// used to call fillEmptyPage() after writing the empty stub. fillEmptyPage
+// runs the LLM against an empty page + a wiki index and asks for a fully
+// formed entity/concept page. With no real source note to anchor the
+// generation, the LLM fabricates alias claims, related-link targets, and a
+// summary that looks authoritative but is unsourced.
+//
+// Reintroduces the empty-source hallucination class that #164/#174 explicitly
+// gates in the ingest path. The lint path was a back door around the gate.
+//
+// v1.22.1 fix: stubs are honest placeholders. They carry the
+// `generation_complete: false` marker so #170's incomplete-cleaner recognises
+// them, and the placeholder body explicitly says the page is referenced but
+// not yet backed by a real source. A future real ingest fills the stub
+// through the normal ingest path, which IS gated by #164/#174.
+//
+// v1.23.0 extension: PPR engine will distinguish hub-in-waiting vs leaf-never-
+// hub dead links and decide whether to keep the stub, escalate to a full
+// ingest, or remove the stub and leave the dead link. The conservative
+// placeholder shape below does not block that evolution.
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface StubContentParams {
+  title: string;
+  stubType: 'entity' | 'concept';
+  wikiFolder: string;
+  /** Relative path inside the wiki folder of the page that referenced the target. */
+  referringPageRel: string;
+}
+
+export function buildStubContent(params: StubContentParams): string {
+  const { title, stubType, referringPageRel } = params;
+  const today = new Date().toISOString().split('T')[0];
+  const defaultTag = stubType === 'entity' ? 'other' : 'term';
+  return `---\ntype: ${stubType}\ncreated: ${today}\nsources: ["[[${referringPageRel}]]"]\ntags: [${defaultTag}]\ngeneration_complete: false\n---\n# ${title}\n\n> Stub created by Fix Dead Links — referenced by [[${referringPageRel}]]. Will be filled by next ingest of an actual source that defines this entity.\n`;
+}
+
+/**
+ * Policy gate for #197. The lint path MUST NOT hand a stub to fillEmptyPage()
+ * for an unresolvable dead link — that re-introduces the empty-source
+ * hallucination that #164/#174 was designed to prevent in the ingest path.
+ *
+ * Both branches return false today. The function exists as a single,
+ * greppable switch so any future PR that wants to re-introduce auto-fabrication
+ * has to change this gate explicitly (rather than slipping it past a review
+ * by editing a deep `await fillEmptyPage(...)` line).
+ */
+export function shouldFabricateStubForUnresolvableLink(_opts: {
+  branch: 'llm-create-stub' | 'deterministic-fallback';
+}): boolean {
+  return false;
+}
+
 export async function fixDeadLink(
   ctx: EngineContext,
   sourcePath: string,
@@ -149,17 +205,24 @@ export async function fixDeadLink(
     const stubSlug = slugify(sanitizedTitle, ctx.settings.slugCase === 'preserve');
     const stubPath = `${ctx.settings.wikiFolder}/${stubDir}/${stubSlug}.md`;
     const sourceRel = makeRelPath(sourcePath, ctx.settings.wikiFolder);
-    const stubContent = `---\ntype: ${stubType}\ncreated: ${new Date().toISOString().split('T')[0]}\nsources: ["[[${sourceRel}]]"]\ntags: [${stubType === 'entity' ? 'other' : 'term'}]\n---\n# ${sanitizedTitle}\n\n> Auto-generated stub page — referenced by [[${sourceRel}]].\n`;
+    // #197: stub is an honest placeholder, NOT LLM-filled. See buildStubContent
+    // for rationale. This prevents the empty-source hallucination class that
+    // #164/#174 gates in the ingest path.
+    const stubContent = buildStubContent({
+      title: sanitizedTitle,
+      stubType: stubType as 'entity' | 'concept',
+      wikiFolder: ctx.settings.wikiFolder,
+      referringPageRel: sourceRel,
+    });
 
     await ctx.createOrUpdateFile(stubPath, stubContent);
-    // Expand the stub with AI-generated content immediately.
-    const { fillEmptyPage } = await import('./fill-empty-page');
-    await fillEmptyPage(ctx, stubPath);
+    // #197: deliberately do NOT call fillEmptyPage here. See
+    // shouldFabricateStubForUnresolvableLink for the policy gate.
 
     const newLink = `[[${stubDir}/${stubSlug}|${sanitizedTitle}]]`;
     const updatedContent = replaceTargetLink(sourceContent, targetName, newLink);
     await ctx.createOrUpdateFile(sourcePath, updatedContent);
-    return `stub created and expanded: ${stubPath}`;
+    return `stub created (unfilled): ${stubPath} — will be filled by next ingest of a real source`;
   }
 
   // ---- Deterministic fallback when LLM fails ----
@@ -186,21 +249,31 @@ export async function fixDeadLink(
     return `fallback corrected: ${newLink}`;
   }
 
-  // No match — create a basic stub and expand it.
-  const cleanBasename = targetBasename.replace(/^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/, '$2');
-  const stubType = targetName.includes('/entities/') ? 'entity' : 'concept';
-  const stubDir = stubType === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
-  const stubSlug = slugify(cleanBasename, ctx.settings.slugCase === 'preserve');
-  const stubPath = `${ctx.settings.wikiFolder}/${stubDir}/${stubSlug}.md`;
-  const sourceRel = makeRelPath(sourcePath, ctx.settings.wikiFolder);
-  const stubContent = `---\ntype: ${stubType}\ncreated: ${new Date().toISOString().split('T')[0]}\nsources: ["[[${sourceRel}]]"]\ntags: [${stubType === 'entity' ? 'other' : 'term'}]\n---\n# ${cleanBasename}\n\n> Auto-generated stub page — referenced by [[${sourceRel}]].\n`;
+  // No match — create an honest placeholder stub. Do NOT expand it via LLM.
+// #197: a dead link that doesn't resolve to any existing page is an honest
+// forward-reference. The user will eventually ingest a real source note that
+// defines the target, and at that point the normal ingest path (gated by
+// #164/#174) fills the stub through correct channels. Handing the stub to
+// fillEmptyPage() here would let the LLM fabricate alias claims and related
+// links against zero source content.
+const cleanBasename = targetBasename.replace(/^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/, '$2');
+const stubType: 'entity' | 'concept' = targetName.includes('/entities/') ? 'entity' : 'concept';
+const stubDir = stubType === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
+const stubSlug = slugify(cleanBasename, ctx.settings.slugCase === 'preserve');
+const stubPath = `${ctx.settings.wikiFolder}/${stubDir}/${stubSlug}.md`;
+const sourceRel = makeRelPath(sourcePath, ctx.settings.wikiFolder);
+const stubContent = buildStubContent({
+  title: cleanBasename,
+  stubType,
+  wikiFolder: ctx.settings.wikiFolder,
+  referringPageRel: sourceRel,
+});
 
-  await ctx.createOrUpdateFile(stubPath, stubContent);
-  const { fillEmptyPage } = await import('./fill-empty-page');
-  await fillEmptyPage(ctx, stubPath);
+await ctx.createOrUpdateFile(stubPath, stubContent);
+// #197: deliberately do NOT call fillEmptyPage here.
 
-  const newLink = `[[${stubDir}/${stubSlug}|${cleanBasename}]]`;
-  const updatedContent = replaceTargetLink(sourceContent, targetName, newLink);
-  await ctx.createOrUpdateFile(sourcePath, updatedContent);
-  return `fallback stub created and expanded: ${stubPath}`;
+const newLink = `[[${stubDir}/${stubSlug}|${cleanBasename}]]`;
+const updatedContent = replaceTargetLink(sourceContent, targetName, newLink);
+await ctx.createOrUpdateFile(sourcePath, updatedContent);
+return `fallback stub created (unfilled): ${stubPath} — will be filled by next ingest of a real source`;
 }

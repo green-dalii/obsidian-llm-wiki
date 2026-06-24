@@ -1,5 +1,18 @@
-import { describe, it, expect } from 'vitest';
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest';
+
+// Stub `obsidian` imports — the jsdom env triggers Vite import-analysis
+// that can't resolve the real obsidian package. The Modal class shape
+// (modalEl.addClass / contentEl.addClass / etc.) is only typed at
+// compile time; at runtime we use plain object stubs.
+vi.mock('obsidian', () => ({
+  Modal: class {},
+  App: class {},
+  Setting: class {},
+}));
+
 import { lineDiff } from '../../core/diff';
+import { applyDiffModalClasses, removeDiffModalClasses } from '../../ui/schema-diff-modal-classes';
 
 // v1.22.0 #97: when the LLM reports changes_needed=false, the
 // SchemaDiffModal should show the *current* schema in BOTH panes
@@ -12,7 +25,7 @@ import { lineDiff } from '../../core/diff';
 // so the resulting diff is all "eq" rows. We test the helper that
 // does this so the invariant is captured explicitly.
 
-import { normalizeEmptyMode } from '../../ui/schema-diff-modal';
+import { normalizeEmptyMode } from '../../ui/schema-diff-modal-classes';
 
 describe('normalizeEmptyMode (#97)', () => {
   it('returns the original newBody when not in empty mode', () => {
@@ -96,5 +109,40 @@ describe('SchemaDiffModal.setCurrentBody in empty mode (#97 bug repro)', () => {
     expect(effectiveAfterLoad).toBe(loadedBody);
     const ops = lineDiff(loadedBody, effectiveAfterLoad);
     expect(ops.every(op => op.op === 'eq')).toBe(true);
+  });
+});
+
+// v1.22.1: applyDiffModalClasses must add the modal-wide class to
+// BOTH modalEl (outer .modal) and contentEl (inner content).
+// removeDiffModalClasses must clean up modalEl on close. This replaced
+// the previous CSS `:has()` selector (Obsidian review warning:
+// :has() causes broad selector invalidation → significant perf cost).
+//
+// No `@vitest-environment jsdom` directive — we don't need DOM for this
+// test (the helpers accept duck-typed modalEl/contentEl with addClass/
+// removeClass/empty methods). Skipping the directive avoids Vite's
+// import-analysis re-resolving `obsidian` in unrelated files.
+describe('SchemaDiffModal modalEl class lifecycle (v1.22.1)', () => {
+  it('applyDiffModalClasses adds to both; removeDiffModalClasses cleans modalEl', () => {
+    const classes = new Set<string>();
+    const modalEl = {
+      addClass(cls: string) { classes.add(cls); },
+      removeClass(cls: string) { classes.delete(cls); },
+    };
+    const contentEl = {
+      empty() { /* no-op */ },
+      addClass(cls: string) { classes.add(cls); },
+    };
+
+    applyDiffModalClasses(
+      modalEl as unknown as { addClass: (c: string) => void; removeClass: (c: string) => void; empty: () => void },
+      contentEl as unknown as { addClass: (c: string) => void; removeClass: (c: string) => void; empty: () => void },
+    );
+    expect(classes.has('llm-wiki-schema-diff-modal')).toBe(true);
+
+    removeDiffModalClasses(
+      modalEl as unknown as { addClass: (c: string) => void; removeClass: (c: string) => void; empty: () => void },
+    );
+    expect(classes.has('llm-wiki-schema-diff-modal')).toBe(false);
   });
 });

@@ -113,6 +113,13 @@ export interface LLMWikiSettings {
   pageGenerationConcurrency: number;
   batchDelayMs: number;
 
+  // Migration markers — written by `core/settings-migrations.ts` so each
+  // version-keyed migration runs at most once. Keep these `boolean` and
+  // underscore-prefixed so they don't show up in the settings UI.
+  // (#199) The v1.18.3 startupCheck nudge was removed entirely; if a
+  // future migration re-nudges a value, gate it on one of these.
+  _migrated_v1_20_0_thinking?: boolean;
+
   // Query dedup
   lastOfferedQueryHash?: string;
 

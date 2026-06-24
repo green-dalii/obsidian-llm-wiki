@@ -11,8 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Query Wiki moved from a centered Modal to a Copilot-style right-docked side panel.** `QueryModal extends Modal` became `QueryView extends ItemView` (registered via `registerView(VIEW_TYPE_QUERY, …)`). The command `query-wiki` and a new `message-circle` ribbon icon now activate/reveal a right sidebar leaf (reusing the existing leaf if already open) instead of opening a popup. All existing behavior is preserved unchanged: three-tier retrieval, streaming + non-streaming fallback, collapsible thinking panel, save-to-wiki feedback loop, LLM save suggestion, history cap, clear, copy, and stop. The `renderThinkingBlocksUI` pure function and the post-query `SuggestSaveModal` are untouched.
 - **Query panel styling now uses native theme variables.** All hardcoded colors (`#4caf50`, `#fff3e0`, `#2196f3`, `#f44336`, `#999`, `white`) were replaced with `var(--…)` tokens so the panel adapts to light/dark themes automatically. The fixed-size `.llm-wiki-query-modal` (800×780) rule was removed in favor of a flex `.llm-wiki-query-view` root.
 
+### Fixed
+- **CSS `:has()` Obsidian review warning.** `styles.css:579` used `:has(.llm-wiki-schema-diff-modal)` to size the outer modal container. Obsidian review bot flags `:has()` for broad selector invalidation → perf cost. Replaced with direct class selector `.modal.llm-wiki-schema-diff-modal`. JS side: `schema-diff-modal.ts` `onOpen`/`onClose` now add/remove class on `modalEl` via new pure-function helpers in `schema-diff-modal-classes.ts`.
+
+### Added
+- **`scripts/css-lint.mjs`** — multi-rule CSS lint catching `!important` + `:has()` to prevent regression. Wired into `pnpm css-lint` (Gate 1).
+
 ### Tests
-- **1003 tests passing (unchanged).** obsidian test mock extended with `ItemView` / `WorkspaceLeaf` stubs so `query-engine.ts` still imports cleanly under vitest; existing `renderThinkingBlocksUI` suite stays green.
+- **1007 tests passing** (+1 regression test for modal class lifecycle).
 
 ## [1.22.0] - 2026-06-23
 

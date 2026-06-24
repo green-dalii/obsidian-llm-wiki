@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.22.0 | **Updated:** 2026-06-23
+**Version:** 1.22.0 → 1.22.1 (dev) → 1.23.0 | **Updated:** 2026-06-23
 
 ---
 
@@ -121,51 +121,78 @@ Major quality release addressing previously-unprocessable large sources and a cl
 
 ---
 
-## Next Milestone: v1.22.0 — i18n + index refactor (P1 bug batch + P2 features)
+## Next Milestone: v1.22.1 — PATCH hotfix (review warnings + remaining P1 bugs)
 
-P0 (shipped locally 2026-06-22): Schema one-click apply + dynamic tag sync + zh-Hant locale. Awaiting user release.
-P1 (in progress): i18n bug batch (#188 / #187 / #186) — all single-coherent code path.
-P2 (planned after P1): #185 (alias propagation) + #184 (Obsidian Bases indexing).
+### v1.22.1 Scope
+- **CSS `:has()` warning fix** (Obsidian review warning: broad selector invalidation → perf cost; CSS selector replaced with direct class selector on `modalEl` + `contentEl`)
+- **`scripts/css-lint.mjs`** — multi-rule CSS lint (catches `!important` + `:has()` to prevent regression)
+- **#197 — fixDeadLink 制造 stub** (`fix-dead-link.ts` deterministic fallback + LLM `create_stub` both fabricate AI-expanded pages for honest forward-refs; reintroduces the #164 hallucination class; should leave dead link or flag instead of creating)
+- **#187 — Related-link `sources/` prefix** (`page-factory.ts:206,215` filter-by-type truncates related entities when vault > 50 pages)
 
-### v1.22.0 P1 Scope (i18n + related-link correctness)
-- #188 merge.ts section header localization
-- #187 related-link prefix correctness
-- #186 appendAliases block-replace regex correctness
+Stays local until user-in-the-wild signals other P0 issues for a single release.
 
-### v1.22.0 P2 Scope (Feature batch)
-- #185 source-note alias propagation
-- #184 Obsidian Bases index management
+---
 
-### Deferred to v1.23.0+ (lower ROI)
+## Next Milestone: v1.23.0 — Graph Engine (MINOR feature)
+
+### Direction (under public discussion — see tracking Issue)
+
+A single graph-native engine (`core/graph-engine.ts`) powered by **Personalized PageRank** (Haveliwala 2002) over the existing `[[wiki-link]]` graph. One primitive, many consumers — closes #117, #157, #175 simultaneously:
+
+| Consumer | Existing Issue | PPR-derived metric |
+|----------|----------------|-------------------|
+| Hub detection | #117 | `inDegree + PageRank` + retirement via local clustering coefficient (@DocTpoint 2026-06-23) |
+| Link distinctiveness | #157 | `shared-link(P,T) / PageRank(T)` (replaces embedding cosine) |
+| Query retrieval (Tier A) | (replaces ROADMAP §Query Engine Evolution Tier A) | PPR seeded at query page → top-k by score |
+| Dead-link hub check | #197 | "Is the target a retiring/mature hub?" signal |
+| Multi-hop traversal | (replaces Tier C) | PPR multi-seed iteration |
+
+### Tier B (summary) — REDESIGNED
+
+Original Tier B: per-query LLM call to generate summary.
+**Revised**: zero LLM cost — extract `## Description` / `## Definition` section from the existing page body at query time (`core/section-extractor.ts`, ~30 lines, no frontmatter pollution, no migration needed for old wikis).
+
+### Tier D (agentic) — Deferred to v1.25.0+
+
+Requires LLM function-calling support across all providers (Anthropic ✅, OpenAI ✅, Gemini ✅, Ollama partial, others unstable). Out of scope until provider matrix stabilizes.
+
+### v1.23.0 Scope (provisional, depends on Issue discussion outcome)
+- `core/ppr.ts` — pure PPR engine (~80 LOC, O(V+E·iter), pure JS, zero deps)
+- `core/section-extractor.ts` — markdown section extractor (~30 LOC)
+- `core/hub-detection.ts` — degree + clustering retirement (~50 LOC)
+- `core/link-distinctiveness.ts` — shared-link ratio (~40 LOC)
+- `wiki/query-engine.ts` — replace lex match with PPR top-k retrieval
+- Lint integration: use PPR signals in hub-link strip (#157 path)
+- Estimated: ~200 LOC core, ~30 LOC query integration, 30+ tests
+
+### Deferred to v1.24.0+ (lower ROI, lower coupling)
+- #185 source-note alias propagation (independent feature, opt-in flag, 1 day)
+- #184 Obsidian Bases index management (schema path, 2-3 days)
+- #130 in-place batch ingest queue (depends on #184)
+- #182 Obsidian Keychain (security hardening, independent)
+
+### Deferred to v1.25.0+ (research / experimental)
+- #112 Event marker/type (domain modeling)
+- #168 Auto granularity (independent heuristic)
 - #91 Nested tags (depends on #85 in-the-wild feedback)
-- #112 Event marker/type (frontmatter-only approach settled)
-- #117 Graph-based hub detection
-- #122 Ingest History Panel (PR #171 shipped 2026-06-21 — partially done)
-- #130 In-place batch ingest queue
-- #142 Multiple wikis (long-term; current workaround: wikiFolder switch)
-- #157 Embedding-distinctiveness hub filter (DocTpoint probe; awaits dedicated embedding phase)
-- #168 Auto granularity (Linate design; pair with #117?)
-- #175 Architecture: shared embedding "structural awareness" layer (DocTpoint synthesis; rejected 2026-06-23 in favor of Wiki Link Graph extension per `feedback_wiki_link_graph_vs_embedding.md`)
-- #182 Obsidian Keychain (SecretStorage API; alfred1137 — owner deferred 2026-06-22)
-- #169 scope 2 "live file preview" (scope 1 = PR #189 shipped 2026-06-23)
+- ROADMAP Tier D — agentic loop (function-calling support matrix)
+- ROADMAP Tier B (original) — **superseded by `section-extractor` design above**
+- ROADMAP Tier C (original) — **superseded by PPR multi-seed (no separate in-memory graph needed)**
 
-### Out of scope (v1.21.0+)
+### Out of scope
+- #36 Source title in frontmatter — needs clarification from issue author
+- #142 Multiple wikis — long-term, workaround: wikiFolder switch
+- P3 test infrastructure — wiki-engine + query-engine full-path integration tests
+- Restore true streaming for 3rd-party providers
+- Lint performance — hash-bucket dedup prefilter, hierarchical health analysis
 
-- **#36 — Source title in frontmatter** — needs clarification from issue author.
-- **P3 test infrastructure:** wiki-engine full-path integration tests; query-engine core flow tests (requires Obsidian App + Modal + DOM mocks).
-- **Restore true streaming for 3rd-party providers** (requires Obsidian native streaming).
-- **Missing Concept Pages tracker** (parse Lint LLM prose into structured reports).
-- **Lint performance:** hash-bucket dedup prefilter; hierarchical LLM health analysis.
+### v1.20.0+ Theme — Query Engine Evolution (REVISED 2026-06-23)
 
-### v1.20.0+ Theme — Query Engine Evolution (P3 research)
+~~Query engine is currently a "structured-context RAG"...~~ **DEPRECATED.**
 
-Query engine is currently a "structured-context RAG" (keyword + LLM semantic selection + 3-5 page context), not pure Karpathy full-context reasoning. Four-tier improvement roadmap:
-- **Tier A (low cost, no new LLM calls):** enhance index with `rel:` field; multi-hop link expansion from selected pages
-- **Tier B (medium, +1 LLM call):** hierarchical summary layer — every page has 2-3 sentence pre-computed summary
-- **Tier C (high, schema change):** explicit in-memory knowledge graph + graph-traversal retrieval
-- **Tier D (highest):** agentic loop with multi-step tool calls (function-calling / OpenAI tools support required)
+**New direction** (see v1.23.0 Graph Engine above): the [[wiki-link]] graph + PPR replaces the heuristic tier ladder. Tier A = PPR retrieval. Tier B = section-extractor (zero LLM). Tier C = PPR multi-seed. Tier D = agentic (v1.25.0+).
 
-Documented in `~/.claude/projects/.../memory/project_v1.19.0_query_evolution.md`.
+Documented in `~/.claude/projects/.../memory/project_v1.23.0_graph_engine.md`.
 
 ---
 

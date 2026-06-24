@@ -2,7 +2,6 @@ import { Plugin, Notice, TFile } from 'obsidian';
 
 import {
   PREDEFINED_PROVIDERS,
-  DEFAULT_SETTINGS,
   LLMWikiSettings,
   LLMClient,
   IngestReport
@@ -81,6 +80,7 @@ import { TEXTS } from './texts';
 import { getText } from './core/i18n';
 import { slugify } from './core/slug';
 import { parseFrontmatter } from './core/frontmatter';
+import { applySettingsMigrations } from './core/settings-migrations';
 import { normalizeVocabularyCsv } from './core/tag-vocab';
 import { buildIngestStatusBarText, BatchProgress } from './core/status-bar';
 import { LLMWikiSettingTab } from './ui/settings';
@@ -310,7 +310,8 @@ export default class LLMWikiPlugin extends Plugin {
 
   async loadSettings() {
     const savedData = await this.loadData() as Partial<LLMWikiSettings> | null;
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData || {});
+    const { settings, applied } = applySettingsMigrations(savedData);
+    this.settings = settings;
 
     if (savedData && !savedData.wikiLanguage) {
       this.settings.wikiLanguage = this.settings.language;
@@ -322,28 +323,18 @@ export default class LLMWikiPlugin extends Plugin {
       console.debug('loadSettings: watchedFolders was not an array, reset to []');
     }
 
-    // v1.18.3 migration: force startupCheck to true for existing users who
-    // previously had it off. The startup scan is safe (~100ms, no token
-    // cost) and prevents silent format pollution between restarts. User
-    // can toggle off after this one-time migration.
-    if (savedData && savedData.startupCheck === false) {
-      this.settings.startupCheck = true;
-    }
-
-    // v1.20.0 migration: reset disableThinking from old default (true) to
-    // new default (false). Old behavior sent thinking.type='disabled' which
-    // caused HTTP 400 on many providers (OpenAI, Gemini, Ollama, etc.).
-    // New behavior: disableThinking=false means "don't send any thinking
-    // control field" — the provider decides its own default. This is safe
-    // for all providers and eliminates the 400 cascade. Users who
-    // explicitly want thinking control can re-enable it in Custom mode.
-    // Also reset advancedSettingsMode to 'default' so Custom-mode remnants
-    // (temperature, repetition_penalty, thinking toggle) don't leak into
-    // the new "provider decides" behavior.
-    if (savedData && savedData.disableThinking === true) {
-      this.settings.disableThinking = false;
-      this.settings.advancedSettingsMode = 'default';
-      console.debug('loadSettings: v1.20.0 migration — reset disableThinking to false, advancedSettingsMode to default');
+    // v1.18.3 migration REMOVED in v1.22.1 (#199). Previous code at this
+    // location unconditionally forced `savedData.startupCheck === false`
+    // back to `true` on every plugin load, silently undoing the user's
+    // toggle for ~2 years. Migration logic moved to
+    // `core/settings-migrations.ts` and then removed entirely. Anyone with
+    // `startupCheck: false` on disk today has explicitly chosen that
+    // value and we respect it.
+    //
+    // v1.20.0 migration (disableThinking default flip) now lives in
+    // `applySettingsMigrations`. See that file for the version-key gate.
+    if (applied.length > 0) {
+      console.debug(`loadSettings: applied migrations: ${applied.join(', ')}`);
     }
 
     // Migrate existing users: if they already have a working config, trust it
