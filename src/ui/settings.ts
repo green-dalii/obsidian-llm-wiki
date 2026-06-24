@@ -176,6 +176,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     const providerConfig = PREDEFINED_PROVIDERS[this.tempSettings.provider];
     const isOllama = this.tempSettings.provider === 'ollama';
     const isLmStudio = this.tempSettings.provider === 'lmstudio';
+    const isRits = this.tempSettings.provider === 'rits';
 
     // Provider Dropdown
     new Setting(containerEl)
@@ -204,7 +205,31 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       });
 
     // API Key
-    if (!isOllama && !isLmStudio) {
+    if (isRits) {
+      // RITS: show standard API key field (passed as Authorization Bearer)
+      new Setting(containerEl)
+        .setName(this.getText('apiKeyName'))
+        .setDesc(this.getText('apiKeyDesc'))
+        .addText(text => {
+          text.setPlaceholder(this.getText('apiKeyPlaceholder'))
+            .setValue(this.tempSettings.apiKey)
+            .onChange((value) => { this.tempSettings.apiKey = value; this.tempSettings.llmReady = false; });
+          text.inputEl.type = 'password';
+        });
+      // RITS: custom RITS_API_KEY header field
+      new Setting(containerEl)
+        // eslint-disable-next-line obsidianmd/ui/sentence-case -- RITS is a proper noun (service name)
+        .setName('RITS API key')
+        // eslint-disable-next-line obsidianmd/ui/sentence-case -- RITS is a proper noun (service name)
+        .setDesc('If your RITS instance requires a separate custom header for the API key, enter it here. Leave blank to use the standard API key only.')
+        .addText(text => {
+          // eslint-disable-next-line obsidianmd/ui/sentence-case -- "RITS" is a proper noun (service name)
+          text.setPlaceholder('rits-...')
+            .setValue(this.tempSettings.ritsApiKey || '')
+            .onChange((value) => { this.tempSettings.ritsApiKey = value; this.tempSettings.llmReady = false; });
+          text.inputEl.type = 'password';
+        });
+    } else if (!isOllama && !isLmStudio) {
       new Setting(containerEl)
         .setName(this.getText('apiKeyName'))
         .setDesc(this.getText('apiKeyDesc'))
@@ -226,8 +251,8 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       });
     }
 
-    // Base URL
-    if (this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible' || (providerConfig && this.tempSettings.baseUrl !== providerConfig.baseUrl)) {
+    // Base URL — also shown for rits so the user can override the default
+    if (this.tempSettings.provider === 'rits' || this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible' || (providerConfig && this.tempSettings.baseUrl !== providerConfig.baseUrl)) {
       new Setting(containerEl)
         .setName(this.getText('baseUrlName'))
         .setDesc(this.tempSettings.provider === 'custom' || this.tempSettings.provider === 'anthropic-compatible'

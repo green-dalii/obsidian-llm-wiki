@@ -35,6 +35,20 @@ export function createLLMClient(settings: LLMWikiSettings): LLMClient {
     } else {
       client = new AnthropicClient(settings.apiKey.trim());
     }
+  } else if (settings.provider === 'rits') {
+    // RITS (vLLM) uses OpenAI-compatible protocol but sends API key
+    // via a custom RITS_API_KEY header instead of (or in addition to)
+    // the standard Authorization header.
+    const providerConfig = PREDEFINED_PROVIDERS[settings.provider];
+    const baseUrl = settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
+    const ritsApiKey = (settings.ritsApiKey || '').trim();
+    // Pass the standard apiKey to OpenAICompatibleClient, and the
+    // ritsApiKey separately for the custom header.
+    client = new OpenAICompatibleClient(
+      settings.apiKey.trim(),
+      baseUrl,
+      ritsApiKey
+    );
   } else {
     const providerConfig = PREDEFINED_PROVIDERS[settings.provider];
     const baseUrl = settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;

@@ -173,6 +173,9 @@ export interface LLMWikiSettings {
   // Recommended for local models with small context windows.
   maxTokensPerCall: number;
 
+  // RITS provider: custom header API key for vLLM-hosted models.
+  ritsApiKey?: string;
+
   // Issue #111: slug casing for generated filenames.
   // 'lower' preserves backwards-compatible all-lowercase filenames.
   // 'preserve' keeps the casing the LLM produces — required for languages
@@ -487,6 +490,17 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholderEn: 'API Key',
     apiKeyPlaceholderZh: 'API Key',
     requiresBaseUrl: true
+  },
+  rits: {
+    id: 'rits',
+    name: 'RITS (vLLM)',
+    nameEn: 'RITS (vLLM)',
+    nameZh: 'RITS (vLLM)',
+    baseUrl: 'https://api.rits.example.com/v1',
+    apiKeyPlaceholder: 'sk-rits-...',
+    apiKeyPlaceholderEn: 'sk-rits-...',
+    apiKeyPlaceholderZh: 'sk-rits-...',
+    requiresBaseUrl: false
   }
 };
 
@@ -551,5 +565,6 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // Advanced settings mode — default hides the toggles, custom reveals them.
   advancedSettingsMode: 'default',
   // Issue #111: default to 'lower' for backwards compatibility.
+  ritsApiKey: '',
   slugCase: 'lower',
 };

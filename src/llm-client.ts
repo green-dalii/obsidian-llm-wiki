@@ -687,6 +687,7 @@ export class AnthropicClient implements LLMClient {
 export class OpenAICompatibleClient implements LLMClient {
   private apiKey: string;
   private baseUrl: string;
+  private ritsApiKey: string;
 
   // Issue #137: thinking-control dialect state.
   //
@@ -716,9 +717,10 @@ export class OpenAICompatibleClient implements LLMClient {
   // per-locale translations just added to the 8 text files).
   language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it' = 'en';
 
-  constructor(apiKey: string, baseUrl?: string) {
+  constructor(apiKey: string, baseUrl?: string, ritsApiKey?: string) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl || 'https://api.openai.com/v1';
+    this.ritsApiKey = ritsApiKey || '';
   }
 
   private getHeaders(): Record<string, string> {
@@ -727,6 +729,11 @@ export class OpenAICompatibleClient implements LLMClient {
     };
     if (this.apiKey) {
       headers['Authorization'] = `Bearer ${this.apiKey}`;
+    }
+    // RITS (vLLM) requires a custom header for API key auth
+    // rather than (or in addition to) the standard Authorization header.
+    if (this.ritsApiKey) {
+      headers['RITS_API_KEY'] = this.ritsApiKey;
     }
     return headers;
   }
