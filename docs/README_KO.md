@@ -521,8 +521,10 @@ MIT License — [LICENSE](LICENSE)를 참조하세요.
 - **🛠️ 플랫폼:** Obsidian 팀 — 플러그인 플랫폼 및 API
 - **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + 직접 작성한 OpenAI 호환 HTTP 클라이언트 (3rd-party OpenAI 호환 Provider)
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=top-left)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=top-left)
+
 ---
 
 **공식 사이트:** [llmwiki.greenerai.top](https://llmwiki.greenerai.top/)
-
-**Closes:** #90 — Source 페이지가 이제 LLM 생성 컨셉 이름이 아닌 소스 노트 frontmatter에서 tags를 상속합니다.

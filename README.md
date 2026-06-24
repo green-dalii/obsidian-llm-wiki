@@ -47,6 +47,7 @@
 - [🔒 Transparency & Compliance](#-transparency--compliance)
 - [📜 License](#-license)
 - [🙏 Acknowledgments](#-acknowledgments)
+- [Star History](#star-history)
 ---
 
 ## 💡 What is LLM-Wiki?
@@ -555,3 +556,7 @@ MIT License — see [LICENSE](LICENSE).
 - **💡 Concept:** [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — the original vision that inspired this plugin
 - **🛠️ Platform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
 - **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + handcrafted OpenAI-compatible HTTP client (3rd-party OpenAI-compatible providers)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=top-left)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=top-left)

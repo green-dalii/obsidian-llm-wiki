@@ -549,3 +549,7 @@ Licenza MIT — vedi [LICENSE](../LICENSE).
 - **💡 Concetto:** [LLM Wiki di Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — la visione originale che ha ispirato questo plugin
 - **🛠️ Piattaforma:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
 - **🔌 Trasporto LLM:** `requestUrl` di Obsidian (Anthropic) + client HTTP compatibile con OpenAI scritto a mano (provider terzi compatibili con OpenAI)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=top-left)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=top-left)

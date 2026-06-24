@@ -530,8 +530,10 @@ MIT License — siehe [LICENSE](LICENSE).
 - **🛠️ Plattform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
 - **🔌 LLM-Transport:** Obsidian `requestUrl` (Anthropic) + handgeschriebener OpenAI-kompatibler HTTP-Client (3rd-Party OpenAI-kompatible Anbieter)
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=top-left)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=top-left)
+
 ---
 
 **Official Site:** [llmwiki.greenerai.top](https://llmwiki.greenerai.top/)
-
-**Closes:** #90 — Quellseiten erben Tags nun aus dem Frontmatter der Quellnotiz statt LLM-generierte Konzeptnamen zu verwenden.

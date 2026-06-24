@@ -521,8 +521,10 @@ MIT License — [LICENSE](LICENSE)を参照
 - **🛠️ Platform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
 - **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + 手書きの OpenAI 互換 HTTP クライアント（サードパーティ OpenAI 互換 Provider）
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=top-left)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=top-left)
+
 ---
 
 **公式サイト:** [llmwiki.greenerai.top](https://llmwiki.greenerai.top/)
-
-**Closes:** #90 — ソースページは LLM 生成のコンセプト名ではなく、ソースノートの frontmatter からタグを継承するようになりました。

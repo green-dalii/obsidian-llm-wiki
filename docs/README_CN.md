@@ -550,4 +550,6 @@ MIT License — 详见 [LICENSE](LICENSE)。
 - **🛠️ 开发平台：** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
 - **🔌 LLM 传输层：** Obsidian `requestUrl`（Anthropic）+ 手写的 OpenAI 兼容 HTTP 客户端（其他 OpenAI 兼容 Provider）
 
-**Closes:** #90 — Source 页面现在从源文件 frontmatter 继承 tags，而非 LLM 生成的概念名。
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=top-left)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=top-left)

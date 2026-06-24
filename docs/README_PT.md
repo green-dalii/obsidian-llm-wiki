@@ -513,4 +513,6 @@ Licença MIT — veja [LICENSE](LICENSE).
 - **🛠️ Plataforma:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
 - **🔌 Transporte LLM:** `requestUrl` do Obsidian (Anthropic) + cliente HTTP compatível com OpenAI escrito à mão (provedores terceiros compatíveis com OpenAI)
 
-**Closes:** #90 — As páginas source agora herdam tags do frontmatter da nota source em vez de nomes de conceitos gerados por LLM.
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=top-left)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=top-left)
