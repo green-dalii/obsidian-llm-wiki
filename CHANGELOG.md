@@ -7,37 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **Query Wiki moved from a centered Modal to a Copilot-style right-docked side panel.** `QueryModal extends Modal` became `QueryView extends ItemView` (registered via `registerView(VIEW_TYPE_QUERY, …)`). The command `query-wiki` and a new `message-circle` ribbon icon now activate/reveal a right sidebar leaf (reusing the existing leaf if already open) instead of opening a popup. All existing behavior is preserved unchanged: three-tier retrieval, streaming + non-streaming fallback, collapsible thinking panel, save-to-wiki feedback loop, LLM save suggestion, history cap, clear, copy, and stop. The `renderThinkingBlocksUI` pure function and the post-query `SuggestSaveModal` are untouched.
-- **Query panel styling now uses native theme variables.** All hardcoded colors (`#4caf50`, `#fff3e0`, `#2196f3`, `#f44336`, `#999`, `white`) were replaced with `var(--…)` tokens so the panel adapts to light/dark themes automatically. The fixed-size `.llm-wiki-query-modal` (800×780) rule was removed in favor of a flex `.llm-wiki-query-view` root.
+## [1.22.2] - 2026-06-26
 
 ### Fixed
-- **CSS `:has()` Obsidian review warning.** `styles.css:579` used `:has(.llm-wiki-schema-diff-modal)` to size the outer modal container. Obsidian review bot flags `:has()` for broad selector invalidation → perf cost. Replaced with direct class selector `.modal.llm-wiki-schema-diff-modal`. JS side: `schema-diff-modal.ts` `onOpen`/`onClose` now add/remove class on `modalEl` via new pure-function helpers in `schema-diff-modal-classes.ts`.
+- **#204 — Watch-mode auto-ingest showed a blocking modal.** `onIngestDone` always opened the `IngestReportModal` regardless of whether the ingest was triggered by the file watcher or by manual action. Split into `onIngestDone` (manual → modal) and `onAutoIngestDone` (watch-mode → configurable). New setting `autoIngestNotificationLevel` (`'notice'` default, `'modal'` available) controls watch-mode behavior.
+- **Auto Smart Fix opened a blocking `FixReportModal` after completing all fixes.** Replaced with a transient Notice with a hint to the Operation History Panel. Prevents modal-over-modal when Auto Smart Fix runs during an auto-ingest batch.
+- **`periodicLint`: removed "Hourly" option, added "Monthly".** Old `hourly` saves are auto-migrated to `daily` on next plugin load.
+- **Dead code cleanup: two redundant `setDoneCallback` resets in `main.ts` removed.**
+- **`slug.ts` console.debug noise removed.** Hot-path `console.debug('slugify input:', text, ...)` on every slug computation cleaned up.
 
 ### Added
-- **`scripts/css-lint.mjs`** — multi-rule CSS lint catching `!important` + `:has()` to prevent regression. Wired into `pnpm css-lint` (Gate 1).
-
-### Tests
-- **1007 tests passing** (+1 regression test for modal class lifecycle).
-
-## [1.22.1] - 2026-06-24
-
-### Fixed
-- **#199 — `startupCheck` silently reset to true on every restart.** A v1.18.3 migration forced `savedData.startupCheck === false` back to `true` on every load, silently undoing the user's explicit toggle. Migration removed; remaining migrations extracted to `core/settings-migrations.ts` (pure function) for unit testability.
-- **#197 — `fixDeadLink` fabricated AI-expanded stub pages for unresolvable dead links.** The stub-creating branches (LLM `create_stub` + deterministic fallback) used to call `fillEmptyPage()`, which ran the LLM against an empty stub with no real source and produced fabricated alias claims and related links — reintroducing the empty-source hallucination class that #164/#174 was designed to prevent in the ingest path. Stubs are now honest placeholders with `generation_complete: false` marker so #170 incomplete-cleaner recognises them. New pure function `buildStubContent()` + explicit policy gate `shouldFabricateStubForUnresolvableLink()` prevents accidental re-introduction.
-- **CSS `:has()` Obsidian review warning.** `styles.css:579` used `:has(.llm-wiki-schema-diff-modal)` to size the outer modal container. Obsidian review bot flags `:has()` for broad selector invalidation → perf cost. Replaced with direct class selector `.modal.llm-wiki-schema-diff-modal`. JS side: `schema-diff-modal.ts` `onOpen`/`onClose` now add/remove class on `modalEl` via new pure-function helpers in `schema-diff-modal-classes.ts`.
-- **#187 — `sources/`-prefixed related links (PR #200 by @DocTpoint).** LLM-generated `Related Concepts` / `Related Entities` entries occasionally default to `[[sources/<slug>]]` when the target falls outside the truncated existing-pages window — or hasn't been created yet in the same ingest run. New pure-function `correctRelatedLinkPrefixes()` re-asserts each related name's known type after generation. Section-scoped by header label so legitimate `[[sources/<slug>]]` citations in *Mentions in Source* are never rewritten; also self-heals stale links carried through a `mergePage`.
-
-### Added
-- **`scripts/css-lint.mjs`** — multi-rule CSS lint catching `!important` + `:has()` to prevent regression. Wired into `pnpm css-lint` (Gate 1).
+- **`core/log-header.ts` — i18n-aware log.md header builder (10 locales).** When `log.md` is first created, its header now explains the log file and points to the Operation History Panel. Each locale (en/zh/zh-hant/ja/ko/de/fr/es/pt/it) gets its own translated header text.
+- **Log header auto-migration (startup Phase 4.5).** Existing `log.md` files with the old single-line header are detected via `isOldFormatLogHeader()` and non-destructively migrated via `migrateLogHeader()` — only the header is replaced; all `## [date time]` log entries are preserved.
+- **Auto Ingest Notification dropdown in settings (conditional).** New dropdown (Notice / Modal) appears under Watch Mode → "Auto Ingest" (hidden when Watch Mode is "Notify Only") with live display() toggle.
 
 ### Changed
-- **Query Wiki moved from a centered Modal to a Copilot-style right-docked side panel (PR #196 by @YounianC).** `QueryModal extends Modal` became `QueryView extends ItemView` (registered via `registerView(VIEW_TYPE_QUERY, …)`). The command `query-wiki` and a new `message-circle` ribbon icon now activate/reveal a right sidebar leaf (reusing the existing leaf if already open) instead of opening a popup. All existing behavior is preserved unchanged: three-tier retrieval, streaming + non-streaming fallback, collapsible thinking panel, save-to-wiki feedback loop, LLM save suggestion, history cap, clear, copy, and stop. The `renderThinkingBlocksUI` pure function and the post-query `SuggestSaveModal` are untouched.
-- **Query panel styling now uses native theme variables.** All hardcoded colors (`#4caf50`, `#fff3e0`, `#2196f3`, `#f44336`, `#999`, `white`) were replaced with `var(--…)` tokens so the panel adapts to light/dark themes automatically. The fixed-size `.llm-wiki-query-modal` (800×780) rule was removed in favor of a flex `.llm-wiki-query-view` root.
-- **`.gitignore` no longer ignores `data.json` by default.** Removed blanket rule; the file only appears in the repo working dir when a contributor symlinks their vault plugin dir into the repo (local-dev convenience). Added a comment explaining when to re-enable the rule.
+- **Auto Ingest notification defaults to non-blocking Notice.** New setting `autoIngestNotificationLevel` defaults to `'notice'`. The IngestReportModal is only opened when the user explicitly sets this to `'modal'` or triggers a manual single-ingest or folder-ingest command.
+- **Periodic Lint options refined: Off, Daily, Weekly, Monthly.** Hourly removed as it was not a realistic schedule for LLM-based lint.
 
 ### Tests
-- **1029 tests passing** (+22 since v1.22.0: +6 for #197, +5 for #199, +1 for CSS :has regression, +9 for #200 / `related-link-corrector`, +1 from existing `query-engine` test mock extension).
+- **1054 tests passing** (+25 since v1.22.1: +5 for buildLogHeader, +6 for log-header-migration, +2 for slug-no-debug, +4 for auto-ingest-notification, +3 for auto-smart-fix-notice, +3 for settings-migrations hourly→daily, +2 for autoIngestNotificationLevel test fixtures).
 
 ## [1.22.0] - 2026-06-23
 

@@ -210,7 +210,19 @@ A focused PATCH that closes three P0 bugs reported by users and ships one UX imp
 - **🪟 Query Wiki is now a Copilot-style right-docked side panel (PR #196 by @YounianC).** `QueryModal extends Modal` became `QueryView extends ItemView` — the conversation can stay open alongside your notes instead of interrupting with a popup. The `message-circle` ribbon icon and `Query Wiki` command now activate/reveal a right sidebar leaf (reusing the existing leaf if already open). All functionality is preserved unchanged: three-tier retrieval, streaming + non-streaming fallback, collapsible thinking panel, save-to-wiki feedback loop, and history. Styling moved to native `var(--…)` theme tokens for automatic light/dark adaptation.
 - **🧹 Related-link prefix re-asserted deterministically (PR #200 by @DocTpoint, Issue #187).** LLM-generated `Related Concepts` / `Related Entities` entries occasionally default to `[[sources/<slug>]]` when the target falls outside the truncated existing-pages window — or hasn't been created yet in the same ingest run. New pure-function `correctRelatedLinkPrefixes()` re-asserts each related name's known type after generation. Section-scoped by header label so legitimate `[[sources/<slug>]]` citations in *Mentions in Source* are never rewritten; also self-heals stale links carried through a `mergePage`.
 
-We recommend upgrading — the fix-dead-link stub fabrication class of bugs is now closed, and the Query Wiki side panel keeps your notes visible while chatting.
+### v1.22.2 — 2026-06-26 (PATCH)
+
+This PATCH improves the auto-ingest UX, localizes the operation log, and removes dead code.
+
+- **📋 Auto Ingest no longer blocks with a modal (Issue #204).** Watch-mode auto-ingest now defaults to a transient Notice instead of opening the full Ingest Report Modal. Users who prefer the detailed report can switch to "Modal" in Settings → Auto Maintenance → Watch Mode. The Operation History Panel and `log.md` remain available for review at any time.
+- **🔧 Auto Smart Fix modal → transient Notice.** When Auto Smart Fix completes, a concise Notice with a hint to the Operation History Panel replaces the previously-blocking `FixReportModal`. Behavior controlled by the same Auto Ingest Notification setting.
+- **🌐 Operation log is now i18n (10 languages).** When `log.md` is first created (or on next startup for existing wikis), it gets an auto-migrated header explaining the log and pointing to the Operation History Panel. Each language shows its own localized text.
+- **📅 Periodic Lint: "Hourly" removed, "Monthly" added.** Existing "Hourly" choices automatically fall back to "Daily". Remaining options: Off, Daily, Weekly, Monthly.
+- **🧹 Dead code cleanup.** Removed redundant `console.debug` in `slug.ts` and two dead `setDoneCallback` resets in `main.ts`.
+- **⚙️ Auto Ingest Notification setting (conditional).** A new dropdown (Notice / Modal) appears under Watch Mode when set to "Auto Ingest", hidden when Watch Mode is "Notify Only".
+- **♻️ Log header auto-migration (startup Phase 4.5).** Existing `log.md` files with the old single-line header are detected and non-destructively migrated on next plugin load — all existing `## [date time]` entries are preserved.
+
+We recommend upgradingWe recommend upgrading — the fix-dead-link stub fabrication class of bugs is now closed, and the Query Wiki side panel keeps your notes visible while chatting.
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 

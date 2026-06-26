@@ -215,7 +215,18 @@ Una PATCH mirata che chiude tre bug P0 segnalati dagli utenti e introduce un mig
 - **🪟 Query Wiki ora è un pannello laterale destro stile Copilot (#196, @YounianC).** `QueryModal extends Modal` è diventato `QueryView extends ItemView`.
 - **🧹 Prefisso del related link riaffermato deterministicamente (#200, @DocTpoint, #187).** Nuova funzione pura `correctRelatedLinkPrefixes()`.
 
-Aggiornamento consigliato.
+### v1.22.2 — 2026-06-26 (PATCH)
+
+Questo PATCH migliora l'UX di acquisizione automatica, localizza il registro operazioni e rimuove codice morto.
+
+- **📋 L'acquisizione automatica non blocca più con una modale (Issue #204).** L'acquisizione automatica in modalità Watch ora mostra per impostazione predefinita un avviso transitorio invece di aprire la modale completa del rapporto di acquisizione. Gli utenti che preferiscono il rapporto dettagliato possono passare a "Modale" in Impostazioni → Manutenzione automatica → Modalità Watch.
+- **🔧 La correzione intelligente automatica usa ora un avviso transitorio.**
+- **🌐 Registro operazioni i18n (10 lingue).** Intestazione migrata automaticamente con collegamento al pannello della cronologia operazioni.
+- **📅 Lint periodico: "Orario" rimosso, "Mensile" aggiunto.**
+- **🧹 Codice morto rimosso.** `console.debug` ridondante in `slug.ts` e reset `setDoneCallback` inutili rimossi.
+- **♻️ Migrazione automatica dell'intestazione del registro.**
+
+Aggiornamento consigliatoAggiornamento consigliato.
 
 ## ✨ Funzionalità
 

@@ -171,7 +171,18 @@ Um PATCH focado que fecha três bugs P0 reportados por usuários e traz uma melh
 - **🪟 Query Wiki agora é um painel lateral acoplado à direita estilo Copilot (#196, @YounianC).** `QueryModal extends Modal` virou `QueryView extends ItemView`.
 - **🧹 Prefixo de related link reafirmado deterministicamente (#200, @DocTpoint, #187).** Nova função pura `correctRelatedLinkPrefixes()`.
 
-Atualização recomendada.
+### v1.22.2 — 2026-06-26 (PATCH)
+
+Este PATCH melhora a UX de ingestão automática, localiza o registro de operações e remove código morto.
+
+- **📋 A ingestão automática não bloqueia mais com um modal (Issue #204).** A ingestão automática em modo Watch agora mostra por padrão um aviso transiente em vez de abrir o modal completo do relatório de ingestão.
+- **🔧 A correção inteligente automática agora usa um aviso transiente.**
+- **🌐 Registro de operações i18n (10 idiomas).**
+- **📅 Lint periódico: "Por hora" removido, "Mensal" adicionado.**
+- **🧹 Código morto removido.**
+- **♻️ Migração automática do cabeçalho do registro.**
+
+Atualização recomendadaAtualização recomendada.
 
 ## ✨ Funcionalidades
 

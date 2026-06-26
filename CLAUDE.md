@@ -1,12 +1,21 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-06-26
 
 ---
 
-## Current Phase: v1.22.1 PATCH (in release prep) → v1.23.0 (Graph Engine direction)
+## Current Phase: v1.22.2 (released) → v1.23.0 (Graph Engine direction)
 
-### Completed (v1.22.1 — in release prep) — P0 bug batch + UX improvement
+### Completed (v1.22.2) — UX improvements + tech debt (2026-06-26)
+- ✅ **#204 — Auto Ingest blocking modal fixed.** New `onAutoIngestDone()` routes watch-mode completions to a configurable Notice (non-blocking) instead of IngestReportModal. `autoIngestNotificationLevel: 'notice' | 'modal'` setting with conditional UI dropdown.
+- ✅ **Auto Smart Fix FixReportModal → transient Notice.** Replaced blocking modal with Notice hinting at Operation History Panel.
+- ✅ **D1 — Dead code: redundant `setDoneCallback` resets in `main.ts` removed.**
+- ✅ **D2 — `slug.ts:2` console.debug noise removed.**
+- ✅ **D3 — `core/log-header.ts` i18n log.md header builder (10 locales) + startup Phase 4.5 auto-migration.**
+- ✅ **Periodic Lint: removed "Hourly", added "Monthly". Old `hourly` data auto-migrated to `daily`.**
+- ✅ **Tests: 1054 passing.** +25 since v1.22.1.
+
+### Completed (v1.22.1) — P0 bug batch + UX improvement
 - ✅ **#197 — `fixDeadLink` fabrication root-cause fix.** Stop calling `fillEmptyPage()` in both stub-creating branches (LLM `create_stub` + deterministic fallback). Pure-function `buildStubContent()` produces honest placeholders with `generation_complete: false` marker so #170 incomplete-cleaner recognises them. Explicit policy gate `shouldFabricateStubForUnresolvableLink()` returns false for both branches — any future PR that wants to re-introduce fabrication must edit this single greppable switch. 6 regression tests.
 - ✅ **#199 — `startupCheck` silently reset to true on every restart.** v1.18.3 migration removed. Remaining migrations extracted to pure-function `applySettingsMigrations()` in `core/settings-migrations.ts` for unit testability. 5 regression tests (multi-load idempotency, new-user default, v1.20.0 migration unaffected).
 - ✅ **CSS `:has()` warning fix.** `styles.css:579` `:has()` replaced with direct class selector `.modal.llm-wiki-schema-diff-modal`. JS side: `schema-diff-modal.ts` `onOpen`/`onClose` add/remove class on `modalEl` via pure helpers in `src/ui/schema-diff-modal-classes.ts` (separate file to keep tests obsidian-free).

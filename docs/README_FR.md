@@ -163,7 +163,18 @@ Détails dans [CHANGELOG.md](../CHANGELOG.md).
 
 ### v1.22.1 — 2026-06-24 (PATCH)
 
-Un PATCH ciblé qui ferme trois bugs P0 signalés par les utilisateurs et apporte une amélioration UX.
+### v1.22.2 — 2026-06-26 (PATCH)
+
+Ce PATCH améliore l'UX d'ingestion automatique, localise le journal des opérations et supprime du code mort.
+
+- **📋 L'ingestion automatique ne bloque plus avec une modale (Issue #204).** L'ingestion automatique en mode Watch affiche désormais par défaut un avis transitoire au lieu d'ouvrir la modale complète du rapport d'ingestion. Les utilisateurs préférant le rapport détaillé peuvent basculer sur "Modal" dans Paramètres → Maintenance automatique → Mode Watch.
+- **🔧 La correction intelligente automatique utilise désormais un avis transitoire.**
+- **🌐 Journal des opérations i18n (10 langues).** En-tête automatiquement migré pointant vers le panneau d'historique.
+- **📅 Lint périodique : "Horaire" supprimé, "Mensuel" ajouté.**
+- **🧹 Code mort supprimé.** `console.debug` redondant dans `slug.ts` et réinitialisations `setDoneCallback` inutiles retirées.
+- **♻️ Migration automatique de l'en-tête du journal.**
+
+Nous vous recommandons cette améliorationUn PATCH ciblé qui ferme trois bugs P0 signalés par les utilisateurs et apporte une amélioration UX.
 
 - **🛡️ Fix Dead Links ne fabrique plus de pages stub expansées par l'IA (#197).** Les stubs sont désormais des espaces réservés honnêtes avec le marqueur `generation_complete: false`.
 - **✅ Le commutateur « Exécuter les corrections rapides au démarrage » persiste désormais (#199).** La migration v1.18.3 supprimée.

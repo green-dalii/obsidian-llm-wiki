@@ -188,7 +188,18 @@ Ein fokussierter PATCH, der drei P0-Bugs schließt und eine UX-Verbesserung brin
 - **🪟 Query Wiki ist jetzt ein Copilot-artiges rechts angedocktes Seitenpanel (#196, @YounianC).** `QueryModal extends Modal` wurde zu `QueryView extends ItemView` — die Konversation kann neben deinen Notizen geöffnet bleiben statt als Popup zu unterbrechen. Alle Funktionalität bleibt unverändert.
 - **🧹 Related-Link-Präfix deterministisch neu gesetzt (#200, @DocTpoint, #187).** Neue Pure-Function `correctRelatedLinkPrefixes()` korrigiert das LLM-`sources/`-Default nach der Generierung. Section-scoped, sodass legitime `[[sources/<slug>]]`-Zitate in *Mentions in Source* nie umgeschrieben werden.
 
-Upgrade empfohlen — die Stub-Fabrikations-Klasse ist geschlossen und das Query-Wiki-Seitenpanel hält deine Notizen sichtbar.
+### v1.22.2 — 2026-06-26 (PATCH)
+
+Dieses PATCH verbessert die Auto-Ingest-UX, lokalisiert das Betriebsprotokoll und entfernt toten Code.
+
+- **📋 Auto-Ingest blockiert nicht mehr mit einem Modal (Issue #204).** Der Watch-Mode-Auto-Ingest zeigt standardmäßig einen transienten Hinweis an, statt das vollständige Ingest Report Modal zu öffnen. Benutzer, die den detaillierten Bericht bevorzugen, können in den Einstellungen → Auto Maintenance → Watch Mode auf "Modal" umschalten. Das Betriebsverlauf-Panel und `log.md` stehen jederzeit zur Ansicht zur Verfügung.
+- **🔧 Auto Smart Fix Modal → transienter Hinweis.**
+- **🌐 Betriebsprotokoll jetzt i18n (10 Sprachen).** Neuanlage von `log.md` (oder beim nächsten Start für bestehende Wikis) erhält einen automatisch migrierten Header.
+- **📅 Periodische Prüfung: "Stündlich" entfernt, "Monatlich" hinzugefügt.**
+- **🧹 Toter Code entfernt.**
+- **♻️ Automatische Migration des Log-Headers.**
+
+Upgrade empfohlenUpgrade empfohlen — die Stub-Fabrikations-Klasse ist geschlossen und das Query-Wiki-Seitenpanel hält deine Notizen sichtbar.
 
 ## ✨ Funktionen
 

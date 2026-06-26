@@ -2,21 +2,33 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.22.1 (dev) → 1.23.0 | **Updated:** 2026-06-24
+**Version:** 1.22.2 → 1.23.0 (PATCH released) | **Updated:** 2026-06-26
 
 ---
 
 ## Current Status
 
-### In Progress — v1.22.1 (PATCH — collecting in-the-wild P0 fixes)
+### Implemented (v1.22.2) — UX improvements + tech debt (2026-06-26)
 
-Three P0 bugs reported after v1.22.0 ship, plus one UX improvement merged at maintainer discretion:
+Closed 5 items from the v1.22.1 user-testing feedback loop:
 
-- 🔧 **#197 — `fixDeadLink` fabricates AI-expanded stub pages.** Stub-creating branches (LLM `create_stub` + deterministic fallback) called `fillEmptyPage()` against an empty page with no real source → fabricated alias claims and related links. Reintroduces the empty-source hallucination class that #164/#174 gates in ingest. **Fix (TDD):** pure-function `buildStubContent()` produces honest placeholders with `generation_complete: false` marker; explicit policy gate `shouldFabricateStubForUnresolvableLink()` returns false for both branches. Stubs are filled by the next real ingest through the normal gated path. Effort: 0.5 day (delivered).
-- 🔧 **#199 — `startupCheck` silently reset to true on every restart.** A v1.18.3 migration forced `savedData.startupCheck === false` back to `true` on every load, undoing the user's explicit toggle. **Fix:** migration removed; remaining migrations extracted to `core/settings-migrations.ts` (pure function) for unit testability. Effort: 0.25 day (delivered).
-- 🔧 **CSS `:has()` Obsidian review warning.** `:has()` flagged for broad selector invalidation. **Fix:** direct class selector + `scripts/css-lint.mjs` multi-rule lint wired into Gate 1. Effort: 0.25 day (delivered).
-- ⭐ **#196 — Query Wiki Modal → Copilot-style right-docked side panel (PR #196 by @YounianC).** `QueryView extends ItemView` with `message-circle` ribbon icon. Native `var(--…)` theme tokens fix hardcoded colors breaking light mode. All functionality preserved. **Fix:** rebase onto main, maintainer `.gitignore` cleanup. Effort: 0.5 day (delivered).
-- 🔧 **#187 — Related-link `sources/` prefix (PR #200 by @DocTpoint).** Pure-function `correctRelatedLinkPrefixes()` re-asserts the known type of each related name after generation; section-scoped so legitimate source citations are never rewritten. Effort: 0.5 day (delivered).
+- ✅ **#204 — Auto Ingest blocking modal fixed.** New `onAutoIngestDone()` helper routes watch-mode ingest completions to a configurable Notice (default, non-blocking) instead of the IngestReportModal. `autoIngestNotificationLevel: 'notice' | 'modal'` setting (conditional UI dropdown under Watch Mode). Manual ingest always opens the modal; watch-mode respects user preference.
+- ✅ **Auto Smart Fix FixReportModal → transient Notice.** Replaced the blocking fix-completion modal with a Notice that hints at the Operation History Panel. Controlled by the same notification level setting.
+- ✅ **D1 — Dead code: redundant `setDoneCallback` resets removed from `main.ts`.**
+- ✅ **D2 — `slug.ts:2` console.debug noise removed.**
+- ✅ **D3 — `log.md` header i18n + auto-migration.** New `core/log-header.ts` pure function builds a 10-locale header explaining the log and pointing to the Operation History Panel. On startup (Phase 4.5), old single-line headers are auto-detected and non-destructively migrated — all `## [date time]` entries preserved.
+- ✅ **Periodic Lint refined: Off/Daily/Weekly/Monthly.** "Hourly" removed (unrealistic for LLM lint); existing `hourly` data auto-migrated to `daily`.
+- ✅ **Tests: 1054 passing.** +25 since v1.22.1.
+
+### Next Milestone: v1.23.0 (MINOR — Graph Engine direction)
+
+No proactive 11th language added. Two reasons:
+1. **No demonstrated unmet need**: zero open issues in any non-supported language. Adding L1-speaker-population languages (Russian/Arabic/Hindi) without user demand is misallocated effort.
+2. **Per-language maintenance cost is permanent**: every new UI feature must translate to N+1 languages, slowing future dev.
+
+Future 11th language: **contributor-driven only** (replicate PR #159 Italian pattern). If a native speaker files a PR for Vietnamese/Indonesian/Polish/Turkish/Czech/Swedish/etc., review + merge. RTL languages (Arabic/Hebrew) need a separate feature for layout direction — defer to v1.24+ as standalone work.
+
+**Priority inversion:** improving translation quality of existing 10 locales (professional native review) **>** adding the 11th.
 
 ### Next Milestone: v1.23.0 (MINOR — Graph Engine direction)
 

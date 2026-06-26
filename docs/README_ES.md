@@ -14,7 +14,7 @@
 
 ---
 
-> **⚡ Aviso de actualización rápida：** Este proyecto evoluciona rápidamente – correcciones de errores, mejoras de rendimiento, nuevas funciones y optimizaciones de UX se publican con frecuencia. Recomendamos actualizar regularmente en Obsidian (**Configuración → Plugins comunitarios → Buscar actualizaciones**) o activar la actualización automática de plugins.
+**⚡ Aviso de actualización rápida：** Este proyecto evoluciona rápidamente – correcciones de errores, mejoras de rendimiento, nuevas funciones y optimizaciones de UX se publican con frecuencia. Recomendamos actualizar regularmente en Obsidian (**Configuración → Plugins comunitarios → Buscar actualizaciones**) o activar la actualización automática de plugins.
 
 ## 📑 Contents
 
@@ -160,6 +160,20 @@ La v1.22.0 es una **release MINOR** que aporta un flujo de trabajo de actualizac
 Recomendamos encarecidamente actualizar — la función de aplicación de esquema con un clic convierte el refinamiento del esquema en una operación de un paso, y el idioma chino tradicional mejora significativamente la experiencia para los usuarios de zh-TW.
 
 Detalles en [CHANGELOG.md](../CHANGELOG.md).
+
+### v1.22.2 — 2026-06-26 (PATCH)
+
+Este PATCH mejora la UX de ingesta automática, localiza el registro de operaciones y elimina código muerto.
+
+- **📋 La ingesta automática ya no bloquea con un modal (Issue #204).** La ingesta automática en modo Watch ahora muestra por defecto un aviso transitorio en lugar de abrir el modal completo del informe de ingesta. Los usuarios que prefieran el informe detallado pueden cambiarlo en Ajustes → Mantenimiento automático → Modo Watch a "Modal".
+- **🔧 La corrección inteligente automática usa ahora un aviso transitorio.**
+- **🌐 Registro de operaciones i18n (10 idiomas).** Cabecera migrada automáticamente señalando al panel de historial de operaciones.
+- **📅 Lint periódico: "Por hora" eliminado, "Mensual" añadido.**
+- **🧹 Código muerto eliminado.** `console.debug` redundante en `slug.ts` y reseteos `setDoneCallback` innecesarios eliminados.
+- **♻️ Migración automática de la cabecera del registro.
+
+
+Recomendamos actualizar.
 
 ### v1.22.1 — 2026-06-24 (PATCH)
 
