@@ -8,6 +8,8 @@ import { TEXTS } from '../texts';
 import { fixPollutedSources, scanPollutedSources } from '../core/sources-normalizer';
 import { findIncompletePages, cleanIncompletePages } from '../core/incomplete-page-cleaner';
 import { needsLogHeaderMigration, migrateLogHeader } from '../core/log-header';
+import { ensureWelcomeNote, type EnsureResult, type VaultAdapter, type VaultCandidate } from '../core/ensure-welcome-note';
+import type { LLMClient } from '../types';
 
 export class AutoMaintainManager {
   private app: App;
@@ -338,6 +340,24 @@ export class AutoMaintainManager {
     console.debug('[QuickFixes] ===== Startup quick fixes START =====');
     console.debug(`[QuickFixes] Settings: wikiFolder="${this.settings.wikiFolder}", startupCheck=${this.settings.startupCheck}, language=${this.settings.language}`);
 
+    // ---- Phase 0 (v1.23.0): First-run Welcome note ----
+    // Onboarding orchestrator runs FIRST so a freshly-loaded plugin:
+    //   - Tier A (empty vault, LLM configured): create Welcome as LLM smoke test
+    //   - Tier A (empty vault, no LLM):          Notice only — no Welcome (no useful content)
+    //   - Tier B (existing vault, no wiki):     create Welcome with seed candidates
+    //   - Tier C (existing wiki):               silent — skip entirely
+    // Failures here must NOT block Phase 1+ — wrap in try/catch.
+    let welcomeCreated = false;
+    let welcomeNotePath: string | undefined;
+    try {
+      const result = await this.runOnboardingPhase();
+      welcomeCreated = !!result.welcomeNotePath;
+      welcomeNotePath = result.welcomeNotePath;
+      console.debug(`[QuickFixes] Phase 0: Welcome note ${welcomeCreated ? 'CREATED at ' + welcomeNotePath : 'skipped'} (tier=${result.tier})`);
+    } catch (e) {
+      console.warn('[QuickFixes] Phase 0 failed:', e);
+    }
+
     // ---- Phase 1: Wiki structure check ----
     const wikiFolder = this.settings.wikiFolder;
     const requiredFolders = [
@@ -355,6 +375,10 @@ export class AutoMaintainManager {
         missingFolders.push(folder);
       }
     }
+    // Phase 0 (onboarding) just ran ensureWelcomeNote — if it created
+    // the wikiFolder + entities/ subfolder for a fresh-vault Tier B,
+    // Phase 1 should now see entities/ present. Otherwise the
+    // "missingFolders" report is a true signal to the user.
     console.debug(`[QuickFixes] Phase 1: Wiki structure ${structureOk ? 'OK' : 'INCOMPLETE'}` +
       (missingFolders.length > 0 ? `, missing: ${missingFolders.join(', ')}` : ''));
 
@@ -458,6 +482,10 @@ export class AutoMaintainManager {
       `${texts.startupCheckStructureLabel}: ${structureLabel}\n` +
       `${texts.startupCheckSourcesLabel}: ${sourcesLabel}\n` +
       `${incompleteLabel}\n` +
+      (welcomeCreated
+        ? `${texts.startupCheckWelcomeCreated
+            ?.replace('{path}', welcomeNotePath ?? '')}\n`
+        : '') +
       `${texts.startupCheckSummary
         .replace('{pages}', String(pages.length))
         .replace('{entities}', String(entities))
@@ -467,7 +495,143 @@ export class AutoMaintainManager {
 
     console.debug('[QuickFixes] Notice payload:\n' + summary.split('\n').map(l => '  ' + l).join('\n'));
     console.debug('[QuickFixes] ===== Startup quick fixes COMPLETE =====');
-    new Notice(summary, 10000);  // 10s — give user time to read
+
+    // v1.23.0 follow-up: QuickFixes always runs (the old `startupCheck`
+    // toggle is now permanently on). The user-facing control is now
+    // `startupCheckNoticeLevel` — 'visible' shows the summary Notice
+    // (existing behavior), 'silent' only logs to console + records an
+    // entry for the Operation History Panel (added below when implemented).
+    if (this.settings.startupCheckNoticeLevel === 'visible') {
+      new Notice(summary, 10000);  // 10s — give user time to read
+    } else {
+      console.debug('[QuickFixes] Notice suppressed by startupCheckNoticeLevel=silent');
+    }
+  }
+
+  // === Phase 0: Onboarding Welcome Note (v1.23.0) ===
+
+  /**
+   * Phase 0 of runStartupCheck. Calls ensureWelcomeNote with a real
+   * VaultAdapter over the Obsidian vault + the live LLM client (via
+   * the plugin's lazy `() => this.plugin.llmClient` accessor).
+   *
+   * Returns the EnsureResult so the caller (runStartupCheck) can
+   * include the path in the summary Notice.
+   */
+  private async runOnboardingPhase(): Promise<EnsureResult> {
+    const vault = this.makeVaultAdapter();
+    const llmClient = (this.plugin as unknown as { llmClient: LLMClient | null }).llmClient;
+    return ensureWelcomeNote({
+      vault,
+      settings: {
+        wikiFolder: this.settings.wikiFolder || 'wiki',
+        createWelcomeNote: this.settings.createWelcomeNote,
+      },
+      targetLanguage: this.settings.wikiLanguage || 'en',
+      createdAt: new Date().toISOString().slice(0, 10),
+      smokeTestProbe: () => this.probeLlm(),
+      llmClient: llmClient ?? undefined,
+      model: this.settings.model,
+    });
+  }
+
+  /**
+   * v1.23.0 Phase 5.1.5 → followup: command-palette entry to delete and
+   * re-create the Welcome note with current vault state + LLM config.
+   * Used when the user changes wikiFolder or wants a freshly-localized
+   * copy.
+   */
+  async recreateWelcomeNote(): Promise<void> {
+    const welcomePath = `${this.settings.wikiFolder || 'wiki'}/Welcome.md`;
+    const existing = this.app.vault.getAbstractFileByPath(welcomePath);
+    if (existing && existing instanceof TFile) {
+      try {
+        await this.app.fileManager.trashFile(existing);
+      } catch (e) {
+        console.error('Failed to delete existing Welcome note:', e);
+        new Notice(
+          `${TEXTS[this.settings.language].operationFailed ?? 'Operation failed: '}` +
+            (e instanceof Error ? e.message : String(e)),
+          0
+        );
+        return;
+      }
+    }
+    const result = await this.runOnboardingPhase();
+    if (result.welcomeNotePath) {
+      // Show a 5s auto-dismissing confirmation (NOT 0 — that would be
+      // sticky). Use NOTICE_NORMAL for transient feedback.
+      new Notice(
+        `${TEXTS[this.settings.language].welcomeNoteRecreated?.replace('{path}', result.welcomeNotePath) ?? `Welcome note recreated at ${result.welcomeNotePath}`}`,
+        5000
+      );
+    } else {
+      new Notice(
+        TEXTS[this.settings.language].welcomeNoteNotRecreated ??
+          'Welcome note was not recreated. Check LLM configuration.',
+        5000
+      );
+    }
+  }
+
+  /**
+   * Build a VaultAdapter over the real Obsidian vault. Captures the
+   * vault at call-time so vault changes during plugin lifetime are
+   * reflected.
+   */
+  private makeVaultAdapter(): VaultAdapter {
+    return {
+      exists: async (path: string): Promise<boolean> => {
+        return this.app.vault.getAbstractFileByPath(path) !== null;
+      },
+      listMarkdown: async (): Promise<VaultCandidate[]> => {
+        return this.app.vault.getMarkdownFiles().map(f => ({
+          path: f.path,
+          title: f.basename,
+          size: f.stat?.size ?? 0,
+        }));
+      },
+      create: async (path: string, content: string): Promise<void> => {
+        const folder = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+        if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+          await this.app.vault.createFolder(folder);
+        }
+        await this.app.vault.create(path, content);
+      },
+    };
+  }
+
+  /**
+   * Minimal LLM probe (1-token call) for the Welcome note's smoke
+   * test. Returns the provider/model name on success or a structured
+   * error message on failure. Never throws — ensure-welcome-note wraps
+   * this with try/catch anyway, but defensive-by-default is cheaper.
+   */
+  private async probeLlm(): Promise<{ ok: boolean; provider?: string; model?: string; error?: string }> {
+    const llmClient = (this.plugin as unknown as { llmClient: LLMClient | null }).llmClient;
+    if (!llmClient) {
+      return { ok: false, error: 'LLM client not configured. Open Settings → LLM Provider.' };
+    }
+    if (!this.settings.apiKey) {
+      return { ok: false, error: 'API key not configured.' };
+    }
+    if (!this.settings.model) {
+      return { ok: false, error: 'Model not selected.' };
+    }
+    try {
+      await llmClient.createMessage({
+        model: this.settings.model,
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+      return {
+        ok: true,
+        provider: this.settings.provider,
+        model: this.settings.model,
+      };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   // === Full Stop ===

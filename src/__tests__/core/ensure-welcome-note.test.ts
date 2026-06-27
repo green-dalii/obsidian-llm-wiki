@@ -48,7 +48,25 @@ function makeTranslatingClient(marker = '[ZH]') {
 }
 
 describe('ensureWelcomeNote — Tier A (empty vault)', () => {
-  it('does NOT create welcome note (no source notes to seed from)', async () => {
+  it('does NOT create welcome note when LLM is not configured', async () => {
+    // Brand-new vault + no LLM → no useful Welcome content (the
+    // "Initial Source Suggestions" section would be empty anyway).
+    // Show Notice only, point user at "create your first source note".
+    const vault = makeFakeVault();
+    await ensureWelcomeNote({
+      vault,
+      settings: { wikiFolder: 'wiki', createWelcomeNote: true },
+      targetLanguage: 'en',
+      createdAt: '2026-06-27',
+      smokeTestProbe: async () => ({ ok: false, error: 'no API key' }),
+    });
+    expect(vault.written.has('wiki/Welcome.md')).toBe(false);
+  });
+
+  it('CREATES welcome note when LLM is configured (Tier A with-LLM path, v1.23.0 follow-up)', async () => {
+    // New behavior: even in Tier A, if LLM is configured we create a
+    // Welcome note so the LLM-only-onboarding user has a guided entry
+    // point instead of just a "go create a source note" Notice.
     const vault = makeFakeVault();
     await ensureWelcomeNote({
       vault,
@@ -57,7 +75,7 @@ describe('ensureWelcomeNote — Tier A (empty vault)', () => {
       createdAt: '2026-06-27',
       smokeTestProbe: async () => ({ ok: true, provider: 'OpenAI', model: 'gpt-4o-mini' }),
     });
-    expect(vault.written.has('wiki/Welcome.md')).toBe(false);
+    expect(vault.written.has('wiki/Welcome.md')).toBe(true);
   });
 });
 
@@ -247,13 +265,18 @@ describe('ensureWelcomeNote — D8 LLM dynamic translation', () => {
 describe('ensureWelcomeNote — Tier C (existing wiki)', () => {
   it('does NOT create welcome note when wiki already exists', async () => {
     const vault = makeFakeVault({ 'wiki/entities/A.md': '# Existing entity' });
+    // vaultCandidates must reflect the actual vault state so probe
+    // detects the existing wiki. Pass the wiki page as a candidate so
+    // probeVaultState sees wikiPageCount > 0 → Tier C.
     await ensureWelcomeNote({
       vault,
       settings: { wikiFolder: 'wiki', createWelcomeNote: true },
       targetLanguage: 'en',
       createdAt: '2026-06-27',
       smokeTestProbe: async () => ({ ok: true, provider: 'OpenAI', model: 'gpt-4o-mini' }),
-      vaultCandidates: [],
+      vaultCandidates: [
+        { path: 'wiki/entities/A.md', title: 'A', size: 100 },
+      ],
     });
     expect(vault.written.has('wiki/Welcome.md')).toBe(false);
   });

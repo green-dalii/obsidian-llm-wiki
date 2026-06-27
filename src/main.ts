@@ -81,7 +81,6 @@ import { getText } from './core/i18n';
 import { slugify } from './core/slug';
 import { parseFrontmatter } from './core/frontmatter';
 import { applySettingsMigrations } from './core/settings-migrations';
-import { ensureWelcomeNote, type VaultAdapter, type VaultCandidate } from './core/ensure-welcome-note';
 import { normalizeVocabularyCsv } from './core/tag-vocab';
 import { buildIngestStatusBarText, BatchProgress } from './core/status-bar';
 import { LLMWikiSettingTab } from './ui/settings';
@@ -157,9 +156,11 @@ export default class LLMWikiPlugin extends Plugin {
       this.autoMaintainManager.startWatching();
     }
     this.autoMaintainManager.schedulePeriodicLint();
-    if (this.settings.startupCheck) {
-      void this.autoMaintainManager.runStartupCheck();
-    }
+    // v1.23.0: QuickFixes (Phase 0-4.5) always run on plugin start.
+    // The user-facing control is `startupCheckNoticeLevel` (visible/silent)
+    // — see settings.ts. The old `startupCheck: boolean` toggle is now
+    // permanently on (migrated from any historical false → true).
+    void this.autoMaintainManager.runStartupCheck();
 
     this.registerView(
       VIEW_TYPE_QUERY,
@@ -251,11 +252,12 @@ export default class LLMWikiPlugin extends Plugin {
     // want to re-run onboarding after changing their domain focus, or
     // who just want to see a freshly-localized copy. Existing file is
     // trashed first so ensure-welcome-note re-creates with current
-    // candidates + LLM config.
+    // candidates + LLM config. Implementation lives in auto-maintain.ts
+    // (the Phase 0 owner).
     this.addCommand({
       id: 'recreate-welcome-note',
       name: t.welcomeNoteRecreateCommand,
-      callback: () => void this.recreateWelcomeNote(),
+      callback: () => void this.autoMaintainManager.recreateWelcomeNote(),
     });
 
     this.addRibbonIcon('sticker', t.cmdIngestActiveFile, () => {
@@ -312,12 +314,10 @@ export default class LLMWikiPlugin extends Plugin {
 
     this.addSettingTab(new LLMWikiSettingTab(this.app, this));
 
-    // v1.23.0 Phase 5.1.5: first-run Welcome note. Runs on every onload
-    // (idempotent — short-circuits on Tier C, or when <wikiFolder>/Welcome.md
-    // already exists). D8: 1 English template + LLM dynamic translation
-    // to settings.wikiLanguage. On LLM failure, English body is written
-    // and a Notice prompts the user to run Configuration Test.
-    void this.runOnboarding();
+    // v1.23.0: First-run Welcome note is now Phase 0 of runStartupCheck
+    // (see auto-maintain.ts). Triggered by the unconditional
+    // runStartupCheck() above. The standalone runOnboarding() method
+    // is gone — single owner = single source of truth.
 
     console.debug('LLM Wiki Plugin loaded - Karpathy implementation');
   }
@@ -325,172 +325,6 @@ export default class LLMWikiPlugin extends Plugin {
   onunload() {
     this.autoMaintainManager?.stop();
     console.debug('LLM Wiki Plugin unloaded');
-  }
-
-  /**
-   * v1.23.0 Phase 5.1.5: first-run Welcome note orchestrator.
-   *
-   * Idempotent — safe to call on every onload. Short-circuits on:
-   *   - Tier A (no vault notes — only a Notice, no file write)
-   *   - Tier C (existing wiki — silent upgrade, no Notice)
-   *   - <wikiFolder>/Welcome.md already exists
-   *   - settings.createWelcomeNote === false
-   *
-   * D8: if the LLM is configured and the smoke test passes, the body
-   * is translated to settings.wikiLanguage via the LLM. Otherwise the
-   * English template is written and a "Run Configuration Test" Notice
-   * is shown.
-   */
-  async runOnboarding(): Promise<void> {
-    const vaultAdapter = this.makeVaultAdapter();
-    const result = await ensureWelcomeNote({
-      vault: vaultAdapter,
-      settings: {
-        wikiFolder: this.settings.wikiFolder || 'wiki',
-        createWelcomeNote: this.settings.createWelcomeNote,
-      },
-      targetLanguage: this.settings.wikiLanguage || 'en',
-      createdAt: new Date().toISOString().slice(0, 10),
-      smokeTestProbe: () => this.probeLlmForWelcome(),
-      llmClient: this.llmClient ?? undefined,
-      model: this.settings.model,
-    });
-
-    // Tier A and Tier B shouldShowNotice (decided in tier-detection).
-    // We surface the i18n-translated text here so the user always gets
-    // their-language notice, not the English template string.
-    if (result.action.shouldShowNotice && result.action.noticeMessage) {
-      const translated = this.translateOnboardingNotice(result.action.tier);
-      if (translated) {
-        new Notice(translated, 0);
-      } else {
-        new Notice(result.action.noticeMessage, 0);
-      }
-    }
-
-    // D8 fallback: if a Welcome note was written but the LLM couldn't
-    // translate it, surface a separate Notice pointing the user at
-    // Configuration Test.
-    if (
-      result.welcomeNotePath
-      && result.localizeResult
-      && !result.localizeResult.localized
-      && (this.settings.wikiLanguage || 'en') !== 'en'
-    ) {
-      new Notice(
-        getText(
-          this.settings.language,
-          'welcomeNoteRunConfigTest'
-        ) || 'Welcome note written in English. Run Configuration Test in Settings → LLM Provider to localize.',
-        0
-      );
-    }
-  }
-
-  /**
-   * Translate the onboarding Notice text for the current tier.
-   * Returns null if the user's plugin language matches the default
-   * English notice (no override needed).
-   */
-  private translateOnboardingNotice(tier: 'A-empty-vault' | 'B-existing-vault' | 'C-existing-wiki'): string | null {
-    const lang = this.settings.language;
-    if (lang === 'en') return null;
-    if (tier === 'A-empty-vault') {
-      return getText(lang, 'welcomeNoteTierANotice');
-    }
-    if (tier === 'B-existing-vault') {
-      return getText(lang, 'welcomeNoteTierBNotice');
-    }
-    return null;
-  }
-
-  /**
-   * v1.23.0 Phase 5.1.5: Recreate Welcome Note command callback.
-   * Deletes the existing note (if any) and re-runs the onboarding
-   * pipeline. Idempotent on the "no note exists" path.
-   */
-  async recreateWelcomeNote(): Promise<void> {
-    const welcomePath = `${this.settings.wikiFolder || 'wiki'}/Welcome.md`;
-    const existing = this.app.vault.getAbstractFileByPath(welcomePath);
-    if (existing && existing instanceof TFile) {
-      try {
-        await this.app.fileManager.trashFile(existing);
-      } catch (e) {
-        console.error('Failed to delete existing Welcome note:', e);
-        new Notice(
-          getText(this.settings.language, 'operationFailed') +
-            (e instanceof Error ? e.message : String(e)),
-          0
-        );
-        return;
-      }
-    }
-    await this.runOnboarding();
-  }
-
-  /**
-   * Build a VaultAdapter over the real Obsidian vault. Captures the
-   * vault at call-time (not at construction) so vault changes during
-   * plugin lifetime are reflected.
-   */
-  private makeVaultAdapter(): VaultAdapter {
-    return {
-      exists: async (path: string): Promise<boolean> => {
-        return this.app.vault.getAbstractFileByPath(path) !== null;
-      },
-      listMarkdown: async (): Promise<VaultCandidate[]> => {
-        return this.app.vault.getMarkdownFiles().map(f => ({
-          path: f.path,
-          title: f.basename,
-          size: f.stat?.size ?? 0,
-        }));
-      },
-      create: async (path: string, content: string): Promise<void> => {
-        // Adapt to whichever create API is available (newer Obsidian
-        // versions use create with options; older used Vault.create).
-        // Use the lowest-common-denominator adapter.
-        const folder = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
-        if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
-          await this.app.vault.createFolder(folder);
-        }
-        await this.app.vault.create(path, content);
-      },
-    };
-  }
-
-  /**
-   * Minimal LLM probe for the Welcome note's smoke test. Returns the
-   * provider/model name on success, or an error message on failure.
-   *
-   * Implementation: a single short "say hi" request with max_tokens=1
-   * to avoid burning budget. We never ask the LLM to translate here —
-   * translation is a separate step inside ensure-welcome-note after
-   * the smoke test passes.
-   */
-  private async probeLlmForWelcome(): Promise<{ ok: boolean; provider?: string; model?: string; error?: string }> {
-    if (!this.llmClient) {
-      return { ok: false, error: 'LLM client not configured. Open Settings → LLM Provider.' };
-    }
-    if (!this.settings.apiKey) {
-      return { ok: false, error: 'API key not configured.' };
-    }
-    if (!this.settings.model) {
-      return { ok: false, error: 'Model not selected.' };
-    }
-    try {
-      await this.llmClient.createMessage({
-        model: this.settings.model,
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'hi' }],
-      });
-      return {
-        ok: true,
-        provider: this.settings.provider,
-        model: this.settings.model,
-      };
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
-    }
   }
 
   async loadSettings() {

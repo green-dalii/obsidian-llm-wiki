@@ -63,5 +63,24 @@ export function applySettingsMigrations(
     applied.push('v1.22.2-periodicLint-hourly');
   }
 
+  // v1.23.0 migration (Phase 5.1.5 → followup): the `startupCheck` toggle
+  // is now permanently on (the 4-phase QuickFixes pipeline always runs).
+  // The new `startupCheckNoticeLevel` ('visible' | 'silent') replaces the
+  // toggle as the user-facing control. Existing users who had
+  // `startupCheck: false` on disk were explicitly opting out of the
+  // Notice noise — honor that preference by routing them to 'silent'.
+  // Users who had `startupCheck: true` (the v1.18.3+ default) get 'visible'.
+  // Brand-new users (no savedData for this field) follow DEFAULT_SETTINGS
+  // which is 'visible' (we want new users to see QuickFixes happening).
+  if (savedData && !savedData._migrated_v1_23_0_startup_notice) {
+    // `=== false` is a user-explicit choice (the default is true).
+    // Anything else (true / undefined) follows defaults → 'visible'.
+    const hadExplicitOptOut = savedData.startupCheck === false;
+    settings.startupCheckNoticeLevel = hadExplicitOptOut ? 'silent' : 'visible';
+    settings.startupCheck = true;  // Pin permanently on.
+    settings._migrated_v1_23_0_startup_notice = true;
+    applied.push('v1.23.0-startup-notice');
+  }
+
   return { settings, applied };
 }

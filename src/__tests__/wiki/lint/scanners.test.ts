@@ -197,6 +197,7 @@ describe('scanTagViolations', () => {
     autoIngestNotificationLevel: 'notice',
     slugCase: 'lower' as const,
     createWelcomeNote: true,
+    startupCheckNoticeLevel: 'visible' as const,
   };
 
   function makeEntityPage(path: string, tags: string[] | string, withTitle = false): ScannerPage {

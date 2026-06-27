@@ -47,9 +47,9 @@ describe('decideOnboardingAction — Tier A (empty vault)', () => {
       wikiPageCount: 0,
       vaultMdCount: 0,
     };
-    const action = decideOnboardingAction(probe);
+    const action = decideOnboardingAction(probe, { llmAvailable: false });
     expect(action.tier).toBe('A-empty-vault');
-    expect(action.shouldCreateWelcomeNote).toBe(false);
+    expect(action.shouldCreateWelcomeNote).toBe(false);  // no LLM = no useful Welcome
     expect(action.shouldShowNotice).toBe(true);
     expect(action.noticeMessage).toBeDefined();
     expect(action.candidateSourceLimit).toBe(0);
@@ -125,18 +125,27 @@ describe('decideOnboardingAction — boundary cases', () => {
 });
 
 describe('decideOnboardingAction — invariants', () => {
-  it('Tier A and Tier C never create Welcome note', () => {
-    const tierA = decideOnboardingAction({ hasWikiFolder: false, wikiPageCount: 0, vaultMdCount: 0 });
-    const tierC = decideOnboardingAction({ hasWikiFolder: true, wikiPageCount: 5, vaultMdCount: 0 });
+  it('Tier A (no-LLM) and Tier C never create Welcome note', () => {
+    // v1.23.0 follow-up: Tier A with LLM DOES create Welcome. The
+    // invariant below is for the "no LLM" case (the historical
+    // behavior). The LLM-on variant is covered in the next describe.
+    const tierA = decideOnboardingAction(
+      { hasWikiFolder: false, wikiPageCount: 0, vaultMdCount: 0 },
+      { llmAvailable: false },
+    );
+    const tierC = decideOnboardingAction(
+      { hasWikiFolder: true, wikiPageCount: 5, vaultMdCount: 0 },
+      { llmAvailable: false },
+    );
     expect(tierA.shouldCreateWelcomeNote).toBe(false);
     expect(tierC.shouldCreateWelcomeNote).toBe(false);
   });
 
-  it('only Tier B creates Welcome note', () => {
+  it('only Tier B creates Welcome note (without LLM)', () => {
     const tiers: UserTier[] = ['A-empty-vault', 'B-existing-vault', 'C-existing-wiki'];
     for (const tier of tiers) {
       const probe = probeFor(tier);
-      const action = decideOnboardingAction(probe);
+      const action = decideOnboardingAction(probe, { llmAvailable: false });
       if (tier === 'B-existing-vault') {
         expect(action.shouldCreateWelcomeNote).toBe(true);
       } else {
@@ -167,6 +176,51 @@ describe('decideOnboardingAction — invariants', () => {
     const tierC = decideOnboardingAction({ hasWikiFolder: true, wikiPageCount: 5, vaultMdCount: 10 });
     expect(tierA.candidateSourceLimit).toBe(0);
     expect(tierC.candidateSourceLimit).toBe(0);
+  });
+
+  it('Tier A with LLM available still creates Welcome (LLM-only vault also gets onboarding)', () => {
+    // Brand-new vault, LLM configured → user has no source notes to
+    // suggest, but they DO have an LLM they want to use. Don't strand
+    // them on Tier A's "no Welcome" path; create a Welcome note anyway
+    // (the "Initial Source Suggestions" section will be empty/instructional).
+    const probe: VaultProbe = { hasWikiFolder: false, wikiPageCount: 0, vaultMdCount: 0 };
+    const actionNoLlm = decideOnboardingAction(probe, { llmAvailable: false });
+    const actionWithLlm = decideOnboardingAction(probe, { llmAvailable: true });
+    expect(actionNoLlm.shouldCreateWelcomeNote).toBe(false);
+    expect(actionWithLlm.shouldCreateWelcomeNote).toBe(true);
+    expect(actionWithLlm.tier).toBe('A-empty-vault');  // tier label unchanged
+  });
+
+  it('Tier A with LLM still shows the empty-vault notice (signal: user needs source notes)', () => {
+    const action = decideOnboardingAction(
+      { hasWikiFolder: false, wikiPageCount: 0, vaultMdCount: 0 },
+      { llmAvailable: true },
+    );
+    expect(action.shouldShowNotice).toBe(true);
+    expect(action.noticeMessage).toMatch(/source note/i);
+  });
+
+  it('Tier C is silent regardless of LLM availability', () => {
+    const probe: VaultProbe = { hasWikiFolder: true, wikiPageCount: 5, vaultMdCount: 5 };
+    expect(decideOnboardingAction(probe, { llmAvailable: false }).shouldShowNotice).toBe(false);
+    expect(decideOnboardingAction(probe, { llmAvailable: true }).shouldShowNotice).toBe(false);
+  });
+
+  it('default options: llmAvailable defaults to true (LLM-on path is the standard)', () => {
+    // The default is true so the calling code (auto-maintain Phase 0)
+    // can pass the probe result and trust the helper to do the right
+    // thing. Tests that want to exercise "no LLM" must pass it explicitly.
+    const probe: VaultProbe = { hasWikiFolder: false, wikiPageCount: 0, vaultMdCount: 0 };
+    const action = decideOnboardingAction(probe);
+    expect(action.shouldCreateWelcomeNote).toBe(true);  // default is "LLM is on"
+  });
+
+  it('Tier B with LLM is unchanged (already creates Welcome)', () => {
+    const probe: VaultProbe = { hasWikiFolder: false, wikiPageCount: 0, vaultMdCount: 3 };
+    const action = decideOnboardingAction(probe, { llmAvailable: true });
+    expect(action.tier).toBe('B-existing-vault');
+    expect(action.shouldCreateWelcomeNote).toBe(true);
+    expect(action.candidateSourceLimit).toBe(3);
   });
 });
 

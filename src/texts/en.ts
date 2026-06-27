@@ -343,6 +343,10 @@ export const EN_TEXTS = {
     autoIngestLevelModal: 'Modal (full report)',
     startupCheckName: 'Run quick fixes on startup',
     startupCheckDesc: 'Auto-fix low-level format issues (sources, double-nested links) on plugin load. Verifies Wiki folder structure. Default ON.',
+    startupCheckNoticeLevelName: 'Show quick fixes result',
+    startupCheckNoticeLevelDesc: 'QuickFixes always run on plugin start (Welcome note, folder structure, sources normalize, incomplete pages, log header). Choose whether to display the summary Notice after start. Silent mode logs to the developer console and the Operation History Panel only.',
+    startupCheckNoticeVisible: 'Visible (show Notice)',
+    startupCheckNoticeSilent: 'Silent (no Notice)',
     suggestSchemaCommand: 'Suggest Schema Updates',
     autoMaintainCostWarning: '⚠️ Cost Notice: Auto-maintenance features consume API tokens. "Auto Ingest" triggers LLM calls on every source file change. "Periodic Lint" runs LLM health checks on schedule (only when source changes are detected). Configure carefully to avoid unexpected charges.',
 
@@ -671,6 +675,9 @@ export const EN_TEXTS = {
     welcomeNoteRecreateCommand: 'Recreate Wiki Welcome Note',
     welcomeNoteRecreateCommandTooltip: 'Re-create the Welcome note at <wikiFolder>/Welcome.md with current domain seeds and LLM configuration test. Existing file is overwritten.',
     welcomeNoteSettingsToggle: 'Create Wiki Welcome Note on first run',
-    welcomeNoteSettingsToggleDesc: 'When enabled, the plugin creates a Wiki Welcome note the first time it detects an existing vault without a wiki. Tier A users (empty vault) get a brief notice pointing to the source-note path; Tier C users (existing wiki) are not affected.',
+    welcomeNoteSettingsToggleDesc: 'When enabled, the plugin creates <wikiFolder>/Welcome.md the first time the plugin loads and the wiki folder is missing or empty. The note is editable — fill in your domain focus, pick 2-3 source notes to ingest, and the link graph seeds itself. The note is auto-translated to your wiki language via the LLM (English fallback if LLM is not configured). Use the command palette "Recreate Wiki Welcome Note" to regenerate on demand. Disable to never auto-create.',
     welcomeNoteRunConfigTest: 'Welcome note written in English. Open Settings → LLM Provider → Test Connection to localize it on next recreate.',
+    welcomeNoteRecreated: 'Recreated Wiki Welcome note at {path}',
+    welcomeNoteNotRecreated: 'Welcome note was not recreated. Check LLM configuration.',
+    startupCheckWelcomeCreated: 'Welcome note created at {path}',
 } as const;

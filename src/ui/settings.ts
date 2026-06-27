@@ -864,13 +864,19 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     // ==========================================
     new Setting(containerEl).setName(this.getText('autoMaintainSection')).setHeading();
 
-    // 5.0 Startup quick fixes (Issue #81) — first item in this section
+    // 5.0 Startup quick fixes (Issue #81, refined v1.23.0) — first item in this section.
+    // v1.23.0: the `startupCheck` toggle is gone. The pipeline always runs;
+    // the user-facing control is now a "show result Notice" dropdown
+    // (silent / visible). Old users with `startupCheck: false` on disk
+    // were auto-migrated to 'silent' (see applySettingsMigrations).
     new Setting(containerEl)
-      .setName(this.getText('startupCheckName'))
-      .setDesc(this.getText('startupCheckDesc'))
-      .addToggle(toggle => toggle
-        .setValue(this.tempSettings.startupCheck)
-        .onChange((value) => { this.tempSettings.startupCheck = value; }));
+      .setName(this.getText('startupCheckNoticeLevelName'))
+      .setDesc(this.getText('startupCheckNoticeLevelDesc'))
+      .addDropdown(dropdown => dropdown
+        .addOption('visible', this.getText('startupCheckNoticeVisible'))
+        .addOption('silent', this.getText('startupCheckNoticeSilent'))
+        .setValue(this.tempSettings.startupCheckNoticeLevel)
+        .onChange((value: 'visible' | 'silent') => { this.tempSettings.startupCheckNoticeLevel = value; }));
 
     const betaDiv = containerEl.createDiv({
       cls: 'llm-wiki-blue-infobox'
