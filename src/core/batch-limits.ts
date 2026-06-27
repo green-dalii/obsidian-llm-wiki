@@ -2,7 +2,12 @@
 // Extracted from source-analyzer.ts::analyzeSource()
 // Zero side effects, fully unit-testable
 
-import { CUSTOM_BATCH_SIZE_MAX } from '../constants';
+import {
+  CUSTOM_BATCH_SIZE_MAX,
+  MAX_TOKENS_BATCH,
+  SHORT_CONTENT_THRESHOLD,
+  BATCH_CHARS_PER_ITEM,
+} from '../constants';
 
 export interface GranularityConfig {
   initialBatchSize: number;
@@ -27,10 +32,11 @@ export const GRANULARITY_CONFIG: Record<string, GranularityConfig> = {
   custom: { initialBatchSize: 5, maxBatchesBase: 1, maxTotalItems: null }
 };
 
+/**
+ * Floor for batch sizing. Below this, batching is collapsed to a single
+ * pass. Mirrors the 'minimal' granularity's initialBatchSize.
+ */
 const MIN_BATCH_SIZE = 5;
-const MAX_TOKENS = 16000;
-const SHORT_CONTENT_THRESHOLD = 20000;
-const CHARS_PER_ITEM = 600;
 
 /**
  * Calculate batch limits based on content length and granularity.
@@ -62,7 +68,7 @@ export function calculateBatchLimits(
   // Auto-downgrade maxTotalItems for short content to avoid "hard digging"
   // A 6800-char source can't have 50 wiki-worthy items; cap at ~1 per 600 chars
   if (contentLength < SHORT_CONTENT_THRESHOLD && config.maxTotalItems !== null) {
-    const reasonableCap = Math.max(5, Math.ceil(contentLength / CHARS_PER_ITEM));
+    const reasonableCap = Math.max(5, Math.ceil(contentLength / BATCH_CHARS_PER_ITEM));
     if (config.maxTotalItems > reasonableCap) {
       config.maxTotalItems = reasonableCap;
     }
@@ -80,7 +86,7 @@ export function calculateBatchLimits(
     maxBatches,
     maxTotalItems: config.maxTotalItems,
     minBatchSize: MIN_BATCH_SIZE,
-    responseFullnessThreshold: MAX_TOKENS * 0.7
+    responseFullnessThreshold: MAX_TOKENS_BATCH * 0.7
   };
 }
 
@@ -96,7 +102,7 @@ export function calculateBatchLimits(
 export function adjustBatchSizeForResponse(
   currentBatchSize: number,
   responseLength: number,
-  threshold: number = MAX_TOKENS * 0.7
+  threshold: number = MAX_TOKENS_BATCH * 0.7
 ): number {
   if (responseLength > threshold && currentBatchSize > MIN_BATCH_SIZE) {
     return Math.max(MIN_BATCH_SIZE, Math.floor(currentBatchSize * 0.75));

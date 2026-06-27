@@ -24,6 +24,16 @@ Un Hotfix centrado que refuerza el mecanismo de encabezado de log de la v1.22.2 
 
 Recomendamos actualizar — log.md ya no acumula frontmatter disperso con cada ejecución de corrección rápida, y la detección funciona en todos los idiomas sin casos especiales por idioma.
 
+### v1.22.4 — 2026-06-27 (PATCH)
+
+Un PATCH centrado que restaura la compatibilidad con GPT-5.x, propaga los mensajes de error reales del Provider a la UI de Test Connection y centraliza los controles de rendimiento de lint.
+
+- **🛡️ Los modelos GPT-5.x ya no fallan Test Connection con 400 (Issue #207).** La heurística hardcodeada `params.model.startsWith('gpt-5-')` de v1.20.0 solo reconocía la familia OpenAI gpt-5 con guión (`gpt-5-mini`, `gpt-5-nano`, etc.) y se rompía silenciosamente con cada nueva versión gpt-5.x (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). Sustituida por un mecanismo de prueba-y-caché en tiempo de ejecución: la primera petición usa `max_tokens`, si el backend rechaza con 400, cacheamos la clave alternativa (`max_completion_tokens` o viceversa) y reintentamos. Las peticiones siguientes reutilizan la caché — sin más coincidencia de prefijos en nombres de modelo, y la prueba maneja correctamente cualquier nuevo esquema de nombres de OpenAI.
+- **📜 Los mensajes de error reales del Provider ahora llegan a la UI de Test Connection.** Antes, los errores de `requestUrl` se reenvolvían como `status 400: ${data.error.message}` (o simplemente "status 400" cuando se perdía el cuerpo de respuesta) y el error real del Provider — p. ej. "Invalid parameter: max_tokens should be max_completion_tokens" — nunca era visible. El nuevo `extractProviderErrorMessage()` enriquece el error lanzado para que el usuario vea detalles accionables del Provider en lugar de un estado HTTP genérico.
+- **♻️ Controles de rendimiento de lint centralizados en `src/constants.ts`.** Cadencias de yield (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), tamaños de lote de candidatos (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), lectura por lote de prep (`LINT_PREP_BATCH_READ`), y tamaños de lote de source-analyzer (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) ahora viven en un solo lugar. Antes estos valores estaban duplicados o se habían desviado entre `controller.ts`, `duplicate-detection.ts`, `preparation.ts` y `batch-limits.ts` — incluida una copia literal `MAX_TOKENS=16000` de `MAX_TOKENS_BATCH`. Ajustar el rendimiento de lint es ahora un cambio en un solo archivo.
+
+Recomendamos actualizar — los modelos gpt-5.x vuelven a funcionar de fábrica, y la UI de Test Connection ahora indica exactamente qué rechazó el Provider para que no tenga que buscar en la consola la baseUrl / nombre de modelo / clave API.
+
 **⚡ Aviso de actualización rápida：** Este proyecto evoluciona rápidamente – correcciones de errores, mejoras de rendimiento, nuevas funciones y optimizaciones de UX se publican con frecuencia. Recomendamos actualizar regularmente en Obsidian (**Configuración → Plugins comunitarios → Buscar actualizaciones**) o activar la actualización automática de plugins.
 
 ## 📑 Contents

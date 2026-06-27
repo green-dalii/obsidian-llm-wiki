@@ -58,6 +58,88 @@ const isThinkingControlError = (e: unknown): boolean => {
   return /unknown field|unsupported field|invalid parameter|not supported|reasoning_effort|thinking/i.test(msg);
 };
 
+// Issue #207: which `max_*_tokens` key this baseUrl/model accepts.
+// Newer OpenAI gpt-5.x models (5.1, 5.2, 5.4-mini, 5.5) reject `max_tokens`.
+// Older gpt-4 / gpt-3.5 reject `max_completion_tokens`. We probe at runtime
+// instead of predicting from model name — proven wrong by #143 → #207 (twice).
+export type MaxTokenKey = 'max_tokens' | 'max_completion_tokens';
+
+const MAX_TOKEN_KEY_REGEX = /\bmax_(?:completion_)?tokens\b/i;
+
+/**
+ * Inspect a 400 error body to see whether the backend rejected our choice
+ * of `max_tokens` key, and return the key it WOULD accept instead.
+ *
+ * Recognised error shapes:
+ *   OpenAI:  "Invalid parameter: max_tokens should be max_completion_tokens"
+ *   OpenAI:  "Unknown parameter: 'max_tokens'"
+ *   Generic: "max_tokens not supported, use max_completion_tokens"
+ *
+ * Returns the alternate key if the error explicitly mentions `max_tokens`,
+ * `null` otherwise.
+ */
+export function detectRejectedMaxTokenKey(err: unknown): MaxTokenKey | null {
+  if (!err) return null;
+  const e = err as { json?: unknown; text?: string; message?: string; status?: number };
+  let msg = '';
+  let param = '';
+  if (e.json && typeof e.json === 'object') {
+    const j = e.json as { error?: { message?: string; param?: string; code?: string } };
+    if (j.error?.message) msg = j.error.message;
+    if (j.error?.param) param = j.error.param;
+  }
+  msg = msg || e.text || e.message || '';
+  if (!msg) return null;
+
+  // OpenAI-style 400: the error object names the rejected parameter directly.
+  if (param === 'max_tokens') return 'max_completion_tokens';
+  if (param === 'max_completion_tokens') return 'max_tokens';
+
+  // Fallback: inspect the concatenated message text. Require a 400 signal
+  // because some providers include the word max_tokens in unrelated errors.
+  if (!IS_400.test(msg)) return null;
+  if (!MAX_TOKEN_KEY_REGEX.test(msg)) return null;
+  // If message names ONLY 'max_tokens' as the culprit, switch to the other key.
+  if (/\bmax_tokens\b/i.test(msg) && !/\bmax_completion_tokens\b/i.test(msg)) {
+    return 'max_completion_tokens';
+  }
+  // If message names ONLY 'max_completion_tokens' as the culprit, switch to max_tokens.
+  if (/\bmax_completion_tokens\b/i.test(msg) && !/\bmax_tokens\b/i.test(msg)) {
+    return 'max_tokens';
+  }
+  // Both keys mentioned — provider is naming the rejected one and the
+  // accepted one. Prefer "use X" / "should be X" phrasing for accuracy.
+  const useOtherMatch = msg.match(/(?:use|should be)\s+(\S+)/i);
+  if (useOtherMatch) {
+    const candidate = useOtherMatch[1].toLowerCase().replace(/[`'"]/g, '');
+    if (candidate === 'max_tokens') return 'max_tokens';
+    if (candidate === 'max_completion_tokens') return 'max_completion_tokens';
+  }
+  return null;
+}
+
+/**
+ * Extract the most useful provider-facing error message from a requestUrl
+ * error object. Prefers structured json.error.message, falls back to raw text,
+ * and finally to the original Error.message.
+ */
+function extractProviderErrorMessage(err: unknown): string | null {
+  const e = err as { status?: number; json?: unknown; text?: string; message?: string };
+  let msg = '';
+  if (e.json && typeof e.json === 'object') {
+    const j = e.json as { error?: { message?: string }; message?: string };
+    msg = j.error?.message || j.message || '';
+  }
+  if (!msg && e.text) msg = e.text;
+  if (!msg && e.message) msg = e.message;
+  if (!msg) return null;
+  const status = e.status;
+  if (status !== undefined && status !== null) {
+    return `status ${status}: ${msg}`;
+  }
+  return msg;
+}
+
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -705,6 +787,11 @@ export class OpenAICompatibleClient implements LLMClient {
   // chat_template_kwargs injection for the OpenAI dialect fallback.
   unsupportedFields: Set<string> = new Set();
 
+  // #207: which max_*_tokens key this baseUrl/model accepts. Probed once
+  // on the first 400, then cached for the lifetime of this client. Survives
+  // the entire session — no per-request prefix matching.
+  maxTokenKey?: MaxTokenKey;
+
   // v1.20.0: fields that must never be stripped even if a 400 error
   // mentions them (e.g., "Unknown name 'model'"). Stripping these
   // would break all subsequent requests.
@@ -780,9 +867,9 @@ export class OpenAICompatibleClient implements LLMClient {
     const body = this.buildRequestBody(params, messages, false);
     console.debug('[OPENAI-DEBUG] buildRequestBody result reasoning_effort:', body.reasoning_effort, 'thinking:', body.thinking !== undefined, 'dialect:', this.thinkingControlDialect, 'params.enableThinking:', params.enableThinking);
 
-    const doRequest = (bodyToUse: Record<string, unknown>) =>
+    const doRequest = (bodyToUse: Record<string, unknown>): Promise<string> =>
       withRetry(async () => {
-        let response: { json: unknown; status: number };
+        let response: { json: unknown; status: number; text: string };
         try {
           response = await requestUrl({
             url: this.baseUrl + '/chat/completions',
@@ -847,6 +934,18 @@ export class OpenAICompatibleClient implements LLMClient {
             console.debug('[OpenAICompat Debug] Request body size:', JSON.stringify(bodyToUse).length);
             console.debug('[OpenAICompat Debug] Model:', params.model, '| max_tokens:', params.max_tokens);
           }
+          // #207 / #137: enrich the thrown error with the provider's actual
+          // error message. requestUrl's own Error.message is often generic
+          // ("Request failed, status 400"); the provider detail lives in
+          // err.json.error.message or err.text. We copy it onto a new Error so
+          // callers (Test Connection UI, query engine notices) show something
+          // actionable instead of a bare HTTP status.
+          const providerMsg = extractProviderErrorMessage(err);
+          if (providerMsg && providerMsg !== errMessage) {
+            const enriched = new Error(providerMsg);
+            Object.assign(enriched, err);
+            throw enriched;
+          }
           throw err;
         }
 
@@ -862,7 +961,28 @@ export class OpenAICompatibleClient implements LLMClient {
         };
       };
 
-      if (data.error) throw new Error(`status ${response.status}: ${data.error.message}`);
+      if (data.error) {
+        const err = new Error(`status ${response.status}: ${data.error.message}`);
+        // Preserve the provider's raw error body so callers (Test Connection,
+        // lint notices, query-engine errors) can show the actual message instead
+        // of our generic wrapper.
+        (err as { json?: unknown; text?: string }).json = { error: data.error };
+        (err as { rawText?: string }).rawText = response.text;
+
+        // #207: probe the max_*_tokens key inside the 200-with-error path
+        // (some backends return 200 with error JSON, some throw; we handle both).
+        if (!this.maxTokenKey && response.status === 400) {
+          const altKey = detectRejectedMaxTokenKey(err);
+          if (altKey) {
+            this.maxTokenKey = altKey;
+            logFallback('max-token-key-probe',
+              `${altKey === 'max_completion_tokens' ? 'max_tokens' : 'max_completion_tokens'} rejected; retrying with ${altKey}`);
+            const rebuilt = this.buildRequestBody(params, messages, false);
+            return await doRequest(rebuilt);
+          }
+        }
+        throw err;
+      }
 
       const initialChoices = data.choices;
       // v1.20.0: extract reasoning_content (DeepSeek thinking) from non-stream
@@ -879,11 +999,14 @@ export class OpenAICompatibleClient implements LLMClient {
           return { choices: initialChoices ?? [], initialText, usage: data.usage };
         },
         retryFn: async (retryTokens) => {
-          // v1.20.0: preserve the token key that buildRequestBody() chose
-          // (max_completion_tokens for gpt-5, max_tokens otherwise).
-          // Hardcoding 'max_tokens' would break GPT-5 truncation retries.
-          const retryTokenKey = 'max_completion_tokens' in bodyToUse
-            ? 'max_completion_tokens' : 'max_tokens';
+          // #207: use the probed maxTokenKey, not the original request's key.
+          // If the first request was a probe (max_tokens) and got a 200 OK,
+          // this.maxTokenKey is now set and the retry will use the same key.
+          // If the first request succeeded with max_tokens (e.g., gpt-4) and
+          // got truncated, this.maxTokenKey is still undefined and we fall
+          // back to the original bodyToUse's key.
+          const retryTokenKey: MaxTokenKey = this.maxTokenKey
+            ?? ('max_completion_tokens' in bodyToUse ? 'max_completion_tokens' : 'max_tokens');
           const retryResponse = await requestUrl({
             url: this.baseUrl + '/chat/completions',
             method: 'POST',
@@ -913,6 +1036,20 @@ export class OpenAICompatibleClient implements LLMClient {
     try {
       return await doRequest(body);
     } catch (e) {
+      // #207: backend rejected our max_*_tokens key — probe, cache, retry.
+      // This replaces the old prefix-matching heuristic (#143 / line 963
+      // before this commit) which silently broke every time OpenAI shipped
+      // a new model family. Now we let the API tell us what it wants.
+      if (!this.maxTokenKey) {
+        const altKey = detectRejectedMaxTokenKey(e);
+        if (altKey) {
+          this.maxTokenKey = altKey;
+          logFallback('max-token-key-probe',
+            `${altKey === 'max_completion_tokens' ? 'max_tokens' : 'max_completion_tokens'} rejected; retrying with ${altKey}`);
+          const rebuilt = this.buildRequestBody(params, messages, false);
+          return await doRequest(rebuilt);
+        }
+      }
       // #137 Tier 1: thinking-dialect 400 → fall back to next dialect.
       if (params.enableThinking === false && isThinkingControlError(e)) {
         return await this.applyThinkingDialectFallback(body, params, messages, doRequest);
@@ -956,12 +1093,12 @@ export class OpenAICompatibleClient implements LLMClient {
     messages: Array<{role: 'system' | 'user' | 'assistant'; content: string}>,
     streaming: boolean,
   ): Record<string, unknown> {
-    // v1.20.0: gpt-5-* models require max_completion_tokens instead of max_tokens.
-    // OpenAI changed the parameter name for the gpt-5 series to disambiguate
-    // it from the legacy max_tokens that some endpoints no longer recognize.
-    // Issue #143.
-    const isGpt5 = params.model === 'gpt-5' || params.model.startsWith('gpt-5-');
-    const tokenKey = isGpt5 ? 'max_completion_tokens' : 'max_tokens';
+    // #207: probe-then-cache — first request uses `max_tokens` (the
+    // OpenAI-compatible legacy), the backend tells us via 400 if it wants
+    // `max_completion_tokens` instead, we cache and reuse. No more
+    // prefix-matching on model names. When OpenAI ships `gpt-6` or renames
+    // yet again, this code does not need to change.
+    const tokenKey = this.maxTokenKey ?? 'max_tokens';
 
     const body: Record<string, unknown> = {
       model: params.model,
@@ -1142,6 +1279,13 @@ export class OpenAICompatibleClient implements LLMClient {
               logFallback('field-strip', `fields rejected by ${this.baseUrl}: ${unknown.join(', ')}`);
             }
           }
+          // #207 / #137: enrich the thrown error with the provider's actual message.
+          const providerMsg = extractProviderErrorMessage(err);
+          if (providerMsg && providerMsg !== errMessage) {
+            const enriched = new Error(providerMsg);
+            Object.assign(enriched, err);
+            throw enriched;
+          }
           throw err;
         }
 
@@ -1206,6 +1350,17 @@ export class OpenAICompatibleClient implements LLMClient {
     try {
       return await doRequest(body);
     } catch (e) {
+      // #207: backend rejected our max_*_tokens key — probe, cache, retry.
+      if (!this.maxTokenKey) {
+        const altKey = detectRejectedMaxTokenKey(e);
+        if (altKey) {
+          this.maxTokenKey = altKey;
+          logFallback('max-token-key-probe-stream',
+            `${altKey === 'max_completion_tokens' ? 'max_tokens' : 'max_completion_tokens'} rejected; retrying with ${altKey}`);
+          const rebuilt = this.buildRequestBody(params, messages, /* streaming */ true);
+          return await doRequest(rebuilt);
+        }
+      }
       if (params.enableThinking === false && isThinkingControlError(e)) {
         // Issue #137: stream path uses the same 3-tier dialect fallback.
         return await this.applyThinkingDialectFallback(body, params, messages, doRequest);

@@ -1,10 +1,19 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-06-26
+**Last Updated:** 2026-06-27
 
 ---
 
-## Current Phase: v1.22.3 (released) → v1.23.0 (Graph Engine direction)
+## Current Phase: v1.22.4 (released) → v1.23.0 (Graph Engine direction)
+
+### Completed (v1.22.4) — Hotfix: GPT-5.x probe + provider error UX (2026-06-27)
+
+Closed two user-reported issues in v1.22.3 user testing — both PATCH scope (backward-compatible bug fixes):
+
+- ✅ **#207 — GPT-5.x models no longer fail Test Connection with 400.** v1.20.0's `params.model.startsWith('gpt-5-')` prefix-matching heuristic only matched the dash-suffixed OpenAI gpt-5 family (`gpt-5-mini`, `gpt-5-nano`, etc.) and silently broke for every new gpt-5.x release (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). This was a regression of the same root-cause class as #143 in v1.20.0. Replaced with a runtime probe-then-cache mechanism: first request uses `max_tokens`, if the backend rejects with 400 we cache the alternate key (`max_completion_tokens` or vice versa) and retry. New `MaxTokenKey` type and `detectRejectedMaxTokenKey()` exported pure function. Stream path mirrors the same pattern in `createMessageStream`. Per-client isolation ensures baseUrl changes start a fresh cache.
+- ✅ **Test Connection UI now surfaces the provider's actual error message.** Previously, `requestUrl` errors were re-wrapped as `status 400: ${data.error.message}` (or just "status 400" when the response body was lost to requestUrl's 4xx-throw-without-body behavior), and the provider's actual diagnostic was never visible. New `extractProviderErrorMessage()` enriches the thrown error in both `createMessage` and `createMessageStream` so Test Connection Notice text reads `status 400: <provider message>` instead of a generic HTTP wrapper. Test Connection is now self-diagnostic without needing the console.
+- ✅ **Lint performance knobs centralised in `src/constants.ts`.** Yield cadences, candidate batch sizing, prep batch read, and source-analyzer batch sizing now live in one place. Previously these values were duplicated across `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, and `batch-limits.ts` — including a literal `MAX_TOKENS=16000` copy of `MAX_TOKENS_BATCH`. Tuning lint performance is now a single-file change.
+- ✅ **Tests: 1076 passing.** +12 since v1.22.3.
 
 ### Completed (v1.22.3) — Hotfix hardening (2026-06-26)
 - ✅ **log header detection hardened to language-agnostic structural marker.** Switched from text-based detection (`view operation history` / `操作历史`) to embedded `<!-- llm-wiki-log-header-start -->` HTML-comment marker. v1.22.2 log files auto-upgrade on next startup.

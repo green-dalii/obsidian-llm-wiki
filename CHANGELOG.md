@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.4] - 2026-06-27
+
+### Fixed
+- **#207 — GPT-5.x models (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`) no longer fail Test Connection with HTTP 400.** v1.20.0's `params.model.startsWith('gpt-5-')` prefix-matching heuristic only matched the dash-suffixed OpenAI gpt-5 family (`gpt-5-mini`, `gpt-5-nano`, etc.) and silently broke for every new gpt-5.x release (which OpenAI ships with period-suffixed names like `gpt-5.4-mini`). This was a regression of the same root-cause class as #143 in v1.20.0. Replaced the brittle prefix-match with a runtime probe-then-cache mechanism: the first request uses `max_tokens`; if the backend rejects with 400 we inspect `error.param` (or "use X" / "should be X" phrasing) to derive the alternate key (`max_completion_tokens` or vice versa) and retry; the result is cached on the client instance and reused for the client's lifetime. New `MaxTokenKey` type and `detectRejectedMaxTokenKey()` exported pure function. Stream path mirrors the same pattern in `createMessageStream`. Per-client isolation ensures baseUrl changes start a fresh cache.
+- **Test Connection UI now surfaces the provider's actual error message.** Previously, `requestUrl` errors were re-wrapped as `status 400: ${data.error.message}` (or just "status 400" when the response body was lost to requestUrl's 4xx-throw-without-body behavior), and the provider's actual diagnostic — e.g. "Invalid parameter: max_tokens should be max_completion_tokens" or "The model `gpt-missing` does not exist" — was never visible to the user. New `extractProviderErrorMessage()` enriches the thrown error in both `createMessage` and `createMessageStream` so Test Connection Notice text reads `status 400: <provider message>` instead of a generic HTTP wrapper. Test Connection is now self-diagnostic without needing the console.
+
+### Changed
+- **Lint performance knobs centralised in `src/constants.ts`.** Yield cadences (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), candidate batch sizing (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), prep batch read (`LINT_PREP_BATCH_READ`), and source-analyzer batch sizing (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) now live in one place. Previously these values were duplicated or had drifted across `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, and `batch-limits.ts` — including a literal `MAX_TOKENS=16000` copy of `MAX_TOKENS_BATCH`. Tuning lint performance is now a single-file change.
+
+### Tests
+- **1076 tests passing** (+12 since v1.22.3: +8 for `detectRejectedMaxTokenKey` pure-function edge cases, +2 for OpenAICompatibleClient integration covering `mockRejectedValueOnce` path and provider message surfacing, +2 for `batch-limits.ts` constant unification).
+
 ## [1.22.3] - 2026-06-26
 
 ### Fixed

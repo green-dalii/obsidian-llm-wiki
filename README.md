@@ -232,6 +232,16 @@ A focused Hotfix that hardens the v1.22.2 log header mechanism and prevents fron
 
 We recommend upgrading — log.md no longer accumulates stray frontmatter on every quick-fix run, and the detection works in every language without per-locale special cases.
 
+### v1.22.4 — 2026-06-27 (PATCH)
+
+A focused PATCH that restores GPT-5.x compatibility, propagates real provider error messages to the Test Connection UI, and centralises lint performance knobs.
+
+- **🛡️ GPT-5.x models no longer fail Test Connection with 400 (Issue #207).** v1.20.0's `params.model.startsWith('gpt-5-')` prefix-matching heuristic only matched the dash-suffixed OpenAI gpt-5 family (`gpt-5-mini`, `gpt-5-nano`, etc.) and silently broke for every new gpt-5.x release (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). Replaced with a runtime probe-then-cache mechanism: first request uses `max_tokens`, if the backend rejects with 400 we cache the alternate key (`max_completion_tokens` or vice versa) and retry. Subsequent requests reuse the cache — no more model-name prefix-matching, and the probe gracefully handles every new OpenAI naming scheme.
+- **📜 Real provider error messages now reach the Test Connection UI.** Previously, `requestUrl` errors were re-wrapped as `status 400: ${data.error.message}` (or just "status 400" when the response body was lost) and the provider's actual error — e.g. "Invalid parameter: max_tokens should be max_completion_tokens" — was never visible. New `extractProviderErrorMessage()` enriches the thrown error so users see actionable provider detail instead of a generic HTTP status.
+- **♻️ Lint performance knobs centralised in `src/constants.ts`.** Yield cadences (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), candidate batch sizing (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), prep batch read (`LINT_PREP_BATCH_READ`), and source-analyzer batch sizing (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) now live in one place. Previously these values were duplicated or had drifted across `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, and `batch-limits.ts` — including a literal `MAX_TOKENS=16000` copy of `MAX_TOKENS_BATCH`. Tuning lint performance is now a single-file change.
+
+We recommend upgrading — gpt-5.x models work again out of the box, and the Test Connection UI now tells you exactly what the provider rejected so you can fix your baseUrl / model name / API key without digging through the console.
+
 We recommend upgradingWe recommend upgrading — the fix-dead-link stub fabrication class of bugs is now closed, and the Query Wiki side panel keeps your notes visible while chatting.
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.

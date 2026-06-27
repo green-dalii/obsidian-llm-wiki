@@ -194,6 +194,16 @@ Nous vous recommandons cette améliorationUn PATCH ciblé qui ferme trois bugs P
 
 Mise à jour recommandée.
 
+### v1.22.4 — 2026-06-27 (PATCH)
+
+Un PATCH ciblé qui restaure la compatibilité GPT-5.x, propage les véritables messages d'erreur du Provider à l'UI de Test Connection, et centralise les réglages de performance de lint.
+
+- **🛡️ Les modèles GPT-5.x ne tombent plus en échec 400 sur Test Connection (Issue #207).** L'heuristique hardcodée `params.model.startsWith('gpt-5-')` de v1.20.0 ne reconnaissait que la famille OpenAI gpt-5 suffixée par un tiret (`gpt-5-mini`, `gpt-5-nano`, etc.) et tombait silencieusement en panne à chaque nouvelle version gpt-5.x (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). Remplacée par un mécanisme de sondage-cache à l'exécution : la première requête utilise `max_tokens`, si le backend rejette avec 400, nous cachons la clé alternative (`max_completion_tokens` ou l'inverse) et réessayons. Les requêtes suivantes réutilisent le cache — plus de correspondance de préfixe sur les noms de modèle, et le sondage gère proprement tout nouveau schéma de nommage OpenAI.
+- **📜 Les vrais messages d'erreur du Provider atteignent désormais l'UI de Test Connection.** Auparavant, les erreurs `requestUrl` étaient ré-encapsulées en `status 400: ${data.error.message}` (ou simplement "status 400" quand le corps de réponse était perdu) et l'erreur réelle du Provider — ex. « Invalid parameter: max_tokens should be max_completion_tokens » — n'était jamais visible. Le nouveau `extractProviderErrorMessage()` enrichit l'erreur lancée pour que l'utilisateur voie les détails actionnables du Provider au lieu d'un statut HTTP générique.
+- **♻️ Réglages de performance de lint centralisés dans `src/constants.ts`.** Cadences de yield (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), tailles de lot de candidats (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), lecture par lot de prep (`LINT_PREP_BATCH_READ`), et tailles de lot source-analyzer (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) vivent désormais à un seul endroit. Auparavant ces valeurs étaient dupliquées ou avaient dérivé entre `controller.ts`, `duplicate-detection.ts`, `preparation.ts` et `batch-limits.ts` — y compris une copie littérale `MAX_TOKENS=16000` de `MAX_TOKENS_BATCH`. Le réglage de performance de lint est maintenant une modification d'un seul fichier.
+
+Mise à jour recommandée — les modèles gpt-5.x fonctionnent à nouveau dès l'installation, et l'UI de Test Connection vous indique exactement ce que le Provider a rejeté, sans avoir à fouiller la console pour baseUrl / nom de modèle / clé API.
+
 ## ✨ Fonctionnalités
 
 ### 📊 Qualité des connaissances

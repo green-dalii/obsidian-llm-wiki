@@ -2,13 +2,20 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.22.3 → 1.23.0 (PATCH released) | **Updated:** 2026-06-26
+**Version:** 1.22.4 → 1.23.0 (PATCH released) | **Updated:** 2026-06-27
 
 ---
 
 ## Current Status
 
-### Implemented (v1.22.3) — Hotfix hardening (2026-06-26)
+### Implemented (v1.22.4) — Hotfix: GPT-5.x probe + provider error UX (2026-06-27)
+
+Closed two user-reported issues in v1.22.3 user testing — both PATCH scope (backward-compatible bug fixes):
+
+- ✅ **#207 — GPT-5.x models no longer fail Test Connection with 400.** v1.20.0's `params.model.startsWith('gpt-5-')` prefix-matching heuristic only matched the dash-suffixed OpenAI gpt-5 family (`gpt-5-mini`, `gpt-5-nano`, etc.) and silently broke for every new gpt-5.x release (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). This was a regression of the same root-cause class as #143 in v1.20.0. Replaced with a runtime probe-then-cache mechanism: first request uses `max_tokens`, if the backend rejects with 400 we cache the alternate key (`max_completion_tokens` or vice versa) and retry. New `MaxTokenKey` type and `detectRejectedMaxTokenKey()` exported pure function. Stream path mirrors the same pattern in `createMessageStream`.
+- ✅ **Test Connection UI now surfaces the provider's actual error message.** Previously, `requestUrl` errors were re-wrapped as `status 400: ${data.error.message}` (or just "status 400" when the response body was lost to requestUrl's 4xx-throw-without-body behavior), and the provider's actual diagnostic was never visible. New `extractProviderErrorMessage()` enriches the thrown error in both `createMessage` and `createMessageStream` so Test Connection Notice text reads `status 400: <provider message>` instead of a generic HTTP wrapper.
+- ✅ **Lint performance knobs centralised in `src/constants.ts`.** Yield cadences, candidate batch sizing, prep batch read, and source-analyzer batch sizing now live in one place. Previously these values were duplicated across `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, and `batch-limits.ts` — including a literal `MAX_TOKENS=16000` copy of `MAX_TOKENS_BATCH`. Tuning lint performance is now a single-file change.
+- ✅ **Tests: 1076 passing.** +12 since v1.22.3.
 
 Three issues found in v1.22.2 user testing — kept in PATCH scope because all three are parity/latent-bug fixes:
 
@@ -222,6 +229,10 @@ Documented in `~/.claude/projects/.../memory/project_v1.23.0_graph_engine.md`.
 
 | Version | Date | Headline |
 |---------|------|----------|
+| **1.22.4** | 2026-06-27 | Hotfix — GPT-5.x probe-then-cache (Closes #207) + provider error UX + lint knobs centralisation |
+| **1.22.3** | 2026-06-26 | Hotfix — language-agnostic log header + content-folder guard for `generation_complete` |
+| **1.22.2** | 2026-06-26 | Hotfix — auto-ingest modal→Notice (#204) + log i18n + periodic lint refined |
+| **1.22.1** | 2026-06-24 | Hotfix — fixDeadLink fabrication (#197) + startupCheck migration (#199) + CSS `:has()` + Query side panel (#196) + related-link corrector (#187) |
 | **1.22.0** | 2026-06-23 | Schema one-click apply (#97) + dynamic tag sync + zh-Hant + ingest status bar (#189, @YounianC) |
 | **1.21.1** | 2026-06-22 | Hotfix — #173 Symptom A NFC/NFD + esbuild 0.28.1 |
 | **1.21.0** | 2026-06-21 | Pre-ingest gate (#164) + Schema Phase 1 (#124) + History Panel (#122) + Italian (#159) |

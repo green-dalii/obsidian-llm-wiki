@@ -86,7 +86,21 @@ describe('v1.20.0: default behavior — no custom thinking/temperature/penalty',
       expect(sentBody.temperature).toBe(0.5);
     });
 
-    it('uses max_completion_tokens for gpt-5-* models', async () => {
+    it('probe-then-cache: gpt-5 uses max_tokens first, then switches to max_completion_tokens after 400', async () => {
+      // Issue #207: replaced prefix-matching with runtime probe. First request
+      // for any new model uses `max_tokens`; if the backend rejects it
+      // with a 400 that names `max_tokens`, we cache and switch to
+      // `max_completion_tokens`. gpt-5 still ends up on
+      // `max_completion_tokens` — just via probe, not via regex.
+      mockRequestUrl.mockResolvedValueOnce({
+        status: 400,
+        text: JSON.stringify({ error: { message: "Invalid parameter: max_tokens should be max_completion_tokens", param: 'max_tokens' } }),
+        json: { error: { message: "Invalid parameter: max_tokens should be max_completion_tokens", param: 'max_tokens' } },
+        headers: {},
+        arrayBuffer: async () => new ArrayBuffer(0),
+      } as unknown as Awaited<ReturnType<typeof requestUrl>>);
+      mockRequestUrl.mockResolvedValue(make200Response());
+
       const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
       await client.createMessage({
         model: 'gpt-5-mini',
@@ -94,9 +108,116 @@ describe('v1.20.0: default behavior — no custom thinking/temperature/penalty',
         messages: [{ role: 'user', content: 'hi' }],
       });
 
-      const sentBody = JSON.parse((mockRequestUrl.mock.calls[0][0] as { body: string }).body) as Record<string, unknown>;
-      expect(sentBody).toHaveProperty('max_completion_tokens', 100);
-      expect(sentBody).not.toHaveProperty('max_tokens');
+      // First call: probe (max_tokens rejected by 400).
+      // Second call: retried with max_completion_tokens (cached for life).
+      expect(mockRequestUrl.mock.calls.length).toBe(2);
+      const probedBody = JSON.parse((mockRequestUrl.mock.calls[1][0] as { body: string }).body) as Record<string, unknown>;
+      expect(probedBody).toHaveProperty('max_completion_tokens', 100);
+      expect(probedBody).not.toHaveProperty('max_tokens');
+      // Cached for subsequent calls
+      expect(client.maxTokenKey).toBe('max_completion_tokens');
+    });
+
+    it('probe result is cached for the client lifetime', async () => {
+      // After probe once, subsequent requests skip the probe entirely.
+      mockRequestUrl.mockResolvedValueOnce({
+        status: 400,
+        text: JSON.stringify({ error: { message: "Invalid parameter: max_tokens should be max_completion_tokens", param: 'max_tokens' } }),
+        json: { error: { message: "Invalid parameter: max_tokens should be max_completion_tokens", param: 'max_tokens' } },
+        headers: {},
+        arrayBuffer: async () => new ArrayBuffer(0),
+      } as unknown as Awaited<ReturnType<typeof requestUrl>>);
+      mockRequestUrl.mockResolvedValue(make200Response());
+
+      const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
+      await client.createMessage({
+        model: 'gpt-5-mini',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+      // First call probes (2 requests), second call uses cache (1 request).
+      const beforeCacheHits = mockRequestUrl.mock.calls.length;
+      await client.createMessage({
+        model: 'gpt-5-mini',
+        max_tokens: 200,
+        messages: [{ role: 'user', content: 'hi again' }],
+      });
+      expect(mockRequestUrl.mock.calls.length).toBe(beforeCacheHits + 1);
+    });
+
+    it('newer dot-naming gpt-5.x models get probed (Issue #207 regression)', async () => {
+      // Regression guard: gpt-5.5 / gpt-5.4-mini / gpt-5.1 must NOT crash
+      // on the regex check that v1.20.0 used. Probe handles all naming.
+      for (const model of ['gpt-5.5', 'gpt-5.4-mini', 'gpt-5.1']) {
+        mockRequestUrl.mockReset();
+        mockRequestUrl.mockResolvedValueOnce({
+          status: 400,
+          text: JSON.stringify({ error: { message: "Invalid parameter: max_tokens should be max_completion_tokens", param: 'max_tokens' } }),
+          json: { error: { message: "Invalid parameter: max_tokens should be max_completion_tokens", param: 'max_tokens' } },
+          headers: {},
+          arrayBuffer: async () => new ArrayBuffer(0),
+        } as unknown as Awaited<ReturnType<typeof requestUrl>>);
+        mockRequestUrl.mockResolvedValue(make200Response());
+
+        const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
+        await client.createMessage({
+          model,
+          max_tokens: 50,
+          messages: [{ role: 'user', content: 'hi' }],
+        });
+        const lastBody = JSON.parse(
+          (mockRequestUrl.mock.calls[mockRequestUrl.mock.calls.length - 1][0] as { body: string }).body,
+        ) as Record<string, unknown>;
+        expect(lastBody).toHaveProperty('max_completion_tokens', 50);
+      }
+    });
+
+    it('probes max_completion_tokens when requestUrl throws 400 with param=max_tokens', async () => {
+      // Real-world path: Obsidian requestUrl throws on 4xx. The error object
+      // carries the provider body in .json/.text. We must still detect the
+      // rejected token key and retry.
+      const error400 = Object.assign(
+        new Error('Request failed, status 400'),
+        {
+          status: 400,
+          json: { error: { message: "Invalid parameter: 'max_tokens' is not supported", param: 'max_tokens' } },
+          text: JSON.stringify({ error: { message: "Invalid parameter: 'max_tokens' is not supported", param: 'max_tokens' } }),
+        },
+      );
+      mockRequestUrl.mockRejectedValueOnce(error400);
+      mockRequestUrl.mockResolvedValue(make200Response());
+
+      const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
+      await client.createMessage({
+        model: 'gpt-5-throws',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+
+      expect(mockRequestUrl.mock.calls.length).toBe(2);
+      const retryBody = JSON.parse((mockRequestUrl.mock.calls[1][0] as { body: string }).body) as Record<string, unknown>;
+      expect(retryBody).toHaveProperty('max_completion_tokens', 100);
+      expect(client.maxTokenKey).toBe('max_completion_tokens');
+    });
+
+    it('surfaces provider error message when requestUrl throws 400', async () => {
+      // Provider detail must reach the UI, not be swallowed by a generic wrapper.
+      const error400 = Object.assign(
+        new Error('Request failed, status 400'),
+        {
+          status: 400,
+          json: { error: { message: 'The model `gpt-missing` does not exist' } },
+          text: JSON.stringify({ error: { message: 'The model `gpt-missing` does not exist' } }),
+        },
+      );
+      mockRequestUrl.mockRejectedValueOnce(error400);
+
+      const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
+      await expect(client.createMessage({
+        model: 'gpt-missing',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+      })).rejects.toThrow('status 400: The model `gpt-missing` does not exist');
     });
 
     it('uses max_tokens for gpt-4-* models (existing behavior)', async () => {
@@ -220,6 +341,10 @@ describe('v1.20.0: default behavior — no custom thinking/temperature/penalty',
 
   describe('OpenAICompatibleClient truncation retry — gpt-5 max_completion_tokens', () => {
     it('preserves max_completion_tokens key in truncation retry for gpt-5', async () => {
+      // Setup: gpt-5-mini is already known to need max_completion_tokens.
+      // We simulate the cached probe result by seeding maxTokenKey directly.
+      const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
+      client.maxTokenKey = 'max_completion_tokens';
       // Call 1: truncated response (finish_reason=length)
       mockRequestUrl.mockResolvedValueOnce({
         status: 200,
@@ -237,7 +362,6 @@ describe('v1.20.0: default behavior — no custom thinking/temperature/penalty',
         arrayBuffer: async () => new ArrayBuffer(0),
       } as unknown as Awaited<ReturnType<typeof requestUrl>>);
 
-      const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
       const result = await client.createMessage({
         model: 'gpt-5-mini',
         max_tokens: 100,

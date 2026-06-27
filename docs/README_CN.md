@@ -221,6 +221,16 @@ v1.22.0 是一个**次要功能版本**，带来长期期待的 Schema 一键更
 
 建议升级 —— log.md 不再每次快速修复时积累杂散 frontmatter，检测在所有语言下都按统一规则工作。
 
+### v1.22.4 — 2026-06-27 (PATCH)
+
+聚焦的 PATCH：恢复 GPT-5.x 模型可用性、将 Provider 真实错误消息透传到 Test Connection 界面，并集中管理 lint 性能调优参数。
+
+- **🛡️ GPT-5.x 模型不再以 400 失败 Test Connection（Issue #207）。** v1.20.0 用的 `params.model.startsWith('gpt-5-')` 硬编码前缀匹配只覆盖带短横线的 OpenAI gpt-5 系列（`gpt-5-mini`、`gpt-5-nano` 等），每次 OpenAI 发布新 gpt-5.x（`gpt-5.1`、`gpt-5.4-mini`、`gpt-5.5`）就静默失效。改为运行时探测-缓存机制：首次请求用 `max_tokens`，若后端以 400 拒绝则缓存备选 key（`max_completion_tokens` 或反之）并重试。后续请求复用缓存——不再依赖模型名前缀匹配，未来 OpenAI 任何新的命名规则都能自动适配。
+- **📜 Provider 真实错误消息现在能到达 Test Connection 界面。** 之前 `requestUrl` 抛出的错误被重新包装为 `status 400: ${data.error.message}`（若响应体丢失则只剩 "status 400"），Provider 的真实错误（如 "Invalid parameter: max_tokens should be max_completion_tokens"）用户完全看不到。新的 `extractProviderErrorMessage()` enrich 抛出的错误，让用户看到可操作的 Provider 详情，而不是泛泛的 HTTP 状态码。
+- **♻️ Lint 性能调优参数集中到 `src/constants.ts`。** 事件循环让步节奏（`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`）、候选批次大小（`LINT_CANDIDATE_TOKEN_ESTIMATE`、`LINT_MAX_INPUT_TOKENS`、`LINT_DEDUP_BATCH_SIZE`）、准备阶段批量读（`LINT_PREP_BATCH_READ`），以及 source-analyzer 批大小（`SHORT_CONTENT_THRESHOLD`、`BATCH_CHARS_PER_ITEM`）现在统一在一个文件。之前这些值在 `controller.ts`、`duplicate-detection.ts`、`preparation.ts`、`batch-limits.ts` 四个文件里重复定义且已漂移——包括一个 `MAX_TOKENS=16000` 是 `MAX_TOKENS_BATCH` 字面副本。Lint 性能调优现在是单文件改动。
+
+建议升级 —— gpt-5.x 模型开箱即用，Test Connection 界面会准确告诉你 Provider 拒绝了什么，不必再翻控制台排查 baseUrl / 模型名 / API key。
+
 建议升级
 
 我们强烈建议升级——Schema 一键应用功能使 Schema 优化成为一步操作，繁体中文语言显著改善 zh-TW 用户的体验。

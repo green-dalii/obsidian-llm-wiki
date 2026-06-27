@@ -203,6 +203,16 @@ v1.22.2 の log header 機構を堅牢化し、コンテンツ以外のファイ
 
 アップグレード推奨 —— log.md がクイック修正のたびに余計な frontmatter を蓄積しなくなり、検出がすべての言語で統一ルールで動作します。
 
+### v1.22.4 — 2026-06-27 (PATCH)
+
+GPT-5.x モデルの互換性を復元し、Provider の実際のエラーメッセージを Test Connection UI に伝播し、lint パフォーマンス調整値を一元管理する PATCH。
+
+- **🛡️ GPT-5.x モデルが Test Connection で 400 を返さなくなる (Issue #207)。** v1.20.0 の `params.model.startsWith('gpt-5-')` ハードコードプレフィックスマッチは、ダッシュ付きの OpenAI gpt-5 ファミリー（`gpt-5-mini`、`gpt-5-nano` など）にしかマッチせず、新しい gpt-5.x（`gpt-5.1`、`gpt-5.4-mini`、`gpt-5.5`）がリリースされるたびに静かに壊れていました。実行時プローブ＆キャッシュ機構に置き換え：最初のリクエストは `max_tokens` を使用し、バックエンドが 400 で拒否した場合は代替キー（`max_completion_tokens` またはその逆）をキャッシュして再試行します。以降のリクエストはキャッシュを再利用——モデル名のプレフィックスマッチに頼らず、OpenAI の新しい命名規則にも自動的に対応します。
+- **📜 Provider の実際のエラーメッセージが Test Connection UI に届くように。** これまで `requestUrl` のエラーは `status 400: ${data.error.message}`（レスポンス本体が失われた場合は単なる "status 400"）に再ラップされ、Provider の実際のエラー（例："Invalid parameter: max_tokens should be max_completion_tokens"）はユーザーに見えませんでした。新しい `extractProviderErrorMessage()` がスローされたエラーを強化し、ユーザーは汎用的な HTTP ステータスではなく、Provider の詳細を見られるようになりました。
+- **♻️ lint パフォーマンス調整値を `src/constants.ts` に集約。** yield 間隔（`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`）、候補バッチサイズ（`LINT_CANDIDATE_TOKEN_ESTIMATE`、`LINT_MAX_INPUT_TOKENS`、`LINT_DEDUP_BATCH_SIZE`）、準備段階のバッチ読み取り（`LINT_PREP_BATCH_READ`）、source-analyzer のバッチサイズ（`SHORT_CONTENT_THRESHOLD`、`BATCH_CHARS_PER_ITEM`）を一か所に集約。これらは `controller.ts`、`duplicate-detection.ts`、`preparation.ts`、`batch-limits.ts` に重複またはドリフトしており、`MAX_TOKENS=16000` が `MAX_TOKENS_BATCH` のリテラルコピーになっている状態でした。lint パフォーマンス調整が単一ファイルの変更で行えます。
+
+アップグレード推奨 —— gpt-5.x モデルがそのまま動作し、Test Connection UI が Provider が何を拒否したかを正確に伝えるため、baseUrl / モデル名 / API キーをコンソールで掘り下げる必要がなくなります。
+
 アップグレード推奨アップグレード推奨。
 
 ## ✨ 特徴

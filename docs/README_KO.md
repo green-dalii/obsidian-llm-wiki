@@ -203,6 +203,16 @@ v1.22.2의 log header 메커니즘을 강화하고 콘텐츠가 아닌 파일에
 
 업그레이드 권장 —— log.md가 빠른 수정 실행마다 잉여 frontmatter를 누적하지 않으며 감지가 모든 언어에서 통일된 규칙으로 작동합니다.
 
+### v1.22.4 — 2026-06-27 (PATCH)
+
+GPT-5.x 모델 호환성을 복원하고, Provider의 실제 오류 메시지를 Test Connection UI에 전파하며, lint 성능 조정 노브를 중앙 집중화하는 PATCH.
+
+- **🛡️ GPT-5.x 모델이 더 이상 Test Connection에서 400으로 실패하지 않음 (Issue #207).** v1.20.0의 `params.model.startsWith('gpt-5-')` 하드코딩 접두사 일치 휴리스틱은 대시가 붙은 OpenAI gpt-5 계열(`gpt-5-mini`, `gpt-5-nano` 등)만 일치하고 새로운 gpt-5.x 릴리스(`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`)마다 조용히 깨졌습니다. 런타임 프로브-캐시 메커니즘으로 대체: 첫 요청은 `max_tokens`를 사용하고, 백엔드가 400으로 거부하면 대체 키(`max_completion_tokens` 또는 그 반대)를 캐시하고 재시도합니다. 이후 요청은 캐시를 재사용 — 모델명 접두사 매칭에 의존하지 않으며, OpenAI의 새로운 명명 규칙에도 자동으로 대응합니다.
+- **📜 Provider의 실제 오류 메시지가 이제 Test Connection UI에 도달.** 이전에는 `requestUrl` 오류가 `status 400: ${data.error.message}`(응답 본문이 손실된 경우 그냥 "status 400")로 재래핑되어 Provider의 실제 오류(예: "Invalid parameter: max_tokens should be max_completion_tokens")가 사용자에게 보이지 않았습니다. 새로운 `extractProviderErrorMessage()`가 던져진 오류를 보강하여 사용자가 일반적인 HTTP 상태 코드가 아니라 실행 가능한 Provider 세부 정보를 볼 수 있도록 합니다.
+- **♻️ lint 성능 조정 노브를 `src/constants.ts`로 중앙 집중화.** yield 간격(`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), 후보 배치 크기(`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), 준비 단계 배치 읽기(`LINT_PREP_BATCH_READ`), source-analyzer 배치 크기(`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`)가 이제 한 곳에 있습니다. 이전에는 이러한 값이 `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, `batch-limits.ts`에서 중복되거나 표류했으며, 여기에는 `MAX_TOKENS=16000`(=`MAX_TOKENS_BATCH`의 문자 그대로 복사본)도 포함되어 있었습니다. lint 성능 조정이 이제 단일 파일 변경입니다.
+
+업그레이드 권장 —— gpt-5.x 모델이 즉시 작동하며 Test Connection UI가 baseUrl / 모델명 / API 키를 콘솔에서 뒤질 필요 없이 Provider가 무엇을 거부했는지 정확히 알려줍니다.
+
 업그레이드 권장업그레이드 권장.
 
 ## ✨ 주요 기능

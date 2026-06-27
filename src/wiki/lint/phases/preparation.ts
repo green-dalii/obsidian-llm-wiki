@@ -2,6 +2,7 @@ import { TEXTS } from '../../../texts';
 import { getText } from '../../../core/i18n';
 import { fixDoubleNestedWikiLinks } from '../utils';
 import { scanPollutedSources, fixPollutedSources } from '../../../core/sources-normalizer';
+import { LINT_PREP_BATCH_READ } from '../../../constants';
 import { LintPhaseContext, ScannerPage } from '../types';
 
 export interface PreparationResult {
@@ -34,7 +35,7 @@ export async function runPreparationPhase(
   ctx.wikiEngine.updateStatusBar(getText(ctx.settings.language, 'lintStatusReading'));
   console.debug(`lintWiki: reading ${wikiFiles.length} wiki pages in parallel`);
 
-  const BATCH_READ = 200;
+  const BATCH_READ = LINT_PREP_BATCH_READ;
   for (let i = 0; i < wikiFiles.length; i += BATCH_READ) {
     ctx.checkCancelled();
     const batch = wikiFiles.slice(i, i + BATCH_READ);

@@ -212,3 +212,60 @@ export const TIMER_UPDATE_INTERVAL_MS = 1000;
  * Every N outer iterations, await a setTimeout(0) to prevent UI thread blocking.
  */
 export const YIELD_EVERY_ITERATIONS = 200;
+
+// ============================================================================
+// Lint Performance Knobs — central tunables for lint scan O(n²) work
+// ============================================================================
+
+/**
+ * Outer-loop yield cadence for lint duplicate-detection. Mirrors
+ * YIELD_EVERY_ITERATIONS but kept separately so lint-tuning changes don't
+ * risk spilling into other consumers (settings UI, wiki-engine status).
+ */
+export const LINT_YIELD_EVERY_OUTER = 200;
+
+/**
+ * Phase-1 (page parsing) yield cadence in duplicate-detection — finer than
+ * the outer loop because parsing is cheap per item but the set accumulates.
+ */
+export const LINT_YIELD_EVERY_PHASE1 = 50;
+
+/**
+ * Comparison-phase yield cadence in duplicate-detection — coarser, since
+ * O(n²) pair comparisons are CPU-bound per item.
+ */
+export const LINT_YIELD_EVERY_COMPARISON = 500;
+
+/** Batch size for vault reads during lint preparation. */
+export const LINT_PREP_BATCH_READ = 200;
+
+/**
+ * Per-candidate token estimate for duplicate-detection prompt budget.
+ * Each candidate ≈ 120 chars ≈ 30 tokens.
+ */
+export const LINT_CANDIDATE_TOKEN_ESTIMATE = 30;
+
+/**
+ * Input-token cap for a single lint LLM call (candidate batch prompt).
+ * Leaves room for prompt + output in the model's context window.
+ */
+export const LINT_MAX_INPUT_TOKENS = 15000;
+
+/** Number of candidates fed per lint dedup LLM call. */
+export const LINT_DEDUP_BATCH_SIZE = 100;
+
+// ============================================================================
+// Source-Analyzer / Page-Factory Batch Sizing
+// ============================================================================
+
+/**
+ * Below this content size (chars), the analyzer auto-downgrades maxTotalItems
+ * to avoid "hard digging" — a 6800-char source can't yield 50 wiki-worthy items.
+ */
+export const SHORT_CONTENT_THRESHOLD = 20000;
+
+/**
+ * Chars-per-item estimate used to cap maxTotalItems for short content.
+ * Pairs with SHORT_CONTENT_THRESHOLD above.
+ */
+export const BATCH_CHARS_PER_ITEM = 600;
