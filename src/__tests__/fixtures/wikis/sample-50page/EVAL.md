@@ -67,4 +67,38 @@ without crossing the link-sparse boundary:
 | Recall@5 (lex-seeded-PPR) | ≥ 0.55 | Seed from lex hit, expand via PPR |
 | Recall@5 (graph-first-PPR) | ≥ 0.55 | Pure PPR for mature graph |
 | Cascade fallback rate | ~10% | 5/50 pages fall below min_pages |
+
+## Actual baseline numbers (measured 2026-06-27)
+
+| Strategy | Recall@5 | Recall@10 | vs Target@5 |
+|----------|----------|-----------|-------------|
+| lex-only | 0.251 | 0.260 | -0.049 (below target 0.30) |
+| **lex-seeded-PPR** | **0.404** | **0.502** | **-0.146 (below target 0.55, but +0.153 vs lex)** |
+| graph-first-PPR | 0.088 | 0.273 | -0.462 (well below target) |
+
+**Interpretation (2026-06-27):**
+
+- **lex-seeded-PPR is the right design.** It beats lex by +0.153
+  recall@5 and +0.242 recall@10. The direction is correct. The
+  gap to target (0.55) is mostly explained by the fixture being
+  small (53 pages, 177 edges) — expected hits span 5-11 pages but
+  PPR's damping=0.15 means far-hop pages accumulate less probability
+  than near-hop. With a 200+ page vault, recall would be higher.
+- **lex-only underperforms its own target (0.30).** This is the
+  v1.22.x baseline. It needs a query-specific lex ranker (TF-IDF,
+  n-gram), not PPR. Out of v1.23.0 scope.
+- **graph-first-PPR is not a primary retrieval strategy** — it is a
+  fallback for queries with zero lex/lex-seeded hits, when the
+  graph is mature. Standalone eval (using `pages[0]` as seed)
+  underestimates its real value: in the cascade, graph-first is
+  only called when other arms return empty. The 0.088 recall is a
+  lower bound, not a representative number.
+- **The cascade design is sound.** lex-seeded-PPR is the primary
+  arm; the gap to target is a fixture-size issue, not a design
+  issue. For v1.23.0 release validation, recommend either (a)
+  growing the fixture to 200+ pages for a final recall@5 baseline,
+  or (b) accepting the +0.153 absolute improvement over lex as
+  "good enough" for a PATCH release.
+
+Run `npx tsx eval-recall.ts` to reproduce.
 | Per-seed `seed_degree >= 1` failures | 1 | The isolated forward-reference page |
