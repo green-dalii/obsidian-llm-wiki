@@ -23,7 +23,15 @@ import { nestReportUnderParent } from '../../core/report';
 import { cleanMarkdownResponse } from '../../core/markdown';
 import { normalizeLLMPath } from '../../core/prompt-builders';
 import { appendGranularityToPrompt, appendTagVocabularyToPrompt } from '../system-prompts';
-import { TOKENS_LINT_DEDUP_LLM, NOTICE_NORMAL, NOTICE_RATE_LIMIT, NOTICE_ERROR } from '../../constants';
+import {
+  TOKENS_LINT_DEDUP_LLM,
+  NOTICE_NORMAL,
+  NOTICE_RATE_LIMIT,
+  NOTICE_ERROR,
+  LINT_CANDIDATE_TOKEN_ESTIMATE,
+  LINT_MAX_INPUT_TOKENS,
+  LINT_DEDUP_BATCH_SIZE,
+} from '../../constants';
 import { isPageEmpty } from './utils';
 import { generateDuplicateCandidates, DuplicateCandidate } from './duplicate-detection';
 import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges, runRetagViolations, makeMirroredNotice } from './fix-runners';
@@ -184,10 +192,7 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
         // Layer 3: LLM verification with token-budget batching
         // Each candidate ≈ 120 chars ≈ 30 tokens. Batch size: 100 candidates ≈ 3K input tokens.
         // Total input budget for this phase: 15K tokens (leaves room for prompt + output in 200K window).
-        const CANDIDATE_TOKENS = 30;
-        const MAX_INPUT_TOKENS = 15000;
-        const BATCH_SIZE = 100;
-        const maxTotalCandidates = Math.floor(MAX_INPUT_TOKENS / CANDIDATE_TOKENS);
+        const maxTotalCandidates = Math.floor(LINT_MAX_INPUT_TOKENS / LINT_CANDIDATE_TOKEN_ESTIMATE);
 
         // Tier 1 always included in full. Tier 2 fills remaining token budget.
         const verifyCandidates = [...tier1];
@@ -196,13 +201,13 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
         for (let i = 0; i < tier2ToInclude; i++) {
           verifyCandidates.push(tier2[i]);
         }
-        console.debug(`lintWiki: sending ${verifyCandidates.length}/${maxTotalCandidates} candidates (Tier 1: ${tier1.length}, Tier 2: ${tier2ToInclude}/${tier2.length}, budget: ${MAX_INPUT_TOKENS} tokens)`);
+        console.debug(`lintWiki: sending ${verifyCandidates.length}/${maxTotalCandidates} candidates (Tier 1: ${tier1.length}, Tier 2: ${tier2ToInclude}/${tier2.length}, budget: ${LINT_MAX_INPUT_TOKENS} tokens)`);
 
         if (verifyCandidates.length > 0) {
           // Split into batches
           const batches: DuplicateCandidate[][] = [];
-          for (let i = 0; i < verifyCandidates.length; i += BATCH_SIZE) {
-            batches.push(verifyCandidates.slice(i, i + BATCH_SIZE));
+          for (let i = 0; i < verifyCandidates.length; i += LINT_DEDUP_BATCH_SIZE) {
+            batches.push(verifyCandidates.slice(i, i + LINT_DEDUP_BATCH_SIZE));
           }
 
           const concurrency = ctx.settings.pageGenerationConcurrency || 1;

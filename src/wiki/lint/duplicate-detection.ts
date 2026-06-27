@@ -3,6 +3,11 @@
 // Extracted from lint-fixes.ts to keep the module focused.
 
 import { parseFrontmatter } from '../../core/frontmatter';
+import {
+  LINT_YIELD_EVERY_OUTER,
+  LINT_YIELD_EVERY_PHASE1,
+  LINT_YIELD_EVERY_COMPARISON,
+} from '../../constants';
 
 export interface DuplicateCandidate {
   target: string;
@@ -76,16 +81,13 @@ export async function generateDuplicateCandidates(
     bodyWords: Set<string>;
   }
 
-  const YIELD_EVERY = 200;
-  const YIELD_EVERY_PHASE1 = 50;
-
   const metas: PageMeta[] = [];
   const linkRegex = /\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]/g;
 
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i];
 
-    if (i > 0 && i % YIELD_EVERY_PHASE1 === 0) {
+    if (i > 0 && i % LINT_YIELD_EVERY_PHASE1 === 0) {
       await new Promise(resolve => window.setTimeout(resolve, 0));
     }
 
@@ -118,16 +120,15 @@ export async function generateDuplicateCandidates(
   };
 
   let comparisonCount = 0;
-  const YIELD_EVERY_COMPARISON = 500;
 
   // Signal 1: Shared outgoing wiki-links (Jaccard >= 0.4)
   for (let i = 0; i < metas.length; i++) {
-    if (i > 0 && i % YIELD_EVERY === 0) {
+    if (i > 0 && i % LINT_YIELD_EVERY_OUTER === 0) {
       await new Promise(resolve => window.setTimeout(resolve, 0));
     }
     for (let j = i + 1; j < metas.length; j++) {
       comparisonCount++;
-      if (comparisonCount % YIELD_EVERY_COMPARISON === 0) {
+      if (comparisonCount % LINT_YIELD_EVERY_COMPARISON === 0) {
         await new Promise(resolve => window.setTimeout(resolve, 0));
       }
 
@@ -147,12 +148,12 @@ export async function generateDuplicateCandidates(
 
   // Signal 2: Bigram + cross-language on titles/aliases
   for (let i = 0; i < metas.length; i++) {
-    if (i > 0 && i % YIELD_EVERY === 0) {
+    if (i > 0 && i % LINT_YIELD_EVERY_OUTER === 0) {
       await new Promise(resolve => window.setTimeout(resolve, 0));
     }
     for (let j = i + 1; j < metas.length; j++) {
       comparisonCount++;
-      if (comparisonCount % YIELD_EVERY_COMPARISON === 0) {
+      if (comparisonCount % LINT_YIELD_EVERY_COMPARISON === 0) {
         await new Promise(resolve => window.setTimeout(resolve, 0));
       }
 
