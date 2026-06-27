@@ -88,9 +88,8 @@ Closed two user-reported issues in v1.22.3 user testing — both PATCH scope (ba
 
 ### P0 — Bug fixes / quality regressions
 
-- All v1.22.0 P0 items closed (see Completed section).
-- **v1.22.1 (local, not yet pushed):** #197 fixDeadLink 制造 stub bug + #187 related-link `sources/` prefix; staying local to coalesce additional user-reported P0 issues.
-- **v1.23.0 direction (MINOR feature):** Graph Engine — see ROADMAP.md §Next Milestone v1.23.0. Core: Personalized PageRank (Haveliwala 2002) over `[[wiki-link]]` graph. Closes #117, #157, #175 simultaneously with one primitive. Tier B redesigned: zero-LLM section-extractor (parse `## Description`/`## Definition` at query time, ~30 LOC).
+- All v1.22.0 / v1.22.1 / v1.22.2 / v1.22.3 / v1.22.4 P0 items closed and released (see Completed section above).
+- **v1.23.0 (current sprint, MINOR feature):** Graph Engine — see ROADMAP.md §Next Milestone v1.23.0. Core: Monte Carlo Personalized PageRank (Fogaras 2005) over `[[wiki-link]]` graph, not power-iteration (2026-06-24 #198 consensus). Closes #117, #157, #175 simultaneously with one primitive. Tier B redesigned: zero-LLM section-extractor (parse `## Description`/`## Definition` at query time, ~30 LOC). Hub retirement (clustering coefficient) deferred to v1.24.0. Embeddings layer (rejected from v1.23.0) deferred to v1.25.0+ as opt-in enrichment.
 
 ### P1 — Cleanup (v1.19.0 target, deferred items from v1.18.x)
 

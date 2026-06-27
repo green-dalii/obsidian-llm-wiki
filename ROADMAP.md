@@ -203,6 +203,65 @@ Requires LLM function-calling support across all providers (Anthropic ✅, OpenA
 - Lint integration: use PPR signals in hub-link strip (#157 path)
 - Estimated: ~200 LOC core, ~30 LOC query integration, 30+ tests
 
+### v1.23.0 Implementation Priority (2026-06-27 kickoff)
+
+**Status:** Design phase COMPLETE in #198 (2026-06-24 consensus: Monte Carlo PPR per Fogaras 2005, NOT power-iteration; Tier B = zero-LLM section extraction; hub retirement deferred to v1.24.0). Implementation kickoff comment posted 2026-06-27. See `~/.claude/projects/.../memory/project_v1.23.0_implementation_plan.md` for full plan.
+
+#### P0 — Blockers (must resolve before P1)
+
+| # | Task | Estimated | Status |
+|---|------|-----------|--------|
+| P0-1 | CC0 synthetic 50-page eval fixture at `src/__tests__/fixtures/wikis/sample-50page/` | 1 day | ❌ not started |
+| P0-2 | Eval script: lex-only vs lex-seeded-PPR vs graph-first-PPR recall@k | 0.5 day | ❌ |
+| P0-3 | CLAUDE.md P0 table cleanup (v1.22.1 stale → v1.22.4 PATCH) | 5 min | ✅ 2026-06-27 |
+
+#### P1 — Core modules (Graph Engine body)
+
+| # | Module | LOC | Depends on | Status |
+|---|--------|-----|------------|--------|
+| P1-1 | `core/section-extractor.ts` (Tier B) | ~30 | none | ❌ not started |
+| P1-2 | `core/monte-carlo-ppr.ts` (renamed from `core/ppr.ts`) | ~30 | P0-1 | ❌ |
+| P1-3 | `core/hub-detection.ts` (#117 consumer) — **clustering retirement deferred to v1.24.0** | ~50 | P1-2 | ❌ |
+| P1-4 | Web Worker wrapper for PPR | ~30 | P1-2 | ❌ |
+| P1-5 | Query Wiki integration (replace lex Tier A with PPR top-k) | ~30 | P1-2 + P1-4 | ❌ |
+| P1-6 | Lint integration: #157 path (hub-link strip uses PPR) | ~40 | P1-3 | ❌ |
+| P1-7 | Hybrid guard (lex fallback cascade per @GioiaZheng) | ~10 | none | ❌ |
+
+**Total P1:** ~5 days (consistent with #198 ROI table)
+
+#### P2 — UX + integration
+
+| # | Task | Estimated |
+|---|------|-----------|
+| P2-1 | First-run welcome note (editable markdown, non-blocking — per @DocTpoint) | 1 day |
+| P2-2 | Settings: cold-start threshold exposure (min_pages / min_edges) | 0.5 day |
+| P2-3 | P0-2 eval report → ROADMAP as v1.23.0 acceptance gate | 0.5 day |
+
+#### P3 — Explicitly deferred to v1.24.0+
+
+| # | Project | Source | Target |
+|---|---------|--------|--------|
+| P3-1 | Hub retirement (clustering coefficient) | #117 (v2) | v1.24.0 (@DocTpoint owns) |
+| P3-2 | Per-operation model selection | #208 (deferred 2026-06-27) | v1.24.0 |
+| P3-3 | Link distinctiveness as standalone module | #157 v2 | v1.24.0+ |
+| P3-4 | Embeddings as opt-in enrichment | #175 | v1.25.0+ |
+| P3-5 | Tier D (agentic with tool calls) | ROADMAP | v1.25.0+ |
+
+### v1.23.0 Cold-start thresholds (consensus from #198 Q3, @GioiaZheng)
+
+Conservative cascade — will tune with P0-1 fixture:
+
+- `min_pages = 30`
+- `min_edges = 30` OR `edges/pages >= 1.0`
+- `seed_degree >= 1` (per-seed guard, not just global)
+- `largest_weak_component / pages > 50%` (graph not fragmented)
+
+Fallback arm selection:
+
+1. `pages < 30` OR `edges < pages` OR `seed_degree == 0` → pure lex/title match
+2. `seed_degree >= 1` AND graph has neighbors → lex-seeded MC-PPR
+3. All global guards passed → graph-first MC-PPR
+
 ### Deferred to v1.24.0+ (lower ROI, lower coupling)
 - #185 source-note alias propagation (independent feature, opt-in flag, 1 day)
 - #184 Obsidian Bases index management (schema path, 2-3 days)
