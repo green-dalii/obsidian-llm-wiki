@@ -233,9 +233,61 @@ Requires LLM function-calling support across all providers (Anthropic ✅, OpenA
 
 | # | Task | Estimated |
 |---|------|-----------|
-| P2-1 | First-run welcome note (editable markdown, non-blocking — per @DocTpoint) | 1 day |
+| P2-1 | First-run welcome note — three-tier user coverage (per @DocTpoint #198 comment 5, refined 2026-06-27) | 1 day |
 | P2-2 | Settings: cold-start threshold exposure (min_pages / min_edges) | 0.5 day |
 | P2-3 | P0-2 eval report → ROADMAP as v1.23.0 acceptance gate | 0.5 day |
+
+**P2-1 detail — three-tier user coverage:**
+
+The plugin auto-detects which user tier is present and tailors onboarding
+accordingly. Detection happens at plugin load by checking `wikiFolder`
+existence and the count of `.md` files in the vault root:
+
+- **Tier A (empty vault)**: `wikiFolder` missing, vault has zero `.md`
+  files. Plugin shows a brief Notice pointing to a docs link
+  ("Create your first source note and run Ingest"). **No Welcome
+  note is created** — an empty vault has no source notes to seed
+  from, and the Welcome note's `## Initial Source Suggestions`
+  section would be empty.
+- **Tier B (existing vault, no wiki)**: `wikiFolder` missing, vault
+  has ≥1 `.md` file. Plugin creates `<wikiFolder>/Welcome.md` with
+  a 5-section template: `## Domains` (user fills), `## Initial Source
+  Suggestions` (plugin pre-fills with up to 10 candidate notes from
+  vault root, user checks 2-3), `## Wiki Scope` (user fills, optional),
+  `## Configuration Test` (plugin auto-maintains as LLM smoke test
+  signal), and a closing `<!-- end auto-generated -->` block. Plugin
+  shows a 5s Notice pointing to the new note. The 5-seed
+  onboarding that @DocTpoint originally proposed is collapsed into
+  the `## Initial Source Suggestions` section — user checks notes
+  in the note rather than in a separate Modal. **Lower friction than
+  Modal**: user reads at their own pace.
+- **Tier C (existing wiki, v1.22.x upgrade)**: `wikiFolder` exists
+  with content. Plugin does nothing — no Welcome note, no Notice.
+  v1.23.0 PPR enhancements apply transparently to existing wikis.
+  Silent upgrade.
+
+**`type: welcome` frontmatter identifier** is used by the ingest
+pipeline to **skip** Welcome notes (they're metadata, not content).
+The plugin **still reads** Welcome notes to extract `## Domains`
+into `settings.tagVocab` and `## Initial Source Suggestions` into
+ingest UI recommendations — the read and ingest-skip are separate
+code paths.
+
+**Settings toggle**: `createWelcomeNote` boolean (default ON) lets
+users opt out. Existing Welcome notes are never auto-deleted by
+the plugin (user data is user's data); a `Recreate Welcome Note`
+command under Command Palette re-creates the file if user deleted
+it manually.
+
+**5-seed Modal deferred**: @DocTpoint's original Modal-based
+onboarding (a separate UI surface asking the user to pick 5 notes)
+is **not** implemented in v1.23.0. The Welcome note's
+`## Initial Source Suggestions` section serves the same purpose with
+lower friction. If v1.23.0 adoption data shows Tier B users
+struggle with the note-based onboarding, Modal-based 5-seed can be
+revisited in v1.24.0+.
+
+
 
 #### P3 — Explicitly deferred to v1.24.0+
 

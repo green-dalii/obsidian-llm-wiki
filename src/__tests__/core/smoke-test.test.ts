@@ -11,7 +11,7 @@
 // Tests inject a mock probe that resolves to a LlmConfigStatus.
 
 import { describe, it, expect } from 'vitest';
-import { smokeTest, type LlmConfigStatus } from '../../core/smoke-test';
+import { smokeTest } from '../../core/smoke-test';
 
 describe('smokeTest — happy path', () => {
   it('returns ok=true with provider and model when probe succeeds', async () => {
@@ -46,8 +46,9 @@ describe('smokeTest — error paths', () => {
 
   it('returns ok=false with generic message when probe throws non-Error', async () => {
     const status = await smokeTest(async () => {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
-      throw 'plain string error';
+      // Cast through unknown to bypass the only-throw-error rule.
+      // We want to verify the wrapper handles non-Error throws.
+      throw 'plain string error' as unknown;
     });
     expect(status.ok).toBe(false);
     expect(status.error).toBeDefined();
