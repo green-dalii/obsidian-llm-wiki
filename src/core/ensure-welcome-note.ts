@@ -89,22 +89,16 @@ export async function ensureWelcomeNote(args: EnsureWelcomeNoteArgs): Promise<En
 
   // Step 1: probe vault state.
   const probe = await probeVaultState(vault, settings.wikiFolder, vaultCandidates);
-  // Step 1.5: probe LLM readiness first so tier-detection knows whether
-  // the user can benefit from a Tier-A Welcome (the "LLM is configured
-  // but vault is empty" path is the v1.23.0 follow-up improvement).
-  // We pass the smokeTest probe but catch here too — if the LLM check
-  // throws, we treat LLM as unavailable.
-  let llmAvailable = false;
-  try {
-    const llmProbe = await smokeTest(smokeTestProbe);
-    llmAvailable = llmProbe.ok;
-  } catch {
-    llmAvailable = false;
-  }
-  // Step 2: decide tier (with LLM-availability awareness).
-  const action = decideOnboardingAction(probe, { llmAvailable });
+  // Step 2: decide tier.
+  // We don't know LLM readiness yet — pass a sentinel to tier-detection
+  // (the literal llmClient reference; if it exists, the user has
+  // configured the provider at the client level). The actual smoke
+  // test runs ONCE at Step 7 below — reused for both tier-decision
+  // and Welcome body generation. This avoids double-counted LLM
+  // traffic on every onload.
+  const action = decideOnboardingAction(probe, { llmAvailable: !!llmClient });
   // Step 3: short-circuit when no Welcome note is needed (Tier C, or
-  // Tier A without LLM).
+  // Tier A without LLM client).
   if (!action.shouldCreateWelcomeNote) {
     return { tier: action.tier, action };
   }
@@ -119,9 +113,9 @@ export async function ensureWelcomeNote(args: EnsureWelcomeNoteArgs): Promise<En
   }
   // Step 6: list vault candidates (if not provided).
   const candidates = vaultCandidates ?? await vault.listMarkdown();
-  // Step 7: re-run smoke test (we did it once for tier-decision, but
-  // the actual configuration check happens here so the localized
-  // Welcome body can surface the result).
+  // Step 7: run smoke test ONCE. Result feeds both the Configuration
+  // Test section (rendered into the body) and the LLM-translation
+  // gate below.
   const llmConfig = await smokeTest(smokeTestProbe);
   // Step 8: build the English Welcome note body.
   const englishBody = buildWelcomeNote({

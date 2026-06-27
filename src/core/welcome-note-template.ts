@@ -160,5 +160,5 @@ function renderConfigSection(llmConfig: LlmConfigStatus): string {
     body = [status, error].join('\n');
   }
 
-  return [header, '', openMarker, body, '<!-- end auto-generated -->'].join('\n');
+  return [header, '', openMarker, body].join('\n');
 }

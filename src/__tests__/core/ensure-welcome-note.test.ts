@@ -67,6 +67,9 @@ describe('ensureWelcomeNote — Tier A (empty vault)', () => {
     // New behavior: even in Tier A, if LLM is configured we create a
     // Welcome note so the LLM-only-onboarding user has a guided entry
     // point instead of just a "go create a source note" Notice.
+    // tier-detection learns "LLM is available" from the llmClient arg
+    // (which is the v1.23.0 simplification: no extra smoke test probe
+    // call for the tier decision).
     const vault = makeFakeVault();
     await ensureWelcomeNote({
       vault,
@@ -74,6 +77,8 @@ describe('ensureWelcomeNote — Tier A (empty vault)', () => {
       targetLanguage: 'en',
       createdAt: '2026-06-27',
       smokeTestProbe: async () => ({ ok: true, provider: 'OpenAI', model: 'gpt-4o-mini' }),
+      llmClient: { createMessage: vi.fn().mockResolvedValue(JSON.stringify({ translated: 'TRANSLATED' })) },
+      model: 'gpt-4o-mini',
     });
     expect(vault.written.has('wiki/Welcome.md')).toBe(true);
   });

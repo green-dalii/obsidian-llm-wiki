@@ -177,6 +177,21 @@ describe('buildWelcomeNote — structural invariants', () => {
     expect(body).toMatch(/end auto-generated -->/);
   });
 
+  it('contains exactly ONE closing `<!-- end auto-generated -->` marker (regression: 2026-06-28 had 2)', () => {
+    // Earlier bug: the ## Configuration Test section emitted its own
+    // closing marker AND the document also appended a closing marker,
+    // producing 2 consecutive `<!-- end auto-generated -->` lines. The
+    // 1-marker invariant is what downstream consumers (log-header parser
+    // etc.) rely on.
+    const body = buildWelcomeNote({
+      candidates: [],
+      llmConfig: { ok: true, provider: 'OpenAI', model: 'gpt-4o-mini' },
+      createdAt: '2026-06-27',
+    });
+    const matches = body.match(/<!--\s*end auto-generated\s*-->/g) ?? [];
+    expect(matches.length).toBe(1);
+  });
+
   it('contains all 4 expected section headers in order', () => {
     const body = buildWelcomeNote({
       candidates: [],

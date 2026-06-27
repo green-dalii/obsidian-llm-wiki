@@ -529,7 +529,9 @@ export class AutoMaintainManager {
       },
       targetLanguage: this.settings.wikiLanguage || 'en',
       createdAt: new Date().toISOString().slice(0, 10),
-      smokeTestProbe: () => this.probeLlm(),
+      // smokeTestProbe wraps the sync probe in a resolved Promise so
+      // the ensure-welcome-note signature is satisfied.
+      smokeTestProbe: async () => this.probeLlm(),
       llmClient: llmClient ?? undefined,
       model: this.settings.model,
     });
@@ -602,12 +604,29 @@ export class AutoMaintainManager {
   }
 
   /**
-   * Minimal LLM probe (1-token call) for the Welcome note's smoke
-   * test. Returns the provider/model name on success or a structured
-   * error message on failure. Never throws — ensure-welcome-note wraps
-   * this with try/catch anyway, but defensive-by-default is cheaper.
+   * Local-only LLM configuration probe for the Welcome note's
+   * "Configuration Test" section. PURE-LOCAL — does NOT send a real
+   * LLM request. We check that the configuration fields are
+   * populated; the actual LLM reachability is verified the first time
+   * the user runs an ingest / query / lint (which uses the same
+   * llmClient that the Welcome translation would use).
+   *
+   * Why no real call:
+   *   1. Avoids burning tokens on every onload just to show a "✅ OK"
+   *      indicator. The user's real business call (ingest) is the
+   *      proof of life.
+   *   2. Thinking-capable models can return empty content for tiny
+   *      `max_tokens: 1` probes, which produces a misleading
+   *      "⚠️ Failed" even when the user's setup is correct.
+   *   3. Keeps the probe independent of LLMClient interface quirks
+   *      (no need to invent a max_tokens / enableThinking value).
+   *
+   * Returns the provider/model name on success, or a structured
+   * error message naming the missing field on failure. Never throws
+   * — ensure-welcome-note wraps this with try/catch anyway, but
+   * defensive-by-default is cheaper.
    */
-  private async probeLlm(): Promise<{ ok: boolean; provider?: string; model?: string; error?: string }> {
+  private probeLlm(): { ok: boolean; provider?: string; model?: string; error?: string } {
     const llmClient = (this.plugin as unknown as { llmClient: LLMClient | null }).llmClient;
     if (!llmClient) {
       return { ok: false, error: 'LLM client not configured. Open Settings → LLM Provider.' };
@@ -618,20 +637,11 @@ export class AutoMaintainManager {
     if (!this.settings.model) {
       return { ok: false, error: 'Model not selected.' };
     }
-    try {
-      await llmClient.createMessage({
-        model: this.settings.model,
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'hi' }],
-      });
-      return {
-        ok: true,
-        provider: this.settings.provider,
-        model: this.settings.model,
-      };
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) };
-    }
+    return {
+      ok: true,
+      provider: this.settings.provider,
+      model: this.settings.model,
+    };
   }
 
   // === Full Stop ===
