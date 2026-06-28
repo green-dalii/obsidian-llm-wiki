@@ -45,24 +45,11 @@ Closed 5 items from the v1.22.1 user-testing feedback loop:
 - ✅ **Periodic Lint refined: Off/Daily/Weekly/Monthly.** "Hourly" removed (unrealistic for LLM lint); existing `hourly` data auto-migrated to `daily`.
 - ✅ **Tests: 1054 passing.** +25 since v1.22.1.
 
-### Next Milestone: v1.23.0 (MINOR — Graph Engine direction)
+### Next Milestone: v1.23.0 — Graph Engine (current sprint)
 
-No proactive 11th language added. Two reasons:
-1. **No demonstrated unmet need**: zero open issues in any non-supported language. Adding L1-speaker-population languages (Russian/Arabic/Hindi) without user demand is misallocated effort.
-2. **Per-language maintenance cost is permanent**: every new UI feature must translate to N+1 languages, slowing future dev.
+No proactive 11th language — **contributor-driven only** (replicate PR #159 Italian pattern). Improving translation quality of existing 10 locales > adding the 11th.
 
-Future 11th language: **contributor-driven only** (replicate PR #159 Italian pattern). If a native speaker files a PR for Vietnamese/Indonesian/Polish/Turkish/Czech/Swedish/etc., review + merge. RTL languages (Arabic/Hebrew) need a separate feature for layout direction — defer to v1.24+ as standalone work.
-
-**Priority inversion:** improving translation quality of existing 10 locales (professional native review) **>** adding the 11th.
-
-### Next Milestone: v1.23.0 (MINOR — Graph Engine direction)
-
-- ⭐ **#198 — Personalized PageRank (PPR) over the `[[wiki-link]]` graph.** Closes #117 (Query Wiki relevance), #157 (hub detection), #175 (link distinctiveness) with one primitive. Monte Carlo PPR (Fogaras 2005) — K short random walks per query page, O(K×L) cost independent of |V|, embarrassingly parallel, Web Worker compatible. Hybrid guard: lex-match fallback when graph too small (min_pages / min_edges threshold). Tier B redesigned: zero-LLM section-extractor (parse `## Description` / `## Definition` at query time, ~30 LOC). Clustering retirement deferred to v1.24.0.
-
-### In Progress — v1.22.0 P2 (Feature batch — after P1 lands)
-
-- ⭐ **#185 — Propagate source-note frontmatter `aliases:` to generated wiki pages** (@DocTpoint). Source-note curated aliases are the highest-value signal for inflected languages (de/fr/es/pt/it) where one concept has many grammatical forms. Plan: extend `source-analyzer.ts` to extract source `aliases:`; `appendAliases` (post-#186 fix) appends them; opt-in via settings flag. Effort: 1 day.
-- ⭐ **#184 — Obsidian Bases for wiki index management** (@alfred1137). Replace LLM-rewritten `wiki/index.md` with a `.base` file querying frontmatter (`wiki-content`, `generation_complete`, `type`). Eliminates token waste + LLM drift on the index. `BasesView` API integration for re-feeding context to LLM. Opt-in / backward-compat. Effort: 2-3 days.
+- ⭐ **#198 — Personalized PageRank over the `[[wiki-link]]` graph.** Closes #117 (Query Wiki relevance), #157 (hub detection), #175 (link distinctiveness) with one primitive. Monte Carlo PPR (Fogaras 2005) — K short random walks per query page, O(K×L) cost independent of |V|, embarrassingly parallel. Hybrid guard: lex-match fallback when graph too small. Tier B redesigned: zero-LLM section-extractor. Clustering retirement deferred to v1.24.0.
 
 ### Implemented (v1.21.1) — #173 Symptom A Hotfix (2026-06-22)
 
@@ -73,10 +60,6 @@ Three open PRs from the 2026-06-19/20 triage, scoped for a single hotfix release
 - ✅ **PR #158 — Stage-4 reviewed guard** (@DocTpoint). `updateRelatedPage` now respects `reviewed: true` and routes to `appendToReviewedPage` (same as `createOrUpdatePage`). Closes a latent bug where re-ingesting an unrelated source would LLM-rewrite a curated `reviewed: true` page's body. 1 regression test using `NO_NEW_CONTENT` LLM response to prove "curated body survives"; +9/-0 LOC in `page-factory.ts`.
 
 **Hotfix rationale:** all 3 fixes are parity/latent-bug — they restore behavior that *should* have been there from the start. Single hotfix keeps change log coherent.
-
-### In Progress — v1.21.0 Schema Coherence Phase 1 (local branch `feat/v1.21.0-schema-coherence-phase1`)
-
-Address Issue #124 (hardcoded page section structure) via `SchemaContext` + `buildSchemaSectionTemplate`. Also fixes Issue #97's prerequisite: schema as single source of truth before one-click apply can deliver value. Schema Phase 2 (generation.ts wired to schema template + custom section names) and Phase 3 (#97 auto-backup) follow.
 
 ### Implemented (v1.20.2) — Anthropic Fallback System-Role Hotfix (2026-06-19)
 
@@ -171,135 +154,103 @@ Stays local until user-in-the-wild signals other P0 issues for a single release.
 
 ---
 
-## Next Milestone: v1.23.0 — Graph Engine (MINOR feature)
+## Next Milestone: v1.23.0 — Graph Engine (current sprint)
 
-### Direction (under public discussion — see tracking Issue)
+**Phase 5.1.5 COMPLETE** (Welcome note onboarding + Multi-File Suggest modal + IngestQueue). **Core PPR modules IMPLEMENTED** (MC-PPR engine, section-extractor, hub-detection, PPR cold-start cascade). **1257 tests, 94 files.**
 
-A single graph-native engine (`core/graph-engine.ts`) powered by **Personalized PageRank** (Haveliwala 2002) over the existing `[[wiki-link]]` graph. One primitive, many consumers — closes #117, #157, #175 simultaneously:
+### v1.23.0 Priority Order
 
-| Consumer | Existing Issue | PPR-derived metric |
-|----------|----------------|-------------------|
-| Hub detection | #117 | `inDegree + PageRank` + retirement via local clustering coefficient (@DocTpoint 2026-06-23) |
-| Link distinctiveness | #157 | `shared-link(P,T) / PageRank(T)` (replaces embedding cosine) |
-| Query retrieval (Tier A) | (replaces ROADMAP §Query Engine Evolution Tier A) | PPR seeded at query page → top-k by score |
-| Dead-link hub check | #197 | "Is the target a retiring/mature hub?" signal |
-| Multi-hop traversal | (replaces Tier C) | PPR multi-seed iteration |
+#### ✅ Phase 5.1.5 — UX Onboarding + Multi-File Ingest (COMPLETE)
+- ✅ **Three-tier first-run Welcome note** (Tier A empty / Tier B existing / Tier C upgrade). D8 dynamically translated (1 EN template → user's wiki language at write time via LLM). `type: welcome` frontmatter, `createWelcomeNote` toggle, `Recreate Welcome Note` command.
+- ✅ **#130 Multi-File Suggest modal** — recursive folder tree, live right-pane progress, per-file cancel, "Add to queue" two-step flow. No auto-enqueue.
+- ✅ **IngestQueue** (pub/sub store) — single source of truth for in-session ingest lifecycle. 25 tests.
+- ✅ **i18n across 10 locales** — welcome note + modal UI + status strings (14 new keys per locale).
 
-### Tier B (summary) — REDESIGNED
+#### ✅ P0 — Blockers (COMPLETE)
+| # | Task | Status |
+|---|------|--------|
+| P0-1 | CC0 synthetic 50-page eval fixture at `src/__tests__/fixtures/wikis/sample-50page/` | ✅ |
+| P0-2 | Eval script: lex-only vs lex-seeded-PPR vs graph-first-PPR recall@k | ✅ |
+| P0-3 | CLAUDE.md P0 table cleanup | ✅ |
 
-Original Tier B: per-query LLM call to generate summary.
-**Revised**: zero LLM cost — extract `## Description` / `## Definition` section from the existing page body at query time (`core/section-extractor.ts`, ~30 lines, no frontmatter pollution, no migration needed for old wikis).
+#### ✅ P1 — Core Graph Engine modules (COMPLETE)
+| # | Module | LOC | Status |
+|---|--------|-----|--------|
+| P1-1 | `core/section-extractor.ts` (Tier B — zero-LLM) | 173 | ✅ |
+| P1-2 | `core/monte-carlo-ppr.ts` (Fogaras 2005 MC-PPR engine) | 99 | ✅ |
+| P1-3 | `core/hub-detection.ts` (#117) — clustering retirement separate (P3-1) | 134 | ✅ |
+| P1-4 | `core/ppr-cascade.ts` (hybrid guard, replaces Web Worker) | 213 | ✅ |
+| P1-7 | Hybrid guard (lex fallback cascade) | — | ✅ (folded into P1-4) |
 
-### Tier D (agentic) — Deferred to v1.25.0+
-
-Requires LLM function-calling support across all providers (Anthropic ✅, OpenAI ✅, Gemini ✅, Ollama partial, others unstable). Out of scope until provider matrix stabilizes.
-
-### v1.23.0 Scope (provisional, depends on Issue discussion outcome)
-- `core/ppr.ts` — pure PPR engine (~80 LOC, O(V+E·iter), pure JS, zero deps)
-- `core/section-extractor.ts` — markdown section extractor (~30 LOC)
-- `core/hub-detection.ts` — degree + clustering retirement (~50 LOC)
-- `core/link-distinctiveness.ts` — shared-link ratio (~40 LOC)
-- `wiki/query-engine.ts` — replace lex match with PPR top-k retrieval
-- Lint integration: use PPR signals in hub-link strip (#157 path)
-- Estimated: ~200 LOC core, ~30 LOC query integration, 30+ tests
-
-### v1.23.0 Implementation Priority (2026-06-27 kickoff)
-
-**Status:** Design phase COMPLETE in #198 (2026-06-24 consensus: Monte Carlo PPR per Fogaras 2005, NOT power-iteration; Tier B = zero-LLM section extraction; hub retirement deferred to v1.24.0). Implementation kickoff comment posted 2026-06-27. See `~/.claude/projects/.../memory/project_v1.23.0_implementation_plan.md` for full plan.
-
-#### P0 — Blockers (must resolve before P1)
-
-| # | Task | Estimated | Status |
-|---|------|-----------|--------|
-| P0-1 | CC0 synthetic 50-page eval fixture at `src/__tests__/fixtures/wikis/sample-50page/` | 1 day | ❌ not started |
-| P0-2 | Eval script: lex-only vs lex-seeded-PPR vs graph-first-PPR recall@k | 0.5 day | ❌ |
-| P0-3 | CLAUDE.md P0 table cleanup (v1.22.1 stale → v1.22.4 PATCH) | 5 min | ✅ 2026-06-27 |
-
-#### P1 — Core modules (Graph Engine body)
-
+#### 🔄 P1 — Remaining (in progress)
 | # | Module | LOC | Depends on | Status |
 |---|--------|-----|------------|--------|
-| P1-1 | `core/section-extractor.ts` (Tier B) | ~30 | none | ❌ not started |
-| P1-2 | `core/monte-carlo-ppr.ts` (renamed from `core/ppr.ts`) | ~30 | P0-1 | ❌ |
-| P1-3 | `core/hub-detection.ts` (#117 consumer) — **clustering retirement deferred to v1.24.0** | ~50 | P1-2 | ❌ |
-| P1-4 | Web Worker wrapper for PPR | ~30 | P1-2 | ❌ |
-| P1-5 | Query Wiki integration (replace lex Tier A with PPR top-k) | ~30 | P1-2 + P1-4 | ❌ |
-| P1-6 | Lint integration: #157 path (hub-link strip uses PPR) | ~40 | P1-3 | ❌ |
-| P1-7 | Hybrid guard (lex fallback cascade per @GioiaZheng) | ~10 | none | ❌ |
+| P1-5 | Query Wiki integration (replace lex Tier A with PPR top-k) | ~30 | P1-2 + P1-4 | 🔄 pending |
+| P1-6 | Lint integration: #157 path (hub-link strip uses PPR) | ~40 | P1-3 | ❌ not started |
 
-**Total P1:** ~5 days (consistent with #198 ROI table)
+#### 🔄 P2 — Remaining (after P1-5)
+| # | Task | Effort | Status |
+|---|------|--------|--------|
+| P2-2 | Settings: cold-start threshold exposure (min_pages / min_edges) | 0.5 day | ❌ |
+| P2-3 | P0-2 eval report → ROADMAP as acceptance gate | 0.5 day | ❌ |
 
-#### P2 — UX + integration
+#### Deferred P1 — Cleanup (from v1.18.x, lower ROI)
+| # | Item | Effort | Status |
+|---|------|--------|--------|
+| D1 | page-factory resolvePagePath LLM fallback + merge + append tests | 1 day | Deferred |
+| D2 | LintFixer class split (707-line god class → 6 module functions) | 1 day | Deferred |
 
-| # | Task | Estimated |
-|---|------|-----------|
-| P2-1 | First-run welcome note — three-tier user coverage (per @DocTpoint #198 comment 5, refined 2026-06-27) | 1 day |
-| P2-2 | Settings: cold-start threshold exposure (min_pages / min_edges) | 0.5 day |
-| P2-3 | P0-2 eval report → ROADMAP as v1.23.0 acceptance gate | 0.5 day |
+#### Deferred P2 — Test infrastructure (high mock complexity)
+| # | Item | Effort | Reason |
+|---|------|--------|--------|
+| T1 | wiki-engine ingestSource full-path integration tests | 2-3 days | Requires Obsidian App + 5 submodule mocks |
+| T2 | query-engine core flow tests (Layer 1/2/3) | 1-2 days | Requires Modal + MarkdownRenderer + DOM mocks |
 
-**P2-1 detail — three-tier user coverage:**
+#### Deferred P3 — Backlog
+| # | Item | Effort |
+|---|------|--------|
+| B1 | LintFixer class → module-level functions | 1 day |
+| B2 | Restore true streaming for 3rd-party providers | 1-2 days |
+| B3 | Missing Concept Pages tracker | 2 days |
 
-The plugin auto-detects which user tier is present and tailors onboarding
-accordingly. Detection happens at plugin load by checking `wikiFolder`
-existence and the count of `.md` files in the vault root:
-
-- **Tier A (empty vault)**: `wikiFolder` missing, vault has zero `.md`
-  files. Plugin shows a brief Notice pointing to a docs link
-  ("Create your first source note and run Ingest"). **No Welcome
-  note is created** — an empty vault has no source notes to seed
-  from, and the Welcome note's `## Initial Source Suggestions`
-  section would be empty.
-- **Tier B (existing vault, no wiki)**: `wikiFolder` missing, vault
-  has ≥1 `.md` file. Plugin creates `<wikiFolder>/Welcome.md` with
-  a 5-section template: `## Domains` (user fills), `## Initial Source
-  Suggestions` (plugin pre-fills with up to 10 candidate notes from
-  vault root, user checks 2-3), `## Wiki Scope` (user fills, optional),
-  `## Configuration Test` (plugin auto-maintains as LLM smoke test
-  signal), and a closing `<!-- end auto-generated -->` block. Plugin
-  shows a 5s Notice pointing to the new note. The 5-seed
-  onboarding that @DocTpoint originally proposed is collapsed into
-  the `## Initial Source Suggestions` section — user checks notes
-  in the note rather than in a separate Modal. **Lower friction than
-  Modal**: user reads at their own pace.
-- **Tier C (existing wiki, v1.22.x upgrade)**: `wikiFolder` exists
-  with content. Plugin does nothing — no Welcome note, no Notice.
-  v1.23.0 PPR enhancements apply transparently to existing wikis.
-  Silent upgrade.
-
-**`type: welcome` frontmatter identifier** is used by the ingest
-pipeline to **skip** Welcome notes (they're metadata, not content).
-The plugin **still reads** Welcome notes to extract `## Domains`
-into `settings.tagVocab` and `## Initial Source Suggestions` into
-ingest UI recommendations — the read and ingest-skip are separate
-code paths.
-
-**Settings toggle**: `createWelcomeNote` boolean (default ON) lets
-users opt out. Existing Welcome notes are never auto-deleted by
-the plugin (user data is user's data); a `Recreate Welcome Note`
-command under Command Palette re-creates the file if user deleted
-it manually.
-
-**5-seed Modal deferred**: @DocTpoint's original Modal-based
-onboarding (a separate UI surface asking the user to pick 5 notes)
-is **not** implemented in v1.23.0. The Welcome note's
-`## Initial Source Suggestions` section serves the same purpose with
-lower friction. If v1.23.0 adoption data shows Tier B users
-struggle with the note-based onboarding, Modal-based 5-seed can be
-revisited in v1.24.0+.
-
-
-
-#### P3 — Explicitly deferred to v1.24.0+
-
+#### Explicitly deferred to v1.24.0+
 | # | Project | Source | Target |
 |---|---------|--------|--------|
 | P3-1 | Hub retirement (clustering coefficient) | #117 (v2) | v1.24.0 (@DocTpoint owns) |
-| P3-2 | Per-operation model selection | #208 (deferred 2026-06-27) | v1.24.0 |
+| P3-2 | Per-operation model selection | #208 | v1.24.0 |
 | P3-3 | Link distinctiveness as standalone module | #157 v2 | v1.24.0+ |
-| P3-4 | Embeddings as opt-in enrichment | #175 | v1.25.0+ |
+| P3-4 | **Embeddings rejected** (2026-06-28 decision: not v1.25.0, not ever — graph + cascade sufficient) | #175 | REJECTED |
 | P3-5 | Tier D (agentic with tool calls) | ROADMAP | v1.25.0+ |
+| #185 | Source-note alias propagation (@DocTpoint) | — | v1.24.0+ |
+| #184 | Obsidian Bases index management (@alfred1137) | — | v1.24.0+ |
+| #130 | In-place batch ingest queue — **DONE (Phase 5.1.5)** | — | ✅ |
+| #182 | Obsidian Keychain (security) | — | v1.24.0+ |
 
-### v1.23.0 Cold-start thresholds (consensus from #198 Q3, @GioiaZheng)
+#### Explicitly deferred to v1.25.0+ (research / experimental)
+| # | Item | Notes |
+|---|------|-------|
+| — | #112 Event marker/type | Domain modeling |
+| — | #168 Auto granularity | Independent heuristic |
+| — | #91 Nested tags | Depends on #85 in-the-wild feedback |
+| — | Tier D (agentic loop) | Function-calling support matrix |
+
+#### Evaluated & Rejected
+| Proposal | Source | Reason |
+|----------|--------|--------|
+| Hexagonal Architecture refactoring | Audit 1 | Over-engineering for Obsidian plugin |
+| Vector search (Ollama embeddings) | Audit 1 | <1% of users have Ollama |
+| Embeddings as opt-in enrichment (#175) | 2026-06-28 | Link graph + cascade sufficient for all PPR use cases |
+| Hash-bucket dedup optimization | Audit 1 | No user-reported perf issue |
+| page-factory try/catch completion | Audit 2 | Exceptions bubble to centralized handler by design |
+| API URL validation | Audit 1 | requestUrl already validates |
+| #36 Source title in frontmatter | — | Needs clarification from issue author |
+
+#### Out of scope
+- #142 Multiple wikis — workaround: wikiFolder switch
+- Restore true streaming for 3rd-party providers
+- Lint perf — hash-bucket dedup prefilter
+
+### v1.23.0 Cold-start thresholds (from @GioiaZheng, consensus #198 Q3)
 
 Conservative cascade — will tune with P0-1 fixture:
 
@@ -313,35 +264,6 @@ Fallback arm selection:
 1. `pages < 30` OR `edges < pages` OR `seed_degree == 0` → pure lex/title match
 2. `seed_degree >= 1` AND graph has neighbors → lex-seeded MC-PPR
 3. All global guards passed → graph-first MC-PPR
-
-### Deferred to v1.24.0+ (lower ROI, lower coupling)
-- #185 source-note alias propagation (independent feature, opt-in flag, 1 day)
-- #184 Obsidian Bases index management (schema path, 2-3 days)
-- #130 in-place batch ingest queue (depends on #184)
-- #182 Obsidian Keychain (security hardening, independent)
-
-### Deferred to v1.25.0+ (research / experimental)
-- #112 Event marker/type (domain modeling)
-- #168 Auto granularity (independent heuristic)
-- #91 Nested tags (depends on #85 in-the-wild feedback)
-- ROADMAP Tier D — agentic loop (function-calling support matrix)
-- ROADMAP Tier B (original) — **superseded by `section-extractor` design above**
-- ROADMAP Tier C (original) — **superseded by PPR multi-seed (no separate in-memory graph needed)**
-
-### Out of scope
-- #36 Source title in frontmatter — needs clarification from issue author
-- #142 Multiple wikis — long-term, workaround: wikiFolder switch
-- P3 test infrastructure — wiki-engine + query-engine full-path integration tests
-- Restore true streaming for 3rd-party providers
-- Lint performance — hash-bucket dedup prefilter, hierarchical health analysis
-
-### v1.20.0+ Theme — Query Engine Evolution (REVISED 2026-06-23)
-
-~~Query engine is currently a "structured-context RAG"...~~ **DEPRECATED.**
-
-**New direction** (see v1.23.0 Graph Engine above): the [[wiki-link]] graph + PPR replaces the heuristic tier ladder. Tier A = PPR retrieval. Tier B = section-extractor (zero LLM). Tier C = PPR multi-seed. Tier D = agentic (v1.25.0+).
-
-Documented in `~/.claude/projects/.../memory/project_v1.23.0_graph_engine.md`.
 
 ---
 

@@ -26,6 +26,14 @@ export interface PageRef {
   path: string;
   title: string;
   aliases: string[];
+  /**
+   * Optional text representation of the page — typically the summary
+   * line from the wiki index. When provided, lexMatch uses this in
+   * addition to title/aliases. The full text makes matching robust
+   * across languages (e.g. CJK queries about English-topic pages still
+   * match because the summary mentions the topic).
+   */
+  summary?: string;
 }
 
 export interface PageMatch {
@@ -42,6 +50,13 @@ export interface PPRCascadeOptions {
   seedMinDegree?: number;
   topN?: number;
   pprOptions?: PPROptions;
+  /**
+   * Explicit seed list (typically from LLM semantic selection).
+   * When provided AND non-empty, these seeds drive PPR walks instead of
+   * the implicit lex top-3. Validated against graph.nodes; invalid seeds
+   * (not in graph) are silently dropped.
+   */
+  seeds?: string[];
   /** Optional RNG (mulberry32 helper) for deterministic PPR sampling. */
   rng?: () => number;
 }
@@ -53,22 +68,67 @@ const DEFAULT_SEED_MIN_DEGREE = 1;
 const DEFAULT_TOP_N = 10;
 
 /**
- * Lex-only match: scores pages by query keyword overlap with title +
- * aliases. Returns scored-and-sorted matches.
+ * Tokenize a query into individual searchable terms. Language-aware:
+ *
+ * - ASCII runs of length ≥ 3 are extracted (handles mixed-language queries
+ *   like "什么是Obsidian？" → "obsidian")
+ * - Whitespace-split tokens (length ≥ 2) are kept
+ * - CJK characters are kept as single-char terms so a single CJK
+ *   character can match a single CJK character in a title
+ *
+ * All tokens are lowercased and de-duplicated.
+ */
+export function tokenizeQuery(query: string): string[] {
+  if (!query) return [];
+  const tokens = new Set<string>();
+  const queryLower = query.toLowerCase();
+
+  const asciiRuns = queryLower.match(/[a-z0-9]{3,}/g);
+  if (asciiRuns) for (const r of asciiRuns) tokens.add(r);
+
+  for (const t of queryLower.split(/\s+/)) {
+    if (t.length >= 2) tokens.add(t);
+  }
+
+  const cjk = query.match(/[一-鿿぀-ゟ゠-ヿ]/g);
+  if (cjk) for (const c of cjk) tokens.add(c.toLowerCase());
+
+  return [...tokens];
+}
+
+/**
+ * Lex-only match: scores pages by per-token keyword overlap against the
+ * page's full text representation (title + aliases + optional summary).
+ *
+ * Robust across languages because:
+ * - The summary provides context the LLM also uses
+ * - tokenizeQuery extracts ASCII runs from mixed-language queries
+ *
+ * Scoring per query token (first matching location wins):
+ * - title match: 3
+ * - alias match: 2
+ * - summary match: 1
+ *
+ * Page-level bonus:
+ * - all query tokens found in page text: +2 (strong relevance signal)
  */
 function lexMatch(query: string, pages: PageRef[]): PageRef[] {
-  const keywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 0);
-  if (keywords.length === 0) return [];
+  const tokens = tokenizeQuery(query);
+  if (tokens.length === 0) return [];
   const scored: { page: PageRef; score: number }[] = [];
   for (const page of pages) {
-    let score = 0;
     const titleLower = page.title.toLowerCase();
-    for (const kw of keywords) {
-      if (titleLower.includes(kw)) score += 3;
-      for (const alias of page.aliases) {
-        if (alias.toLowerCase().includes(kw)) score += 2;
-      }
+    const aliasLowers = page.aliases.map(a => a.toLowerCase());
+    const summaryLower = (page.summary ?? '').toLowerCase();
+
+    let score = 0;
+    let tokensFound = 0;
+    for (const kw of tokens) {
+      if (titleLower.includes(kw)) { score += 3; tokensFound++; }
+      else if (aliasLowers.some(a => a.includes(kw))) { score += 2; tokensFound++; }
+      else if (summaryLower.includes(kw)) { score += 1; tokensFound++; }
     }
+    if (tokensFound === tokens.length && tokens.length > 1) score += 2;
     if (score > 0) scored.push({ page, score });
   }
   return scored.sort((a, b) => b.score - a.score).map(s => s.page);
@@ -138,6 +198,15 @@ function pprFromSeeds(
   return merged;
 }
 
+/**
+ * Filter user-provided seeds to those present in the graph. Returns an
+ * empty array if no valid seeds (caller should fall back to other arms).
+ */
+function filterSeedsToGraph(seeds: string[], graph: Graph): string[] {
+  const nodeSet = new Set(graph.nodes);
+  return seeds.filter(s => nodeSet.has(s));
+}
+
 export function pprCascade(
   query: string,
   pages: PageRef[],
@@ -146,11 +215,24 @@ export function pprCascade(
   const topN = options.topN ?? DEFAULT_TOP_N;
   const lex = lexMatch(query, pages);
   const graph = options.graph;
+  // Explicit seeds (from LLM) take precedence over implicit lex seeds.
+  // Filter to graph nodes upfront — invalid seeds silently dropped.
+  const explicitSeeds = options.seeds && graph
+    ? filterSeedsToGraph(options.seeds, graph)
+    : [];
 
   // Arm 1: pure lex if no graph or graph not mature.
   if (!graph || !isGraphMature(graph, options)) {
-    // For the sparse arm, we still try lex-seeded PPR if seeds are
-    // available and have neighbors.
+    // For the sparse arm, prefer explicit seeds if provided and they
+    // have graph neighbors; otherwise fall back to lex-derived seeds.
+    if (graph && explicitSeeds.length > 0) {
+      const seedMinDegree = options.seedMinDegree ?? DEFAULT_SEED_MIN_DEGREE;
+      const validSeeds = explicitSeeds.filter(s => (graph.edges.get(s)?.length ?? 0) >= seedMinDegree);
+      if (validSeeds.length > 0) {
+        const pprScores = pprFromSeeds(graph, validSeeds, options.pprOptions, options.rng);
+        return mergeWithPPR(lex, pprScores, pages, topN, 'lex-seeded-ppr');
+      }
+    }
     if (graph && lex.length > 0) {
       const seedMinDegree = options.seedMinDegree ?? DEFAULT_SEED_MIN_DEGREE;
       const seedPaths = lex.slice(0, 3).map(p => p.path);
@@ -160,15 +242,24 @@ export function pprCascade(
         return mergeWithPPR(lex, pprScores, pages, topN, 'lex-seeded-ppr');
       }
     }
+    // No usable graph seeds AND no lex matches → return what lex has,
+    // or empty. (Degree-rank fallback removed: the LLM seeds path in
+    // buildWikiContext now handles this case upstream.)
     return lex.slice(0, topN).map(page => ({ page, score: lexScoreOf(page, lex), arm: 'lex' }));
   }
 
-  // Arm 3: graph-first PPR. We use a generic seed (the first page or
-  // the query's first keyword) — the graph structure itself does the
-  // work of bringing relevant pages to the top.
-  const seed = pages.length > 0 ? pages[0].path : null;
-  if (!seed) return [];
-  const pprScores = pprFromSeeds(graph, [seed], options.pprOptions, options.rng);
+  // Arm 3: graph-first PPR. Use explicit seeds if provided; otherwise
+  // use the first page as a generic seed (the graph structure does the
+  // work of bringing relevant pages to the top).
+  let seedList: string[];
+  if (explicitSeeds.length > 0) {
+    seedList = explicitSeeds;
+  } else if (pages.length > 0) {
+    seedList = [pages[0].path];
+  } else {
+    return [];
+  }
+  const pprScores = pprFromSeeds(graph, seedList, options.pprOptions, options.rng);
   return mergeWithPPR(lex, pprScores, pages, topN, 'graph-first-ppr');
 }
 

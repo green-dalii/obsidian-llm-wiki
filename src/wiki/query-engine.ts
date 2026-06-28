@@ -6,10 +6,14 @@ import { TEXTS } from '../texts';
 import { WIKI_LANGUAGES } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../core/json';
-import { parseIndexForPages, localKeywordMatch } from '../core/index-search';
+import { parseIndexForPages } from '../core/index-search';
 import { normalizeWikiLinkContent } from '../core/prompt-builders';
 import { extractThinkingBlocks } from '../core/markdown';
-import { MAX_PAGE_CONTENT_CHARS, TOKENS_QUERY_PAGE_SELECT, TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
+import { MAX_PAGE_CONTENT_CHARS, TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
+import { pprCascade, type PageRef } from '../core/ppr-cascade';
+import { buildGraphFromContent, type LoadedPage } from '../core/build-graph';
+import { extractSummaryFromPage } from '../core/section-extractor';
+import { getSectionLabels } from './system-prompts';
 
 /**
  * v1.20.0: Render extracted thinking blocks as a <details> collapsible
@@ -170,6 +174,12 @@ export class QueryView extends ItemView {
   historyCountDisplay: HTMLElement;
   private pendingInput: string;
   private activeRenderComponent: Component | null;
+  /** Cached graph for PPR — built lazily from loaded page content. */
+  private _graph: ReturnType<typeof buildGraphFromContent> | null = null;
+  /** Cached section labels for Tier B extraction (settings don't change mid-query). */
+  private _sectionLabels: ReturnType<typeof getSectionLabels> | null = null;
+  /** Last PPR cascade result — for displaying retrieval source in the response UI. */
+  private _lastRetrieval: { arm: string; count: number; topPaths: string[] } | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: LLMWikiPlugin) {
     super(leaf);
@@ -575,6 +585,7 @@ export class QueryView extends ItemView {
     if (lastMsg && lastMsg.role === 'assistant' && messageDiv) {
       contentDiv.setAttribute('data-raw-content', lastMsg.content);
       this.addCopyButton(messageDiv, contentDiv);
+      this.addRetrievalLabel(messageDiv);
       messageDiv.removeClass('llm-wiki-query-response-live');
     }
 
@@ -714,6 +725,32 @@ export class QueryView extends ItemView {
     });
   }
 
+  /**
+   * Add a persistent retrieval-arm label below the message body.
+   * Surfaces the PPR cascade arm choice so users (and devs reading the
+   * rendered chat) can see which retrieval method was used.
+   * Skipped silently if no retrieval metadata was captured.
+   */
+  private addRetrievalLabel(messageWrapper: HTMLElement): void {
+    if (!this._lastRetrieval) return;
+    const r = this._lastRetrieval;
+    const armDisplay = r.arm === 'none'
+      ? '—'
+      : r.arm
+          .split('/')
+          .map(a => {
+            if (a === 'PPR+LLM') return '🔗 PPR+LLM';
+            if (a === 'PPR') return '🔗 PPR';
+            if (a === 'PPR+') return '🔗 PPR+';
+            return '📇 index';
+          })
+          .join(' · ');
+    const label = messageWrapper.createDiv({
+      cls: 'llm-wiki-query-retrieval-label',
+    });
+    label.setText(`🔍 ${r.count} page(s) · ${armDisplay}`);
+  }
+
   limitHistory() {
     const max = this.plugin.settings.maxConversationHistory;
     const totalMessages = this.history.messages.length;
@@ -804,48 +841,91 @@ export class QueryView extends ItemView {
         return `IMPORTANT: You MUST write ALL responses in ${langName}.\n\nYou are a Wiki assistant. The Wiki is empty. Please answer based on your knowledge and suggest the user ingest sources first.`;
       }
 
-      // Phase: Searching for relevant pages — Layer 1 local keyword match first
+      // Phase: Searching for relevant pages — PPR cascade
       onProgress?.(texts.queryPhaseSearching);
 
-      let relevantPages: string[];
-
+      // Step 2: Parse index into PageRef[] for the pprCascade.
       const allPages = parseIndexForPages(indexContent);
-      const localMatches = localKeywordMatch(userMessage, allPages);
+      const pageRefs: PageRef[] = allPages.map(p => ({
+        path: p.path,
+        title: p.title,
+        aliases: p.aliases,
+        summary: p.summary,
+      }));
+      const allPaths = new Set(allPages.map(p => p.path));
 
-      // High confidence: 2+ keyword hits in titles and at least 3 matches
-      const highConfidence = localMatches.filter(p => p.score >= 6);
-      if (highConfidence.length >= 3) {
-        console.debug('[Step 2] Local keyword high-confidence match, skipping LLM selection:', highConfidence.length, 'pages');
-        relevantPages = highConfidence.slice(0, 5).map(p => p.path);
-      } else if (localMatches.length > 0) {
-        // Medium confidence: narrow candidates to top 15 then use LLM to refine
-        console.debug('[Step 2] Local keyword medium match, LLM refining from', localMatches.length, 'candidates');
-        const candidateList = localMatches.slice(0, 15).map(p =>
-          `- ${p.path} \`aliases: ${p.aliases.join(', ')}\``
-        ).join('\n');
-        relevantPages = await this.selectRelevantPagesWithLLM(userMessage, candidateList);
-      } else {
-        // No local match: fall back to full LLM scan of entire index
-        console.debug('[Step 2] No local keyword match, full LLM selection');
-        relevantPages = await this.selectRelevantPagesWithLLM(userMessage, indexContent);
+      // === Tier 1: FAST PATH (lex-based) ===
+      // Run the PPR cascade first — uses lex + graph structure.
+      const matches = pprCascade(userMessage, pageRefs, {
+        graph: this._graph ?? undefined,
+        topN: 5,
+      });
+
+      // === Tier 2: LLM AUGMENTATION (only when fast path is weak) ===
+      // Trigger: lex returned no hits OR top hit has score < 2 (i.e.
+      // matched only in summary, not title/alias). At that point the
+      // LLM's semantic understanding gives better seeds than lex alone.
+      const maxScore = matches.length > 0 ? matches[0].score : 0;
+      const needsLLMSeeds = matches.length === 0 || maxScore < 2;
+      let finalMatches = matches;
+      if (needsLLMSeeds) {
+        console.debug(`[Step 2b] LLM seed selection triggered (maxScore=${maxScore}, lexHits=${matches.length})`);
+        const llmSeeds = await this.selectSeedsWithLLM(userMessage, pageRefs);
+        console.debug(`[Step 2b] LLM returned ${llmSeeds.length} seeds:`, llmSeeds);
+        if (llmSeeds.length > 0) {
+          // Re-run cascade with LLM-provided seeds.
+          finalMatches = pprCascade(userMessage, pageRefs, {
+            graph: this._graph ?? undefined,
+            topN: 5,
+            seeds: llmSeeds,
+          });
+          console.debug(`[Step 2b] Cascade with LLM seeds returned ${finalMatches.length} pages`);
+        }
       }
 
-      // Phase: Found pages count with names
+      let relevantPages = finalMatches.map(m => m.page.path);
+
+      // === PPR cascade debug signals ===
+      const arms = new Set(finalMatches.map(m => m.arm));
+      const armInfo = [...arms].map(a =>
+        a === 'graph-first-ppr' ? 'PPR' : a === 'lex-seeded-ppr' ? 'PPR+' : 'index'
+      ).join('/');
+      const llmAugmented = needsLLMSeeds && finalMatches.some(m => m.score > 0);
+      const armDisplay = llmAugmented ? `${armInfo}+LLM` : armInfo;
       const pageNames = relevantPages.map(p => p.split('/').pop() || p).join(', ');
       const foundText = texts.queryPhaseFoundPages
         .replace('{count}', relevantPages.length.toString())
         .replace('{pages}', pageNames);
-      onProgress?.(foundText);
+      onProgress?.(`${foundText} · ${armDisplay}`);
+      console.debug(`[Step 2] PPR cascade selected ${relevantPages.length} pages (arm: ${armDisplay || 'none'})`);
+      console.debug(`[Step 2]   top-5 paths:`, finalMatches.slice(0, 5).map(m => `${m.page.path} (${m.arm}, score=${m.score.toFixed(3)})`));
+      console.debug(`[Step 2]   query tokens:`, userMessage.toLowerCase().split(/\s+/).filter(k => k.length > 0));
+      console.debug(`[Step 2]   graph state: ${this._graph ? `${this._graph.nodes.length} nodes / ${this._graph.edges.size} edges` : 'none'}`);
+      console.debug(`[Step 2]   LLM augmentation: ${needsLLMSeeds ? 'triggered' : 'skipped (fast path sufficient)'}`);
+
+      // Persist retrieval metadata for the response UI label.
+      this._lastRetrieval = {
+        arm: armDisplay || 'none',
+        count: relevantPages.length,
+        topPaths: relevantPages.slice(0, 5),
+      };
 
       // Phase: Loading pages
       onProgress?.(texts.queryPhaseLoadingPages);
 
       console.debug('[Step 3] Loading page content...');
-      const pagesContent = await this.loadRelevantPages(relevantPages);
-      console.debug('[Step 3] Pages loaded:', pagesContent.length);
-      pagesContent.forEach((content, i) => {
-        console.debug(`[Step 3] page content length:`, content.length);
-      });
+      const rawLoadedPages = await this.loadRelevantPages(relevantPages);
+      console.debug('[Step 3] Pages loaded:', rawLoadedPages.length);
+
+      // Build the graph from loaded pages (first query only, then cached).
+      if (!this._graph) {
+        const loadedForGraph: LoadedPage[] = relevantPages.map((path, i) => ({
+          path,
+          content: rawLoadedPages[i] || '',
+        }));
+        this._graph = buildGraphFromContent(loadedForGraph, allPaths, this.plugin.settings.wikiFolder);
+        console.debug('[Step 3] Graph built:', this._graph.nodes.length, 'nodes,', this._graph.edges.size, 'edges');
+      }
 
       // Phase: Context ready, about to generate
       onProgress?.(texts.queryPhaseContextReady);
@@ -853,6 +933,12 @@ export class QueryView extends ItemView {
       const lang = this.plugin.settings.wikiLanguage || 'en';
       const langName = WIKI_LANGUAGES[lang] || lang;
       const langDirective = `IMPORTANT: You MUST write ALL responses in ${langName}. Every answer, explanation, and label must be in ${langName}.`;
+
+      // Build a shorter note for the context: which arm was used.
+      const retrievalNote = matches.length > 0
+        ? `(Pages selected via ${armInfo} retrieval.)`
+        : '(No relevant pages found. The LLM should answer from general knowledge.)';
+
       const wikiContext = `${langDirective}
 
 You are a Wiki assistant with access to a structured knowledge base.
@@ -861,7 +947,9 @@ Wiki Index:
 ${indexContent}
 
 Relevant Wiki Pages (loaded with full content):
-${pagesContent.length > 0 ? pagesContent.join('\n\n---\n\n') : 'No directly relevant pages found in Wiki.'}
+${rawLoadedPages.length > 0 ? rawLoadedPages.join('\n\n---\n\n') : 'No directly relevant pages found in Wiki.'}
+
+${retrievalNote}
 
 Instructions:
 - Answer based on the Wiki pages above (not general knowledge)
@@ -902,60 +990,6 @@ Respond in ${langName}`;
     }
   }
 
-  async selectRelevantPagesWithLLM(query: string, indexContent: string): Promise<string[]> {
-    console.debug('=== LLM page selection started ===');
-
-    const prompt = `You are a Wiki page selector. Given a user query and the Wiki index, select the most relevant pages.
-
-User Query: "${query}"
-
-Wiki Index:
-${indexContent}
-
-Task:
-1. Read the Wiki index above
-2. Identify pages that are MOST relevant to the user's query
-3. Pay special attention to \`[aliases]\` in backtick-brackets after page names — these are alternative names, abbreviations, or translations. A user asking "DSA" may be referring to a page with alias "DSA" under a different title.
-4. Consider page titles, summaries, aliases, and semantic relevance
-5. Select top 3-5 most relevant pages
-
-Output Format (strict JSON):
-{
-  "relevant_pages": [
-    "entities/page-name-1",
-    "concepts/page-name-2",
-    "sources/page-name-3"
-  ]
-}
-
-Important:
-- Output ONLY the JSON object, no other text
-- Page paths should match the format in Wiki links: "entities/name", "concepts/name", "sources/name"
-- If no pages are relevant, output: {"relevant_pages": []}`;
-
-    try {
-      console.debug('[LLM] Sending selection request...');
-      const response = await this.plugin.llmClient!.createMessage({
-        model: this.plugin.settings.model,
-        max_tokens: TOKENS_QUERY_PAGE_SELECT,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),
-      });
-
-      console.debug('[LLM] Raw response:', response);
-
-      const parsed = await parseJsonResponse(response) as { relevant_pages?: string[] } | null;
-      const pages = parsed?.relevant_pages || [];
-
-      console.debug('[Parse OK] Page list:', pages);
-      return pages;
-    } catch (error) {
-      console.error('[LLM selection failed]', error);
-      return [];
-    }
-  }
-
   async loadRelevantPages(pageTitles: string[]): Promise<string[]> {
     console.debug('=== loadRelevantPages started ===');
     console.debug('Page titles:', pageTitles);
@@ -964,10 +998,17 @@ Important:
 
     const wikiPrefix = this.plugin.settings.wikiFolder + '/';
 
+    // Section labels for extractSummaryFromPage (Tier B).
+    // Cache on first call because settings don't change mid-query.
+    if (!this._sectionLabels) {
+      this._sectionLabels = getSectionLabels(this.plugin.settings);
+    }
+    const sectionLabels = this._sectionLabels;
+
     for (const title of pageTitles) {
       console.debug(`[Load Page] Processing title: "${title}"`);
 
-      // Strip wiki folder prefix if LLM returned it (e.g., "wiki/entities/xxx" → "entities/xxx")
+      // Strip wiki folder prefix if path has it (e.g., "wiki/entities/xxx" → "entities/xxx")
       const normalizedTitle = title.startsWith(wikiPrefix) ? title.slice(wikiPrefix.length) : title;
       const pagePath = `${this.plugin.settings.wikiFolder}/${normalizedTitle}.md`;
 
@@ -977,14 +1018,39 @@ Important:
       console.debug(`[Load Page] File exists: ${content ? 'yes' : 'no'}`);
 
       if (content) {
-        console.debug(`[Load Page] content length: ${content.length}`);
-        console.debug(`[Load Page] First 100 chars: ${content.substring(0, 100)}`);
         const displayTitle = `${this.plugin.settings.wikiFolder}/${normalizedTitle}`;
-        let body = content;
-        if (body.length > MAX_PAGE_CONTENT_CHARS) {
-          body = body.substring(0, MAX_PAGE_CONTENT_CHARS) + '\n\n... (truncated)';
-          console.debug(`[Load Page] Truncated from ${content.length} to ${MAX_PAGE_CONTENT_CHARS} chars`);
+
+        // Determine the page type from path: "entities/xxx" → entity, "concepts/xxx" → concept, else source.
+        const pathSegment = normalizedTitle.split('/')[0];
+        const pageTypeHint = pathSegment === 'entities' ? 'entity' : pathSegment === 'concepts' ? 'concept' : null;
+
+        let body: string;
+
+        // Tier B: extract summary section for entity/concept pages (zero LLM).
+        if (pageTypeHint && sectionLabels.description && sectionLabels.definition) {
+          const summary = extractSummaryFromPage(content, {
+            descriptionLabel: sectionLabels.description,
+            definitionLabel: sectionLabels.definition,
+            pageType: pageTypeHint,
+            maxChars: Math.floor(MAX_PAGE_CONTENT_CHARS / 3), // shorter summary
+          });
+          if (summary) {
+            body = summary;
+            console.debug(`[Load Page] Tier B summary extracted (${body.length} chars)`);
+          } else {
+            // Fall back to truncated full content if no summary section found.
+            body = content.length > MAX_PAGE_CONTENT_CHARS
+              ? content.substring(0, MAX_PAGE_CONTENT_CHARS) + '\n\n... (truncated)'
+              : content;
+            console.debug(`[Load Page] No summary section found, using full content (${body.length} chars)`);
+          }
+        } else {
+          body = content.length > MAX_PAGE_CONTENT_CHARS
+            ? content.substring(0, MAX_PAGE_CONTENT_CHARS) + '\n\n... (truncated)'
+            : content;
+          console.debug(`[Load Page] Source page or unknown type, using full content (${body.length} chars)`);
         }
+
         pages.push(`## ${displayTitle}\n\n${body}`);
       } else {
         console.warn(`[Load Page] Cannot read page: ${pagePath}`);
@@ -993,5 +1059,53 @@ Important:
 
     console.debug(`[Load Page] Successfully loaded pages`);
     return pages;
+  }
+
+  /**
+   * Tier 2: LLM-based semantic seed selection.
+   *
+   * Called when the Tier 1 lex fast path returns no hits or weak signals.
+   * Sends the user's query + a compact list of (path, summary) pairs to
+   * the LLM, which returns up to 3 page paths as seeds. The LLM is the
+   * primary semantic matcher here — it's the layer that handles
+   * synonyms, cross-language aliases, and abstract queries that pure
+   * string matching can't reach.
+   *
+   * Graceful degradation: returns empty array on any failure (LLM
+   * unavailable, parse error, network timeout). Caller falls back to
+   * whatever the lex fast path returned.
+   */
+  async selectSeedsWithLLM(query: string, pageRefs: PageRef[]): Promise<string[]> {
+    if (!this.plugin.llmClient) return [];
+    if (pageRefs.length === 0) return [];
+
+    // Build compact (path, summary) list — cap at 50 pages to keep
+    // prompt bounded.
+    const pagesList = pageRefs
+      .slice(0, 50)
+      .map(p => `- ${p.path}: ${p.summary || '(no summary)'}`)
+      .join('\n');
+
+    const prompt = PROMPTS.seedSelection
+      .replace('{{query}}', query)
+      .replace('{{pages}}', pagesList);
+
+    try {
+      const response = await this.plugin.llmClient.createMessage({
+        model: this.plugin.settings.model,
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),
+      });
+      const parsed = await parseJsonResponse(response) as { seeds?: string[] } | null;
+      const rawSeeds = parsed?.seeds || [];
+      // Validate against pageRefs — drop any paths that don't exist.
+      const validPaths = new Set(pageRefs.map(p => p.path));
+      return rawSeeds.filter(s => validPaths.has(s));
+    } catch (error) {
+      console.warn('[LLM seed selection failed]', error);
+      return [];
+    }
   }
 }

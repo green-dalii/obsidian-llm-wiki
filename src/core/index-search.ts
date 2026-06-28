@@ -4,19 +4,24 @@ interface PageRef {
   path: string;
   title: string;
   aliases: string[];
+  summary?: string;
   score: number;
 }
 
 export function parseIndexForPages(indexContent: string): Omit<PageRef, 'score'>[] {
   const pages: Omit<PageRef, 'score'>[] = [];
-  const lineRegex = /- \[\[([^\]|]+)(?:\|[^\]]+)?\]\]\s*(?:`aliases:\s*([^`]+)`)?/g;
-  let match: RegExpExecArray | null;
-  while ((match = lineRegex.exec(indexContent)) !== null) {
+  // Per-line match (one match per line — avoids regex greedy-cross-newline).
+  // Captures: 1: path, 2: optional aliases, 3: optional summary (after " - ").
+  const lineRegex = /^- \[\[([^\]|]+)(?:\|[^\]]+)?\]\]\s*(?:`aliases:\s*([^`]+)`)?(?:\s*-\s*(.+))?$/;
+  for (const line of indexContent.split('\n')) {
+    const match = lineRegex.exec(line);
+    if (!match) continue;
     const path = match[1];
     const aliasStr = match[2] || '';
+    const summary = (match[3] || '').trim();
     const title = path.split('/').pop() || path;
     const aliases = aliasStr.split(',').map(a => a.trim()).filter(Boolean);
-    pages.push({ path, title, aliases });
+    pages.push({ path, title, aliases, summary });
   }
   return pages;
 }

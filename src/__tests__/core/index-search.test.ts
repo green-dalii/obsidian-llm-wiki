@@ -6,8 +6,17 @@ describe('parseIndexForPages', () => {
     const index = '- [[wiki/entities/foo|Foo]] `aliases: FOO, FOO2`\n- [[wiki/concepts/bar]]';
     const pages = parseIndexForPages(index);
     expect(pages).toHaveLength(2);
-    expect(pages[0]).toEqual({ path: 'wiki/entities/foo', title: 'foo', aliases: ['FOO', 'FOO2'] });
-    expect(pages[1]).toEqual({ path: 'wiki/concepts/bar', title: 'bar', aliases: [] });
+    expect(pages[0]).toEqual({ path: 'wiki/entities/foo', title: 'foo', aliases: ['FOO', 'FOO2'], summary: '' });
+    expect(pages[1]).toEqual({ path: 'wiki/concepts/bar', title: 'bar', aliases: [], summary: '' });
+  });
+
+  it('extracts summary text after " - " separator', () => {
+    const index = '- [[wiki/entities/foo|Foo]] - Brief description of foo.\n- [[wiki/concepts/bar|Bar]] `aliases: b` - Bar is a concept.';
+    const pages = parseIndexForPages(index);
+    expect(pages).toHaveLength(2);
+    expect(pages[0].summary).toBe('Brief description of foo.');
+    expect(pages[1].summary).toBe('Bar is a concept.');
+    expect(pages[1].aliases).toEqual(['b']);
   });
 
   it('returns empty array for non-matching content', () => {

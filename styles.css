@@ -283,6 +283,18 @@
   background: var(--background-modifier-hover);
 }
 
+/* Retrieval-arm label (persistent after response) */
+.llm-wiki-query-retrieval-label {
+  margin-top: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  opacity: 0.85;
+  border-top: 1px solid var(--background-modifier-border-hover);
+  padding-top: 6px;
+}
+
 .llm-wiki-query-message-user {
   display: flex;
   flex-direction: column;
