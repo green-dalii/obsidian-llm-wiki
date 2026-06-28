@@ -1,6 +1,10 @@
 ---
-title: Pinewood Heart Center — Clinical Guidelines Reference
 type: source
+created: 2026-06-28
+updated: 2026-06-28
+sources: []
+tags:
+  - "other"
 ---
 
 ## Source

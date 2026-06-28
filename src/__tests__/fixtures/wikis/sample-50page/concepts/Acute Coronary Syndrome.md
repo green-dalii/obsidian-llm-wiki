@@ -1,6 +1,12 @@
 ---
-title: Acute Coronary Syndrome
 type: concept
+created: 2026-06-28
+updated: 2026-06-28
+sources: []
+tags:
+  - "Method"
+aliases:
+  - "ACS"
 ---
 
 ## Definition

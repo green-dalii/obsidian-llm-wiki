@@ -1,6 +1,12 @@
 ---
-title: Rate Control
 type: concept
+created: 2026-06-28
+updated: 2026-06-28
+sources: []
+tags:
+  - "Method"
+aliases:
+  - "RateCtrl"
 ---
 
 ## Definition

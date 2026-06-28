@@ -10,7 +10,7 @@ fixture's `[[wiki-link]]` graph.
 
 | Metric | Target | Notes |
 |--------|--------|-------|
-| Total pages | 53 | 5 sources + 15 concepts + 33 entities |
+| Total pages | 53 | 33 sources + 15 concepts + 33 entities |
 | Wiki-links (deduped) | 90–110 | Target ≈ 100 (edges/nodes ≈ 1.9) |
 | Mean total degree | ~3.8 | Includes cross-folder aliases |
 | Isolated (degree 0) | 1 | `entities/Isolated Note` (control case) |
