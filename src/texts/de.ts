@@ -417,6 +417,7 @@ export const DE_TEXTS = {
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Einzelne Quelle aufnehmen',
     cmdIngestFolder: 'Aus Ordner aufnehmen',
+    cmdIngestMultipleFiles: 'Mehrere Dateien aufnehmen',
     cmdQueryWiki: 'Wiki anfragen',
     cmdLintWiki: 'Wiki prüfen',
     cmdRegenerateIndex: 'Index neu generieren',
@@ -660,6 +661,10 @@ export const DE_TEXTS = {
     welcomeNoteRunConfigTest: 'Wiki-Willkommen-Notiz wurde auf Englisch geschrieben. Öffne Einstellungen → LLM Provider → Test Connection, um sie beim nächsten Erstellen zu lokalisieren.',
     welcomeNoteRecreated: 'Wiki-Willkommen-Notiz neu erstellt unter {path}',
     welcomeNoteNotRecreated: 'Willkommen-Notiz wurde nicht neu erstellt. LLM-Konfiguration prüfen.',
+    welcomeNoteGenerating: 'Wiki-Willkommen-Notiz wird im Hintergrund erstellt — Benachrichtigung erscheint, wenn fertig.',
+    welcomeNoteGenerationFailed: 'Wiki-Willkommen-Notiz-Erstellung fehlgeschlagen: {error}',
+    startupCheckWelcomePending: 'Willkommen-Notiz: wird im Hintergrund erstellt (Benachrichtigung erscheint, wenn fertig).',
+    welcomeNoteFileName: 'Willkommen bei Karpathy LLM Wiki',
     startupCheckWelcomeCreated: 'Willkommen-Notiz erstellt unter {path}',
     startupCheckNoticeLevelName: 'Quick-Fix-Ergebnis anzeigen',
     startupCheckNoticeLevelDesc: 'QuickFixes laufen beim Plugin-Start immer (Willkommensnotiz, Ordnerstruktur, Quellen-Normalisierung, unvollständige Seiten, Log-Header). Wähle, ob die Zusammenfassungs-Notiz nach dem Start angezeigt wird. Im Silent-Modus wird nur in die Entwicklerkonsole und das Operationsverlaufs-Panel geschrieben.',

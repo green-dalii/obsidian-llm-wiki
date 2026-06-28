@@ -418,6 +418,7 @@ export const KO_TEXTS = {
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: '단일 소스 수집',
     cmdIngestFolder: '폴더에서 수집',
+    cmdIngestMultipleFiles: '여러 파일 수집',
     cmdQueryWiki: '위키 질의',
     cmdLintWiki: '위키 린트',
     cmdRegenerateIndex: '인덱스 재생성',
@@ -661,6 +662,10 @@ export const KO_TEXTS = {
     welcomeNoteRunConfigTest: 'Welcome 노트가 영어로 작성되었습니다. 다음 재생성 시 현지화하려면 설정 → LLM Provider → Test Connection을 여세요.',
     welcomeNoteRecreated: '{path}에 Wiki Welcome 노트를 재생성했습니다',
     welcomeNoteNotRecreated: 'Welcome 노트가 재생성되지 않았습니다. LLM 설정을 확인하세요.',
+    welcomeNoteGenerating: 'Wiki Welcome 노트를 백그라운드에서 생성 중 — 완료 시 알림이 표시됩니다.',
+    welcomeNoteGenerationFailed: 'Wiki Welcome 노트 생성 실패: {error}',
+    startupCheckWelcomePending: 'Welcome 노트: 백그라운드에서 생성 중(완료 시 알림이 표시됩니다).',
+    welcomeNoteFileName: 'Karpathy LLM Wiki에 오신 것을 환영합니다',
     startupCheckWelcomeCreated: '{path}에 Welcome 노트가 생성되었습니다',
     startupCheckNoticeLevelName: '빠른 수정 결과 표시',
     startupCheckNoticeLevelDesc: 'QuickFixes는 플러그인 시작 시 항상 실행됩니다(Welcome 노트, 폴더 구조, 소스 정규화, 불완전한 페이지, 로그 헤더). 시작 후 요약 알림을 표시할지 선택합니다. 무음 모드는 개발자 콘솔 및 작업 기록 패널에만 기록됩니다.',

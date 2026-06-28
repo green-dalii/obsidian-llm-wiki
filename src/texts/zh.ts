@@ -410,6 +410,7 @@ export const ZH_TEXTS = {
     // 命令名称（sentence case 遵循 Obsidian Bot 规则）
     cmdIngestSource: '摄入单个源文件',
     cmdIngestFolder: '从文件夹摄入',
+    cmdIngestMultipleFiles: '多选文件摄入',
     cmdQueryWiki: '查询 Wiki',
     cmdLintWiki: '维护 Wiki',
     cmdRegenerateIndex: '重新生成索引',
@@ -662,6 +663,10 @@ export const ZH_TEXTS = {
     welcomeNoteRunConfigTest: 'Welcome note 已用英文写入。打开 设置 → LLM Provider → Test Connection 以便下次重建时本地化。',
     welcomeNoteRecreated: '已重新创建 Wiki Welcome note 于 {path}',
     welcomeNoteNotRecreated: 'Welcome note 未重新创建。请检查 LLM 配置。',
+    welcomeNoteGenerating: 'Wiki Welcome note 正在后台生成 — 完成后会显示通知。',
+    welcomeNoteGenerationFailed: 'Wiki Welcome note 生成失败：{error}',
+    startupCheckWelcomePending: 'Welcome note：正在后台生成（完成后会显示通知）。',
+    welcomeNoteFileName: '欢迎使用 Karpathy LLM Wiki',
     startupCheckWelcomeCreated: 'Welcome note 已创建于 {path}',
     startupCheckNoticeLevelName: '显示快速修复结果',
     startupCheckNoticeLevelDesc: '快速修复在插件启动时始终运行（Welcome note、文件夹结构、源归一化、不完整页面、日志头）。选择启动后是否显示摘要通知。静默模式仅记录到开发者控制台和操作历史面板。',

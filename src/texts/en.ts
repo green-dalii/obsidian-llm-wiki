@@ -422,6 +422,7 @@ export const EN_TEXTS = {
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Ingest single source',
     cmdIngestFolder: 'Ingest from folder',
+    cmdIngestMultipleFiles: 'Ingest multiple files',
     cmdQueryWiki: 'Query wiki',
     cmdLintWiki: 'Lint wiki',
     cmdRegenerateIndex: 'Regenerate index',
@@ -679,5 +680,9 @@ export const EN_TEXTS = {
     welcomeNoteRunConfigTest: 'Welcome note written in English. Open Settings → LLM Provider → Test Connection to localize it on next recreate.',
     welcomeNoteRecreated: 'Recreated Wiki Welcome note at {path}',
     welcomeNoteNotRecreated: 'Welcome note was not recreated. Check LLM configuration.',
+    welcomeNoteGenerating: 'Wiki Welcome note: generating in background — you will get a Notice when it finishes.',
+    welcomeNoteGenerationFailed: 'Wiki Welcome note generation failed: {error}',
+    welcomeNoteFileName: 'Welcome to Karpathy LLM Wiki',
+    startupCheckWelcomePending: 'Welcome note: generating in background (you will get a Notice when it finishes).',
     startupCheckWelcomeCreated: 'Welcome note created at {path}',
 } as const;

@@ -409,6 +409,7 @@ export const JA_TEXTS = {
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: '単一ソースの取り込み',
     cmdIngestFolder: 'フォルダーからの取り込み',
+    cmdIngestMultipleFiles: '複数ファイルを取り込み',
     cmdQueryWiki: 'Wikiに問い合わせ',
     cmdLintWiki: 'WikiのLint',
     cmdRegenerateIndex: 'インデックスの再生成',
@@ -660,6 +661,10 @@ export const JA_TEXTS = {
     welcomeNoteRunConfigTest: 'Welcome note は英語で書き込まれました。次回の再作成時にローカライズするには、設定 → LLM Provider → Test Connection を開いてください。',
     welcomeNoteRecreated: '{path} に Wiki Welcome note を再作成しました',
     welcomeNoteNotRecreated: 'Welcome note は再作成されませんでした。LLM 設定を確認してください。',
+    welcomeNoteGenerating: 'Wiki Welcome note をバックグラウンドで生成中 — 完了時に通知が表示されます。',
+    welcomeNoteGenerationFailed: 'Wiki Welcome note の生成に失敗しました：{error}',
+    startupCheckWelcomePending: 'Welcome note：バックグラウンドで生成中（完了時に通知が表示されます）。',
+    welcomeNoteFileName: 'Karpathy LLM Wiki へようこそ',
     startupCheckWelcomeCreated: '{path} に Welcome note を作成しました',
     startupCheckNoticeLevelName: 'クイック修正結果の表示',
     startupCheckNoticeLevelDesc: 'QuickFixes はプラグイン起動時に常に実行されます（Welcome note、フォルダ構造、ソース正規化、不完全ページ、ログヘッダー）。起動後にサマリー通知を表示するかどうかを選択します。サイレントモードでは開発者コンソールと操作履歴パネルのみに記録されます。',

@@ -410,6 +410,7 @@ export const ZH_HANT_TEXTS = {
     // 命令名称（sentence case 遵循 Obsidian Bot 规则）
     cmdIngestSource: '攝入單個原始檔',
     cmdIngestFolder: '從資料夾攝入',
+    cmdIngestMultipleFiles: '多選檔案攝入',
     cmdQueryWiki: '查詢 Wiki',
     cmdLintWiki: '維護 Wiki',
     cmdRegenerateIndex: '重新生成索引',
@@ -662,6 +663,10 @@ export const ZH_HANT_TEXTS = {
     welcomeNoteRunConfigTest: 'Welcome note 已用英文寫入。開啟 設定 → LLM Provider → Test Connection 以便下次重建時本地化。',
     welcomeNoteRecreated: '已重新建立 Wiki Welcome note 於 {path}',
     welcomeNoteNotRecreated: 'Welcome note 未重新建立。請檢查 LLM 設定。',
+    welcomeNoteGenerating: 'Wiki Welcome note 正在背景產生中 — 完成後會顯示通知。',
+    welcomeNoteGenerationFailed: 'Wiki Welcome note 產生失敗：{error}',
+    startupCheckWelcomePending: 'Welcome note：正在背景產生中（完成後會顯示通知）。',
+    welcomeNoteFileName: '歡迎使用 Karpathy LLM Wiki',
     startupCheckWelcomeCreated: 'Welcome note 已建立於 {path}',
     startupCheckNoticeLevelName: '顯示快速修復結果',
     startupCheckNoticeLevelDesc: '快速修復在外掛啟動時始終執行（Welcome note、資料夾結構、來源正規化、不完整頁面、日誌標頭）。選擇啟動後是否顯示摘要通知。靜默模式僅記錄到開發者控制台與操作歷史面板。',

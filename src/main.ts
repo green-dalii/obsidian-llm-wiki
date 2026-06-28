@@ -86,7 +86,7 @@ import { buildIngestStatusBarText, BatchProgress } from './core/status-bar';
 import { LLMWikiSettingTab } from './ui/settings';
 import { WikiEngine } from './wiki/wiki-engine';
 import { QueryView, VIEW_TYPE_QUERY } from './wiki/query-engine';
-import { FileSuggestModal, FolderSuggestModal, IngestReportModal, ConfirmModal } from './ui/modals';
+import { FileSuggestModal, FolderSuggestModal, MultiFileSuggestModal, IngestReportModal, ConfirmModal } from './ui/modals';
 import { HistoryModal } from './ui/history-modal';
 import { SchemaDiffModal } from './ui/schema-diff-modal';
 import { applySchemaSuggestion } from './schema/apply-suggestion';
@@ -178,6 +178,19 @@ export default class LLMWikiPlugin extends Plugin {
       id: 'ingest-folder',
       name: t.cmdIngestFolder,
       callback: () => this.selectFolderToIngest()
+    });
+
+    // v1.23.0 (#130): multi-file picker. User selects N specific
+    // source notes from a two-pane modal (no folder containment),
+    // toggles each, then runs them through the same batch pipeline
+    // as folder ingest. Fixes the "move notes to a staging folder"
+    // workaround: the in-place queue doesn't relocate anything, so
+    // the source-path provenance in generated wiki pages stays
+    // stable across re-ingest cycles.
+    this.addCommand({
+      id: 'ingest-multiple-files',
+      name: t.cmdIngestMultipleFiles,
+      callback: () => this.selectMultipleFilesToIngest()
     });
 
     this.addCommand({
@@ -545,7 +558,6 @@ export default class LLMWikiPlugin extends Plugin {
     }
 
     new FolderSuggestModal(this.app, this.settings.wikiFolder, (folder) => {
-      void (async () => {
       // #164: scan the compatible text-file allowlist (not just .md), so .txt
       // sources in the folder are picked up too. The ingest gate is the final
       // arbiter of type/empty/duplicate.
@@ -559,116 +571,169 @@ export default class LLMWikiPlugin extends Plugin {
         return;
       }
 
-      this.showProgress('Checking for already-ingested files...');
-      const alreadyIngestedFiles: TFile[] = [];
-      const newFiles: TFile[] = [];
-
-      for (const file of files) {
-        if (await this.isAlreadyIngested(file)) {
-          alreadyIngestedFiles.push(file);
-        } else {
-          newFiles.push(file);
-        }
-      }
-
-      const totalFiles = files.length;
-      const skippedCount = alreadyIngestedFiles.length;
-      const ingestCount = newFiles.length;
-
-      if (skippedCount > 0) {
-        const texts = TEXTS[this.settings.language];
-        new Notice(
-          texts.batchIngestSkipNotice
-            .replace('{skipped}', String(skippedCount))
-            .replace('{total}', String(totalFiles))
-            .replace('{new}', String(ingestCount)),
-          6000
-        );
-      }
-
-      if (ingestCount === 0) {
-        const texts = TEXTS[this.settings.language];
-        new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), NOTICE_NORMAL);
-        return;
-      }
-
-      const reports: IngestReport[] = [];
-
-      this.wikiEngine.setDoneCallback((report: IngestReport) => {
-        reports.push(report);
-      });
-
-      const texts = TEXTS[this.settings.language];
-      this.showProgress(texts.batchIngestStarting
-        .replace('{count}', String(ingestCount))
-        .replace('{folder}', folder.name));
-
-      // #164: shared dedup context for this batch — catches content duplicates
-      // within the run and against pages already in the wiki.
-      const batchCtx = this.wikiEngine.createBatchContext();
-
-      for (let i = 0; i < newFiles.length; i++) {
-        const file = newFiles[i];
-
-        try {
-          this.batchProgress = { current: i + 1, total: ingestCount };
-          this.showProgress(`[${i + 1}/${ingestCount}] ${file.basename}`);
-          console.debug(`(${i + 1}/${ingestCount}) ingesting: ${file.path}`);
-          await this.wikiEngine.ingestSource(file, { batchCtx });
-          if (this.wikiEngine.wasCancelled) {
-            console.debug(`Folder ingestion cancelled at file ${i + 1}/${ingestCount}`);
-            break;
-          }
-          console.debug(`(${i + 1}/${ingestCount}) ingestion success: ${file.path}`);
-        } catch (error) {
-          console.error(`(${i + 1}/${ingestCount}) ingestion failed: ${file.path}`, error);
-          const errMsg = error instanceof Error ? error.message : String(error);
-          new Notice(texts.errorIngestFailed + file.basename + ': ' + errMsg, NOTICE_ERROR);
-        }
-      }
-
-      this.batchProgress = null;
-
-      this.dismissProgress();
-
-      if (reports.length > 0) {
-        const allCreated = [...new Set(reports.flatMap(r => r.createdPages))];
-        const allUpdated = [...new Set(reports.flatMap(r => r.updatedPages))];
-        const totalEntities = reports.reduce((sum, r) => sum + r.entitiesCreated, 0);
-        const totalConcepts = reports.reduce((sum, r) => sum + r.conceptsCreated, 0);
-        const totalContradictions = reports.reduce((sum, r) => sum + r.contradictionsFound, 0);
-        const totalElapsed = reports.reduce((sum, r) => sum + (r.elapsedSeconds || 0), 0);
-        const allFailedItems = reports.flatMap(r => r.failedItems);
-        const allCollisions = reports.flatMap(r => r.collisions || []);
-        const allRejectedFiles = reports.flatMap(r => r.rejectedFiles || []);
-        const allSuccess = reports.every(r => r.success);
-
-        const aggregated: IngestReport = {
-          sourceFile: `${reports.length} files from ${folder.path}`,
-          createdPages: allCreated,
-          updatedPages: allUpdated,
-          entitiesCreated: totalEntities,
-          conceptsCreated: totalConcepts,
-          failedItems: allFailedItems,
-          collisions: allCollisions,
-          contradictionsFound: totalContradictions,
-          success: allSuccess,
-          elapsedSeconds: totalElapsed,
-          skippedFiles: skippedCount,
-          totalFilesInFolder: totalFiles,
-          rejectedFiles: allRejectedFiles,
-        };
-
-        new IngestReportModal(this.app, aggregated, this.settings.language).open();
-      } else {
-        const texts = TEXTS[this.settings.language];
-        new Notice(texts.batchIngestComplete
-          .replace('{success}', '0')
-          .replace('{total}', String(ingestCount))
-          .replace('{fail}', String(ingestCount)), 10000);
-      }
-    })().catch(e => console.error(e));
+      void this.runBatchIngest(files, `${files.length} files from ${folder.path}`);
     }).open();
+  }
+
+  /**
+   * v1.23.0 (#130): open the multi-file picker modal. User selects
+   * individual source notes via checkbox, dedup happens automatically
+   * (toggling a checked file un-checks it). The "Start Ingest" button
+   * then runs the same `runBatchIngest` pipeline that folder ingest
+   * uses, so the per-file loop, dedup context, and IngestReportModal
+   * are shared (no code duplication).
+   */
+  selectMultipleFilesToIngest() {
+    if (!this.requireLLMReady()) return;
+    if (!this.llmClient) {
+      new Notice(TEXTS[this.settings.language].errorNoApiKey);
+      return;
+    }
+
+    new MultiFileSuggestModal(
+      this.app,
+      this.settings.wikiFolder,
+      (files) => {
+        if (files.length === 0) return;
+        void this.runBatchIngest(files, `${files.length} manually-selected files`);
+      },
+      // Optional: enable the "(ingested)" tag in the tree so the
+      // user sees which files are already in the wiki and skips them.
+      (file) => this.isAlreadyIngested(file),
+    ).open();
+  }
+
+  /**
+   * Shared batch-ingest pipeline used by:
+   *   - selectFolderToIngest (folder batch)
+   *   - selectMultipleFilesToIngest (#130 — picker)
+   *   - (any future entry point that has a flat list of TFile)
+   *
+   * Responsibilities:
+   *   1. Filter out already-ingested files (#184 skip check) and
+   *      surface a Notice if any were skipped.
+   *   2. Run each remaining file through wikiEngine.ingestSource with
+   *      a SHARED batch context (#164: catches in-batch content
+   *      duplicates and cross-batch duplicates against existing wiki).
+   *   3. Aggregate per-file IngestReports into a single
+   *      IngestReportModal at the end (or a Notice when no work was
+   *      done). Cancellation between files is respected.
+   *
+   * `sourceLabel` is the human-readable identifier for the
+   * aggregated report (e.g. "12 files from notes/2024" or
+   * "3 manually-selected files"). It is NOT used for any file system
+   * operation — the in-place ingest path leaves source notes
+   * untouched (per #130, fixes the original "move to staging folder"
+   * workaround).
+   */
+  private async runBatchIngest(files: TFile[], sourceLabel: string): Promise<void> {
+    this.showProgress('Checking for already-ingested files...');
+    const alreadyIngestedFiles: TFile[] = [];
+    const newFiles: TFile[] = [];
+
+    for (const file of files) {
+      if (await this.isAlreadyIngested(file)) {
+        alreadyIngestedFiles.push(file);
+      } else {
+        newFiles.push(file);
+      }
+    }
+
+    const totalFiles = files.length;
+    const skippedCount = alreadyIngestedFiles.length;
+    const ingestCount = newFiles.length;
+
+    if (skippedCount > 0) {
+      const texts = TEXTS[this.settings.language];
+      new Notice(
+        texts.batchIngestSkipNotice
+          .replace('{skipped}', String(skippedCount))
+          .replace('{total}', String(totalFiles))
+          .replace('{new}', String(ingestCount)),
+        6000
+      );
+    }
+
+    if (ingestCount === 0) {
+      const texts = TEXTS[this.settings.language];
+      new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), NOTICE_NORMAL);
+      return;
+    }
+
+    const reports: IngestReport[] = [];
+
+    this.wikiEngine.setDoneCallback((report: IngestReport) => {
+      reports.push(report);
+    });
+
+    const texts = TEXTS[this.settings.language];
+    this.showProgress(texts.batchIngestStarting
+      .replace('{count}', String(ingestCount))
+      .replace('{folder}', sourceLabel));
+
+    // #164: shared dedup context for this batch — catches content duplicates
+    // within the run and against pages already in the wiki.
+    const batchCtx = this.wikiEngine.createBatchContext();
+
+    for (let i = 0; i < newFiles.length; i++) {
+      const file = newFiles[i];
+
+      try {
+        this.batchProgress = { current: i + 1, total: ingestCount };
+        this.showProgress(`[${i + 1}/${ingestCount}] ${file.basename}`);
+        console.debug(`(${i + 1}/${ingestCount}) ingesting: ${file.path}`);
+        await this.wikiEngine.ingestSource(file, { batchCtx });
+        if (this.wikiEngine.wasCancelled) {
+          console.debug(`Batch ingestion cancelled at file ${i + 1}/${ingestCount}`);
+          break;
+        }
+        console.debug(`(${i + 1}/${ingestCount}) ingestion success: ${file.path}`);
+      } catch (error) {
+        console.error(`(${i + 1}/${ingestCount}) ingestion failed: ${file.path}`, error);
+        const errMsg = error instanceof Error ? error.message : String(error);
+        new Notice(texts.errorIngestFailed + file.basename + ': ' + errMsg, NOTICE_ERROR);
+      }
+    }
+
+    this.batchProgress = null;
+    this.dismissProgress();
+
+    if (reports.length > 0) {
+      const allCreated = [...new Set(reports.flatMap(r => r.createdPages))];
+      const allUpdated = [...new Set(reports.flatMap(r => r.updatedPages))];
+      const totalEntities = reports.reduce((sum, r) => sum + r.entitiesCreated, 0);
+      const totalConcepts = reports.reduce((sum, r) => sum + r.conceptsCreated, 0);
+      const totalContradictions = reports.reduce((sum, r) => sum + r.contradictionsFound, 0);
+      const totalElapsed = reports.reduce((sum, r) => sum + (r.elapsedSeconds || 0), 0);
+      const allFailedItems = reports.flatMap(r => r.failedItems);
+      const allCollisions = reports.flatMap(r => r.collisions || []);
+      const allRejectedFiles = reports.flatMap(r => r.rejectedFiles || []);
+      const allSuccess = reports.every(r => r.success);
+
+      const aggregated: IngestReport = {
+        sourceFile: sourceLabel,
+        createdPages: allCreated,
+        updatedPages: allUpdated,
+        entitiesCreated: totalEntities,
+        conceptsCreated: totalConcepts,
+        failedItems: allFailedItems,
+        collisions: allCollisions,
+        contradictionsFound: totalContradictions,
+        success: allSuccess,
+        elapsedSeconds: totalElapsed,
+        skippedFiles: skippedCount,
+        totalFilesInFolder: totalFiles,
+        rejectedFiles: allRejectedFiles,
+      };
+
+      new IngestReportModal(this.app, aggregated, this.settings.language).open();
+    } else {
+      const texts = TEXTS[this.settings.language];
+      new Notice(texts.batchIngestComplete
+        .replace('{success}', '0')
+        .replace('{total}', String(ingestCount))
+        .replace('{fail}', String(ingestCount)), 10000);
+    }
   }
 
   // ==================== Query ====================

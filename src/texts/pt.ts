@@ -417,6 +417,7 @@ export const PT_TEXTS = {
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Ingerir fonte individual',
     cmdIngestFolder: 'Ingerir de pasta',
+    cmdIngestMultipleFiles: 'Ingerir vários ficheiros',
     cmdQueryWiki: 'Consultar Wiki',
     cmdLintWiki: 'Verificar Wiki',
     cmdRegenerateIndex: 'Regenerar índice',
@@ -660,6 +661,10 @@ export const PT_TEXTS = {
     welcomeNoteRunConfigTest: 'Nota Welcome escrita em inglês. Abre Definições → LLM Provider → Test Connection para a localizar na próxima recriação.',
     welcomeNoteRecreated: 'Nota Welcome do Wiki recriada em {path}',
     welcomeNoteNotRecreated: 'A nota Welcome não foi recriada. Verifica a configuração do LLM.',
+    welcomeNoteGenerating: 'Nota Welcome do Wiki: a ser gerada em segundo plano — aparecerá um aviso quando terminar.',
+    welcomeNoteGenerationFailed: 'Falha ao gerar a nota Welcome do Wiki: {error}',
+    startupCheckWelcomePending: 'Nota Welcome: a ser gerada em segundo plano (aparecerá um aviso quando terminar).',
+    welcomeNoteFileName: 'Bem-vindo ao Karpathy LLM Wiki',
     startupCheckWelcomeCreated: 'Nota Welcome criada em {path}',
     startupCheckNoticeLevelName: 'Mostrar resultado das correções rápidas',
     startupCheckNoticeLevelDesc: 'Os QuickFixes são sempre executados no arranque do plugin (nota Welcome, estrutura de pastas, normalização de fontes, páginas incompletas, cabeçalho do registo). Escolhe se queres mostrar o aviso de resumo após o arranque. O modo silencioso apenas regista na consola do programador e no painel Histórico de Operações.',

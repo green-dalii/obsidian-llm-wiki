@@ -62,3 +62,111 @@ describe('AutoMaintainManager.processBatch — watcher batch context (#164 revie
     expect(calls[0][1]?.batchCtx).toBe(calls[1][1]?.batchCtx);
   });
 });
+
+describe('AutoMaintainManager.assessWelcomeNeed — sync tier decision (v1.23.0)', () => {
+  // Helper to access the private method.
+  type WelcomeAssessor = { assessWelcomeNeed(): { shouldCreate: boolean; tier: 'A-empty-vault' | 'B-existing-vault' | 'C-existing-wiki' } };
+
+  function makeManagerForAssess(): { mgr: AutoMaintainManager; mockVault: { getMarkdownFiles: () => TFile[]; getAbstractFileByPath: (p: string) => unknown } } {
+    const settings = {
+      language: 'en',
+      wikiFolder: 'wiki',
+      wikiLanguage: 'zh',
+      apiKey: 'sk-test',
+      model: 'gpt-4o-mini',
+      createWelcomeNote: true,
+      autoWatchMode: 'auto',
+      autoWatchDebounceMs: 0,
+      watchedFolders: ['inbox'],
+    } as unknown as LLMWikiSettings;
+    const wikiEngine = {} as unknown as WikiEngine;
+    const mockVault: { getMarkdownFiles: () => TFile[]; getAbstractFileByPath: (p: string) => unknown } = {
+      getMarkdownFiles: () => [],
+      getAbstractFileByPath: () => null,
+    };
+    const app = { vault: mockVault } as unknown as ConstructorParameters<typeof AutoMaintainManager>[0];
+    // Plugin object exposes llmClient so assessWelcomeNeed sees LLM as on.
+    const plugin = { llmClient: { createMessage: vi.fn() } } as unknown as ConstructorParameters<typeof AutoMaintainManager>[3];
+    return { mgr: new AutoMaintainManager(app, settings, wikiEngine, plugin), mockVault };
+  }
+
+  it('returns Tier A + shouldCreate=true when vault is empty and LLM is configured', () => {
+    const { mgr } = makeManagerForAssess();
+    const decision = (mgr as unknown as WelcomeAssessor).assessWelcomeNeed();
+    expect(decision.tier).toBe('A-empty-vault');
+    expect(decision.shouldCreate).toBe(true);
+  });
+
+  it('returns Tier A + shouldCreate=false when vault is empty and LLM is NOT configured', () => {
+    const settings = {
+      language: 'en', wikiFolder: 'wiki', wikiLanguage: 'zh',
+      apiKey: 'sk-test', model: 'gpt-4o-mini', createWelcomeNote: true,
+      autoWatchMode: 'auto', autoWatchDebounceMs: 0, watchedFolders: ['inbox'],
+    } as unknown as LLMWikiSettings;
+    const wikiEngine = {} as unknown as WikiEngine;
+    const app = { vault: { getMarkdownFiles: () => [], getAbstractFileByPath: () => null } } as unknown as ConstructorParameters<typeof AutoMaintainManager>[0];
+    const plugin = { llmClient: null } as unknown as ConstructorParameters<typeof AutoMaintainManager>[3];
+    const mgr = new AutoMaintainManager(app, settings, wikiEngine, plugin);
+    const decision = (mgr as unknown as WelcomeAssessor).assessWelcomeNeed();
+    expect(decision.tier).toBe('A-empty-vault');
+    expect(decision.shouldCreate).toBe(false);
+  });
+
+  it('returns Tier C + shouldCreate=false when wiki folder has existing pages', () => {
+    const settings = {
+      language: 'en', wikiFolder: 'wiki', wikiLanguage: 'zh',
+      apiKey: 'sk-test', model: 'gpt-4o-mini', createWelcomeNote: true,
+      autoWatchMode: 'auto', autoWatchDebounceMs: 0, watchedFolders: ['inbox'],
+    } as unknown as LLMWikiSettings;
+    const wikiEngine = {} as unknown as WikiEngine;
+    // Vault contains a wiki page.
+    const wikiPage = Object.assign(new TFile(), { path: 'wiki/entities/A.md', basename: 'A', extension: 'md', stat: { size: 100, mtime: 1 } });
+    const app = {
+      vault: {
+        getMarkdownFiles: () => [wikiPage],
+        getAbstractFileByPath: (p: string) => p === 'wiki/entities/A.md' ? wikiPage : null,
+      },
+    } as unknown as ConstructorParameters<typeof AutoMaintainManager>[0];
+    const plugin = { llmClient: { createMessage: vi.fn() } } as unknown as ConstructorParameters<typeof AutoMaintainManager>[3];
+    const mgr = new AutoMaintainManager(app, settings, wikiEngine, plugin);
+    const decision = (mgr as unknown as WelcomeAssessor).assessWelcomeNeed();
+    expect(decision.tier).toBe('C-existing-wiki');
+    expect(decision.shouldCreate).toBe(false);
+  });
+
+  it('returns Tier B + shouldCreate=true when vault has notes but no wiki', () => {
+    const settings = {
+      language: 'en', wikiFolder: 'wiki', wikiLanguage: 'zh',
+      apiKey: 'sk-test', model: 'gpt-4o-mini', createWelcomeNote: true,
+      autoWatchMode: 'auto', autoWatchDebounceMs: 0, watchedFolders: ['inbox'],
+    } as unknown as LLMWikiSettings;
+    const wikiEngine = {} as unknown as WikiEngine;
+    const looseNote = Object.assign(new TFile(), { path: 'notes/loose.md', basename: 'loose', extension: 'md', stat: { size: 100, mtime: 1 } });
+    const app = {
+      vault: {
+        getMarkdownFiles: () => [looseNote],
+        getAbstractFileByPath: () => null,
+      },
+    } as unknown as ConstructorParameters<typeof AutoMaintainManager>[0];
+    const plugin = { llmClient: { createMessage: vi.fn() } } as unknown as ConstructorParameters<typeof AutoMaintainManager>[3];
+    const mgr = new AutoMaintainManager(app, settings, wikiEngine, plugin);
+    const decision = (mgr as unknown as WelcomeAssessor).assessWelcomeNeed();
+    expect(decision.tier).toBe('B-existing-vault');
+    expect(decision.shouldCreate).toBe(true);
+  });
+
+  it('is SYNCHRONOUS (no await needed) — returns the result directly', () => {
+    // v1.23.0 followup: the assessWelcomeNeed call in runStartupCheck
+    // uses no `await` (synchronous). If someone adds `await` it would
+    // fail with `await of non-Promise` lint error. This test enforces
+    // the sync shape — if you change it to async, this will compile
+    // fine (returning a Promise in a sync wrapper is a no-op shape)
+    // but the caller's lint rule will fail. So a real regression
+    // guard belongs at the call site, but this test documents the
+    // contract.
+    const { mgr } = makeManagerForAssess();
+    const result = (mgr as unknown as WelcomeAssessor).assessWelcomeNeed();
+    // Direct value, not a Promise.
+    expect(result).not.toHaveProperty('then');
+  });
+});

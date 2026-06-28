@@ -22,14 +22,28 @@
 //      populate `error` field so the caller can surface a Notice
 
 import type { LLMClient } from '../types';
+import { TOKENS_PAGE_GENERATION } from '../constants';
 
 /**
- * Optional pre-allocated max_tokens. Translation of the Welcome note
- * body is bounded (~600 tokens), but we use 1500 to leave room for
- * JSON wrapping overhead and the LLM's tendency to add a small amount
- * of preamble prose.
+ * max_tokens for the translation LLM call. We use the ingest-scale
+ * `TOKENS_PAGE_GENERATION` (8000) so the response has enough headroom
+ * for the full translated markdown plus the JSON wrapper. The
+ * `response_format: { type: "json_object" }` directive (the only
+ * client-controlled knob we set) coerces the model into emitting a
+ * parseable object.
+ *
+ * Why we don't pass `enableThinking` / `temperature`: the LLMClient
+ * default for those matches what every other business call (ingest,
+ * query, lint) uses, so the translation exercises the same code path.
+ *
+ * Why 8000 (not 1500 or some smaller value): the OpenAI-compat client
+ * has a built-in retry that bumps max_tokens when it sees the
+ * response truncated, but for a 200-300 line Welcome note the
+ * translated JSON is ~2000-3000 tokens. Anything below 3000 risks
+ * the retry happening, which still fails, and we silently fall back
+ * to English.
  */
-const TRANSLATION_MAX_TOKENS = 1500;
+const TRANSLATION_MAX_TOKENS = TOKENS_PAGE_GENERATION;
 
 export interface LocalizeArgs {
   /** English body produced by buildWelcomeNote. Will be translated if targetLanguage ≠ 'en'. */
@@ -115,6 +129,7 @@ export async function localizeWelcomeNote(args: LocalizeArgs): Promise<LocalizeR
   ].join(' ');
 
   try {
+    console.debug(`[localizeWelcomeNote] target=${targetLanguage}, model=${model}, max_tokens=${TRANSLATION_MAX_TOKENS}, bodyLen=${englishBody.length}`);
     const raw = await llmClient.createMessage({
       model,
       max_tokens: TRANSLATION_MAX_TOKENS,
@@ -125,9 +140,11 @@ export async function localizeWelcomeNote(args: LocalizeArgs): Promise<LocalizeR
       // level. Future: plumb through AbortSignal once interface widens.
       ...(signal ? {} : {}),
     });
+    console.debug(`[localizeWelcomeNote] LLM returned. rawLen=${raw?.length ?? 0}, preview=${JSON.stringify((raw ?? '').slice(0, 200))}`);
 
     const translated = extractTranslatedField(raw);
     if (!translated) {
+      console.warn(`[localizeWelcomeNote] extractTranslatedField returned null. Full raw: ${JSON.stringify(raw).slice(0, 500)}`);
       return {
         ok: false,
         body: englishBody,
@@ -135,9 +152,10 @@ export async function localizeWelcomeNote(args: LocalizeArgs): Promise<LocalizeR
         error: 'LLM response did not contain a valid `translated` field',
       };
     }
-
+    console.debug(`[localizeWelcomeNote] translated bodyLen=${translated.length}`);
     return { ok: true, body: translated, localized: true };
   } catch (e) {
+    console.error(`[localizeWelcomeNote] LLM call threw:`, e);
     const message = e instanceof Error ? e.message : String(e);
     return {
       ok: false,
