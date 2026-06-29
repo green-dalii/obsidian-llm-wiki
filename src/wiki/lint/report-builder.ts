@@ -3,6 +3,7 @@ import { LLMWikiSettings } from '../../types';
 import {
   ProgrammaticFindings, DuplicateResult
 } from './types';
+import type { HubLinkDensityIssue } from './scanners';
 
 export interface ReportInput {
   settings: LLMWikiSettings;
@@ -31,6 +32,7 @@ export function buildLintReport(input: ReportInput): string {
   const pollutedPages = findings.pollutedPages;
   const tagViolations = findings.tagViolations;
   const ungroundedQuotes = findings.ungroundedQuotes;
+  const hubLinkDensityIssues: HubLinkDensityIssue[] = findings.hubLinkDensityIssues;
   const sourcesNormalizedFiles = findings.sourcesNormalizedFiles;
   const sourcesNormalizedEntries = findings.sourcesNormalizedEntries;
 
@@ -168,8 +170,39 @@ export function buildLintReport(input: ReportInput): string {
     progReport += '\n';
   }
 
+  // 8b. Hub link density (v1.23.0 P1-6, Issue #157 / #175)
+  if (hubLinkDensityIssues.length > 0) {
+    const stripCount = hubLinkDensityIssues.filter(h => h.recommendation === 'strip').length;
+    const reviewCount = hubLinkDensityIssues.filter(h => h.recommendation === 'review').length;
+    progReport += `## ${t.lintHubLinkDensitySection.replace('{count}', String(hubLinkDensityIssues.length))}\n\n`;
+    for (const h of hubLinkDensityIssues) {
+      const rel = h.pagePath.replace(folder + '/', '').replace('.md', '');
+      const actionLabel = h.recommendation === 'strip'
+        ? t.lintHubLinkDensityStrip
+        : h.recommendation === 'review'
+          ? t.lintHubLinkDensityReview
+          : t.lintHubLinkDensityKeep;
+      const lowTargets = h.lowDistinctivenessTargets
+        .map(t2 => t2.replace(folder + '/', '').replace('.md', ''))
+        .join(', ');
+      progReport += t.lintHubLinkDensityItem
+        .replace('{page}', rel)
+        .replace('{inDegree}', String(h.inDegree))
+        .replace('{relatedCount}', String(h.totalRelatedLinks))
+        .replace('{distinctiveness}', h.distinctivenessScore.toFixed(2))
+        .replace('{recommendation}', actionLabel)
+        .replace('{lowTargets}', lowTargets) + '\n';
+    }
+    if (stripCount > 0 || reviewCount > 0) {
+      progReport += '\n' + t.lintHubLinkDensitySummary
+        .replace('{strip}', String(stripCount))
+        .replace('{review}', String(reviewCount)) + '\n';
+    }
+    progReport += '\n';
+  }
+
   // 9. No issues message
-  if (!duplicates.length && !deadLinks.length && !emptyPages.length && !orphans.length && !ungroundedQuotes.length) {
+  if (!duplicates.length && !deadLinks.length && !emptyPages.length && !orphans.length && !ungroundedQuotes.length && !hubLinkDensityIssues.length) {
     progReport += `${t.lintNoIssuesFound}\n\n`;
   }
 

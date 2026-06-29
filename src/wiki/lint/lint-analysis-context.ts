@@ -22,13 +22,17 @@ export interface LintAnalysisInput {
   sampleDeadLinks: string[];
   /** Page names with tag violations (up to 5). */
   sampleTagViolations: string[];
+  /** v1.23.0 P1-6: hub pages with redundant ## Related links (Issue #157 / #175). */
+  hubLinkDensityCount: number;
+  /** Top hub pages flagged for link density issues (up to 3). */
+  sampleHubLinkDensity: string[];
   totalWikiPages: number;
 }
 
 export function buildLintAnalysisContext(input: LintAnalysisInput): string {
   const lines: string[] = [];
   lines.push(`Wiki size: ${input.totalWikiPages} pages.`);
-  lines.push(`Findings: ${input.orphanCount} orphan pages, ${input.deadLinkCount} dead links, ${input.pollutedPageCount} polluted pages, ${input.tagViolationCount} tag violations, ${input.duplicateCount} duplicates, ${input.ungroundedQuoteCount} ungrounded quotes, ${input.emptyPageCount} empty pages.`);
+  lines.push(`Findings: ${input.orphanCount} orphan pages, ${input.deadLinkCount} dead links, ${input.pollutedPageCount} polluted pages, ${input.tagViolationCount} tag violations, ${input.duplicateCount} duplicates, ${input.ungroundedQuoteCount} ungrounded quotes, ${input.emptyPageCount} empty pages, ${input.hubLinkDensityCount} hub pages with redundant links.`);
 
   if (input.sampleOrphans.length > 0) {
     lines.push(`Sample orphans: ${input.sampleOrphans.join(', ')}.`);
@@ -38,6 +42,9 @@ export function buildLintAnalysisContext(input: LintAnalysisInput): string {
   }
   if (input.sampleTagViolations.length > 0) {
     lines.push(`Sample tag violations: ${input.sampleTagViolations.join(', ')}.`);
+  }
+  if (input.sampleHubLinkDensity.length > 0) {
+    lines.push(`Sample hub link density issues: ${input.sampleHubLinkDensity.join(', ')}.`);
   }
   if (input.contradictionReport) {
     lines.push(input.contradictionReport);

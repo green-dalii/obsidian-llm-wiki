@@ -21,6 +21,7 @@ function makeFindings(overrides: Partial<ProgrammaticFindings> = {}): Programmat
     pollutedPages: [],
     deadLinks: [],
     ungroundedQuotes: [],
+    hubLinkDensityIssues: [],
     sourcesNormalizedFiles: 0,
     sourcesNormalizedEntries: 0,
     doubleNestFixes: 0,

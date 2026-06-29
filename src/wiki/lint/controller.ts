@@ -36,6 +36,7 @@ import { isPageEmpty } from './utils';
 import { generateDuplicateCandidates, DuplicateCandidate } from './duplicate-detection';
 import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges, runRetagViolations, makeMirroredNotice } from './fix-runners';
 import { buildLintAnalysisContext } from './lint-analysis-context';
+import { buildGraphFromContent } from '../../core/build-graph';
 import { runPreparationPhase } from './phases/preparation';
 import { runProgrammaticPhase } from './phases/programmatic';
 import { buildLintReport } from './report-builder';
@@ -94,12 +95,22 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     const prep = await runPreparationPhase(phaseCtx);
     phaseCtx.totalPages = prep.wikiFiles.length;
 
+    // ---- Build wiki-link graph (v1.23.0 P1-6, for hub-link density scanner) ----
+    // Pure function: derives edges from in-memory pageMap. No IO.
+    const allPaths = new Set<string>(prep.pageMap.keys());
+    const loadedPages = Array.from(prep.pageMap.values()).map(p => ({
+      path: p.path,
+      content: p.content,
+    }));
+    const graph = buildGraphFromContent(loadedPages, allPaths, ctx.settings.wikiFolder);
+
     // ---- Phase 2: Programmatic + source-IO checks ----
     const findings: ProgrammaticFindings = runProgrammaticPhase(phaseCtx, {
       wikiFiles: prep.wikiFiles,
       pageMap: prep.pageMap,
       knownTargets: prep.knownTargets,
       knownTargetsLower: prep.knownTargetsLower,
+      graph,
     });
     findings.sourcesNormalizedFiles = prep.sourcesNormalizedFiles;
     findings.sourcesNormalizedEntries = prep.sourcesNormalizedEntries;
@@ -548,6 +559,8 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
       sampleOrphans: orphans.slice(0, 5),
       sampleDeadLinks: deadLinks.slice(0, 5).map(dl => dl.target),
       sampleTagViolations: tagViolations.slice(0, 5).map(tv => tv.path),
+      hubLinkDensityCount: findings.hubLinkDensityIssues.length,
+      sampleHubLinkDensity: findings.hubLinkDensityIssues.slice(0, 3).map(h => h.pagePath),
       totalWikiPages: wikiFiles.length,
     });
     fixCallbacks.onAnalyzeSchema = () => { void ctx.onAnalyzeSchema(lintSummary); };

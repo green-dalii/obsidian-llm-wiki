@@ -1,6 +1,7 @@
-import { detectAliasDeficiency, scanOrphans, scanTagViolations, scanDeadLinks, scanQuoteGrounding } from '../scanners';
+import { detectAliasDeficiency, scanOrphans, scanTagViolations, scanDeadLinks, scanQuoteGrounding, scanHubLinkDensity } from '../scanners';
 import { detectPollutedPages } from '../utils';
 import { getText } from '../../../core/i18n';
+import type { Graph } from '../../../core/monte-carlo-ppr';
 import { LintPhaseContext, ProgrammaticFindings, ScannerPage } from '../types';
 
 export interface ProgrammaticInput {
@@ -8,6 +9,8 @@ export interface ProgrammaticInput {
   pageMap: Map<string, ScannerPage>;
   knownTargets: Set<string>;
   knownTargetsLower: Set<string>;
+  /** v1.23.0 P1-6 — wiki-link graph for hub detection and PPR. */
+  graph: Graph;
 }
 
 /**
@@ -73,6 +76,14 @@ export function runProgrammaticPhase(
   const ungroundedQuotes = scanQuoteGrounding(input.pageMap, sourceMap, ctx.settings.wikiFolder);
   console.debug(`lintWiki: ${ungroundedQuotes.length} ungrounded quote(s)`);
 
+  // 7. Hub link density (Issue #157 / #175, v1.23.0 P1-6) — detects hub
+  // pages whose ## Related links are mutually redundant in graph
+  // structure. Pure PPR-based scoring, zero IO, zero LLM.
+  const hubLinkDensityIssues = scanHubLinkDensity(input.pageMap, input.graph, {
+    wikiFolder: ctx.settings.wikiFolder,
+  });
+  console.debug(`lintWiki: ${hubLinkDensityIssues.length} hub pages with link density issues`);
+
   return {
     aliasDeficientPages,
     emptyPages: [],
@@ -81,6 +92,7 @@ export function runProgrammaticPhase(
     pollutedPages,
     deadLinks,
     ungroundedQuotes,
+    hubLinkDensityIssues,
     sourcesNormalizedFiles: 0, // populated by preparation phase caller
     sourcesNormalizedEntries: 0,
     doubleNestFixes: 0,

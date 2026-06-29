@@ -66,6 +66,8 @@ export interface ProgrammaticFindings {
   pollutedPages: Array<{ path: string; title: string; cleanTitle: string }>;
   deadLinks: Array<{ source: string; target: string }>;
   ungroundedQuotes: import('./scanners').QuoteGroundingIssue[];
+  /** v1.23.0 P1-6 — hub pages with redundant links in ## Related (Issue #157 / #175). */
+  hubLinkDensityIssues: import('./scanners').HubLinkDensityIssue[];
   sourcesNormalizedFiles: number;
   sourcesNormalizedEntries: number;
   doubleNestFixes: number;

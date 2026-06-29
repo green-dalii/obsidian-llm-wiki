@@ -326,3 +326,11 @@ export function scanTagViolations(
   violations.sort((a, b) => a.path.localeCompare(b.path));
   return violations;
 }
+
+// ── Hub link density scanner (Issue #157 / #175, v1.23.0 P1-6) ──────────
+// Re-exported from core/ because the scanner needs a Graph (wiki-link
+// structure), which the other scanners don't. Keeping the
+// implementation in core/ preserves the pure-function convention and
+// makes the algorithm unit-testable without an Obsidian dependency.
+
+export { scanHubLinkDensity, type HubLinkDensityIssue, type HubLinkDensityOptions } from '../../core/hub-link-distinctiveness';
