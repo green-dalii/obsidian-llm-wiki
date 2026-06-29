@@ -55,7 +55,7 @@ src/
 ├── constants.ts         # Centralized constants (token budgets, notice durations, WIKI_SUBFOLDERS)
 ├── texts.ts             # i18n texts (barrel, 9 languages)
 ├── prompts.ts           # Prompt barrel (9 languages)
-├── llm-client.ts        # LLM clients (Anthropic via requestUrl, OpenAI-compatible)
+├── llm-client.ts        # LLM clients (Anthropic via requestUrl, OpenAI-compatible Chat Completions + Responses API for reasoning family)
 ├── llm-client-wrapper.ts # Advanced settings injection wrapper
 ├── core/                # Pure function modules (zero IO, fully testable)
 │   ├── i18n.ts                 # Type-safe i18n accessor
@@ -112,7 +112,7 @@ src/
 │   └── analyze.ts       # Schema-analyze with cancel wiring
 ├── ui/                  # Settings + Modals
 ├── texts/               # i18n (9 languages)
-└── __tests__/           # Unit tests (vitest, 1029 tests across 76 files)
+└── __tests__/           # Unit tests (vitest, 1104 tests across 84 files)
 ```
 
 ## Internationalization

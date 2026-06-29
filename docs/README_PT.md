@@ -18,35 +18,43 @@
 
 ## 📑 Contents
 
-- [💡 O que é LLM-Wiki?](#-o-que-é-llm-wiki)
-- [⚡ Por que Obsidian + LLM-Wiki?](#-por-que-obsidian--llm-wiki)
-- [🚀 Início rápido](#-início-rápido)
-  - [📦 Instalação](#-instalação)
-  - [🔄 Atualização](#-atualização)
-  - [🔑 Configurar um provedor LLM](#-configurar-um-provedor-llm)
-  - [🎮 Uso](#-uso)
-  - [⚠️ Atualizando de uma versão anterior?](#️-atualizando-de-uma-versão-anterior)
-- [⚡ Novidades da v1.22.0](#-novidades-da-v1220)
-- [✨ Funcionalidades](#-funcionalidades)
-  - [📊 Qualidade do Conhecimento](#-qualidade-do-conhecimento)
-  - [🛠️ Manutenção](#️-manutenção)
-  - [💬 Consulta e Feedback](#-consulta-e-feedback)
-  - [🌐 LLM e Idioma](#-llm-e-idioma)
-  - [🏗️ Arquitetura e Desempenho](#️-arquitetura-e-desempenho)
-  - [🔒 Privacidade e segurança](#-privacidade-e-segurança)
-- [⌨️ Comandos](#️-comandos)
-- [📖 Exemplo](#-exemplo)
-- [🤖 Guia de Seleção de Modelo](#-guia-de-seleção-de-modelo)
-- [🏗️ Arquitetura](#️-arquitetura)
-- [❓ Perguntas Frequentes (FAQ)](#-perguntas-frequentes-faq)
-  - [💡 Geral](#-geral)
-  - [🏷️ Aliases e Duplicados](#️-aliases-e-duplicados)
-  - [⚡ Performance e Controle de custos](#-performance-e-controle-de-custos)
-  - [🧹 Manutenção](#-manutenção)
-  - [🔍 Solução de Problemas](#-solução-de-problemas)
+- [🧠 Karpathy LLM Wiki Plugin para Obsidian](#-karpathy-llm-wiki-plugin-para-obsidian)
+  - [📑 Contents](#-contents)
+  - [💡 O que é LLM-Wiki?](#-o-que-é-llm-wiki)
+  - [⚡ Por que Obsidian + LLM-Wiki?](#-por-que-obsidian--llm-wiki)
+  - [🚀 Início rápido](#-início-rápido)
+    - [📦 Instalação](#-instalação)
+    - [🔄 Atualização](#-atualização)
+    - [🔑 Configurar um provedor LLM](#-configurar-um-provedor-llm)
+    - [🎮 Uso](#-uso)
+    - [⚠️ Atualizando de uma versão anterior?](#️-atualizando-de-uma-versão-anterior)
+  - [⚡ Novidades da v1.22.0](#-novidades-da-v1220)
+    - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
+    - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
+    - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
+    - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
+    - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+  - [✨ Funcionalidades](#-funcionalidades)
+    - [📊 Qualidade do Conhecimento](#-qualidade-do-conhecimento)
+    - [🛠️ Manutenção](#️-manutenção)
+    - [💬 Consulta e Feedback](#-consulta-e-feedback)
+    - [🌐 LLM e Idioma](#-llm-e-idioma)
+    - [🏗️ Arquitetura e Desempenho](#️-arquitetura-e-desempenho)
+    - [🔒 Privacidade e segurança](#-privacidade-e-segurança)
+  - [⌨️ Comandos](#️-comandos)
+  - [📖 Exemplo](#-exemplo)
+  - [🤖 Guia de Seleção de Modelo](#-guia-de-seleção-de-modelo)
+  - [🏗️ Arquitetura](#️-arquitetura)
+  - [❓ Perguntas Frequentes (FAQ)](#-perguntas-frequentes-faq)
+    - [💡 Geral](#-geral)
+    - [🏷️ Aliases e Duplicados](#️-aliases-e-duplicados)
+    - [⚡ Performance e Controle de custos](#-performance-e-controle-de-custos)
+    - [🧹 Manutenção](#-manutenção)
+    - [🔍 Solução de Problemas](#-solução-de-problemas)
   - [🔒 Transparência e conformidade](#-transparência-e-conformidade)
-- [📜 Licença](#-licença)
-- [🙏 Agradecimentos](#-agradecimentos)
+  - [📜 Licença](#-licença)
+  - [🙏 Agradecimentos](#-agradecimentos)
+  - [Star History](#star-history)
 ## 💡 O que é LLM-Wiki?
 
 Você escreve. A IA organiza. Você pergunta. Simples assim.
@@ -201,6 +209,17 @@ Um PATCH focado que restaura a compatibilidade GPT-5.x, propaga mensagens de err
 - **♻️ Controlos de desempenho de lint centralizados em `src/constants.ts`.** Cadências de yield (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), tamanhos de lote de candidatos (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), leitura por lote de prep (`LINT_PREP_BATCH_READ`) e tamanhos de lote de source-analyzer (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) vivem agora num só lugar. Anteriormente estes valores estavam duplicados ou tinham divergido entre `controller.ts`, `duplicate-detection.ts`, `preparation.ts` e `batch-limits.ts` — incluindo uma cópia literal `MAX_TOKENS=16000` de `MAX_TOKENS_BATCH`. Ajustar o desempenho de lint é agora uma alteração num único ficheiro.
 
 Atualização recomendada — os modelos gpt-5.x funcionam novamente de origem, e a UI de Test Connection agora indica exatamente o que o Provider rejeitou para que não tenha de andar a procurar na consola pelo baseUrl / nome do modelo / chave API.
+
+### v1.22.5 — 2026-06-29 (PATCH)
+
+Um PATCH focado que evita que a família de modelos de raciocínio da OpenAI (gpt-5.1+ / gpt-5.5 / o1-o4) falhe com 400 no Test Connection (continuação de Issue #207) e que propaga as mensagens de erro reais do Provider para a Notice de Test Connection.
+
+- **🛡️ A família de modelos de raciocínio agora utiliza a Responses API da OpenAI (continuação de Issue #207).** A correção probe-then-cache `max_tokens` ↔ `max_completion_tokens` da v1.22.4 era necessária mas não suficiente — `gpt-5.1-chat-latest`, `gpt-5.5` e as famílias `o1` / `o3` / `o4-mini` continuavam a falhar com 400 no Test Connection porque o endpoint Chat Completions tem problemas de compatibilidade com a família de modelos de raciocínio. Segundo o guia oficial de migração GPT-5.5 da OpenAI («GPT-5.5 works best in the Responses API»), a v1.22.5 encaminha a família de raciocínio para `/v1/responses` com `reasoning: { effort: 'low' }`. `gpt-5-chat-latest`, `gpt-4.1`, `gpt-3.5-turbo` e todos os baseUrls não-OpenAI (Ollama, LM Studio, DeepSeek, etc.) permanecem inalterados em `/v1/chat/completions`. A deteção é uma função pura `isResponsesApiModel(model, baseUrl)`, ativada apenas para `https://api.openai.com/v1` — endpoints personalizados permanecem totalmente compatíveis.
+- **📜 O corpo do erro do Provider agora chega à UI da Notice de Test Connection.** O `requestUrl` do Obsidian lança uma exceção em 4xx (incluindo 429) SEM anexar o corpo da resposta do Provider ao objeto Error — portanto, mesmo o `extractProviderErrorMessage()` da v1.22.4 não conseguia ver o que a OpenAI realmente dizia. A v1.22.5 envolve o pedido falhado num re-fetch `window.fetch` (timeout de 5s) e funde o corpo do Provider no `Error.message` lançado, de modo a que os utilizadores vejam `"status 429: You exceeded your current quota, please check your plan and billing details"` em vez de um simples `"status 429"`. O corpo bruto também é registado ao nível `console.warn` para inspeção em DevTools. Os baseUrls não-OpenAI obtêm o mesmo enriquecimento através do caminho Chat Completions existente.
+- **⏱️ Erros 429/5xx de rate-limit são agora repetidos com backoff exponencial no caminho da Responses API.** O `withRetry` da v1.22.4 (3 tentativas, 1s/2s/4s + jitter) cobria originalmente apenas o caminho Chat Completions. A v1.22.5 envolve o novo caminho da Responses API no mesmo `withRetry`, de modo a que flutuações transitórias de quota 429 já não façam o Test Connection falhar imediatamente.
+- **♻️ Fixtures de teste atualizadas.** Os testes existentes para a regressão dot-naming gpt-5.x (v1.22.4) e o caminho `thinking.type='disabled'` Chat Completions (herdado) usam agora `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1` — estes modelos continuam a cobrir o caminho Chat Completions, enquanto a família de raciocínio está totalmente coberta pelo novo `src/__tests__/root/llm-client-responses-api.test.ts` (28 testes).
+
+Atualização recomendada — `gpt-5.1-chat-latest`, `gpt-5.5` e as famílias `o1` / `o3` / `o4-mini` funcionam agora de origem no Test Connection, e quando uma ligação falha obtém-se o erro real do Provider (p.ex. «insufficient_quota») em vez de um simples código de estado HTTP.
 
 Atualização recomendadaAtualização recomendada.
 

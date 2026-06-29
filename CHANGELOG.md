@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.5] - 2026-06-29
+
+### Fixed
+- **#207 follow-up — Reasoning model family (gpt-5.1+ / gpt-5.5 / o1-o4) no longer fails Test Connection with HTTP 400.** v1.22.4's `max_tokens` ↔ `max_completion_tokens` probe-then-cache fix was necessary but not sufficient — `gpt-5.1-chat-latest`, `gpt-5.5`, and the `o1` / `o3` / `o4-mini` reasoning families still failed Test Connection with 400 because the Chat Completions endpoint has compatibility issues for the reasoning model family. Per OpenAI's official GPT-5.5 migration guide ("GPT-5.5 works best in the Responses API"), v1.22.5 routes the reasoning family to `/v1/responses` with `reasoning: { effort: 'low' }`. Detection is a pure-function `isResponsesApiModel(model, baseUrl)` export, gated to `https://api.openai.com/v1` only — `gpt-5-chat-latest`, `gpt-4.1`, `gpt-3.5-turbo`, and all non-OpenAI baseUrls (Ollama, LM Studio, DeepSeek, etc.) continue on `/v1/chat/completions` unchanged. Issue #207 remains open pending real-world user testing; will be closed in a follow-up commit after confirmation.
+- **Test Connection Notice now surfaces the provider's full error body, not just the status code.** Obsidian's `requestUrl` throws on 4xx (including 429) WITHOUT populating the thrown Error with the provider's response body — so even v1.22.4's `extractProviderErrorMessage()` could not see what OpenAI actually said. v1.22.5 wraps the failing request in a `window.fetch` re-fetch (5s timeout, gated to error path only) and merges the provider's body into the thrown `Error.message`, so the Notice UI now reads e.g. `"status 429: You exceeded your current quota, please check your plan and billing details"` instead of bare `"status 429"`. The raw body is also logged at `console.warn` level for DevTools spelunking. Non-OpenAI baseUrls get the same enrichment via the existing Chat Completions path.
+- **429/5xx rate-limit errors now retry with exponential backoff on the Responses API path.** v1.22.4's `withRetry` (3 attempts, 1s/2s/4s + jitter) only covered the Chat Completions path. v1.22.5 wraps the new Responses API path in the same `withRetry` so transient 429 quota bumps no longer immediately fail Test Connection.
+
+### Tests
+- **1104 tests passing** (+28 since v1.22.4: new `src/__tests__/root/llm-client-responses-api.test.ts` with 28 tests covering endpoint routing, body shape, error enrichment, withRetry integration, custom baseUrl compatibility, and reasoning-family model coverage. Existing dot-naming gpt-5.x regression test (v1.22.4) updated to use `gpt-5-mini`/`gpt-5-nano` since these models continue to exercise the Chat Completions path; existing `thinking.type='disabled'` Chat Completions tests updated to use `gpt-4.1` since the reasoning family is now covered by the new test file).
+
 ## [1.22.4] - 2026-06-27
 
 ### Fixed

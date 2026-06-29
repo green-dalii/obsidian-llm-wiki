@@ -146,9 +146,14 @@ describe('v1.20.0: default behavior — no custom thinking/temperature/penalty',
     });
 
     it('newer dot-naming gpt-5.x models get probed (Issue #207 regression)', async () => {
-      // Regression guard: gpt-5.5 / gpt-5.4-mini / gpt-5.1 must NOT crash
-      // on the regex check that v1.20.0 used. Probe handles all naming.
-      for (const model of ['gpt-5.5', 'gpt-5.4-mini', 'gpt-5.1']) {
+      // Regression guard: gpt-5 family model names (here `gpt-5-mini` /
+      // `gpt-5-nano` — the dash-suffixed non-reasoning chat variants still on
+      // Chat Completions) must NOT crash on the regex check that v1.20.0
+      // used. Probe handles all naming. Note: gpt-5.1+ and o1/o3/o4 reasoning
+      // models were routed to Responses API in v1.22.5 (see
+      // isResponsesApiModel) so the Chat Completions probe path is no
+      // longer exercised on them.
+      for (const model of ['gpt-5-mini', 'gpt-5-nano', 'gpt-5']) {
         mockRequestUrl.mockReset();
         mockRequestUrl.mockResolvedValueOnce({
           status: 400,

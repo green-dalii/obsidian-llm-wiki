@@ -504,9 +504,12 @@ describe('OpenAICompatibleClient — enableThinking', () => {
       makeOpenAIResponse('ok', 'stop')
     );
 
+    // v1.22.5: reasoning models (o1/o3/o4, gpt-5.1+) route to Responses API
+    // — see isResponsesApiModel. Use gpt-4.1 here to verify the legacy
+    // Chat Completions thinking-control injection path on OpenAI official.
     const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
     await client.createMessage({
-      model: 'o1-mini',
+      model: 'gpt-4.1',
       max_tokens: 100,
       messages: [{ role: 'user', content: 'hi' }],
       enableThinking: false,
@@ -703,8 +706,11 @@ describe('OpenAICompatibleClient.createMessageStream — enableThinking', () => 
     } as unknown as Awaited<ReturnType<typeof requestUrl>>);
 
     const client = new OpenAICompatibleClient('test-key', 'https://api.openai.com/v1');
+    // v1.22.5: reasoning models route to Responses API (see
+    // isResponsesApiModel). Use gpt-4.1 here to verify the streaming
+    // Chat Completions thinking-control injection path.
     await client.createMessageStream({
-      model: 'o1-mini',
+      model: 'gpt-4.1',
       max_tokens: 100,
       messages: [{ role: 'user', content: 'hi' }],
       onChunk: () => {},

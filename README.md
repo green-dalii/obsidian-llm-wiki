@@ -17,37 +17,43 @@
 > **⚡ Quick Update Reminder:** This project evolves rapidly with frequent bug fixes, performance improvements, new features, and UX optimizations. We recommend updating to the latest version regularly in Obsidian (**Settings → Community plugins → Check for updates**), or enabling automatic plugin updates to ensure the best experience.
 ## 📑 Contents
 
-- [💡 What is LLM-Wiki?](#-what-is-llm-wiki)
-- [⚡ Why Obsidian + LLM-Wiki?](#-why-obsidian--llm-wiki)
-- [🚀 Quick Start](#-quick-start)
-  - [📦 Installation](#-installation)
-  - [🔄 Updating](#-updating)
-  - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
-  - [🎮 Usage](#-usage)
-  - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-- [⚡ What's New in v1.22.0](#-whats-new-in-v1220)
-- [✨ Features](#-features)
-
-  - [📊 Knowledge Quality](#-knowledge-quality)
-  - [🛠️ Maintenance](#️-maintenance)
-  - [💬 Query & Feedback](#-query--feedback)
-  - [🌐 LLM & Language](#-llm--language)
-  - [🏗️ Architecture & Performance](#️-architecture--performance)
-  - [🔒 Privacy & Security](#-privacy--security)
-- [⌨️ Commands](#️-commands)
-- [📖 Example](#-example)
-- [🤖 Model Selection Guide](#-model-selection-guide)
-- [🏗️ Architecture](#️-architecture)
-- [❓ FAQ](#-faq)
-  - [💡 General](#-general)
-  - [🏷️ Aliases & Duplicates](#️-aliases--duplicates)
-  - [⚡ Performance & Cost](#-performance--cost)
-  - [🧹 Maintenance](#-maintenance)
-  - [🔍 Troubleshooting](#-troubleshooting)
-- [🔒 Transparency & Compliance](#-transparency--compliance)
-- [📜 License](#-license)
-- [🙏 Acknowledgments](#-acknowledgments)
-- [Star History](#star-history)
+- [🧠 Karpathy LLM Wiki Plugin for Obsidian](#-karpathy-llm-wiki-plugin-for-obsidian)
+  - [📑 Contents](#-contents)
+  - [💡 What is LLM-Wiki?](#-what-is-llm-wiki)
+  - [⚡ Why Obsidian + LLM-Wiki?](#-why-obsidian--llm-wiki)
+  - [🚀 Quick Start](#-quick-start)
+    - [📦 Installation](#-installation)
+    - [🔄 Updating](#-updating)
+    - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
+    - [🎮 Usage](#-usage)
+    - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
+  - [⚡ What's New in v1.22.0](#-whats-new-in-v1220)
+    - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
+    - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
+    - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
+    - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
+    - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+  - [✨ Features](#-features)
+    - [📊 Knowledge Quality](#-knowledge-quality)
+    - [🛠️ Maintenance](#️-maintenance)
+    - [💬 Query \& Feedback](#-query--feedback)
+    - [🌐 LLM \& Language](#-llm--language)
+    - [🏗️ Architecture \& Performance](#️-architecture--performance)
+    - [🔒 Privacy \& Security](#-privacy--security)
+  - [⌨️ Commands](#️-commands)
+  - [📖 Example](#-example)
+  - [🤖 Model Selection Guide](#-model-selection-guide)
+  - [🏗️ Architecture](#️-architecture)
+  - [❓ FAQ](#-faq)
+    - [💡 General](#-general)
+    - [🏷️ Aliases \& Duplicates](#️-aliases--duplicates)
+    - [⚡ Performance \& Cost](#-performance--cost)
+    - [🧹 Maintenance](#-maintenance)
+    - [🔍 Troubleshooting](#-troubleshooting)
+  - [🔒 Transparency \& Compliance](#-transparency--compliance)
+  - [📜 License](#-license)
+  - [🙏 Acknowledgments](#-acknowledgments)
+  - [Star History](#star-history)
 ---
 
 ## 💡 What is LLM-Wiki?
@@ -241,6 +247,17 @@ A focused PATCH that restores GPT-5.x compatibility, propagates real provider er
 - **♻️ Lint performance knobs centralised in `src/constants.ts`.** Yield cadences (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), candidate batch sizing (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), prep batch read (`LINT_PREP_BATCH_READ`), and source-analyzer batch sizing (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) now live in one place. Previously these values were duplicated or had drifted across `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, and `batch-limits.ts` — including a literal `MAX_TOKENS=16000` copy of `MAX_TOKENS_BATCH`. Tuning lint performance is now a single-file change.
 
 We recommend upgrading — gpt-5.x models work again out of the box, and the Test Connection UI now tells you exactly what the provider rejected so you can fix your baseUrl / model name / API key without digging through the console.
+
+### v1.22.5 — 2026-06-29 (PATCH)
+
+A focused PATCH that fixes OpenAI gpt-5.1+ / gpt-5.5 / o1-o4 reasoning models on Test Connection (Issue #207 follow-up) and surfaces real provider error messages in the Test Connection Notice.
+
+- **🛡️ Reasoning model family now uses OpenAI Responses API (Issue #207 follow-up).** v1.22.4's `max_tokens` ↔ `max_completion_tokens` probe-then-cache fix was necessary but not sufficient — `gpt-5.1-chat-latest`, `gpt-5.5`, and the `o1` / `o3` / `o4-mini` reasoning families still failed Test Connection with 400 because the Chat Completions endpoint has compatibility issues for the reasoning model family. Per OpenAI's official GPT-5.5 migration guide ("GPT-5.5 works best in the Responses API"), v1.22.5 routes the reasoning family to `/v1/responses` with `reasoning: { effort: 'low' }`. `gpt-5-chat-latest`, `gpt-4.1`, `gpt-3.5-turbo`, and all non-OpenAI baseUrls (Ollama, LM Studio, DeepSeek, etc.) continue on `/v1/chat/completions` unchanged. Detection is a pure-function `isResponsesApiModel(model, baseUrl)` export, gated to `https://api.openai.com/v1` only — custom endpoints stay compatible.
+- **📜 Provider error body now reaches the Test Connection Notice UI.** Obsidian's `requestUrl` throws on 4xx (including 429) WITHOUT populating the thrown Error with the provider's body — so even v1.22.4's `extractProviderErrorMessage()` couldn't see what OpenAI actually said. v1.22.5 wraps the failing request in a `window.fetch` re-fetch (5s timeout) and merges the provider body into the thrown `Error.message`, so users see `"status 429: You exceeded your current quota, please check your plan and billing details"` instead of bare `"status 429"`. The raw body is also logged at `console.warn` level for DevTools spelunking. Non-OpenAI baseUrls get the same enrichment via the existing Chat Completions path.
+- **⏱️ 429/5xx rate-limit errors now retry with exponential backoff on the Responses API path.** v1.22.4's `withRetry` (3 attempts, 1s/2s/4s + jitter) only covered the Chat Completions path. v1.22.5 wraps the new Responses API path in the same `withRetry` so transient 429 quota bumps no longer immediately fail Test Connection.
+- **♻️ Test fixtures updated.** Existing tests for the dot-naming gpt-5.x regression (v1.22.4) and the `thinking.type='disabled'` Chat Completions path (legacy) now use `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1` respectively — these models continue to exercise the Chat Completions path, while the reasoning family is fully covered by the new `src/__tests__/root/llm-client-responses-api.test.ts` (28 tests).
+
+We recommend upgrading — `gpt-5.1-chat-latest`, `gpt-5.5`, and the `o1` / `o3` / `o4-mini` families now work on Test Connection out of the box, and when a connection fails you get the actual provider error (e.g. "insufficient_quota") instead of a bare HTTP status.
 
 We recommend upgradingWe recommend upgrading — the fix-dead-link stub fabrication class of bugs is now closed, and the Query Wiki side panel keeps your notes visible while chatting.
 

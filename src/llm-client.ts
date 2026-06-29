@@ -66,6 +66,49 @@ export type MaxTokenKey = 'max_tokens' | 'max_completion_tokens';
 
 const MAX_TOKEN_KEY_REGEX = /\bmax_(?:completion_)?tokens\b/i;
 
+// Issue #207 follow-up (v1.22.5): OpenAI's reasoning model family
+// (gpt-5.1+, gpt-5.5, o1/o3/o4) "works best in the Responses API" per
+// OpenAI's official GPT-5.5 migration guide. Chat Completions has
+// compatibility issues for reasoning models. We route the reasoning family
+// to /v1/responses with `reasoning: {effort: 'low'}` and parse the
+// output_text response shape.
+//
+// Detection rule: model name matches the OpenAI reasoning family prefix,
+// AND baseUrl is the OpenAI official endpoint (custom baseUrl providers
+// like Ollama / LM Studio / DeepSeek may not implement /v1/responses).
+//
+// v1.23.0 P1-7 replaces this whole hand-rolled block with @ai-sdk/openai v5
+// (which defaults openai('gpt-5.5') to Responses API).
+const RESPONSES_API_MODEL_RE =
+  /^(gpt-5\.[1-9]\d*|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$/;
+const OPENAI_OFFICIAL_BASEURL = /^https:\/\/api\.openai\.com\/v1\/?$/;
+
+/**
+ * Decide whether to route this model/baseUrl to /v1/responses.
+ *
+ * Pure function. Exported for testability.
+ *
+ * @param model — the OpenAI model id (e.g. "gpt-5.5", "gpt-5-chat-latest").
+ * @param baseUrl — the resolved base URL of the LLM endpoint.
+ * @returns true if the request should go to /v1/responses, false otherwise.
+ *
+ * Rules:
+ * - Only routes when baseUrl is OpenAI official (custom providers stay on
+ *   /chat/completions for backward compatibility — they may not implement
+ *   /v1/responses).
+ * - Matches the OpenAI reasoning model family (gpt-5.1+ dot-naming,
+ *   o1/o3/o4 reasoning families).
+ * - Explicitly excludes *-chat-latest variants (gpt-5-chat-latest is a
+ *   non-reasoning chat model and works on /chat/completions).
+ */
+export function isResponsesApiModel(model: string, baseUrl: string): boolean {
+  if (!OPENAI_OFFICIAL_BASEURL.test(baseUrl)) return false;
+  // Exclude *-chat-latest explicitly: chat models are not reasoning, even
+  // if their major version would otherwise match.
+  if (/chat-latest$/.test(model)) return false;
+  return RESPONSES_API_MODEL_RE.test(model);
+}
+
 /**
  * Inspect a 400 error body to see whether the backend rejected our choice
  * of `max_tokens` key, and return the key it WOULD accept instead.
@@ -859,6 +902,12 @@ export class OpenAICompatibleClient implements LLMClient {
       ? [{ role: 'system' as const, content: params.system }, ...params.messages]
       : params.messages;
 
+    // v1.22.5 (Issue #207 follow-up): reasoning model family uses
+    // Responses API. Pure-function detection lives in isResponsesApiModel.
+    if (isResponsesApiModel(params.model, this.baseUrl)) {
+      return this.createMessageViaResponses(params);
+    }
+
     // response_format: json_object is omitted for OpenAI-compatible endpoints (LM Studio,
     // Ollama, etc.) because many local backends reject it — the prompt instruction + prefilled
     // "{" is sufficient to enforce JSON output.
@@ -1377,6 +1426,174 @@ export class OpenAICompatibleClient implements LLMClient {
       }
       throw e;
     }
+  }
+
+  // v1.22.5 (Issue #207 follow-up): Responses API code path for OpenAI
+  // reasoning model family (gpt-5.1+, gpt-5.5, o1/o3/o4). Routed from
+  // createMessage() when isResponsesApiModel() returns true.
+  //
+  // Why this is minimal: 90% of the existing OpenAICompatibleClient
+  // infrastructure (probing, retry, error extraction, dialect fallback)
+  // doesn't apply to /v1/responses. The Responses API has its own
+  // distinct error format and doesn't need max_tokens probing. This method
+  // is intentionally standalone so v1.23.0 P1-7 can replace the whole
+  // OpenAICompatibleClient with @ai-sdk/openai v5.
+  //
+  // Reference: OpenAI's GPT-5.5 migration guide explicitly recommends
+  // "Use the Responses API for any reasoning, tool-calling, or multi-turn
+  // use case." (https://platform.openai.com/docs/guides/gpt-5)
+  private async createMessageViaResponses(params: {
+    model: string;
+    max_tokens: number;
+    system?: string;
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  }): Promise<string> {
+    // v1.22.5 Fix 1: wrap the entire request in withRetry so 429 / 5xx /
+    // network errors get the same exponential backoff as Chat Completions
+    // (1s, 2s, 4s + jitter, 3 attempts). Without this, a transient 429
+    // immediately aborts and the Test Connection Notice shows a bare
+    // "status 429" without the provider's actual error body.
+    //
+    // The inner closure does NOT throw on 4xx — it throws a real Error
+    // (which the existing RETRYABLE regex then matches for 429 only) so
+    // that 400-class errors fail fast and the retry budget isn't spent
+    // on parameter-validation failures.
+    return withRetry(async () => {
+      // Responses API uses `input` (array of message objects) instead of
+      // `messages`. system goes as a system-role message in `input`.
+      const input: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+      if (params.system) {
+        input.push({ role: 'system', content: params.system });
+      }
+      for (const m of params.messages) {
+        input.push({ role: m.role, content: m.content });
+      }
+
+      const body: Record<string, unknown> = {
+        model: params.model,
+        input,
+        // Per OpenAI: `reasoning.effort` defaults to `medium` if omitted,
+        // but explicit `low` keeps latencies short and is the right default
+        // for ingest/lint/test-connection workloads.
+        reasoning: { effort: 'low' },
+        // Responses API uses `max_output_tokens` (not `max_tokens`).
+        max_output_tokens: params.max_tokens,
+      };
+
+      // v1.22.5 Fix 2 (real): Obsidian's requestUrl THROWS on 4xx (including
+      // 429) rather than returning a response object. The thrown Error
+      // carries the provider's body in .json / .text (per #137). We must
+      // catch it here and merge the provider body into the thrown message
+      // so the Test Connection Notice and DevTools console both surface
+      // the actual diagnostic (e.g. "You exceeded your current quota")
+      // instead of a bare "status 429".
+      let response;
+      try {
+        response = await requestUrl({
+          url: this.baseUrl + '/responses',
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(body),
+        });
+      } catch (err: unknown) {
+        const errObj = err as { json?: unknown; text?: string; status?: number };
+        const status = errObj.status;
+        // v1.22.5 Fix 2 (real): Obsidian's requestUrl throws on 4xx
+        // (including 429) WITHOUT populating err.json or err.text. So we
+        // cannot surface the provider's actual diagnostic in the thrown
+        // Error.message — UNLESS we re-fetch via window.fetch (which is
+        // available in Obsidian's renderer context and DOES return the
+        // response body). We await one re-fetch with a tight 5s timeout
+        // so the user sees the real provider message ("You exceeded your
+        // current quota...") in the Test Connection Notice, not just a
+        // bare "status 429". The re-fetch is safe even when throttled:
+        // a 429 on the re-fetch costs ~1 extra HTTP round-trip and
+        // returns the same quota message we already saw.
+        console.warn(
+          `[OpenAICompat Responses API] HTTP ${status ?? '???'} on ${this.baseUrl}/responses | model: ${params.model} (requestUrl swallowed the body; re-fetching via window.fetch to capture the real provider diagnostic)`
+        );
+        let enrichedMsg: string | null = null;
+        try {
+          const controller = new AbortController();
+          const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+          const resp = await window.fetch(this.baseUrl + '/responses', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+          window.clearTimeout(timeoutId);
+          const respBody = await resp.text();
+          console.warn(
+            `[OpenAICompat Responses API] raw provider response: status=${resp.status} | body=${respBody.substring(0, 2000)}`
+          );
+          // Try to extract a useful message from the re-fetched body.
+          try {
+            const parsed = JSON.parse(respBody) as {
+              error?: { message?: string } | string;
+            } | null;
+            if (parsed?.error) {
+              const candidate = typeof parsed.error === 'string'
+                ? parsed.error
+                : parsed.error.message;
+              if (candidate) enrichedMsg = candidate;
+            }
+          } catch { /* not JSON; ignore */ }
+          if (!enrichedMsg && respBody) enrichedMsg = respBody.slice(0, 500);
+        } catch (fetchErr: unknown) {
+          console.warn(`[OpenAICompat Responses API] re-fetch failed: ${String(fetchErr)}`);
+        }
+        if (enrichedMsg) {
+          const enriched = new Error(`status ${status ?? '???'}: ${enrichedMsg}`);
+          Object.assign(enriched, err);
+          throw enriched;
+        }
+        // Re-throw original error if re-fetch didn't produce anything useful.
+        throw err;
+      }
+
+      // Some Obsidian versions may return a non-2xx response object
+      // without throwing. Handle that case too (defense in depth).
+      if (response.status >= 400) {
+        const errBody = (response as { text?: string }).text?.slice(0, 2000) ?? '<no body>';
+        console.warn(
+          `[OpenAICompat Responses API] HTTP ${response.status} on ${this.baseUrl}/responses | model: ${params.model} | response: ${errBody}`
+        );
+        const data = response.json as {
+          error?: { message?: string } | string;
+        } | null;
+        if (data?.error) {
+          const errMsg = typeof data.error === 'string'
+            ? data.error
+            : data.error.message;
+          if (errMsg) throw new Error(`status ${response.status}: ${errMsg}`);
+        }
+        if (errBody && errBody !== '<no body>') {
+          throw new Error(`status ${response.status}: ${errBody.slice(0, 500)}`);
+        }
+        throw new Error(`status ${response.status}`);
+      }
+
+      // Parse Responses API shape:
+      //   { output: [{ type: 'message', content: [{ type: 'output_text', text: '...' }, ...] }] }
+      const data = response.json as {
+        output?: Array<{
+          type?: string;
+          content?: Array<{ type?: string; text?: string }>;
+        }>;
+      };
+
+      const messages = data.output ?? [];
+      for (const item of messages) {
+        if (item.type !== 'message' || !Array.isArray(item.content)) continue;
+        for (const part of item.content) {
+          if (part.type === 'output_text' && typeof part.text === 'string') {
+            return part.text;
+          }
+        }
+      }
+      return '';
+    }, 3, 'OpenAI Responses API');
   }
 
   async listModels(): Promise<string[]> {

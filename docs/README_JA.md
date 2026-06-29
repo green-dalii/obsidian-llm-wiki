@@ -18,35 +18,43 @@
 
 ## 📑 Contents
 
-- [💡 LLM-Wikiとは？](#-llm-wikiとは)
-- [⚡ なぜ Obsidian + LLM-Wiki？](#-なぜ-obsidian--llm-wiki)
-- [🚀 クイックスタート](#-クイックスタート)
-  - [📦 インストール](#-インストール)
-  - [🔄 アップデート](#-アップデート)
-  - [🔑 LLMプロバイダーの設定](#-llmプロバイダーの設定)
-  - [🎮 使い方](#-使い方)
-  - [⚠️ 旧バージョンからのアップグレード](#️-旧バージョンからのアップグレード)
-- [⚡ v1.22.0 更新のポイント](#-v1220-更新のポイント)
-- [✨ 特徴](#-特徴)
-  - [📊 ナレッジ品質](#-ナレッジ品質)
-  - [🛠️ メンテナンス](#️-メンテナンス)
-  - [💬 クエリとフィードバック](#-クエリとフィードバック)
-  - [🌐 LLMと言語](#-llmと言語)
-  - [🏗️ アーキテクチャとパフォーマンス](#️-アーキテクチャとパフォーマンス)
-  - [🔒 プライバシーとセキュリティ](#-プライバシーとセキュリティ)
-- [⌨️ コマンド](#️-コマンド)
-- [📖 例](#-例)
-- [🤖 モデル推奨](#-モデル推奨)
-- [🏗️ アーキテクチャ](#️-アーキテクチャ)
-- [❓ FAQ](#-faq)
-  - [💡 一般](#-一般)
-  - [🏷️ エイリアスと重複](#️-エイリアスと重複)
-  - [⚡ パフォーマンスとコスト管理](#-パフォーマンスとコスト管理)
-  - [🧹 メンテナンス](#-メンテナンス)
-  - [🔍 トラブルシューティング](#-トラブルシューティング)
-- [🔒 透明性とコンプライアンス](#-透明性とコンプライアンス)
-- [📜 ライセンス](#-ライセンス)
-- [🙏 謝辞](#-謝辞)
+- [🧠 Karpathy LLM Wiki Plugin for Obsidian](#-karpathy-llm-wiki-plugin-for-obsidian)
+  - [📑 Contents](#-contents)
+  - [💡 LLM-Wikiとは？](#-llm-wikiとは)
+  - [⚡ なぜ Obsidian + LLM-Wiki？](#-なぜ-obsidian--llm-wiki)
+  - [🚀 クイックスタート](#-クイックスタート)
+    - [📦 インストール](#-インストール)
+    - [🔄 アップデート](#-アップデート)
+    - [🔑 LLMプロバイダーの設定](#-llmプロバイダーの設定)
+    - [🎮 使い方](#-使い方)
+    - [⚠️ 旧バージョンからのアップグレード](#️-旧バージョンからのアップグレード)
+  - [⚡ v1.22.0 更新のポイント](#-v1220-更新のポイント)
+    - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
+    - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
+    - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
+    - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
+    - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+  - [✨ 特徴](#-特徴)
+    - [📊 ナレッジ品質](#-ナレッジ品質)
+    - [🛠️ メンテナンス](#️-メンテナンス)
+    - [💬 クエリとフィードバック](#-クエリとフィードバック)
+    - [🌐 LLMと言語](#-llmと言語)
+    - [🏗️ アーキテクチャとパフォーマンス](#️-アーキテクチャとパフォーマンス)
+    - [🔒 プライバシーとセキュリティ](#-プライバシーとセキュリティ)
+  - [⌨️ コマンド](#️-コマンド)
+  - [📖 例](#-例)
+  - [🤖 モデル推奨](#-モデル推奨)
+  - [🏗️ アーキテクチャ](#️-アーキテクチャ)
+  - [❓ FAQ](#-faq)
+    - [💡 一般](#-一般)
+    - [🏷️ エイリアスと重複](#️-エイリアスと重複)
+    - [⚡ パフォーマンスとコスト管理](#-パフォーマンスとコスト管理)
+    - [🧹 メンテナンス](#-メンテナンス)
+    - [🔍 トラブルシューティング](#-トラブルシューティング)
+  - [🔒 透明性とコンプライアンス](#-透明性とコンプライアンス)
+  - [📜 ライセンス](#-ライセンス)
+  - [🙏 謝辞](#-謝辞)
+  - [Star History](#star-history)
 ## 💡 LLM-Wikiとは？
 
 書くのはあなた。整理するのはAI。質問するだけ。それがすべて。
@@ -212,6 +220,17 @@ GPT-5.x モデルの互換性を復元し、Provider の実際のエラーメッ
 - **♻️ lint パフォーマンス調整値を `src/constants.ts` に集約。** yield 間隔（`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`）、候補バッチサイズ（`LINT_CANDIDATE_TOKEN_ESTIMATE`、`LINT_MAX_INPUT_TOKENS`、`LINT_DEDUP_BATCH_SIZE`）、準備段階のバッチ読み取り（`LINT_PREP_BATCH_READ`）、source-analyzer のバッチサイズ（`SHORT_CONTENT_THRESHOLD`、`BATCH_CHARS_PER_ITEM`）を一か所に集約。これらは `controller.ts`、`duplicate-detection.ts`、`preparation.ts`、`batch-limits.ts` に重複またはドリフトしており、`MAX_TOKENS=16000` が `MAX_TOKENS_BATCH` のリテラルコピーになっている状態でした。lint パフォーマンス調整が単一ファイルの変更で行えます。
 
 アップグレード推奨 —— gpt-5.x モデルがそのまま動作し、Test Connection UI が Provider が何を拒否したかを正確に伝えるため、baseUrl / モデル名 / API キーをコンソールで掘り下げる必要がなくなります。
+
+### v1.22.5 — 2026-06-29 (PATCH)
+
+OpenAI の gpt-5.1+ / gpt-5.5 / o1-o4 推論モデルファミリーを Test Connection で 400 エラーにしない（Issue #207 フォローアップ）修正と、Provider の実際のエラーメッセージを Test Connection Notice に届ける修正を中心とした PATCH。
+
+- **🛡️ 推論モデルファミリーが OpenAI Responses API を使うように（Issue #207 フォローアップ）。** v1.22.4 の `max_tokens` ↔ `max_completion_tokens` プローブ＆キャッシュ修正は必要でしたが不十分で、`gpt-5.1-chat-latest`、`gpt-5.5`、`o1` / `o3` / `o4-mini` 推論ファミリーは Chat Completions エンドポイントで引き続き 400 エラーになっていました（推論モデルファミリーに互換性問題があるため）。OpenAI 公式の GPT-5.5 移行ガイドの「GPT-5.5 works best in the Responses API」に従い、v1.22.5 は推論ファミリーを `/v1/responses` にルートし、`reasoning: { effort: 'low' }` を付与します。`gpt-5-chat-latest`、`gpt-4.1`、`gpt-3.5-turbo`、および OpenAI 以外の全 baseUrl（Ollama、LM Studio、DeepSeek 等）は `/v1/chat/completions` のまま変わりません。検出ロジックは純関数 `isResponsesApiModel(model, baseUrl)` で、`https://api.openai.com/v1` のみゲート——カスタムエンドポイントは完全に互換です。
+- **📜 Provider エラーボディが Test Connection Notice UI に届くように。** Obsidian の `requestUrl` は 4xx（429 含む）でスローしますが、その Error オブジェクトに Provider レスポンスボディを**付与しない**ため、v1.22.4 の `extractProviderErrorMessage()` でも OpenAI が実際に何を言ったか取得できませんでした。v1.22.5 は失敗リクエストを `window.fetch` 再フェッチ（5 秒タイムアウト）でラップし、Provider ボディをスローされた `Error.message` にマージします。ユーザーは `"status 429: You exceeded your current quota, please check your plan and billing details"` を見ることができ、裸の `"status 429"` ではありません。生ボディは `console.warn` レベルでも出力し DevTools での調査に使えます。OpenAI 以外の baseUrl は既存の Chat Completions パスで同じエンリッチメントを取得します。
+- **⏱️ 429/5xx レート制限エラーが Responses API パスで指数バックオフリトライするように。** v1.22.4 の `withRetry`（3 回試行、1s/2s/4s + ジッター）は元々 Chat Completions パスしかカバーしていませんでした。v1.22.5 は新しい Responses API パスも同じ `withRetry` でラップし、一過性の 429 クォータの揺れで Test Connection が即失敗しなくなります。
+- **♻️ テストフィクスチャ更新。** v1.22.4 時点の dot-naming gpt-5.x モデル用回帰テストと、`thinking.type='disabled'` レガシー Chat Completions パステストを、それぞれ `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1` に変更しました——これらのモデルは引き続き Chat Completions パスをカバーし、推論モデルファミリーは新しい `src/__tests__/root/llm-client-responses-api.test.ts`（28 テスト）で完全にカバーされています。
+
+アップグレード推奨 —— `gpt-5.1-chat-latest`、`gpt-5.5`、`o1` / `o3` / `o4-mini` ファミリーが Test Connection でそのまま動作し、接続失敗時は Provider の実際のエラー（例：「insufficient_quota」）が表示され、裸の HTTP ステータスコードではありません。
 
 アップグレード推奨アップグレード推奨。
 

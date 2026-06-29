@@ -17,35 +17,43 @@
 > **⚡ 快速更新提醒：** 本项目迭代速度快，会经常进行 Bug 修复、性能提升或新功能、体验优化等。建议经常在 Obsidian 中更新到最新版本（**设置 → 社区插件 → 检查更新**），或开启插件的自动更新功能以确保获得最佳体验。
 ## 📑 目录
 
-- [💡 什么是 LLM-Wiki？](#-什么是-llm-wiki)
-- [⚡ 为什么选择 Obsidian + LLM-Wiki？](#-为什么选择-obsidian--llm-wiki)
-- [🚀 快速开始](#-快速开始)
-  - [📦 安装](#-安装)
-  - [🔄 更新插件](#-更新插件)
-  - [🔑 配置 LLM Provider](#-配置-llm-provider)
-  - [🎮 使用方式](#-使用方式)
-  - [⚠️ 从旧版本升级？](#️-从旧版本升级)
-- [⚡ v1.22.0 更新内容](#-v1220-更新内容)
-- [✨ 核心特性](#-核心特性)
-  - [📊 知识质量](#-知识质量)
-  - [🛠️ 维护能力](#️-维护能力)
-  - [💬 查询与反馈](#-查询与反馈)
-  - [🌐 LLM 与语言](#-llm-与语言)
-  - [🏗️ 架构与性能](#️-架构与性能)
-  - [🔒 隐私与安全](#-隐私与安全)
-- [⌨️ 命令列表](#️-命令列表)
-- [📖 使用示例](#-使用示例)
-- [🤖 模型选择建议](#-模型选择建议)
-- [🏗️ 架构](#️-架构)
-- [❓ 常见问题 (FAQ)](#-常见问题-faq)
-  - [💡 通用](#-通用)
-  - [🏷️ 别名与重复](#️-别名与重复)
-  - [⚡ 性能与成本](#-性能与成本)
-  - [🧹 维护](#-维护)
-  - [🔍 故障排查](#-故障排查)
+- [🧠 Karpathy LLM Wiki — Obsidian 插件](#-karpathy-llm-wiki--obsidian-插件)
+  - [📑 目录](#-目录)
+  - [💡 什么是 LLM-Wiki？](#-什么是-llm-wiki)
+  - [⚡ 为什么选择 Obsidian + LLM-Wiki？](#-为什么选择-obsidian--llm-wiki)
+  - [🚀 快速开始](#-快速开始)
+    - [📦 安装](#-安装)
+    - [🔄 更新插件](#-更新插件)
+    - [🔑 配置 LLM Provider](#-配置-llm-provider)
+    - [🎮 使用方式](#-使用方式)
+    - [⚠️ 从旧版本升级？](#️-从旧版本升级)
+  - [⚡ v1.22.0 更新内容](#-v1220-更新内容)
+    - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
+    - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
+    - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
+    - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+    - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
+  - [✨ 核心特性](#-核心特性)
+    - [📊 知识质量](#-知识质量)
+    - [🛠️ 维护能力](#️-维护能力)
+    - [💬 查询与反馈](#-查询与反馈)
+    - [🌐 LLM 与语言](#-llm-与语言)
+    - [🏗️ 架构与性能](#️-架构与性能)
+    - [🔒 隐私与安全](#-隐私与安全)
+  - [⌨️ 命令列表](#️-命令列表)
+  - [📖 使用示例](#-使用示例)
+  - [🤖 模型选择建议](#-模型选择建议)
+  - [🏗️ 架构](#️-架构)
+  - [❓ 常见问题 (FAQ)](#-常见问题-faq)
+    - [💡 通用](#-通用)
+    - [🏷️ 别名与重复](#️-别名与重复)
+    - [⚡ 性能与成本](#-性能与成本)
+    - [🧹 维护](#-维护)
+    - [🔍 故障排查](#-故障排查)
   - [🔒 透明度与合规性](#-透明度与合规性)
-- [📜 许可证](#-许可证)
-- [🙏 致谢](#-致谢)
+  - [📜 许可证](#-许可证)
+  - [🙏 致谢](#-致谢)
+  - [Star History](#star-history)
 ---
 
 ## 💡 什么是 LLM-Wiki？
@@ -231,9 +239,16 @@ v1.22.0 是一个**次要功能版本**，带来长期期待的 Schema 一键更
 
 建议升级 —— gpt-5.x 模型开箱即用，Test Connection 界面会准确告诉你 Provider 拒绝了什么，不必再翻控制台排查 baseUrl / 模型名 / API key。
 
-建议升级
+### v1.22.5 — 2026-06-29 (PATCH)
 
-我们强烈建议升级——Schema 一键应用功能使 Schema 优化成为一步操作，繁体中文语言显著改善 zh-TW 用户的体验。
+聚焦的 PATCH：修复 OpenAI 推理模型族（gpt-5.1+ / gpt-5.5 / o1-o4）在 Test Connection 上的 400 错误（Issue #207 后续跟进），并将 Provider 真实错误消息透传到 Test Connection Notice。
+
+- **🛡️ 推理模型族现走 OpenAI Responses API（Issue #207 后续）。** v1.22.4 的 `max_tokens` ↔ `max_completion_tokens` 探测缓存修复是必要但不充分的——`gpt-5.1-chat-latest`、`gpt-5.5` 以及 `o1` / `o3` / `o4-mini` 推理家族在 Chat Completions 端点仍报 400 错误，原因是 Chat Completions 对推理模型族存在兼容性问题。OpenAI 官方 GPT-5.5 迁移指南明确指出"GPT-5.5 works best in the Responses API"，v1.22.5 因此将推理家族路由到 `/v1/responses` 并附带 `reasoning: { effort: 'low' }`。`gpt-5-chat-latest`、`gpt-4.1`、`gpt-3.5-turbo` 以及所有非 OpenAI baseUrl（Ollama、LM Studio、DeepSeek 等）保持 `/v1/chat/completions` 路径不变。检测逻辑是纯函数 `isResponsesApiModel(model, baseUrl)`，仅在 `https://api.openai.com/v1` 触发——自定义端点完全兼容。
+- **📜 Provider 错误消息体到达 Test Connection Notice。** Obsidian 的 `requestUrl` 在 4xx（含 429）上抛错但**不**把 Provider 响应体挂到 Error 对象上——所以 v1.22.4 的 `extractProviderErrorMessage()` 也拿不到 OpenAI 实际说的什么。v1.22.5 在失败请求上包一层 `window.fetch` 重新拉取（5 秒超时），把 Provider body 合并到抛出的 `Error.message` 里，用户看到的是 `"status 429: You exceeded your current quota, please check your plan and billing details"` 而不是裸 `"status 429"`。原始 body 同时通过 `console.warn` 级别写入 DevTools 方便排查。非 OpenAI baseUrl 走原有 Chat Completions 路径获得相同增强。
+- **⏱️ 429/5xx 限流错误在 Responses API 路径上获得指数退避重试。** v1.22.4 的 `withRetry`（3 次尝试，1s/2s/4s + 抖动）原本只覆盖 Chat Completions 路径。v1.22.5 把新 Responses API 路径也包了同样的 `withRetry`，瞬时 429 配额颠簸不再立即让 Test Connection 失败。
+- **♻️ 测试夹具更新。** v1.22.4 时期针对 dot-naming gpt-5.x 模型的回归测试，以及 `thinking.type='disabled'` 遗留 Chat Completions 路径的测试，现在分别使用 `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1`——这些模型继续走 Chat Completions 路径，而推理模型族由新的 `src/__tests__/root/llm-client-responses-api.test.ts`（28 测试）完整覆盖。
+
+建议升级 —— `gpt-5.1-chat-latest`、`gpt-5.5`、`o1` / `o3` / `o4-mini` 家族在 Test Connection 上开箱即用，连接失败时显示的是 Provider 真实错误（如 "insufficient_quota"）而不是裸 HTTP 状态码。
 
 详见 [CHANGELOG.md](../CHANGELOG.md)。
 
