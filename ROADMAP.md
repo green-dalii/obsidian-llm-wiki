@@ -186,7 +186,8 @@ Stays local until user-in-the-wild signals other P0 issues for a single release.
 | # | Module | LOC | Depends on | Status |
 |---|--------|-----|------------|--------|
 | P1-5 | Query Wiki integration (replace lex Tier A with PPR top-k + LLM seed selection) | — | ✅ done |
-| P1-6 | Lint integration: #157 path (hub-link strip uses PPR) | ~40 | P1-3 | ❌ not started |
+| P1-6 | Lint integration: #157 path (hub-link strip uses PPR) | 229 core + 35 report | P1-3 | ✅ done (b43e431) |
+| P1-7 | **AI-SDK 引入** — replace hand-rolled OpenAICompatibleClient with `@ai-sdk/openai` v5 (closes #207 Chat Completions limitation, future-proofs against OpenAI naming/API drift) | ~2-3 day | P1-6 ✅ | 🔄 planned (v1.23.0) |
 
 #### 🔄 P2 — Remaining (after P1-5)
 | # | Task | Effort | Status |
@@ -274,6 +275,22 @@ Fallback arm selection:
 1. `pages < 30` OR `edges < pages` OR `seed_degree == 0` → pure lex/title match
 2. `seed_degree >= 1` AND graph has neighbors → lex-seeded MC-PPR
 3. All global guards passed → graph-first MC-PPR
+
+---
+
+## Next Milestone: v1.22.5 — PATCH hotfix (Responses API path for #207)
+
+### v1.22.5 Scope
+
+| Item | Issue | Effort | Status |
+|------|-------|--------|--------|
+| **#207 follow-up — Responses API path for gpt-5.1+ / gpt-5.5 / o1-o4** | #207 | 0.5-1 day | 🔄 in progress |
+
+**Root cause confirmed (2026-06-29):** OpenAI's GPT-5.5 / GPT-5.1-chat-latest / reasoning models "work best in the Responses API" per OpenAI's official migration guide. Chat Completions path has compatibility issues for the reasoning model family. v1.22.4's `max_tokens` ↔ `max_completion_tokens` probe-then-cache fix only addressed one axis of the problem.
+
+**Patch fix (S1+A1 plan):** Add a minimal Responses API code path inside `OpenAICompatibleClient.createMessage` for `gpt-5.1+` / `gpt-5.5` / `o1*` / `o3*` / `o4-mini` model names. **No new dependencies** — only endpoint switch. ~5-10 LOC diff. Ships as v1.22.5 PATCH (semver-correct: bug fix only).
+
+**Long-term fix (v1.23.0 P1-7):** Replace hand-rolled `OpenAICompatibleClient` (~640 LOC) with `@ai-sdk/openai` v5, which already defaults `openai('gpt-5.5')` to Responses API and supports `reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh'`. Eliminates future provider-version regression class entirely (Vercel maintains the abstraction). See P1-7 in v1.23.0 table below.
 
 ---
 
