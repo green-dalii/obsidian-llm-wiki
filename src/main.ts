@@ -7,14 +7,23 @@ import {
   IngestReport
 } from './types';
 import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, NOTICE_ABORT, COMPATIBLE_SOURCE_EXTENSIONS } from './constants';
-import { AnthropicClient, AnthropicCompatibleClient, OpenAICompatibleClient } from './llm-client';
 import { wrapWithAdvancedSettings } from './llm-client-wrapper';
+import { createLLMClientFromSettingsSync, preloadLLMClientModules } from './llm-sdk/create-llm-client';
 import { runSchemaAnalyze } from './schema/analyze';
 
+// v1.23.0 P1-7: AI-SDK migration. Eagerly preload SDK modules on plugin
+// load so sync `createLLMClient` works without blocking. Failure is
+// non-fatal: falls back to legacy llm-client at createLLMClient time.
+const aiSdkModulesLoaded: Promise<void> = preloadLLMClientModules();
+void aiSdkModulesLoaded.catch((err) => {
+  console.warn('[v1.23.0 LLM migration] Failed to preload AI-SDK modules:', err);
+});
+
 // Issue #243: derive a consistent cache key for the thinking-control cache.
-// Used in both the read (createLLMClient) and write (testLLMConnection) paths
-// so they stay aligned when the user picks a predefined provider without
-// overriding baseUrl.
+// v1.23.0 P1-7: AI-SDK migration removed the thinking-control probe that
+// used this helper. Kept for now in case we need to introspect the cache
+// during v1.24.0 cleanup; will be removed if no use case surfaces.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getThinkingControlCacheKey(settings: LLMWikiSettings): string {
   return settings.baseUrl?.trim() || PREDEFINED_PROVIDERS[settings.provider]?.baseUrl || '';
 }
@@ -23,46 +32,22 @@ function getThinkingControlCacheKey(settings: LLMWikiSettings): string {
 // Issue #99 / #128 / #128 follow-up: thin wrapper that injects only the
 // advanced settings the user has configured; otherwise the call passes
 // through unchanged to preserve the provider default.
+//
+// v1.23.0 P1-7: AI-SDK migration. The provider dispatch logic was
+// rewritten to use Vercel AI-SDK v6 — see src/llm-sdk/create-llm-client.ts.
+// The old hand-rolled OpenAICompatibleClient / Anthropic* classes are
+// retained as legacy fallbacks in src/llm-client.ts for v1.23.0 backward
+// compat (will be removed in v1.24.0 once we've validated the new path
+// in production).
 export function createLLMClient(settings: LLMWikiSettings): LLMClient {
-  let client: LLMClient;
-
-  if (settings.provider === 'anthropic') {
-    client = new AnthropicClient(settings.apiKey.trim());
-  } else if (settings.provider === 'anthropic-compatible') {
-    const baseUrl = settings.baseUrl?.trim();
-    if (baseUrl) {
-      client = new AnthropicCompatibleClient(settings.apiKey.trim(), baseUrl);
-    } else {
-      client = new AnthropicClient(settings.apiKey.trim());
-    }
-  } else {
-    const providerConfig = PREDEFINED_PROVIDERS[settings.provider];
-    const baseUrl = settings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
-    const apiKey = (settings.provider === 'ollama' || settings.provider === 'lmstudio')
-      ? (settings.apiKey.trim() || 'lmstudio')
-      : settings.apiKey.trim();
-    client = new OpenAICompatibleClient(apiKey, baseUrl);
-  }
-
-  // Sync thinking control cache from settings to client
-  // #137: lazy-migrate v1.19.0 boolean cache values to dialect strings.
-  //   true  → 'anthropic' (backend accepts thinking.type='disabled')
-  //   false → 'none'      (backend rejected thinking; skip field entirely)
-  if (client instanceof OpenAICompatibleClient) {
-    const cacheKey = getThinkingControlCacheKey(settings);
-    console.debug('[CREATE-LLM] cacheKey:', cacheKey, 'has cache?', cacheKey && settings.thinkingControlCache?.[cacheKey] !== undefined, 'cache value:', settings.thinkingControlCache?.[cacheKey]);
-    if (cacheKey && settings.thinkingControlCache?.[cacheKey] !== undefined) {
-      const cached = settings.thinkingControlCache[cacheKey];
-      client.thinkingControlDialect =
-        typeof cached === 'boolean' ? (cached ? 'anthropic' : 'none') : cached;
-      console.debug('[CREATE-LLM] set dialect to:', client.thinkingControlDialect);
-    }
-    // #137: thread language so queueFallbackNotice can resolve the
-    // per-locale fallback-notice templates (fallbackThinkingDialect /
-    // fallbackThinkingNone / fallbackParamStripped). Previously hard-coded
-    // TEXTS.en, which made 7/8 translations invisible to users.
-    client.language = settings.language;
-  }
+  // v1.23.0 P1-7: use the AI-SDK-backed factory. Sync shim delegates
+  // to the preloaded SDK modules (loaded by preloadLLMClientModules
+  // at module-load time above). No more legacy hand-rolled classes.
+  const client: LLMClient = createLLMClientFromSettingsSync({
+    provider: settings.provider,
+    apiKey: settings.apiKey,
+    baseUrl: settings.baseUrl,
+  });
 
   // Wrap createMessage so user-configured advanced settings are applied.
   // v1.20.0: by default the plugin does NOT inject any thinking-control
@@ -379,6 +364,14 @@ export default class LLMWikiPlugin extends Plugin {
     if (applied.length > 0) {
       console.debug(`loadSettings: applied migrations: ${applied.join(', ')}`);
     }
+
+    // v1.23.0 P2: Diagnostic — log actual queryHistory state on plugin
+    // load. Helps confirm whether the persisted history is reaching
+    // settings correctly on restart. Will be removed in v1.24.0.
+    console.debug(
+      '[main.loadSettings] settings.queryHistory =',
+      Array.isArray(this.settings.queryHistory) ? `${this.settings.queryHistory.length} messages` : 'NOT an array'
+    );
 
     // Migrate existing users: if they already have a working config, trust it
     if (savedData && !('llmReady' in savedData)) {
@@ -974,7 +967,10 @@ export default class LLMWikiPlugin extends Plugin {
     try {
       const testClient = createLLMClient(this.settings);
 
-      const testResponse = await testClient.createMessage({
+      // v1.23.0 P1-7: response is used as a "did it work" probe. AI-SDK's
+      // error mapper enriches failures with the provider body, surfaced
+      // in the Notice below. The successful response text is discarded.
+      await testClient.createMessage({
         model: this.settings.model,
         max_tokens: TOKENS_QUERY_MODEL_DETECT,
         messages: [{
@@ -983,134 +979,17 @@ export default class LLMWikiPlugin extends Plugin {
         }]
       });
 
-      console.debug('Test response:', testResponse);
+      // v1.23.0 P1-7: AI-SDK migration. The 3-tier thinking-control
+      // probe (v1.20.0) and advanced-parameter probe (v1.20.0) were
+      // hand-rolled to discover per-provider field names. AI-SDK
+      // handles this internally (OpenAISdkClient sends
+      // reasoningEffort: 'low' for enableThinking=false, AI-SDK
+      // abstracts field name selection per model). The probes are
+      // no longer needed and have been removed.
+      // The Test Connection simply verifies the client returns a
+      // 200 (already validated by the createMessage call above).
       this.settings.llmReady = true;
-
-      // Probe: which thinking-control dialect does this provider accept?
-      //
-      // #137: 3-tier probe.
-      //   Tier 1 (anthropic): thinking.type='disabled'  → OpenAI/DeepSeek/xAI
-      //   Tier 2 (openai):    reasoning_effort='none'    → Gemini OpenAI-compat
-      //   Tier 3 (none):      no field accepted           → strict backends
-      //
-      // The result is cached as a dialect string in settings so subsequent
-      // LLM calls skip the 400 probe round-trip. The in-request fallback
-      // chain still handles any mismatch between probe and runtime.
-      // v1.20.0: skip the thinking-control probe when disableThinking is
-      // false (default). No thinking field will ever be sent in this mode,
-      // so probing wastes requests and can trigger rate limits (e.g. MiniMax
-      // 429). The probe is only needed when the user explicitly enables
-      // "Disable thinking" in Custom Advanced Settings.
-      if (
-        this.settings.disableThinking &&
-        (testClient instanceof OpenAICompatibleClient || testClient instanceof AnthropicCompatibleClient || testClient instanceof AnthropicClient)
-      ) {
-        let detectedDialect: 'anthropic' | 'openai' | 'none' = 'anthropic';
-        let probeSucceeded = false;
-
-        // Tier 1: anthropic dialect
-        try {
-          await testClient.createMessage({
-            model: this.settings.model,
-            max_tokens: 1,
-            messages: [{ role: 'user', content: 'think' }],
-            enableThinking: false,
-          });
-          detectedDialect = 'anthropic';
-          probeSucceeded = true;
-        } catch {
-          // Tier 2: openai dialect (force-send reasoning_effort instead of thinking)
-          // Temporarily override the dialect so the probe sends reasoning_effort.
-          if (testClient instanceof OpenAICompatibleClient) {
-            const savedDialect = testClient.thinkingControlDialect;
-            testClient.thinkingControlDialect = 'openai';
-            try {
-              await testClient.createMessage({
-                model: this.settings.model,
-                max_tokens: 1,
-                messages: [{ role: 'user', content: 'think' }],
-                enableThinking: false,
-              });
-              detectedDialect = 'openai';
-              probeSucceeded = true;
-            } catch {
-              // Tier 3: no dialect works.
-              detectedDialect = 'none';
-            } finally {
-              // Don't keep the temporary 'openai' assignment on the client — the
-              // in-request fallback chain will probe and re-cache it on first
-              // real request if our probe was wrong.
-              testClient.thinkingControlDialect = savedDialect;
-            }
-          } else {
-            // AnthropicCompat / AnthropicClient: only 'anthropic' dialect is supported.
-            detectedDialect = 'none';
-          }
-        }
-
-        const cacheKey = getThinkingControlCacheKey(this.settings);
-        if (probeSucceeded) {
-          if (testClient instanceof OpenAICompatibleClient) {
-            testClient.thinkingControlDialect = detectedDialect;
-          }
-          // Issue #243: skip writing when cacheKey is empty to avoid
-          // polluting the cache with an unusable key.
-          if (cacheKey) {
-            this.settings.thinkingControlCache = {
-              ...this.settings.thinkingControlCache,
-              [cacheKey]: detectedDialect,
-            };
-            console.debug(`Thinking control dialect for ${cacheKey}: ${detectedDialect}`);
-          }
-        } else {
-          // Probe failed: cache 'none' so subsequent real calls skip the
-          // thinking-control field entirely (no more 400 round-trips on
-          // a backend that rejected both anthropic and openai dialects).
-          if (testClient instanceof OpenAICompatibleClient) {
-            testClient.thinkingControlDialect = 'none';
-          }
-          if (cacheKey) {
-            this.settings.thinkingControlCache = {
-              ...this.settings.thinkingControlCache,
-              [cacheKey]: 'none',
-            };
-            console.debug(`Thinking control dialect for ${cacheKey}: none (both probed tiers failed)`);
-          }
-        }
-
-        // Issue #137: optional advanced-parameter compatibility probe.
-        // Only runs when advancedSettingsMode === 'custom' AND the user has
-        // actually configured repetitionPenalty or temperature — default
-        // mode never sends these, so probing them is wasted LLM tokens.
-        if (
-          probeSucceeded &&
-          testClient instanceof OpenAICompatibleClient &&
-          this.settings.advancedSettingsMode === 'custom' &&
-          cacheKey &&
-          (this.settings.repetitionPenalty !== undefined && this.settings.repetitionPenalty !== 0 ||
-            this.settings.extractionTemperature !== undefined ||
-            this.settings.chatTemperature !== undefined)
-        ) {
-          try {
-            await testClient.createMessage({
-              model: this.settings.model,
-              max_tokens: 1,
-              messages: [{ role: 'user', content: 'param-probe' }],
-              enableThinking: false,
-              temperature: this.settings.extractionTemperature ?? this.settings.chatTemperature,
-              repetition_penalty: this.settings.repetitionPenalty,
-            });
-            console.debug('Advanced parameters accepted by', cacheKey);
-          } catch (probeErr) {
-            // unsupportedFields was populated by the client; user will see
-            // a one-time Notice when the next real request runs.
-            console.debug(
-              `Advanced parameters probe failed for ${cacheKey}; unsupported fields cached. Error: ${(probeErr as Error).message}`
-            );
-          }
-        }
-      }
-      await this.saveSettings();
+      void this.saveSettings();
 
       // Auto-initialize wiki structure after first successful connection
       if (this.wikiEngine) {

@@ -1,0 +1,327 @@
+// v1.23.0 P1-7: Bridge between Obsidian's `requestUrl` API and the Web
+// Fetch API surface that Vercel AI-SDK uses internally.
+//
+// Background: AI-SDK is browser-native — it calls `fetch(url, init)`.
+// Obsidian's renderer (Electron Chromium) normally provides `fetch`,
+// but two real-world issues break that path:
+//   1. Custom protocol schemes / non-HTTP base URLs (e.g. `http://localhost:11434`
+//      for Ollama) can hit CORS preflight edge cases.
+//   2. Obsidian's `requestUrl` is the official, sandbox-aware HTTP client
+//      (handles proxy, offline detection, mobile). Routing through it
+//      keeps plugin behavior consistent with the existing llm-client.
+//
+// Strategy:
+//   - Primary path: Obsidian's `requestUrl` (if available in the runtime).
+//   - Fallback: native `fetch` (when `requestUrl` throws / isn't injected,
+//     e.g. test environments using jsdom).
+//   - Both paths return a Fetch-API-compatible Response so AI-SDK can
+//     consume it transparently.
+//
+// v1.22.5 behavior preserved: 4xx error bodies are surfaced via the
+// response body (not thrown) so `extractProviderErrorMessage` / AI-SDK's
+// `APICallError` can read them.
+//
+// Reference: https://ai-sdk.dev/docs/reference/ai-sdk-core/provider#custom-fetch
+
+import { requestUrl, RequestUrlParam } from 'obsidian';
+
+export interface ObsidianFetchInit {
+  method?: string;
+  /** Fetch-API HeadersInit: plain object, Headers instance, or tuple array. */
+  headers?: HeadersInit;
+  body?: string | Uint8Array | undefined;
+  signal?: AbortSignal;
+  // Note: AI-SDK doesn't pass these but we accept them defensively.
+  timeout?: number;
+}
+
+/**
+ * Convert a Fetch API HeadersInit to a plain object that `requestUrl`
+ * understands. AI-SDK passes either a Headers instance, a plain object,
+ * or an array of tuples.
+ */
+function headersToObject(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    const obj: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      obj[key] = value;
+    });
+    return obj;
+  }
+  if (Array.isArray(headers)) {
+    const obj: Record<string, string> = {};
+    for (const [key, value] of headers) {
+      obj[key] = value;
+    }
+    return obj;
+  }
+  // Plain object — shallow copy to avoid aliasing caller's object.
+  const obj: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    obj[key] = value;
+  }
+  return obj;
+}
+
+// v1.23.0 P1-7: debug logging for fetch adapter path selection.
+// Matched with "STREAM-FETCH" prefix so it's greppable in DevTools.
+const STREAM_FETCH_LOG = 'STREAM-FETCH';
+
+/**
+ * Bridge `requestUrl` to a Web Fetch-compatible Response.
+ *
+ * Returns a `Response`-like object that exposes:
+ *   - `.ok` (boolean, status 200-299)
+ *   - `.status` (number)
+ *   - `.headers` (Headers)
+ *   - `.text()` (async → string)
+ *   - `.json()` (async → parsed JSON, or null if body is empty)
+ *   - `.arrayBuffer()` (async → ArrayBuffer)
+ *
+ * Throws on:
+ *   - AbortSignal cancellation (re-thrown as DOMException 'AbortError')
+ *   - Request construction failure (requestUrl without `body` for POST, etc.)
+ *
+ * Note: AI-SDK reads `.text()` for error body extraction and JSON parsing,
+ * never `.body` (ReadableStream), so we don't need to expose it.
+ */
+export async function obsidianFetchBridge(
+  url: string,
+  init?: ObsidianFetchInit
+): Promise<Response> {
+  // AbortSignal short-circuit: AI-SDK respects AbortSignal but requestUrl
+  // doesn't accept one. We honor cancellation here.
+  if (init?.signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
+  }
+
+  // Build the request. Obsidian's requestUrl requires `body` as string
+  // (or undefined for GET), so we serialize Uint8Array as binary string.
+  let body: string | undefined;
+  if (init?.body !== undefined && init?.body !== null) {
+    if (typeof init.body === 'string') {
+      body = init.body;
+    } else if (init.body instanceof Uint8Array) {
+      body = new TextDecoder().decode(init.body);
+    } else {
+      body = String(init.body);
+    }
+  }
+
+  const headers = headersToObject(init?.headers);
+
+  const params: RequestUrlParam = {
+    url,
+    method: init?.method ?? 'GET',
+    headers,
+    ...(body !== undefined ? { body } : {}),
+    // requestUrl `throw: false` makes 4xx/5xx return a response instead
+    // of throwing — matches Fetch API semantics and lets AI-SDK read the
+    // error body via `.text()`.
+    throw: false,
+  };
+
+  let response;
+  try {
+    response = await requestUrl(params);
+  } catch (err) {
+    // requestUrl threw — usually network error, CORS, or invalid URL.
+    // Re-throw as a fetch-like TypeError so AI-SDK treats it as a
+    // network failure (vs. an API error with a body).
+    if (err instanceof Error) {
+      throw new TypeError(`obsidianFetchBridge network error: ${err.message}`);
+    }
+    throw err;
+  }
+
+  // Check abort AFTER requestUrl resolved — race condition: caller
+  // aborted while request was in flight.
+  if (init?.signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
+  }
+
+  // Build a Fetch-API-compatible Response from requestUrl's result.
+  const responseHeaders = new Headers();
+  for (const [key, value] of Object.entries(response.headers ?? {})) {
+    responseHeaders.set(key, value);
+  }
+
+  const text = response.text ?? '';
+  const status = response.status;
+
+  return new Response(text, {
+    status,
+    statusText: response.status ? String(status) : '',
+    headers: responseHeaders,
+  });
+}
+
+/**
+ * Returns true if `fetch` is the AI-SDK-compatible function we want.
+ * For test mocking purposes — production callers always pass
+ * `obsidianFetchBridge` directly.
+ */
+export function isObsidianFetchBridge(fn: unknown): fn is typeof obsidianFetchBridge {
+  return typeof fn === 'function' && (fn as { name?: string }).name === 'obsidianFetchBridge';
+}
+
+// v1.23.0 P1-7 follow-up: real streaming via window.fetch.
+//
+// Why this exists: `obsidianFetchBridge` (requestUrl path) returns
+// the full response body in one shot. AI-SDK's streamText can iterate
+// it as a single chunk — not real streaming. For chat-GPT-style
+// character-by-character output we need a fetch adapter that exposes
+// `response.body: ReadableStream<Uint8Array>`.
+//
+// We use Obsidian's renderer `window.fetch` (Electron Chromium).
+// Tradeoffs:
+//   - Cloud providers (api.openai.com, api.anthropic.com, DeepSeek,
+//     OpenRouter, Moonshot, GLM, etc.) support CORS — window.fetch
+//     works without issue.
+//   - Local providers (Ollama, LMStudio) typically do NOT return
+//     CORS headers — window.fetch throws TypeError. Caller catches
+//     and falls back to obsidianFetchBridge (requestUrl).
+//
+// Throws:
+//   - AbortError: when AbortSignal is cancelled (or already aborted).
+//   - TypeError: window.fetch network/CORS failure. Caller should
+//     fall back to obsidianFetchBridge.
+export async function streamingObsidianFetch(
+  url: string,
+  init?: ObsidianFetchInit
+): Promise<Response> {
+  // AbortSignal short-circuit: matches fetch API semantics.
+  if (init?.signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
+  }
+
+  const headers = headersToObject(init?.headers);
+
+  // Build fetch init. Body: string passes through, Uint8Array
+  // gets encoded as Uint8Array (fetch supports Blob | BufferSource
+  // | string). AbortSignal passes through.
+  //
+  // RequestInit.body is typed as BodyInit | null | undefined which
+  // is narrower than our ObsidianFetchInit.body. Cast at the
+  // boundary — runtime accepts both string and Uint8Array.
+  const fetchInit: RequestInit = {
+    method: init?.method ?? 'GET',
+    ...(init?.body !== undefined && init?.body !== null
+      ? { body: init.body as BodyInit }
+      : {}),
+    ...(Object.keys(headers).length > 0 ? { headers } : {}),
+    ...(init?.signal ? { signal: init.signal } : {}),
+  };
+
+  // window.fetch is available in Obsidian's Electron renderer.
+  // For environments that lack it (e.g. certain test runners), the
+  // call throws TypeError synchronously or via the returned promise.
+  // Prefer Obsidian's `activeWindow` (popout-window-aware); fall back
+  // to `window` for test environments that don't stub activeWindow.
+  type FetchLike = typeof fetch;
+  const globalWin: Window | undefined =
+    typeof activeWindow !== 'undefined'
+      ? activeWindow
+      : typeof window !== 'undefined' ? window : undefined;
+  let fetchFn: FetchLike | undefined;
+  if (globalWin && typeof globalWin.fetch === 'function') {
+    fetchFn = globalWin.fetch.bind(globalWin) as FetchLike;
+  }
+
+  if (!fetchFn) {
+    throw new TypeError('streamingObsidianFetch: window.fetch is not available in this environment');
+  }
+
+  // Let fetch reject propagate — CORS / network errors throw
+  // TypeError, 4xx resolves with ok=false. AI-SDK handles both.
+  return fetchFn(url, fetchInit);
+}
+
+/**
+ * Stream-or-fetch with automatic CORS fallback.
+ *
+ * Decision tree:
+ *   - If baseURL is local (Ollama / LMStudio / private IP):
+ *     use obsidianFetchBridge (requestUrl). No CORS issue but
+ *     "fake streaming" (whole body in one chunk).
+ *   - Otherwise: try streamingObsidianFetch (window.fetch) first.
+ *     On TypeError (CORS, network, DNS), fall back to
+ *     obsidianFetchBridge (requestUrl). Caller gets a Response
+ *     either way; AI-SDK handles single-chunk vs multi-chunk
+ *     transparently.
+ *
+ * This is the function the SDK clients should use — it picks the
+ * right strategy per provider and gracefully degrades.
+ *
+ * Failure modes (all result in a non-streaming fallback):
+ *   - TypeError from window.fetch (CORS / network / DNS)
+ *   - window.fetch unavailable (e.g. test runner without jsdom)
+ *
+ * Successful fallback path is silent (no console.warn) — it would
+ * spam logs on every request. Real errors (after fallback also
+ * fails) bubble up.
+ */
+export async function streamWithFallback(
+  url: string,
+  init?: ObsidianFetchInit
+): Promise<Response> {
+  // Local providers: skip the CORS gamble. Use requestUrl directly.
+  if (isLocalBaseURL(url)) {
+    console.debug(`[${STREAM_FETCH_LOG}] isLocal, fallback to obsidianFetchBridge (requestUrl): ${url}`);
+    return obsidianFetchBridge(url, init);
+  }
+
+  // Cloud providers: try streaming first.
+  try {
+    console.debug(`[${STREAM_FETCH_LOG}] try streamingObsidianFetch (window.fetch): ${url}`);
+    const res = await streamingObsidianFetch(url, init);
+    console.debug(`[${STREAM_FETCH_LOG}] streamingObsidianFetch succeeded, body=${typeof res.body}, status=${res.status}`);
+    return res;
+  } catch (err) {
+    // Fallback: TypeError = CORS / network / DNS failure.
+    // Other errors (DOMException from AbortSignal) should propagate.
+    if (err instanceof TypeError) {
+      console.debug(`[${STREAM_FETCH_LOG}] TypeError, falling back to obsidianFetchBridge: ${err.message}`);
+      // Build a response from requestUrl — no streaming body, but
+      // AI-SDK can still read it as a single yield.
+      return obsidianFetchBridge(url, init);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Heuristic: is the given baseURL a localhost / private IP?
+ *
+ * Used to pick the streaming strategy for createMessageStream:
+ *   - true  → use obsidianFetchBridge (requestUrl, no CORS, fake streaming)
+ *   - false → use streamingObsidianFetch (window.fetch, real streaming)
+ *
+ * Local baseURLs (Ollama, LMStudio) don't return CORS headers
+ * by default, so window.fetch fails. Cloud providers all support
+ * CORS, so window.fetch works.
+ */
+export function isLocalBaseURL(baseURL: string | undefined): boolean {
+  if (!baseURL) return false;
+  try {
+    const u = new URL(baseURL);
+    if (u.hostname === 'localhost') return true;
+    if (u.hostname === '127.0.0.1' || u.hostname === '[::1]' || u.hostname === '::1') return true;
+    // IPv4 private ranges (RFC 1918): 10.x, 172.16-31.x, 192.168.x
+    const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const m = u.hostname.match(ipv4);
+    if (m) {
+      const a = Number(m[1]);
+      const b = Number(m[2]);
+      if (a === 10) return true;
+      if (a === 172 && b >= 16 && b <= 31) return true;
+      if (a === 192 && b === 168) return true;
+    }
+    return false;
+  } catch {
+    // Malformed URL — defensively treat as cloud (safer default;
+    // streaming is the better UX when uncertain).
+    return false;
+  }
+}
