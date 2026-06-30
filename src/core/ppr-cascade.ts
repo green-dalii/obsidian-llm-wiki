@@ -83,7 +83,7 @@ export function tokenizeQuery(query: string): string[] {
   const tokens = new Set<string>();
   const queryLower = query.toLowerCase();
 
-  const asciiRuns = queryLower.match(/[a-z0-9]{3,}/g);
+  const asciiRuns = queryLower.match(/[a-z0-9]{2,}/g);
   if (asciiRuns) for (const r of asciiRuns) tokens.add(r);
 
   for (const t of queryLower.split(/\s+/)) {
@@ -220,6 +220,23 @@ export function pprCascade(
   const explicitSeeds = options.seeds && graph
     ? filterSeedsToGraph(options.seeds, graph)
     : [];
+
+  // v1.23.0 P2: When there's no graph yet (first query) but LLM provided
+  // explicit seeds, those seeds should be returned directly as lex matches
+  // rather than silently dropped. The seeds arrived via LLM semantic selection
+  // which is a stronger signal than empty lex.
+  if (!graph && explicitSeeds.length === 0 && options.seeds && options.seeds.length > 0) {
+    const fallbackMatches: { page: PageRef; score: number; arm: 'lex' }[] = [];
+    const seedPaths = new Set(options.seeds);
+    for (const page of pages) {
+      if (seedPaths.has(page.path)) {
+        fallbackMatches.push({ page, score: 2, arm: 'lex' });
+      }
+    }
+    if (fallbackMatches.length > 0) {
+      return fallbackMatches;
+    }
+  }
 
   // Arm 1: pure lex if no graph or graph not mature.
   if (!graph || !isGraphMature(graph, options)) {
