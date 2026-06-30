@@ -57,8 +57,8 @@ export const IT_TEXTS = {
     lmstudioHint: 'LM Studio gira in locale, la chiave API è facoltativa',
 
     // Limite esecuzione LLM
-    maxTokensPerCallName: 'Finestra di contesto',
-    maxTokensPerCallDesc: 'Limita i token di generazione per adattarli alla finestra di contesto del tuo modello. 0 = nessun limite (predefinito cloud).',
+    maxTokensPerCallName: 'Max token di output per chiamata',
+    maxTokensPerCallDesc: 'Limita quanti token il modello può generare in una singola risposta. Riduci se usi un modello locale con finestra di contesto piccola e vedi errori. Per i modelli cloud, mantieni il valore predefinito (0 = nessun limite).',
 
     // Issue #111: maiuscole/minuscole slug
     slugCaseName: 'Maiuscole/minuscole nome file',
@@ -455,20 +455,20 @@ export const IT_TEXTS = {
 
     // Impostazioni LLM avanzate (v1.20.0: predefinito = nessun override specifico del provider)
     advancedSettingsModeName: 'Impostazioni parametri avanzate',
-    advancedSettingsModeDesc: 'Il predefinito usa il comportamento del tuo provider — non vengono inviati campi di controllo del ragionamento, temperatura o penalità di ripetizione. Questo funziona per la maggior parte degli utenti. Passa a Personalizzato solo se hai bisogno di sovrascrivere esplicitamente i valori predefiniti del provider (es. forzare uno specifico dialetto di controllo del ragionamento, impostare una temperatura non predefinita, ecc.).',
-    advancedSettingsDefault: 'Predefinito (usa comportamento del provider)',
-    advancedSettingsCustom: 'Personalizzato (sovrascrivi i valori predefiniti del provider)',
+    advancedSettingsModeDesc: 'La modalità predefinita segue le raccomandazioni del tuo provider. Passa a Personalizzato solo se hai un motivo specifico per sovrascrivere (ad esempio, un modello particolare ha bisogno di una temperatura fissa, o vuoi sopprimere l\'output di ragionamento).',
+    advancedSettingsDefault: 'Predefinito (segui provider)',
+    advancedSettingsCustom: 'Personalizzato (sovrascrivi provider)',
     disableThinkingName: 'Disabilita ragionamento',
-    disableThinkingDesc: 'Opt-in. Quando abilitato, il plugin invia una direttiva di controllo del ragionamento al provider e percorre una catena di fallback a 3 livelli (anthropic → openai → none) se il provider la rifiuta. Usalo solo se il tuo provider fa trapelare il contenuto del ragionamento nella risposta e devi sopprimerlo. La maggior parte dei provider gestisce il ragionamento correttamente da sé — lasciarlo disattivato offre qualità migliore.',
+    disableThinkingDesc: 'Disattiva la catena di pensiero/ragionamento nella risposta del modello. Spento per impostazione predefinita — il modello decide se mostrare il ragionamento, il che di solito dà la risposta migliore. Attivalo solo se il tuo provider inserisce testo di ragionamento grezzo nella risposta e desideri una risposta pulita.',
     // Issue #137: suggerimenti di compatibilità per le impostazioni avanzate (tenuti brevi; nessuna
     // lista di provider per evitare oneri di manutenzione quando i provider cambiano).
     extractionTemperatureName: 'Temperatura estrazione',
-    extractionTemperatureDesc: 'Range 0–2. Valori più bassi rendono l\'output dell\'LLM più deterministico e fedele. Valori più alti lo rendono più creativo. Lascia vuoto per usare il valore predefinito del tuo provider. Se il tuo provider rifiuta questo valore, il plugin rimuove automaticamente il campo e mostra un avviso una tantum.',
+    extractionTemperatureDesc: 'Controlla se il modello è più conservatore o creativo nello scrivere pagine entity/concept. Valori bassi = più deterministico e fedele; valori alti = più vario. La maggior parte degli utenti lascia vuoto.',
     chatTemperatureName: 'Temperatura query',
-    chatTemperatureDesc: 'Range 0–2. Come la Temperatura estrazione, ma influisce solo sulle risposte di chat/query. Lascia vuoto per usare il valore predefinito del tuo provider. Se il tuo provider rifiuta questo valore, il plugin rimuove automaticamente il campo e mostra un avviso una tantum.',
+    chatTemperatureDesc: 'Stesso concetto della temperatura di estrazione, ma influisce solo su come Query Wiki risponde alle domande. Valori bassi = risposte più letterali; valori alti = risposte più colloquiali. La maggior parte degli utenti lascia vuoto.',
     repetitionPenaltyName: 'Penalità di ripetizione',
-    repetitionPenaltyDesc: 'Range 0–2. Valori più alti riducono i pattern ripetitivi. Lascia vuoto per usare il valore predefinito del tuo provider. Nota di compatibilità: molti provider cloud non accettano questo campo. Il plugin lo rimuove automaticamente su errore 400 e mostra un avviso una tantum.',
-    temperaturePlaceholder: 'vuoto = predefinito provider',
+    repetitionPenaltyDesc: 'Impedisce al modello di ripetere le stesse parole o frasi. Valori più alti riducono la ripetizione. Solo alcuni provider di modelli locali (Ollama, LM Studio, llama.cpp) accettano questo parametro; i provider cloud lo ignorano silenziosamente. La maggior parte degli utenti lascia vuoto.',
+    temperaturePlaceholder: 'lasciare vuoto = predefinito provider',
     lintDeadLinkSection: 'Collegamenti interrotti (rilevati) [{count}]',
     lintEmptyPageSection: 'Pagine vuote (rilevate) [{count}]',
     lintOrphanSection: 'Pagine orfane (rilevate) [{count}]',
@@ -677,7 +677,7 @@ export const IT_TEXTS = {
     welcomeNoteRecreateCommand: 'Ricrea la nota Welcome Wiki',
     welcomeNoteRecreateCommandTooltip: 'Ricrea la nota Welcome in <wikiFolder>/Welcome.md con i semi di dominio attuali e il test di configurazione LLM. Il file esistente viene sovrascritto.',
     welcomeNoteSettingsToggle: 'Crea la nota Welcome Wiki al primo avvio',
-    welcomeNoteSettingsToggleDesc: 'Quando abilitato, il plugin crea <wikiFolder>/Welcome.md al primo caricamento del plugin se la cartella wiki manca o è vuota. La nota è editabile — compila il focus di dominio, scegli 2-3 note-sorgente da ingerire, e il grafo dei collegamenti si semina automaticamente. La nota viene tradotta automaticamente nella lingua wiki tramite LLM (fallback inglese se LLM non configurato). Usa il comando della palette "Ricrea nota Welcome Wiki" per rigenerare su richiesta. Disabilita per non creare mai automaticamente.',
+    welcomeNoteSettingsToggleDesc: 'Al primo avvio (quando la cartella wiki è vuota), crea una nota introduttiva di una pagina in <wikiFolder>/Welcome.md. Spiega cos\'è LLM-Wiki, ti invita a dichiarare il tuo focus di dominio, e ti guida nell\'inserimento delle prime 2-3 note sorgente. La nota è scritta in inglese per impostazione predefinita, o nella tua lingua wiki se LLM è configurato. Disabilita se conosci già il plugin e non desideri la nota introduttiva.',
     welcomeNoteRunConfigTest: 'Nota Welcome scritta in inglese. Apri Impostazioni → LLM Provider → Test Connection per localizzarla alla prossima ricreazione.',
     welcomeNoteRecreated: 'Nota Welcome Wiki ricreata in {path}',
     welcomeNoteNotRecreated: 'La nota Welcome non è stata ricreata. Controlla la configurazione LLM.',

@@ -57,8 +57,8 @@ export const EN_TEXTS = {
     lmstudioHint: 'LM Studio runs locally, API Key is optional',
 
     // LLM execution cap
-    maxTokensPerCallName: 'Context Window',
-    maxTokensPerCallDesc: 'Limit generation tokens to fit your model\'s context window. 0 = no cap (cloud default).',
+    maxTokensPerCallName: 'Max output tokens per call',
+    maxTokensPerCallDesc: 'Cap how many tokens the model is allowed to generate in a single response. Lower this if you run a local model with a small context window and see errors. Leave at the default (0 = no cap) for cloud models.',
 
     // Issue #111: slug casing
     slugCaseName: 'File Name Casing',
@@ -451,20 +451,20 @@ export const EN_TEXTS = {
 
     // Advanced LLM Settings (v1.20.0: default = no provider-specific overrides)
     advancedSettingsModeName: 'Advanced parameter settings',
-    advancedSettingsModeDesc: 'Default uses your provider\'s own behavior — no thinking-control, temperature, or repetition-penalty fields are sent. This works for most users. Switch to Custom only if you need to explicitly override the provider defaults (e.g. force a specific thinking-control dialect, set a non-default temperature, etc.).',
-    advancedSettingsDefault: 'Default (use provider behavior)',
-    advancedSettingsCustom: 'Custom (override provider defaults)',
+    advancedSettingsModeDesc: 'Default mode follows whatever the model provider recommends. Switch to Custom only when you have a specific reason to override (for example: a particular model needs a fixed temperature, or you want to suppress the model\'s reasoning output).',
+    advancedSettingsDefault: 'Default (follow provider)',
+    advancedSettingsCustom: 'Custom (override provider)',
     disableThinkingName: 'Disable thinking',
-    disableThinkingDesc: 'Opt-in. When enabled, the plugin sends a thinking-control directive to the provider and walks a 3-tier dialect fallback chain (anthropic → openai → none) if the provider rejects it. Use this only if your provider leaks reasoning content into the answer and you need to suppress it. Most providers handle reasoning correctly on their own — leaving this off gives better quality.',
+    disableThinkingDesc: 'Turn off the model\'s chain-of-thought / reasoning output in its response. Default off — the model decides whether to show reasoning, and that usually gives the best answer. Turn this on only if your provider dumps raw reasoning text into the response and you want a clean answer.',
     // Issue #137: compatibility hints for advanced settings (kept short; no
     // provider list to avoid maintenance burden when providers change).
     extractionTemperatureName: 'Extraction temperature',
-    extractionTemperatureDesc: 'Range 0–2. Lower values make LLM output more deterministic and faithful. Higher values make it more creative. Leave blank to use your provider\'s default. If your provider rejects this value, the plugin automatically strips the field and shows a one-time notice.',
+    extractionTemperatureDesc: 'Controls how creative vs faithful the model is when writing entity/concept pages. Lower numbers = more deterministic and factual; higher numbers = more varied. Most users leave this blank.',
     chatTemperatureName: 'Query temperature',
-    chatTemperatureDesc: 'Range 0–2. Same as Extraction temperature, but only affects chat/query responses. Leave blank to use your provider\'s default. If your provider rejects this value, the plugin automatically strips the field and shows a one-time notice.',
+    chatTemperatureDesc: 'Same idea as Extraction temperature, but only affects how Query Wiki answers questions. Lower numbers = more literal answers; higher numbers = more conversational. Most users leave this blank.',
     repetitionPenaltyName: 'Repetition penalty',
-    repetitionPenaltyDesc: 'Range 0–2. Higher values reduce repetitive patterns. Leave blank to use your provider\'s default. Compatibility note: many cloud providers do not accept this field. The plugin auto-strips it on 400 and shows a one-time notice.',
-    temperaturePlaceholder: 'blank = provider default',
+    repetitionPenaltyDesc: 'Discourages the model from repeating the same words or phrases. Higher numbers mean less repetition. Only certain local-model providers (Ollama, LM Studio, llama.cpp) accept this; cloud providers will silently ignore it. Most users leave this blank.',
+    temperaturePlaceholder: 'leave blank = provider default',
     lintDeadLinkSection: 'Dead links (detected) [{count}]',
     lintEmptyPageSection: 'Empty pages (detected) [{count}]',
     lintOrphanSection: 'Orphan pages (detected) [{count}]',
@@ -683,7 +683,7 @@ export const EN_TEXTS = {
     welcomeNoteRecreateCommand: 'Recreate Wiki Welcome Note',
     welcomeNoteRecreateCommandTooltip: 'Re-create the Welcome note at <wikiFolder>/Welcome.md with current domain seeds and LLM configuration test. Existing file is overwritten.',
     welcomeNoteSettingsToggle: 'Create Wiki Welcome Note on first run',
-    welcomeNoteSettingsToggleDesc: 'When enabled, the plugin creates <wikiFolder>/Welcome.md the first time the plugin loads and the wiki folder is missing or empty. The note is editable — fill in your domain focus, pick 2-3 source notes to ingest, and the link graph seeds itself. The note is auto-translated to your wiki language via the LLM (English fallback if LLM is not configured). Use the command palette "Recreate Wiki Welcome Note" to regenerate on demand. Disable to never auto-create.',
+    welcomeNoteSettingsToggleDesc: 'On your very first run (when the wiki folder is empty), create a one-page getting-started note at <wikiFolder>/Welcome.md. It explains what LLM-Wiki does, asks you to declare your domain focus, and walks you through ingesting your first 2-3 source notes. The note is written in English by default, or in your wiki language if the LLM is configured. Disable this if you already know how the plugin works and don\'t want the onboarding note cluttering your vault.',
     welcomeNoteRunConfigTest: 'Welcome note written in English. Open Settings → LLM Provider → Test Connection to localize it on next recreate.',
     welcomeNoteRecreated: 'Recreated Wiki Welcome note at {path}',
     welcomeNoteNotRecreated: 'Welcome note was not recreated. Check LLM configuration.',
