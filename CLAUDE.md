@@ -6,9 +6,9 @@
 
 ## Current Phase: v1.22.6 (released 2026-06-30) → v1.23.0 (AI-SDK Migration + Graph Engine in flight)
 
-### Completed (v1.22.6) — Hotfix: #204 + #207 follow-up (2026-06-30)
+### Completed (v1.22.6) — Hotfix: #204 + #207 follow-up (2026-06-30, **both CLOSED**)
 
-Closed two user-reported bugs on the v1.22.5 baseline before pushing v1.23.0 (which has the AI-SDK migration in flight). Both are PATCH scope (backward-compatible bug fixes).
+Closed two user-reported bugs on the v1.22.5 baseline before pushing v1.23.0 (which has the AI-SDK migration in flight). Both PATCH scope (backward-compatible bug fixes). **Both issues auto-closed by `Closes #N` in the v1.22.6 release commit (2026-06-30).**
 
 - ✅ **#204 — Auto Ingest no longer opens a blocking modal when `autoIngestNotificationLevel: notice`.** v1.22.2 added `onAutoIngestDone` (Notice path) but never wired it into the watch-mode auto-ingest path — every ingest completion went through `onIngestDone` which always opens `IngestReportModal`, making the "Notice (non-blocking)" UI setting a no-op. Added `trigger?: 'auto' | 'manual'` field to `IngestReport` and `IngestOptions`, propagated through `WikiEngine.ingestSource` → `onDone` report. Completion callback `LLMWikiPlugin.onIngestDoneDispatch` routes `trigger='auto'` to `onAutoIngestDone` (Notice respecting `autoIngestNotificationLevel`) and otherwise keeps the legacy `IngestReportModal` path. Manual ingest behavior unchanged.
 - ✅ **#204 follow-up — Auto Smart Fix completion is now context-aware.** Same trigger pattern applied to `runLintWiki`: third `trigger` parameter (default `'manual'`). Periodic auto lint (`AutoMaintainManager.schedulePeriodicLint`) passes `trigger='auto'`; manual lint commands keep the default. Completion dispatch: manual → `LintReportModal` (unchanged UX); auto + `autoSmartFix=true` → Notice + run fixAll; auto + `autoSmartFix=false` → Notice only with History panel hint.
@@ -23,78 +23,9 @@ Closed the second half of #207 — reasoning model family (gpt-5.1+ / gpt-5.5 / 
 - ✅ **429/5xx now retry with exponential backoff on the Responses API path.** v1.22.4's `withRetry` (3 attempts, 1s/2s/4s + jitter) covered only the Chat Completions path. v1.22.5 wraps the new Responses API path in the same `withRetry` so transient 429 quota bumps no longer immediately fail Test Connection.
 - ✅ **Tests: 1104 passing.** +28 since v1.22.4 (new `llm-client-responses-api.test.ts` with 28 tests covering endpoint routing, body shape, error enrichment, withRetry integration, custom baseUrl compatibility, and reasoning-family model coverage). Existing dot-naming gpt-5.x regression test (v1.22.4) and `thinking.type='disabled'` Chat Completions tests refactored to use `gpt-5-mini`/`gpt-5-nano`/`gpt-4.1` (the Chat Completions path models).
 
-### Completed (v1.22.4) — Hotfix: GPT-5.x probe + provider error UX (2026-06-27)
-
-Closed two user-reported issues in v1.22.3 user testing — both PATCH scope (backward-compatible bug fixes):
-
-- ✅ **#207 — GPT-5.x models no longer fail Test Connection with 400.** v1.20.0's `params.model.startsWith('gpt-5-')` prefix-matching heuristic only matched the dash-suffixed OpenAI gpt-5 family (`gpt-5-mini`, `gpt-5-nano`, etc.) and silently broke for every new gpt-5.x release (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). This was a regression of the same root-cause class as #143 in v1.20.0. Replaced with a runtime probe-then-cache mechanism: first request uses `max_tokens`, if the backend rejects with 400 we cache the alternate key (`max_completion_tokens` or vice versa) and retry. New `MaxTokenKey` type and `detectRejectedMaxTokenKey()` exported pure function. Stream path mirrors the same pattern in `createMessageStream`. Per-client isolation ensures baseUrl changes start a fresh cache.
-- ✅ **Test Connection UI now surfaces the provider's actual error message.** Previously, `requestUrl` errors were re-wrapped as `status 400: ${data.error.message}` (or just "status 400" when the response body was lost to requestUrl's 4xx-throw-without-body behavior), and the provider's actual diagnostic was never visible. New `extractProviderErrorMessage()` enriches the thrown error in both `createMessage` and `createMessageStream` so Test Connection Notice text reads `status 400: <provider message>` instead of a generic HTTP wrapper. Test Connection is now self-diagnostic without needing the console.
-- ✅ **Lint performance knobs centralised in `src/constants.ts`.** Yield cadences, candidate batch sizing, prep batch read, and source-analyzer batch sizing now live in one place. Previously these values were duplicated across `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, and `batch-limits.ts` — including a literal `MAX_TOKENS=16000` copy of `MAX_TOKENS_BATCH`. Tuning lint performance is now a single-file change.
-- ✅ **Tests: 1076 passing.** +12 since v1.22.3.
-
-### Completed (v1.22.3) — Hotfix hardening (2026-06-26)
-- ✅ **log header detection hardened to language-agnostic structural marker.** Switched from text-based detection (`view operation history` / `操作历史`) to embedded `<!-- llm-wiki-log-header-start -->` HTML-comment marker. v1.22.2 log files auto-upgrade on next startup.
-- ✅ **log header strings consolidated into `src/texts/<lang>.ts`.** Removed 60 lines of duplicated `HEADER_LABELS` from `core/log-header.ts`. Translators and i18n-parity tests now cover them automatically.
-- ✅ **`generation_complete` no longer stamped onto `log.md` / `index.md` / `schema/`.** New `isInWikiContentFolder()` guard restricts `markPageComplete` to `wiki/{entities,concepts,sources}/...` only. 5 regression tests.
-- ✅ **Tests: 1064 passing.** +5 since v1.22.2.
-
-### Completed (v1.22.2) — UX improvements + tech debt (2026-06-26)
-- ✅ **#204 — Auto Ingest blocking modal fixed.** New `onAutoIngestDone()` routes watch-mode completions to a configurable Notice (non-blocking) instead of IngestReportModal. `autoIngestNotificationLevel: 'notice' | 'modal'` setting with conditional UI dropdown.
-- ✅ **Auto Smart Fix FixReportModal → transient Notice.** Replaced blocking modal with Notice hinting at Operation History Panel.
-- ✅ **D1 — Dead code: redundant `setDoneCallback` resets in `main.ts` removed.**
-- ✅ **D2 — `slug.ts:2` console.debug noise removed.**
-- ✅ **D3 — `core/log-header.ts` i18n log.md header builder (10 locales) + startup Phase 4.5 auto-migration.**
-- ✅ **Periodic Lint: removed "Hourly", added "Monthly". Old `hourly` data auto-migrated to `daily`.**
-- ✅ **Tests: 1054 passing.** +25 since v1.22.1.
-
-### Completed (v1.22.1) — P0 bug batch + UX improvement
-- ✅ **#197 — `fixDeadLink` fabrication root-cause fix.** Stop calling `fillEmptyPage()` in both stub-creating branches (LLM `create_stub` + deterministic fallback). Pure-function `buildStubContent()` produces honest placeholders with `generation_complete: false` marker so #170 incomplete-cleaner recognises them. Explicit policy gate `shouldFabricateStubForUnresolvableLink()` returns false for both branches — any future PR that wants to re-introduce fabrication must edit this single greppable switch. 6 regression tests.
-- ✅ **#199 — `startupCheck` silently reset to true on every restart.** v1.18.3 migration removed. Remaining migrations extracted to pure-function `applySettingsMigrations()` in `core/settings-migrations.ts` for unit testability. 5 regression tests (multi-load idempotency, new-user default, v1.20.0 migration unaffected).
-- ✅ **CSS `:has()` warning fix.** `styles.css:579` `:has()` replaced with direct class selector `.modal.llm-wiki-schema-diff-modal`. JS side: `schema-diff-modal.ts` `onOpen`/`onClose` add/remove class on `modalEl` via pure helpers in `src/ui/schema-diff-modal-classes.ts` (separate file to keep tests obsidian-free).
-- ✅ **`scripts/css-lint.mjs`** — multi-rule CSS lint catching `!important` + `:has()` to prevent regression. Wired into `pnpm css-lint` (Gate 1).
-- ✅ **#196 — Query Wiki Modal → Copilot-style right side panel (PR #196 by @YounianC).** `QueryModal extends Modal` → `QueryView extends ItemView` (`VIEW_TYPE_QUERY`, registered via `registerView`). `query-wiki` command + new `message-circle` ribbon icon activate/reveal a right sidebar leaf (reusing an existing leaf) instead of a popup. All existing behavior preserved. Styles migrated to native `var(--…)` theme variables — fixes hardcoded colors breaking light mode.
-- ✅ **#187 — Related-link `sources/` prefix re-asserted deterministically (PR #200 by @DocTpoint).** Pure-function `correctRelatedLinkPrefixes()` re-asserts the known type of each related name after generation; section-scoped so legitimate source citations in *Mentions in Source* are never rewritten. 9 regression tests including named `[truncated-existing-pages]` and `[co-created-siblings]` cases.
-- ✅ **Tests: 1029 passing.** +22 since v1.22.0 (#197 ×6, #199 ×5, CSS :has ×1, #200 ×9, query-engine mock ×1).
-
-### Completed (v1.22.0) — Schema One-Click Apply + Dynamic Tag Sync + zh-Hant + Status Bar (2026-06-23)
-- ✅ **#97 — Schema one-click apply with IDE-style diff Modal + auto-backup.** `SchemaDiffModal` class (dual-pane IDE-style diff, Apply/Cancel/Open file buttons, Regenerate hidden for v1.22). `applySchemaSuggestion()` with auto-backup to `.llm-wiki-backups/schema/` (rotation MAX_BACKUPS=3 via `core/backup-rotation.ts`). `lineDiff()` LCS algorithm in `core/diff.ts`. Lint "Update Schema" button removed from command palette — schema updates flow through Lint Modal only.
-- ✅ **Schema dynamic tag sync.** Schema vocabulary is now the single source of truth; tag vocab injected into generation prompts. `SchemaContext` + `buildSchemaSectionTemplate` + tag vocabulary injection.
-- ✅ **Traditional Chinese (zh-TW) locale.** 10th language (zh-Hant). Parity guard extended to all 10 locales (bidirectional).
-- ✅ **Ingest status bar UX (#189).** Document name + batch progress in status bar. Pure-function `core/status-bar.ts` (`buildIngestStatusBarText`). Contributed by @YounianC.
-- ✅ **Lint fixes.** `apply-suggestion.ts` simplified to direct `app.fileManager.trashFile` (removed unnecessary fallback). `parse-suggestion.ts` removed unnecessary type assertion.
-- ✅ **Tests: 1007 passing.** +59 tests since v1.21.1 (schema suite 48 tests + status-bar suite 7 tests + #186/#188 regression tests 3 tests + CSS :has regression test 1 test).
-
-### Completed (v1.21.1) — Hotfix 2026-06-22
-- ✅ **#173 Symptom A — createOrUpdateFile create-retry loop.** NFC/NFD path resolution before `vault.create`.
-- ✅ **esbuild 0.28.0 → 0.28.1.** Low-severity dev-only patch.
-- ✅ **Tests: 941 passing.** +2 tests since v1.21.0.
-
-### Completed (v1.21.0) — Pre-Ingest Gate + Schema Phase 1 + History Panel (2026-06-21)
-- ✅ **#164 — Pre-ingest requirements gate (PR #174).** Empty/whitespace/frontmatter-only notes rejected before LLM call. Extensible `CONTENT_CHECKS` registry + `hashBody` dedup + `ConfirmModal`. Contributed by @Indexed-Apogrypha.
-- ✅ **#170 — Incomplete-page cleaner (PR #177).** `generation_complete` flag + startup QuickFixes Phase 3 self-scan.
-- ✅ **#172 — i18n: hardcoded Chinese error string (PR #176).** `fileWriteFailed` key across 9 locales.
-- ✅ **#173 — dedup createdPages (PR #176).** `dedupPages()` pure-function helper.
-- ✅ **#124 — Schema Coherence Phase 1 (PR #167).** `SchemaContext` + `buildSchemaSectionTemplate` + tag vocab injection.
-- ✅ **#122 — Operation History Panel (PR #171).** Pure-function log parser + `HistoryModal`.
-- ✅ **#159 — Italian locale (PR #159).** 9th language. Contributed by @FrancoTampieri.
-- ✅ **Tests: 939 passing.** +150 tests, 67 test files.
-
-### Completed (v1.20.3) — Hotfix 2026-06-20
-- ✅ **#155 — Source-slug fingerprint (PR #156, Closes #155).** Every source slug now `<basename>_<6hex FNV-1a of full path>`. Contributed by @Indexed-Apogrypha.
-- ✅ **mergeFrontmatter alias dedup (PR #154).** `mergeFrontmatter` dedups `fm.aliases` parity with `enforceFrontmatterConstraints`. Contributed by @DocTpoint.
-- ✅ **Stage-4 reviewed guard (PR #158).** `updateRelatedPage` routes `reviewed: true` pages to `appendToReviewedPage`. Contributed by @DocTpoint.
-- ✅ **Tests: 791 passing.** +12 tests.
-
-### Completed (v1.20.2 / v1.20.1 / v1.20.0) — Hotfix + Release 2026-06-18/19
-- ✅ **v1.20.2 — Anthropic fallback system-role fix (#141, #147, PR #151).** All 4 retry paths keep system as top-level field. 779 tests.
-- ✅ **v1.20.1 — AnthropicClient prefill rejection fix (#141, #147).** Newer Claude models reject assistant prefill. Auto-fallback + caching. 775 tests.
-- ✅ **v1.20.0 — Provider-first thinking control.** Default `disableThinking: false`, 3-tier dialect fallback. Collapsible thinking UI in Query Wiki. +10 code-review fixes. 771 tests.
-
 ### In Flight (v1.23.0) — Graph Engine PPR + AI-SDK v6 Migration (2026-06-30)
 
-**Two parallel branches, both targeting v1.23.0 release:**
-- `feat/v1.23.0-graph-engine-kickoff` — frozen at P1-6 done, awaiting PR #215 merge
-- `refactor/v1.23.0-ai-sdk-migration` — P1-7 AI-SDK migration Day 1-3 done, P2-4 + chunkToChars pending
+**Single-branch release (corrected 2026-06-30):** `refactor/v1.23.0-ai-sdk-migration` is the sole release branch. `feat/v1.23.0-graph-engine-kickoff` (frozen at `4dec289`, P1-6 done) was originally thought to need merging, but `git ls-tree` verified that 5/6 Graph Engine modules are byte-identical between branches and `ppr-cascade.ts` is a strict superset on AI-SDK branch (has P2 improvements). Since graph-engine has **0 commits after the fork**, AI-SDK branch is its strict superset — no merge needed.
 
 **Branch relationship**: parallel fork from merge-base `4dec289`. v1.23.0 release path = merge both, with care around AI-SDK branch LLM call sites (PPR in graph-engine branch needs to switch to AI-SDK).
 
@@ -107,128 +38,48 @@ Closed two user-reported issues in v1.22.3 user testing — both PATCH scope (ba
 - ✅ **P1-7 (AI-SDK Day 1-3)** — Migrate to Vercel AI-SDK v6 (`@ai-sdk/openai@3`, `@ai-sdk/anthropic@3`, `@ai-sdk/openai-compatible@2`, `ai@6`). Deleted 1625-LOC `llm-client.ts` + 8 old test files. New `src/llm-sdk/` (4 files, 949 LOC) + `src/core/obsidian-fetch-bridge.ts` (326 LOC).
 - ✅ **P2-2 partial** — cascade + seeds token + LLM seed retrieval improvements
 - ✅ **PR #215 (open, approved)** — `core/hub-retirement.ts` (hub-retirement crystallization signal, 175 LOC + 136 LOC tests). Merge target: `feat/v1.23.0-graph-engine-kickoff` (not AI-SDK branch).
+- ✅ **Real-time streaming (resolves user Q1 feedback)** — v1.23.0 P2 + AI-SDK v6 migration: `result.textStream` true逐块 streaming in all 3 llm-sdk clients (`openai-sdk-client.ts:226`, `anthropic-sdk-client.ts:160`, `openai-compat-sdk-client.ts:194`). The "Restore true streaming for 3rd-party providers" backlog item is **DONE** (commits `2e51e23` + `6be9258`) — should NOT appear in future backlog/deferred lists.
 
 **Remaining for v1.23.0 (priority order):**
 - 🔄 **P1 — chunkToChars adapter** (AI-SDK migration Day 3.5, ~2h): real character-level streaming UI (user feedback on Q1). AI-SDK `streamText` returns word-level chunks, current UI is not "true streaming" until adapter lands.
 - 🔄 **P1 — AI-SDK Coding Plan / z.ai / GLM-Anthropic baseURL verification** (Day 3.5, ~1h): confirm `createAnthropic({ baseURL })` works for non-Anthropic baseURLs (Q2 from user feedback). Edge case to lock in before release.
 - 🔄 **P2 — Lint disable warnings cleanup** (Day 3.5, ~1h): leftover from AI-SDK migration.
-- 🔄 **P2 — PPR parameter tuning** (P2-4, ~1 day): close R@5 gap (cascade+seeds 31% vs target 35% — eval fixture max top-5 coverage is 5/11, so reaching target on the small fixture is hard, but improve the param trajectory). Tune damping 0.15→0.10, numWalks 1000→5000, minPages threshold.
-- 🔄 **P2 — Cold-start settings UI** (P2-2, ~0.5 day): expose `min_pages` / `min_edges` thresholds in settings (currently only internal constants).
-- 🔄 **P2 — Integration tests + gradual rollout** (Day 4, ~1 day): test on sample-50page fixture end-to-end, then real-vault shadow test.
-- 🔄 **P2 — eval-cascade pre-existing errors cleanup** (24 lint + 2 tsc in `src/__tests__/fixtures/wikis/sample-50page/eval-cascade.ts`): cleanup during P2-4 tuning, not blocking.
-- 🔄 **P2 — Eval acceptance gate** (P2-3, Day 5): formal R@5 sign-off against the baseline report.
+- 🔄 **P2 — PPR parameter tuning** (P2-4, ✅ done 2026-06-30 on 2142-page real vault). T3 winner: `damping=0.05, numWalks=3000, walkLength=20`. R@5 21.5% → 23.8% (+11%). See `src/__tests__/fixtures/wikis/sample-50page/REAL_VAULT_EVAL.md`.
+- 🔄 **P2 — Sponsor section** (Day 5, alongside release docs): Ko-fi link in all 10 READMEs after `Explore Repo with DeepWiki` anchor. **Was previously deferred to v1.23.1; now in v1.23.0 release flow per user instruction 2026-06-30.**
+- 🔄 **P2 — Eval acceptance gate** (P2-3, Day 5): formal R@5 sign-off against baseline report. **Adding knn baseline as control** per @DocTpoint's #198 follow-up (2026-06-30): bge-m3 or OpenAI text-embedding-3-small embedding baseline, run via same fixture eval script. Eval report documents `cascade vs lex` AND `cascade vs knn` so cascade's relative lift is correctly attributed (semantic-over-keyword vs graph-over-semantic).
 - 🔄 **P1 — pre-release-gate + doc-review + v1.23.0 release** (Day 5, ~0.5 day): commit + push + tag + release notes.
 
 **v1.23.0 risk register:**
 - Bundle size 1.24MB → 3.17MB (user accepted 2026-06-29, monitor CDN experience)
 - Lazy import `await import()` for AI-SDK packages didn't reduce bundle (esbuild CJS inline); future ESM bundle / dynamic chunk can revisit
 - #207 close decision: user will close manually after real-world testing — separate commit `Closes #207`, not part of v1.23.0
-- Sponsor section: deferred to v1.23.1 PATCH
-- #213 (configurable page categories): deferred to v1.24.0+ (architectural/ROI question, keep open for community discussion, may convert to Discussion)
+- #213 (configurable page categories): **Discussion-only, NOT confirmed for any minor release** per user instruction 2026-06-30. Requires broader community/architectural discussion before any commit.
 
 **Deferred to v1.24.0+:**
-- #213 configurable page categories (architectural change, ROI TBD)
-- Cold-start vocabulary seeding (DocTpoint's #198 follow-up)
-- #36 Source title in frontmatter (needs author clarification)
-- LintFixer class → module-level functions (P3, 1 day)
-- Restore true streaming for 3rd-party providers
+- #213 configurable page categories (Discussion-only, not committed — see "Deferred to v1.25.0+" below)
+- Hub-retirement lint wire-up (`core/hub-retirement.ts` 0 callers → wire `assessHubs` into lint path) — owned by @DocTpoint
+- #36 source-title-in-extraction feature (closed 2026-05 with no follow-up; proposes `alwaysIncludeSourceTitle` setting; low ROI vs current PPR cascade which already recovers source pages via outgoing-link structure)
+- LintFixer class → module-level functions (707-LOC god class split, 1 day)
+- knn + cascade by-query-type complement (DocTpoint #198 follow-up, 2026-06-30) — see "v1.25.0+ research" below
 
-**Branch merge strategy (when v1.23.0 is ready):**
-1. Land PR #215 to `feat/v1.23.0-graph-engine-kickoff` (approved, ready to merge)
-2. Cherry-pick / merge `feat/v1.23.0-graph-engine-kickoff` → `refactor/v1.23.0-ai-sdk-migration` (or vice versa — graph engine is older base)
-3. Switch PPR/seed selection LLM call sites in graph-engine code to AI-SDK adapters
-4. Resolve any conflicting CLAUDE.md / ROADMAP / CHANGELOG edits
-5. Pre-release-gate + doc-review on the combined branch
-6. Tag `1.23.0` on the combined branch
+**Deferred to v1.25.0+ (research / experimental):**
+- Cold-start vocabulary seeding (DocTpoint proposal in #198, 2026-06-23 — **NOT committed, design TBD**). If pursued: would need a per-query classifier to decide knn vs cascade arm, plus opt-in embedding provider matrix. Currently rejected on ROI grounds (cascade R@5 27.1% vs knn 24.1% = only 3pp gap, per DocTpoint's #198 eval 2026-06-30; reinforcing #175 rejection).
+- #213 configurable page categories — **Discussion-only**, NOT in roadmap; requires community/architectural discussion before any planning
 
----
+**Branch relationship (corrected 2026-06-30):** `refactor/v1.23.0-ai-sdk-migration` is the **sole release branch**. `feat/v1.23.0-graph-engine-kickoff` was originally thought to need merging, but `git ls-tree` verified 5/6 Graph Engine modules are byte-identical between branches and `ppr-cascade.ts` is a strict superset on AI-SDK branch. Since `feat/v1.23.0-graph-engine-kickoff` has 0 commits after the fork (merge-base `4dec289`), **AI-SDK branch is graph-engine's strict superset — no merge needed**.
 
-## 📋 CLAUDE.md Optimization — Deferred to Next Content Update
-
-- `## 📁 Project Structure` section below is **stale** (src/ tree at v1.21/v1.22 era, doesn't reflect AI-SDK v6 migration: `llm-client.ts` → `src/llm-sdk/` + `core/obsidian-fetch-bridge.ts`).
-- The b69916a "trim CLAUDE.md to 384 lines" commit message is misleading — actual file is 553 lines at b69916a, 513 lines at current 0ad297b (after v1.22.6 sync).
-- Plan: at next content update (v1.23.0 release prep), delete redundant + outdated sections, move `Project Structure` to `CONTRIBUTING.md` (where it belongs — it's contributor-facing, not maintainer-facing).
+**v1.23.0 release path:**
+1. ✅ PR #215 (hub-retirement) — already merged into AI-SDK branch directly on 2026-06-30
+2. ✅ Branch topology verified — no merge required
+3. ✅ PPR/seed selection LLM call sites already on AI-SDK adapters
+4. Pre-release-gate + doc-review on `refactor/v1.23.0-ai-sdk-migration` (Day 5)
+5. Tag `1.23.0` on AI-SDK branch
 
 ---
 
 ## 📁 Project Structure
 
-```
-src/
-├── main.ts                         # Plugin entry point
-├── types.ts                        # Shared types + EngineContext
-├── constants.ts                    # Centralized constants (token budgets, notice durations)
-├── prompts.ts                      # Prompt barrel (10 languages)
-├── texts.ts                        # i18n texts (barrel, 10 languages)
-├── llm-client.ts                   # LLM clients (Anthropic, AnthropicCompat, OpenAICompat)
-├── llm-client-wrapper.ts           # Advanced settings injection wrapper
-├── wiki/                           # Wiki engine
-│   ├── wiki-engine.ts              # Orchestrator
-│   ├── query-engine.ts             # Conversational query — QueryView (right-docked ItemView side panel), streaming + thinking UI
-│   ├── source-analyzer.ts          # Iterative batch extraction
-│   ├── page-factory.ts             # Entity/concept CRUD + merge
-│   ├── conversation-ingest.ts      # Chat → wiki knowledge
-│   ├── contradictions.ts           # Contradiction detection
-│   ├── system-prompts.ts           # Language directive + labels
-│   ├── lint/                       # Lint subsystem
-│   │   ├── controller.ts           # Lint orchestration
-│   │   ├── fix-runners.ts          # Batch fix execution helpers
-│   │   ├── scanners.ts             # Scanners (dead links, orphans, aliases, quote grounding)
-│   │   ├── duplicate-detection.ts  # Programmatic candidate generation
-│   │   ├── report-builder.ts       # Pure-function report markdown builder
-│   │   ├── types.ts                # LintContext, LintPhaseContext, findings
-│   │   ├── fill-empty-page.ts      # Empty page fill logic
-│   │   ├── fix-dead-link.ts        # Dead link fix logic
-│   │   ├── fix-polluted-page.ts    # Polluted sources fix
-│   │   ├── link-orphan.ts          # Orphan page linking
-│   │   ├── merge-duplicates.ts     # Duplicate page merge
-│   │   ├── delete-empty-stubs.ts   # Empty stub deletion
-│   │   ├── get-existing-pages.ts   # Wiki page index reader
-│   │   ├── lint-analysis-context.ts # Lint analysis context builder
-│   │   ├── utils.ts                # Shared lint helpers
-│   │   └── phases/
-│   │       ├── preparation.ts      # Page read, link fix, sources normalize
-│   │       └── programmatic.ts     # Fast programmatic scanners
-│   └── prompts/                    # LLM prompt templates (ingestion, generation, merge, fixes, lint, conversation)
-├── schema/                         # Schema co-evolution
-│   ├── manager.ts                  # SchemaManager (read/write schema config)
-│   ├── auto-maintain.ts            # File watcher, periodic lint, startup quick fixes
-│   ├── analyze.ts                  # Schema-analyze with cancel wiring
-│   ├── schema-context.ts           # SchemaContext (parsed representation)
-│   ├── parse-suggestion.ts         # Parse LLM schema suggestion response
-│   └── apply-suggestion.ts         # Apply suggestion with auto-backup
-├── ui/
-│   ├── settings.ts                 # Settings panel
-│   ├── modals.ts                   # Lint/Ingest/Query modals
-│   └── schema-diff-modal.ts        # IDE-style schema diff Modal
-├── core/                           # Pure function modules (zero IO, fully testable)
-│   ├── i18n.ts                     # Type-safe i18n accessor
-│   ├── slug.ts                     # Slug computation + alias filtering
-│   ├── json.ts                     # JSON response parsing + repair
-│   ├── frontmatter.ts              # Frontmatter parse/merge/constraints
-│   ├── tag-vocab.ts                # Active tag vocabulary helpers
-│   ├── index-search.ts             # Index parsing + local keyword match
-│   ├── rate-limit.ts               # Rate-limit detection + notice formatting
-│   ├── report.ts                   # Report truncation + heading nesting
-│   ├── arrays.ts                   # Array coercion + source tag extraction
-│   ├── markdown.ts                 # Markdown cleanup + thinking block extraction/encoding
-│   ├── sources-normalizer.ts       # Sources field normalization
-│   ├── truncation-retry.ts         # Token truncation retry policy
-│   ├── dead-link-detector.ts       # Dead link identification
-│   ├── orphan-matcher.ts           # Orphan page matching
-│   ├── prompt-builders.ts          # Prompt template builders + path normalization
-│   ├── batch-limits.ts             # Adaptive batch sizing
-│   ├── batch-merger.ts             # Multi-batch result merging
-│   ├── convergence-detector.ts     # Early-stop on low-yield batches
-│   ├── sse-parser.ts               # SSE event parser (anthropic + openai formats)
-│   ├── token-cap.ts                # max_tokens cap helper
-│   ├── status-bar.ts               # Ingest status bar text composition (name + batch progress)
-│   ├── diff.ts                     # LCS line diff algorithm
-│   ├── backup-rotation.ts          # Backup file rotation (MAX_BACKUPS=3)
-│   ├── detail-renderer.ts          # Detail block rendering
-│   └── conflict-resolver.ts        # Conflict detection
-└── __tests__/                      # Unit tests (vitest, 1006 tests)
-```
+> This section has moved to **[CONTRIBUTING.md](./CONTRIBUTING.md#project-structure)** — it is a contributor-facing reference (your IDEs display the file tree natively) and keeping it in CLAUDE.md was creating a stale copy that drifted from reality. The CONTRIBUTING.md version is maintained alongside code changes.
 
 ---
 
@@ -566,6 +417,27 @@ Use the `obsidian-plugin-release` skill for the full workflow (Steps 1-8). Gate 
 ## 🧪 TDD: Write Tests First
 
 For any new function or behavior change: write a failing test first, then write the implementation, then refactor. When modifying untested core code, add at least one test for the path you're changing. See TDD Standard above.
+
+---
+
+## 📚 Documentation Architecture
+
+**One fact, one place. Reference, don't copy.** When the same information appears in two files, one will drift and lie. Each file has a single responsibility:
+
+| File | Responsibility | What belongs | What does NOT belong |
+|------|---------------|--------------|---------------------|
+| **CLAUDE.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current state (v1.22.6 released + v1.23.0 in flight) | Old release histories, project structure tree, full version timeline |
+| **ROADMAP.md** | Planning | Next Milestone / Version Timeline (condensed) / Deferred & Backlog | Per-version detail (use CHANGELOG) |
+| **CHANGELOG.md** | History (Keep a Changelog) | Per-version Added/Changed/Fixed/Removed — ancient versions are pre-aggregated, **do not re-merge** | Forward-looking plans, dev standards |
+| **CONTRIBUTING.md** | Contributor guide | Project structure tree, architecture, Mermaid, dev setup | User docs, design philosophy |
+| **9 READMEs** | User docs | Features / Quick Start / FAQ / What's New | Implementation details, internal version numbers |
+| **memory/** | Session-persistent lessons | [[feedback-*]] (rules) + [[project-*]] (current state) | Code references that drift (use code comments) |
+
+**Cross-reference format:** `[section](./OTHER.md#anchor)` — keep one canonical source, link to it.
+
+**i18n rule:** User-facing strings (settings descriptions, error messages, READMEs) = user language, not implementation language. "Close the model's reasoning output" ✅ / "Disable thinking in 3-tier dialect fallback chain" ❌. See [[feedback-d8-welcome-no-hardcoded-i18n]] + v1.23.0 doc lessons.
+
+**CHANGELOG rule:** Already aggregated per Keep a Changelog spec. Ancient versions (v1.6.x / 0.2.x) are pre-aggregated — do NOT re-merge. "Optimization" that deletes historical version info is a regression, not improvement. Verify with `grep -c "^## \[" CHANGELOG.md` before assuming it needs work.
 
 ---
 

@@ -73,3 +73,22 @@ npx tsx /tmp/ppr-eval/eval-vault.ts
 On this 2142-page real vault, the PPR cascade's R@5 improved from the baseline of 21.5% to 23.8% (+11% relative improvement).
 Compared to lex-only at 10.5%, the PPR cascade provides a **2.3× recall improvement**.
 The parameter set `damping=0.05, numWalks=3000, walkLength=20` is recommended as the v1.23.0 release default.
+
+## knn Baseline Control (sample-50page, @DocTpoint 2026-06-30)
+
+To separate "PPR cascade is good" from "graph structure tracks semantics", a knn baseline (bge-m3 embeddings, no graph) was run on the same `sample-50page` fixture by @DocTpoint ([#198 comment 4843838...](https://github.com/green-dalii/obsidian-llm-wiki/issues/198)).
+
+| Strategy | R@5 | R@10 |
+|----------|-----|------|
+| lex (keyword) | 13.3% | 13.3% |
+| **knn (bge-m3, no graph)** | **24.1%** | **36.4%** |
+| cascade (graph) | 27.1% | 37.8% |
+
+**Attribution.** Most of the cascade's 2.3× over lex lift is *semantic-over-keyword*, not *graph-over-semantic* — a pure semantic retriever (knn) lands within 1-3pp of the cascade. The two arms are complementary by query type:
+
+- `AF rate control` (conceptual synonym): knn 0.43/0.71 **beats** cascade 0.14/0.29 — embeddings resolve the synonym.
+- `Pinewood Heart Center` (proper-noun / structural): knn **0.00**, cascade 0.20/0.40 — semantics whiff, the graph walks the source cluster.
+
+**Cascade's honest value:** embedding-grade R@k at zero embedding cost, offline, over links that exist anyway. The "2.3× over lex" framing is correct for the *combined semantic+structural* lift, but the structural component alone is only ~3pp on this fixture. The P2-3 eval gate reports `cascade vs knn` alongside `cascade vs lex` so the relative lift is correctly attributed.
+
+**No opt-in embedding path in v1.24.0+.** 3pp gap (cascade 27.1% vs knn 24.1%) does not justify the 9-provider embedding matrix; reinforces the 2026-06-22 #175 rejection (graph signals cost zero API calls, work for all providers, no new dependencies).

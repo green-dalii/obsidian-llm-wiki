@@ -12,6 +12,8 @@
 
 [官网](https://llmwiki.greenerai.top/) | [博客](https://llmwiki.greenerai.top/zh/blog/) | [反馈讨论](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 用 DeepWiki 读懂代码库](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD)
+
 ---
 
 > **⚡ 快速更新提醒：** 本项目迭代速度快，会经常进行 Bug 修复、性能提升或新功能、体验优化等。建议经常在 Obsidian 中更新到最新版本（**设置 → 社区插件 → 检查更新**），或开启插件的自动更新功能以确保获得最佳体验。
@@ -51,6 +53,7 @@
     - [🧹 维护](#-维护)
     - [🔍 故障排查](#-故障排查)
   - [🔒 透明度与合规性](#-透明度与合规性)
+  - [💖 支持项目](#-支持项目)
   - [📜 许可证](#-许可证)
   - [🙏 致谢](#-致谢)
   - [Star History](#star-history)
@@ -589,7 +592,25 @@ v1.21.0 的摄入前置检查已修复：空白/纯空白/仅含 frontmatter 的
 **剪贴板访问**仅用于 Query 模态框中的"复制"按钮，且仅在你点击时使用。
 
 如果你希望数据完全保留在本地，请使用 Ollama 或 LM Studio 等本地 LLM 提供商。使用本地提供商时，你的数据永远不会离开你的机器。
+
+## 💖 支持项目
+
+如果 LLM-Wiki 已成为你知识工作流中重要的一部分，你可以通过以下方式支持其持续开发：
+
+- ☕ **[在 Ko-fi 上请我喝杯咖啡](https://ko-fi.com/greenerdalii)** — 通过 Ko-fi 提供一次性或月度支持
+- 💳 **[通过 PayPal 打赏](https://paypal.me/greenerdalii)** — 通过 PayPal 一次性打赏
+
+赞助完全自愿。无论是否赞助，插件始终保持 MIT 许可且功能完整。
+
+### 赞助者
+
+感谢以下支持项目的人：
+
+- [@jameses-cyber](https://github.com/jameses-cyber)
+
 ## 📜 许可证
+
+MIT License — 详见 [LICENSE](LICENSE)。
 
 MIT License — 详见 [LICENSE](LICENSE)。
 
@@ -597,7 +618,7 @@ MIT License — 详见 [LICENSE](LICENSE)。
 
 - **💡 概念来源：** [Andrej Karpathy 的 LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — 本插件的原始构想
 - **🛠️ 开发平台：** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **🔌 LLM 传输层：** Obsidian `requestUrl`（Anthropic）+ 手写的 OpenAI 兼容 HTTP 客户端（其他 OpenAI 兼容 Provider）
+- **🔌 LLM 传输层：** [Vercel AI SDK v6](https://ai-sdk.dev/)（`@ai-sdk/openai`、`@ai-sdk/anthropic`、`@ai-sdk/openai-compatible`）via Obsidian [`requestUrl`](https://docs.obsidian.md/Reference/TypeScript%20API/requestUrl)
 
 ## Star History
 

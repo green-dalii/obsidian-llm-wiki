@@ -12,6 +12,8 @@
 
 [Official Site](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explore Repo with DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD)
+
 ---
 
 > **⚡ Quick Update Reminder:** This project evolves rapidly with frequent bug fixes, performance improvements, new features, and UX optimizations. We recommend updating to the latest version regularly in Obsidian (**Settings → Community plugins → Check for updates**), or enabling automatic plugin updates to ensure the best experience.
@@ -51,6 +53,7 @@
     - [🧹 Maintenance](#-maintenance)
     - [🔍 Troubleshooting](#-troubleshooting)
   - [🔒 Transparency \& Compliance](#-transparency--compliance)
+  - [💖 Support the Project](#-support-the-project)
   - [📜 License](#-license)
   - [🙏 Acknowledgments](#-acknowledgments)
   - [Star History](#star-history)
@@ -596,6 +599,21 @@ This plugin is listed on the Obsidian Community Plugin Market and undergoes auto
 
 If you prefer complete data locality, use a local LLM provider such as Ollama or LM Studio. With a local provider, your data never leaves your machine.
 
+## 💖 Support the Project
+
+If LLM-Wiki has become a meaningful part of your knowledge workflow, you can support its ongoing development:
+
+- ☕ **[Buy me a Ko-fi](https://ko-fi.com/greenerdalii)** — one-time or monthly support via Ko-fi
+- 💳 **[Tip via PayPal](https://paypal.me/greenerdalii)** — one-time tip via PayPal
+
+Sponsorship is entirely optional. The plugin stays MIT-licensed and feature-complete regardless.
+
+### Sponsors
+
+Thanks to the following people for supporting the project:
+
+- [@jameses-cyber](https://github.com/jameses-cyber)
+
 ## 📜 License
 
 MIT License — see [LICENSE](LICENSE).
@@ -604,7 +622,7 @@ MIT License — see [LICENSE](LICENSE).
 
 - **💡 Concept:** [Andrej Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — the original vision that inspired this plugin
 - **🛠️ Platform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + handcrafted OpenAI-compatible HTTP client (3rd-party OpenAI-compatible providers)
+- **🔌 LLM transport:** [Vercel AI SDK v6](https://ai-sdk.dev/) (`@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/openai-compatible`) via Obsidian [`requestUrl`](https://docs.obsidian.md/Reference/TypeScript%20API/requestUrl)
 
 ## Star History
 

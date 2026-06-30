@@ -12,6 +12,8 @@
 
 [公式サイト](https://llmwiki.greenerai.top/) | [ブログ](https://llmwiki.greenerai.top/blog/) | [フィードバック](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 DeepWiki でコードベースを探索](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD)
+
 ---
 
 > **⚡ 素早い更新のお知らせ：** 本プロジェクトは急速に進化しており、バグ修正、パフォーマンス改善、新機能、UX の最適化を頻繁に行っています。Obsidian で常に最新バージョンに更新することをお勧めします（**設定 → コミュニティプラグイン → 更新を確認**）。プラグインの自動更新を有効にすることもできます。
@@ -52,6 +54,7 @@
     - [🧹 メンテナンス](#-メンテナンス)
     - [🔍 トラブルシューティング](#-トラブルシューティング)
   - [🔒 透明性とコンプライアンス](#-透明性とコンプライアンス)
+  - [💖 プロジェクトを支援する](#-プロジェクトを支援する)
   - [📜 ライセンス](#-ライセンス)
   - [🙏 謝辞](#-謝辞)
   - [Star History](#star-history)
@@ -560,6 +563,22 @@ v1.21.0 のインゲスト前要件ゲートで修正済み：空/空白/frontma
 **クリップボードアクセス**はQueryモーダルの「コピー」ボタンのみに使用され、クリックした時だけです。
 
 完全なデータローカリティを希望する場合は、OllamaやLM StudioなどのローカルLLMプロバイダーを使用してください。ローカルプロバイダーでは、データがマシンから出ることは決してありません。
+
+## 💖 プロジェクトを支援する
+
+LLM-Wikiがあなたのナレッジワークフローの重要な一部になっているなら、継続的な開発を以下の方法で支援できます：
+
+- ☕ **[Ko-fiでコーヒー一杯](https://ko-fi.com/greenerdalii)** — Ko-fiで単発または月額サポート
+- 💳 **[PayPalでチップを送る](https://paypal.me/greenerdalii)** — PayPalで単発チップ
+
+スポンサーシップは完全に任意です。プラグインは引き続きMITライセンスで、機能完備を維持します。
+
+### スポンサー
+
+以下の皆様にプロジェクトの支援を感謝します：
+
+- [@jameses-cyber](https://github.com/jameses-cyber)
+
 ## 📜 ライセンス
 
 MIT License — [LICENSE](LICENSE)を参照
@@ -570,7 +589,7 @@ MIT License — [LICENSE](LICENSE)を参照
 
 - **💡 Concept:** [Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — Original LLM Wiki concept
 - **🛠️ Platform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + 手書きの OpenAI 互換 HTTP クライアント（サードパーティ OpenAI 互換 Provider）
+- **🔌 LLM transport:** [Vercel AI SDK v6](https://ai-sdk.dev/)（`@ai-sdk/openai`、`@ai-sdk/anthropic`、`@ai-sdk/openai-compatible`）via Obsidian [`requestUrl`](https://docs.obsidian.md/Reference/TypeScript%20API/requestUrl)
 
 ## Star History
 

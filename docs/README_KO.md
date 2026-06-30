@@ -12,6 +12,8 @@
 
 [공식 사이트](https://llmwiki.greenerai.top/) | [블로그](https://llmwiki.greenerai.top/blog/) | [피드백 토론](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 DeepWiki로 코드베이스 탐색](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD)
+
 ---
 
 > **⚡ 빠른 업데이트 알림：** 이 프로젝트는 빠르게 진화하며 버그 수정, 성능 개선, 새로운 기능 및 UX 최적화를 자주 제공합니다. Obsidian에서 항상 최신 버전으로 업데이트하고(**설정 → 커뮤니티 플러그인 → 업데이트 확인**), 플러그인 자동 업데이트를 활성화하세요.
@@ -52,6 +54,7 @@
     - [🧹 유지보수](#-유지보수)
     - [🔍 문제 해결](#-문제-해결)
   - [🔒 투명성 및 규정 준수](#-투명성-및-규정-준수)
+  - [💖 프로젝트 지원하기](#-프로젝트-지원하기)
   - [📜 라이선스](#-라이선스)
   - [🙏 감사의 말](#-감사의-말)
   - [Star History](#star-history)
@@ -560,6 +563,22 @@ v1.21.0의 사전 수집 요구사항 게이트로 수정됨: 빈/공백/frontma
 **클립보드 접근**은 Query 모달의 "복사" 버튼에만 사용되며, 클릭할 때만입니다.
 
 완전한 데이터 로컬리티를 원하시면 Ollama나 LM Studio와 같은 로컬 LLM 제공자를 사용하세요. 로컬 제공자를 사용하면 데이터가 기기를 떠나지 않습니다.
+
+## 💖 프로젝트 지원하기
+
+LLM-Wiki가 지식 워크플로의 중요한 부분이 되었다면, 지속적인 개발을 다음과 같이 지원할 수 있습니다:
+
+- ☕ **[Ko-fi에서 커피 한 잔 사기](https://ko-fi.com/greenerdalii)** — Ko-fi를 통한 일회성 또는 월간 지원
+- 💳 **[PayPal로 팁 보내기](https://paypal.me/greenerdalii)** — PayPal을 통한 일회성 팁
+
+후원은 전적으로 자발적입니다. 플러그인은 MIT 라이선스로 유지되며 기능이 완전한 상태를 유지합니다.
+
+### 후원자
+
+다음 분들께 프로젝트 지원을 감사드립니다:
+
+- [@jameses-cyber](https://github.com/jameses-cyber)
+
 ## 📜 라이선스
 
 MIT License — [LICENSE](LICENSE)를 참조하세요.
@@ -570,7 +589,7 @@ MIT License — [LICENSE](LICENSE)를 참조하세요.
 
 - **💡 개념:** [Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — 원본 LLM Wiki 개념
 - **🛠️ 플랫폼:** Obsidian 팀 — 플러그인 플랫폼 및 API
-- **🔌 LLM transport:** Obsidian `requestUrl` (Anthropic) + 직접 작성한 OpenAI 호환 HTTP 클라이언트 (3rd-party OpenAI 호환 Provider)
+- **🔌 LLM transport:** [Vercel AI SDK v6](https://ai-sdk.dev/)（`@ai-sdk/openai`、`@ai-sdk/anthropic`、`@ai-sdk/openai-compatible`）via Obsidian [`requestUrl`](https://docs.obsidian.md/Reference/TypeScript%20API/requestUrl)
 
 ## Star History
 

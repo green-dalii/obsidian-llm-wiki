@@ -12,6 +12,8 @@
 
 [Offizielle Website](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Diskussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Codebasis mit DeepWiki erkunden](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD)
+
 ---
 
 > **⚡ Schnellupdate-Hinweis：** Dieses Projekt entwickelt sich rasant weiter – Fehlerbehebungen, Leistungsverbesserungen, neue Funktionen und UX-Optimierungen werden häufig veröffentlicht. Wir empfehlen, in Obsidian regelmäßig zu aktualisieren (**Einstellungen → Community-Plugins → Nach Updates suchen**) oder die automatische Plugin-Aktualisierung zu aktivieren.
@@ -52,6 +54,7 @@
     - [🧹 Wartung](#-wartung)
     - [🔍 Fehlerbehebung](#-fehlerbehebung)
   - [🔒 Transparenz \& Compliance](#-transparenz--compliance)
+  - [💖 Projekt unterstützen](#-projekt-unterstützen)
   - [📜 License](#-license)
   - [🙏 Danksagungen](#-danksagungen)
   - [Star History](#star-history)
@@ -563,6 +566,22 @@ Dieses Plugin ist im Obsidian Community Plugin Market gelistet und wird einer au
 **Zwischenablagezugriff** wird ausschließlich von der Schaltfläche „Kopieren" im Abfrage-Modal verwendet, und nur, wenn Sie darauf klicken.
 
 Wenn Sie vollständige Datenlokalität bevorzugen, verwenden Sie einen lokalen LLM-Anbieter wie Ollama oder LM Studio. Mit einem lokalen Anbieter verlassen Ihre Daten niemals Ihren Rechner.
+
+## 💖 Projekt unterstützen
+
+Wenn LLM-Wiki zu einem wichtigen Teil Ihres Wissens-Workflows geworden ist, können Sie die laufende Entwicklung unterstützen:
+
+- ☕ **[Kaufen Sie mir einen Kaffee auf Ko-fi](https://ko-fi.com/greenerdalii)** — einmalige oder monatliche Unterstützung über Ko-fi
+- 💳 **[Trinkgeld über PayPal](https://paypal.me/greenerdalii)** — einmaliges Trinkgeld über PayPal
+
+Sponsoring ist völlig freiwillig. Das Plugin bleibt MIT-lizenziert und vollständig funktionsfähig.
+
+### Sponsoren
+
+Dank an die folgenden Personen für die Unterstützung des Projekts:
+
+- [@jameses-cyber](https://github.com/jameses-cyber)
+
 ## 📜 License
 
 MIT License — siehe [LICENSE](LICENSE).
@@ -571,7 +590,7 @@ MIT License — siehe [LICENSE](LICENSE).
 
 - **💡 Konzept:** [Andrej Karpathys LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — die ursprüngliche Vision, die dieses Plugin inspiriert hat
 - **🛠️ Plattform:** [Obsidian Plugin API](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- **🔌 LLM-Transport:** Obsidian `requestUrl` (Anthropic) + handgeschriebener OpenAI-kompatibler HTTP-Client (3rd-Party OpenAI-kompatible Anbieter)
+- **🔌 LLM-Transport:** [Vercel AI SDK v6](https://ai-sdk.dev/) (`@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/openai-compatible`) via Obsidian [`requestUrl`](https://docs.obsidian.md/Reference/TypeScript%20API/requestUrl)
 
 ## Star History
 

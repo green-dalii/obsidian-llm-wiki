@@ -2,57 +2,30 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.22.5 → 1.22.6 (shipped 2026-06-30 — #204 + #207 -pro) → 1.23.0 (Graph Engine PPR + AI-SDK v6 migration: Phase 5.1.5 + P1-5/P1-6 + P1-7 AI-SDK Day 1-3 + **P2-4 PPR tuning done**; P2-2 + P2-3 pending, target 2026-07-02) | **Updated:** 2026-06-30
-
----
+**Version:** 1.22.5 → 1.22.6 (shipped 2026-06-30 — #204 + #207 -pro) → 1.23.0 (Graph Engine PPR + AI-SDK v6 migration: Phase 5.1.5 + P1-1~6 + P1-7 AI-SDK + P2-4 PPR tuning + Day 3.5 cleanup **done**; Sponsor section + P2-3 eval gate pending, target 2026-07-02) | **Updated:** 2026-06-30
 
 ## Current Status
 
-### Implemented (v1.22.5) — Hotfix: Responses API for #207 follow-up (2026-06-29)
+Historical releases are summarized in [CHANGELOG](./CHANGELOG.md). The current sprint is described in **Next Milestone** below.
 
-Closed the second half of #207 — reasoning model family (gpt-5.1+ / gpt-5.5 / o1-o4) now uses OpenAI's Responses API, and the Test Connection Notice surfaces the provider's full error body (e.g. "insufficient_quota") instead of bare "status 429". #207 stays open for real-world user testing before final close.
+### v1.22.5: Responses API for #207 follow-up (2026-06-29)
 
-- ✅ **#207 follow-up — Reasoning model family uses OpenAI Responses API.** v1.22.4's `max_tokens` ↔ `max_completion_tokens` probe was necessary but not sufficient — `gpt-5.1-chat-latest` / `gpt-5.5` / `o1` / `o3` / `o4-mini` still failed Test Connection with 400 because Chat Completions has compatibility issues for the reasoning family. Per OpenAI's official GPT-5.5 migration guide ("GPT-5.5 works best in the Responses API"), v1.22.5 routes the reasoning family to `/v1/responses` with `reasoning: { effort: 'low' }`. `gpt-5-chat-latest`, `gpt-4.1`, `gpt-3.5-turbo`, and all non-OpenAI baseUrls (Ollama, LM Studio, DeepSeek, etc.) continue on `/v1/chat/completions` unchanged. Detection is a pure-function `isResponsesApiModel(model, baseUrl)` export, gated to `https://api.openai.com/v1` only.
-- ✅ **Test Connection Notice now surfaces the provider's full error body.** Obsidian's `requestUrl` throws on 4xx WITHOUT populating the Error with the provider body, so v1.22.4's `extractProviderErrorMessage()` couldn't see the actual diagnostic. v1.22.5 wraps the failing request in a `window.fetch` re-fetch (5s timeout) and merges the provider body into `Error.message` — users now see e.g. `"status 429: You exceeded your current quota, please check your plan and billing details"`. Raw body also logged at `console.warn` for DevTools investigation. Non-OpenAI baseUrls get the same enrichment via the existing Chat Completions path.
-- ✅ **429/5xx now retry with exponential backoff on the Responses API path.** v1.22.4's `withRetry` (3 attempts, 1s/2s/4s + jitter) covered only the Chat Completions path. v1.22.5 wraps the new Responses API path in the same `withRetry` so transient 429 quota bumps no longer immediately fail Test Connection.
-- ✅ **Tests: 1104 passing.** +28 since v1.22.4 (new `llm-client-responses-api.test.ts` with 28 tests covering endpoint routing, body shape, error enrichment, withRetry integration, custom baseUrl compatibility, and reasoning-family model coverage). Existing dot-naming gpt-5.x regression test (v1.22.4) and `thinking.type='disabled'` Chat Completions tests refactored to use `gpt-5-mini`/`gpt-5-nano`/`gpt-4.1` (the Chat Completions path models).
+See [CHANGELOG](./CHANGELOG.md#v1.22.5) for full details.
 
-### Implemented (v1.22.4) — Hotfix: GPT-5.x probe + provider error UX (2026-06-27)
+### v1.22.4: GPT-5.x probe + provider error UX (2026-06-27)
 
-Closed two user-reported issues in v1.22.3 user testing — both PATCH scope (backward-compatible bug fixes):
-
-- ✅ **#207 — GPT-5.x models no longer fail Test Connection with 400.** v1.20.0's `params.model.startsWith('gpt-5-')` prefix-matching heuristic only matched the dash-suffixed OpenAI gpt-5 family (`gpt-5-mini`, `gpt-5-nano`, etc.) and silently broke for every new gpt-5.x release (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). This was a regression of the same root-cause class as #143 in v1.20.0. Replaced with a runtime probe-then-cache mechanism: first request uses `max_tokens`, if the backend rejects with 400 we cache the alternate key (`max_completion_tokens` or vice versa) and retry. New `MaxTokenKey` type and `detectRejectedMaxTokenKey()` exported pure function. Stream path mirrors the same pattern in `createMessageStream`.
-- ✅ **Test Connection UI now surfaces the provider's actual error message.** Previously, `requestUrl` errors were re-wrapped as `status 400: ${data.error.message}` (or just "status 400" when the response body was lost to requestUrl's 4xx-throw-without-body behavior), and the provider's actual diagnostic was never visible. New `extractProviderErrorMessage()` enriches the thrown error in both `createMessage` and `createMessageStream` so Test Connection Notice text reads `status 400: <provider message>` instead of a generic HTTP wrapper.
-- ✅ **Lint performance knobs centralised in `src/constants.ts`.** Yield cadences, candidate batch sizing, prep batch read, and source-analyzer batch sizing now live in one place. Previously these values were duplicated across `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, and `batch-limits.ts` — including a literal `MAX_TOKENS=16000` copy of `MAX_TOKENS_BATCH`. Tuning lint performance is now a single-file change.
-- ✅ **Tests: 1076 passing.** +12 since v1.22.3.
-
-Three issues found in v1.22.2 user testing — kept in PATCH scope because all three are parity/latent-bug fixes:
-
-- ✅ **log header detection hardened to language-agnostic structural marker.** v1.22.2's text-based detection (`view operation history` / `操作历史`) broke for German/Japanese/Korean (would re-stamp with English header on every locale that didn't have its keyword) and false-matched when log entry bodies naturally contained the keyword phrase. Switched to `<!-- llm-wiki-log-header-start -->` HTML-comment marker embedded in the header. Existing v1.22.2 log files are auto-upgraded on next startup.
-- ✅ **log header strings consolidated into `src/texts/<lang>.ts`.** Four localised header strings previously duplicated in `core/log-header.ts` now live alongside every other UI string, so translators and i18n-parity tests cover them automatically.
-- ✅ **`generation_complete` no longer stamped onto `log.md` / `index.md` / `schema/`.** `createOrUpdateFile` previously called `markPageComplete` for every write, which would prepend a brand-new frontmatter block (`---...generation_complete: true...---`) to files without frontmatter — visibly polluting log.md body on every QuickFix run. New `isInWikiContentFolder()` guard restricts the stamp to `wiki/{entities,concepts,sources}/...` only.
-- ✅ **Tests: 1064 passing.** +5 since v1.22.2 (5 path-rule guard regression tests).
+See [CHANGELOG](./CHANGELOG.md#v1.22.4) for full details.
 
 ### Implemented (v1.22.2) — UX improvements + tech debt (2026-06-26)
 
-Closed 5 items from the v1.22.1 user-testing feedback loop:
-
-- ✅ **#204 — Auto Ingest blocking modal fixed.** New `onAutoIngestDone()` helper routes watch-mode ingest completions to a configurable Notice (default, non-blocking) instead of the IngestReportModal. `autoIngestNotificationLevel: 'notice' | 'modal'` setting (conditional UI dropdown under Watch Mode). Manual ingest always opens the modal; watch-mode respects user preference.
-- ✅ **Auto Smart Fix FixReportModal → transient Notice.** Replaced the blocking fix-completion modal with a Notice that hints at the Operation History Panel. Controlled by the same notification level setting.
-- ✅ **D1 — Dead code: redundant `setDoneCallback` resets removed from `main.ts`.**
-- ✅ **D2 — `slug.ts:2` console.debug noise removed.**
-- ✅ **D3 — `log.md` header i18n + auto-migration.** New `core/log-header.ts` pure function builds a 10-locale header explaining the log and pointing to the Operation History Panel. On startup (Phase 4.5), old single-line headers are auto-detected and non-destructively migrated — all `## [date time]` entries preserved.
-- ✅ **Periodic Lint refined: Off/Daily/Weekly/Monthly.** "Hourly" removed (unrealistic for LLM lint); existing `hourly` data auto-migrated to `daily`.
-- ✅ **Tests: 1054 passing.** +25 since v1.22.1.
-
-### Next Milestone: v1.23.0 — Graph Engine + AI-SDK v6 (current sprint, target 2026-07-02)
+See [CHANGELOG](./CHANGELOG.md#v1.22.2) for full details.
 
 No proactive 11th language — **contributor-driven only** (replicate PR #159 Italian pattern). Improving translation quality of existing 10 locales > adding the 11th.
 
 **Theme:** Replace the brittle hand-rolled LLM client (v1.22.x 1625-LOC `llm-client.ts` with 30+ provider-version workarounds accumulated since v1.20.0) with Vercel AI-SDK v6, then ship the Graph Engine PPR primitive on top.
 
 - ⭐ **P1-7 — Vercel AI-SDK v6 migration (Day 1-3 ✅ done, Day 3.5-5 in flight).** Replace `OpenAICompatibleClient` / `AnthropicClient` / `AnthropicCompatibleClient` (1625 LOC) with `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2`. New `src/llm-sdk/` (4 files, 949 LOC) + `src/core/obsidian-fetch-bridge.ts` (326 LOC, activeDocument bridge for jsdom). Eliminates the entire class of provider-version regressions (#137 / #141 / #143 / #147 / #207 — the manual workarounds these Issues triggered). 1304 tests passing on AI-SDK branch. **Remaining Day 3.5-5**: chunkToChars adapter (real character-level streaming), Coding Plan / z.ai / GLM-Anthropic baseURL verification, lint cleanup.
-- ⭐ **#198 — Personalized PageRank over the `[[wiki-link]]` graph (P1-5/P1-6 ✅ done, P2-4 ✅ done).** Closes #117 (Query Wiki relevance), #157 (hub detection), #175 (link distinctiveness) with one primitive. Monte Carlo PPR — K short random walks per query page, O(K×L) cost independent of |V|, embarrassingly parallel. Hybrid guard: lex-match fallback when graph too small. Tier B redesigned: zero-LLM section-extractor. Three-tier pipeline (lex fast path → LLM seeds → PPR walks) shipped in P1-5. Hub-link distinctiveness scanner shipped in P1-6 (229 LOC + 15 tests). **P2-4 PPR tuning complete** (2026-06-30, on a 2142-page real vault): recommended parameters `damping=0.05, numWalks=3000, walkLength=20`. R@5 improved from 21.5% → 23.8% (+11% relative). See `src/__tests__/fixtures/wikis/sample-50page/REAL_VAULT_EVAL.md` for full tuning table. **P2-2 cold-start settings UI** and **P2-3 eval acceptance gate** remaining.
+- ⭐ **#198 — Personalized PageRank over the `[[wiki-link]]` graph (P1-5/P1-6 ✅ done, P2-4 ✅ done).** Closes #117 (Query Wiki relevance), #157 (hub detection), #175 (link distinctiveness) with one primitive. Monte Carlo PPR — K short random walks per query page, O(K×L) cost independent of |V|, embarrassingly parallel. Hybrid guard: lex-match fallback when graph too small. Tier B redesigned: zero-LLM section-extractor. Three-tier pipeline (lex fast path → LLM seeds → PPR walks) shipped in P1-5. Hub-link distinctiveness scanner shipped in P1-6 (229 LOC + 15 tests). **P2-4 PPR tuning complete** (2026-06-30, on a 2142-page real vault): recommended parameters `damping=0.05, numWalks=3000, walkLength=20`. R@5 improved from 21.5% → 23.8% (+11% relative). See `src/__tests__/fixtures/wikis/sample-50page/REAL_VAULT_EVAL.md` for full tuning table. **#198 thread key finding (DocTpoint 2026-06-30):** knn baseline (bge-m3, no graph) on sample-50page = 24.1% R@5 / 36.4% R@10 — within 1-3pp of cascade (27.1% / 37.8%). Most of cascade's lift is *semantic-over-keyword*, not *graph-over-semantic*. Cascade's honest value: **embedding-grade R@k at zero embedding cost, offline, over links that exist anyway**. **P2-3 eval acceptance gate** remaining — adding knn baseline as control per @DocTpoint's #198 follow-up.
 - ✅ **PR #215 — Hub-retirement crystallization signal** by @DocTpoint. Merged into AI-SDK branch on 2026-06-30. `src/core/hub-retirement.ts` (175 LOC) + 136 tests + 12 unit tests. Pure percentile-based verdict with dual absolute guards.
 
 **Branch strategy:**
@@ -60,139 +33,45 @@ No proactive 11th language — **contributor-driven only** (replicate PR #159 It
 - `refactor/v1.23.0-ai-sdk-migration` — 9 commits ahead of merge-base (AI-SDK + P2 improvements)
 - v1.23.0 release = merge both, switch PPR LLM call sites to AI-SDK adapters, resolve doc conflicts
 
-**Deferred to v1.23.1+:**
-- **v1.23.1 PATCH** — Sponsor section + any v1.23.0 hotfix follow-ups
-- **v1.24.0+ MINOR** — Cold-start vocabulary seeding (DocTpoint #198 follow-up), #213 configurable page categories (architectural/ROI question, keep open for community discussion), #36 source title in frontmatter (needs author clarification), LintFixer class → module-level functions
+**Deferred to v1.23.1+ (none — all sponsor/PATCH scope folded into v1.23.0):**
+- ~~**v1.23.1 PATCH** — Sponsor section + any v1.23.0 hotfix follow-ups~~ — Sponsor section now part of v1.23.0 release flow
+- **v1.24.0+ MINOR** — #213 configurable page categories (Discussion-only, NOT confirmed for any minor release — needs broader community/architectural discussion), hub-retirement lint wire-up (`core/hub-retirement.ts` → call `assessHubs` in lint path), #36 source-title-in-extraction feature (closed 2026-05 with no follow-up, low ROI vs current PPR recall), LintFixer class → module-level functions (707-LOC god class split, 1 day)
 
+### Implemented (v1.21.1) — 2026-06-22
 
+See [CHANGELOG](./CHANGELOG.md#1211-2026-06-22) for full details.
 
-### Implemented (v1.21.1) — #173 Symptom A Hotfix (2026-06-22)
+### Implemented (v1.20.2) — 2026-06-19
 
-Three open PRs from the 2026-06-19/20 triage, scoped for a single hotfix release (all parity/latent-bug fixes, zero new behavior for existing users):
+See [CHANGELOG](./CHANGELOG.md#1202-2026-06-19) for full details.
 
-- ✅ **PR #154 — mergeFrontmatter alias dedup** (@DocTpoint). `mergeFrontmatter` now dedups `fm.aliases` parity with `enforceFrontmatterConstraints` — closes a latent "aliases accumulated ~15× in long-lived vaults" bug. 2 regression tests; +5/-1 LOC in `core/frontmatter.ts`. No breaking changes.
-- ✅ **PR #156 — Source-page slug fingerprint** (@Indexed-Apogrypha). Every source slug now `<basename>_<6hex FNV-1a of full path>` — fixes Issue #155 (silent overwrite when two source files share a basename across folders). Single-computation point in `wiki-engine.ts` + pure `core/source-slug.ts` module + 9 unit tests + live e2e. Breaking only for re-ingest: existing source pages rename but backlinks update.
-- ✅ **PR #158 — Stage-4 reviewed guard** (@DocTpoint). `updateRelatedPage` now respects `reviewed: true` and routes to `appendToReviewedPage` (same as `createOrUpdatePage`). Closes a latent bug where re-ingesting an unrelated source would LLM-rewrite a curated `reviewed: true` page's body. 1 regression test using `NO_NEW_CONTENT` LLM response to prove "curated body survives"; +9/-0 LOC in `page-factory.ts`.
+### Implemented (v1.20.0) — 2026-06-18
 
-**Hotfix rationale:** all 3 fixes are parity/latent-bug — they restore behavior that *should* have been there from the start. Single hotfix keeps change log coherent.
+See [CHANGELOG](./CHANGELOG.md#1200-2026-06-18) for full details.
 
-### Implemented (v1.20.2) — Anthropic Fallback System-Role Hotfix (2026-06-19)
+### Implemented (v1.19.1) — 2026-06-17
 
-- ✅ **#141/#147 — Anthropic fallback retry system-role fix.** PR #151 by @Indexed-Apogrypha: all 4 Anthropic fallback paths now keep system as top-level field (not in messages array). +4 regression tests with Anthropic API simulator.
+See [CHANGELOG](./CHANGELOG.md#1191-2026-06-17) for full details.
 
-### Implemented (v1.20.0) — Provider-First Thinking Control & Reasoning UI (2026-06-18)
+### Implemented (v1.19.0) — 2026-06-16
 
-- ✅ **Provider-first thinking control.** Default `disableThinking: false` — plugin sends no thinking-control field. Provider decides reasoning behavior. 3-tier dialect fallback when user explicitly enables "Disable thinking".
-- ✅ **Collapsible thinking UI.** DeepSeek `reasoning_content` extraction → `<think>` tags → collapsible `<details>` panel in Query Wiki. Fully localized in 8 languages.
-- ✅ **Anthropic baseUrl normalization (#141, #134).** Prevents `/v1/v1` double-path.
-- ✅ **gpt-5 max_completion_tokens (#143).** Correct token parameter for GPT-5 series + truncation retry fix.
-- ✅ **Query Wiki UX.** wikiFolder respect, auto-scroll, user message right-align.
-- ✅ **10 code-review fixes.** Reasoning preservation in retry, enableThinking consistency, activeDocument guard, PROTECTED_FIELDS whitelist, wrapReasoningContent escaping, case-insensitive guard, gpt-5 prefix tightening.
-- ✅ **v1.20.0 migration.** Old users automatically get `disableThinking=false` and `advancedSettingsMode='default'`.
+See [CHANGELOG](./CHANGELOG.md#1190-2026-06-16) for full details.
 
-### Implemented (v1.19.1) — Gemini HTTP 400 Hotfix (Issue #137, 2026-06-17)
+### Implemented (v1.18.2)
 
-- ✅ **#137 — Gemini HTTP 400 on ingestion.** Added 3-tier thinking-control dialect fallback chain (anthropic → openai → none). The OpenAI-compatible client auto-discovers the correct field name per baseUrl and caches the result in `thinkingControlCache`. Settings tab no longer wipes the cache on close. Generic 400 field-strip retry for temperature/repetition_penalty. Stream path field-strip fix (was dead code). `[DEBUG-400]` refetch limited to 400-class errors (was firing on 429 quota). Fallback notices now localized in all 8 languages (was hard-coded EN). Console diagnostic noise reduced.
+See [CHANGELOG](./CHANGELOG.md#1182) for full details.
 
-### Implemented (v1.19.0) — Ingest Quality & Cost Hardening (2026-06-16)
+### Implemented (v1.18.1)
 
-- ✅ **#99 — Reasoning-only response detection.** `OpenAICompatibleClient` now detects when `disableThinking=true` produces an empty `content` + `finish_reason: length` response with high reasoning tokens, and throws an actionable error. Automatic 400 fallback to `chat_template_kwargs: {enable_thinking: false}` for providers that reject `thinking.type='disabled'`.
-- ✅ **#116 — Compact slug list in analyzeSource prompt.** New `buildCompactSlugList()` injects a sorted slug-only list of existing wiki pages into the analyzeSource prompt so the LLM uses exact paths when creating `[[links]]`, reducing dead-link slug mismatches from the 50-page index cap. Contributed by @DocTpoint.
-- ✅ **#126 — Quote-grounding lint scanner.** New `scanQuoteGrounding()` pure function verifies every quote under `## Mentions in Source` against the linked source file. Tier 1 = exact match; Tier 2 = normalized match. Supports both current and legacy bare-`quote` formats. Zero token cost. Contributed by @DocTpoint.
-- ✅ **#128 — Advanced LLM parameter settings.** Default/Custom mode selector in LLM Configuration. Default hides all advanced params and keeps disable-thinking on. Custom reveals: disable thinking toggle, extraction temperature (0–2), query temperature (0–2), repetition penalty (0–2). `data.json` backward compatible — `disableThinking` field name preserved.
-- ✅ **#131 Tier 1 — Skip Stage 4 LLM on no-op.** `PageFactory.updateRelatedPage` skips LLM call when `new_info` resolves to the fallback string. Removes ~33% of Stage 4 LLM calls. Contributed by @DocTpoint.
-- ✅ **PR #109 — Auto Smart Fix setting.** Lint can auto-run Smart Fix All after analysis. Default `false`.
-- ✅ **PR #110 — Status bar mirrors popup during ingest and lint.** All progress messages update both Notice + status bar. Contributed by @dmarchevsky.
-- ✅ **PR #127 — Sources normalization in write path.** `fixPollutedSources()` called from centralized write chokepoint. Contributed by @DocTpoint.
-- ✅ **Lint report enhanced.** Summary now includes ungroundedQuotes + tagViolations counts. `lintTagViolationSection` fully i18n'd in all 8 languages.
-- ✅ **Advanced settings dropdown fix.** Missing `this.display()` in onChange caused empty "Custom" panel. Fixed.
-- ✅ **Startup quick-fixes Notice simplified.** Removed emoji + heavy separators.
-- ✅ **Internal refactoring.** lint-controller modularization (phases/report-builder), schema-analyze moved to schema/, LintContext extracted to lint/types, lint-controller + lint-fixes moved into lint/ directory.
+See [CHANGELOG](./CHANGELOG.md#1181) for full details.
 
-### Implemented (v1.18.2) — Custom Extraction Limits Hard-Enforced (Issue #120)
+### Implemented (v1.18.0) — 2026-06-11
 
-Closes #120, a long-standing silent-overflow bug in custom extraction mode. Previously, when `extractionGranularity` was set to `custom`, the `customEntityLimit` and `customConceptLimit` settings were only enforced as soft prompt hints — the LLM routinely returned 12–25 items for a configured cap of 8, and every one of them was written to wiki pages. The existing convergence detector only stopped *further batches* once both types reached the cap, which never fired on the common single-batch case (most notes). Fix: after all batches are accumulated and immediately before `buildSourceAnalysis()`, the plugin slices both `accumulation.entities` and `accumulation.concepts` to the configured limits. The first N items in extraction order are preserved. The prompt instruction and convergence detector remain as complementary mechanisms (they guide the LLM and avoid unnecessary extra batches). No behavior change for `default` / `1-5` granularity modes. One new end-to-end test locks the behavior.
+See [CHANGELOG](./CHANGELOG.md#1180-2026-06-11) for full details.
 
-This release also includes two community contributions that landed in the same window: configurable file-name casing (Issue #111) and tags-preservation on re-ingest (Issue #114).
+### Implemented (v1.17.0) — 2026-06-08
 
-### Implemented (v1.18.1) — Obsidian Review Compliance Hotfix
-
-**Obsidian Community Plugin source-code review compliance.** The v1.18.0 release was rejected during automated source-code review because production code contained `document` (the bare global DOM reference) alongside `eslint-disable` comments targeting `obsidianmd/prefer-active-doc` — both are forbidden in the Obsidian review pipeline. This hotfix removes the `document` fallback and all related `eslint-disable` comments from production code; the `activeDocument` stub is centralized in the test setup file. No user-visible behavior change.
-
-### Implemented (v1.18.0) — User-Controlled Tag Vocabulary (Issue #85 v6 — end-to-end customTags pipeline)
-
-Closes the long-standing #85 (P3) tag-vocabulary request. v2 ships a chip-input UX (GitHub Issue Labels style) that replaces v1's textarea CSV. Headline wins:
-
-- **Chip input replaces the textarea CSV.** Each tag renders as a discrete chip (rounded pill + × button) inside the input area. Add via Enter / `,` / `;`; remove via × click or Backspace on empty input. Duplicate tags (case-insensitive) are silently skipped with a brief shake animation. CJK IME composition is respected (`event.isComposing` guard). Nested tags with `/` are preserved verbatim.
-- **No more standalone "Tag Vocabulary" heading.** The settings sub-block is now embedded inside the Wiki Configuration section as a `setName()` row (no `.setHeading()`), making the visual hierarchy reflect the conceptual hierarchy.
-- **Default-mode description enumerates the actual defaults.** When mode = Default, the dropdown description shows `Default uses built-in tags: person, organization, project, product, event, location, other (entities) / theory, method, technology, term, other (concepts).` so users know what they will get without switching modes.
-- **v1 → v2 migration runs on `onload()`.** `cleanupVocabularyTags()` normalizes any pre-v2 CSV (trim, dedupe case-insensitively, drop empty entries) and writes back to `data.json` so existing users see clean chips immediately.
-- **Eight-language i18n.** 8 new keys per language: `tagVocabularyInlineName/Desc`, `tagVocabularyModeDescDefault/Custom`, `chipDuplicateHint`, plus rewritten `customEntityTagsDesc` / `customConceptTagsDesc` describing chip semantics.
-- **🔴 v6: End-to-end customTags pipeline (the actual fix).** Before v6, the user-defined vocabulary was only used for *post-hoc validation* — the LLM was never told about it, so it kept inventing its own subtype names that got silently dropped at write time. v6 closes the loop:
-  - **Prompt injection** via new `buildActiveTagVocabularySection()` + `appendTagVocabularyToPrompt()` helpers. The active vocabulary is now injected into ingestion (source-analyzer), page generation (page-factory × 3 sites: new page, merge, rebuild), and lint analyze (lint-controller). The LLM knows exactly which entity/concept types are valid and stops inventing new ones.
-  - **Preserve LLM intent on write.** `enforceFrontmatterConstraints` no longer silently drops out-of-vocab tags. It retains all LLM-emitted tags (with a `console.debug` note when the vocabulary diverges) so the user can see what the model produced and decide whether to expand their custom vocabulary. Fallback to `DEFAULT_ENTITY_TAG` / `DEFAULT_CONCEPT_TAG` only when the tags array is genuinely empty.
-- **Default tags as editable baseline (v4).** When the persisted custom CSV is empty, the chip input materializes the default vocabulary as fully-editable chips (same `.llm-wiki-tag-chip` class, same × button). No "preview" / read-only distinction.
-- **Two-row layout (v5).** Chips on the top row, input on its own row below — natural reading flow, no awkward left-alignment.
-- **49 new tests, 0 regressions.** 16 chip input (jsdom), 7 normalize vocabulary, 7 buildActiveTagVocabularySection, 4 appendTagVocabularyToPrompt, 6 preserve-LLM-intent, plus updated legacy tests. 605 → 654 tests passing.
-- **`minAppVersion` bumped 1.6.6 → 1.11.0** to use `Setting.addComponent()` (the only Obsidian API that mounts custom DOM into a Setting row). Users on Obsidian <1.11.0 must upgrade to continue using the plugin.
-- **New devDep `jsdom@29.1.1`** for chip input test environment (does NOT affect production bundle).
-
-- **🔴 v7: Programmatic tag audit + LLM-assisted retag (the closing of the loop).** Before v7, the Lint pipeline never reported pages whose frontmatter `tags` fall outside the active vocabulary — silently, out-of-vocab tags survived (v6 preserve-LLM-intent). v7 introduces a pure-function `scanTagViolations()` that runs as part of every Lint (zero token cost, <50ms on 2000-page vaults). A new "🏷️ Retag N page(s) with LLM" button in the Lint Modal calls `runRetagViolations()` which sends the page's first-paragraph summary to the LLM with `appendTagVocabularyToPrompt()` injected; the LLM returns a new `tags: string[]` constrained to the active vocabulary, the runner re-validates the response (defensive), and only the `tags:` line of the frontmatter is rewritten — the body is byte-identical to the input. Source pages get their own static `VALID_SOURCE_TAGS` vocabulary (paper / document / article / book / clippings / transcript / notes / other) — no user override per Issue #85 v7 design decision.
-- **34 new tests, 0 regressions.** 2 `getActiveSourceTags` + 11 `scanTagViolations` + 5 `runRetagViolations` + 16 already in v6 chip input. 654 → 672 passing.
-
-### Implemented (v1.17.0) — Long-Document Ingestion & Source Attribution
-
-Major quality release addressing previously-unprocessable large sources and a class of metadata-integrity issues that caused silent data corruption. **Closes #90.** Headline wins:
-
-- **Long-document ingestion now works.** A 619KB Chinese source (史记 / Shiji) that previously failed after 3 minutes and 15 items now completes fully, extracting hundreds of entities and concepts. Root causes addressed: (a) custom granularity was hardcoded to 15 items max regardless of caps, (b) `max_tokens` was capped below the response length needed for large batches, (c) truncation retries couldn't grow beyond 16K. Fix: dynamic `initialBatchSize` (capped at 50), `maxBatchesBase` derived from caps, `max_tokens` scales 16K→20K→60K with auto halve-and-retry on truncation.
-- **Mentions carry source attribution (footnote-style).** The "Mentions in Source" section now renders each verbatim quote as `- "quote" — [[source-path|display-name]]`, replacing the previous free-form block of untraced quotes. Future page merges can never mix up which quote came from which source.
-- **Source pages inherit tags from the source note frontmatter (Issue #90).** The LLM used to inject arbitrary concept names (e.g. `Alzheimer-Demenz`, `Neuroprotektion`) into source pages, polluting the user's tag vocabulary. New `extractSourceTags()` pure helper reads the source note's frontmatter and passes tags directly to the summary-page template, falling back to LLM-derived names only when the source has no tags.
-- **Provider settings now sync everywhere.** Switching Provider/API Key/Model in Settings used to fail to reach the wiki engine; the next Ingest/Lint/Query would silently use the old provider. Fixed via `WikiEngine.updateSettings()` that keeps the EngineContext in sync with the live settings object (root cause: `settings.ts` was replacing `plugin.settings` with a NEW object from `tempSettings` spread, but EngineContext captured the OLD reference at construction time).
-- **Dates are now programmatic, not LLM-generated.** `enforceFrontmatterConstraints` strips LLM-invented `created`/`updated` dates and replaces them: `created` preserved on merge, `updated` always set to today.
-- **Lint reports persisted to log.md** with minute-precision timestamps so multiple same-day Lint runs are distinguishable. The Lint Report Modal shows a `📋 Full report saved to log.md` hint.
-- **Custom granularity upper bound raised from 300 to 500** to support professional knowledge bases (legal, medical, deep research).
-- **Default Schema documents the new contracts.** Three new sections in the default `wiki-folder/schema/config.md`: Source Page Template (mandates tag inheritance), Date Fields (programmatic, not LLM-generated), Mentions Format (academic-footnote style).
-- **Test connection restores live settings on failure.** A failed Test Connection no longer persists broken config; previous settings are restored.
-- **38 new tests added (549 → 587)**; 28 test files, 0 regressions.
-
----
-
-## Next Milestone: v1.22.1 — PATCH hotfix (review warnings + remaining P1 bugs)
-
-### v1.22.1 Scope
-- **CSS `:has()` warning fix** (Obsidian review warning: broad selector invalidation → perf cost; CSS selector replaced with direct class selector on `modalEl` + `contentEl`)
-- **`scripts/css-lint.mjs`** — multi-rule CSS lint (catches `!important` + `:has()` to prevent regression)
-- **#197 — fixDeadLink 制造 stub** (`fix-dead-link.ts` deterministic fallback + LLM `create_stub` both fabricate AI-expanded pages for honest forward-refs; reintroduces the #164 hallucination class; should leave dead link or flag instead of creating)
-- **#187 — Related-link `sources/` prefix** (`page-factory.ts:206,215` filter-by-type truncates related entities when vault > 50 pages)
-
-Stays local until user-in-the-wild signals other P0 issues for a single release.
-
----
-
-## Next Milestone: v1.22.6 — PATCH hotfix (#204 + #207 follow-up)
-
-**Rationale (2026-06-29):** Restructured from previously-planned v1.23.1 to ship as v1.22.6 hotfix on top of the known-good v1.22.5 baseline. v1.23.0 has the AI-SDK migration in flight with its own AI-SDK-internal untested risks; a focused hotfix on top of the v1.22.5 baseline is lower risk than bundling both fixes into v1.23.0. Replies posted to #204 and #207 explaining the restructuring (comment IDs 4839175597 and 4839174538).
-
-### v1.22.6 Scope
-
-| Item | Issue | Effort | Status |
-|------|-------|--------|--------|
-| **#204 — Wire `onAutoIngestDone` into watch-mode ingest path** (`IngestReport.trigger='auto'`, completion callback dispatches auto→Notice, manual→Modal; closes the `autoIngestNotificationLevel` no-op bug) | #204 | 0.5 day | 🔄 in progress |
-| **#204 follow-up — Context-aware Auto Smart Fix modal** (same `trigger` dispatch pattern for `LintReport`) | #204 | 0.25 day | 🔄 in progress |
-| **#207 — Broaden Responses API routing to `-pro` variants** (`RESPONSES_API_MODEL_RE` regex `/^(gpt-5\.[1-9]\d*(?:-pro)?|...)/`). Verified against OpenAI docs that Pro models are Responses-API-only. | #207 | 0.25 day | 🔄 in progress |
-
-**Root cause (verified 2026-06-29 against `developers.openai.com/api/docs/models/gpt-5.5` and `gpt-5-pro`):**
-- GPT-5 Pro: "available in the Responses API only" → v1.22.5's regex `/^(gpt-5\.[1-9]\d*|...)$/` did not match `gpt-5.x-pro` (trailing `-pro` broke the match) → request went to `/v1/chat/completions` where Pro models don't exist → 404.
-- `gpt-5.1-chat-latest` / `gpt-5.2-chat-latest`: not in OpenAI's public models list (only `gpt-5-chat-latest` documented). Likely preview/early-access aliases OpenAI didn't clean up from the listing API. Routed to Chat Completions (correct for chat-latest models). If they 400 on Chat Completions too, will need user-provided provider body to diagnose.
-
-### Branch
-```bash
-git checkout -b fix/v1.22.6-#204-#207 1.22.5
-```
-
-Strictly from v1.22.5 tag — no v1.23.0 work pulled in. See memory/project_v1.22.6_hotfix_plan.md.
-
----
+See [CHANGELOG](./CHANGELOG.md#1170-2026-06-08) for full details.
 
 ## Next Milestone: v1.23.0 — Graph Engine (current sprint)
 
@@ -248,8 +127,8 @@ Strictly from v1.22.5 tag — no v1.23.0 work pulled in. See memory/project_v1.2
 #### 🔄 P2 — Remaining (after P1-5)
 | # | Task | Effort | Status |
 |---|------|--------|--------|
-| P2-2 | Settings: cold-start threshold exposure (min_pages / min_edges) | 0.5 day | ❌ |
-| P2-3 | Eval report acceptance gate (vs fixture target) | 0.5 day | ❌ not started |
+| P2-2 | Settings: cold-start threshold exposure (min_pages / min_edges) — advanced users only, deferred to v1.24.0+ (default values validated by P2-4 real-vault eval, no opt-in needed in v1.23.0) | 0.5 day | ⏸️ deferred |
+| P2-3 | Eval report acceptance gate (vs fixture target) — includes knn baseline as control per @DocTpoint's #198 follow-up | 0.5 day | ❌ not started |
 | P2-4 | PPR parameter tuning: damping=0.05, numWalks=3000, walkLength=20 (real vault eval 2026-06-30) | 1 day | ✅ done — see REAL_VAULT_EVAL.md |
 | P2-4 | PPR parameter tuning (damping/numWalks/thresholds) for sample-50page | 1 day | ❌ not started |
 
@@ -278,7 +157,7 @@ Strictly from v1.22.5 tag — no v1.23.0 work pulled in. See memory/project_v1.2
 | # | Item | Effort |
 |---|------|--------|
 | B1 | LintFixer class → module-level functions | 1 day |
-| B2 | Restore true streaming for 3rd-party providers | 1-2 days |
+| B2 | ~~Restore true streaming for 3rd-party providers~~ — **DONE (v1.23.0 P2, commit 2e51e23 + AI-SDK v6 migration 6be9258; `result.textStream` real逐块 streaming now in all 3 llm-sdk clients)** | — |
 | B3 | Missing Concept Pages tracker | 2 days |
 
 #### Explicitly deferred to v1.24.0+
@@ -287,7 +166,7 @@ Strictly from v1.22.5 tag — no v1.23.0 work pulled in. See memory/project_v1.2
 | P3-1 | Hub retirement (clustering coefficient) | #117 (v2) | v1.24.0 (@DocTpoint owns) |
 | P3-2 | Per-operation model selection | #208 | v1.24.0 |
 | P3-3 | Link distinctiveness as standalone module | #157 v2 | v1.24.0+ |
-| P3-4 | **Embeddings rejected** (2026-06-28 decision: not v1.25.0, not ever — graph + cascade sufficient) | #175 | REJECTED |
+| P3-4 | **Embeddings rejected** (2026-06-28 decision: not v1.25.0, not ever — graph + cascade sufficient; reaffirmed 2026-06-30 after DocTpoint knn baseline: cascade R@5 27.1% vs knn 24.1% = only 3pp gap, not worth provider matrix) | #175 | REJECTED |
 | P3-5 | Tier D (agentic with tool calls) | ROADMAP | v1.25.0+ |
 | #185 | Source-note alias propagation (@DocTpoint) | — | v1.24.0+ |
 | #184 | Obsidian Bases index management (@alfred1137) | — | v1.24.0+ |
@@ -301,6 +180,7 @@ Strictly from v1.22.5 tag — no v1.23.0 work pulled in. See memory/project_v1.2
 | — | #168 Auto granularity | Independent heuristic |
 | — | #91 Nested tags | Depends on #85 in-the-wild feedback |
 | — | Tier D (agentic loop) | Function-calling support matrix |
+| — | **knn + cascade by-query-type complement** (DocTpoint #198 follow-up, 2026-06-30) | Observed pattern: knn wins on conceptual synonyms, cascade wins on proper-noun/structural queries. Architectural decision: NOT opt-in embedding (rejected per #175, ROI too low for 9-provider matrix). If pursued, would need a per-query classifier + dual retrieval; deferred pending more user reports. |
 
 #### Evaluated & Rejected
 | Proposal | Source | Reason |
@@ -311,11 +191,10 @@ Strictly from v1.22.5 tag — no v1.23.0 work pulled in. See memory/project_v1.2
 | Hash-bucket dedup optimization | Audit 1 | No user-reported perf issue |
 | page-factory try/catch completion | Audit 2 | Exceptions bubble to centralized handler by design |
 | API URL validation | Audit 1 | requestUrl already validates |
-| #36 Source title in frontmatter | — | Needs clarification from issue author |
+| #36 Source title in extraction (feature request) | 2026-05-21 | CLOSED with no follow-up; proposes `alwaysIncludeSourceTitle` setting; low ROI vs current PPR cascade (PPR already recovers source pages via outgoing-link structure) |
 
 #### Out of scope
 - #142 Multiple wikis — workaround: wikiFolder switch
-- Restore true streaming for 3rd-party providers
 - Lint perf — hash-bucket dedup prefilter
 
 ### v1.23.0 Cold-start thresholds (from @GioiaZheng, consensus #198 Q3)
@@ -333,75 +212,24 @@ Fallback arm selection:
 2. `seed_degree >= 1` AND graph has neighbors → lex-seeded MC-PPR
 3. All global guards passed → graph-first MC-PPR
 
----
-
-## Next Milestone: v1.22.5 — PATCH hotfix (Responses API path for #207)
-
-### v1.22.5 Scope
-
-| Item | Issue | Effort | Status |
-|------|-------|--------|--------|
-| **#207 follow-up — Responses API path for gpt-5.1+ / gpt-5.5 / o1-o4** | #207 | 0.5-1 day | 🔄 in progress |
-
-**Root cause confirmed (2026-06-29):** OpenAI's GPT-5.5 / GPT-5.1-chat-latest / reasoning models "work best in the Responses API" per OpenAI's official migration guide. Chat Completions path has compatibility issues for the reasoning model family. v1.22.4's `max_tokens` ↔ `max_completion_tokens` probe-then-cache fix only addressed one axis of the problem.
-
-**Patch fix (S1+A1 plan):** Add a minimal Responses API code path inside `OpenAICompatibleClient.createMessage` for `gpt-5.1+` / `gpt-5.5` / `o1*` / `o3*` / `o4-mini` model names. **No new dependencies** — only endpoint switch. ~5-10 LOC diff. Ships as v1.22.5 PATCH (semver-correct: bug fix only).
-
-**Long-term fix (v1.23.0 P1-7):** Replace hand-rolled `OpenAICompatibleClient` (~640 LOC) with `@ai-sdk/openai` v5, which already defaults `openai('gpt-5.5')` to Responses API and supports `reasoningEffort: 'low' | 'medium' | 'high' | 'xhigh'`. Eliminates future provider-version regression class entirely (Vercel maintains the abstraction). See P1-7 in v1.23.0 table below.
-
----
-
-## Next Milestone: v1.23.1 — PATCH after v1.23.0
-
-_Replaced 2026-06-29: #204 was promoted to v1.22.6 (see above). If a follow-up hotfix is needed after v1.23.0 release, it will be re-scoped here based on user feedback._
-
 ## Version Timeline
+
+**Current focus: v1.23.0** (Graph Engine + AI-SDK v6). Full per-version history lives in [CHANGELOG.md](./CHANGELOG.md).
 
 | Version | Date | Headline |
 |---------|------|----------|
-| **1.22.6** | 2026-06-29 (planned today) | Hotfix — #204 wire onAutoIngestDone + Auto Smart Fix trigger dispatch + #207 broaden Responses API to -pro variants |
-| **1.22.5** | 2026-06-29 | Hotfix — Responses API path for reasoning model family (#207 follow-up) + provider body in Notice + withRetry on Responses path |
-| **1.22.4** | 2026-06-27 | Hotfix — GPT-5.x probe-then-cache (Closes #207) + provider error UX + lint knobs centralisation |
-| **1.22.3** | 2026-06-26 | Hotfix — language-agnostic log header + content-folder guard for `generation_complete` |
-| **1.22.2** | 2026-06-26 | Hotfix — auto-ingest modal→Notice (#204) + log i18n + periodic lint refined |
-| **1.22.1** | 2026-06-24 | Hotfix — fixDeadLink fabrication (#197) + startupCheck migration (#199) + CSS `:has()` + Query side panel (#196) + related-link corrector (#187) |
-| **1.22.0** | 2026-06-23 | Schema one-click apply (#97) + dynamic tag sync + zh-Hant + ingest status bar (#189, @YounianC) |
-| **1.21.1** | 2026-06-22 | Hotfix — #173 Symptom A NFC/NFD + esbuild 0.28.1 |
-| **1.21.0** | 2026-06-21 | Pre-ingest gate (#164) + Schema Phase 1 (#124) + History Panel (#122) + Italian (#159) |
-| **1.20.3** | 2026-06-20 | Hotfix — source-slug fingerprint (#155) + alias dedup (#154) + Stage-4 guard (#158) |
-| **1.20.2** | 2026-06-19 | Anthropic fallback system-role hotfix (PR #151 by @Indexed-Apogrypha, Closes #141/#147) |
-| **1.20.1** | 2026-06-18 | Anthropic prefill rejection hotfix (Closes #141/#147) |
-| **1.20.0** | 2026-06-18 | Provider-first thinking control + reasoning UI (Closes #141/#134/#143) |
-| **1.19.1** | 2026-06-17 | Gemini HTTP 400 hotfix (Closes #137) |
-| **1.19.0** | 2026-06-16 | Ingest quality & cost hardening — advanced LLM params, quote grounding, compact slugs |
-| **1.18.2** | 2026-06-12 | Custom extraction limits hard-enforced (Closes #120) + #114 tags preservation + #111 slug casing |
-| **1.18.1** | 2026-06-11 | Obsidian review compliance (document ban + prefer-active-doc) |
-| **1.18.0** | 2026-06-10 | Tag controlled vocabulary (Closes #85) v6/v7/v8 — chip input UX, end-to-end customTags pipeline |
+| 1.22.6 | 2026-06-30 | #204 Auto Ingest modal fix + #207 -pro routing fix |
+| 1.22.5 | 2026-06-29 | Responses API path for reasoning model family (#207) + provider body in Notice |
+| 1.22.4 | 2026-06-27 | GPT-5.x probe-then-cache (Closes #207) + provider error UX |
+| 1.22.0 | 2026-06-23 | Schema one-click apply (#97) + dynamic tag sync + zh-Hant + ingest status bar |
+| 1.21.0 | 2026-06-21 | Pre-ingest gate (#164) + Schema Phase 1 (#124) + History Panel (#122) + Italian |
+| 1.20.0 | 2026-06-18 | Provider-first thinking control + reasoning UI (Closes #141/#134/#143) |
+| 1.19.0 | 2026-06-16 | Ingest quality & cost hardening — advanced LLM params, quote grounding, compact slugs |
+| 1.18.0 | 2026-06-10 | Tag controlled vocabulary (Closes #85) v6/v7/v8 |
 | 1.17.0 | 2026-06-08 | Long-document ingestion + source attribution (Closes #90) |
-| 1.16.3 | 2026-06-07 | v1.16.2 P0 hotfix completion |
-| 1.16.2 | 2026-06-07 | Lint cancel + thinking token bleeding + delete empty stubs |
 | 1.16.0 | 2026-06-04 | Sources normalization + Context Window + LMStudio |
-| 1.15.0 | 2026-06-01 | PR #87/#88 + aliases unification |
 | 1.13.0 | 2026-05-26 | ConflictResolver + 6 audited improvements |
 | 1.12.0 | 2026-05-20 | Extraction rearchitected, ~80% faster |
-| 1.10.0 | 2026-05-15 | Aliases + granularity expansion |
 | 1.9.0 | 2026-05-10 | Pollution defense + 14-issue batch |
-| 1.8.1 | 2026-05-05 | Rate limit + smart fix all + 53 tests |
 | 1.0.0 | initial | First Obsidian release |
 
-### Earlier Versions (v1.16.2 and prior)
-
-Full version history (v1.16.2 → v1.0.0) is preserved in [CHANGELOG.md](CHANGELOG.md). ROADMAP tracks only the current release and active work.
-
-#### Highlights (chronological)
-
-- **v1.16.2 — P0 Bug Fix Batch**: Lint cancel AbortSignal propagation, thinking-token bleeding three-layer defense, delete-empty-stubs.
-- **v1.16.0 — Sources Normalization + Client Refinement**: Issue #81 (sources normalizer, 22 tests), Context Window setting, LMStudio provider, startup quick fixes.
-- **v1.15.0 — Stability & UX Hotfix**: PR #87/#88 merged, aliases unification.
-- **v1.13.0 — Quality & Infrastructure**: ConflictResolver, mock infrastructure, 6 audited improvements.
-- **v1.12.0 — Production-Grade Performance**: extraction rearchitected, ~80% faster.
-- **v1.10.0 — Aliases + Granularity Expansion**: 4 user-facing improvements.
-- **v1.9.0 — Pollution Defense & Quality Upgrade**: 14-issue batch.
-- **v1.8.1 — UX Hardening**: rate limit notice, smart fix all, settings reorg.
-- **v1.7.20 — Code Quality Phase 1**: 5 deep fixes + modular splits.
-- **v1.7.0 and earlier** — see CHANGELOG.md for full history.
