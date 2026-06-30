@@ -57,8 +57,8 @@ describe('AutoMaintainManager.processBatch — watcher batch context (#164 revie
     // ...and the SAME context object reaches every ingest (shared dedup state).
     const calls = ingestSource.mock.calls;
     expect(calls).toHaveLength(2);
-    expect(calls[0][1]).toEqual({ batchCtx });
-    expect(calls[1][1]).toEqual({ batchCtx });
+    expect(calls[0][1]).toEqual({ batchCtx, trigger: 'auto' });
+    expect(calls[1][1]).toEqual({ batchCtx, trigger: 'auto' });
     expect(calls[0][1]?.batchCtx).toBe(calls[1][1]?.batchCtx);
   });
 });

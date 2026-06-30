@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.22.6] - 2026-06-29
+
+### Fixed
+- **#204 — Auto Ingest no longer opens a blocking modal when `autoIngestNotificationLevel: notice` is set.** v1.22.2 added `onAutoIngestDone` (Notice path) but never wired it into the watch-mode auto-ingest path — every ingest completion went through `onIngestDone` which always opens `IngestReportModal`, making the "Notice (non-blocking)" UI setting a no-op. v1.22.6 adds a `trigger?: 'auto' | 'manual'` field to `IngestReport` (and `IngestOptions`) and propagates it through `WikiEngine.ingestSource` → `onDone` report. The completion callback (`LLMWikiPlugin.onIngestDoneDispatch`) routes `trigger='auto'` to `onAutoIngestDone` (Notice respecting `autoIngestNotificationLevel`) and otherwise keeps the legacy `IngestReportModal` path. Manual ingest behavior unchanged.
+- **#204 follow-up — Auto Smart Fix completion is now context-aware.** The same trigger pattern is applied to `runLintWiki`: the function gains a third `trigger: 'auto' | 'manual'` parameter (default `'manual'`). Periodic auto lint (driven by `AutoMaintainManager.schedulePeriodicLint`) now passes `trigger='auto'`; manual lint commands keep the default. Completion dispatch: manual → `LintReportModal` (unchanged UX); auto + `autoSmartFix=true` → Notice + run fixAll (v1.22.2 path); auto + `autoSmartFix=false` → Notice only with History panel hint, no modal.
+- **#207 follow-up — GPT-5 Pro variants (`gpt-5.x-pro`) now route correctly to `/v1/responses`.** Verified against OpenAI's official model documentation (`developers.openai.com/api/docs/models/gpt-5-pro`): "GPT-5 Pro is available in the Responses API only." v1.22.5's `RESPONSES_API_MODEL_RE` regex matched `gpt-5.x` but missed the trailing `-pro` suffix, so `gpt-5.2-pro`, `gpt-5.4-pro`, and `gpt-5.5-pro` silently went to `/v1/chat/completions` where Pro models don't exist → 404. v1.22.6 broadens the regex to `^(gpt-5\.[1-9]\d*(?:-pro)?|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$`. `gpt-5-chat-latest` exclusion kept (Chat Completions by design). After upgrade, `gpt-5.x-pro` should work; if `gpt-5.x-chat-latest` variants continue to 400, paste the exact Notice text (now includes the provider body) for further diagnosis.
+
+### Tests
+- **1118 tests passing** (+14 since v1.22.5: new `src/__tests__/wiki/auto-maintain-trigger.test.ts` with 6 tests for `IngestReport.trigger` shape and `dispatchTarget` pure function; new `src/__tests__/wiki/lint/lint-trigger-dispatch.test.ts` with 4 tests for the lint completion dispatch logic; `src/__tests__/root/llm-client-responses-api.test.ts` adds 4 `-pro` model IDs to the routing `it.each` block; `src/__tests__/schema/auto-maintain.test.ts` updated to assert `trigger: 'auto'` in the ingestSource options round-trip).
+
 ## [1.22.5] - 2026-06-29
 
 ### Fixed

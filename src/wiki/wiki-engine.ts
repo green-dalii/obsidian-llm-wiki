@@ -396,6 +396,8 @@ export class WikiEngine {
       skipped: true,
       rejectedFiles: [{ path: file.path, reason: rejection.reason, detail: rejection.detail }],
       elapsedSeconds: 0,
+      // v1.22.6 #204: Propagate trigger so completion can route UI.
+      trigger: opts?.trigger,
     });
   }
 
@@ -776,7 +778,9 @@ export class WikiEngine {
         collisions,
         contradictionsFound: analysis.contradictions.length,
         success: true,
-        elapsedSeconds: Math.round(totalTime / 1000)
+        elapsedSeconds: Math.round(totalTime / 1000),
+        // v1.22.6 #204: Propagate trigger so completion can route UI.
+        trigger: opts?.trigger,
       });
 
     } catch (error) {
@@ -798,7 +802,9 @@ export class WikiEngine {
           success: false,
           cancelled: true,
           errorMessage: 'Cancelled by user',
-          elapsedSeconds: Math.round((Date.now() - totalStartTime) / 1000)
+          elapsedSeconds: Math.round((Date.now() - totalStartTime) / 1000),
+          // v1.22.6 #204: Propagate trigger so completion can route UI.
+          trigger: opts?.trigger,
         });
         return;
       }
@@ -818,7 +824,9 @@ export class WikiEngine {
         contradictionsFound: analysis?.contradictions?.length || 0,
         success: false,
         errorMessage: errorMsg,
-        elapsedSeconds: Math.round((Date.now() - totalStartTime) / 1000)
+        elapsedSeconds: Math.round((Date.now() - totalStartTime) / 1000),
+        // v1.22.6 #204: Propagate trigger so completion can route UI.
+        trigger: opts?.trigger,
       });
       throw error;
     } finally {

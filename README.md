@@ -33,6 +33,7 @@
     - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
     - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
     - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+    - [v1.22.6 — 2026-06-29 (PATCH)](#v1226--2026-06-29-patch)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [🛠️ Maintenance](#️-maintenance)
@@ -258,6 +259,16 @@ A focused PATCH that fixes OpenAI gpt-5.1+ / gpt-5.5 / o1-o4 reasoning models on
 - **♻️ Test fixtures updated.** Existing tests for the dot-naming gpt-5.x regression (v1.22.4) and the `thinking.type='disabled'` Chat Completions path (legacy) now use `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1` respectively — these models continue to exercise the Chat Completions path, while the reasoning family is fully covered by the new `src/__tests__/root/llm-client-responses-api.test.ts` (28 tests).
 
 We recommend upgrading — `gpt-5.1-chat-latest`, `gpt-5.5`, and the `o1` / `o3` / `o4-mini` families now work on Test Connection out of the box, and when a connection fails you get the actual provider error (e.g. "insufficient_quota") instead of a bare HTTP status.
+
+### v1.22.6 — 2026-06-29 (PATCH)
+
+A focused PATCH that wires `onAutoIngestDone` into the watch-mode auto-ingest path (Issue #204), makes Auto Smart Fix completion context-aware, and broadens OpenAI Responses API routing to `gpt-5.x-pro` variants (Issue #207 follow-up).
+
+- **🤫 Auto Ingest finally respects `autoIngestNotificationLevel: notice` (Issue #204).** v1.22.2 introduced an `onAutoIngestDone` helper for the Notice path, but it was never wired into the watch-mode auto-ingest flow — every auto-ingest completion went through `onIngestDone` which always opens `IngestReportModal`, making the "Notice (non-blocking)" UI setting a no-op. v1.22.6 adds a `trigger?: 'auto' | 'manual'` field to `IngestReport` (and `IngestOptions`), propagates it through `WikiEngine.ingestSource` → `onDone`, and routes `trigger='auto'` to `onAutoIngestDone`. Manual ingest behavior unchanged. After upgrade, your existing "Notice" setting actually does what it says — auto-ingest finishes with a transient Notice + History panel hint instead of stealing focus.
+- **🔇 Auto Smart Fix completion is also context-aware.** Same trigger pattern applied to `runLintWiki` (new third `trigger` parameter, default `'manual'`). `AutoMaintainManager.schedulePeriodicLint` passes `trigger='auto'`. Completion dispatch: manual → `LintReportModal` (unchanged UX); auto + `autoSmartFix=true` → Notice + run fixAll (existing v1.22.2 path); auto + `autoSmartFix=false` → Notice only with History panel hint, no modal. Periodic auto lint no longer steals focus even when you haven't enabled Auto Smart Fix.
+- **🛡️ GPT-5 Pro variants now route to `/v1/responses` (Issue #207 follow-up).** Verified against OpenAI's official model page (`developers.openai.com/api/docs/models/gpt-5-pro`): "GPT-5 Pro is available in the Responses API only." v1.22.5's `RESPONSES_API_MODEL_RE` matched `gpt-5.x` but missed the trailing `-pro` suffix, so `gpt-5.2-pro` / `5.4-pro` / `5.5-pro` silently went to `/v1/chat/completions` where Pro models don't exist → 404. v1.22.6 broadens the regex to `^(gpt-5\.[1-9]\d*(?:-pro)?|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$`. `gpt-5-chat-latest` exclusion kept (Chat Completions by design). After upgrade, `gpt-5.x-pro` should work; if `gpt-5.x-chat-latest` variants continue to 400, paste the exact Notice text (now includes the provider body) for further diagnosis.
+
+We recommend upgrading — the "Auto Ingest Notice" setting finally works, periodic auto lint stops blocking your writing flow, and Pro model variants are reachable on the Responses API.
 
 We recommend upgradingWe recommend upgrading — the fix-dead-link stub fabrication class of bugs is now closed, and the Query Wiki side panel keeps your notes visible while chatting.
 

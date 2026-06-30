@@ -34,6 +34,7 @@
     - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
     - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
     - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+    - [v1.22.6 — 2026-06-29 (PATCH)](#v1226--2026-06-29-patch)
   - [✨ Funktionen](#-funktionen)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [🛠️ Maintenance](#️-maintenance)
@@ -232,6 +233,14 @@ Ein gezielter PATCH, der verhindert, dass die OpenAI-Reasoning-Modellfamilie (gp
 Upgrade empfohlen — `gpt-5.1-chat-latest`, `gpt-5.5` und die `o1` / `o3` / `o4-mini`-Familien funktionieren jetzt sofort im Test Connection, und bei einem Verbindungsfehler wird der tatsächliche Provider-Fehler (z. B. „insufficient_quota") angezeigt statt nur ein HTTP-Statuscode.
 
 Upgrade empfohlenUpgrade empfohlen — die Stub-Fabrikations-Klasse ist geschlossen und das Query-Wiki-Seitenpanel hält deine Notizen sichtbar.
+
+### v1.22.6 — 2026-06-29 (PATCH)
+
+- **🤫 Auto-Ingest respektiert jetzt `autoIngestNotificationLevel: notice` (Issue #204).** Der v1.22.2-Helfer `onAutoIngestDone` (Notice-Pfad) war nie in den Watch-Mode-Auto-Ingest-Flow eingebunden — jede Auto-Ingest-Completion lief über `onIngestDone` und öffnete immer `IngestReportModal`, sodass die Notice-Einstellung ein No-Op war. v1.22.6 fügt `trigger?: 'auto' | 'manual'` zu `IngestReport` und `IngestOptions` hinzu, leitet es durch `WikiEngine.ingestSource` → `onDone`, und routet `trigger='auto'` zu `onAutoIngestDone`. Manuelles Ingest-Verhalten unverändert.
+- **🔇 Auto Smart Fix Completion ist jetzt kontextabhängig.** Gleiches Trigger-Schema auf `runLintWiki` angewendet (neuer dritter `trigger`-Parameter, Standard `'manual'`). Periodisches Auto-Lint übergibt `trigger='auto'`. Completion-Dispatch: manuell → `LintReportModal`; auto + `autoSmartFix=true` → Notice + fixAll; auto + `autoSmartFix=false` → nur Notice mit History-Panel-Hinweis.
+- **🛡️ GPT-5 Pro-Varianten (`gpt-5.x-pro`) werden jetzt korrekt zu `/v1/responses` geroutet (Issue #207 follow-up).** Per OpenAI-Doku „GPT-5 Pro is available in the Responses API only." v1.22.5's Regex matchte `gpt-5.x` aber nicht das `-pro`-Suffix — `gpt-5.2-pro` / `5.4-pro` / `5.5-pro` gingen still nach `/v1/chat/completions` → 404. Regex erweitert auf `^(gpt-5\.[1-9]\d*(?:-pro)?|...)`.
+
+Upgrade empfohlen — die „Auto-Ingest Notice"-Einstellung wirkt, periodisches Auto-Lint unterbricht deinen Schreibfluss nicht mehr, und Pro-Modell-Varianten sind über die Responses-API erreichbar.
 
 ## ✨ Funktionen
 

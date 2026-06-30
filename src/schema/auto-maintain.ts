@@ -219,7 +219,7 @@ export class AutoMaintainManager {
       for (const file of sourceFiles) {
         try {
           this.markRecentWrite(file.path);
-          await this.wikiEngine.ingestSource(file, { batchCtx });
+          await this.wikiEngine.ingestSource(file, { batchCtx, trigger: 'auto' });
           successCount++;
         } catch (error) {
           console.error(`Auto-ingest failed for ${file.path}:`, error);

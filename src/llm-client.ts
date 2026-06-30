@@ -79,8 +79,25 @@ const MAX_TOKEN_KEY_REGEX = /\bmax_(?:completion_)?tokens\b/i;
 //
 // v1.23.0 P1-7 replaces this whole hand-rolled block with @ai-sdk/openai v5
 // (which defaults openai('gpt-5.5') to Responses API).
+//
+// v1.22.6 #207 follow-up: broadened to also match `-pro` variants.
+// OpenAI's GPT-5 Pro models (gpt-5-pro, gpt-5.4-pro, gpt-5.5-pro) are
+// "available in the Responses API only" per OpenAI's official model
+// docs (developers.openai.com/api/docs/models/gpt-5-pro). The previous
+// regex matched `gpt-5.x` but missed the trailing `-pro` suffix,
+// so v1.22.5 silently routed Pro requests to /v1/chat/completions
+// where Pro models don't exist → 404.
+//
+// Note: `gpt-5` (no suffix) stays on Chat Completions — its dash-suffixed
+// variants (`gpt-5-mini`, `gpt-5-nano`) are also Chat Completions
+// models. The dot-versioned reasoning family (`gpt-5.1`+ / `gpt-5.5`)
+// is what OpenAI's migration guide actually calls Responses-only.
+// `-chat-latest` is still explicitly excluded below in
+// isResponsesApiModel: chat-latest models are designed for Chat
+// Completions (per OpenAI's chat-latest model page), so they should
+// stay on /v1/chat/completions.
 const RESPONSES_API_MODEL_RE =
-  /^(gpt-5\.[1-9]\d*|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$/;
+  /^(gpt-5\.[1-9]\d*(?:-pro)?|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$/;
 const OPENAI_OFFICIAL_BASEURL = /^https:\/\/api\.openai\.com\/v1\/?$/;
 
 /**

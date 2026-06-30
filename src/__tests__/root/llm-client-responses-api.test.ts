@@ -88,6 +88,15 @@ describe('v1.22.5: Responses API routing for reasoning model family', () => {
       'o3-mini',
       'o3-pro',
       'o4-mini',
+      // v1.22.6 #207: -pro variants are Responses-API-only per
+      // OpenAI's gpt-5-pro model page ("available in the Responses
+      // API only"). Previous regex missed the trailing -pro suffix.
+      // Note: `gpt-5-pro` (no dot version) is not in OpenAI's
+      // documented model list — only `gpt-5.x-pro` for x≥1 is.
+      'gpt-5.5-pro',
+      'gpt-5.4-pro',
+      'gpt-5.2-pro',
+      'gpt-5.1-pro',
     ])('routes %s to /v1/responses endpoint', async (model) => {
       mockRequestUrl.mockResolvedValue(makeResponses200('hello from responses'));
 

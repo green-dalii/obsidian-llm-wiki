@@ -17,35 +17,44 @@
 > **⚡ 快速更新提醒：** 本項目迭代速度快，會經常進行 Bug 修復、性能提升或新功能、體驗優化等。建議經常在 Obsidian 中更新到最新版本（**設置 → 社區插件 → 檢查更新**），或開啓插件的自動更新功能以確保獲得最佳體驗。
 ## 📑 目錄
 
-- [💡 什麼是 LLM-Wiki？](#-什麼是-llm-wiki)
-- [⚡ 爲什麼選擇 Obsidian + LLM-Wiki？](#-爲什麼選擇-obsidian--llm-wiki)
-- [🚀 快速開始](#-快速開始)
-  - [📦 安裝](#-安裝)
-  - [🔄 更新插件](#-更新插件)
-  - [🔑 配置 LLM Provider](#-配置-llm-provider)
-  - [🎮 使用方式](#-使用方式)
-  - [⚠️ 從舊版本升級？](#️-從舊版本升級)
-- [⚡ v1.22.0 更新內容](#-v1220-更新內容)
-- [✨ 核心特性](#-核心特性)
-  - [📊 知識質量](#-知識質量)
-  - [🛠️ 維護能力](#️-維護能力)
-  - [💬 查詢與反饋](#-查詢與反饋)
-  - [🌐 LLM 與語言](#-llm-與語言)
-  - [🏗️ 架構與性能](#️-架構與性能)
-  - [🔒 隱私與安全](#-隱私與安全)
-- [⌨️ 命令列表](#️-命令列表)
-- [📖 使用示例](#-使用示例)
-- [🤖 模型選擇建議](#-模型選擇建議)
-- [🏗️ 架構](#️-架構)
-- [❓ 常見問題 (FAQ)](#-常見問題-faq)
-  - [💡 通用](#-通用)
-  - [🏷️ 別名與重複](#️-別名與重複)
-  - [⚡ 性能與成本](#-性能與成本)
-  - [🧹 維護](#-維護)
-  - [🔍 故障排查](#-故障排查)
+- [🧠 Karpathy LLM Wiki — Obsidian 插件](#-karpathy-llm-wiki--obsidian-插件)
+  - [📑 目錄](#-目錄)
+  - [💡 什麼是 LLM-Wiki？](#-什麼是-llm-wiki)
+  - [⚡ 爲什麼選擇 Obsidian + LLM-Wiki？](#-爲什麼選擇-obsidian--llm-wiki)
+  - [🚀 快速開始](#-快速開始)
+    - [📦 安裝](#-安裝)
+    - [🔄 更新插件](#-更新插件)
+    - [🔑 配置 LLM Provider](#-配置-llm-provider)
+    - [🎮 使用方式](#-使用方式)
+    - [⚠️ 從舊版本升級？](#️-從舊版本升級)
+  - [⚡ v1.22.0 更新內容](#-v1220-更新內容)
+    - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
+    - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
+    - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
+    - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
+    - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+    - [v1.22.6 — 2026-06-29 (PATCH)](#v1226--2026-06-29-patch)
+  - [✨ 核心特性](#-核心特性)
+    - [📊 知識質量](#-知識質量)
+    - [🛠️ 維護能力](#️-維護能力)
+    - [💬 查詢與反饋](#-查詢與反饋)
+    - [🌐 LLM 與語言](#-llm-與語言)
+    - [🏗️ 架構與性能](#️-架構與性能)
+    - [🔒 隱私與安全](#-隱私與安全)
+  - [⌨️ 命令列表](#️-命令列表)
+  - [📖 使用示例](#-使用示例)
+  - [🤖 模型選擇建議](#-模型選擇建議)
+  - [🏗️ 架構](#️-架構)
+  - [❓ 常見問題 (FAQ)](#-常見問題-faq)
+    - [💡 通用](#-通用)
+    - [🏷️ 別名與重複](#️-別名與重複)
+    - [⚡ 性能與成本](#-性能與成本)
+    - [🧹 維護](#-維護)
+    - [🔍 故障排查](#-故障排查)
   - [🔒 透明度與合規性](#-透明度與合規性)
-- [📜 許可證](#-許可證)
-- [🙏 致謝](#-致謝)
+  - [📜 許可證](#-許可證)
+  - [🙏 致謝](#-致謝)
+  - [Star History](#star-history)
 ---
 
 ## 💡 什麼是 LLM-Wiki？
@@ -201,6 +210,20 @@ v1.22.0 是一個**次要功能版本**，帶來長期期待的 Schema 一鍵更
 - **🇹🇼 繁體中文（zh-TW）語言。** 插件 UI 和 Wiki 輸出現在支持繁體中文作爲第 10 種語言。雙向一致性保護已擴展到所有 10 種語言。
 - **📊 攝取狀態欄顯示文檔名稱（PR #189）。** 狀態欄現在顯示當前文檔名稱（`My Note · 提取中... 點選取消`），文件夾批量攝取時顯示進度（`[4/10] My Note · 提取中... 點選取消`）。由 @YounianC 貢獻。
 
+### v1.22.1 — 2026-06-24 (PATCH)
+
+聚焦的 PATCH 版本，修正了使用者回報的三個 P0 錯誤，並帶來一項 UX 改進。
+
+- **🛡️ 修復死鏈不再偽造 AI 擴充的存根頁面 (#197)。** 當 `fixDeadLink` 無法解析死鏈時，先前會建立存根並呼叫 `fillEmptyPage()` —— 讓 LLM 在零源內容的情況下虛構 alias 與相關連結。存根現在是誠實的佔位，帶有 `generation_complete: false` 標記，便於 #170 incomplete-cleaner 識別，下一次真實攝入時透過正常路徑填入。
+- **✅「啟動時執行快速修復」開關真正生效 (#199)。** v1.18.3 的 migration 在每次外掛載入時強制把 `startupCheck: false` 改回 `true`，靜默撤銷使用者的明確選擇。該 migration 已移除；剩餘的遷移被抽取為 `core/settings-migrations.ts` 中的純函式 `applySettingsMigrations()`。新裝預設開啟，明確選擇被尊重。
+- **🎨 CSS `:has()` 審核警告已修復。** `.modal:has(.llm-wiki-schema-diff-modal)` 替換為直接的 class 選擇器。新的 `scripts/css-lint.mjs` 多規則 lint 同時檢查 `!important` 和 `:has()`，已接入 Gate 1 防止回退。
+- **🪟 Query Wiki 現在是 Copilot 風格右側側邊欄面板 (#196, @YounianC)。** `QueryModal extends Modal` 改為 `QueryView extends ItemView` —— 對話可以與筆記並排顯示，不再以彈窗打斷。`message-circle` 功能區圖示和 `Query Wiki` 指令啟動/顯示右側 sidebar leaf（若已存在則複用）。所有功能保持不變：分級檢索、串流與非串流回退、可摺疊思考面板、儲存到 Wiki、history。樣式改為原生 `var(--…)` 主題權杖，自動適配 light/dark 主題。
+- **🧹 相關連結前綴確定性重寫 (#200, @DocTpoint, #187)。** LLM 生成的「相關概念 / 相關實體」條目在目標超出截斷的現有頁面清單時偶爾會預設輸出 `[[sources/<slug>]]` —— 或同一批次攝入中尚未建立。新的純函式 `correctRelatedLinkPrefixes()` 在生成後重新宣告每個相關名稱的已知類型。受 header label 限定的 section 範圍，保證「來源中的提及」裡的合法 `[[sources/<slug>]]` 引用不會被改寫；同時也能自我修復透過 `mergePage` 攜帶的陳舊連結。
+
+建議升級 —— fix-dead-link 的存根偽造 bug 類已被關閉，Query Wiki 側邊欄讓對話時筆記保持可見。
+
+完整變更請參閱 [CHANGELOG.md](../CHANGELOG.md)。
+
 ### v1.22.2 — 2026-06-26 (PATCH)
 
 此 PATCH 版改進了自動攝入的體驗、本地化了操作日誌、清理了死代碼。
@@ -233,25 +256,30 @@ v1.22.0 是一個**次要功能版本**，帶來長期期待的 Schema 一鍵更
 
 建議升級 —— gpt-5.x 模型開箱即用，Test Connection 介面會準確告訴你 Provider 拒絕了什麼，不必再翻控制台排查 baseUrl / 模型名 / API key。
 
-建議升級
+### v1.22.5 — 2026-06-29 (PATCH)
+
+聚焦的 PATCH：修復 OpenAI 推理模型族（gpt-5.1+ / gpt-5.5 / o1-o4）在 Test Connection 上的 400 錯誤（Issue #207 後續跟進），並將 Provider 真實錯誤訊息透傳到 Test Connection Notice。
+
+- **🛡️ 推理模型族現走 OpenAI Responses API（Issue #207 後續）。** v1.22.4 的 `max_tokens` ↔ `max_completion_tokens` 探測快取修復是必要但不充分的——`gpt-5.1-chat-latest`、`gpt-5.5` 以及 `o1` / `o3` / `o4-mini` 推理家族在 Chat Completions 端點仍報 400 錯誤，原因是 Chat Completions 對推理模型族存在相容性問題。OpenAI 官方 GPT-5.5 遷移指南明確指出「GPT-5.5 works best in the Responses API」，v1.22.5 因此將推理家族路由到 `/v1/responses` 並附帶 `reasoning: { effort: 'low' }`。`gpt-5-chat-latest`、`gpt-4.1`、`gpt-3.5-turbo` 以及所有非 OpenAI baseUrl（Ollama、LM Studio、DeepSeek 等）保持 `/v1/chat/completions` 路徑不變。檢測邏輯是純函式 `isResponsesApiModel(model, baseUrl)`，僅在 `https://api.openai.com/v1` 觸發——自訂端點完全相容。
+- **📜 Provider 錯誤訊息體到達 Test Connection Notice。** Obsidian 的 `requestUrl` 在 4xx（含 429）上拋錯但**不**把 Provider 回應體掛到 Error 物件上——所以 v1.22.4 的 `extractProviderErrorMessage()` 也拿不到 OpenAI 實際說的什麼。v1.22.5 在失敗請求上包一層 `window.fetch` 重新擷取（5 秒逾時），把 Provider body 合併到拋出的 `Error.message` 裡，使用者看到的是 `"status 429: You exceeded your current quota, please check your plan and billing details"` 而不是裸 `"status 429"`。原始 body 同時透過 `console.warn` 級別寫入 DevTools 方便排查。非 OpenAI baseUrl 走原有 Chat Completions 路徑獲得相同增強。
+- **⏱️ 429/5xx 限流錯誤在 Responses API 路徑上獲得指數退避重試。** v1.22.4 的 `withRetry`（3 次嘗試，1s/2s/4s + 抖動）原本只覆蓋 Chat Completions 路徑。v1.22.5 把新 Responses API 路徑也包了同樣的 `withRetry`，瞬時 429 配額顛簸不再立即讓 Test Connection 失敗。
+- **♻️ 測試夾具更新。** v1.22.4 時期針對 dot-naming gpt-5.x 模型的迴歸測試，以及 `thinking.type='disabled'` 遺留 Chat Completions 路徑的測試，現在分別使用 `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1`——這些模型繼續走 Chat Completions 路徑，而推理模型族由新的 `src/__tests__/root/llm-client-responses-api.test.ts`（28 測試）完整覆蓋。
+
+建議升級 —— `gpt-5.1-chat-latest`、`gpt-5.5`、`o1` / `o3` / `o4-mini` 家族在 Test Connection 上開箱即用，連線失敗時顯示的是 Provider 真實錯誤（如 "insufficient_quota"）而不是裸 HTTP 狀態碼。
+
+### v1.22.6 — 2026-06-29 (PATCH)
+
+聚焦的 PATCH：把 `onAutoIngestDone` 接入 Watch Mode 自動擷取路徑（Issue #204），讓 Auto Smart Fix 完成提示具備上下文感知能力，並把 OpenAI Responses API 路由擴展到 `gpt-5.x-pro` 變體（Issue #207 後續跟進）。
+
+- **🤫 自動擷取終於尊重 `autoIngestNotificationLevel: notice` 設定（Issue #204）。** v1.22.2 引入了 `onAutoIngestDone` 輔助方法走 Notice 路徑，但從未接入 Watch Mode 自動擷取流程——每次自動擷取完成都走 `onIngestDone`（永遠開啟 `IngestReportModal`），導致設定面板裡「Notice（非阻塞）」選項完全失效。v1.22.6 在 `IngestReport`（和 `IngestOptions`）上新增 `trigger?: 'auto' | 'manual'` 欄位，沿 `WikiEngine.ingestSource` → `onDone` 傳遞，並把 `trigger='auto'` 路由到 `onAutoIngestDone`。手動擷取行為不變。升級後，之前的「Notice」設定真正生效——自動擷取完成時是臨時 Notice + History 面板提示，不再奪取焦點。
+- **🔇 Auto Smart Fix 完成提示同樣具備上下文感知。** 同樣的 trigger 模式應用到 `runLintWiki`（新增第三個 `trigger` 參數，預設 `'manual'`）。`AutoMaintainManager.schedulePeriodicLint` 傳 `trigger='auto'`。完成分發：手動 → `LintReportModal`（原 UX 不變）；自動 + `autoSmartFix=true` → Notice + 跑 fixAll（沿用 v1.22.2 路徑）；自動 + `autoSmartFix=false` → 僅 Notice 帶 History 面板提示，不彈模態框。即使沒啟用 Auto Smart Fix，週期性的自動 lint 也不再打斷你寫作。
+- **🛡️ GPT-5 Pro 變體（`gpt-5.x-pro`）現在路由到 `/v1/responses`（Issue #207 後續）。** 已透過 OpenAI 官方模型頁（`developers.openai.com/api/docs/models/gpt-5-pro`）驗證：「GPT-5 Pro is available in the Responses API only.」v1.22.5 的 `RESPONSES_API_MODEL_RE` 匹配 `gpt-5.x` 但漏了 `-pro` 後綴，導致 `gpt-5.2-pro` / `5.4-pro` / `5.5-pro` 靜默走到了 `/v1/chat/completions` 而 Pro 模型在那裡根本不存在 → 404。v1.22.6 把正則擴到 `^(gpt-5\.[1-9]\d*(?:-pro)?|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$`。`gpt-5-chat-latest` 排除邏輯保留（按設計就是 Chat Completions 模型）。升級後 `gpt-5.x-pro` 應可工作；若 `gpt-5.x-chat-latest` 變體仍報 400，請貼出 Notice 完整文字（現在已帶 Provider body）以便進一步診斷。
+
+建議升級 ——「自動擷取 Notice」設定終於生效，週期性自動 lint 不再中斷寫作，Pro 模型變體可經 Responses API 觸達。
 
 我們強烈建議升級——Schema 一鍵應用功能使 Schema 優化成爲一步操作，繁體中文語言顯著改善 zh-TW 用戶的體驗。
 
 詳見 [CHANGELOG.md](../CHANGELOG.md)。
-
-### v1.22.1 — 2026-06-24 (PATCH)
-
-聚焦的 PATCH 版本，修正了使用者回報的三個 P0 錯誤，並帶來一項 UX 改進。
-
-- **🛡️ 修復死鏈不再偽造 AI 擴充的存根頁面 (#197)。** 當 `fixDeadLink` 無法解析死鏈時，先前會建立存根並呼叫 `fillEmptyPage()` —— 讓 LLM 在零源內容的情況下虛構 alias 與相關連結。存根現在是誠實的佔位，帶有 `generation_complete: false` 標記，便於 #170 incomplete-cleaner 識別，下一次真實攝入時透過正常路徑填入。
-- **✅「啟動時執行快速修復」開關真正生效 (#199)。** v1.18.3 的 migration 在每次外掛載入時強制把 `startupCheck: false` 改回 `true`，靜默撤銷使用者的明確選擇。該 migration 已移除；剩餘的遷移被抽取為 `core/settings-migrations.ts` 中的純函式 `applySettingsMigrations()`。新裝預設開啟，明確選擇被尊重。
-- **🎨 CSS `:has()` 審核警告已修復。** `.modal:has(.llm-wiki-schema-diff-modal)` 替換為直接的 class 選擇器。新的 `scripts/css-lint.mjs` 多規則 lint 同時檢查 `!important` 和 `:has()`，已接入 Gate 1 防止回退。
-- **🪟 Query Wiki 現在是 Copilot 風格右側側邊欄面板 (#196, @YounianC)。** `QueryModal extends Modal` 改為 `QueryView extends ItemView` —— 對話可以與筆記並排顯示，不再以彈窗打斷。`message-circle` 功能區圖示和 `Query Wiki` 指令啟動/顯示右側 sidebar leaf（若已存在則複用）。所有功能保持不變：分級檢索、串流與非串流回退、可摺疊思考面板、儲存到 Wiki、history。樣式改為原生 `var(--…)` 主題權杖，自動適配 light/dark 主題。
-- **🧹 相關連結前綴確定性重寫 (#200, @DocTpoint, #187)。** LLM 生成的「相關概念 / 相關實體」條目在目標超出截斷的現有頁面清單時偶爾會預設輸出 `[[sources/<slug>]]` —— 或同一批次攝入中尚未建立。新的純函式 `correctRelatedLinkPrefixes()` 在生成後重新宣告每個相關名稱的已知類型。受 header label 限定的 section 範圍，保證「來源中的提及」裡的合法 `[[sources/<slug>]]` 引用不會被改寫；同時也能自我修復透過 `mergePage` 攜帶的陳舊連結。
-
-建議升級 —— fix-dead-link 的存根偽造 bug 類已被關閉，Query Wiki 側邊欄讓對話時筆記保持可見。
-
-完整變更請參閱 [CHANGELOG.md](../CHANGELOG.md)。
 
 ## ✨ 核心特性
 

@@ -14,45 +14,9 @@
 
 ---
 
-### v1.22.3 — 2026-06-26 (PATCH)
-
-Un Hotfix centrado que refuerza el mecanismo de encabezado de log de la v1.22.2 y evita la contaminación de frontmatter en archivos que no son de contenido.
-
-- **🔧 Detección del encabezado de log ahora agnóstica del idioma y robusta.** Cambio de detección basada en texto (que no funcionaba para DE/JA/KO/etc. y podía confundirse con el contenido natural de una entrada de log) a un marcador estructural de comentario HTML `<!-- llm-wiki-log-header-start -->` incrustado en el encabezado. Los archivos log v1.22.2 existentes se actualizan automáticamente en el próximo inicio.
-- **🧹 Cadenas del encabezado de log consolidadas en `src/texts/<lang>.ts`.** Las cuatro cadenas localizadas previamente duplicadas en `core/log-header.ts` ahora viven junto con todas las demás cadenas UI — los traductores y las pruebas de paridad las cubren automáticamente.
-- **🚫 `generation_complete` ya no se estampa en `log.md` / `index.md` / `schema/`.** `createOrUpdateFile` antes llamaba a `markPageComplete` para **cada** escritura, lo que anteponía un bloque frontmatter completamente nuevo con `generation_complete: true` a archivos sin frontmatter — contaminación visible del cuerpo de log.md. La nueva guarda `isInWikiContentFolder()` restringe el estampado solo a `wiki/{entities,concepts,sources}/...`.
-
-Recomendamos actualizar — log.md ya no acumula frontmatter disperso con cada ejecución de corrección rápida, y la detección funciona en todos los idiomas sin casos especiales por idioma.
-
-### v1.22.4 — 2026-06-27 (PATCH)
-
-Un PATCH centrado que restaura la compatibilidad con GPT-5.x, propaga los mensajes de error reales del Provider a la UI de Test Connection y centraliza los controles de rendimiento de lint.
-
-- **🛡️ Los modelos GPT-5.x ya no fallan Test Connection con 400 (Issue #207).** La heurística hardcodeada `params.model.startsWith('gpt-5-')` de v1.20.0 solo reconocía la familia OpenAI gpt-5 con guión (`gpt-5-mini`, `gpt-5-nano`, etc.) y se rompía silenciosamente con cada nueva versión gpt-5.x (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). Sustituida por un mecanismo de prueba-y-caché en tiempo de ejecución: la primera petición usa `max_tokens`, si el backend rechaza con 400, cacheamos la clave alternativa (`max_completion_tokens` o viceversa) y reintentamos. Las peticiones siguientes reutilizan la caché — sin más coincidencia de prefijos en nombres de modelo, y la prueba maneja correctamente cualquier nuevo esquema de nombres de OpenAI.
-- **📜 Los mensajes de error reales del Provider ahora llegan a la UI de Test Connection.** Antes, los errores de `requestUrl` se reenvolvían como `status 400: ${data.error.message}` (o simplemente "status 400" cuando se perdía el cuerpo de respuesta) y el error real del Provider — p. ej. "Invalid parameter: max_tokens should be max_completion_tokens" — nunca era visible. El nuevo `extractProviderErrorMessage()` enriquece el error lanzado para que el usuario vea detalles accionables del Provider en lugar de un estado HTTP genérico.
-- **♻️ Controles de rendimiento de lint centralizados en `src/constants.ts`.** Cadencias de yield (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), tamaños de lote de candidatos (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), lectura por lote de prep (`LINT_PREP_BATCH_READ`), y tamaños de lote de source-analyzer (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) ahora viven en un solo lugar. Antes estos valores estaban duplicados o se habían desviado entre `controller.ts`, `duplicate-detection.ts`, `preparation.ts` y `batch-limits.ts` — incluida una copia literal `MAX_TOKENS=16000` de `MAX_TOKENS_BATCH`. Ajustar el rendimiento de lint es ahora un cambio en un solo archivo.
-
-Recomendamos actualizar — los modelos gpt-5.x vuelven a funcionar de fábrica, y la UI de Test Connection ahora indica exactamente qué rechazó el Provider para que no tenga que buscar en la consola la baseUrl / nombre de modelo / clave API.
-
-### v1.22.5 — 2026-06-29 (PATCH)
-
-Un PATCH centrado que evita que la familia de modelos de razonamiento de OpenAI (gpt-5.1+ / gpt-5.5 / o1-o4) falle con 400 en Test Connection (seguimiento de Issue #207) y que propaga los mensajes de error reales del Provider a la Notice de Test Connection.
-
-- **🛡️ La familia de modelos de razonamiento ahora usa la API de Responses de OpenAI (seguimiento de Issue #207).** El arreglo probe-then-cache `max_tokens` ↔ `max_completion_tokens` de v1.22.4 era necesario pero no suficiente — `gpt-5.1-chat-latest`, `gpt-5.5` y las familias `o1` / `o3` / `o4-mini` seguían fallando con 400 en Test Connection porque el endpoint de Chat Completions tiene problemas de compatibilidad con la familia de modelos de razonamiento. Según la guía oficial de migración de GPT-5.5 de OpenAI (« GPT-5.5 works best in the Responses API »), v1.22.5 enruta la familia de razonamiento a `/v1/responses` con `reasoning: { effort: 'low' }`. `gpt-5-chat-latest`, `gpt-4.1`, `gpt-3.5-turbo` y todas las baseUrls no-OpenAI (Ollama, LM Studio, DeepSeek, etc.) permanecen sin cambios en `/v1/chat/completions`. La detección es una función pura `isResponsesApiModel(model, baseUrl)`, activada solo para `https://api.openai.com/v1` — los endpoints personalizados siguen siendo totalmente compatibles.
-- **📜 El cuerpo del error del Provider ahora llega a la UI de la Notice de Test Connection.** El `requestUrl` de Obsidian lanza una excepción en 4xx (incluido 429) SIN adjuntar el cuerpo de la respuesta del Provider al objeto Error — por lo que incluso el `extractProviderErrorMessage()` de v1.22.4 no podía ver lo que OpenAI realmente decía. v1.22.5 envuelve la solicitud fallida en un re-fetch `window.fetch` (timeout de 5s) y fusiona el cuerpo del Provider en el `Error.message` lanzado, de modo que los usuarios ven `"status 429: You exceeded your current quota, please check your plan and billing details"` en lugar de un simple `"status 429"`. El cuerpo crudo también se registra a nivel `console.warn` para la inspección en DevTools. Las baseUrls no-OpenAI obtienen el mismo enriquecimiento a través de la ruta Chat Completions existente.
-- **⏱️ Los errores 429/5xx de rate-limit ahora se reintentan con backoff exponencial en la ruta de la API de Responses.** El `withRetry` de v1.22.4 (3 intentos, 1s/2s/4s + jitter) cubría originalmente solo la ruta Chat Completions. v1.22.5 envuelve la nueva ruta de la API de Responses en el mismo `withRetry`, de modo que las fluctuaciones transitorias de cuota 429 ya no hacen que Test Connection falle inmediatamente.
-- **♻️ Fixtures de prueba actualizadas.** Las pruebas existentes para la regresión dot-naming gpt-5.x (v1.22.4) y la ruta `thinking.type='disabled'` Chat Completions (heredada) ahora usan `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1` — estos modelos siguen cubriendo la ruta Chat Completions, mientras que la familia de razonamiento está completamente cubierta por el nuevo `src/__tests__/root/llm-client-responses-api.test.ts` (28 tests).
-
-Recomendamos actualizar — `gpt-5.1-chat-latest`, `gpt-5.5` y las familias `o1` / `o3` / `o4-mini` ahora funcionan de fábrica en Test Connection, y cuando falla una conexión se obtiene el error real del Provider (p. ej. «insufficient_quota») en lugar de un simple código de estado HTTP.
-
-**⚡ Aviso de actualización rápida：** Este proyecto evoluciona rápidamente – correcciones de errores, mejoras de rendimiento, nuevas funciones y optimizaciones de UX se publican con frecuencia. Recomendamos actualizar regularmente en Obsidian (**Configuración → Plugins comunitarios → Buscar actualizaciones**) o activar la actualización automática de plugins.
-
 ## 📑 Contents
 
 - [🧠 Karpathy LLM Wiki Plugin para Obsidian](#-karpathy-llm-wiki-plugin-para-obsidian)
-    - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
-    - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
-    - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
   - [📑 Contents](#-contents)
   - [💡 ¿Qué es LLM-Wiki?](#-qué-es-llm-wiki)
   - [⚡ ¿Por qué Obsidian + LLM-Wiki?](#-por-qué-obsidian--llm-wiki)
@@ -63,8 +27,12 @@ Recomendamos actualizar — `gpt-5.1-chat-latest`, `gpt-5.5` y las familias `o1`
     - [🎮 Uso](#-uso)
     - [⚠️ ¿Actualizar desde una versión anterior?](#️-actualizar-desde-una-versión-anterior)
   - [⚡ Novedades de la v1.22.0](#-novedades-de-la-v1220)
-    - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
     - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
+    - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
+    - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
+    - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
+    - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+    - [v1.22.6 — 2026-06-29 (PATCH)](#v1226--2026-06-29-patch)
   - [✨ Características](#-características)
     - [📊 Calidad del Conocimiento](#-calidad-del-conocimiento)
     - [🛠️ Mantenimiento](#️-mantenimiento)
@@ -200,6 +168,17 @@ Recomendamos encarecidamente actualizar — la función de aplicación de esquem
 
 Detalles en [CHANGELOG.md](../CHANGELOG.md).
 
+### v1.22.1 — 2026-06-24 (PATCH)
+
+Un PATCH enfocado que cierra tres errores P0 reportados por usuarios y aporta una mejora de UX.
+
+- **🛡️ Fix Dead Links ya no fabrica páginas stub expandidas por IA (#197).** Cuando `fixDeadLink` no podía resolver un dead link a una página existente, creaba un stub y llamaba a `fillEmptyPage()` — dejando que la IA inventara alias y enlaces relacionados sin contenido fuente. Los stubs ahora son marcadores honestos con la marca `generation_complete: false`.
+- **✅ El toggle "Ejecutar correcciones rápidas al inicio" ahora persiste (#199).** Una migración de v1.18.3 forzaba `startupCheck: false → true` en cada carga. Eliminada; migraciones restantes extraídas a `applySettingsMigrations()`.
+- **🎨 Advertencia de revisión CSS `:has()` corregida.** Reemplazado por selector de clase directo. Nuevo `scripts/css-lint.mjs` para prevenir regresiones.
+- **🪟 Query Wiki ahora es un panel lateral acoplado a la derecha estilo Copilot (#196, @YounianC).** `QueryModal extends Modal` se convirtió en `QueryView extends ItemView`. Todas las funcionalidades se conservan sin cambios.
+- **🧹 Prefijo de related link re-afirmado determinísticamente (#200, @DocTpoint, #187).** Nueva función pura `correctRelatedLinkPrefixes()`.
+
+
 ### v1.22.2 — 2026-06-26 (PATCH)
 
 Este PATCH mejora la UX de ingesta automática, localiza el registro de operaciones y elimina código muerto.
@@ -214,17 +193,48 @@ Este PATCH mejora la UX de ingesta automática, localiza el registro de operacio
 
 Recomendamos actualizar.
 
-### v1.22.1 — 2026-06-24 (PATCH)
+### v1.22.3 — 2026-06-26 (PATCH)
 
-Un PATCH enfocado que cierra tres errores P0 reportados por usuarios y aporta una mejora de UX.
+Un Hotfix centrado que refuerza el mecanismo de encabezado de log de la v1.22.2 y evita la contaminación de frontmatter en archivos que no son de contenido.
 
-- **🛡️ Fix Dead Links ya no fabrica páginas stub expandidas por IA (#197).** Cuando `fixDeadLink` no podía resolver un dead link a una página existente, creaba un stub y llamaba a `fillEmptyPage()` — dejando que la IA inventara alias y enlaces relacionados sin contenido fuente. Los stubs ahora son marcadores honestos con la marca `generation_complete: false`.
-- **✅ El toggle "Ejecutar correcciones rápidas al inicio" ahora persiste (#199).** Una migración de v1.18.3 forzaba `startupCheck: false → true` en cada carga. Eliminada; migraciones restantes extraídas a `applySettingsMigrations()`.
-- **🎨 Advertencia de revisión CSS `:has()` corregida.** Reemplazado por selector de clase directo. Nuevo `scripts/css-lint.mjs` para prevenir regresiones.
-- **🪟 Query Wiki ahora es un panel lateral acoplado a la derecha estilo Copilot (#196, @YounianC).** `QueryModal extends Modal` se convirtió en `QueryView extends ItemView`. Todas las funcionalidades se conservan sin cambios.
-- **🧹 Prefijo de related link re-afirmado determinísticamente (#200, @DocTpoint, #187).** Nueva función pura `correctRelatedLinkPrefixes()`.
+- **🔧 Detección del encabezado de log ahora agnóstica del idioma y robusta.** Cambio de detección basada en texto (que no funcionaba para DE/JA/KO/etc. y podía confundirse con el contenido natural de una entrada de log) a un marcador estructural de comentario HTML `<!-- llm-wiki-log-header-start -->` incrustado en el encabezado. Los archivos log v1.22.2 existentes se actualizan automáticamente en el próximo inicio.
+- **🧹 Cadenas del encabezado de log consolidadas en `src/texts/<lang>.ts`.** Las cuatro cadenas localizadas previamente duplicadas en `core/log-header.ts` ahora viven junto con todas las demás cadenas UI — los traductores y las pruebas de paridad las cubren automáticamente.
+- **🚫 `generation_complete` ya no se estampa en `log.md` / `index.md` / `schema/`.** `createOrUpdateFile` antes llamaba a `markPageComplete` para **cada** escritura, lo que anteponía un bloque frontmatter completamente nuevo con `generation_complete: true` a archivos sin frontmatter — contaminación visible del cuerpo de log.md. La nueva guarda `isInWikiContentFolder()` restringe el estampado solo a `wiki/{entities,concepts,sources}/...`.
+
+Recomendamos actualizar — log.md ya no acumula frontmatter disperso con cada ejecución de corrección rápida, y la detección funciona en todos los idiomas sin casos especiales por idioma.
+
+### v1.22.4 — 2026-06-27 (PATCH)
+
+Un PATCH centrado que restaura la compatibilidad con GPT-5.x, propaga los mensajes de error reales del Provider a la UI de Test Connection y centraliza los controles de rendimiento de lint.
+
+- **🛡️ Los modelos GPT-5.x ya no fallan Test Connection con 400 (Issue #207).** La heurística hardcodeada `params.model.startsWith('gpt-5-')` de v1.20.0 solo reconocía la familia OpenAI gpt-5 con guión (`gpt-5-mini`, `gpt-5-nano`, etc.) y se rompía silenciosamente con cada nueva versión gpt-5.x (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`). Sustituida por un mecanismo de prueba-y-caché en tiempo de ejecución: la primera petición usa `max_tokens`, si el backend rechaza con 400, cacheamos la clave alternativa (`max_completion_tokens` o viceversa) y reintentamos. Las peticiones siguientes reutilizan la caché — sin más coincidencia de prefijos en nombres de modelo, y la prueba maneja correctamente cualquier nuevo esquema de nombres de OpenAI.
+- **📜 Los mensajes de error reales del Provider ahora llegan a la UI de Test Connection.** Antes, los errores de `requestUrl` se reenvolvían como `status 400: ${data.error.message}` (o simplemente "status 400" cuando se perdía el cuerpo de respuesta) y el error real del Provider — p. ej. "Invalid parameter: max_tokens should be max_completion_tokens" — nunca era visible. El nuevo `extractProviderErrorMessage()` enriquece el error lanzado para que el usuario vea detalles accionables del Provider en lugar de un estado HTTP genérico.
+- **♻️ Controles de rendimiento de lint centralizados en `src/constants.ts`.** Cadencias de yield (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), tamaños de lote de candidatos (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), lectura por lote de prep (`LINT_PREP_BATCH_READ`), y tamaños de lote de source-analyzer (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) ahora viven en un solo lugar. Antes estos valores estaban duplicados o se habían desviado entre `controller.ts`, `duplicate-detection.ts`, `preparation.ts` y `batch-limits.ts` — incluida una copia literal `MAX_TOKENS=16000` de `MAX_TOKENS_BATCH`. Ajustar el rendimiento de lint es ahora un cambio en un solo archivo.
+
+Recomendamos actualizar — los modelos gpt-5.x vuelven a funcionar de fábrica, y la UI de Test Connection ahora indica exactamente qué rechazó el Provider para que no tenga que buscar en la consola la baseUrl / nombre de modelo / clave API.
+
+### v1.22.5 — 2026-06-29 (PATCH)
+
+Un PATCH centrado que evita que la familia de modelos de razonamiento de OpenAI (gpt-5.1+ / gpt-5.5 / o1-o4) falle con 400 en Test Connection (seguimiento de Issue #207) y que propaga los mensajes de error reales del Provider a la Notice de Test Connection.
+
+- **🛡️ La familia de modelos de razonamiento ahora usa la API de Responses de OpenAI (seguimiento de Issue #207).** El arreglo probe-then-cache `max_tokens` ↔ `max_completion_tokens` de v1.22.4 era necesario pero no suficiente — `gpt-5.1-chat-latest`, `gpt-5.5` y las familias `o1` / `o3` / `o4-mini` seguían fallando con 400 en Test Connection porque el endpoint de Chat Completions tiene problemas de compatibilidad con la familia de modelos de razonamiento. Según la guía oficial de migración de GPT-5.5 de OpenAI (« GPT-5.5 works best in the Responses API »), v1.22.5 enruta la familia de razonamiento a `/v1/responses` con `reasoning: { effort: 'low' }`. `gpt-5-chat-latest`, `gpt-4.1`, `gpt-3.5-turbo` y todas las baseUrls no-OpenAI (Ollama, LM Studio, DeepSeek, etc.) permanecen sin cambios en `/v1/chat/completions`. La detección es una función pura `isResponsesApiModel(model, baseUrl)`, activada solo para `https://api.openai.com/v1` — los endpoints personalizados siguen siendo totalmente compatibles.
+- **📜 El cuerpo del error del Provider ahora llega a la UI de la Notice de Test Connection.** El `requestUrl` de Obsidian lanza una excepción en 4xx (incluido 429) SIN adjuntar el cuerpo de la respuesta del Provider al objeto Error — por lo que incluso el `extractProviderErrorMessage()` de v1.22.4 no podía ver lo que OpenAI realmente decía. v1.22.5 envuelve la solicitud fallida en un re-fetch `window.fetch` (timeout de 5s) y fusiona el cuerpo del Provider en el `Error.message` lanzado, de modo que los usuarios ven `"status 429: You exceeded your current quota, please check your plan and billing details"` en lugar de un simple `"status 429"`. El cuerpo crudo también se registra a nivel `console.warn` para la inspección en DevTools. Las baseUrls no-OpenAI obtienen el mismo enriquecimiento a través de la ruta Chat Completions existente.
+- **⏱️ Los errores 429/5xx de rate-limit ahora se reintentan con backoff exponencial en la ruta de la API de Responses.** El `withRetry` de v1.22.4 (3 intentos, 1s/2s/4s + jitter) cubría originalmente solo la ruta Chat Completions. v1.22.5 envuelve la nueva ruta de la API de Responses en el mismo `withRetry`, de modo que las fluctuaciones transitorias de cuota 429 ya no hacen que Test Connection falle inmediatamente.
+- **♻️ Fixtures de prueba actualizadas.** Las pruebas existentes para la regresión dot-naming gpt-5.x (v1.22.4) y la ruta `thinking.type='disabled'` Chat Completions (heredada) ahora usan `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1` — estos modelos siguen cubriendo la ruta Chat Completions, mientras que la familia de razonamiento está completamente cubierta por el nuevo `src/__tests__/root/llm-client-responses-api.test.ts` (28 tests).
+
+Recomendamos actualizar — `gpt-5.1-chat-latest`, `gpt-5.5` y las familias `o1` / `o3` / `o4-mini` ahora funcionan de fábrica en Test Connection, y cuando falla una conexión se obtiene el error real del Provider (p. ej. «insufficient_quota») en lugar de un simple código de estado HTTP.
+
+**⚡ Aviso de actualización rápida：** Este proyecto evoluciona rápidamente – correcciones de errores, mejoras de rendimiento, nuevas funciones y optimizaciones de UX se publican con frecuencia. Recomendamos actualizar regularmente en Obsidian (**Configuración → Plugins comunitarios → Buscar actualizaciones**) o activar la actualización automática de plugins.
 
 Recomendamos actualizar.
+
+### v1.22.6 — 2026-06-29 (PATCH)
+
+- **🤫 Auto Ingest ahora respeta `autoIngestNotificationLevel: notice` (Issue #204).** El helper `onAutoIngestDone` de v1.22.2 (ruta Notice) nunca se cableó en el flujo de auto-ingest en Watch Mode — cada completion de auto-ingest iba por `onIngestDone` que siempre abre `IngestReportModal`, haciendo que el ajuste "Notice (no bloqueante)" fuera un no-op. v1.22.6 añade `trigger?: 'auto' | 'manual'` a `IngestReport` e `IngestOptions`, lo propaga a través de `WikiEngine.ingestSource` → `onDone`, y enruta `trigger='auto'` a `onAutoIngestDone`. El comportamiento de ingest manual no cambia.
+- **🔇 La completion de Auto Smart Fix también es context-aware.** Mismo patrón de trigger aplicado a `runLintWiki` (nuevo tercer parámetro `trigger`, por defecto `'manual'`). El lint automático periódico pasa `trigger='auto'`. Dispatch: manual → `LintReportModal`; auto + `autoSmartFix=true` → Notice + fixAll; auto + `autoSmartFix=false` → solo Notice con pista al panel History.
+- **🛡️ Las variantes GPT-5 Pro (`gpt-5.x-pro`) ahora se enrutan correctamente a `/v1/responses` (Issue #207 follow-up).** Verificado contra la doc oficial de OpenAI: "GPT-5 Pro is available in the Responses API only." El regex de v1.22.5 matcheaba `gpt-5.x` pero no el sufijo `-pro` — `gpt-5.2-pro` / `5.4-pro` / `5.5-pro` iban silenciosamente a `/v1/chat/completions` → 404. Regex ampliado a `^(gpt-5\.[1-9]\d*(?:-pro)?|...)`.
+
+Recomendamos actualizar — el ajuste "Auto Ingest Notice" finalmente funciona, el lint automático periódico deja de interrumpir tu escritura, y las variantes Pro son accesibles vía Responses API.
 
 ## ✨ Características
 

@@ -2,11 +2,20 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.22.4 → 1.22.5 (PATCH for #207 follow-up) → 1.23.0 (Graph Engine: Phase 5.1.5 + PPR core + P1-5/P1-6 done; P1-7 AI-SDK + P2-2/P2-3/P2-4 pending) | **Updated:** 2026-06-29
+**Version:** 1.22.5 → 1.22.6 (PATCH for #204 + #207 -pro follow-up) → 1.23.0 (Graph Engine: Phase 5.1.5 + PPR core + P1-5/P1-6 done; P1-7 AI-SDK + P2-2/P2-3/P2-4 pending) | **Updated:** 2026-06-29
 
 ---
 
 ## Current Status
+
+### Implemented (v1.22.6) — Hotfix: #204 + #207 -pro follow-up (2026-06-29)
+
+Closed two user-reported bugs on the v1.22.5 baseline before pushing v1.23.0 (which has the AI-SDK migration in flight). Both are PATCH scope (backward-compatible bug fixes).
+
+- ✅ **#204 — Auto Ingest no longer opens a blocking modal when `autoIngestNotificationLevel: notice`.** v1.22.2 added `onAutoIngestDone` (Notice path) but never wired it into the watch-mode auto-ingest path. Added `trigger?: 'auto' | 'manual'` field to `IngestReport` and `IngestOptions`, propagated through `WikiEngine.ingestSource` → `onDone` report. Completion callback `LLMWikiPlugin.onIngestDoneDispatch` routes `trigger='auto'` to `onAutoIngestDone` and otherwise keeps the legacy `IngestReportModal` path. Manual ingest behavior unchanged.
+- ✅ **#204 follow-up — Auto Smart Fix completion is now context-aware.** Same trigger pattern applied to `runLintWiki`: third `trigger` parameter (default `'manual'`). Periodic auto lint passes `'auto'`; manual lint commands keep the default. Completion dispatch: manual → `LintReportModal`; auto + `autoSmartFix=true` → Notice + run fixAll; auto + `autoSmartFix=false` → Notice only.
+- ✅ **#207 follow-up — GPT-5 Pro variants (`gpt-5.x-pro`) now route correctly to `/v1/responses`.** Verified against `developers.openai.com/api/docs/models/gpt-5-pro`: "GPT-5 Pro is available in the Responses API only." Broadened `RESPONSES_API_MODEL_RE` to `^(gpt-5\.[1-9]\d*(?:-pro)?|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$`. `gpt-5-chat-latest` exclusion kept.
+- ✅ **Tests: 1118 passing.** +14 since v1.22.5.
 
 ### Implemented (v1.22.5) — Hotfix: Responses API for #207 follow-up (2026-06-29)
 
@@ -238,6 +247,7 @@ Documented in `~/.claude/projects/.../memory/project_v1.23.0_graph_engine.md`.
 
 | Version | Date | Headline |
 |---------|------|----------|
+| **1.22.6** | 2026-06-29 | Hotfix — #204 wire onAutoIngestDone + Auto Smart Fix trigger dispatch + #207 broaden Responses API to -pro variants |
 | **1.22.5** | 2026-06-29 | Hotfix — Responses API path for reasoning model family (#207 follow-up) + provider body in Notice + withRetry on Responses path |
 | **1.22.4** | 2026-06-27 | Hotfix — GPT-5.x probe-then-cache (Closes #207) + provider error UX + lint knobs centralisation |
 | **1.22.3** | 2026-06-26 | Hotfix — language-agnostic log header + content-folder guard for `generation_complete` |

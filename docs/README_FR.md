@@ -34,6 +34,7 @@
     - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
     - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
     - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+    - [v1.22.6 — 2026-06-29 (PATCH)](#v1226--2026-06-29-patch)
   - [✨ Fonctionnalités](#-fonctionnalités)
     - [📊 Qualité des connaissances](#-qualité-des-connaissances)
     - [🛠️ Maintenance](#️-maintenance)
@@ -222,6 +223,14 @@ Un PATCH ciblé qui empêche la famille de modèles de raisonnement OpenAI (gpt-
 - **♻️ Fixtures de test mises à jour.** Les tests existants pour la régression dot-naming gpt-5.x (v1.22.4) et le chemin `thinking.type='disabled'` Chat Completions (héritage) utilisent maintenant `gpt-5-mini` / `gpt-5-nano` / `gpt-4.1` — ces modèles continuent à exercer le chemin Chat Completions, tandis que la famille de raisonnement est entièrement couverte par le nouveau `src/__tests__/root/llm-client-responses-api.test.ts` (28 tests).
 
 Mise à jour recommandée — `gpt-5.1-chat-latest`, `gpt-5.5` et les familles `o1` / `o3` / `o4-mini` fonctionnent maintenant dès l'installation sur Test Connection, et en cas d'échec de connexion vous obtenez la véritable erreur du Provider (par ex. « insufficient_quota ») au lieu d'un simple code d'état HTTP.
+
+### v1.22.6 — 2026-06-29 (PATCH)
+
+- **🤫 L'Auto Ingest respecte enfin `autoIngestNotificationLevel: notice` (Issue #204).** L'helper `onAutoIngestDone` ajouté en v1.22.2 (chemin Notice) n'a jamais été branché dans le flux d'auto-ingest en Watch Mode — chaque completion passait par `onIngestDone` qui ouvre toujours `IngestReportModal`, rendant le réglage Notice inopérant. v1.22.6 ajoute un champ `trigger?: 'auto' | 'manual'` à `IngestReport` et `IngestOptions`, le propage via `WikiEngine.ingestSource` → `onDone`, et route `trigger='auto'` vers `onAutoIngestDone`. Comportement de l'ingest manuel inchangé.
+- **🔇 La completion d'Auto Smart Fix devient context-aware.** Même pattern de trigger appliqué à `runLintWiki` (nouveau troisième paramètre `trigger`, défaut `'manual'`). Le lint auto périodique passe `trigger='auto'`. Dispatch : manuel → `LintReportModal` ; auto + `autoSmartFix=true` → Notice + fixAll ; auto + `autoSmartFix=false` → Notice seul avec un hint vers le panneau History.
+- **🛡️ Les variantes GPT-5 Pro (`gpt-5.x-pro`) sont maintenant correctement routées vers `/v1/responses` (Issue #207 follow-up).** Vérifié sur la doc officielle OpenAI : « GPT-5 Pro is available in the Responses API only. » Le regex v1.22.5 matchait `gpt-5.x` mais ratait le suffixe `-pro` — `gpt-5.2-pro` / `5.4-pro` / `5.5-pro` allaient silencieusement vers `/v1/chat/completions` → 404. Regex élargi à `^(gpt-5\.[1-9]\d*(?:-pro)?|...)`.
+
+Mise à jour recommandée — le réglage « Auto Ingest Notice » fonctionne enfin, le lint auto périodique n'interrompt plus votre écriture, et les variantes Pro sont atteignables via la Responses API.
 
 ## ✨ Fonctionnalités
 
