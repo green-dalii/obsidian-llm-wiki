@@ -1,6 +1,6 @@
 // Query Engine - Conversational Wiki Query Modal
 
-import { App, Modal, ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component, Platform } from 'obsidian';
+import { App, Modal, ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { TEXTS } from '../texts';
 import { WIKI_LANGUAGES } from '../types';
@@ -180,6 +180,25 @@ export class QueryView extends ItemView {
   private _sectionLabels: ReturnType<typeof getSectionLabels> | null = null;
   /** Last PPR cascade result — for displaying retrieval source in the response UI. */
   private _lastRetrieval: { arm: string; count: number; topPaths: string[] } | null = null;
+  /**
+   * v1.23.0 P2: Persistence health fix — when the user explicitly clears
+   * history, onClose must NOT clobber the cleared state by writing
+   * `this.history.messages` (which is `[]`) over the just-saved empty
+   * array. In practice the read-back is the same, but the fire-and-forget
+   * saveSettings in onClose could race with a concurrent sendMessage
+   * completion and resurrect stale messages. Tracks the last
+   * user-initiated clear timestamp so onClose skips the redundant write.
+   */
+  private _lastClearTimestamp: number = 0;
+  /**
+   * v1.23.0 P2: rAF batching for streaming DOM updates — coalesce
+   * multiple onChunk calls within the same animation frame into a
+   * single textContent write + scroll. Without this, 100+ chunks
+   * in a single rAF window trigger 100+ layout/paint cycles and the
+   * browser can drop intermediate frames, making the stream look
+   * "一次性" even though the data is genuinely incremental.
+   */
+  private _streamRafHandle: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: LLMWikiPlugin) {
     super(leaf);
@@ -215,6 +234,34 @@ export class QueryView extends ItemView {
     const { contentEl } = this;
     contentEl.empty();
     const texts = TEXTS[this.plugin.settings.language];
+
+    // v1.23.0 P2: Diagnostic — log actual queryHistory state when the
+    // view is (re-)opened. Helps debug "history not loading on restart"
+    // by showing exactly what plugin.settings has when onOpen runs.
+    // Will be removed in v1.24.0 once the regression is confirmed fixed.
+    console.debug(
+      '[QueryView.onOpen] settings.queryHistory.length =',
+      this.plugin.settings.queryHistory?.length ?? 'undefined',
+      '| this.history.messages.length =',
+      this.history.messages.length,
+      '| isArray =',
+      Array.isArray(this.plugin.settings.queryHistory)
+    );
+
+    // v1.23.0 P2: Refresh history from the latest settings on every
+    // onOpen. The constructor captures the value once at instantiation,
+    // but Obsidian may restore a cached view state where the settings
+    // have since been updated (e.g. by another view writing, or by
+    // loadData() after a hot-reload during dev). Re-reading here ensures
+    // the user always sees the most recent persisted history.
+    const persisted = this.plugin.settings.queryHistory;
+    if (Array.isArray(persisted) && persisted.length !== this.history.messages.length) {
+      this.history.messages = persisted.slice();
+      console.debug(
+        '[QueryView.onOpen] re-synced this.history.messages from settings:',
+        this.history.messages.length
+      );
+    }
 
     contentEl.addClass('llm-wiki-query-view');
     contentEl.addClass('llm-wiki-query-content');
@@ -256,10 +303,17 @@ export class QueryView extends ItemView {
       cls: 'llm-wiki-query-textarea'
     });
 
-    const modKey = Platform.isMacOS ? 'Cmd' : 'Ctrl';
+    // v1.23.0 P2: Unified Ctrl+Enter across all platforms (Mac/Win/Linux).
+    // Previous design used Cmd+Enter on Mac (Platform.isMacOS), but
+    // Electron's global menu intercepts Cmd+Enter on macOS before the
+    // textarea keydown fires. Accepting both metaKey+ctrlKey OR-ed
+    // caused inconsistent UX (some users only Ctrl, some only Cmd).
+    // Unifying on Ctrl+Enter is the simplest cross-platform contract
+    // and matches Obsidian's own send-message shortcuts.
+    const modKey = 'Ctrl';
 
     this.inputArea.addEventListener('keydown', (evt) => {
-      if (evt.key === 'Enter' && (evt.metaKey || evt.ctrlKey)) {
+      if (evt.key === 'Enter' && evt.ctrlKey) {
         evt.preventDefault();
         if (this.isStreaming) {
           this.stopGeneration();
@@ -298,7 +352,7 @@ export class QueryView extends ItemView {
       text: texts.queryModalClearButton,
       cls: 'llm-wiki-query-clear-btn'
     }).addEventListener('click', () => {
-      this.clearHistory();
+      void this.clearHistory();
     });
 
     this.historyCountDisplay = inputContainer.createDiv({
@@ -321,8 +375,24 @@ export class QueryView extends ItemView {
       this.activeRenderComponent = null;
     }
 
-    this.plugin.settings.queryHistory = this.history.messages;
-    void this.plugin.saveSettings();
+    // v1.23.0 P2: Cancel any pending rAF that might fire after the
+    // view is being torn down (would touch a detached DOM node).
+    if (this._streamRafHandle !== null) {
+      window.cancelAnimationFrame(this._streamRafHandle);
+      this._streamRafHandle = null;
+    }
+
+    // v1.23.0 P2: Skip persisting queryHistory on close if the user just
+    // cleared it. clearHistory already awaits saveSettings; re-saving
+    // here (with `this.history.messages` which is `[]`) is technically
+    // a no-op BUT it can race with concurrent sendMessage completions
+    // that may have pushed new messages between the clear and close.
+    // Belt-and-braces: only skip if a clear happened within the last
+    // 5 seconds (i.e. the user almost certainly intended the cleared state).
+    if (Date.now() - this._lastClearTimestamp > 5000) {
+      this.plugin.settings.queryHistory = this.history.messages;
+      await this.plugin.saveSettings();
+    }
 
     contentEl.empty();
   }
@@ -408,6 +478,14 @@ export class QueryView extends ItemView {
       cls: 'llm-wiki-query-message-body markdown-reading-view'
     });
 
+    // v1.23.0 P2: Streaming-aware rendering — during accumulation, append
+    // raw text to a plain-text element; only run the full MarkdownRenderer
+    // pass when the stream completes. This avoids 70+ empty()+render cycles
+    // per query (which caused "一次性输出" appearance despite real streaming).
+    const streamTextDiv = messageDiv.createDiv({
+      cls: 'llm-wiki-query-stream-text',
+    });
+
     const statusIndicator = messageDiv.createDiv({
       cls: 'llm-wiki-query-status',
       text: texts.queryPhaseSearching
@@ -465,8 +543,12 @@ export class QueryView extends ItemView {
             onChunk: (chunk) => {
               if (this.aborted) return;
               this.accumulatedResponse += chunk;
-              this.renderMarkdownContent(this.accumulatedResponse, contentDiv);
-              this.scrollToBottom();
+              // v1.23.0 P2: Streaming-aware — coalesce DOM updates into
+              // a single rAF frame so the browser can paint each batch
+              // as a separate visible step. Direct textContent writes
+              // in tight succession cause 70+ layout cycles that the
+              // browser can coalesce into a single visible render.
+              this.scheduleStreamRender(streamTextDiv);
             },
             ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),
             ...(this.plugin.settings.chatTemperature !== undefined ? { temperature: this.plugin.settings.chatTemperature } : {}),
@@ -498,11 +580,14 @@ export class QueryView extends ItemView {
                 this.finishGeneration(texts as unknown as Record<string, string>);
                 return;
               }
+              // v1.23.0 P2: Streaming never started — remove the preview div.
+              streamTextDiv.remove();
               this.renderMarkdownContent(fullResponse, contentDiv);
               this.scrollToBottom();
             } catch (fallbackErr) {
               console.error('Non-streaming fallback also failed:', fallbackErr);
               const errMsg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+              streamTextDiv.remove();
               contentDiv.createEl('p', {
                 text: texts.queryModalErrorPrefix + errMsg,
                 cls: 'llm-wiki-query-error'
@@ -528,7 +613,16 @@ export class QueryView extends ItemView {
         // from reasoning_content). During streaming, onChunk only received
         // delta.text — the thinking content was accumulated separately by
         // createMessageStream and prepended as <think> tags in the return value.
+        // v1.23.0 P2: Remove streaming plain-text preview, then run the full
+        // MarkdownRenderer pass into contentDiv. Cancel any pending rAF
+        // from the streaming phase first — the final renderMarkdownContent
+        // call below replaces whatever the rAF was about to paint.
+        if (this._streamRafHandle !== null) {
+          window.cancelAnimationFrame(this._streamRafHandle);
+          this._streamRafHandle = null;
+        }
         if (fullResponse !== undefined && fullResponse !== null) {
+          streamTextDiv.remove();
           this.renderMarkdownContent(fullResponse, contentDiv);
           this.scrollToBottom();
         }
@@ -539,6 +633,17 @@ export class QueryView extends ItemView {
             content: fullResponse,
             timestamp: Date.now()
           });
+          // v1.23.0 P2: Persist queryHistory after each completed turn
+          // so that an abrupt Obsidian close (which may not trigger
+          // onClose) doesn't lose the conversation. This is the
+          // "crash-safe" persistence path that complements the
+          // onClose write-back.
+          this.plugin.settings.queryHistory = this.history.messages;
+          void this.plugin.saveSettings();
+          console.debug(
+            '[QueryView.sendMessage] persisted queryHistory, length =',
+            this.plugin.settings.queryHistory.length
+          );
         }
       } else {
         statusTemplate = foundPagesInfo
@@ -564,6 +669,13 @@ export class QueryView extends ItemView {
           content: response,
           timestamp: Date.now()
         });
+        // v1.23.0 P2: Crash-safe persistence (see streaming branch above).
+        this.plugin.settings.queryHistory = this.history.messages;
+        void this.plugin.saveSettings();
+        console.debug(
+          '[QueryView.sendMessage:non-stream] persisted queryHistory, length =',
+          this.plugin.settings.queryHistory.length
+        );
 
         this.renderMarkdownContent(response, contentDiv);
         this.scrollToBottom();
@@ -595,12 +707,18 @@ export class QueryView extends ItemView {
   stopGeneration() {
     this.aborted = true;
     this.pendingInput = this.inputArea.value;
+    // v1.23.0 P2: Cancel any pending rAF so the aborted state is
+    // reflected immediately rather than after the next paint frame.
+    if (this._streamRafHandle !== null) {
+      window.cancelAnimationFrame(this._streamRafHandle);
+      this._streamRafHandle = null;
+    }
   }
 
   private finishGeneration(texts: Record<string, string>) {
     this.isStreaming = false;
     this.currentResponseDiv = null;
-    this.sendBtn.setText(`${texts.queryModalSendButton} (${Platform.isMacOS ? 'Cmd' : 'Ctrl'}+Enter)`);
+    this.sendBtn.setText(`${texts.queryModalSendButton} (Ctrl+Enter)`);
     this.sendBtn.className = 'llm-wiki-query-send-btn';
 
     // Restore pending input if user stopped generation
@@ -683,6 +801,25 @@ export class QueryView extends ItemView {
 
   scrollToBottom() {
     this.historyContainer.scrollTop = this.historyContainer.scrollHeight;
+  }
+
+  /**
+   * v1.23.0 P2: rAF-coalesced streaming render. Each onChunk call
+   * appends to accumulatedResponse and schedules a single
+   * requestAnimationFrame callback. If more chunks arrive before the
+   * rAF fires, they share the same DOM write — guaranteeing one paint
+   * per frame instead of one per chunk. This is the canonical fix
+   * for "streamed data appears to render in one go" when the producer
+   * (AI-SDK's textStream) yields faster than the browser can paint.
+   */
+  private scheduleStreamRender(streamTextDiv: HTMLElement): void {
+    if (this._streamRafHandle !== null) return; // already scheduled
+    this._streamRafHandle = window.requestAnimationFrame(() => {
+      this._streamRafHandle = null;
+      if (this.aborted) return;
+      streamTextDiv.textContent = this.accumulatedResponse;
+      this.scrollToBottom();
+    });
   }
 
   renderHistoryMessage(role: 'user' | 'assistant', content: string) {
@@ -804,12 +941,27 @@ export class QueryView extends ItemView {
     }
   }
 
-  clearHistory() {
+  async clearHistory() {
+    const beforeLen = this.history.messages.length;
     this.history.messages = [];
     this.historyContainer.empty();
 
     this.plugin.settings.queryHistory = [];
-    void this.plugin.saveSettings();
+    // v1.23.0 P2: Await the save so the empty state is guaranteed to hit
+    // disk before this method returns. The previous `void this.plugin.saveSettings()`
+    // was fire-and-forget — if the user closed Obsidian immediately after
+    // clicking Clear, the write could be lost. Awaiting closes that window.
+    await this.plugin.saveSettings();
+    this._lastClearTimestamp = Date.now();
+
+    // v1.23.0 P2: Diagnostic — log the clear so user can verify in
+    // DevTools that the empty array reached disk.
+    console.debug(
+      '[QueryView.clearHistory] cleared',
+      beforeLen,
+      'messages; settings.queryHistory after save =',
+      JSON.stringify(this.plugin.settings.queryHistory)
+    );
 
     const texts = TEXTS[this.plugin.settings.language];
     new Notice(texts.historyCleared, NOTICE_BRIEF);

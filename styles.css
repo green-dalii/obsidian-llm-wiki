@@ -381,6 +381,18 @@
   margin-top: 8px;
 }
 
+/* v1.23.0 P2: Streaming plain-text preview — shown during accumulation,
+   replaced by full MarkdownRenderer output on completion.
+   Matches .llm-wiki-query-message-body typography for seamless transition. */
+.llm-wiki-query-stream-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--font-text-size);
+  line-height: var(--line-height);
+  color: var(--text-normal);
+  padding: 0;
+}
+
 /* Suggest Save Modal (post-query feedback) */
 .llm-wiki-suggest-save-modal {
   padding: 20px;
