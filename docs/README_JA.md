@@ -233,10 +233,6 @@ OpenAI の gpt-5.1+ / gpt-5.5 / o1-o4 推論モデルファミリーを Test Con
 
 アップグレード推奨 —— `gpt-5.1-chat-latest`、`gpt-5.5`、`o1` / `o3` / `o4-mini` ファミリーが Test Connection でそのまま動作し、接続失敗時は Provider の実際のエラー（例：「insufficient_quota」）が表示され、裸の HTTP ステータスコードではありません。
 
-アップグレード推奨アップグレード推奨。
-
-## ✨ 特徴
-
 ### v1.22.6 — 2026-06-29 (PATCH)
 
 - **🤫 Auto Ingest が `autoIngestNotificationLevel: notice` を尊重（Issue #204）**。v1.22.2 で追加された `onAutoIngestDone` ヘルパー（Notice 経路）が Watch Mode 自動取り込みフローに接続されておらず、毎回 `onIngestDone`（常に `IngestReportModal` を開く）を通っていたため、Notice 設定が no-op でした。v1.22.6 は `IngestReport` と `IngestOptions` に `trigger?: 'auto' | 'manual'` フィールドを追加し、`WikiEngine.ingestSource` → `onDone` 経由で伝播、`trigger='auto'` を `onAutoIngestDone` にルーティング。手動取り込みの動作は変更なし。
@@ -244,6 +240,8 @@ OpenAI の gpt-5.1+ / gpt-5.5 / o1-o4 推論モデルファミリーを Test Con
 - **🛡️ GPT-5 Pro バリアント（`gpt-5.x-pro`）が `/v1/responses` に正しくルーティング（Issue #207 フォローアップ）**。OpenAI 公式ドキュメントで検証：「GPT-5 Pro is available in the Responses API only.」v1.22.5 の regex は `gpt-5.x` にマッチしたが `-pro` 接尾辞を見落とし、`gpt-5.2-pro` / `5.4-pro` / `5.5-pro` が無音で `/v1/chat/completions` へ → 404。regex を `^(gpt-5\.[1-9]\d*(?:-pro)?|...)` に拡張。
 
 アップグレード推奨 — 「Auto Ingest Notice」設定がついに動作、定期自動 lint が執筆フローを妨げなくなり、Pro モデルバリアントが Responses API で到達可能に。
+
+## ✨ 特徴
 
 ### 📊 ナレッジ品質
 

@@ -222,10 +222,6 @@ Um PATCH focado que evita que a família de modelos de raciocínio da OpenAI (gp
 
 Atualização recomendada — `gpt-5.1-chat-latest`, `gpt-5.5` e as famílias `o1` / `o3` / `o4-mini` funcionam agora de origem no Test Connection, e quando uma ligação falha obtém-se o erro real do Provider (p.ex. «insufficient_quota») em vez de um simples código de estado HTTP.
 
-Atualização recomendadaAtualização recomendada.
-
-## ✨ Funcionalidades
-
 ### v1.22.6 — 2026-06-29 (PATCH)
 
 - **🤫 Auto Ingest finalmente respeita `autoIngestNotificationLevel: notice` (Issue #204).** O helper `onAutoIngestDone` adicionado em v1.22.2 (caminho Notice) nunca foi conectado ao fluxo de auto-ingest em Watch Mode — cada conclusão de auto-ingest passava por `onIngestDone` que sempre abre `IngestReportModal`, tornando a configuração Notice inoperante. v1.22.6 adiciona `trigger?: 'auto' | 'manual'` a `IngestReport` e `IngestOptions`, propaga via `WikiEngine.ingestSource` → `onDone`, e roteia `trigger='auto'` para `onAutoIngestDone`. Comportamento de ingest manual inalterado.
@@ -233,6 +229,8 @@ Atualização recomendadaAtualização recomendada.
 - **🛡️ Variantes GPT-5 Pro (`gpt-5.x-pro`) agora são corretamente roteadas para `/v1/responses` (Issue #207 follow-up).** Verificado na doc oficial OpenAI: "GPT-5 Pro is available in the Responses API only." A regex de v1.22.5 casava `gpt-5.x` mas perdia o sufixo `-pro` — `gpt-5.2-pro` / `5.4-pro` / `5.5-pro` iam silenciosamente para `/v1/chat/completions` → 404. Regex ampliada para `^(gpt-5\.[1-9]\d*(?:-pro)?|...)`.
 
 Recomendamos atualizar — a configuração "Auto Ingest Notice" finalmente funciona, o lint automático periódico não interrompe mais sua escrita, e as variantes Pro são acessíveis via Responses API.
+
+## ✨ Funcionalidades
 
 ### 📊 Qualidade do Conhecimento
 

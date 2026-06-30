@@ -17,35 +17,44 @@
 > **⚡ 快速更新提醒：** 本項目迭代速度快，會經常進行 Bug 修復、性能提升或新功能、體驗優化等。建議經常在 Obsidian 中更新到最新版本（**設置 → 社區插件 → 檢查更新**），或開啓插件的自動更新功能以確保獲得最佳體驗。
 ## 📑 目錄
 
-- [💡 什麼是 LLM-Wiki？](#-什麼是-llm-wiki)
-- [⚡ 爲什麼選擇 Obsidian + LLM-Wiki？](#-爲什麼選擇-obsidian--llm-wiki)
-- [🚀 快速開始](#-快速開始)
-  - [📦 安裝](#-安裝)
-  - [🔄 更新插件](#-更新插件)
-  - [🔑 配置 LLM Provider](#-配置-llm-provider)
-  - [🎮 使用方式](#-使用方式)
-  - [⚠️ 從舊版本升級？](#️-從舊版本升級)
-- [⚡ v1.22.0 更新內容](#-v1220-更新內容)
-- [✨ 核心特性](#-核心特性)
-  - [📊 知識質量](#-知識質量)
-  - [🛠️ 維護能力](#️-維護能力)
-  - [💬 查詢與反饋](#-查詢與反饋)
-  - [🌐 LLM 與語言](#-llm-與語言)
-  - [🏗️ 架構與性能](#️-架構與性能)
-  - [🔒 隱私與安全](#-隱私與安全)
-- [⌨️ 命令列表](#️-命令列表)
-- [📖 使用示例](#-使用示例)
-- [🤖 模型選擇建議](#-模型選擇建議)
-- [🏗️ 架構](#️-架構)
-- [❓ 常見問題 (FAQ)](#-常見問題-faq)
-  - [💡 通用](#-通用)
-  - [🏷️ 別名與重複](#️-別名與重複)
-  - [⚡ 性能與成本](#-性能與成本)
-  - [🧹 維護](#-維護)
-  - [🔍 故障排查](#-故障排查)
+- [🧠 Karpathy LLM Wiki — Obsidian 插件](#-karpathy-llm-wiki--obsidian-插件)
+  - [📑 目錄](#-目錄)
+  - [💡 什麼是 LLM-Wiki？](#-什麼是-llm-wiki)
+  - [⚡ 爲什麼選擇 Obsidian + LLM-Wiki？](#-爲什麼選擇-obsidian--llm-wiki)
+  - [🚀 快速開始](#-快速開始)
+    - [📦 安裝](#-安裝)
+    - [🔄 更新插件](#-更新插件)
+    - [🔑 配置 LLM Provider](#-配置-llm-provider)
+    - [🎮 使用方式](#-使用方式)
+    - [⚠️ 從舊版本升級？](#️-從舊版本升級)
+  - [⚡ v1.22.0 更新內容](#-v1220-更新內容)
+    - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
+    - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
+    - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
+    - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
+    - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
+    - [v1.22.6 — 2026-06-29 (PATCH)](#v1226--2026-06-29-patch)
+  - [✨ 核心特性](#-核心特性)
+    - [📊 知識質量](#-知識質量)
+    - [🛠️ 維護能力](#️-維護能力)
+    - [💬 查詢與反饋](#-查詢與反饋)
+    - [🌐 LLM 與語言](#-llm-與語言)
+    - [🏗️ 架構與性能](#️-架構與性能)
+    - [🔒 隱私與安全](#-隱私與安全)
+  - [⌨️ 命令列表](#️-命令列表)
+  - [📖 使用示例](#-使用示例)
+  - [🤖 模型選擇建議](#-模型選擇建議)
+  - [🏗️ 架構](#️-架構)
+  - [❓ 常見問題 (FAQ)](#-常見問題-faq)
+    - [💡 通用](#-通用)
+    - [🏷️ 別名與重複](#️-別名與重複)
+    - [⚡ 性能與成本](#-性能與成本)
+    - [🧹 維護](#-維護)
+    - [🔍 故障排查](#-故障排查)
   - [🔒 透明度與合規性](#-透明度與合規性)
-- [📜 許可證](#-許可證)
-- [🙏 致謝](#-致謝)
+  - [📜 許可證](#-許可證)
+  - [🙏 致謝](#-致謝)
+  - [Star History](#star-history)
 ---
 
 ## 💡 什麼是 LLM-Wiki？
@@ -201,6 +210,20 @@ v1.22.0 是一個**次要功能版本**，帶來長期期待的 Schema 一鍵更
 - **🇹🇼 繁體中文（zh-TW）語言。** 插件 UI 和 Wiki 輸出現在支持繁體中文作爲第 10 種語言。雙向一致性保護已擴展到所有 10 種語言。
 - **📊 攝取狀態欄顯示文檔名稱（PR #189）。** 狀態欄現在顯示當前文檔名稱（`My Note · 提取中... 點選取消`），文件夾批量攝取時顯示進度（`[4/10] My Note · 提取中... 點選取消`）。由 @YounianC 貢獻。
 
+### v1.22.1 — 2026-06-24 (PATCH)
+
+聚焦的 PATCH 版本，修正了使用者回報的三個 P0 錯誤，並帶來一項 UX 改進。
+
+- **🛡️ 修復死鏈不再偽造 AI 擴充的存根頁面 (#197)。** 當 `fixDeadLink` 無法解析死鏈時，先前會建立存根並呼叫 `fillEmptyPage()` —— 讓 LLM 在零源內容的情況下虛構 alias 與相關連結。存根現在是誠實的佔位，帶有 `generation_complete: false` 標記，便於 #170 incomplete-cleaner 識別，下一次真實攝入時透過正常路徑填入。
+- **✅「啟動時執行快速修復」開關真正生效 (#199)。** v1.18.3 的 migration 在每次外掛載入時強制把 `startupCheck: false` 改回 `true`，靜默撤銷使用者的明確選擇。該 migration 已移除；剩餘的遷移被抽取為 `core/settings-migrations.ts` 中的純函式 `applySettingsMigrations()`。新裝預設開啟，明確選擇被尊重。
+- **🎨 CSS `:has()` 審核警告已修復。** `.modal:has(.llm-wiki-schema-diff-modal)` 替換為直接的 class 選擇器。新的 `scripts/css-lint.mjs` 多規則 lint 同時檢查 `!important` 和 `:has()`，已接入 Gate 1 防止回退。
+- **🪟 Query Wiki 現在是 Copilot 風格右側側邊欄面板 (#196, @YounianC)。** `QueryModal extends Modal` 改為 `QueryView extends ItemView` —— 對話可以與筆記並排顯示，不再以彈窗打斷。`message-circle` 功能區圖示和 `Query Wiki` 指令啟動/顯示右側 sidebar leaf（若已存在則複用）。所有功能保持不變：分級檢索、串流與非串流回退、可摺疊思考面板、儲存到 Wiki、history。樣式改為原生 `var(--…)` 主題權杖，自動適配 light/dark 主題。
+- **🧹 相關連結前綴確定性重寫 (#200, @DocTpoint, #187)。** LLM 生成的「相關概念 / 相關實體」條目在目標超出截斷的現有頁面清單時偶爾會預設輸出 `[[sources/<slug>]]` —— 或同一批次攝入中尚未建立。新的純函式 `correctRelatedLinkPrefixes()` 在生成後重新宣告每個相關名稱的已知類型。受 header label 限定的 section 範圍，保證「來源中的提及」裡的合法 `[[sources/<slug>]]` 引用不會被改寫；同時也能自我修復透過 `mergePage` 攜帶的陳舊連結。
+
+建議升級 —— fix-dead-link 的存根偽造 bug 類已被關閉，Query Wiki 側邊欄讓對話時筆記保持可見。
+
+完整變更請參閱 [CHANGELOG.md](../CHANGELOG.md)。
+
 ### v1.22.2 — 2026-06-26 (PATCH)
 
 此 PATCH 版改進了自動攝入的體驗、本地化了操作日誌、清理了死代碼。
@@ -257,20 +280,6 @@ v1.22.0 是一個**次要功能版本**，帶來長期期待的 Schema 一鍵更
 我們強烈建議升級——Schema 一鍵應用功能使 Schema 優化成爲一步操作，繁體中文語言顯著改善 zh-TW 用戶的體驗。
 
 詳見 [CHANGELOG.md](../CHANGELOG.md)。
-
-### v1.22.1 — 2026-06-24 (PATCH)
-
-聚焦的 PATCH 版本，修正了使用者回報的三個 P0 錯誤，並帶來一項 UX 改進。
-
-- **🛡️ 修復死鏈不再偽造 AI 擴充的存根頁面 (#197)。** 當 `fixDeadLink` 無法解析死鏈時，先前會建立存根並呼叫 `fillEmptyPage()` —— 讓 LLM 在零源內容的情況下虛構 alias 與相關連結。存根現在是誠實的佔位，帶有 `generation_complete: false` 標記，便於 #170 incomplete-cleaner 識別，下一次真實攝入時透過正常路徑填入。
-- **✅「啟動時執行快速修復」開關真正生效 (#199)。** v1.18.3 的 migration 在每次外掛載入時強制把 `startupCheck: false` 改回 `true`，靜默撤銷使用者的明確選擇。該 migration 已移除；剩餘的遷移被抽取為 `core/settings-migrations.ts` 中的純函式 `applySettingsMigrations()`。新裝預設開啟，明確選擇被尊重。
-- **🎨 CSS `:has()` 審核警告已修復。** `.modal:has(.llm-wiki-schema-diff-modal)` 替換為直接的 class 選擇器。新的 `scripts/css-lint.mjs` 多規則 lint 同時檢查 `!important` 和 `:has()`，已接入 Gate 1 防止回退。
-- **🪟 Query Wiki 現在是 Copilot 風格右側側邊欄面板 (#196, @YounianC)。** `QueryModal extends Modal` 改為 `QueryView extends ItemView` —— 對話可以與筆記並排顯示，不再以彈窗打斷。`message-circle` 功能區圖示和 `Query Wiki` 指令啟動/顯示右側 sidebar leaf（若已存在則複用）。所有功能保持不變：分級檢索、串流與非串流回退、可摺疊思考面板、儲存到 Wiki、history。樣式改為原生 `var(--…)` 主題權杖，自動適配 light/dark 主題。
-- **🧹 相關連結前綴確定性重寫 (#200, @DocTpoint, #187)。** LLM 生成的「相關概念 / 相關實體」條目在目標超出截斷的現有頁面清單時偶爾會預設輸出 `[[sources/<slug>]]` —— 或同一批次攝入中尚未建立。新的純函式 `correctRelatedLinkPrefixes()` 在生成後重新宣告每個相關名稱的已知類型。受 header label 限定的 section 範圍，保證「來源中的提及」裡的合法 `[[sources/<slug>]]` 引用不會被改寫；同時也能自我修復透過 `mergePage` 攜帶的陳舊連結。
-
-建議升級 —— fix-dead-link 的存根偽造 bug 類已被關閉，Query Wiki 側邊欄讓對話時筆記保持可見。
-
-完整變更請參閱 [CHANGELOG.md](../CHANGELOG.md)。
 
 ## ✨ 核心特性
 

@@ -28,12 +28,12 @@
     - [🎮 使用方式](#-使用方式)
     - [⚠️ 从旧版本升级？](#️-从旧版本升级)
   - [⚡ v1.22.0 更新内容](#-v1220-更新内容)
+    - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
     - [v1.22.2 — 2026-06-26 (PATCH)](#v1222--2026-06-26-patch)
     - [v1.22.3 — 2026-06-26 (PATCH)](#v1223--2026-06-26-patch)
     - [v1.22.4 — 2026-06-27 (PATCH)](#v1224--2026-06-27-patch)
     - [v1.22.5 — 2026-06-29 (PATCH)](#v1225--2026-06-29-patch)
     - [v1.22.6 — 2026-06-29 (PATCH)](#v1226--2026-06-29-patch)
-    - [v1.22.1 — 2026-06-24 (PATCH)](#v1221--2026-06-24-patch)
   - [✨ 核心特性](#-核心特性)
     - [📊 知识质量](#-知识质量)
     - [🛠️ 维护能力](#️-维护能力)
@@ -208,6 +208,20 @@ v1.22.0 是一个**次要功能版本**，带来长期期待的 Schema 一键更
 - **🇹🇼 繁体中文（zh-TW）语言。** 插件 UI 和 Wiki 输出现在支持繁体中文作为第 10 种语言。双向一致性保护已扩展到所有 10 种语言。
 - **📊 摄取状态栏显示文档名称（PR #189）。** 状态栏现在显示当前文档名称（`My Note · 提取中... 点击取消`），文件夹批量摄取时显示进度（`[4/10] My Note · 提取中... 点击取消`）。由 @YounianC 贡献。
 
+### v1.22.1 — 2026-06-24 (PATCH)
+
+聚焦的 PATCH 版本，修复了用户报告的三个 P0 bug，并带来一项 UX 改进。
+
+- **🛡️ 修复死链不再伪造 AI 填充的存根页面 (#197)。** 此前当 `fixDeadLink` 无法解析死链时，会创建存根并调用 `fillEmptyPage()`——让 LLM 在零源内容的情况下凭空生成 alias 和相关链接。这重新引入了 #164/#174 在摄入路径上要阻止的「空源幻觉」类 bug。存根现在是诚实的占位，带有 `generation_complete: false` 标记，便于 #170 incomplete-cleaner 识别，下次真实摄入时通过正常路径填充。
+- **✅ 「启动时执行快速修复」开关真正生效 (#199)。** v1.18.3 的 migration 在每次插件加载时强制把 `startupCheck: false` 改回 `true`，静默撤销用户的明确选择。该 migration 已移除；剩余的迁移被抽取为 `core/settings-migrations.ts` 中的纯函数 `applySettingsMigrations()`。新装默认开启，显式选择被尊重。
+- **🎨 CSS `:has()` 审核警告已修复。** `.modal:has(.llm-wiki-schema-diff-modal)` 替换为直接的 class 选择器。新的 `scripts/css-lint.mjs` 多规则 lint 同时检查 `!important` 和 `:has()`，已接入 Gate 1 防止回退。
+- **🪟 Query Wiki 现在是 Copilot 风格右侧侧边栏面板 (#196, @YounianC)。** `QueryModal extends Modal` 改为 `QueryView extends ItemView` —— 对话可以与笔记并排显示，不再以弹窗打断。`message-circle` 功能区图标和 `Query Wiki` 命令激活/显示右侧 sidebar leaf（若已存在则复用）。所有功能保持不变：三级检索、流式与非流式回退、可折叠思考面板、保存到 Wiki、history。样式改为原生 `var(--…)` 主题令牌，自动适配 light/dark 主题。
+- **🧹 相关链接前缀确定性重写 (#200, @DocTpoint, #187)。** LLM 生成的「相关概念 / 相关实体」条目在目标超出截断的现有页面列表时偶尔会默认输出 `[[sources/<slug>]]` —— 或者同一批次摄入中尚未创建。新的纯函数 `correctRelatedLinkPrefixes()` 在生成后重新声明每个相关名称的已知类型。受 header label 限定的 section 范围，保证「资料来源中的提及」里的合法 `[[sources/<slug>]]` 引用不会被改写；同时也能自我修复通过 `mergePage` 携带的陈旧链接。
+
+建议升级 —— fix-dead-link 的存根伪造 bug 类已被关闭，Query Wiki 侧边栏让对话时笔记保持可见。
+
+完整变更请参见 [CHANGELOG.md](../CHANGELOG.md)。
+
 ### v1.22.2 — 2026-06-26 (PATCH)
 
 此 PATCH 版改进了自动摄入的体验、本地化了操作日志、清理了死代码。
@@ -262,20 +276,6 @@ v1.22.0 是一个**次要功能版本**，带来长期期待的 Schema 一键更
 建议升级 —— "自动摄取 Notice"设置终于生效，周期性自动 lint 不再中断写作，Pro 模型变体可经 Responses API 触达。
 
 详见 [CHANGELOG.md](../CHANGELOG.md)。
-
-### v1.22.1 — 2026-06-24 (PATCH)
-
-聚焦的 PATCH 版本，修复了用户报告的三个 P0 bug，并带来一项 UX 改进。
-
-- **🛡️ 修复死链不再伪造 AI 填充的存根页面 (#197)。** 此前当 `fixDeadLink` 无法解析死链时，会创建存根并调用 `fillEmptyPage()`——让 LLM 在零源内容的情况下凭空生成 alias 和相关链接。这重新引入了 #164/#174 在摄入路径上要阻止的「空源幻觉」类 bug。存根现在是诚实的占位，带有 `generation_complete: false` 标记，便于 #170 incomplete-cleaner 识别，下次真实摄入时通过正常路径填充。
-- **✅ 「启动时执行快速修复」开关真正生效 (#199)。** v1.18.3 的 migration 在每次插件加载时强制把 `startupCheck: false` 改回 `true`，静默撤销用户的明确选择。该 migration 已移除；剩余的迁移被抽取为 `core/settings-migrations.ts` 中的纯函数 `applySettingsMigrations()`。新装默认开启，显式选择被尊重。
-- **🎨 CSS `:has()` 审核警告已修复。** `.modal:has(.llm-wiki-schema-diff-modal)` 替换为直接的 class 选择器。新的 `scripts/css-lint.mjs` 多规则 lint 同时检查 `!important` 和 `:has()`，已接入 Gate 1 防止回退。
-- **🪟 Query Wiki 现在是 Copilot 风格右侧侧边栏面板 (#196, @YounianC)。** `QueryModal extends Modal` 改为 `QueryView extends ItemView` —— 对话可以与笔记并排显示，不再以弹窗打断。`message-circle` 功能区图标和 `Query Wiki` 命令激活/显示右侧 sidebar leaf（若已存在则复用）。所有功能保持不变：三级检索、流式与非流式回退、可折叠思考面板、保存到 Wiki、history。样式改为原生 `var(--…)` 主题令牌，自动适配 light/dark 主题。
-- **🧹 相关链接前缀确定性重写 (#200, @DocTpoint, #187)。** LLM 生成的「相关概念 / 相关实体」条目在目标超出截断的现有页面列表时偶尔会默认输出 `[[sources/<slug>]]` —— 或者同一批次摄入中尚未创建。新的纯函数 `correctRelatedLinkPrefixes()` 在生成后重新声明每个相关名称的已知类型。受 header label 限定的 section 范围，保证「资料来源中的提及」里的合法 `[[sources/<slug>]]` 引用不会被改写；同时也能自我修复通过 `mergePage` 携带的陈旧链接。
-
-建议升级 —— fix-dead-link 的存根伪造 bug 类已被关闭，Query Wiki 侧边栏让对话时笔记保持可见。
-
-完整变更请参见 [CHANGELOG.md](../CHANGELOG.md)。
 
 ## ✨ 核心特性
 
