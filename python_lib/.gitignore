@@ -1,0 +1,23 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+env/
+venv/
+.venv/
+
+# Generated wiki output (example runs — any folder ending in -wiki or _wiki)
+*-wiki/
+*_wiki/
+
+# Credentials
+examples/.env
