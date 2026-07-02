@@ -4,11 +4,17 @@
 
 ---
 
-## Current Phase: v1.23.0 RELEASED (2026-07-02) → v1.23.1 PATCH in flight
+## Current Phase: v1.23.1 RELEASED (2026-07-02) → v1.23.2 PATCH in flight
 
-### Completed (v1.23.0) — Graph Engine PPR + Vercel AI-SDK v6 (2026-07-02)
+### Completed (v1.23.1) — Obsidian Review Hotfix (2026-07-02, PATCH)
 
-**MINOR** scope release. Biggest architectural change since 1.0. Single-branch release on `refactor/v1.23.0-ai-sdk-migration`.
+**PATCH** scope. v1.23.0 submission was rejected by Obsidian's automated review system with 4 findings. Root cause was TS configuration (local `strictBindCallApply: false` vs Obsidian bot's `strict: true`), not a code quality defect. Fix strategy: align local TS config with Obsidian's review environment — no workarounds, no `eslint-disable` band-aids.
+
+- ✅ **`tsconfig.json`: add `strictBindCallApply: true`.** Makes `.bind()` return properly-typed functions instead of `any`, eliminating the need for `as FetchLike` / `as ReturnType` type assertions that the bot flagged as unnecessary. Only 2 `.bind()` call sites in the codebase (`obsidian-fetch-bridge.ts`, `llm-client-wrapper.ts`).
+- ✅ **`src/main.ts`: delete unused `getThinkingControlCacheKey` function** (no callers, previously kept for v1.24.0 inspection). Removed the associated eslint-disable comment — no directive, no bot complaint.
+- ✅ **Lockfiles regenerated** for CI build-verification consistency (v1.23.0 was built locally on macOS; v1.23.1 built by CI from fresh lockfiles → hash matches `main.js` artifact).
+- ✅ **pre-release-gate skill updated** — new §2f "CI Build Consistency" check verifies `strictBindCallApply` + lockfile freshness before every release.
+- ✅ **Tests: 1386 passing** (+10 from v1.22.6 hotfix tests folded in during v1.23.0 merge).
 
 - ✅ **P1-7 — Vercel AI-SDK v6 migration.** `src/llm-sdk/` (5 files, 1421 LOC) + `src/core/obsidian-fetch-bridge.ts` (326 LOC) — deleted 1625-LOC `llm-client.ts` and 8 old test files. Eliminates provider-version regression class (#137 / #141 / #143 / #147 / #207).
 - ✅ **Graph Engine (Issue #198, #117, #157, #175, #215).** Personalized PageRank over `[[wiki-link]]` graph. New core modules: `section-extractor.ts` (173 LOC), `monte-carlo-ppr.ts` (99 LOC, Fogaras 2005), `hub-detection.ts` (134 LOC), `ppr-cascade.ts` (213 LOC, hybrid guard), `hub-retirement.ts` (175 LOC, PR #215 by @DocTpoint, merged 2026-06-30), `build-graph.ts`.
@@ -25,9 +31,9 @@
 - ✅ **Tests: 1376 passing** across 100 files (+272 since v1.22.0).
 - ✅ **Bundle:** 1.24 MB → 3.17 MB (user accepted 2026-06-29).
 
-### In Flight (v1.23.1 PATCH, target 2026-07-09)
+### In Flight (v1.23.2 PATCH, target TBD)
 
-Two user-reported UX gaps deferred from v1.23.0 to keep the release scoped:
+Two user-reported UX gaps deferred — #219/#221 were originally v1.23.1 scope but that slot was taken by the v1.23.1 review hotfix (P0). Both are now deferred to v1.23.2.
 
 - 🔄 **#219 — Progress Notice suppression setting.** `showProgress()` in `main.ts:414` unconditionally creates a persistent `Notice(msg, 0)`. Add `progressNotificationLevel: 'both' | 'status' | 'notice' | 'silent'` setting (~30 LOC + 6 locale keys). Filed by @jameses-cyber.
 - 🔄 **#221 — Query scroll-to-start setting.** `scrollToBottom()` in `query-engine.ts:802` unconditionally scrolls to bottom on every chunk; final call leaves user at end of long response. Add post-completion scroll-mode setting (~50 LOC + 6 locale keys). Filed by @jameses-cyber.
@@ -38,6 +44,7 @@ Both same author (#204), batch together.
 
 ### Earlier Releases
 
+- v1.23.0 (2026-07-02, MINOR) — Graph Engine PPR + Vercel AI-SDK v6 + Multi-File Ingest + Sponsor section. 1376 tests. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
 - v1.22.6 (2026-06-30, hotfix) — #204 Auto Ingest modal + Auto Smart Fix context-aware + #207 GPT-5 Pro variants routing. 1118 tests.
 - v1.22.5 (2026-06-29) — Responses API path for reasoning model family + provider body in Notice. 1104 tests.
 - v1.22.4 (2026-06-27, PATCH) — GPT-5.x probe-then-cache (Closes #207) + provider error UX. 1076 tests.
@@ -48,8 +55,8 @@ Both same author (#204), batch together.
 - #213 (configurable page categories): **Discussion-only, NOT confirmed for any minor release** per user instruction 2026-06-30.
 - #207 close: separate commit `Closes #207` (user-confirmed 2026-07-02, not part of v1.23.0/1.23.1)
 
-**Deferred to v1.24.0+:**
-- #219/#221 → v1.23.1 PATCH (in flight)
+**Deferred to v1.23.2+:**
+- #219/#221 → v1.23.2 PATCH (deferred from v1.23.1 which was consumed by the review hotfix)
 - #218 PDF source ingest → Discussion #222 topology
 - #220 Source-revision awareness → needs Discussion on fingerprint function design
 - Hub-retirement lint wire-up (`core/hub-retirement.ts` 0 callers → wire `assessHubs` into lint path) — owned by @DocTpoint
