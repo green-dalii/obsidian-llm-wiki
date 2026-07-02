@@ -64,7 +64,14 @@ function extractProgReport(fullReport: string): string {
   return fullReport.slice(after + 2);
 }
 
-export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promise<void> {
+export async function runLintWiki(
+  ctx: LintContext,
+  signal?: AbortSignal,
+  // v1.22.6 #204: distinguish auto (periodic / scheduled) vs manual lint
+  // so the completion modal-vs-Notice dispatch can respect user intent.
+  // Defaults to 'manual' for backward compatibility.
+  trigger: 'auto' | 'manual' = 'manual',
+): Promise<void> {
   if (!ctx.llmClient) {
     new Notice(TEXTS[ctx.settings.language].errorNoApiKey);
     return;
@@ -923,9 +930,25 @@ export async function runLintWiki(ctx: LintContext, signal?: AbortSignal): Promi
     // nests correctly under the log heading.
     const logReport = nestReportUnderParent(fullReport);
     await ctx.wikiEngine.logLintFix(t.lintReportTitle, logReport);
-    if (ctx.settings.autoSmartFix && fixCallbacks.onFixAll) {
-      new Notice(getText(ctx.settings.language, 'autoSmartFixNotice'));
-      void fixCallbacks.onFixAll();
+    // v1.22.6 #204: Context-aware completion dispatch.
+    //   - Manual lint → LintReportModal (existing UX).
+    //   - Auto lint + autoSmartFix → Notice + run fixAll (v1.22.2 path).
+    //   - Auto lint without autoSmartFix → Notice only (don't open modal
+    //     for a background periodic lint that the user didn't initiate).
+    if (trigger === 'auto') {
+      if (ctx.settings.autoSmartFix && fixCallbacks.onFixAll) {
+        new Notice(getText(ctx.settings.language, 'autoSmartFixNotice'));
+        void fixCallbacks.onFixAll();
+      } else {
+        const historyHint = getText(ctx.settings.language, 'ingestionNoticeHistoryHint');
+        // v1.22.6: sum all LintCounts fields for a single human-readable
+        // summary number in the auto-lint completion Notice.
+        const totalFindings = (Object.values(counts) as number[]).reduce((sum, n) => sum + n, 0);
+        new Notice(
+          `${t.lintFixAllComplete}: ${totalFindings} findings. ${historyHint}`,
+          NOTICE_NORMAL
+        );
+      }
     } else {
       new LintReportModal(ctx.app, fullReport, fixCallbacks, counts, ctx.settings.language).open();
     }

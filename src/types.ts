@@ -263,6 +263,13 @@ export interface IngestReport {
   contradictionsFound: number;
   success: boolean;
   errorMessage?: string;
+  /**
+   * v1.22.6 #204: Distinguishes watch-mode auto-ingest from manual ingest
+   * so the completion callback can route to the right UI surface
+   * (Notice for auto, Modal for manual). Optional for backward
+   * compatibility — missing/legacy callers default to 'manual'.
+   */
+  trigger?: 'auto' | 'manual';
   elapsedSeconds?: number;
   skippedFiles?: number;
   totalFilesInFolder?: number;
@@ -289,6 +296,13 @@ export interface IngestOptions {
   interactive?: boolean;
   /** Bypass the uniqueness check (the user confirmed re-ingest). */
   forceReingest?: boolean;
+  /**
+   * v1.22.6 #204: Distinguishes watch-mode auto-ingest from manual ingest.
+   * Propagated into IngestReport.trigger so the completion callback can
+   * route to the correct UI surface (Notice for auto, Modal for manual).
+   * Optional — missing/legacy callers default to 'manual'.
+   */
+  trigger?: 'auto' | 'manual';
 }
 
 // LLM Client interface
