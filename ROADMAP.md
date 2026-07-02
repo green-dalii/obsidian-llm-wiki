@@ -2,13 +2,23 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.23.0 (shipped 2026-07-02 — Graph Engine PPR + AI-SDK v6 + Sponsor section + knn baseline eval) | **Updated:** 2026-07-02
+**Version:** 1.23.1 (shipped 2026-07-02 — Obsidian review hotfix + strictBindCallApply alignment) | **Updated:** 2026-07-02
 
 ## Current Status
 
-**v1.23.0 SHIPPED (2026-07-02).** Graph Engine PPR + Vercel AI-SDK v6 migration + Sponsor section + v1.22.6 hotfix series folded in. 1376 tests passing across 100 files. Bundle 3.17 MB. Next: v1.23.1 PATCH (#219, #221) → v1.24.0 MINOR (PDF source ingest, source-revision awareness, etc.).
+**v1.23.1 SHIPPED (2026-07-02, PATCH).** Obsidian review bot reject hotfix: tsconfig `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. 1386 tests passing across 102 files. Next: v1.23.2 PATCH (#219, #221) → v1.24.0 MINOR (PDF source ingest, source-revision awareness, etc.).
+
+**v1.23.0 SHIPPED (2026-07-02).** Graph Engine PPR + Vercel AI-SDK v6 migration + Sponsor section + v1.22.6 hotfix series folded in. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
 
 Historical releases are summarized in [CHANGELOG](./CHANGELOG.md). The current sprint is described in **Next Milestone** below.
+
+### v1.23.1: Obsidian Review Hotfix (2026-07-02, PATCH)
+
+- ✅ **`tsconfig.json` — `strictBindCallApply: true`.** Aligns local TS config with Obsidian's strict-mode review environment. `.bind()` calls now infer correct types natively — no type assertions needed.
+- ✅ **`src/main.ts` — deleted unused `getThinkingControlCacheKey`.** No callers; function was deprecated in the v1.23.0 AI-SDK v6 migration.
+- ✅ **Lockfiles regenerated** (`pnpm-lock.yaml` + `package-lock.json`) for CI build-verification consistency.
+- ✅ **pre-release-gate skill updated** — new §2f "CI Build Consistency" check.
+- ✅ **Tests: 1386 passing** (+10 from v1.22.6 hotfix tests folded in during v1.23.0 merge).
 
 ### v1.23.0: Graph Engine + Vercel AI-SDK v6 (2026-07-02)
 
@@ -47,7 +57,7 @@ No proactive 11th language — **contributor-driven only** (replicate PR #159 It
 - `refactor/v1.23.0-ai-sdk-migration` — 9 commits ahead of merge-base (AI-SDK + P2 improvements)
 - v1.23.0 release = merge both, switch PPR LLM call sites to AI-SDK adapters, resolve doc conflicts
 
-**Deferred to v1.23.1 PATCH (2026-07-02+):**
+**Deferred to v1.23.2 PATCH (2026-07-02+):**
 - **#219 — Progress Notice suppression setting.** `showProgress()` in `main.ts:414` unconditionally creates a persistent `Notice(msg, 0)`. Add `progressNotificationLevel: 'both' | 'status' | 'notice' | 'silent'` (~30 LOC + 6 locale keys). Filed by @jameses-cyber (same author as #204). Approved: deferred.
 - **#221 — Query scroll-to-start setting.** `scrollToBottom()` in `query-engine.ts:802` unconditionally scrolls to bottom on every chunk; final call leaves user at end of long response. Add post-completion scroll-mode setting (~50 LOC + 6 locale keys). Filed by @jameses-cyber (same author as #204, #219). Approved: deferred. Batch with #219.
 
@@ -100,7 +110,7 @@ See [CHANGELOG](./CHANGELOG.md#1180-2026-06-11) for full details.
 
 See [CHANGELOG](./CHANGELOG.md#1170-2026-06-08) for full details.
 
-## Next Milestone: v1.23.1 PATCH (target 2026-07-09)
+## Next Milestone: v1.23.2 PATCH (target TBD)
 
 ### Goals
 
@@ -111,7 +121,7 @@ Two user-reported UX gaps deferred from v1.23.0 to keep the v1.23.0 release scop
 
 Both same author (#204), batch together.
 
-### Not in v1.23.1
+### Not in v1.23.2
 
 - #220 (Source-revision awareness) → **v1.24.0** (architectural; needs Discussion thread on fingerprint function design).
 - #218 (PDF source ingest) → **v1.24.0** (architectural; see Discussion #222 topology).
@@ -182,8 +192,8 @@ Both same author (#204), batch together.
 |---|------|------------|--------|
 | P2-4 sample-50page tuning | — | Superseded by real vault tuning (2142-page) |
 | P2-2 cold-start threshold settings | v1.24.0+ | Defaults validated by P2-4; advanced users only |
-| #219 Progress Notice suppression | v1.23.1 | User-facing UX gap — same author as #204 |
-| #221 Query scroll-to-start | v1.23.1 | User-facing UX gap — same author as #204 |
+| #219 Progress Notice suppression | v1.23.2 | User-facing UX gap — same author as #204 |
+| #221 Query scroll-to-start | v1.23.2 | User-facing UX gap — same author as #204 |
 | #218 PDF source ingest | v1.24.0 | Discussion #222 topology + path convergence |
 | #220 Source-revision awareness | v1.24.0 | Tier 0-1 tractable; architectural decision needed |
 
@@ -272,6 +282,7 @@ Fallback arm selection:
 ## Version Timeline
 | Version | Date | Headline |
 |---------|------|----------|
+| 1.23.1 | 2026-07-02 | Obsidian review hotfix — strictBindCallApply alignment + dead function removal + lockfile regen |
 | 1.23.0 | 2026-07-02 | Graph Engine PPR (Issue #198) + Vercel AI-SDK v6 migration + Sponsor section + v1.22.6 hotfix folded in |
 | **1.22.6** | 2026-06-29 | Hotfix — #204 wire onAutoIngestDone + Auto Smart Fix trigger dispatch + #207 broaden Responses API to -pro variants |
 | **1.22.5** | 2026-06-29 | Hotfix — Responses API path for reasoning model family (#207 follow-up) + provider body in Notice + withRetry on Responses path |

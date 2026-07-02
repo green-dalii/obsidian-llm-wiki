@@ -46,7 +46,7 @@ pnpm css-lint      # styles.css contains no !important declarations
 - **llmReady guard**: New core features must call `requireLLMReady()` at entry points. The plugin requires a successful connection test before core features are available.
 - **i18n**: UI strings use the TEXTS system. English strings in `src/texts/en.ts` are the canonical source; all 9 other languages must be updated in lockstep.
 
-> **v1.23.0 note (2026-07-02):** `src/llm-client.ts` (1625 LOC, hand-rolled AnthropicClient / OpenAICompatibleClient / AnthropicCompatibleClient) and `src/core/sse-parser.ts` (85 LOC) have been **removed**. They are replaced by `src/llm-sdk/` (5 files, 1421 LOC) backed by Vercel AI-SDK v6 (`@ai-sdk/openai@3`, `@ai-sdk/anthropic@3`, `@ai-sdk/openai-compatible@2`, `ai@6`) and `src/core/obsidian-fetch-bridge.ts` (326 LOC). The `llm-client-wrapper.ts` is still kept for advanced-settings injection. New Graph Engine modules added under `src/core/`: `monte-carlo-ppr.ts`, `ppr-cascade.ts`, `section-extractor.ts`, `hub-detection.ts`, `hub-retirement.ts`, `url-fallback.ts`. The project tree below is **partially stale** — refer to `git ls-tree -r src/` for the canonical view.
+> **v1.23.0 + v1.23.1 note (2026-07-02):** `src/llm-client.ts` (1625 LOC, hand-rolled AnthropicClient / OpenAICompatibleClient / AnthropicCompatibleClient) and `src/core/sse-parser.ts` (85 LOC) have been **removed**. They are replaced by `src/llm-sdk/` (5 files, 1421 LOC) backed by Vercel AI-SDK v6 (`@ai-sdk/openai@3`, `@ai-sdk/anthropic@3`, `@ai-sdk/openai-compatible@2`, `ai@6`) and `src/core/obsidian-fetch-bridge.ts` (326 LOC). New Graph Engine modules added under `src/core/`: `monte-carlo-ppr.ts`, `ppr-cascade.ts`, `section-extractor.ts`, `hub-detection.ts`, `hub-retirement.ts`, `build-graph.ts`, `url-fallback.ts`, `build-folder-tree.ts`, `ingest-queue.ts`. v1.23.1 added `strictBindCallApply: true` to `tsconfig.json` for Obsidian review-bot alignment.
 
 ## Project Structure
 
@@ -55,10 +55,15 @@ src/
 ├── main.ts              # Plugin entry point
 ├── types.ts             # Shared types + EngineContext
 ├── constants.ts         # Centralized constants (token budgets, notice durations, WIKI_SUBFOLDERS)
-├── texts.ts             # i18n texts (barrel, 9 languages)
-├── prompts.ts           # Prompt barrel (9 languages)
-├── llm-client.ts        # LLM clients (Anthropic via requestUrl, OpenAI-compatible Chat Completions + Responses API for reasoning family)
+├── texts.ts             # i18n texts (barrel, 10 languages)
+├── prompts.ts           # Prompt barrel (10 languages)
 ├── llm-client-wrapper.ts # Advanced settings injection wrapper
+├── llm-sdk/             # Vercel AI-SDK v6 client factories (v1.23.0, replaces llm-client.ts)
+│   ├── create-llm-client.ts        # Factory: async + sync shim + preload
+│   ├── openai-sdk-client.ts        # OpenAI via @ai-sdk/openai (Responses API for reasoning models)
+│   ├── anthropic-sdk-client.ts     # Anthropic via @ai-sdk/anthropic (baseURL support for Coding Plan / z.ai / GLM)
+│   ├── openai-compat-sdk-client.ts # OpenAI-compatible via @ai-sdk/openai-compatible (8 providers)
+│   └── token-key-probe.ts         # max_tokens ↔ max_completion_tokens runtime fallback (KISS, no regex)
 ├── core/                # Pure function modules (zero IO, fully testable)
 │   ├── i18n.ts                 # Type-safe i18n accessor
 │   ├── slug.ts                 # Slug computation + alias filtering
@@ -70,17 +75,43 @@ src/
 │   ├── report.ts               # Report truncation + heading nesting
 │   ├── arrays.ts               # Array coercion + source tag extraction
 │   ├── markdown.ts             # Markdown cleanup + thinking block extraction/encoding
+│   ├── diff.ts                 # LCS line-level diff (schema diff Modal, v1.22.0)
+│   ├── detail-renderer.ts      # Wiki page detail rendering
+│   ├── token-cap.ts            # max_tokens cap helper
+│   ├── truncation-retry.ts     # Shared truncation retry policy
+│   ├── batch-limits.ts         # Adaptive batch sizing
+│   ├── batch-merger.ts         # Multi-batch result merging
+│   ├── convergence-detector.ts # Early-stop on low-yield batches
 │   ├── conflict-resolver.ts    # Conflict detection
 │   ├── dead-link-detector.ts   # Dead link identification
 │   ├── orphan-matcher.ts       # Orphan page matching
 │   ├── prompt-builders.ts      # Prompt template builders
 │   ├── sources-normalizer.ts   # Frontmatter sources field normalization
-│   ├── sse-parser.ts           # Shared SSE event parser
-│   ├── token-cap.ts            # max_tokens cap helper
-│   ├── truncation-retry.ts     # Shared truncation retry policy
-│   ├── batch-limits.ts         # Adaptive batch sizing
-│   ├── batch-merger.ts         # Multi-batch result merging
-│   └── convergence-detector.ts # Early-stop on low-yield batches
+│   ├── source-slug.ts          # FNV-1a source-slug fingerprinting
+│   ├── source-requirements.ts  # Pre-ingest content validation (#164, v1.21.0)
+│   ├── status-bar.ts           # Ingest status bar text builder (v1.22.0)
+│   ├── log-header.ts           # i18n log.md header builder (v1.22.2)
+│   ├── log-parser.ts           # Pure-function log.md → structured data parser (v1.21.0)
+│   ├── incomplete-page-cleaner.ts # Orphaned page auto-cleanup (#170, v1.21.0)
+│   ├── settings-migrations.ts  # Pure-function settings migration pipeline (v1.22.1)
+│   ├── backup-rotation.ts      # Schema backup rotation, max 3 (v1.22.0)
+│   ├── related-link-corrector.ts # Deterministic related-link prefix correction (v1.22.1)
+│   ├── localize-welcome-note.ts # D8 LLM dynamic welcome-note translation (v1.23.0)
+│   ├── obsidian-fetch-bridge.ts # window.fetch bridge for real streaming (v1.23.0, 326 LOC)
+│   ├── url-fallback.ts         # Custom baseURL /v1 auto-resolution (v1.23.0, 395 LOC)
+│   ├── build-folder-tree.ts    # Recursive folder tree for Multi-File Ingest (v1.23.0)
+│   ├── ingest-queue.ts         # IngestQueue pub/sub store (v1.23.0, Issue #130)
+│   ├── build-graph.ts          # Wiki-link graph builder (v1.23.0)
+│   ├── monte-carlo-ppr.ts      # Fogaras 2005 MC-PPR engine (v1.23.0)
+│   ├── ppr-cascade.ts          # Hybrid 3-tier retrieval cascade (v1.23.0, 213 LOC)
+│   ├── section-extractor.ts    # Zero-LLM Tier B section parser (v1.23.0)
+│   ├── hub-detection.ts        # Hub-link distinctiveness scanner (v1.23.0)
+│   ├── hub-link-distinctiveness.ts # Link distinctiveness scoring (v1.23.0, #157/#175)
+│   ├── hub-retirement.ts       # Hub crystallization retirement signal (v1.23.0, PR #215 @DocTpoint)
+│   ├── tier-detection.ts       # Three-tier onboarding decision logic (v1.23.0)
+│   ├── welcome-note-template.ts # Welcome note template builder (v1.23.0)
+│   ├── ensure-welcome-note.ts  # First-run Welcome note orchestrator (v1.23.0)
+│   └── smoke-test.ts           # LLM configuration verification wrapper (v1.23.0)
 ├── wiki/                # Wiki engine modules
 │   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log)
 │   ├── query-engine.ts  # Conversational query with streaming + thinking UI
@@ -114,7 +145,7 @@ src/
 │   └── analyze.ts       # Schema-analyze with cancel wiring
 ├── ui/                  # Settings + Modals
 ├── texts/               # i18n (9 languages)
-└── __tests__/           # Unit tests (vitest, 1104 tests across 84 files)
+└── __tests__/           # Unit tests (vitest, 1386 tests across 102 files)
 ```
 
 ## Internationalization

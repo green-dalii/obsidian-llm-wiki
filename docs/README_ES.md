@@ -216,6 +216,14 @@ Esta release también incorpora la serie de hotfix v1.22.6 (correcciones de regr
 
 Recomendamos actualizar — la migración a AI-SDK elimina una clase de regresiones de versiones de proveedor, y el Graph Engine ofrece calidad de retrieval a nivel de embedding a coste cero. Si usas gateways OpenAI-compatible con baseURLs personalizados, los fixes URL fallback + token-key probe-then-retry deberían resolver problemas de conexión sin cambios de configuración.
 
+### v1.23.1 — 2026-07-02 (PATCH)
+
+Resuelve tres hallazgos del bot de revisión de Obsidian que bloqueaban el envío de v1.23.0 al catálogo de plugins comunitarios. Sin cambios visibles para el usuario.
+
+- **Alineación con modo estricto de TypeScript.** Añadido `strictBindCallApply: true` a `tsconfig.json` para que las llamadas `.bind()` infieran tipos correctos — alinea el entorno de desarrollo local con el de revisión de Obsidian y elimina aserciones de tipo que el bot marcó como innecesarias.
+- **Código no utilizado eliminado.** Borrada la función obsoleta `getThinkingControlCacheKey` (sin llamadas desde la migración AI-SDK de v1.23.0).
+- **Reproducibilidad de build.** Lockfiles regenerados antes del etiquetado para que el artefacto `main.js` construido por CI coincida con el código fuente en la verificación de build de Obsidian.
+
 ## ✨ Características
 
 ### 📊 Calidad del Conocimiento

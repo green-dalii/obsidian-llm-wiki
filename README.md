@@ -258,6 +258,14 @@ This release also folds in the v1.22.6 hotfix series (Test Connection regression
 
 We recommend upgrading — the AI-SDK migration eliminates a class of provider-version regressions (#137 / #141 / #143 / #147 / #207), and the Graph Engine delivers embedding-grade retrieval quality at zero embedding cost. If you use OpenAI-compatible gateways with custom baseURLs, the URL fallback + token-key probe-then-retry fixes should resolve connection issues without configuration changes.
 
+### v1.23.1 — 2026-07-02 (PATCH)
+
+Resolved three Obsidian review bot findings that blocked v1.23.0's community plugin submission. No user-facing behavior changes.
+
+- **TypeScript strict mode alignment.** Added `strictBindCallApply: true` to `tsconfig.json` so `.bind()` calls infer correct types — aligns local development with Obsidian's review environment and removes type assertions the bot flagged as unnecessary.
+- **Removed unused code.** Deleted the deprecated `getThinkingControlCacheKey` function (no callers since the v1.23.0 AI-SDK migration). The associated `eslint-disable` comment is gone — no directive, no bot complaint.
+- **Build reproducibility.** Regenerated lockfiles before tagging so the CI-built `main.js` artifact matches source for Obsidian's build verification step.
+
 ## ✨ Features
 
 ### 📊 Knowledge Quality
