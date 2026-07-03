@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **NOTICE file** listing all 6 human code contributors (alphabetical by GitHub handle).
+
+### Changed
+
+- **License upgraded from MIT to Apache License 2.0.** Apache 2.0 adds an explicit patent grant (relevant after AI-SDK v6 dependency introduction in v1.23.0), trademark protection for the `Karpathy Wiki` / `Greener-Dalii` brand, and contributor patent retaliation clauses — all without restricting commercial use, fork, or closed-source derivative works. The plugin remains free and open-source on the Obsidian Community Plugin marketplace.
+- **`package.json` license field** updated from `MIT` to `Apache-2.0` to match LICENSE.
+- **CONTRIBUTING.md** now includes a License & DCO section. New contributions should include a `Signed-off-by:` line per Developer Certificate of Origin v1.1. Past contributions are not retroactively required to add sign-off.
+- **README badges** updated from `license-MIT-green` to `license-Apache--2.0-blue` across all 10 locale READMEs. Sponsor paragraphs and License sections updated with Apache 2.0 wording.
+
 ## [1.23.0] - 2026-07-02
 
 **Theme:** Replace the brittle hand-rolled LLM client (v1.22.x 1625-LOC `llm-client.ts` with 30+ provider-version workarounds accumulated since v1.20.0) with Vercel AI-SDK v6, then ship the Graph Engine PPR primitive on top. Biggest architectural change since 1.0.
