@@ -1,0 +1,17 @@
+obsidian-llm-wiki
+Copyright 2025-2026 Greener-Dalii
+
+This product includes software developed by the following contributors,
+listed in alphabetical order by GitHub handle:
+
+- DocTpoint — hub-retirement crystallization signal, knn baseline,
+  peer-link quality analysis, and cold-start A/B evaluation
+- dmarchevsky — code contributions and review feedback
+- FrancoTampieri — code contributions
+- Greener-Dalii (green-dalii) — project maintainer and primary author
+- Indexed-Apogrypha (Matthew Harper) — source-slug fingerprint,
+  pre-ingest requirements gate, Anthropic fallback fixes, and issue reports
+- YounianC (xiaochuanlu) — ingest status bar and Query Wiki side panel
+
+This NOTICE file is provided for attribution purposes only and does not
+modify the terms of the Apache License, Version 2.0.

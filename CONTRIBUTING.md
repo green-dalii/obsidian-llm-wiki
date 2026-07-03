@@ -214,6 +214,35 @@ graph TD
 6. Commit with English conventional commit message
 7. Open a PR against `main` branch
 
+## 📜 License & DCO
+
+This project is licensed under the **Apache License, Version 2.0**. See [LICENSE](../LICENSE) for the full text and [NOTICE](../NOTICE) for contributor attribution.
+
+### Developer Certificate of Origin (DCO)
+
+By contributing to this project, you agree that your contribution is licensed under the Apache License, Version 2.0. We follow the Developer Certificate of Origin v1.1 (https://developercertificate.org/).
+
+All commits submitted via pull request **should** include a `Signed-off-by:` line:
+
+```
+feat: add example feature
+
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+You can add this automatically with:
+
+```bash
+git commit -s
+```
+
+The sign-off certifies that either:
+
+- you wrote the contribution and have the right to submit it, or
+- you are submitting it on behalf of someone else who has authorized you to do so.
+
+Maintainers may ask for clarification if a commit lacks a sign-off. We do not retroactively require DCO sign-off for contributions made before this policy was adopted.
+
 ## Questions?
 
 Open a [Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) or [Issue](https://github.com/green-dalii/obsidian-llm-wiki/issues).

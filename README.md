@@ -6,11 +6,13 @@
 >
 > **Obsidian official score 95/100** | Native support for 10 languages | Actively maintained, continuously evolving
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square) ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square)
+![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
+![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) <br>
+![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
 **English** | [简体中文](docs/README_CN.md) | [繁體中文](docs/README_ZH-Hant.md) | [日本語](docs/README_JA.md) | [한국어](docs/README_KO.md) | [Deutsch](docs/README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md) | [Italiano](docs/README_IT.md)
 
-[Official Site](https://llmwiki.greenerai.top/) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explore Repo with DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Official Site](https://llmwiki.greenerai.top/) | [Obsidian Marketplace](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explore Repo with DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD)
 
@@ -36,6 +38,7 @@
     - [🔧 Improved](#-improved)
     - [🐛 Fixed](#-fixed)
     - [📊 Tests](#-tests)
+  - [⚡ What's New in v1.23.1](#-whats-new-in-v1231)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [🛠️ Maintenance](#️-maintenance)
@@ -195,7 +198,7 @@ Settings → **LLM Configuration**:
   - **Standard** (~50 items) — Balanced extraction. Good default for daily notes.
   - **Coarse** (~10 items) — Quick overview, core entities only. Low cost, fast ingestion.
   - **Minimal** (~5 items) — Essential items only. Ideal for batch processing 100+ files or testing new sources.
-  - **Custom** (1–300 items) — User-defined entity/concept limits for specialized workflows.
+  - **Custom** (1–500 items) — User-defined entity/concept limits for specialized workflows.
   > 💡 **Recommendation**: Use Minimal or Coarse for large folders to save time and API costs. Use Fine selectively on key documents that warrant deep analysis.
 - **🔄 Auto-Maintenance**: Startup Quick Fixes defaults ON (one-time startup health check); File Watcher and Periodic Lint default OFF — enable only if you want automatic background processing.
 
@@ -223,7 +226,7 @@ This release also folds in the v1.22.6 hotfix series (Test Connection regression
 - **🤖 AI-SDK v6 client set.** `openai-sdk-client.ts` (455 LOC, auto Responses API routing for reasoning models), `anthropic-sdk-client.ts` (300 LOC, baseURL support for Coding Plan / z.ai / GLM-Antropic), `openai-compat-sdk-client.ts` (449 LOC, 8 OpenAI-format baseURLs). `create-llm-client.ts` (151 LOC) provides async + sync shim + preload pattern.
 - **🌐 Unified URL fallback for custom baseURLs.** `core/url-fallback.ts` (395 LOC) auto-resolves missing `/v1` in user-entered baseURLs (Kimi Coding Plan, GLM, z.ai). Module-level static cache survives `createLLMClient` re-creation so Ingest / Lint / Query all benefit from the first request's resolution.
 - **🔁 Token-key probe-then-retry (KISS, no regex).** `src/llm-sdk/token-key-probe.ts` (70 LOC) caches the working `max_tokens` ↔ `max_completion_tokens` key per baseURL on first failure. Triggered by `if (statusCode === 400 && !cached) → retry`. Addresses root cause of #207 for all OpenAI-compatible gateways.
-- **🎬 Real-time streaming for all providers.** `result.textStream` true逐块 streaming now works in all three `llm-sdk` clients. The "Restore true streaming for 3rd-party providers" backlog item is **DONE**. macrotask yield between chunks forces a paint frame per chunk (no more batch-arrival UX).
+- **🎬 Real-time streaming for all providers.** `result.textStream` true chunk-by-chunk streaming now works in all three `llm-sdk` clients. The "Restore true streaming for 3rd-party providers" backlog item is **DONE**. macrotask yield between chunks forces a paint frame per chunk (no more batch-arrival UX).
 - **🎉 Welcome note (Phase 5.1.5).** Three-tier first-run Welcome note (Tier A empty / Tier B existing / Tier C upgrade). `type: welcome` frontmatter, `createWelcomeNote` toggle, `Recreate Welcome Note` command. D8 LLM dynamic translation writes the note in the user's wiki language at write time — no hardcoded i18n.
 - **📥 Multi-File Ingest (Issue #130).** Two-pane picker: left = recursive folder tree with per-file checkboxes, right = live ingest queue with status. "Add to queue" two-step flow, per-file cancel, "Cancel all" for pending/running jobs. Reuses `runBatchIngest` so the per-file loop, dedup, and report modal are shared with folder ingest. New `IngestQueue` pub/sub store is the single source of truth for in-session ingest lifecycle.
 
@@ -241,7 +244,7 @@ This release also folds in the v1.22.6 hotfix series (Test Connection regression
 - **♻️ Lint performance knobs centralised.** `src/constants.ts` holds all yield cadences, batch sizes, and thresholds in one place — single-file tuning instead of 4-file drift.
 - **⏱️ 429/5xx exponential backoff on Responses API path.** Previously only the Chat Completions path had retry; now both paths share the same `withRetry`.
 - **🧹 `thinkingControlCache` deprecated.** Removed the 3-tier dialect probe; AI-SDK handles thinking internally. Cache retained on disk for backward-compat (will be removed in v1.24.0 if no use case surfaces).
-- **⚡ Bundle size 1.24 MB → 3.17 MB** (user accepted 2026-06-29). Obsidian manifest has no size limit; lazy `await import()` for AI-SDK packages didn't reduce bundle (esbuild CJS inline); future ESM bundle / dynamic chunk can revisit.
+- **⚡ Bundle size 1.24 MB → 3.13 MB** (user accepted 2026-06-29). Obsidian manifest has no size limit; lazy `await import()` for AI-SDK packages didn't reduce bundle (esbuild CJS inline); future ESM bundle / dynamic chunk can revisit.
 
 ### 🐛 Fixed
 
@@ -254,13 +257,13 @@ This release also folds in the v1.22.6 hotfix series (Test Connection regression
 
 ### 📊 Tests
 
-- **1376 tests passing** across 100 files (+272 since v1.22.0).
+- **1386 tests passing** across 102 files (+380 since v1.22.0).
 
 We recommend upgrading — the AI-SDK migration eliminates a class of provider-version regressions (#137 / #141 / #143 / #147 / #207), and the Graph Engine delivers embedding-grade retrieval quality at zero embedding cost. If you use OpenAI-compatible gateways with custom baseURLs, the URL fallback + token-key probe-then-retry fixes should resolve connection issues without configuration changes.
 
-### v1.23.1 — 2026-07-02 (PATCH)
+## ⚡ What's New in v1.23.1
 
-Resolved three Obsidian review bot findings that blocked v1.23.0's community plugin submission. No user-facing behavior changes.
+**Released 2026-07-02 (PATCH).** Resolved three Obsidian review bot findings that blocked v1.23.0's community plugin submission. No user-facing behavior changes.
 
 - **TypeScript strict mode alignment.** Added `strictBindCallApply: true` to `tsconfig.json` so `.bind()` calls infer correct types — aligns local development with Obsidian's review environment and removes type assertions the bot flagged as unnecessary.
 - **Removed unused code.** Deleted the deprecated `getThinkingControlCacheKey` function (no callers since the v1.23.0 AI-SDK migration). The associated `eslint-disable` comment is gone — no directive, no bot complaint.
@@ -309,8 +312,8 @@ Resolved three Obsidian review bot findings that blocked v1.23.0's community plu
 - **🔌 Multi-provider support** — Anthropic, Anthropic-compatible (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, MiniMax, LM Studio, OpenRouter, Ollama, custom endpoint.
 - **🔄 5xx auto-retry** — exponential backoff on HTTP 5xx / 429 / 529 across all clients (max 2 retries).
 - **📋 Dynamic model list** — fetched live from the provider API.
-- **🌐 Wiki output language** — 9 languages independent of UI (English / 中文 / 日本語 / 한국어 / Deutsch / Français / Español / Português / Italiano), with custom input option.
-- **🌍 Full UI internationalization** — plugin UI in 9 languages with 269+ UI fields fully translated to natural local expression.
+- **🌐 Wiki output language** — 10 languages independent of UI (English / 简体中文 / 繁體中文 / 日本語 / 한국어 / Deutsch / Français / Español / Português / Italiano), with custom input option.
+- **🌍 Full UI internationalization** — plugin UI in 10 languages with 269+ UI fields fully translated to natural local expression.
 - **⚡ Rate-limit guardian** — automatically detects when parallel generation triggers rate limits and prompts to lower concurrency, increase batch delay, or switch provider.
 - **🦙 Web Clipper compatibility** — one-click addition of the official Obsidian Web Clipper's `Clippings/` folder to the watch list; clipped web pages auto-ingest into the Wiki.
 
@@ -343,6 +346,7 @@ Resolved three Obsidian review bot findings that blocked v1.23.0's community plu
 | **📋 Regenerate index** | Manually rebuild `wiki/index.md` |
 | **📊 View Ingestion History (v1.21.0)** | Browse past ingestions, lint reports, and maintenance runs in a searchable, filterable UI |
 | **⏹ Cancel current ingestion** | Stop an in-progress operation cleanly at the next batch boundary |
+| **🎉 Recreate Wiki Welcome Note (v1.23.0)** | Re-generate the first-run Welcome note (e.g., after wiki folder migration) |
 
 > **Note:** Schema update is no longer a top-level command. Schema suggestions are surfaced from inside the **🛠️ Lint wiki** Modal — a single entry point so the user always sees the current schema context before applying changes. The Lint Modal's "Update Schema" button opens the IDE-style diff view (Issue #97).
 
@@ -607,7 +611,7 @@ If LLM-Wiki has become a meaningful part of your knowledge workflow, you can sup
 - ☕ **[Buy me a Ko-fi](https://ko-fi.com/greenerdalii)** — one-time or monthly support via Ko-fi
 - 💳 **[Tip via PayPal](https://paypal.me/greenerdalii)** — one-time tip via PayPal
 
-Sponsorship is entirely optional. The plugin stays MIT-licensed and feature-complete regardless.
+Sponsorship is entirely optional. The plugin stays Apache-2.0-licensed and feature-complete regardless.
 
 ### Sponsors
 
@@ -617,7 +621,7 @@ Thanks to the following people for supporting the project:
 
 ## 📜 License
 
-MIT License — see [LICENSE](LICENSE).
+Apache License, Version 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## 🙏 Acknowledgments
 
