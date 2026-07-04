@@ -2,11 +2,11 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.23.1 (shipped 2026-07-02 — Obsidian review hotfix + strictBindCallApply alignment) | **Updated:** 2026-07-02
+**Version:** 1.23.1 (shipped 2026-07-02 — Obsidian review hotfix) | **Updated:** 2026-07-04 (v1.23.2 scope agreed: #234 + #221 + #219 + graph-cache invalidation)
 
 ## Current Status
 
-**v1.23.1 SHIPPED (2026-07-02, PATCH).** Obsidian review bot reject hotfix: tsconfig `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. 1386 tests passing across 102 files. Next: v1.23.2 PATCH (#219, #221) → v1.24.0 MINOR (PDF source ingest, source-revision awareness, etc.).
+**v1.23.1 SHIPPED (2026-07-02, PATCH).** Obsidian review bot reject hotfix: tsconfig `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. 1386 tests passing across 102 files. Next: v1.23.2 PATCH → v1.24.0 MINOR (PDF source ingest, source-revision awareness, etc.).
 
 **v1.23.0 SHIPPED (2026-07-02).** Graph Engine PPR + Vercel AI-SDK v6 migration + Sponsor section + v1.22.6 hotfix series folded in. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
 
@@ -110,19 +110,33 @@ See [CHANGELOG](./CHANGELOG.md#1180-2026-06-11) for full details.
 
 See [CHANGELOG](./CHANGELOG.md#1170-2026-06-08) for full details.
 
-## Next Milestone: v1.23.2 PATCH (target TBD)
+## Next Milestone: v1.23.2 PATCH (target 2026-07-23)
 
 ### Goals
 
-Two user-reported UX gaps deferred from v1.23.0 to keep the v1.23.0 release scoped:
+Four work items agreed 2026-07-04 with user. Mixed bug fixes + UX improvements. Total ~3-4 days.
 
-- **#219 — Progress Notice suppression setting.** `showProgress()` in `main.ts:414` unconditionally creates a persistent `Notice(msg, 0)`. Add `progressNotificationLevel: 'both' | 'status' | 'notice' | 'silent'` setting (~30 LOC + 6 locale keys). Filed by @jameses-cyber.
-- **#221 — Query scroll-to-start setting.** `scrollToBottom()` in `query-engine.ts:802` unconditionally scrolls to bottom on every chunk; final call leaves user at end of long response. Add post-completion scroll-mode setting (~50 LOC + 6 locale keys). Filed by @jameses-cyber.
+**Bug fixes:**
 
-Both same author (#204), batch together.
+- **#234 — `[[sources/...]]` candidate contradiction fix** (`page-factory.ts:201 buildPagesListForPrompt` add `excludeSources: true` default, tighten `constraints.ts:7`). Real prompt-construction bug from DocTpoint: weaker local models emit fuzzy-mismatched `[[sources/<wrong-slug>|<correct-label>]]` links that resolve but corrupt RAG retrieval. ~2-3h. Filed by @DocTpoint.
+- **Graph cache invalidation** (`query-engine.ts` add `invalidateGraph()` method, hook into `main.ts onIngestDoneDispatch`). Q&A against a wiki ingested earlier in the same session returns stale results because `_graph` is built once and never refreshed. ~30 min. From three-model review.
+
+**UX improvements:**
+
+- **#221 — Query scroll-to-start + chat history dots indicator** (`query-engine.ts`). Baseline (`@jameses-cyber`): stream-to-bottom, scroll-to-start on completion. Enhancement: Variant 2 only — vertical dots indicator on right edge, current-visible turn highlighted via IntersectionObserver, click to `scrollIntoView({block:'start'})`. **No Variant 1 ("turn N/M" sticky header), no Variant 3 (turn preview) — out of scope.** ~4-6h. Filed by @jameses-cyber.
+- **#219 — Semantic-driven notification rewrite** (new `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`, replace 9 ad-hoc `showProgress(msg, 0)` call sites in `main.ts`). Reject the "add a notification-level setting" approach. Default `'auto'` semantics: background ops (watch-mode auto-ingest, periodic lint, startup quick fix, long smart-fix) → status-bar only; short user-triggered ops → Notice + status bar. **No new user-facing setting.** PR will @-user `@jameses-cyber` for confirmation. ~1.5-2 days.
+
+### PR splitting plan
+
+- **PR #1 (v1.23.2 bug fixes, ~3h)**: #234 + graph-cache invalidation
+- **PR #2 (v1.23.2 UX, ~2.5 days)**: #221 + #219
 
 ### Not in v1.23.2
 
+- **#169 status-bar model + granularity data enrichment** — settings are not progress; rejected as misaligned with progress-bar semantics. Discussed 2026-07-04.
+- **#169 estimated-time-remaining** — feasible but pushed to v1.24.0+ (velocity window + batch telemetry needed; not v1.23.2 scope).
+- **#169 live preview of generated wiki files + sound / log-file per-task** — v1.25.0+ research scope; significant UX design work needed.
+- **#221 Variant 1 + Variant 3** — explicitly excluded by user 2026-07-04.
 - #220 (Source-revision awareness) → **v1.24.0** (architectural; needs Discussion thread on fingerprint function design).
 - #218 (PDF source ingest) → **v1.24.0** (architectural; see Discussion #222 topology).
 - #213 (configurable page categories) → **Discussion-only**, NOT in v1.24.0+ (user instruction 2026-06-30).
