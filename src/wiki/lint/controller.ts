@@ -314,7 +314,7 @@ export async function runLintWiki(
       } catch (e) {
         console.error('Duplicate detection failed:', e);
         const errMsg = e instanceof Error ? e.message : String(e);
-        const errNotice = new Notice(t.lintDuplicateCheckFailedDetail.replace('{step}', 'Layer 3 (LLM verify)').replace('{error}', errMsg), 0);
+        const errNotice = new Notice(t.lintDuplicateCheckFailedDetail.replace('{step}', 'Layer 3 (LLM verify)').replace('{error}', errMsg), NOTICE_ERROR);
         window.setTimeout(() => errNotice.hide(), NOTICE_RATE_LIMIT);
       }
     }
@@ -599,7 +599,7 @@ export async function runLintWiki(
             const msg = getText(ctx.settings.language, 'lintPollutedFixed')
               .replace('{fixed}', String(fixed))
               .replace('{total}', String(pollutedPages.length));
-            new Notice(msg, 0);
+            new Notice(msg, NOTICE_NORMAL);
           } finally {
             fixNotice.hide();
           }
@@ -618,7 +618,7 @@ export async function runLintWiki(
           }
           const msg = t.lintAliasesFilled.replace('{filled}', String(filled)).replace('{total}', String(aliasDeficientPages.length))
             + (filled > 0 ? '\n' + t.lintFixIndexUpdated : '');
-          new Notice(msg, 0);
+          new Notice(msg, NOTICE_NORMAL);
         });
       };
     }
@@ -633,7 +633,7 @@ export async function runLintWiki(
           }
           const msg = t.lintFixDeadComplete.replace('{fixed}', String(fixed)).replace('{total}', String(deadLinks.length))
             + (fixed > 0 ? '\n' + t.lintFixIndexUpdated : '');
-          new Notice(msg, 0);
+          new Notice(msg, NOTICE_NORMAL);
         });
       };
     }
@@ -648,7 +648,7 @@ export async function runLintWiki(
           }
           const msg = t.lintFillComplete.replace('{filled}', String(filled)).replace('{total}', String(emptyPages.length))
             + (filled > 0 ? '\n' + t.lintFixIndexUpdated : '');
-          new Notice(msg, 0);
+          new Notice(msg, NOTICE_NORMAL);
         });
       };
     }
@@ -674,7 +674,7 @@ export async function runLintWiki(
         if (parts.length === 0) {
           parts.push(t.lintDeleteCompleted.replace('{count}', '0'));
         }
-        new Notice(parts.join('\n'), 0);
+        new Notice(parts.join('\n'), NOTICE_NORMAL);
       });
     };
 
@@ -688,7 +688,7 @@ export async function runLintWiki(
           }
           const msg = t.lintLinkComplete.replace('{linked}', String(linked))
             + (linked > 0 ? '\n' + t.lintFixIndexUpdated : '');
-          new Notice(msg, 0);
+          new Notice(msg, NOTICE_NORMAL);
         });
       };
     }
@@ -703,7 +703,7 @@ export async function runLintWiki(
           }
           const msg = t.lintMergeComplete.replace('{merged}', String(merged)).replace('{total}', String(duplicates.length))
             + (merged > 0 ? '\n' + t.lintFixIndexUpdated : '');
-          new Notice(msg, 0);
+          new Notice(msg, NOTICE_NORMAL);
         });
       };
     }
@@ -725,7 +725,7 @@ export async function runLintWiki(
           const msg = fixed > 0
             ? t.lintTagViolationFixed.replace('{fixed}', String(fixed)).replace('{total}', String(tagViolations.length))
             : t.lintTagViolationFixedNone;
-          new Notice(msg, 0);
+          new Notice(msg, NOTICE_NORMAL);
         });
       };
     }
@@ -963,7 +963,7 @@ export async function runLintWiki(
       return;
     }
     const errMsg = error instanceof Error ? error.message : String(error);
-    new Notice(TEXTS[ctx.settings.language].lintWikiFailed + ': ' + errMsg, 0);
+    new Notice(TEXTS[ctx.settings.language].lintWikiFailed + ': ' + errMsg, NOTICE_ERROR);
     console.error(error);
   }
 }
