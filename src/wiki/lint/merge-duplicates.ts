@@ -2,7 +2,7 @@ import { EngineContext } from '../../types';
 import { PROMPTS } from '../../prompts';
 import { TOKENS_LINT_PAGE_FIX, WIKI_SUBFOLDERS } from '../../constants';
 import { buildSystemPrompt } from '../system-prompts';
-import { parseFrontmatter, enforceFrontmatterConstraints } from '../../core/frontmatter';
+import { parseFrontmatter, enforceFrontmatterConstraints, serializeFrontmatter } from '../../core/frontmatter';
 import { parseJsonResponse } from '../../core/json';
 import { cleanMarkdownResponse } from '../../core/markdown';
 import { escapeRegex } from './utils';
@@ -136,27 +136,18 @@ export async function mergeDuplicatePages(
   }
 
   const today = new Date().toISOString().split('T')[0];
-  const fmLines: string[] = ['---'];
-  if (targetFm?.type) fmLines.push(`type: ${targetFm.type}`);
-  fmLines.push(`created: ${targetFm?.created || today}`);
-  fmLines.push(`updated: ${today}`);
-  if (mergedSourcesList.length > 0) {
-    fmLines.push(`${WIKI_SUBFOLDERS.sources}:`);
-    for (const s of mergedSourcesList) fmLines.push(`  - "${s}"`);
-  }
-  const tags = Array.isArray(targetFm?.tags) ? targetFm.tags : [];
-  if (tags.length > 0) {
-    fmLines.push('tags:');
-    for (const t of tags) fmLines.push(`  - ${t}`);
-  }
-  if (targetFm?.reviewed) fmLines.push('reviewed: true');
-  if (dedupedAliases.length > 0) {
-    fmLines.push('aliases:');
-    for (const a of dedupedAliases) fmLines.push(`  - "${a}"`);
-  }
-  fmLines.push('---');
-
-  const newContent = fmLines.join('\n') + '\n\n' + mergedBody;
+  const newContent = serializeFrontmatter(
+    {
+      type: targetFm?.type,
+      created: targetFm?.created || today,
+      updated: today,
+      sources: mergedSourcesList,
+      tags: Array.isArray(targetFm?.tags) ? targetFm.tags : [],
+      reviewed: targetFm?.reviewed,
+      aliases: dedupedAliases,
+    },
+    { tagStyle: 'block' }
+  ) + '\n\n' + mergedBody;
   const pageType = targetPath.includes(`/${WIKI_SUBFOLDERS.entities}/`)
     ? 'entity'
     : targetPath.includes(`/${WIKI_SUBFOLDERS.concepts}/`)
