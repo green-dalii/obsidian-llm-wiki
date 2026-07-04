@@ -168,6 +168,72 @@ export function upsertFrontmatterField(content: string, key: string, value: stri
   return `---\n${line}\n---\n\n${content}`;
 }
 
+export interface SerializeFrontmatterOptions {
+  /**
+   * Verbatim frontmatter lines for non-canonical fields (e.g. a future
+   * `supersedes:` flag), emitted after `updated:` and before `sources:`.
+   * Callers that intentionally drop unknown fields pass none; callers that
+   * preserve them (enforceFrontmatterConstraints) pass their collected lines.
+   */
+  passthroughLines?: string[];
+  /** `'block'` → `tags:\n  - x`; `'inline'` → `tags: [x, y]`. Default `'block'`. */
+  tagStyle?: 'inline' | 'block';
+  /** When there are no tags, emit a bare `tags:` line instead of omitting the field. */
+  emitEmptyTags?: boolean;
+}
+
+/**
+ * Canonical v6 frontmatter serializer — the single source of truth for the
+ * field ORDER and YAML SHAPE of type/created/updated/sources/tags/reviewed/aliases.
+ * mergeFrontmatter, enforceFrontmatterConstraints, and mergeDuplicatePages all
+ * delegate here, so a new field (or a fix) is added in exactly one place rather
+ * than three divergent hand-rolled writers. Returns the frontmatter block only
+ * (`---\n…\n---`), without the body; the caller joins body as needed.
+ *
+ * The tag STYLE is parameterized rather than unified: `fix-runners.ts` rewrites
+ * tags with an inline-only regex, so enforce must keep emitting inline tags while
+ * merge keeps block tags. Only the duplicated ordering/serialization logic is
+ * consolidated; observable output is unchanged.
+ */
+export function serializeFrontmatter(
+  fm: FrontmatterData,
+  opts: SerializeFrontmatterOptions = {}
+): string {
+  const { passthroughLines = [], tagStyle = 'block', emitEmptyTags = false } = opts;
+  const lines: string[] = ['---'];
+
+  if (fm.type) lines.push(`type: ${fm.type}`);
+  if (fm.created) lines.push(`created: ${fm.created}`);
+  if (fm.updated) lines.push(`updated: ${fm.updated}`);
+
+  for (const line of passthroughLines) lines.push(line);
+
+  if (Array.isArray(fm.sources) && fm.sources.length > 0) {
+    lines.push(`sources:${yamlStringify(fm.sources)}`);
+  }
+
+  if (Array.isArray(fm.tags) && fm.tags.length > 0) {
+    lines.push(tagStyle === 'inline'
+      ? `tags: [${fm.tags.join(', ')}]`
+      : `tags:${yamlStringify(fm.tags)}`);
+  } else if (emitEmptyTags) {
+    lines.push('tags:');
+  }
+
+  if (fm.reviewed) lines.push('reviewed: true');
+
+  if (Array.isArray(fm.aliases)) {
+    // Dedup: keep first occurrence, drop empties (parity across all writers).
+    const dedupedAliases = fm.aliases.filter((v, i, a) => a.indexOf(v) === i && v);
+    if (dedupedAliases.length > 0) {
+      lines.push(`aliases:${yamlStringify(dedupedAliases)}`);
+    }
+  }
+
+  lines.push('---');
+  return lines.join('\n');
+}
+
 export function mergeFrontmatter(
   existingContent: string,
   newSourcePath: string
@@ -201,41 +267,21 @@ export function mergeFrontmatter(
   const created = fm.created || new Date().toISOString().split('T')[0];
   const updated = new Date().toISOString().split('T')[0];
 
-  const lines: string[] = ['---'];
+  // Always emit a `tags:` line (bare when empty) to preserve prior behavior.
+  const frontmatter = serializeFrontmatter(
+    {
+      type: fm.type,
+      created,
+      updated,
+      sources: mergedSources,
+      tags: Array.isArray(fm.tags) ? fm.tags : [],
+      reviewed: fm.reviewed,
+      aliases: Array.isArray(fm.aliases) ? fm.aliases : undefined,
+    },
+    { tagStyle: 'block', emitEmptyTags: true }
+  );
 
-  if (fm.type) lines.push(`type: ${fm.type}`);
-  lines.push(`created: ${created}`);
-  lines.push(`updated: ${updated}`);
-
-  if (mergedSources.length > 0) {
-    lines.push(`sources:${yamlStringify(mergedSources)}`);
-  }
-
-  if (Array.isArray(fm.tags) && fm.tags.length > 0) {
-    lines.push(`tags:${yamlStringify(fm.tags)}`);
-  } else {
-    lines.push('tags:');
-  }
-
-  if (fm.reviewed) {
-    lines.push('reviewed: true');
-  }
-
-  if (Array.isArray(fm.aliases) && fm.aliases.length > 0) {
-    // Dedup parity with enforceFrontmatterConstraints (keeps first occurrence, drops empties).
-    const dedupedAliases = fm.aliases.filter((v, i, a) => a.indexOf(v) === i && v);
-    if (dedupedAliases.length > 0) {
-      lines.push(`aliases:${yamlStringify(dedupedAliases)}`);
-    }
-  }
-
-  lines.push('---');
-
-  return {
-    frontmatter: lines.join('\n'),
-    body,
-    wasMerged: true
-  };
+  return { frontmatter, body, wasMerged: true };
 }
 
 export function preserveFrontmatterReviewTag(originalContent: string, newContent: string): string {
@@ -275,7 +321,6 @@ export function enforceFrontmatterConstraints(
 
   const lines = fmText.split('\n');
   const newLines: string[] = [];
-  let typeLine = '';
   let collectedTags: string[] = [];
   let foundType = false;
   let foundTags = false;
@@ -298,7 +343,6 @@ export function enforceFrontmatterConstraints(
     if (line.startsWith('type:')) {
       foundType = true;
       const currentType = line.substring(5).trim();
-      typeLine = `type: ${pageType}`;
       if ((pageType === 'entity' || pageType === 'concept') && currentType && currentType !== 'entity' && currentType !== 'concept' && currentType !== pageType) {
         collectedTags.push(currentType);
       }
@@ -339,23 +383,16 @@ export function enforceFrontmatterConstraints(
     }
   }
 
-  const result: string[] = ['---'];
+  // Non-canonical fields (unknown keys) are passed through verbatim, preserving
+  // prior enforce behavior. newLines already excludes type/tags/aliases/created/
+  // updated and list items by construction; the filter is defensive.
+  const passthroughLines = newLines.filter(line =>
+    !line.startsWith('type:') && !line.startsWith('tags:') && !line.startsWith('aliases:') &&
+    !line.startsWith('created:') && !line.startsWith('updated:'));
 
-  if (foundType) {
-    result.push(typeLine);
-  }
-
-  result.push(`created: ${createdValue || today}`);
-  result.push(`updated: ${today}`);
-
-  for (const line of newLines) {
-    if (!line.startsWith('type:') && !line.startsWith('tags:') && !line.startsWith('aliases:') &&
-        !line.startsWith('created:') && !line.startsWith('updated:')) {
-      result.push(line);
-    }
-  }
-
-  if (foundTags || collectedTags.length > 0) {
+  const hasTags = foundTags || collectedTags.length > 0;
+  const dedupedTags: string[] = [];
+  if (hasTags) {
     const validSubtypes: readonly string[] = pageType === 'entity'
       ? (settings ? getActiveEntityTags(settings) : VALID_ENTITY_TAGS)
       : pageType === 'concept'
@@ -363,7 +400,6 @@ export function enforceFrontmatterConstraints(
         : pageType === 'source'
           ? (settings ? getActiveSourceTags(settings) : VALID_SOURCE_TAGS)
           : [];
-    const dedupedTags: string[] = [];
     const outOfVocab: string[] = [];
     for (const tag of collectedTags) {
       if (!tag || tag === pageType) continue;
@@ -377,21 +413,18 @@ export function enforceFrontmatterConstraints(
         outOfVocab
       );
     }
-    if (dedupedTags.length > 0) {
-      result.push(`tags: [${dedupedTags.join(', ')}]`);
-    } else {
-      result.push('tags:');
-    }
   }
 
-  if (foundAliases || collectedAliases.length > 0) {
-    const validAliases = collectedAliases.filter((v, i, a) => a.indexOf(v) === i && v);
-    if (validAliases.length > 0) {
-      result.push(`aliases:${yamlStringify(validAliases)}`);
-    }
-  }
+  const frontmatter = serializeFrontmatter(
+    {
+      type: foundType ? pageType : undefined,
+      created: createdValue || today,
+      updated: today,
+      tags: dedupedTags,
+      aliases: (foundAliases || collectedAliases.length > 0) ? collectedAliases : undefined,
+    },
+    { passthroughLines, tagStyle: 'inline', emitEmptyTags: hasTags }
+  );
 
-  result.push('---');
-
-  return result.join('\n') + '\n\n' + body;
+  return frontmatter + '\n\n' + body;
 }
