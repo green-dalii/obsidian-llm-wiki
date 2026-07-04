@@ -15,6 +15,7 @@ import { WIKI_SUBFOLDERS } from '../constants';
 import { TOKENS_DEDUP_RESOLUTION, TOKENS_PAGE_GENERATION, TOKENS_APPEND_REVIEWED } from '../constants';
 import { slugify, filterRedundantAliases } from '../core/slug';
 import { correctRelatedLinkPrefixes } from '../core/related-link-corrector';
+import { canonicalizeSectionHeaders } from '../core/section-header-canonicalizer';
 import { parseJsonResponse } from '../core/json';
 import { parseFrontmatter, mergeFrontmatter, enforceFrontmatterConstraints } from '../core/frontmatter';
 import { truncateMentions } from '../core/report';
@@ -385,8 +386,11 @@ export class PageFactory {
     // Re-assert the known type of related links (deterministic; fixes the model's
     // `sources/` guess against a truncated existing-pages list).
     const labels = getSectionLabels(this.ctx.settings);
+    // Re-assert the known section labels before the link corrector runs, so a garbled
+    // `## Verwandte …` header still resolves its section for prefix correction.
+    const canonicalizedContent = canonicalizeSectionHeaders(enforcedContent, Object.values(labels));
     const correctedContent = correctRelatedLinkPrefixes(
-      enforcedContent,
+      canonicalizedContent,
       info.related_entities,
       info.related_concepts,
       labels.related_entities,
@@ -451,8 +455,9 @@ export class PageFactory {
 
     // 3. Assemble final content (re-assert related-link types deterministically)
     const labels = getSectionLabels(this.ctx.settings);
+    const canonicalizedBody = canonicalizeSectionHeaders(cleanedBody, Object.values(labels));
     const correctedBody = correctRelatedLinkPrefixes(
-      cleanedBody,
+      canonicalizedBody,
       info.related_entities,
       info.related_concepts,
       labels.related_entities,
