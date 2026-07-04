@@ -484,6 +484,19 @@ export default class LLMWikiPlugin extends Plugin {
   // IngestReportModal. Keeps backward compatibility — legacy
   // callers without trigger default to 'manual'.
   private onIngestDoneDispatch(report: IngestReport): void {
+    // v1.23.2 (review-C P0): any ingest that touches wiki/ invalidates the
+    // cached PPR graph in every open QueryView. Without this, a user who
+    // ingests new content and then asks a query in the same session
+    // answers against the pre-ingest graph (and its pre-ingest neighbors).
+    // We walk all leaves of VIEW_TYPE_QUERY because Obsidian lets the user
+    // dock multiple Query panels in the workspace.
+    const viewLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_QUERY);
+    for (const leaf of viewLeaves) {
+      if (leaf.view instanceof QueryView) {
+        leaf.view.invalidateGraph();
+      }
+    }
+
     if (report.trigger === 'auto') {
       this.onAutoIngestDone(report);
     } else {
