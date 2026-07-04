@@ -313,6 +313,40 @@
   max-width: 80%;
 }
 
+/* v1.23.2 (#221 Variant 2): vertical turn indicator on the right edge. */
+.llm-wiki-turn-indicator {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 4px;
+  background: var(--background-primary-alt, var(--background-primary));
+  border: 1px solid var(--background-modifier-border-hover);
+  border-radius: 12px;
+  z-index: 5;
+}
+
+.llm-wiki-turn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.llm-wiki-turn-dot:hover {
+  background: var(--text-muted);
+  transform: scale(1.25);
+}
+
+.llm-wiki-turn-dot-active {
+  background: var(--interactive-accent);
+}
+
 .llm-wiki-query-message-assistant .llm-wiki-query-message-body {
   /* markdown rendered by Obsidian has its own styling */
 }

@@ -60,6 +60,7 @@ import { applySettingsMigrations } from './core/settings-migrations';
 import { normalizeVocabularyCsv } from './core/tag-vocab';
 import { buildIngestStatusBarText, BatchProgress } from './core/status-bar';
 import { IngestQueue } from './core/ingest-queue';
+import { decideProgressDisplay, ProgressScope } from './core/progress-notification';
 import { LLMWikiSettingTab } from './ui/settings';
 import { WikiEngine } from './wiki/wiki-engine';
 import { QueryView, VIEW_TYPE_QUERY } from './wiki/query-engine';
@@ -114,7 +115,7 @@ export default class LLMWikiPlugin extends Plugin {
       // this callback (during file writes), autoMaintainManager is guaranteed
       // to exist. This is intentional — reordering the assignments would break it.
       (path: string) => this.autoMaintainManager.watchWrite(path),
-      (msg: string) => this.showProgress(msg),
+      (msg: string) => this.showProgressFor(ProgressScope.IngestAutoWatch, msg),
       // v1.22.6 #204: Dispatch based on report.trigger so watch-mode
       // auto-ingest goes through onAutoIngestDone (Notice) while
       // manual ingest keeps the legacy IngestReportModal behavior.
@@ -438,11 +439,20 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   private showProgress(msg: string): void {
-    if (this.progressNotice) {
-      this.progressNotice.setMessage(msg);
-    } else {
-      this.progressNotice = new Notice(msg, 0);
+    // Backward-compatible alias: callers without a scope default to manual ingest.
+    this.showProgressFor(ProgressScope.IngestManual, msg);
+  }
+
+  private showProgressFor(scope: ProgressScope, msg: string): void {
+    const decision = decideProgressDisplay(scope, false, true);
+    if (decision.display === 'notice+status-bar') {
+      if (this.progressNotice) {
+        this.progressNotice.setMessage(msg);
+      } else {
+        this.progressNotice = new Notice(msg, 0);
+      }
     }
+    this.ingestStatusBar?.removeClass('llm-wiki-status-bar-hidden');
   }
 
   private dismissProgress(): void {
@@ -527,7 +537,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
 
     new FileSuggestModal(this.app, this.settings.wikiFolder, (file) => {
-      this.showProgress(`Ingesting: ${file.basename}`);
+      this.showProgressFor(ProgressScope.IngestManual, `Ingesting: ${file.basename}`);
       this.wikiEngine.ingestSource(file, { interactive: true }).catch(e => {
         console.error('Single ingest failed:', e);
         const errMsg = e instanceof Error ? e.message : String(e);
@@ -552,7 +562,7 @@ export default class LLMWikiPlugin extends Plugin {
     // File-type validation is handled centrally by the ingest gate (#164),
     // which accepts the text allowlist (.md, .txt, …) and shows a localized
     // notice for anything else.
-    this.showProgress(`Ingesting: ${activeFile.basename}`);
+    this.showProgressFor(ProgressScope.IngestManual, `Ingesting: ${activeFile.basename}`);
     this.wikiEngine.ingestSource(activeFile, { interactive: true }).catch(e => {
       console.error('Ingest active file failed:', e);
       const errMsg = e instanceof Error ? e.message : String(e);
@@ -643,7 +653,7 @@ export default class LLMWikiPlugin extends Plugin {
    * workaround).
    */
   private async runBatchIngest(files: TFile[], jobIds: string[], sourceLabel: string): Promise<void> {
-    this.showProgress('Checking for already-ingested files...');
+    this.showProgressFor(ProgressScope.IngestManual, 'Checking for already-ingested files...');
     const alreadyIngestedFiles: TFile[] = [];
     const newFiles: TFile[] = [];
     // Aligned with `files` by index — only entries whose id is in
@@ -692,7 +702,7 @@ export default class LLMWikiPlugin extends Plugin {
     });
 
     const texts = TEXTS[this.settings.language];
-    this.showProgress(texts.batchIngestStarting
+    this.showProgressFor(ProgressScope.IngestManual, texts.batchIngestStarting
       .replace('{count}', String(ingestCount))
       .replace('{folder}', sourceLabel));
 
@@ -745,7 +755,7 @@ export default class LLMWikiPlugin extends Plugin {
           );
         }
         this.batchProgress = { current: i + 1, total: ingestCount };
-        this.showProgress(`[${i + 1}/${ingestCount}] ${file.basename}`);
+        this.showProgressFor(ProgressScope.IngestManual, `[${i + 1}/${ingestCount}] ${file.basename}`);
         console.debug(`(${i + 1}/${ingestCount}) ingesting: ${file.path}`);
         await this.wikiEngine.ingestSource(file, { batchCtx });
         if (this.wikiEngine.wasCancelled) {

@@ -9,6 +9,7 @@ import { parseJsonResponse } from '../core/json';
 import { parseIndexForPages } from '../core/index-search';
 import { normalizeWikiLinkContent } from '../core/prompt-builders';
 import { extractThinkingBlocks } from '../core/markdown';
+import { buildTurnIndicator, observeVisibleTurn, scrollTurnToStart } from './turn-indicator';
 import { MAX_PAGE_CONTENT_CHARS, TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 import { pprCascade, type PageRef } from '../core/ppr-cascade';
 import { buildGraphFromContent, type LoadedPage } from '../core/build-graph';
@@ -180,6 +181,8 @@ export class QueryView extends ItemView {
   private _sectionLabels: ReturnType<typeof getSectionLabels> | null = null;
   /** Last PPR cascade result — for displaying retrieval source in the response UI. */
   private _lastRetrieval: { arm: string; count: number; topPaths: string[] } | null = null;
+  private _turnIndicator: HTMLElement | null = null;
+  private _turnObserver: IntersectionObserver | null = null;
   /**
    * v1.23.0 P2: Persistence health fix — when the user explicitly clears
    * history, onClose must NOT clobber the cleared state by writing
@@ -284,12 +287,15 @@ export class QueryView extends ItemView {
       cls: 'llm-wiki-query-history'
     });
 
-    this.history.messages.forEach(msg => {
-      this.renderHistoryMessage(msg.role, msg.content);
+    this.history.messages.forEach((msg, idx) => {
+      const turnIdx = Math.floor(idx / 2);
+      this.renderHistoryMessage(msg.role, msg.content, turnIdx);
     });
 
     // 自动滚动到最新的消息底部
     this.scrollToBottom();
+
+    this.rebuildTurnIndicator();
 
     const inputContainer = container.createDiv({
       cls: 'llm-wiki-query-input-container'
@@ -451,7 +457,8 @@ export class QueryView extends ItemView {
       timestamp: Date.now()
     });
 
-    this.renderHistoryMessage('user', userMessage);
+    const userTurnIdx = Math.floor((this.history.messages.length - 1) / 2);
+    this.renderHistoryMessage('user', userMessage, userTurnIdx);
     this.scrollToBottom();
 
     this.limitHistory();
@@ -465,8 +472,10 @@ export class QueryView extends ItemView {
     this.sendBtn.className = 'llm-wiki-query-stop-btn';
 
     // ChatGPT-style flat layout: full-width message div
+    const assistantTurnIdx = Math.floor((this.history.messages.length - 1) / 2);
     const messageDiv = this.historyContainer.createDiv({
-      cls: 'llm-wiki-query-message-wrapper llm-wiki-query-message-assistant llm-wiki-query-response-live'
+      cls: 'llm-wiki-query-message-wrapper llm-wiki-query-message-assistant llm-wiki-query-response-live',
+      attr: { 'data-turn': String(assistantTurnIdx) }
     });
 
     messageDiv.createDiv({
@@ -734,6 +743,22 @@ export class QueryView extends ItemView {
         .replace('{}', currentRounds.toString())
         .replace('{}', maxRounds.toString())
     );
+
+    // v1.23.2 (#221 Variant 2): scroll-to-start on completion so the
+    // user lands at the beginning of the answer, not the very bottom.
+    this.scrollToStartOfCurrentTurn();
+
+    this.rebuildTurnIndicator();
+  }
+
+  private scrollToStartOfCurrentTurn(): void {
+    const lastTurnIdx = Math.floor((this.history.messages.length - 2) / 2);
+    if (lastTurnIdx < 0) return;
+    const turns = this.historyContainer.querySelectorAll('[data-turn]');
+    const target = turns[lastTurnIdx];
+    if (target) {
+      scrollTurnToStart(target as HTMLElement);
+    }
   }
 
   renderMarkdownContent(content: string, container: HTMLElement) {
@@ -804,6 +829,40 @@ export class QueryView extends ItemView {
   }
 
   /**
+   * v1.23.2 (#221 Variant 2): rebuild the right-edge turn indicator
+   * whenever the conversation changes. Clicking a dot scrolls that
+   * turn to the top of the history container.
+   */
+  private rebuildTurnIndicator(): void {
+    if (this._turnObserver) {
+      this._turnObserver.disconnect();
+      this._turnObserver = null;
+    }
+
+    const turnCount = Math.floor(this.history.messages.length / 2);
+    if (turnCount === 0) {
+      if (this._turnIndicator) {
+        this._turnIndicator.remove();
+        this._turnIndicator = null;
+      }
+      return;
+    }
+
+    this._turnIndicator = buildTurnIndicator(
+      this.historyContainer,
+      turnCount - 1,
+      (idx) => this.scrollToTurn(idx)
+    );
+    this._turnObserver = observeVisibleTurn(this.historyContainer, this._turnIndicator);
+  }
+
+  private scrollToTurn(idx: number): void {
+    const turns = this.historyContainer.querySelectorAll('[data-turn]');
+    if (!turns[idx]) return;
+    scrollTurnToStart(turns[idx] as HTMLElement);
+  }
+
+  /**
    * v1.23.0 P2: rAF-coalesced streaming render. Each onChunk call
    * appends to accumulatedResponse and schedules a single
    * requestAnimationFrame callback. If more chunks arrive before the
@@ -822,11 +881,15 @@ export class QueryView extends ItemView {
     });
   }
 
-  renderHistoryMessage(role: 'user' | 'assistant', content: string) {
+  renderHistoryMessage(role: 'user' | 'assistant', content: string, turnIdx?: number) {
 
     const messageDiv = this.historyContainer.createDiv({
       cls: ['llm-wiki-query-message-wrapper', role === 'user' ? 'llm-wiki-query-message-user' : 'llm-wiki-query-message-assistant']
     });
+
+    if (turnIdx !== undefined) {
+      messageDiv.setAttribute('data-turn', String(turnIdx));
+    }
 
     messageDiv.createDiv({
       cls: 'llm-wiki-query-message-label',
@@ -903,9 +966,11 @@ export class QueryView extends ItemView {
       );
 
       this.historyContainer.empty();
-      this.history.messages.forEach(msg => {
-        this.renderHistoryMessage(msg.role, msg.content);
+      this.history.messages.forEach((msg, idx) => {
+        const turnIdx = Math.floor(idx / 2);
+        this.renderHistoryMessage(msg.role, msg.content, turnIdx);
       });
+      this.rebuildTurnIndicator();
     }
   }
 
