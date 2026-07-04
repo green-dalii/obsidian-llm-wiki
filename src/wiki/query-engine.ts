@@ -230,6 +230,23 @@ export class QueryView extends ItemView {
     return 'message-circle';
   }
 
+  /**
+   * v1.23.2 (review-C P0): Invalidate the cached PPR graph + last
+   * retrieval result so the next sendMessage rebuilds against whatever
+   * wiki/ state is current. Called from main.ts onIngestDoneDispatch
+   * across every open QueryView. Idempotent.
+   */
+  public invalidateGraph(): void {
+    type InternalView = {
+      _graph: unknown;
+      _lastRetrieval: unknown;
+    };
+    const self = this as unknown as InternalView;
+    self._graph = null;
+    self._lastRetrieval = null;
+    console.debug('[QueryView] graph + last retrieval invalidated');
+  }
+
   async onOpen() {
     const { contentEl } = this;
     contentEl.empty();
@@ -329,7 +346,7 @@ export class QueryView extends ItemView {
 
     this.sendBtn = buttonRow.createEl('button', {
       text: `${texts.queryModalSendButton} (${modKey}+Enter)`,
-      cls: 'llm-wiki-query-send-btn'
+      cls: 'llm-wiki-query-send-btn mod-cta'
     });
     this.sendBtn.addEventListener('click', () => {
       if (this.isStreaming) {
@@ -719,7 +736,7 @@ export class QueryView extends ItemView {
     this.isStreaming = false;
     this.currentResponseDiv = null;
     this.sendBtn.setText(`${texts.queryModalSendButton} (Ctrl+Enter)`);
-    this.sendBtn.className = 'llm-wiki-query-send-btn';
+    this.sendBtn.className = 'llm-wiki-query-send-btn mod-cta';
 
     // Restore pending input if user stopped generation
     if (this.pendingInput) {
