@@ -64,15 +64,47 @@ describe('turn-indicator helpers', () => {
 
   it('builds an indicator with one dot per turn', () => {
     const container = makeHistoryContainer();
-    const indicator = buildTurnIndicator(container, 0, () => {});
+    const indicator = buildTurnIndicator(container, 0, ['q1', 'q2', 'q3'], () => {});
     const dots = indicator.querySelectorAll('.llm-wiki-turn-dot');
     expect(dots.length).toBe(3);
     expect(indicator.classList.contains('llm-wiki-turn-indicator')).toBe(true);
   });
 
+  it('creates tooltip elements with question text on hover', () => {
+    const container = makeHistoryContainer();
+    const indicator = buildTurnIndicator(container, 0, ['first question', 'second question', 'third'], () => {});
+    const tooltips = indicator.querySelectorAll('.llm-wiki-turn-dot-tooltip');
+    expect(tooltips.length).toBe(3);
+    expect(tooltips[0].textContent).toBe('first question');
+    expect(tooltips[1].textContent).toBe('second question');
+    expect(tooltips[2].textContent).toBe('third');
+  });
+
+  it('wraps each dot in a .llm-wiki-turn-dot-wrapper', () => {
+    const container = makeHistoryContainer();
+    const indicator = buildTurnIndicator(container, 0, ['a', 'b', 'c'], () => {});
+    const wrappers = indicator.querySelectorAll('.llm-wiki-turn-dot-wrapper');
+    expect(wrappers.length).toBe(3);
+    // Each wrapper contains a dot and a tooltip
+    wrappers.forEach(w => {
+      expect(w.querySelector('.llm-wiki-turn-dot')).toBeTruthy();
+    });
+  });
+
+  it('always creates tooltip element with label or fallback', () => {
+    const container = makeHistoryContainer();
+    const indicator = buildTurnIndicator(container, 0, ['question', '', 'three'], () => {});
+    const tooltips = indicator.querySelectorAll('.llm-wiki-turn-dot-tooltip');
+    expect(tooltips.length).toBe(3);
+    expect(tooltips[0].textContent).toBe('question');
+    // Empty label falls back to "Turn N"
+    expect(tooltips[1].textContent).toMatch(/Turn \d+/);
+    expect(tooltips[2].textContent).toBe('three');
+  });
+
   it('updates the active dot class based on visible turn', () => {
     const container = makeHistoryContainer();
-    const indicator = buildTurnIndicator(container, 0, () => {});
+    const indicator = buildTurnIndicator(container, 0, ['q1', 'q2', 'q3'], () => {});
     const dots = indicator.querySelectorAll('.llm-wiki-turn-dot');
 
     updateActiveDot(indicator, 1);

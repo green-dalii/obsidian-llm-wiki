@@ -33,6 +33,7 @@ export function findTurnElements(historyContainer: HTMLElement): HTMLElement[] {
 export function buildTurnIndicator(
   historyContainer: HTMLElement,
   activeTurn: number,
+  turnLabels: string[],
   onDotClick: (turn: number) => void,
 ): HTMLElement {
   const existing = historyContainer.querySelector(`.${INDICATOR_CLASS}`);
@@ -43,13 +44,24 @@ export function buildTurnIndicator(
 
   const turns = findTurnElements(historyContainer);
   turns.forEach((_, idx) => {
+    const wrapper = historyContainer.ownerDocument.createElement('div');
+    wrapper.className = 'llm-wiki-turn-dot-wrapper';
+
     const dot = historyContainer.ownerDocument.createElement('div');
     dot.className = DOT_CLASS;
     if (idx === activeTurn) {
       dot.classList.add(ACTIVE_CLASS);
     }
     dot.addEventListener('click', () => onDotClick(idx));
-    indicator.appendChild(dot);
+    wrapper.appendChild(dot);
+
+    const label = turnLabels[idx]?.trim();
+    const tip = historyContainer.ownerDocument.createElement('div');
+    tip.className = 'llm-wiki-turn-dot-tooltip';
+    tip.textContent = label || `Turn ${idx + 1}`;
+    wrapper.appendChild(tip);
+
+    indicator.appendChild(wrapper);
   });
 
   historyContainer.appendChild(indicator);

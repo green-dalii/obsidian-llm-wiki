@@ -754,8 +754,11 @@ export class QueryView extends ItemView {
   private scrollToStartOfCurrentTurn(): void {
     const lastTurnIdx = Math.floor((this.history.messages.length - 2) / 2);
     if (lastTurnIdx < 0) return;
-    const turns = this.historyContainer.querySelectorAll('[data-turn]');
-    const target = turns[lastTurnIdx];
+    // Scroll to the USER question of the current turn, not the assistant
+    // answer, so the user sees the question that triggered this response.
+    const target = this.historyContainer.querySelector(
+      `.llm-wiki-query-message-user[data-turn="${lastTurnIdx}"]`
+    );
     if (target) {
       scrollTurnToStart(target as HTMLElement);
     }
@@ -848,18 +851,27 @@ export class QueryView extends ItemView {
       return;
     }
 
+    const turnLabels: string[] = [];
+    for (let i = 0; i < this.history.messages.length; i += 2) {
+      const userMsg = this.history.messages[i];
+      turnLabels.push(userMsg?.role === 'user' ? userMsg.content.slice(0, 120) : '');
+    }
+
     this._turnIndicator = buildTurnIndicator(
       this.historyContainer,
       turnCount - 1,
+      turnLabels,
       (idx) => this.scrollToTurn(idx)
     );
     this._turnObserver = observeVisibleTurn(this.historyContainer, this._turnIndicator);
   }
 
   private scrollToTurn(idx: number): void {
-    const turns = this.historyContainer.querySelectorAll('[data-turn]');
-    if (!turns[idx]) return;
-    scrollTurnToStart(turns[idx] as HTMLElement);
+    const target = this.historyContainer.querySelector(
+      `.llm-wiki-query-message-user[data-turn="${idx}"]`
+    );
+    if (!target) return;
+    scrollTurnToStart(target as HTMLElement);
   }
 
   /**
@@ -949,6 +961,22 @@ export class QueryView extends ItemView {
       cls: 'llm-wiki-query-retrieval-label',
     });
     label.setText(`🔍 ${r.count} page(s) · ${armDisplay}`);
+    // v1.23.2: click to expand/collapse the list of retrieved pages
+    // inline below the label (no Notice).
+    const detail = messageWrapper.createDiv({
+      cls: 'llm-wiki-query-retrieval-detail',
+    });
+    r.topPaths.forEach(p => {
+      const rel = p.replace(this.plugin.settings.wikiFolder + '/', '').replace('.md', '');
+      const pageDiv = detail.createDiv({ cls: 'llm-wiki-query-retrieval-page' });
+      pageDiv.setText(`📄 [[${rel}]]`);
+    });
+
+    label.addClass('llm-wiki-query-retrieval-label-clickable');
+    label.addEventListener('click', (evt) => {
+      evt.stopPropagation();
+      detail.classList.toggle('llm-wiki-query-retrieval-detail-open');
+    });
   }
 
   limitHistory() {

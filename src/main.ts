@@ -6,7 +6,7 @@ import {
   LLMClient,
   IngestReport
 } from './types';
-import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, NOTICE_ABORT, COMPATIBLE_SOURCE_EXTENSIONS } from './constants';
+import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, NOTICE_ABORT, NOTICE_RATE_LIMIT, COMPATIBLE_SOURCE_EXTENSIONS } from './constants';
 import { wrapWithAdvancedSettings } from './llm-client-wrapper';
 import { createLLMClientFromSettingsSync, preloadLLMClientModules } from './llm-sdk/create-llm-client';
 import { runSchemaAnalyze } from './schema/analyze';
@@ -304,16 +304,31 @@ export default class LLMWikiPlugin extends Plugin {
     );
 
     this.wikiEngine.setLintCallbacks(
-      () => {
+      (filename?: string) => {
         const label = getText(this.settings.language, 'lintStatusBar');
         if (this.ingestStatusBar) {
-          this.ingestStatusBar.setText(label);
+          const text = filename
+            ? `${filename} · ${label}`
+            : label;
+          this.ingestStatusBar.setText(text);
           this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
         }
       },
       () => {
         if (this.ingestStatusBar) {
           this.ingestStatusBar.addClass('llm-wiki-status-bar-hidden');
+        }
+      }
+    );
+
+    // v1.23.2: Wire wikiEngine.updateStatusBar() so fix-runners' dynamic
+    // progress messages (e.g. "[3/10] fixing: path/to/file") reach the
+    // status bar, not just the static lint label.
+    this.wikiEngine.setStatusBarUpdateCallback(
+      (text: string) => {
+        if (this.ingestStatusBar) {
+          this.ingestStatusBar.setText(text);
+          this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
         }
       }
     );
@@ -930,7 +945,7 @@ export default class LLMWikiPlugin extends Plugin {
           const restore = t.schemaDiffRestoreHint
             ? t.schemaDiffRestoreHint.replace('{path}', result.backupPath)
             : `Backup saved to ${result.backupPath}. To restore, rename that file back to wiki/schema/config.md in your file explorer.`;
-          new Notice(restore, 0);
+          new Notice(restore, NOTICE_RATE_LIMIT);
         } else {
           new Notice(t.schemaDiffFailed ?? 'Schema apply failed: ' + result.reason, NOTICE_ERROR);
         }
