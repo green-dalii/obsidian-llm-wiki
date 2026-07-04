@@ -198,10 +198,24 @@ export class PageFactory {
     return { path: slugPath };
   }
 
-  async buildPagesListForPrompt(includePaths: string[] = []): Promise<string> {
+  async buildPagesListForPrompt(
+    includePaths: string[] = [],
+    options: { excludeSources?: boolean } = { excludeSources: true }
+  ): Promise<string> {
     const allPages = await getExistingWikiPages(this.ctx.app, this.ctx.settings.wikiFolder);
+    // #234 (DocTpoint): sources/ pages are reserved for the YAML frontmatter
+    // `sources:` field — constraints.ts forbids them in body text. Filter them
+    // out of the LLM candidate list by default so weak local models don't
+    // fuzzy-match onto sources/ entries. getExistingWikiPages itself is
+    // unchanged: source-analyzer.ts:421 still needs sources/ for the
+    // program-generated related-page matching. Pass
+    // `{ excludeSources: false }` to opt out (future analytical surfaces
+    // that legitimately want to mention sources).
+    const promptPages = options.excludeSources
+      ? allPages.filter(p => !p.path.includes('/sources/'))
+      : allPages;
     // Filter out pages with polluted basenames before showing to LLM (L2)
-    const cleanPages = allPages.filter(p => {
+    const cleanPages = promptPages.filter(p => {
       const bn = p.title || '';
       return !/^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/.test(bn);
     });
@@ -212,11 +226,11 @@ export class PageFactory {
       const hasEntityExtra = includePaths.some(p => p.includes('/entities/'));
       const hasConceptExtra = includePaths.some(p => p.includes('/concepts/'));
       if (hasEntityExtra && !hasConceptExtra) {
-        pages = allPages.filter(p => p.path.includes('/entities/')).slice(0, MAX_PAGES);
+        pages = promptPages.filter(p => p.path.includes('/entities/')).slice(0, MAX_PAGES);
       } else if (hasConceptExtra && !hasEntityExtra) {
-        pages = allPages.filter(p => p.path.includes('/concepts/')).slice(0, MAX_PAGES);
+        pages = promptPages.filter(p => p.path.includes('/concepts/')).slice(0, MAX_PAGES);
       } else {
-        pages = allPages.slice(0, MAX_PAGES);
+        pages = promptPages.slice(0, MAX_PAGES);
       }
       truncated = true;
     }

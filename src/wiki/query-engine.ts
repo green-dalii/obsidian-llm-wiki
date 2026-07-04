@@ -9,6 +9,7 @@ import { parseJsonResponse } from '../core/json';
 import { parseIndexForPages } from '../core/index-search';
 import { normalizeWikiLinkContent } from '../core/prompt-builders';
 import { extractThinkingBlocks } from '../core/markdown';
+import { buildTurnIndicator, observeVisibleTurn, scrollTurnToStart } from './turn-indicator';
 import { MAX_PAGE_CONTENT_CHARS, TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 import { pprCascade, type PageRef } from '../core/ppr-cascade';
 import { buildGraphFromContent, type LoadedPage } from '../core/build-graph';
@@ -180,6 +181,8 @@ export class QueryView extends ItemView {
   private _sectionLabels: ReturnType<typeof getSectionLabels> | null = null;
   /** Last PPR cascade result — for displaying retrieval source in the response UI. */
   private _lastRetrieval: { arm: string; count: number; topPaths: string[] } | null = null;
+  private _turnIndicator: HTMLElement | null = null;
+  private _turnObserver: IntersectionObserver | null = null;
   /**
    * v1.23.0 P2: Persistence health fix — when the user explicitly clears
    * history, onClose must NOT clobber the cleared state by writing
@@ -228,6 +231,23 @@ export class QueryView extends ItemView {
 
   getIcon(): string {
     return 'message-circle';
+  }
+
+  /**
+   * v1.23.2 (review-C P0): Invalidate the cached PPR graph + last
+   * retrieval result so the next sendMessage rebuilds against whatever
+   * wiki/ state is current. Called from main.ts onIngestDoneDispatch
+   * across every open QueryView. Idempotent.
+   */
+  public invalidateGraph(): void {
+    type InternalView = {
+      _graph: unknown;
+      _lastRetrieval: unknown;
+    };
+    const self = this as unknown as InternalView;
+    self._graph = null;
+    self._lastRetrieval = null;
+    console.debug('[QueryView] graph + last retrieval invalidated');
   }
 
   async onOpen() {
@@ -284,12 +304,15 @@ export class QueryView extends ItemView {
       cls: 'llm-wiki-query-history'
     });
 
-    this.history.messages.forEach(msg => {
-      this.renderHistoryMessage(msg.role, msg.content);
+    this.history.messages.forEach((msg, idx) => {
+      const turnIdx = Math.floor(idx / 2);
+      this.renderHistoryMessage(msg.role, msg.content, turnIdx);
     });
 
     // 自动滚动到最新的消息底部
     this.scrollToBottom();
+
+    this.rebuildTurnIndicator();
 
     const inputContainer = container.createDiv({
       cls: 'llm-wiki-query-input-container'
@@ -329,7 +352,7 @@ export class QueryView extends ItemView {
 
     this.sendBtn = buttonRow.createEl('button', {
       text: `${texts.queryModalSendButton} (${modKey}+Enter)`,
-      cls: 'llm-wiki-query-send-btn'
+      cls: 'llm-wiki-query-send-btn mod-cta'
     });
     this.sendBtn.addEventListener('click', () => {
       if (this.isStreaming) {
@@ -451,7 +474,8 @@ export class QueryView extends ItemView {
       timestamp: Date.now()
     });
 
-    this.renderHistoryMessage('user', userMessage);
+    const userTurnIdx = Math.floor((this.history.messages.length - 1) / 2);
+    this.renderHistoryMessage('user', userMessage, userTurnIdx);
     this.scrollToBottom();
 
     this.limitHistory();
@@ -465,8 +489,10 @@ export class QueryView extends ItemView {
     this.sendBtn.className = 'llm-wiki-query-stop-btn';
 
     // ChatGPT-style flat layout: full-width message div
+    const assistantTurnIdx = Math.floor((this.history.messages.length - 1) / 2);
     const messageDiv = this.historyContainer.createDiv({
-      cls: 'llm-wiki-query-message-wrapper llm-wiki-query-message-assistant llm-wiki-query-response-live'
+      cls: 'llm-wiki-query-message-wrapper llm-wiki-query-message-assistant llm-wiki-query-response-live',
+      attr: { 'data-turn': String(assistantTurnIdx) }
     });
 
     messageDiv.createDiv({
@@ -719,7 +745,7 @@ export class QueryView extends ItemView {
     this.isStreaming = false;
     this.currentResponseDiv = null;
     this.sendBtn.setText(`${texts.queryModalSendButton} (Ctrl+Enter)`);
-    this.sendBtn.className = 'llm-wiki-query-send-btn';
+    this.sendBtn.className = 'llm-wiki-query-send-btn mod-cta';
 
     // Restore pending input if user stopped generation
     if (this.pendingInput) {
@@ -734,6 +760,25 @@ export class QueryView extends ItemView {
         .replace('{}', currentRounds.toString())
         .replace('{}', maxRounds.toString())
     );
+
+    // v1.23.2 (#221 Variant 2): scroll-to-start on completion so the
+    // user lands at the beginning of the answer, not the very bottom.
+    this.scrollToStartOfCurrentTurn();
+
+    this.rebuildTurnIndicator();
+  }
+
+  private scrollToStartOfCurrentTurn(): void {
+    const lastTurnIdx = Math.floor((this.history.messages.length - 2) / 2);
+    if (lastTurnIdx < 0) return;
+    // Scroll to the USER question of the current turn, not the assistant
+    // answer, so the user sees the question that triggered this response.
+    const target = this.historyContainer.querySelector(
+      `.llm-wiki-query-message-user[data-turn="${lastTurnIdx}"]`
+    );
+    if (target) {
+      scrollTurnToStart(target as HTMLElement);
+    }
   }
 
   renderMarkdownContent(content: string, container: HTMLElement) {
@@ -804,6 +849,49 @@ export class QueryView extends ItemView {
   }
 
   /**
+   * v1.23.2 (#221 Variant 2): rebuild the right-edge turn indicator
+   * whenever the conversation changes. Clicking a dot scrolls that
+   * turn to the top of the history container.
+   */
+  private rebuildTurnIndicator(): void {
+    if (this._turnObserver) {
+      this._turnObserver.disconnect();
+      this._turnObserver = null;
+    }
+
+    const turnCount = Math.floor(this.history.messages.length / 2);
+    if (turnCount === 0) {
+      if (this._turnIndicator) {
+        this._turnIndicator.remove();
+        this._turnIndicator = null;
+      }
+      return;
+    }
+
+    const turnLabels: string[] = [];
+    for (let i = 0; i < this.history.messages.length; i += 2) {
+      const userMsg = this.history.messages[i];
+      turnLabels.push(userMsg?.role === 'user' ? userMsg.content.slice(0, 120) : '');
+    }
+
+    this._turnIndicator = buildTurnIndicator(
+      this.historyContainer,
+      turnCount - 1,
+      turnLabels,
+      (idx) => this.scrollToTurn(idx)
+    );
+    this._turnObserver = observeVisibleTurn(this.historyContainer, this._turnIndicator);
+  }
+
+  private scrollToTurn(idx: number): void {
+    const target = this.historyContainer.querySelector(
+      `.llm-wiki-query-message-user[data-turn="${idx}"]`
+    );
+    if (!target) return;
+    scrollTurnToStart(target as HTMLElement);
+  }
+
+  /**
    * v1.23.0 P2: rAF-coalesced streaming render. Each onChunk call
    * appends to accumulatedResponse and schedules a single
    * requestAnimationFrame callback. If more chunks arrive before the
@@ -822,11 +910,15 @@ export class QueryView extends ItemView {
     });
   }
 
-  renderHistoryMessage(role: 'user' | 'assistant', content: string) {
+  renderHistoryMessage(role: 'user' | 'assistant', content: string, turnIdx?: number) {
 
     const messageDiv = this.historyContainer.createDiv({
       cls: ['llm-wiki-query-message-wrapper', role === 'user' ? 'llm-wiki-query-message-user' : 'llm-wiki-query-message-assistant']
     });
+
+    if (turnIdx !== undefined) {
+      messageDiv.setAttribute('data-turn', String(turnIdx));
+    }
 
     messageDiv.createDiv({
       cls: 'llm-wiki-query-message-label',
@@ -886,6 +978,22 @@ export class QueryView extends ItemView {
       cls: 'llm-wiki-query-retrieval-label',
     });
     label.setText(`🔍 ${r.count} page(s) · ${armDisplay}`);
+    // v1.23.2: click to expand/collapse the list of retrieved pages
+    // inline below the label (no Notice).
+    const detail = messageWrapper.createDiv({
+      cls: 'llm-wiki-query-retrieval-detail',
+    });
+    r.topPaths.forEach(p => {
+      const rel = p.replace(this.plugin.settings.wikiFolder + '/', '').replace('.md', '');
+      const pageDiv = detail.createDiv({ cls: 'llm-wiki-query-retrieval-page' });
+      pageDiv.setText(`📄 [[${rel}]]`);
+    });
+
+    label.addClass('llm-wiki-query-retrieval-label-clickable');
+    label.addEventListener('click', (evt) => {
+      evt.stopPropagation();
+      detail.classList.toggle('llm-wiki-query-retrieval-detail-open');
+    });
   }
 
   limitHistory() {
@@ -903,9 +1011,11 @@ export class QueryView extends ItemView {
       );
 
       this.historyContainer.empty();
-      this.history.messages.forEach(msg => {
-        this.renderHistoryMessage(msg.role, msg.content);
+      this.history.messages.forEach((msg, idx) => {
+        const turnIdx = Math.floor(idx / 2);
+        this.renderHistoryMessage(msg.role, msg.content, turnIdx);
       });
+      this.rebuildTurnIndicator();
     }
   }
 

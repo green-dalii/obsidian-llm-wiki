@@ -4,7 +4,29 @@
 
 ---
 
-## Current Phase: v1.23.1 RELEASED (2026-07-02) → v1.23.2 PATCH in flight
+## Current Phase: v1.23.1 RELEASED (2026-07-02) → v1.23.2 PATCH in flight (target 2026-07-23)
+
+### In Flight (v1.23.2) — PATCH scope (target 2026-07-23)
+
+Four work items, scope agreed 2026-07-04 with user. Mixed bug fixes + UX improvements. Total estimated 3-4 days.
+
+- **#234 sources/ candidate contradiction fix** (`page-factory.ts:201 buildPagesListForPrompt` add `excludeSources: true` default). Real prompt-construction bug from DocTpoint: constraints forbid `[[sources/...]]` in body text, but the existing-pages candidate list simultaneously provides sources/ pages as candidates — weaker local models emit fuzzy-mismatched `[[sources/<wrong-slug>|<correct-label>]]` links that resolve (so invisible in reading view) but corrupt RAG retrieval. Fix: filter `/sources/` out of `buildPagesListForPrompt` only; keep `getExistingWikiPages` unchanged for `source-analyzer.ts:421` programmatic matching. Tighten `constraints.ts:7` wording to reference the candidate list explicitly.
+- **Graph cache invalidation** (`src/wiki/query-engine.ts` add `invalidateGraph()` method, `src/main.ts onIngestDoneDispatch` hook into existing ingest-done callback). Real functional bug from three-model review C: `_graph` is built lazily on first query and never invalidated, so Q&A against a wiki ingested earlier in the same Obsidian session returns stale results.
+- **#221 scroll-to-start + chat history dots indicator** (`query-engine.ts`). User (`@jameses-cyber`) baseline: stream-to-bottom, scroll-to-start on completion. Enhancement: Variant 2 only — vertical dots indicator on right edge, current-visible turn highlighted via IntersectionObserver, click to `scrollIntoView({block:'start'})`. **No Variant 1 ("turn N/M" sticky header), no Variant 3 (turn preview) — those rejected as scope creep.**
+- **#219 semantic-driven notification rewrite** (new `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`, replace 9 ad-hoc `showProgress(msg, 0)` call sites in `main.ts`). Reject the "add a notification-level setting" approach in favor of operation-type → display-channel rules. Default `'auto'` means user sees status-bar only for background ops (watch-mode auto-ingest / periodic lint / startup quick fix / long smart-fix runs) and Notice + status bar for short user-triggered ops. **No new user-facing setting.** Single PR will @-user `@jameses-cyber` for confirmation.
+
+### Rejected from v1.23.2 scope
+
+- ❌ **`#169` status-bar model + granularity data enrichment** — these are *settings*, not progress information. Rejected as misaligned with user signal: status bar shows progress, not configuration.
+- ❌ **`#169` estimated-time-remaining** — feasible but pushed to v1.24.0+ (needs velocity window + batch telemetry; deferred to dedicated tracking issue).
+- ❌ **`#169` live preview of generated wiki files + sound / log-file per-task** — v1.25.0+ research scope; significant UX design work needed.
+- ❌ **#221 Variant 1 (`turn N/M` top sticky header) + Variant 3 (turn preview)** — out of scope.
+- ❌ **`#169` "merge with #219"** — superficially related (both touch status bar) but operationally different: `#219` is display-channel selection, `#169` is data enrichment. Independent concerns.
+
+### Splitting plan for the v1.23.2 PR
+
+- **PR #1 (v1.23.2 bug fixes)**: #234 + graph-cache invalidation (~3h)
+- **PR #2 (v1.23.2 UX improvements)**: #221 + #219 (~2.5 days)
 
 ### Completed (v1.23.1) — Obsidian Review Hotfix (2026-07-02, PATCH)
 

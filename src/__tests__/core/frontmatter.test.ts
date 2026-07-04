@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { LLMWikiSettings } from '../../types';
-import { enforceFrontmatterConstraints, isBlankSource, mergeFrontmatter, parseFrontmatter, preserveFrontmatterReviewTag, upsertFrontmatterField } from '../../core/frontmatter';
+import { enforceFrontmatterConstraints, isBlankSource, mergeFrontmatter, parseFrontmatter, preserveFrontmatterReviewTag, serializeFrontmatter, upsertFrontmatterField } from '../../core/frontmatter';
 
 describe('isBlankSource', () => {
   it('is true for empty or whitespace-only content', () => {
@@ -297,6 +297,52 @@ describe('enforceFrontmatterConstraints', () => {
     const today = new Date().toISOString().split('T')[0];
     expect(result).toContain(`created: ${today}`);
     expect(result).toContain(`updated: ${today}`);
+  });
+});
+
+describe('serializeFrontmatter', () => {
+  it('emits fields in canonical order: type, created, updated, passthrough, sources, tags, reviewed, aliases', () => {
+    const block = serializeFrontmatter(
+      {
+        type: 'entity',
+        created: '2026-01-01',
+        updated: '2026-07-04',
+        sources: ['[[sources/a]]'],
+        tags: ['person'],
+        reviewed: true,
+        aliases: ['Alt'],
+      },
+      { passthroughLines: ['supersedes: "[[sources/old]]"'], tagStyle: 'block' }
+    );
+    const order = ['type:', 'created:', 'updated:', 'supersedes:', 'sources:', 'tags:', 'reviewed:', 'aliases:']
+      .map(k => block.indexOf(k));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order.every(i => i !== -1)).toBe(true);
+  });
+
+  it('block vs inline tag style', () => {
+    const fm = { created: '2026-01-01', updated: '2026-07-04', tags: ['method', 'theory'] };
+    expect(serializeFrontmatter(fm, { tagStyle: 'block' })).toContain('tags:\n  - "method"\n  - "theory"');
+    expect(serializeFrontmatter(fm, { tagStyle: 'inline' })).toContain('tags: [method, theory]');
+  });
+
+  it('emits a bare tags: line only when emitEmptyTags is set', () => {
+    const fm = { created: '2026-01-01', updated: '2026-07-04', tags: [] as string[] };
+    expect(serializeFrontmatter(fm, { emitEmptyTags: true })).toContain('\ntags:\n');
+    expect(serializeFrontmatter(fm, { emitEmptyTags: false })).not.toMatch(/\ntags:/);
+  });
+
+  it('dedups aliases, keeping first occurrence and dropping empties', () => {
+    const block = serializeFrontmatter({
+      created: '2026-01-01', updated: '2026-07-04', aliases: ['A', 'A', '', 'B'],
+    });
+    expect(block.match(/- "A"/g)?.length).toBe(1);
+    expect(block).toContain('- "B"');
+  });
+
+  it('omits sources/tags/aliases when absent, and omits type when undefined', () => {
+    const block = serializeFrontmatter({ created: '2026-01-01', updated: '2026-07-04' });
+    expect(block).toBe('---\ncreated: 2026-01-01\nupdated: 2026-07-04\n---');
   });
 });
 
