@@ -38,6 +38,8 @@
     - [🔧 Verbessert](#-verbessert)
     - [🐛 Behoben](#-behoben)
     - [📊 Tests](#-tests)
+    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
+    - [v1.23.2 — 2026-07-05 (PATCH)](#v1232--2026-07-05-patch)
   - [✨ Funktionen](#-funktionen)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [🛠️ Maintenance](#️-maintenance)
@@ -236,6 +238,19 @@ Behebt drei Funde des Obsidian-Review-Bots, die die Community-Plugin-Einreichung
 - **TypeScript-Strict-Mode-Ausrichtung.** `strictBindCallApply: true` zu `tsconfig.json` hinzugefügt, sodass `.bind()`-Aufrufe korrekte Typen ableiten — gleicht die lokale Entwicklungsumgebung an die Obsidian-Review-Umgebung an und entfernt Typ-Assertions, die der Bot als unnötig markierte.
 - **Ungenutzten Code entfernt.** Die veraltete Funktion `getThinkingControlCacheKey` gelöscht (keine Aufrufer seit der v1.23.0 AI-SDK-Migration).
 - **Build-Reproduzierbarkeit.** Lockfiles vor dem Tagging neu generiert, sodass das CI-gebaute `main.js`-Artefakt mit dem Quellcode für Obsidians Build-Verifikation übereinstimmt.
+
+### v1.23.2 — 2026-07-05 (PATCH)
+
+Fünf zusammengeführte PRs — Fehlerbehebungen, Refactoring und UX-Politur. 1431 Tests bestehen. Keine neuen benutzerseitigen Einstellungen. Upgrade für alle auf v1.23.0+ empfohlen.
+
+- **🛠️ sources-Eingabeisolierung (#234).** Die LLM-Kandidatenliste schließt standardmäßig `wiki/sources/`-Seiten aus, sodass schwächere lokale Modelle keine falsch gerouteten `[[sources/<falscher-slug>|<korrektes-label>]]`-Links mehr erzeugen, die RAG auf die falsche Seite leiten. Programmatisch generiertes Related-Page-Matching (`source-analyzer.ts:421`) bleibt unverändert. Die Constraints-Eingabeaufforderung verweist nun explizit auf die Kandidatenliste.
+- **🔄 PPR-Graph-Cache-Invalidierung bei Ingestion.** Jede Ingestion, die `wiki/` berührt, invalidiert jetzt den zwischengespeicherten PPR-Graph in allen offenen Query-Panels — Ingest in derselben Obsidian-Sitzung wird für Folgeabfragen endlich sichtbar.
+- **🔁 Streaming-erhaltender Client-Wrapper.** `wrapWithAdvancedSettings` wurde als Komposition umgeschrieben (`Object.create(client)` + explizites `createMessage`-Override). Eliminiert die Streaming-Regression aus der v1.23.0-Ära, bei der klassenbasierte SDK-Clients stillschweigend auf Non-Streaming zurückfielen, weil `{ ...client }` `createMessageStream` aus der Prototyp-Kette entfernte.
+- **🧩 Frontmatter-Serializer-Konsolidierung (DocTpoint, PR #238).** `mergeFrontmatter` / `enforceFrontmatterConstraints` / `mergeDuplicatePages` delegieren nun an einen einzigen `serializeFrontmatter`-Writer. Verhalten unverändert (YAML-äquivalent), aber neue Felder wie das kommende `supersedes:`-Flag (v1.24.0) müssen nur an einer Stelle eingefügt werden.
+- **🖱️ Query-Turn-Indikator + Retrieval-Label-UX-Politur (#219, #221).** Ein rechtsseitiger Punkt pro Konversations-Turn, mit Hover-Vorschau der ursprünglichen Frage, IntersectionObserver-gesteuerter aktiver Hervorhebung und Klick-zum-Scrollen. Das `🔍 N page(s) · …`-Retrieval-Label ist jetzt klickbar — Klick klappt die Liste der abgerufenen Seiten inline aus (keine Notice-Popups). Nach Abschluss der Generierung wird zur Benutzerfrage gescrollt, nicht zum Ende der Antwort.
+- **📋 Semantische Fortschrittsbenachrichtigungen (#219).** Manuelle Operationen zeigen Notice + Statusleiste; Hintergrundoperationen (Watch-Mode-Auto-Ingest, periodisches Lint, Startup-QuickFixes) zeigen nur die Statusleiste. Keine neue benutzerseitige Einstellung — Kanalauswahl wird vom Operationstyp abgeleitet. Lint-Abschluss-Notices respektieren jetzt `NOTICE_NORMAL` / `NOTICE_ERROR`-Timeouts statt manuell geschlossen werden zu müssen.
+- **📝 Kanonische Abschnittsüberschriften (DocTpoint, PR #241).** Lokalmodell-Verfälschungen von Abschnittsüberschriften unter `wikiLanguage: de` (z. B. `Erwägungen…`, `Erwurnungen…` für das kanonische `Erwähnungen in der Quelle`) werden nun durch begrenzte Levenshtein-Distanz beim Schreiben auf das kanonische Label zurückgesetzt — stillschweigender Verlust aus Tier-B-Retrieval ist eliminiert.
+- **📜 Lizenz-Upgrade.** MIT → Apache License 2.0 + DCO. NOTICE-Datei listet alle menschlichen Mitwirkenden. Bestehende Beiträge sind nicht rückwirkend betroffen; zukünftige Commits müssen `Signed-off-by:` enthalten.
 
 ## ✨ Funktionen
 

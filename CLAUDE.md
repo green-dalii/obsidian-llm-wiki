@@ -1,70 +1,41 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-02
+**Last Updated:** 2026-07-05
 
 ---
 
-## Current Phase: v1.23.1 RELEASED (2026-07-02) → v1.23.2 PATCH in flight (target 2026-07-23)
+## Current Phase: v1.23.2 RELEASED (2026-07-05) → v1.24.0 MINOR in flight (target TBD)
 
-### In Flight (v1.23.2) — PATCH scope (target 2026-07-23)
+### In Flight (v1.24.0) — MINOR scope (target TBD)
 
-Four work items, scope agreed 2026-07-04 with user. Mixed bug fixes + UX improvements. Total estimated 3-4 days.
+Architectural items deferred from v1.23.0–v1.23.2 cycle:
 
-- **#234 sources/ candidate contradiction fix** (`page-factory.ts:201 buildPagesListForPrompt` add `excludeSources: true` default). Real prompt-construction bug from DocTpoint: constraints forbid `[[sources/...]]` in body text, but the existing-pages candidate list simultaneously provides sources/ pages as candidates — weaker local models emit fuzzy-mismatched `[[sources/<wrong-slug>|<correct-label>]]` links that resolve (so invisible in reading view) but corrupt RAG retrieval. Fix: filter `/sources/` out of `buildPagesListForPrompt` only; keep `getExistingWikiPages` unchanged for `source-analyzer.ts:421` programmatic matching. Tighten `constraints.ts:7` wording to reference the candidate list explicitly.
-- **Graph cache invalidation** (`src/wiki/query-engine.ts` add `invalidateGraph()` method, `src/main.ts onIngestDoneDispatch` hook into existing ingest-done callback). Real functional bug from three-model review C: `_graph` is built lazily on first query and never invalidated, so Q&A against a wiki ingested earlier in the same Obsidian session returns stale results.
-- **#221 scroll-to-start + chat history dots indicator** (`query-engine.ts`). User (`@jameses-cyber`) baseline: stream-to-bottom, scroll-to-start on completion. Enhancement: Variant 2 only — vertical dots indicator on right edge, current-visible turn highlighted via IntersectionObserver, click to `scrollIntoView({block:'start'})`. **No Variant 1 ("turn N/M" sticky header), no Variant 3 (turn preview) — those rejected as scope creep.**
-- **#219 semantic-driven notification rewrite** (new `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`, replace 9 ad-hoc `showProgress(msg, 0)` call sites in `main.ts`). Reject the "add a notification-level setting" approach in favor of operation-type → display-channel rules. Default `'auto'` means user sees status-bar only for background ops (watch-mode auto-ingest / periodic lint / startup quick fix / long smart-fix runs) and Notice + status bar for short user-triggered ops. **No new user-facing setting.** Single PR will @-user `@jameses-cyber` for confirmation.
+- **#220 — Source-revision awareness for merge** (DocTpoint's 4-tier design). Tier 0 fingerprint + replace self-revision; Tier 1 `supersedes:` frontmatter flag; Tier 2 cross-source disagreement open question; Tier 3 review-queue UI. Tiers 0-1 tractable for v1.24.0; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
+- **#218 — PDF source ingest** (Discussion #222 topology).
+- **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by @DocTpoint.
+- **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
+- **LintFixer → module-level functions split** — 707-LOC god class.
 
-### Rejected from v1.23.2 scope
+### Discussion-only (NOT in v1.24.0)
 
-- ❌ **`#169` status-bar model + granularity data enrichment** — these are *settings*, not progress information. Rejected as misaligned with user signal: status bar shows progress, not configuration.
-- ❌ **`#169` estimated-time-remaining** — feasible but pushed to v1.24.0+ (needs velocity window + batch telemetry; deferred to dedicated tracking issue).
-- ❌ **`#169` live preview of generated wiki files + sound / log-file per-task** — v1.25.0+ research scope; significant UX design work needed.
-- ❌ **#221 Variant 1 (`turn N/M` top sticky header) + Variant 3 (turn preview)** — out of scope.
-- ❌ **`#169` "merge with #219"** — superficially related (both touch status bar) but operationally different: `#219` is display-channel selection, `#169` is data enrichment. Independent concerns.
+- **#213 configurable page categories** — user instruction 2026-06-30.
+- **#169 live preview of generated wiki files + sound / log-file per-task** — v1.25.0+ research scope.
 
-### Splitting plan for the v1.23.2 PR
+### Completed (v1.23.2) — Bug fixes + Refactor + UX polish (2026-07-05, PATCH)
 
-- **PR #1 (v1.23.2 bug fixes)**: #234 + graph-cache invalidation (~3h)
-- **PR #2 (v1.23.2 UX improvements)**: #221 + #219 (~2.5 days)
+Five merged PRs (#239 + #240 + #238 + #241). **1431 tests passing** across 108 files. No new user-facing settings. License upgraded to Apache 2.0 + DCO. Recommended upgrade for everyone on v1.23.0+.
 
-### Completed (v1.23.1) — Obsidian Review Hotfix (2026-07-02, PATCH)
-
-**PATCH** scope. v1.23.0 submission was rejected by Obsidian's automated review system with 4 findings. Root cause was TS configuration (local `strictBindCallApply: false` vs Obsidian bot's `strict: true`), not a code quality defect. Fix strategy: align local TS config with Obsidian's review environment — no workarounds, no `eslint-disable` band-aids.
-
-- ✅ **`tsconfig.json`: add `strictBindCallApply: true`.** Makes `.bind()` return properly-typed functions instead of `any`, eliminating the need for `as FetchLike` / `as ReturnType` type assertions that the bot flagged as unnecessary. Only 2 `.bind()` call sites in the codebase (`obsidian-fetch-bridge.ts`, `llm-client-wrapper.ts`).
-- ✅ **`src/main.ts`: delete unused `getThinkingControlCacheKey` function** (no callers, previously kept for v1.24.0 inspection). Removed the associated eslint-disable comment — no directive, no bot complaint.
-- ✅ **Lockfiles regenerated** for CI build-verification consistency (v1.23.0 was built locally on macOS; v1.23.1 built by CI from fresh lockfiles → hash matches `main.js` artifact).
-- ✅ **pre-release-gate skill updated** — new §2f "CI Build Consistency" check verifies `strictBindCallApply` + lockfile freshness before every release.
-- ✅ **Tests: 1386 passing** (+10 from v1.22.6 hotfix tests folded in during v1.23.0 merge).
-
-- ✅ **P1-7 — Vercel AI-SDK v6 migration.** `src/llm-sdk/` (5 files, 1421 LOC) + `src/core/obsidian-fetch-bridge.ts` (326 LOC) — deleted 1625-LOC `llm-client.ts` and 8 old test files. Eliminates provider-version regression class (#137 / #141 / #143 / #147 / #207).
-- ✅ **Graph Engine (Issue #198, #117, #157, #175, #215).** Personalized PageRank over `[[wiki-link]]` graph. New core modules: `section-extractor.ts` (173 LOC), `monte-carlo-ppr.ts` (99 LOC, Fogaras 2005), `hub-detection.ts` (134 LOC), `ppr-cascade.ts` (213 LOC, hybrid guard), `hub-retirement.ts` (175 LOC, PR #215 by @DocTpoint, merged 2026-06-30), `build-graph.ts`.
-- ✅ **URL fallback** for custom baseURLs (Kimi Coding Plan `/v1` missing) — `core/url-fallback.ts` (395 LOC). b775d63.
-- ✅ **LM Studio API-key gate** — `main.ts:962` bypass for lmstudio alongside ollama. 4b96025, Closes #223.
-- ✅ **Token-key probe-then-retry** — runtime fallback for `max_tokens` ↔ `max_completion_tokens`. KISS: if 400 → retry with alt key once. cc3f2c2, Refs #207.
-- ✅ **Real-time streaming for all providers.** `result.textStream` true逐块 streaming in all 3 llm-sdk clients. macrotask yield between chunks. (commits `2e51e23` + `6be9258`)
-- ✅ **P2-2 partial** — cascade + seeds token + LLM seed retrieval improvements.
-- ✅ **Sponsor section** — Ko-fi badge + 💖 Support Project section synced to all 10 READMEs (3f4c373).
-- ✅ **P2-3 knn baseline analysis** — `REAL_VAULT_EVAL.md` documents cascade R@5 27.1% vs knn 24.1% (3pp gap, no opt-in embedding path per #175).
-- ✅ **P2-4 PPR tuning** — real vault (2142 pages) tuning. `damping=0.05, numWalks=3000, walkLength=20` improves R@5 from 21.5% → 23.8%.
-- ✅ **Welcome note + Multi-File Ingest (Phase 5.1.5)** + **IngestQueue pub/sub** (Issue #130).
-- ✅ **v1.22.6 hotfix folded in** — GPT-5 Pro variants `/v1/responses` routing + Auto Ingest completion path (#204) + Auto Smart Fix context-aware (#204).
-- ✅ **Tests: 1376 passing** across 100 files (+272 since v1.22.0).
-- ✅ **Bundle:** 1.24 MB → 3.17 MB (user accepted 2026-06-29).
-
-### In Flight (v1.23.2 PATCH, target TBD)
-
-Two user-reported UX gaps deferred — #219/#221 were originally v1.23.1 scope but that slot was taken by the v1.23.1 review hotfix (P0). Both are now deferred to v1.23.2.
-
-- 🔄 **#219 — Progress Notice suppression setting.** `showProgress()` in `main.ts:414` unconditionally creates a persistent `Notice(msg, 0)`. Add `progressNotificationLevel: 'both' | 'status' | 'notice' | 'silent'` setting (~30 LOC + 6 locale keys). Filed by @jameses-cyber.
-- 🔄 **#221 — Query scroll-to-start setting.** `scrollToBottom()` in `query-engine.ts:802` unconditionally scrolls to bottom on every chunk; final call leaves user at end of long response. Add post-completion scroll-mode setting (~50 LOC + 6 locale keys). Filed by @jameses-cyber.
-
-Both same author (#204), batch together.
-
-- 🔄 **#207 close** — user will close manually after real-world testing (separate commit `Closes #207`, NOT part of v1.23.1). Token-key probe-then-retry fallback (cc3f2c2) addresses the root cause for OpenAI-compatible gateway users.
-
-### Earlier Releases
+- ✅ **#234 sources/ candidate isolation** — `buildPagesListForPrompt` excludes sources/ by default; constraints prompt cross-references the candidate list.
+- ✅ **Graph cache invalidation** — `QueryView.invalidateGraph()` + `onIngestDoneDispatch` walks every VIEW_TYPE_QUERY leaf.
+- ✅ **Streaming-preserving client wrapper** — `Object.create(client)` preserves prototype chain; eliminates the v1.23.0-era streaming regression.
+- ✅ **Frontmatter serializer consolidation (DocTpoint, PR #238)** — `mergeFrontmatter`/`enforceFrontmatterConstraints`/`mergeDuplicatePages` delegate to a single `serializeFrontmatter` writer.
+- ✅ **Section header canonicalizer (DocTpoint, PR #241)** — `core/section-header-canonicalizer.ts`: bounded Levenshtein snaps LLM-garbled headers back to canonical labels on write.
+- ✅ **#219 semantic-driven notification rewrite** — `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`. No new setting.
+- ✅ **#221 Query turn indicator** — `wiki/turn-indicator.ts`: right-edge vertical dots, IntersectionObserver, hover tooltip, click-to-scroll.
+- ✅ **Clickable retrieval label** — `🔍 N page(s) · …` toggles inline page-list panel.
+- ✅ **Lint completion Notice TTLs** — all `run*Fixes` use `NOTICE_NORMAL`/`NOTICE_ERROR`.
+- ✅ **License upgrade** — MIT → Apache 2.0 + DCO. NOTICE file lists all 6 human code contributors.
+- ✅ **Notice TTL compliance** — Lint completion Notices now use `NOTICE_NORMAL`/`NOTICE_ERROR`
 
 - v1.23.0 (2026-07-02, MINOR) — Graph Engine PPR + Vercel AI-SDK v6 + Multi-File Ingest + Sponsor section. 1376 tests. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
 - v1.22.6 (2026-06-30, hotfix) — #204 Auto Ingest modal + Auto Smart Fix context-aware + #207 GPT-5 Pro variants routing. 1118 tests.
@@ -86,9 +57,17 @@ Both same author (#204), batch together.
 - LintFixer class → module-level functions (707-LOC god class split, 1 day)
 - knn + cascade by-query-type complement (DocTpoint #198 follow-up, 2026-06-30)
 
+**Deferred to v1.24.0+:**
+- #220 Source-revision awareness (Discussion thread needed first)
+- #218 PDF source ingest → Discussion #222 topology
+- Hub-retirement lint wire-up (post-#215)
+- #36 source-title-in-extraction (low ROI vs PPR cascade)
+- LintFixer class → module-level functions (707-LOC god class split, 1 day)
+
 **Deferred to v1.25.0+ (research / experimental):**
 - Cold-start vocabulary seeding — rejected on ROI grounds (cascade R@5 27.1% vs knn 24.1% = 3pp gap).
-- #213 configurable page categories — **Discussion-only**.
+- Hub-retirement LLM signal
+- #169 ETR (estimated time remaining) implementation
 
 ---
 

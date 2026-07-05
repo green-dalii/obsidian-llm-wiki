@@ -38,7 +38,8 @@
     - [🔧 Improved](#-improved)
     - [🐛 Fixed](#-fixed)
     - [📊 Tests](#-tests)
-  - [⚡ What's New in v1.23.1](#-whats-new-in-v1231)
+    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
+    - [v1.23.2 — 2026-07-05 (PATCH)](#v1232--2026-07-05-patch)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [🛠️ Maintenance](#️-maintenance)
@@ -261,13 +262,26 @@ This release also folds in the v1.22.6 hotfix series (Test Connection regression
 
 We recommend upgrading — the AI-SDK migration eliminates a class of provider-version regressions (#137 / #141 / #143 / #147 / #207), and the Graph Engine delivers embedding-grade retrieval quality at zero embedding cost. If you use OpenAI-compatible gateways with custom baseURLs, the URL fallback + token-key probe-then-retry fixes should resolve connection issues without configuration changes.
 
-## ⚡ What's New in v1.23.1
+### v1.23.1 — 2026-07-02 (PATCH)
 
-**Released 2026-07-02 (PATCH).** Resolved three Obsidian review bot findings that blocked v1.23.0's community plugin submission. No user-facing behavior changes.
+**Resolved three Obsidian review bot findings** that blocked v1.23.0's community plugin submission. No user-facing behavior changes.
 
 - **TypeScript strict mode alignment.** Added `strictBindCallApply: true` to `tsconfig.json` so `.bind()` calls infer correct types — aligns local development with Obsidian's review environment and removes type assertions the bot flagged as unnecessary.
 - **Removed unused code.** Deleted the deprecated `getThinkingControlCacheKey` function (no callers since the v1.23.0 AI-SDK migration). The associated `eslint-disable` comment is gone — no directive, no bot complaint.
 - **Build reproducibility.** Regenerated lockfiles before tagging so the CI-built `main.js` artifact matches source for Obsidian's build verification step.
+
+### v1.23.2 — 2026-07-05 (PATCH)
+
+**Five merged PRs — bug fixes, refactor, and UX polish.** 1431 tests passing. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
+
+- **🛠️ Prompt-candidate isolation for sources (#234).** The LLM candidate list now excludes `wiki/sources/` pages by default, so weaker local models no longer fuzzy-match and emit garbled `[[sources/<wrong-slug>|<right-label>]]` links that route RAG to the wrong page. Program-generated related-page matching (`source-analyzer.ts:421`) is unaffected. Constraints prompt now cross-references the candidate list explicitly.
+- **🔄 Live PPR graph invalidation on ingest.** Any ingest that touches `wiki/` now invalidates the cached PPR graph in every open Query panel — ingests in the same Obsidian session finally become visible to follow-up queries.
+- **🔁 Streaming-preserving client wrapper.** `wrapWithAdvancedSettings` rewritten as composition (`Object.create(client)` + explicit `createMessage` override). Eliminates the v1.23.0-era streaming regression where class-based SDK clients silently fell back to non-streaming because spread `{ ...client }` dropped `createMessageStream` from the prototype chain.
+- **🧩 Frontmatter serializer consolidation (DocTpoint, PR #238).** `mergeFrontmatter` / `enforceFrontmatterConstraints` / `mergeDuplicatePages` now delegate to a single `serializeFrontmatter` writer. Behavior unchanged (YAML-equivalent), but new fields like the upcoming `supersedes:` flag (v1.24.0) only need to be threaded in one place.
+- **🖱️ Query turn indicator + retrieval label UX polish (#219, #221).** A right-edge dot per conversation turn, with hover preview of the original question, IntersectionObserver-driven active highlight, and click-to-scroll. The `🔍 N page(s) · …` retrieval label is now clickable — click to expand the list of retrieved pages inline. Generation completion scrolls to the user's question rather than the answer tail. Retrieval label uses an inline expand/collapse panel (no Notice popups).
+- **📋 Semantic progress notifications (#219).** Manual operations show Notice + status bar; background operations (watch-mode auto-ingest, periodic lint, startup QuickFixes) show only the status bar. No new user-facing setting — channel selection is derived from operation type. Lint completion Notices now respect `NOTICE_NORMAL` / `NOTICE_ERROR` timeouts instead of persisting until manually dismissed.
+- **📝 Canonical section headers (DocTpoint, PR #241).** Local-model section garbles under `wikiLanguage: de` (e.g. `Erwägungen…`, `Erwurnungen…` for the canonical `Erwähnungen in der Quelle`) are now snapped back to the canonical label via bounded Levenshtein on write — silent drop from Tier-B retrieval is eliminated.
+- **📜 License upgrade.** MIT → Apache License 2.0 with DCO. NOTICE file lists all human contributors. Existing contributions are not retroactively affected; future commits must include `Signed-off-by:`.
 
 ## ✨ Features
 

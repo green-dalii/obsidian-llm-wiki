@@ -7,16 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.2] - 2026-07-05
+
+**Theme:** Five merged PRs — bug fixes, refactor, and UX polish. 1431 tests passing. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
+
 ### Added
 
-- **NOTICE file** listing all 6 human code contributors (alphabetical by GitHub handle).
+- **Semantic progress notification module (#219).** New `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`. Manual operations show Notice + status bar; background operations (watch-mode auto-ingest, periodic lint, startup QuickFixes) show status bar only. Channel selection is derived from operation semantics — no user-facing setting.
+- **Query turn indicator (#221).** Right-edge vertical dots, one per conversation turn. IntersectionObserver highlights the currently visible turn; clicking a dot scrolls that turn's question to the top via `scrollIntoView({ block: 'start' })`. Hover reveals the original question text in a tooltip.
+- **Retrieval label click-to-expand.** The `🔍 N page(s) · …` label below each assistant response is now clickable — clicking toggles an inline panel listing the retrieved pages (no Notice popup).
+- **Section header canonicalizer (DocTpoint, PR #241).** `core/section-header-canonicalizer.ts` uses bounded Levenshtein distance to snap LLM-garbled section headers (e.g. `Erwägungen…` → `Erwähnungen in der Quelle`) back to canonical labels on write. Eliminates silent drop from Tier-B retrieval in `wikiLanguage: de` clean re-ingest runs.
+- **Dynamic lint/fix status bar.** `wikiEngine.updateStatusBar()` is now wired to the real Obsidian status bar element. Fix-runners' per-file progress messages (e.g. `[3/10] fixing: file.md`) reach the status bar during manual lint, watch-mode auto-ingest, and Smart Fix All.
 
 ### Changed
 
-- **License upgraded from MIT to Apache License 2.0.** Apache 2.0 adds an explicit patent grant (relevant after AI-SDK v6 dependency introduction in v1.23.0), trademark protection for the `Karpathy Wiki` / `Greener-Dalii` brand, and contributor patent retaliation clauses — all without restricting commercial use, fork, or closed-source derivative works. The plugin remains free and open-source on the Obsidian Community Plugin marketplace.
-- **`package.json` license field** updated from `MIT` to `Apache-2.0` to match LICENSE.
-- **CONTRIBUTING.md** now includes a License & DCO section. New contributions should include a `Signed-off-by:` line per Developer Certificate of Origin v1.1. Past contributions are not retroactively required to add sign-off.
-- **README badges** updated from `license-MIT-green` to `license-Apache--2.0-blue` across all 10 locale READMEs. Sponsor paragraphs and License sections updated with Apache 2.0 wording.
+- **`wrapWithAdvancedSettings` refactor.** Replaced `.bind()` + in-place mutation with composition (`Object.create(client)` + explicit `createMessage` override). Preserves prototype chain — class-based SDK clients no longer fall back to non-streaming because spread `{ ...client }` dropped `createMessageStream` from the prototype.
+- **`buildPagesListForPrompt` sources-filter (#234).** Adds `{ excludeSources: true }` default option. The LLM candidate list no longer includes `wiki/sources/` pages — weaker local models no longer emit fuzzy-mismatched `[[sources/<wrong-slug>|<correct-label>]]` links that route RAG to the wrong page. `getExistingWikiPages` is unchanged for programmatic related-page matching. Constraints prompt now cross-references the candidate list explicitly.
+- **Frontmatter serializer consolidation (DocTpoint, PR #238).** `mergeFrontmatter` / `enforceFrontmatterConstraints` / `mergeDuplicatePages` delegate to a single `serializeFrontmatter` writer. Behavior unchanged (YAML-equivalent), but new fields like the upcoming `supersedes:` flag (v1.24.0) only need to be threaded through one place.
+- **Lint completion Notices now respect TTLs.** All `run*Fixes` completion Notices and the lintWikiFailed Notice now use `NOTICE_NORMAL` (5s) / `NOTICE_ERROR` (8s) instead of `new Notice(msg, 0)`. The schema restore-hint Notice uses `NOTICE_RATE_LIMIT` (10s). Pure progress Notices (`new Notice('', 0)`) keep their zero-timeout because they have explicit `hide()` paths.
+- **License upgrade to Apache 2.0 + DCO.** Per the v1.23.1 prep PR. NOTICE file lists all 6 human code contributors alphabetically. CONTRIBUTING.md includes a License & DCO section. Existing contributions are not retroactively affected; future commits must include `Signed-off-by:`.
+
+### Fixed
+
+- **Live PPR graph cache invalidation on ingest.** Any ingest that touches `wiki/` now invalidates the cached PPR graph in every open Query panel — ingests in the same Obsidian session are finally visible to follow-up queries. Implementation: `QueryView.invalidateGraph()` walks `getLeavesOfType(VIEW_TYPE_QUERY)` from `main.ts.onIngestDoneDispatch`.
+- **Streaming regression in v1.23.0-era wrapper.** Class-based SDK clients (`OpenAICompatSdkClient`, `AnthropicSdkClient`, `OpenAISdkClient`) were silently falling back to non-streaming because spread `{ ...client }` dropped prototype methods. Replaced with `Object.create(client)` + explicit `createMessage` override to preserve the prototype chain.
 
 ## [1.23.0] - 2026-07-02
 

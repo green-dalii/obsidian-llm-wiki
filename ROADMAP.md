@@ -2,11 +2,13 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.23.1 (shipped 2026-07-02 — Obsidian review hotfix) | **Updated:** 2026-07-04 (v1.23.2 scope agreed: #234 + #221 + #219 + graph-cache invalidation)
+**Version:** 1.23.2 (shipped 2026-07-05) | **Updated:** 2026-07-05
 
 ## Current Status
 
-**v1.23.1 SHIPPED (2026-07-02, PATCH).** Obsidian review bot reject hotfix: tsconfig `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. 1386 tests passing across 102 files. Next: v1.23.2 PATCH → v1.24.0 MINOR (PDF source ingest, source-revision awareness, etc.).
+**v1.23.2 SHIPPED (2026-07-05, PATCH).** Five merged PRs (#234 + graph-cache invalidation + #221 + #219 + DocTpoint's #238 + #241). 1431 tests passing across 108 files. Recommended upgrade for everyone on v1.23.0+. License upgraded to Apache 2.0 + DCO. Next: v1.24.0 MINOR (PDF source ingest, source-revision awareness, hub-retirement lint wire-up).
+
+**v1.23.1 SHIPPED (2026-07-02, PATCH).** Obsidian review bot reject hotfix: tsconfig `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. 1386 tests passing across 102 files.
 
 **v1.23.0 SHIPPED (2026-07-02).** Graph Engine PPR + Vercel AI-SDK v6 migration + Sponsor section + v1.22.6 hotfix series folded in. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
 
@@ -110,37 +112,38 @@ See [CHANGELOG](./CHANGELOG.md#1180-2026-06-11) for full details.
 
 See [CHANGELOG](./CHANGELOG.md#1170-2026-06-08) for full details.
 
-## Next Milestone: v1.23.2 PATCH (target 2026-07-23)
+## Next Milestone: v1.24.0 MINOR (target TBD)
 
 ### Goals
 
-Four work items agreed 2026-07-04 with user. Mixed bug fixes + UX improvements. Total ~3-4 days.
+TBD after v1.23.2 feedback. Architectural items deferred from v1.23.0–v1.23.2 cycle:
 
-**Bug fixes:**
+- **#220 — Source-revision awareness for merge** (DocTpoint's 4-tier design). Tier 0 fingerprint + replace self-revision; Tier 1 `supersedes:` frontmatter flag; Tier 2 cross-source disagreement open question; Tier 3 review-queue UI. Tiers 0-1 tractable for v1.24.0; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
+- **#218 — PDF source ingest** (Discussion #222 topology).
+- **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by @DocTpoint (post-#215 merge).
+- **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
+- **LintFixer → module-level functions split** — 707-LOC god class, deprioritized since v1.18.x.
 
-- **#234 — `[[sources/...]]` candidate contradiction fix** (`page-factory.ts:201 buildPagesListForPrompt` add `excludeSources: true` default, tighten `constraints.ts:7`). Real prompt-construction bug from DocTpoint: weaker local models emit fuzzy-mismatched `[[sources/<wrong-slug>|<correct-label>]]` links that resolve but corrupt RAG retrieval. ~2-3h. Filed by @DocTpoint.
-- **Graph cache invalidation** (`query-engine.ts` add `invalidateGraph()` method, hook into `main.ts onIngestDoneDispatch`). Q&A against a wiki ingested earlier in the same session returns stale results because `_graph` is built once and never refreshed. ~30 min. From three-model review.
+### Not in v1.24.0 (Discussion-only)
 
-**UX improvements:**
+- **#213 (configurable page categories)** — user instruction 2026-06-30.
+- **#169 live preview of generated wiki files + sound / log-file per-task** — v1.25.0+ research scope.
 
-- **#221 — Query scroll-to-start + chat history dots indicator** (`query-engine.ts`). Baseline (`@jameses-cyber`): stream-to-bottom, scroll-to-start on completion. Enhancement: Variant 2 only — vertical dots indicator on right edge, current-visible turn highlighted via IntersectionObserver, click to `scrollIntoView({block:'start'})`. **No Variant 1 ("turn N/M" sticky header), no Variant 3 (turn preview) — out of scope.** ~4-6h. Filed by @jameses-cyber.
-- **#219 — Semantic-driven notification rewrite** (new `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`, replace 9 ad-hoc `showProgress(msg, 0)` call sites in `main.ts`). Reject the "add a notification-level setting" approach. Default `'auto'` semantics: background ops (watch-mode auto-ingest, periodic lint, startup quick fix, long smart-fix) → status-bar only; short user-triggered ops → Notice + status bar. **No new user-facing setting.** PR will @-user `@jameses-cyber` for confirmation. ~1.5-2 days.
+### Closed during v1.23.2 (✅ shipped 2026-07-05)
 
-### PR splitting plan
+- ✅ **#234 sources/ candidate contradiction** — `excludeSources: true` default in `buildPagesListForPrompt`.
+- ✅ **Graph cache invalidation on ingest** — `QueryView.invalidateGraph()` + `onIngestDoneDispatch` hook.
+- ✅ **#221 scroll-to-start + Variant 2 turn indicator** — `wiki/turn-indicator.ts`.
+- ✅ **#219 semantic-driven notification rewrite** — `core/progress-notification.ts` + scope-aware `showProgressFor()`.
+- ✅ **Section header canonicalizer (PR #241)** — bounded Levenshtein on write, by @DocTpoint.
+- ✅ **Frontmatter serializer consolidation (PR #238)** — `serializeFrontmatter` single writer, by @DocTpoint.
+- ✅ **License upgrade to Apache 2.0 + DCO** — NOTICE + CONTRIBUTING.
+- ✅ **Streaming-preserving client wrapper** — `Object.create(client)` instead of spread.
+- ✅ **Clickable retrieval label + dynamic status bar + Notice TTLs** — UX polish.
 
-- **PR #1 (v1.23.2 bug fixes, ~3h)**: #234 + graph-cache invalidation
-- **PR #2 (v1.23.2 UX, ~2.5 days)**: #221 + #219
+## v1.23.2 — Implemented (shipped 2026-07-05)
 
-### Not in v1.23.2
-
-- **#169 status-bar model + granularity data enrichment** — settings are not progress; rejected as misaligned with progress-bar semantics. Discussed 2026-07-04.
-- **#169 estimated-time-remaining** — feasible but pushed to v1.24.0+ (velocity window + batch telemetry needed; not v1.23.2 scope).
-- **#169 live preview of generated wiki files + sound / log-file per-task** — v1.25.0+ research scope; significant UX design work needed.
-- **#221 Variant 1 + Variant 3** — explicitly excluded by user 2026-07-04.
-- #220 (Source-revision awareness) → **v1.24.0** (architectural; needs Discussion thread on fingerprint function design).
-- #218 (PDF source ingest) → **v1.24.0** (architectural; see Discussion #222 topology).
-- #213 (configurable page categories) → **Discussion-only**, NOT in v1.24.0+ (user instruction 2026-06-30).
-- Hub-retirement lint wire-up (`core/hub-retirement.ts` → call `assessHubs` in lint path) — owned by @DocTpoint, post-#215 merge.
+See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five merged PRs (#234 + graph-cache + #221 + #219 + DocTpoint's #238 + #241). 1431 tests passing across 108 files. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
 
 ## v1.23.0 — Implemented (shipped 2026-07-02)
 
