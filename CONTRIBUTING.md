@@ -145,7 +145,7 @@ src/
 │   └── analyze.ts       # Schema-analyze with cancel wiring
 ├── ui/                  # Settings + Modals
 ├── texts/               # i18n (9 languages)
-└── __tests__/           # Unit tests (vitest, 1386 tests across 102 files)
+└── __tests__/           # Unit tests (vitest, 1431 tests across 108 files)
 ```
 
 ## Internationalization

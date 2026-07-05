@@ -3,8 +3,8 @@
 # 🧠 Karpathy LLM Wiki Plugin for Obsidian
 
 > AI-powered structured knowledge base that ingests your notes and generates a connected Wiki — based on [Andrej Karpathy's LLM Wiki concept](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
->
-> **Obsidian official score 95/100** | Native support for 10 languages | Actively maintained, continuously evolving
+
+> **Obsidian official score 95/100 | Native support for 10 languages | Zero-embedding graph retrieval | Full data sovereignty | Works with every provider**
 
 ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
 ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) <br>
@@ -33,13 +33,9 @@
     - [🎮 Usage](#-usage)
     - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
   - [⚡ What's New in v1.23.0](#-whats-new-in-v1230)
-    - [⭐ Highlights](#-highlights)
-    - [✨ What's New](#-whats-new)
-    - [🔧 Improved](#-improved)
-    - [🐛 Fixed](#-fixed)
-    - [📊 Tests](#-tests)
+    - [v1.23.2 — 2026-07-05 (latest, PATCH)](#v1232--2026-07-05-latest-patch)
     - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
-    - [v1.23.2 — 2026-07-05 (PATCH)](#v1232--2026-07-05-patch)
+    - [v1.23.0 — 2026-07-02 (MINOR)](#v1230--2026-07-02-minor)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [🛠️ Maintenance](#️-maintenance)
@@ -47,16 +43,10 @@
     - [🌐 LLM \& Language](#-llm--language)
     - [🏗️ Architecture \& Performance](#️-architecture--performance)
     - [🔒 Privacy \& Security](#-privacy--security)
-  - [⌨️ Commands](#️-commands)
   - [📖 Example](#-example)
   - [🤖 Model Selection Guide](#-model-selection-guide)
   - [🏗️ Architecture](#️-architecture)
   - [❓ FAQ](#-faq)
-    - [💡 General](#-general)
-    - [🏷️ Aliases \& Duplicates](#️-aliases--duplicates)
-    - [⚡ Performance \& Cost](#-performance--cost)
-    - [🧹 Maintenance](#-maintenance)
-    - [🔍 Troubleshooting](#-troubleshooting)
   - [🔒 Transparency \& Compliance](#-transparency--compliance)
   - [💖 Support the Project](#-support-the-project)
     - [Sponsors](#sponsors)
@@ -76,6 +66,9 @@ You write. AI organizes. You ask. That's it.
 **📚 So you don't have to be the librarian.** No deciding what deserves a page. No maintaining cross-links. No wondering if something is out of date. Drop notes into `sources/` and the LLM reads, extracts, writes, links, and even flags contradictions — while you stay in flow.
 
 **🤖 And it's not another chatbot.** ChatGPT knows the internet. LLM-Wiki knows *you* — or rather, what you've taught it. Every answer carries `[[wiki-links]]` back into your knowledge graph. Every response is a trailhead, not a dead end.
+
+**🏆 Key differentiator — Graph-powered retrieval at zero embedding cost.** Most knowledge-base plugins use vector embeddings (expensive, per-provider, internet-dependent). LLM-Wiki runs Personalized PageRank over your existing `[[wiki-link]]` graph — matching embedding-grade retrieval quality with zero API calls, no new dependencies, and full local-model support. Add **zero-LLM Tier B section extraction** (i18n-aware, 10 languages) and you get a knowledge engine that works for every user, on every provider.
+
 
 ---
 
@@ -146,142 +139,69 @@ This project evolves rapidly — new features, bug fixes, and improvements are s
 ### 🎮 Usage
 
 | Method | How |
-|--------|-----|
+|--------|------|
 | **📥 Ingest single source** | `Cmd+P` → "Ingest single source" — select a note to extract entities and concepts into Wiki pages |
 | **📂 Ingest from folder** | `Cmd+P` → "Ingest from folder" — pick a folder, batch generate Wiki from all notes inside |
-| **📑 Ingest multiple files** | `Cmd+P` → "Ingest multiple files" — pick specific notes via two-pane modal (recursive folder tree + per-file checkboxes), then batch ingest the selection |
-| **🔍 Query wiki** | `Cmd+P` → "Query wiki" — ask questions, get streaming answers with `[[wiki-links]]` |
-| **🛠️ Lint wiki** | `Cmd+P` → "Lint wiki" — health scan: duplicates, dead links, empty pages, orphans, missing aliases |
+| **📑 Ingest multiple files** | `Cmd+P` → "Ingest multiple files" — pick specific notes via two-pane modal (recursive folder tree + per-file checkboxes), then batch ingest the selection (with live queue + per-file cancel) |
+| **🎯 Ingest current file** | Click the `sticker` icon in the left ribbon, or `Cmd+P` → "Ingest current file" — ingest the file you're editing |
+| **🔍 Query wiki** | `Cmd+P` → "Query wiki" — conversational Q&A over your Wiki, streaming responses with `[[wiki-links]]` |
+| **🛠️ Lint wiki** | `Cmd+P` → "Lint wiki" — full health scan: duplicates, dead links, empty pages, orphans, missing aliases, contradictions. Schema suggestions surfaced inside the Lint Modal |
 | **📋 Regenerate index** | `Cmd+P` → "Regenerate index" — rebuild `wiki/index.md` with current pages and aliases |
-| **🎯 One-click ingest** | Click the `sticker` icon in the left sidebar or `Cmd+P` → "Ingest current file" — directly ingest the file you're editing |
+| **📊 View Ingestion History (v1.21.0)** | `Cmd+P` → "View Ingestion History" — browse past ingestions, lint reports, and maintenance runs in a searchable, filterable UI |
+| **⏹ Cancel current operation** | `Cmd+P` → "Cancel current ingestion" — stop an in-progress operation cleanly at the next batch boundary |
+| **🎉 Recreate Welcome Note (v1.23.0)** | `Cmd+P` → "Recreate Wiki Welcome Note" — re-generate the first-run Welcome note |
 
 Re-ingesting the same source does incremental updates on entity/concept pages (new info merged in). Summary pages are regenerated.
 
-**💡 Smart Batch Skip:** When ingesting a folder, the plugin automatically detects already-processed files and skips them to save time and API costs. The batch report shows skipped count.
+> 💡 **Smart Batch Skip:** When ingesting a folder, the plugin automatically detects already-processed files and skips them to save time and API costs. The batch report shows skipped count.
 
 ![Command palette — search "karpa" to see all Karpathy LLM Wiki commands](docs/assets/command-panel.png)
 
 ### ⚠️ Upgrading from an Older Version?
 
-**This release is fully backward-compatible.** No breaking changes since v1.0.0 — your existing wiki pages, settings, and workflows are preserved. No reconfiguration or data migration needed.
+**Backward compatible.** No breaking changes since v1.0.0 — your existing wiki pages, settings, and workflows are preserved without reconfiguration.
 
-**Upgrading to v1.20.3 from any earlier version**: source-page slugs are now fingerprinted (every `sources/<slug>.md` becomes `sources/<basename>_<6hex>.md`). On your next ingest, existing `sources/` pages are renamed in place and all `[[sources/<slug>]]` backlinks update automatically — no action required, but the file rename may briefly appear in your Obsidian file explorer. If you have external scripts or bookmarks that reference `sources/<slug>.md` paths directly, update them to use the new fingerprinted names.
+**After upgrading**, run **Lint Wiki** → **Smart Fix All** for a one-click, causality-ordered repair:
+1. 🏷️ Complete Aliases (LLM batch-generates translations, acronyms, alternate names)
+2. 🔄 Merge Duplicates (cross-language, abbreviation, and high-similarity matches)
+3. 🔗 Fix Dead Links / Link Orphans / Expand Empty Pages
 
-**If your existing Wiki was built across many versions**, some pages may lack recent capabilities (aliases, alias-aware dedup, modernized prompts). Run **Lint Wiki** to see what needs attention. Smart Fix All handles the most common cleanups in one click.
+Then **Regenerate Index** to rebuild `wiki/index.md` with alias entries for every page, enabling 
+alias-aware search (e.g., "DSA" finds "DeepSeek-Sparse-Attention").
 
-**If upgrading from a version before v1.16.0**, run **Lint Wiki** once to automatically fix historical issues:
-- **Double-nested links** `[[[[entities/Foo|Foo]]]]` in log.md — Lint detects and fixes these with zero LLM cost
-- **Cross-directory stub duplicates** — pages that exist in both `entities/` and `concepts/` with the same slug are now correctly matched
+> 📖 **Detailed upgrade walkthroughs** for specific version jumps (v1.20.3 slug fingerprint, v1.16.0 double-nested links) are maintained in [GitHub Discussions / Upgrading](https://github.com/green-dalii/obsidian-llm-wiki/discussions).
 
-**For wikis built across many versions**, follow these steps to bring your Wiki up to current standards:
+**Settings to review:** Wiki Output Language (independent from UI), Extraction Granularity (Minimal–Fine, + Custom), Page Generation Concurrency (default 3), Batch Delay (default 300ms).
 
-**1️⃣ Rebuild your index**
-`Cmd+P` → **"Regenerate index"** — This rebuilds `wiki/index.md` with alias entries for every page, enabling alias-aware search (e.g., searching "DSA" finds "DeepSeek-Sparse-Attention"). The old index format only listed page titles.
-
-**2️⃣ Run Lint wiki**
-`Cmd+P` → **"Lint wiki"** — This scans your entire Wiki and shows:
-- **🏷️ Missing aliases**: Pages without aliases (any version, if you never ran "Complete Aliases"). Click **"Complete Aliases"** — the LLM generates translations, acronyms, and alternate names in bulk. This is critical for duplicate detection.
-- **🔄 Duplicate pages**: Pages with overlapping content (e.g., "CoT" vs "思维链" created by older versions that didn't have alias-aware dedup). Click **"Merge Duplicates"** to fuse them and preserve all aliases.
-- **💀 Dead links / Empty pages / Orphans**: Standard wiki maintenance issues.
-
-**3️⃣ Use Smart Fix All**
-Click **"Smart Fix All"** in the Lint report for a one-click, causality-ordered repair: aliases completed → duplicates merged → dead links fixed → orphans linked → empty pages expanded. This is the fastest way to clean up a wiki built across many versions.
-
-**4️⃣ Enable parallel page generation**
-Settings → **LLM Configuration**:
-- **⚡ Page Generation Concurrency**: Set to 3 for most providers. Speeds up ingestion 2–3× on sources with 10+ entities.
-- **⏱️ Batch Delay**: Start at 300ms. Increase to 500–800ms if you hit rate limits.
-
-**5️⃣ Review current settings:**
-- **🌐 Wiki Output Language**: Independent from UI language — your Wiki can be in Chinese while the plugin UI stays in English, or vice versa.
-- **📊 Extraction Granularity**: Five options control how deeply the LLM extracts entities from sources:
-  - **Fine** (~100 items) — Deep analysis, edge-case mentions included. High token cost, best for key sources.
-  - **Standard** (~50 items) — Balanced extraction. Good default for daily notes.
-  - **Coarse** (~10 items) — Quick overview, core entities only. Low cost, fast ingestion.
-  - **Minimal** (~5 items) — Essential items only. Ideal for batch processing 100+ files or testing new sources.
-  - **Custom** (1–500 items) — User-defined entity/concept limits for specialized workflows.
-  > 💡 **Recommendation**: Use Minimal or Coarse for large folders to save time and API costs. Use Fine selectively on key documents that warrant deep analysis.
-- **🔄 Auto-Maintenance**: Startup Quick Fixes defaults ON (one-time startup health check); File Watcher and Periodic Lint default OFF — enable only if you want automatic background processing.
-
-> **🛡️ Safety**: Parallel generation uses `Promise.allSettled` — if one page fails, others continue. Failed pages are retried individually with exponential backoff. Smart Batch Skip automatically detects already-ingested files to save time and API costs.
-
----
 ## ⚡ What's New in v1.23.0
 
-v1.23.0 is a **MINOR feature release** — the biggest architectural change since 1.0. Two major themes ship together: the **Vercel AI-SDK v6 migration** that replaces a hand-rolled 1625-line client with a stable, vendor-supported transport, and the **Graph Engine** — Personalized PageRank over the `[[wiki-link]]` graph — which delivers embedding-grade retrieval quality at zero embedding cost, works for every provider, and requires no new dependencies.
+### v1.23.2 — 2026-07-05 (latest, PATCH)
 
-This release also folds in the v1.22.6 hotfix series (Test Connection regression fixes for GPT-5.x Pro variants and the LM Studio API-key gate), a knn-baseline evaluation gate, and a Sponsor section.
+Five merged PRs — bug fixes, refactor, and UX polish. Recommended upgrade for everyone on v1.23.0+.
 
-### ⭐ Highlights
-
-- **🤖 Vercel AI-SDK v6 migration.** The hand-rolled `OpenAICompatibleClient` / `AnthropicClient` / `AnthropicCompatibleClient` (1625 LOC, 30+ provider-version workarounds accumulated since v1.20.0) is replaced by `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2`. New `src/llm-sdk/` (5 files, 1421 LOC) + `src/core/obsidian-fetch-bridge.ts` (326 LOC) provide a stable, vendor-supported transport. Eliminates the entire class of provider-version regressions (#137 / #141 / #143 / #147 / #207).
-- **🕸️ Personalized PageRank over `[[wiki-link]]` graph (Issue #198, #117, #157, #175).** A new Monte-Carlo PPR engine walks the existing wiki-link structure to recover source pages via outgoing-link structure — embedding-grade R@k at zero embedding cost, offline, no new dependencies, works for every provider. Three-tier pipeline (lex fast path → LLM seeds → PPR walks) plus a hybrid guard (lex fallback when graph too small). Hub-link distinctiveness scanner shipped as a lint pass.
-- **🛡️ Provider-error UX hardening.** Reasoning models (`gpt-5.1+`, `gpt-5.5`, `o1`/`o3`/`o4-mini`) routed to OpenAI Responses API. Token-key probe-then-retry (`max_tokens` ↔ `max_completion_tokens`) on **any** HTTP 400 — no regex, no model-name hardcoding, just `if 400 → retry with alt key`. LM Studio API-key gate (Issue #223) lets local providers test connection without an API key. URL fallback auto-fixes missing `/v1` in custom baseURLs (Kimi Coding Plan).
-
-### ✨ What's New
-
-- **🔍 Personalized PageRank (PPR) engine.** `core/monte-carlo-ppr.ts` (Fogaras 2005 MC-PPR) performs K short random walks per query page at O(K×L) cost independent of |V| — embarrassingly parallel. Tuned on a 2142-page real vault: `damping=0.05, numWalks=3000, walkLength=20` improves R@5 from 21.5% → 23.8% (+11% relative). See `REAL_VAULT_EVAL.md` for the full tuning table.
-- **🎯 Hybrid retrieval cascade (PPR + LLM seeds + lex fast path).** `core/ppr-cascade.ts` (213 LOC) orchestrates the three-tier Query Wiki pipeline. `core/section-extractor.ts` (Tier B zero-LLM) replaces the previous LLM-based seed selection.
-- **🔗 Hub-link distinctiveness scanner (#157, #175).** New lint pass that flags pages whose outgoing links mostly point to low-distinctiveness hubs (e.g., every page linking to `[[Index]]`). 229 LOC + 15 tests. Contributed by @DocTpoint.
-- **🏷️ Hub-retirement crystallization signal (#215, @DocTpoint).** `core/hub-retirement.ts` (175 LOC + 12 unit tests + 136 LOC integration tests). Pure percentile-based verdict with dual absolute guards. Wired up for lint integration in v1.24.0.
-- **🤖 AI-SDK v6 client set.** `openai-sdk-client.ts` (455 LOC, auto Responses API routing for reasoning models), `anthropic-sdk-client.ts` (300 LOC, baseURL support for Coding Plan / z.ai / GLM-Antropic), `openai-compat-sdk-client.ts` (449 LOC, 8 OpenAI-format baseURLs). `create-llm-client.ts` (151 LOC) provides async + sync shim + preload pattern.
-- **🌐 Unified URL fallback for custom baseURLs.** `core/url-fallback.ts` (395 LOC) auto-resolves missing `/v1` in user-entered baseURLs (Kimi Coding Plan, GLM, z.ai). Module-level static cache survives `createLLMClient` re-creation so Ingest / Lint / Query all benefit from the first request's resolution.
-- **🔁 Token-key probe-then-retry (KISS, no regex).** `src/llm-sdk/token-key-probe.ts` (70 LOC) caches the working `max_tokens` ↔ `max_completion_tokens` key per baseURL on first failure. Triggered by `if (statusCode === 400 && !cached) → retry`. Addresses root cause of #207 for all OpenAI-compatible gateways.
-- **🎬 Real-time streaming for all providers.** `result.textStream` true chunk-by-chunk streaming now works in all three `llm-sdk` clients. The "Restore true streaming for 3rd-party providers" backlog item is **DONE**. macrotask yield between chunks forces a paint frame per chunk (no more batch-arrival UX).
-- **🎉 Welcome note (Phase 5.1.5).** Three-tier first-run Welcome note (Tier A empty / Tier B existing / Tier C upgrade). `type: welcome` frontmatter, `createWelcomeNote` toggle, `Recreate Welcome Note` command. D8 LLM dynamic translation writes the note in the user's wiki language at write time — no hardcoded i18n.
-- **📥 Multi-File Ingest (Issue #130).** Two-pane picker: left = recursive folder tree with per-file checkboxes, right = live ingest queue with status. "Add to queue" two-step flow, per-file cancel, "Cancel all" for pending/running jobs. Reuses `runBatchIngest` so the per-file loop, dedup, and report modal are shared with folder ingest. New `IngestQueue` pub/sub store is the single source of truth for in-session ingest lifecycle.
-
-![Multi-File Ingest modal — left pane: recursive folder tree with per-file checkboxes; right pane: live ingest queue with status](docs/assets/multi-file-ingest.png)
-- **🔑 LM Studio API-key gate (Issue #223).** `main.ts:962` now excludes both `ollama` and `lmstudio` from API-key validation. Local providers can test connection without an API key.
-- **🛡️ GPT-5.x Pro variants routing (Issue #207 follow-up, v1.22.6 hotfix).** `gpt-5.1-pro` / `gpt-5.2-pro` / `gpt-5.5-pro` correctly route to `/v1/responses` — broadened regex matches the trailing `-pro` suffix.
-- **🛡️ Auto Ingest completion path (Issue #204 follow-up, v1.22.6 hotfix).** `trigger='auto'|'manual'` field on `IngestReport` / `IngestOptions` routes auto-ingest completion to `onAutoIngestDone` (Notice) instead of the blocking `IngestReportModal`.
-- **📊 knn baseline analysis (P2-3 eval acceptance gate).** DocTpoint ran a knn baseline (bge-m3, no graph) on the same `sample-50page` fixture per #198 follow-up: cascade R@5 27.1% vs knn 24.1% (3pp gap). Most of cascade's lift is *semantic-over-keyword*, not *graph-over-semantic*. Reinforces the 2026-06-22 #175 rejection — embeddings permanently rejected; graph signals are sufficient for all PPR use cases.
-- **🌍 i18n settings rewrite (10 locales).** User-first language throughout ("disable thinking") instead of implementation details ("3-tier dialect fallback chain"). 14 new keys per locale for the Welcome note + Ingest modal UI.
-- **💖 Sponsor section.** Ko-fi button and 💖 Support the Project section in all 10 READMEs.
-
-### 🔧 Improved
-
-- **📜 Provider error body now reaches the Test Connection UI.** `window.fetch` re-fetch with 5s timeout captures the provider's diagnostic (e.g., "insufficient_quota") into the Notice.
-- **♻️ Lint performance knobs centralised.** `src/constants.ts` holds all yield cadences, batch sizes, and thresholds in one place — single-file tuning instead of 4-file drift.
-- **⏱️ 429/5xx exponential backoff on Responses API path.** Previously only the Chat Completions path had retry; now both paths share the same `withRetry`.
-- **🧹 `thinkingControlCache` deprecated.** Removed the 3-tier dialect probe; AI-SDK handles thinking internally. Cache retained on disk for backward-compat (will be removed in v1.24.0 if no use case surfaces).
-- **⚡ Bundle size 1.24 MB → 3.13 MB** (user accepted 2026-06-29). Obsidian manifest has no size limit; lazy `await import()` for AI-SDK packages didn't reduce bundle (esbuild CJS inline); future ESM bundle / dynamic chunk can revisit.
-
-### 🐛 Fixed
-
-- **GPT-5.x models no longer fail Test Connection with 400** (#207) — full coverage including `-pro` variants.
-- **LM Studio Test Connection no longer requires API key** (#223) — local providers excluded from the API-key gate.
-- **#204 Auto Ingest no longer opens blocking modal** — Notice path correctly wired.
-- **Real-time streaming was batched** — fixed via macrotask yield + `result.textStream`-only consumption.
-- **`generation_complete` no longer stamped onto `log.md` / `index.md` / `schema/`** (v1.22.3) — `isInWikiContentFolder()` guard restricts the stamp to `wiki/{entities,concepts,sources}/...`.
-- **Dead-link stub fabrication class closed** (#197) — `fixDeadLink` no longer creates AI-expanded stub pages.
-
-### 📊 Tests
-
-- **1386 tests passing** across 102 files (+380 since v1.22.0).
-
-We recommend upgrading — the AI-SDK migration eliminates a class of provider-version regressions (#137 / #141 / #143 / #147 / #207), and the Graph Engine delivers embedding-grade retrieval quality at zero embedding cost. If you use OpenAI-compatible gateways with custom baseURLs, the URL fallback + token-key probe-then-retry fixes should resolve connection issues without configuration changes.
+- **🔄 Live PPR graph invalidation on ingest** — ingests in the same session are now visible to follow-up queries.
+- **🔁 Streaming-preserving client wrapper** — eliminates the v1.23.0-era streaming regression for class-based SDK clients.
+- **🖱️ Query turn indicator + clickable retrieval label (#221, #219)** — right-edge dots per conversation turn, hover preview, scroll-to-question. Retrieval label expands inline (no popups).
+- **📋 Semantic progress notifications (#219)** — manual operations show Notice + status bar; background operations show status bar only. Lint Notices auto-dismiss (5–8s).
+- **🧩 Frontmatter serializer consolidation (PR #238 @DocTpoint)** — single `serializeFrontmatter` writer for upcoming `supersedes:` flag.
+- **📝 Section header canonicalizer (PR #241 @DocTpoint)** — bounded Levenshtein snaps LLM-garbled headers back to canonical labels on write.
+- **📜 License upgrade** — MIT → Apache 2.0 + DCO. NOTICE lists all 6 human contributors.
 
 ### v1.23.1 — 2026-07-02 (PATCH)
 
-**Resolved three Obsidian review bot findings** that blocked v1.23.0's community plugin submission. No user-facing behavior changes.
+Resolved three Obsidian review bot findings: `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. No user-facing behavior changes.
 
-- **TypeScript strict mode alignment.** Added `strictBindCallApply: true` to `tsconfig.json` so `.bind()` calls infer correct types — aligns local development with Obsidian's review environment and removes type assertions the bot flagged as unnecessary.
-- **Removed unused code.** Deleted the deprecated `getThinkingControlCacheKey` function (no callers since the v1.23.0 AI-SDK migration). The associated `eslint-disable` comment is gone — no directive, no bot complaint.
-- **Build reproducibility.** Regenerated lockfiles before tagging so the CI-built `main.js` artifact matches source for Obsidian's build verification step.
+### v1.23.0 — 2026-07-02 (MINOR)
 
-### v1.23.2 — 2026-07-05 (PATCH)
+Biggest architectural change since 1.0. Two major themes:
 
-**Five merged PRs — bug fixes, refactor, and UX polish.** 1431 tests passing. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
-
-- **🛠️ Prompt-candidate isolation for sources (#234).** The LLM candidate list now excludes `wiki/sources/` pages by default, so weaker local models no longer fuzzy-match and emit garbled `[[sources/<wrong-slug>|<right-label>]]` links that route RAG to the wrong page. Program-generated related-page matching (`source-analyzer.ts:421`) is unaffected. Constraints prompt now cross-references the candidate list explicitly.
-- **🔄 Live PPR graph invalidation on ingest.** Any ingest that touches `wiki/` now invalidates the cached PPR graph in every open Query panel — ingests in the same Obsidian session finally become visible to follow-up queries.
-- **🔁 Streaming-preserving client wrapper.** `wrapWithAdvancedSettings` rewritten as composition (`Object.create(client)` + explicit `createMessage` override). Eliminates the v1.23.0-era streaming regression where class-based SDK clients silently fell back to non-streaming because spread `{ ...client }` dropped `createMessageStream` from the prototype chain.
-- **🧩 Frontmatter serializer consolidation (DocTpoint, PR #238).** `mergeFrontmatter` / `enforceFrontmatterConstraints` / `mergeDuplicatePages` now delegate to a single `serializeFrontmatter` writer. Behavior unchanged (YAML-equivalent), but new fields like the upcoming `supersedes:` flag (v1.24.0) only need to be threaded in one place.
-- **🖱️ Query turn indicator + retrieval label UX polish (#219, #221).** A right-edge dot per conversation turn, with hover preview of the original question, IntersectionObserver-driven active highlight, and click-to-scroll. The `🔍 N page(s) · …` retrieval label is now clickable — click to expand the list of retrieved pages inline. Generation completion scrolls to the user's question rather than the answer tail. Retrieval label uses an inline expand/collapse panel (no Notice popups).
-- **📋 Semantic progress notifications (#219).** Manual operations show Notice + status bar; background operations (watch-mode auto-ingest, periodic lint, startup QuickFixes) show only the status bar. No new user-facing setting — channel selection is derived from operation type. Lint completion Notices now respect `NOTICE_NORMAL` / `NOTICE_ERROR` timeouts instead of persisting until manually dismissed.
-- **📝 Canonical section headers (DocTpoint, PR #241).** Local-model section garbles under `wikiLanguage: de` (e.g. `Erwägungen…`, `Erwurnungen…` for the canonical `Erwähnungen in der Quelle`) are now snapped back to the canonical label via bounded Levenshtein on write — silent drop from Tier-B retrieval is eliminated.
-- **📜 License upgrade.** MIT → Apache License 2.0 with DCO. NOTICE file lists all human contributors. Existing contributions are not retroactively affected; future commits must include `Signed-off-by:`.
+- **🤖 Vercel AI-SDK v6 migration.** Replaced hand-rolled 1625-LOC LLM client with `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2`. Eliminates entire class of provider-version regressions (#137 / #141 / #143 / #147 / #207).
+- **🕸️ Graph Engine — Personalized PageRank over `[[wiki-link]]` graph.** Monte-Carlo PPR delivers embedding-grade R@k at zero embedding cost, offline, works for every provider. Three-tier pipeline (lex fast path → LLM seeds → PPR walks) plus hub-link distinctiveness scanner.
+- **🎬 Real-time streaming for all providers** — true chunk-by-chunk, with macrotask yield for paint-frame-per-chunk UX.
+- **📥 Multi-File Ingest UI (#130)** — two-pane picker with recursive folder tree + live queue + per-file cancel.
+- **🎉 Welcome note** — three-tier first-run experience, D8 LLM dynamic translation (no hardcoded i18n).
+- **🔑 LM Studio API-key gate (#223)** — local providers test connection without API key.
+- **🛡️ GPT-5.x Pro routing + URL fallback + token-key probe-then-retry** — provider error hardening across the board.
 
 ## ✨ Features
 
@@ -344,25 +264,6 @@ We recommend upgrading — the AI-SDK migration eliminates a class of provider-v
 - **Data stays local by default.** The plugin does not store, cache, or transmit your content anywhere outside of the LLM API you have chosen. Only the text you send for ingestion or query leaves your device — and only to the provider you configured.
 - **Full local mode via Ollama, LM Studio, or local providers.** For complete data sovereignty, use a locally running LLM. Your notes are processed entirely on your machine — never touching the internet.
 - **Minimal permissions.** Vault file access is used for Wiki management (reading notes, generating pages, detecting dead links). Network access is used only for communicating with your chosen LLM provider's API. Clipboard access is limited to the "Copy" button in the Query modal — used only when you click it.
-
----
-
-## ⌨️ Commands
-
-| Command | Description |
-|---------|-------------|
-| **📥 Ingest single source** | Select a note → generate Wiki pages with entities, concepts, and summary |
-| **📂 Ingest from folder** | Select a folder → batch generate Wiki from existing notes |
-| **📑 Ingest multiple files** | Open two-pane picker → select specific notes via per-file checkboxes → batch ingest the selection (with live queue + per-file cancel) |
-| **🎯 Ingest current file** | Quickly ingest the file you're currently editing (one-click) |
-| **🔍 Query wiki** | Conversational Q&A over your Wiki, streaming responses with `[[wiki-links]]` |
-| **🛠️ Lint wiki** | Full health scan: duplicates, dead links, empty pages, orphans, missing aliases, contradictions |
-| **📋 Regenerate index** | Manually rebuild `wiki/index.md` |
-| **📊 View Ingestion History (v1.21.0)** | Browse past ingestions, lint reports, and maintenance runs in a searchable, filterable UI |
-| **⏹ Cancel current ingestion** | Stop an in-progress operation cleanly at the next batch boundary |
-| **🎉 Recreate Wiki Welcome Note (v1.23.0)** | Re-generate the first-run Welcome note (e.g., after wiki folder migration) |
-
-> **Note:** Schema update is no longer a top-level command. Schema suggestions are surfaced from inside the **🛠️ Lint wiki** Modal — a single entry point so the user always sees the current schema context before applying changes. The Lint Modal's "Update Schema" button opens the IDE-style diff view (Issue #97).
 
 ---
 
@@ -455,37 +356,7 @@ wiki/        # 🧠 LLM-generated Wiki pages
 schema/      # 📋 Wiki structure configuration (naming, templates, categories)
 ```
 
-**Codebase** (`src/`):
-
-```
-main.ts                  # 🔌 Plugin entry point
-wiki/                    # Wiki engine modules
-  wiki-engine.ts         # 🎯 Orchestrator
-  query-engine.ts        # 💬 Conversational query
-  source-analyzer.ts     # 📊 Iterative batch extraction
-  page-factory.ts        # 🏗️ Entity/concept CRUD + merge
-  conversation-ingest.ts # 📥 Chat → wiki knowledge
-  contradictions.ts      # ⚠️ Contradiction detection
-  system-prompts.ts      # 🗣️ Language directive + section labels
-  lint/                  # Lint sub-modules
-    controller.ts        # 🔍 Lint orchestration
-    fix-runners.ts       # ⚡ Batch fix execution helpers
-    scanners.ts          # 🔍 Scanners (dead links, orphans, aliases, quote grounding)
-    duplicate-detection.ts # 🔄 Programmatic candidate generation
-    report-builder.ts    # 📋 Pure-function report markdown builder
-    phases/              # Phased lint execution
-  prompts/               # LLM prompt templates by domain
-schema/                  # Schema co-evolution
-  manager.ts             # 📋 Schema CRUD + suggestions
-  auto-maintain.ts       # 🔄 File watcher + periodic lint + startup quick fixes
-  analyze.ts             # 📊 Schema-analyze with cancel wiring
-ui/                      # User interface
-  settings.ts            # ⚙️ Settings panel
-  modals.ts              # 📦 Lint / Ingest / Query / History modals
-core/                    # 🧩 Pure function modules (zero IO, fully testable)
-  i18n, slug, json, frontmatter, tag-vocab, sources-normalizer, ...
-+ shared: llm-client.ts, llm-client-wrapper.ts, texts.ts, prompts.ts, types.ts
-```
+> 📖 See the full codebase structure in [CONTRIBUTING.md → Project Structure](./CONTRIBUTING.md#project-structure).
 
 **Generated pages:**
 - `wiki/sources/filename.md` — 📄 Source summary
@@ -498,111 +369,44 @@ core/                    # 🧩 Pure function modules (zero IO, fully testable)
 
 ## ❓ FAQ
 
-> **Keep your plugin updated.** This project ships frequently — new features and fixes land every few days. Run **Settings → Community Plugins → Check for updates** regularly.
+> **Keep your plugin updated** — new features and fixes ship frequently. Run **Settings → Community Plugins → Check for updates** regularly.
 >
-> For more, see the [FAQ Discussion on GitHub](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28).
-
-### 💡 General
+> 📖 More FAQs on [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28).
 
 **What does the plugin actually do?**
-You drop notes in, it extracts people, concepts, and theories, then generates an interlinked wiki with `[[bidirectional links]]`. Ask questions and get answers grounded in *your* notes — not internet hallucinations.
+You drop notes in `sources/`; the LLM extracts entities and concepts and generates an interlinked wiki with `[[bidirectional links]]`. Ask questions and get conversational answers grounded in *your* notes — not internet search.
 
-**Minimum requirements?**
-Obsidian v1.11.0+, desktop (Windows/macOS/Linux), an LLM provider API key. Ollama works locally with no API key. See [Configure an LLM Provider](#-configure-an-llm-provider) above.
+**Is my data sent to third parties?**
+🔒 **Privacy first.** No backend, no tracking, no analytics — the plugin runs entirely inside Obsidian. Only text you explicitly send for ingestion/query leaves your device, and only to the LLM provider you configure. For complete data locality, use a local provider (Ollama or LM Studio with no API key) — your data never touches the internet.
 
-**Which model should I use?**
-See [Model Selection Guide](#-model-selection-guide) above. Long-context models work best — the larger your wiki, the more context the LLM needs.
+**How is this different from RAG chatbots?**
+Unlike chunked RAG that fragments context, LLM-Wiki runs a **Personalized PageRank** engine over your existing `[[wiki-link]]` graph — finding related pages via link structure, not vector embeddings. This means zero embedding cost, no new dependencies, and full support for local and offline models.
 
-### 🏷️ Aliases & Duplicates
+**Which LLM should I use?**
+Long-context models (≥200K tokens) work best. Budget-friendly picks: DeepSeek V4-Flash ($0.14/M), Gemini 3.5 Flash, Qwen3.6-Plus. Local models via Ollama/LM Studio work for query but have smaller context windows (8K–128K). See the [Model Selection Guide](#-model-selection-guide) for details.
 
-**Why does Lint show "missing aliases" on almost all my pages?**
-Pages generated before v1.7.11 didn't include aliases. This is harmless — aliases are an enhancement, not a bug. Click **Complete Aliases** in the Lint report to batch-generate translations, acronyms, and alternate names. Once aliases exist, duplicate detection and alias-aware search become much more effective.
+**How do I get started?**
+Install from Obsidian Community Plugins → pick an LLM provider → **Test Connection** → drop notes in `sources/` → **Ingest single source**. Your first wiki pages appear within seconds. See [Quick Start](#-quick-start) above.
 
-**Why do I see duplicate pages like "CoT" and "思维链"?**
-Pre-v1.7.10 versions lacked alias-aware duplicate detection. Run **Lint Wiki** → **Merge Duplicates** to fuse them. The merged page preserves aliases from both, preventing future duplicates.
+**How can I control API costs?**
+Use Coarse or Minimal extraction granularity for batch ingestion (fewer LLM calls). Smart Batch Skip auto-detects already-ingested files. Auto-Maintenance is OFF by default (enable only if needed). Lint shows counts before running fixes — nothing is charged without your approval.
 
-**How does duplicate detection work? (v1.7.10+)**
-Two-tier semantic detection: Tier 1 (always LLM-verified) catches cross-language matches, abbreviations, high-similarity titles. Tier 2 fills remaining token budget with moderate-similarity candidates. Aliases are critical for Tier 1 — run **Complete Aliases** if your pages are pre-v1.7.11.
+**Is my existing wiki safe?**
+✅ Backward compatible since v1.0.0. Set `reviewed: true` on any page to protect it from overwrite. The plugin never modifies your source files ('`sources/`') — only generated wiki pages.
 
-**What are "polluted pages"? (v1.9.0)**
-Pages with folder prefixes accidentally baked into filenames — e.g. `concepts/concepts布局优化.md`. Run **Lint Wiki** → **🧹 Fix Polluted Pages** to rename and update all incoming links.
+**Can I use the plugin in my language?**
+🌐 **10 languages** for both UI and wiki output: English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano. UI and wiki language are independent — your wiki can be in Chinese while the interface stays in English. Adding an 11th language is contributor-driven (follow the Italian PR #159 pattern).
 
-### ⚡ Performance & Cost
+**What minimum setup is needed?**
+Obsidian v1.11.0+ (desktop: Windows/macOS/Linux). An LLM provider API key (or Ollama/LM Studio for local, no API key needed). The plugin's **llmReady guard** requires a successful connection test before core features unlock — this prevents silent failures from misconfigured providers.
 
-**How do I speed up ingestion?**
-In **Settings → LLM Configuration**: increase **Page Generation Concurrency** to 3–5 (parallel page creation), lower **Batch Delay** to 100–300ms (watch for rate limits). Choose "Minimal", "Coarse", or "Standard" **Extraction Granularity** to reduce page count and save API costs.
+**How do I cancel a running operation?**
+Click the status bar text (shows "Ingesting… click to cancel") or `Cmd+P` → "Cancel current ingestion". Stops cleanly at the next batch boundary, preserving all completed work.
 
-**Why am I getting HTTP 429 errors?**
-The plugin auto-detects rate-limiting and suggests: lower concurrency to 1–2, increase Batch Delay to 500–800ms, or switch to a higher-limit provider.
-
-**How do I control API costs?**
-- Auto-Maintenance is OFF by default (enable only if you need background processing)
-- Smart Batch Skip automatically skips already-ingested files
-- "Standard" or "Coarse" granularity = fewer LLM calls
-- Batch Delay > 500ms spaces calls without increasing token usage
-- Lint report shows counts before you run fixes — decide what's worth it
-
-### 🧹 Maintenance
-
-**What does Smart Fix All do?**
-Runs fixes in causality order (v1.9.0+):
-1. 🧹 Fix polluted pages → 2. 🏷️ Complete aliases → 3. 🔄 Merge duplicates → 4. 🔗 Fix dead links → 5. 🔗 Link orphans → 6. 📝 Expand empty pages
-
-**Lint freezes on a large Wiki?**
-Upgrade to v1.7.17+ — Lint now yields to Obsidian's UI thread every 50 pages, preventing multi-second freezes even on 1200+ page wikis.
-
-### 🔍 Troubleshooting
-
-**Why can't I use ingest/lint/query after installing?**
-The plugin requires a successful connection test before core features unlock. Go to **Settings → Karpathy LLM Wiki** → pick a provider → enter your API key → click **Fetch Models** → select a model → click **Test Connection**. Once you see the green "LLM Ready" indicator, all features are available. This prevents silent failures from misconfigured providers.
-
-**How do I cancel a running ingestion or lint?**
-Click the status bar text during an operation (it shows "Ingesting... click to cancel"), or use `Ctrl+P` → "Cancel current ingestion". The operation stops cleanly at the next batch boundary, preserving all completed work.
-
-**How do I quickly ingest the file I'm currently editing?**
-Click the `sticker` icon in the left ribbon bar, or use `Ctrl+P` → "Ingest current file". This skips the file picker and directly ingests the active editor tab.
-
-**I see `[[[[entities/Foo|Foo]]]]` double brackets in my log.md — how do I fix this?**
-Run **Lint Wiki** — the scanner now automatically detects and fixes all double-nested wiki-links across your entire wiki directory (including log.md) with zero LLM cost. No manual cleanup needed.
-
-**Why am I getting "Overloaded" errors?**
-The plugin now recognizes Anthropic's 529 overload error as retryable. Overload errors are automatically retried with exponential backoff across all providers.
-
-**Why was a duplicate stub created when the page already exists in entities/ or concepts/?**
-The plugin now uses slug-based matching — different formatting of the same name resolves to the existing page instead of creating a duplicate stub.
-
-**Query can't find pages I know exist?**
-Three common causes: (1) Index is stale → **Regenerate index**. (2) Missing aliases → **Complete Aliases**. (3) Try different phrasing — LLM does semantic matching, not keyword search.
-
-**Can I manually edit Wiki pages?**
-Yes. Set `reviewed: true` in frontmatter to protect from overwrite. Manual aliases, tags, and sources are preserved during merges.
-
-**Safe upgrade?**
-The plugin never modifies your source files. Backup `wiki/` → update plugin → **Regenerate index** → **Lint Wiki** → fix selectively.
-
-**My local model (Ollama, LM Studio) is fabricating weird entity names from blank or frontmatter-only notes. (v1.21.0)**
-Fixed in v1.21.0 by the pre-ingest requirements gate: empty/whitespace/frontmatter-only notes are now rejected *before* any LLM call, and content-hash dedup catches identical files across paths. Upgrade to v1.21.0+ to stop the empty-file hallucination class of bugs (small models filling in made-up entity names when given a blank prompt).
-
-**My `sources/` files got renamed after upgrading to v1.20.3 — is something wrong? (v1.20.3+)**
-No — this is the new collision-safe source-slug fingerprint at work. Every `sources/<slug>.md` is now `sources/<basename>_<6hex>.md` (the hex is an FNV-1a hash of the file's full path). Files with the same basename across different folders (e.g. 11× `About this course.md` in Academy courses) no longer collide. Re-ingest renames existing `sources/` pages in place and all `[[sources/<slug>]]` backlinks update automatically. If you have external scripts or bookmarks pointing to `sources/<old-slug>.md`, update them to the new fingerprinted names.
-
-**Will re-ingesting an unrelated source overwrite a page I locked with `reviewed: true`? (v1.20.3+)**
-No — Stage 4 (`updateRelatedPage`) now respects `reviewed: true` and routes to the append-only path, same as the ingest path. Your curated body survives verbatim; only genuinely new content is appended.
-
-**How do I get help?**
+**Where do I get help?**
 - [GitHub Issues](https://github.com/green-dalii/obsidian-llm-wiki/issues) — bug reports
-- [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions) — questions & feedback
-
-**How do I collect debug logs for troubleshooting?**
-
-1. Open Developer Tools (`Ctrl+Shift+I` / `Cmd+Option+I`)
-2. Go to the **Console** tab
-3. Run your operation (ingest, query, or lint)
-4. Look for messages with module name prefixes like `[Step]`, `[LLM]`, module names
-5. For local testing, use `pnpm build:dev` instead of `pnpm build` to preserve full debug output
-6. Copy the relevant log lines and include them in your GitHub issue — this makes bug diagnosis much faster
-
----
+- [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions) — questions, feature requests, upgrade help
+- Developer Console (`Ctrl+Shift+I` / `Cmd+Option+I`) — copy logs with module-name prefixes for faster diagnosis
 
 ## 🔒 Transparency & Compliance
 
