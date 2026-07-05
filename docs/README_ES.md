@@ -36,6 +36,8 @@
     - [🔧 Mejorado](#-mejorado)
     - [🐛 Corregido](#-corregido)
     - [📊 Tests](#-tests)
+    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
+    - [v1.23.2 — 2026-07-05 (PATCH)](#v1232--2026-07-05-patch)
   - [✨ Características](#-características)
     - [📊 Calidad del Conocimiento](#-calidad-del-conocimiento)
     - [🛠️ Mantenimiento](#️-mantenimiento)
@@ -225,6 +227,19 @@ Resuelve tres hallazgos del bot de revisión de Obsidian que bloqueaban el enví
 - **Alineación con modo estricto de TypeScript.** Añadido `strictBindCallApply: true` a `tsconfig.json` para que las llamadas `.bind()` infieran tipos correctos — alinea el entorno de desarrollo local con el de revisión de Obsidian y elimina aserciones de tipo que el bot marcó como innecesarias.
 - **Código no utilizado eliminado.** Borrada la función obsoleta `getThinkingControlCacheKey` (sin llamadas desde la migración AI-SDK de v1.23.0).
 - **Reproducibilidad de build.** Lockfiles regenerados antes del etiquetado para que el artefacto `main.js` construido por CI coincida con el código fuente en la verificación de build de Obsidian.
+
+### v1.23.2 — 2026-07-05 (PATCH)
+
+Cinco PR fusionados — correcciones de bugs, refactor y pulido de UX. 1431 tests pasan. Sin nuevas opciones visibles para el usuario. Actualización recomendada para todos los usuarios de v1.23.0+.
+
+- **🛠️ Aislamiento de candidatos del prompt sources (#234).** La lista de candidatos LLM excluye por defecto las páginas `wiki/sources/`, de modo que los modelos locales más débiles ya no generan enlaces `[[sources/<slug-incorrecto>|<etiqueta-correcta>]]` mal enrutados que dirigen el RAG a la página equivocada. El matching programático de páginas relacionadas (`source-analyzer.ts:421`) no se ve afectado. El prompt de restricciones ahora hace referencia explícita a la lista de candidatos.
+- **🔄 Invalidación de caché del grafo PPR al ingerir.** Cualquier ingestión que toque `wiki/` ahora invalida el grafo PPR en caché en todos los paneles Query abiertos — las ingestiones dentro de la misma sesión de Obsidian son finalmente visibles para consultas posteriores.
+- **🔁 Wrapper de cliente que preserva el streaming.** `wrapWithAdvancedSettings` reescrito como composición (`Object.create(client)` + override explícito de `createMessage`). Elimina la regresión de streaming de la era v1.23.0 donde los clientes SDK basados en clases caían silenciosamente a no-streaming porque `{ ...client }` eliminaba `createMessageStream` de la cadena de prototipos.
+- **🧩 Consolidación del serializador de frontmatter (DocTpoint, PR #238).** `mergeFrontmatter` / `enforceFrontmatterConstraints` / `mergeDuplicatePages` ahora delegan en un único writer `serializeFrontmatter`. Comportamiento sin cambios (YAML-equivalente), pero nuevos campos como el futuro flag `supersedes:` (v1.24.0) solo necesitan agregarse en un lugar.
+- **🖱️ Indicador de turno de Query + pulido de UX de la etiqueta de retrieval (#219, #221).** Un punto en el borde derecho por turno de conversación, con vista previa al pasar el cursor sobre la pregunta original, resaltado activo dirigido por IntersectionObserver y clic para desplazar. La etiqueta `🔍 N page(s) · …` ahora es clicable — el clic despliega la lista de páginas recuperadas en línea (sin popups Notice). Al completar la generación se desplaza a la pregunta del usuario, no al final de la respuesta.
+- **📋 Notificaciones de progreso semánticas (#219).** Las operaciones manuales muestran Notice + barra de estado; las operaciones en segundo plano (ingesta automática en watch-mode, lint periódico, QuickFixes de inicio) muestran solo la barra de estado. Sin nuevas opciones visibles — la selección del canal se deriva del tipo de operación. Los Notices de finalización de lint ahora respetan los timeouts `NOTICE_NORMAL` / `NOTICE_ERROR` en vez de persistir hasta cierre manual.
+- **📝 Encabezados de sección canónicos (DocTpoint, PR #241).** Las corrupciones de encabezados de sección por modelos locales bajo `wikiLanguage: de` (p. ej. `Erwägungen…`, `Erwurnungen…` para el canónico `Erwähnungen in der Quelle`) ahora se vuelven a la etiqueta canónica mediante Levenshtein acotado en escritura — se elimina la pérdida silenciosa del retrieval Tier-B.
+- **📜 Actualización de licencia.** MIT → Apache License 2.0 + DCO. El archivo NOTICE lista todos los contribuidores humanos. Las contribuciones existentes no se ven afectadas retroactivamente; los commits futuros deben incluir `Signed-off-by:`.
 
 ## ✨ Características
 
