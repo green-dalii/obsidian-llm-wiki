@@ -61,7 +61,7 @@ Você escreve. A IA organiza. Você pergunta. Simples assim.
 
 **✨ A solução.** [Andrej Karpathy propôs](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) uma abordagem elegante: trate suas notas como matéria-prima e deixe que um LLM atue como arquiteto. Ele lê o que você escreve, extrai Entity e Concept, e os tece em uma Wiki estruturada — completa com `[[bidirectional links]]`, índice gerado automaticamente e interface de chat que responde perguntas baseadas no *seu* conhecimento.
 
-**📚 Você não precisa ser o bibliotecário.** Não decidir o que merece uma página. Não manter links cruzados. Não questionar se algo está desatualizado. Coloque notas em `sources/` e o LLM lê, extrai, escreve, vincula e sinaliza contradições — enquanto você permanece no fluxo.
+**📚 Você não precisa ser o bibliotecário.** Não decidir o que merece uma página. Não manter links cruzados. Não questionar se algo está desatualizado. Escolha qualquer nota (ou pasta, ou seleção múltipla) do seu vault — o LLM lê, extrai, escreve, vincula e sinaliza contradições — enquanto você permanece no fluxo.
 
 **🤖 Não é apenas outro chatbot.** O ChatGPT conhece a internet. O LLM-Wiki conhece *você* — ou melhor, o que você lhe ensinou. Cada resposta inclui `[[wiki-links]]` de volta ao seu knowledge graph. Cada resposta é um ponto de partida, não um beco sem saída.
 
@@ -239,7 +239,7 @@ Maior mudança arquitetural desde 1.0:
 
 - **⚡ Geração de Páginas Paralela** — 1–5 páginas simultâneas configuráveis, padrão 3 (paralelo), 2–3× mais rápido para sources grandes, isolamento de erro por página
 - **📚 Extração em Lote Iterativa** — Dimensionamento adaptativo de lotes elimina o gargalo de max_tokens para documentos longos
-- **🏛️ Arquitetura de Três Camadas** — `sources/` (read-only) → `wiki/` (gerado por LLM) → `schema/` (config co-evoluída)
+- **🏛️ Arquitetura de Três Camadas** — Suas notas do vault (somente leitura) → `wiki/` (páginas geradas pelo LLM, organizadas como `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`) → `schema/` (config co-evoluída)
 - **🧩 Código Modular** — 20+ módulos focados em `src/`
 
 ### 🔒 Privacidade e segurança
@@ -342,11 +342,11 @@ Para modelos locais (Ollama): janelas de contexto tipicamente menores (8K–128K
 Design de separação em três camadas de Karpathy:
 
 ```
-sources/     # 📄 Os seus documentos fonte (somente leitura)
+📄 Suas notas do vault (qualquer pasta)   # 📖 Você escolhe quais notas ingerir
   ↓ ingest
-wiki/        # 🧠 Páginas Wiki geradas por LLM
+wiki/                                      # 🧠 Páginas Wiki geradas pelo LLM (wiki/sources/, wiki/entities/, wiki/concepts/)
   ↓ query / maintain
-schema/      # 📋 Configuração da estrutura Wiki
+schema/                                    # 📋 Configuração da estrutura Wiki (naming, templates, categorias)
 ```
 
 > 📖 Ver estrutura completa do código em [CONTRIBUTING.md → Project Structure](../CONTRIBUTING.md#project-structure).
@@ -367,7 +367,7 @@ schema/      # 📋 Configuração da estrutura Wiki
 > Mais FAQ em [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28).
 
 **O que faz este plugin?**
-Notas em sources/ -> LLM extrai entidades e conceitos -> Wiki interligada com [[wiki-links]].
+Escolha qualquer nota, pasta ou seleção múltipla do seu vault; o LLM extrai entidades e conceitos e gera uma Wiki interligada com `[[wiki-links]]`. Receba respostas baseadas nas *suas* notas — não em pesquisas na Internet. Os resumos gerados ficam em `wiki/sources/`, as entidades em `wiki/entities/`, os conceitos em `wiki/concepts/` — as suas notas originais do vault nunca são modificadas.
 
 **Os meus dados são enviados a terceiros?**
 Privacidade primeiro. Sem backend, sem rastreio. Apenas texto que envia explicitamente sai do dispositivo. Use fornecedor local (Ollama/LM Studio) para total localidade.
@@ -379,13 +379,13 @@ LLM-Wiki usa Personalized PageRank sobre o grafo [[wiki-link]] - zero custo de e
 Modelos >=200K tokens. Económicos: DeepSeek V4-Flash (/bin/zsh.14/M), Gemini 3.5 Flash, Qwen3.6-Plus.
 
 **Como começar?**
-Instalar -> escolher fornecedor -> Test Connection -> notas em sources/ -> Ingest single source.
+Instalar → escolher fornecedor → **Test Connection** → executar **Ingest single source** (ou **Ingest from folder**) sobre qualquer nota do seu vault → as primeiras páginas Wiki aparecem em segundos. Ver [Início rápido](#-início-rápido) acima.
 
 **Controlar custos API?**
 Granularidade Grossa/Minima para lotes. Smart Batch Skip. Manutencao automatica DESLIGADA.
 
 **Wiki existente segura?**
-reviewed: true protege paginas. Plugin nunca modifica sources/.
+✅ Retrocompatível desde a v1.0.0. `reviewed: true` protege páginas de sobrescrita. O plugin nunca modifica as suas notas originais do vault — apenas gera novas páginas dentro da pasta `wiki/`.
 
 **Idiomas?**
 10 idiomas para IU e Wiki: EN, ZH, ZH-Hant, JA, KO, DE, FR, ES, PT, IT.
