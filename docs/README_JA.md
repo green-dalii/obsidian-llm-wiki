@@ -3,8 +3,8 @@
 # 🧠 Karpathy LLM Wiki Plugin for Obsidian
 
 > AI駆動の構造化知識ベース — ノートを自動的にWikiに変換。[Andrej KarpathyのLLM Wiki概念](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)に基づく実装。
->
-> **Obsidian公式評価95/100** | 10言語ネイティブ対応 | 活発に維持、継続進化
+
+> **Obsidian公式評価95/100 | 10言語ネイティブ対応 | 埋め込み不要のグラフ検索 | 完全なデータ主権 | あらゆるLLMプロバイダー対応**
 
 ![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
 ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) <br>
@@ -32,13 +32,9 @@
     - [🎮 使い方](#-使い方)
     - [⚠️ 旧バージョンからのアップグレード](#️-旧バージョンからのアップグレード)
   - [⚡ v1.23.0 更新のポイント](#-v1230-更新のポイント)
-    - [⭐ ハイライト](#-ハイライト)
-    - [✨ 新機能](#-新機能)
-    - [🔧 改善](#-改善)
-    - [🐛 修正](#-修正)
-    - [📊 テスト](#-テスト)
+    - [v1.23.2 — 2026-07-05 (最新, PATCH)](#v1232--2026-07-05-最新-patch)
     - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
-    - [v1.23.2 — 2026-07-05 (PATCH)](#v1232--2026-07-05-patch)
+    - [v1.23.0 — 2026-07-02 (MINOR)](#v1230--2026-07-02-minor)
   - [✨ 特徴](#-特徴)
     - [📊 ナレッジ品質](#-ナレッジ品質)
     - [🛠️ メンテナンス](#️-メンテナンス)
@@ -46,16 +42,10 @@
     - [🌐 LLMと言語](#-llmと言語)
     - [🏗️ アーキテクチャとパフォーマンス](#️-アーキテクチャとパフォーマンス)
     - [🔒 プライバシーとセキュリティ](#-プライバシーとセキュリティ)
-  - [⌨️ コマンド](#️-コマンド)
   - [📖 例](#-例)
   - [🤖 モデル推奨](#-モデル推奨)
   - [🏗️ アーキテクチャ](#️-アーキテクチャ)
   - [❓ FAQ](#-faq)
-    - [💡 一般](#-一般)
-    - [🏷️ エイリアスと重複](#️-エイリアスと重複)
-    - [⚡ パフォーマンスとコスト管理](#-パフォーマンスとコスト管理)
-    - [🧹 メンテナンス](#-メンテナンス)
-    - [🔍 トラブルシューティング](#-トラブルシューティング)
   - [🔒 透明性とコンプライアンス](#-透明性とコンプライアンス)
   - [💖 プロジェクトを支援する](#-プロジェクトを支援する)
     - [スポンサー](#スポンサー)
@@ -74,6 +64,8 @@
 **📚 図書館員の役割は終わり。** 何をページにするか決める必要も、相互リンクを維持する必要も、情報が古くなったか心配する必要もありません。ノートを`sources/`に置けば、LLMが読み取り、抽出、書き込み、リンク作成、矛盾のフラグ付けを行い — あなたは作業の流れに集中できます。
 
 **🤖 これは単なるチャットボットではない。** ChatGPTはインターネットを知っています。LLM-Wikiは*あなた*を知っている — 正確には、あなたが教えた内容を。すべての回答は`[[wiki-links]]`を伴って知識グラフに戻ります。すべてのレスポンスは道の始点であり、終点ではありません。
+
+**🏆 主な差別化 — ゼロ埋込コストのグラフ駆動検索。** 多くのナレッジベースプラグインはベクトル埋込（高コスト、プロバイダ依存、インターネット必須）を使います。LLM-Wikiは既存の`[[wiki-link]]`グラフ上でPersonalized PageRankを実行 — API呼び出しゼロ、新しい依存関係なし、ローカルモデル完全対応で、埋込並みの検索品質を実現します。i18n対応の**ゼロLLM Tier Bセクション抽出**（10言語）を加えることで、あらゆるプロバイダで動作するナレッジエンジンが完成します。
 
 ---
 
@@ -145,118 +137,70 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 |------|--------|
 | **📥 単一ソースの取り込み** | `Cmd+P` → "Ingest single source" — ノートを選択し、エンティティと概念を抽出 |
 | **📂 フォルダーからの取り込み** | `Cmd+P` → "Ingest from folder" — フォルダを選択し、Wikiを一括生成 |
-| **📑 複数ファイルを取り込み** | `Cmd+P` → "複数ファイルを取り込み" — 2 ペイン選択モーダル（再帰フォルダツリー + ファイル別チェックボックス）で特定のノートを選び、選択分を一括取り込み |
-| **🔍 Wikiに問い合わせ** | `Cmd+P` → "Query wiki" — 質問し、ストリーミング回答を取得 |
-| **🛠️ WikiのLint** | `Cmd+P` → "Lint wiki" — ヘルススキャン：重複、リンク切れ、空ページ、孤立ページ |
-| **📋 インデックスの再生成** | `Cmd+P` → "Regenerate index" — `wiki/index.md` を再構築 |
-| **🎯 ワンクリック取り込み** | サイドバーのアイコンをクリック、または `Cmd+P` → "Ingest current file" |
+| **📑 複数ファイルの取り込み** | `Cmd+P` → "Ingest multiple files" — 再帰的フォルダツリー + ファイル別チェックボックスの2ペイン選択モーダルでノートを選び、ライブキュー付きで一括取り込み |
+| **🎯 現在のファイルを取り込み** | 左リボンの`sticker`アイコンをクリック、または `Cmd+P` → "Ingest current file" — 編集中のファイルを取り込み |
+| **🔍 Wikiに問い合わせ** | `Cmd+P` → "Query wiki" — 会話型Q&A、ストリーミング回答、`[[wiki-links]]`付き |
+| **🛠️ WikiのLint** | `Cmd+P` → "Lint wiki" — 重複、リンク切れ、空ページ、孤立ページ、欠落エイリアス、矛盾のフルヘルススキャン |
+| **📋 インデックスの再生成** | `Cmd+P` → "Regenerate index" — `wiki/index.md` を現在のページとエイリアスで再構築 |
+| **📊 取り込み履歴の表示 (v1.21.0)** | `Cmd+P` → "View Ingestion History" — 過去の取り込み、Lintレポート、メンテナンス実行を検索・フィルタ可能なUIで閲覧 |
+| **⏹ 現在の操作をキャンセル** | `Cmd+P` → "Cancel current ingestion" — 進行中の操作を次のバッチ境界でクリーンに停止 |
+| **🎉 ウェルカムノートを再作成 (v1.23.0)** | `Cmd+P` → "Recreate Wiki Welcome Note" — 初回起動時のウェルカムノートを再生成 |
 
-![コマンドパレット — "karpa"で検索してKarpathy LLM Wikiの全コマンドを表示](assets/command-panel.png)
+同じソースを再取り込みすると、エンティティ・概念ページに増分更新が行われ（新情報がマージ）、概要ページは再生成されます。
+
+> 💡 **スマートバッチスキップ:** フォルダ取り込み時、処理済みファイルを自動検出してスキップし、時間とAPIコストを削減します。バッチレポートにスキップ数が表示されます。
 
 ### ⚠️ 旧バージョンからのアップグレード
 
-**本リリースは完全に後方互換性があります。** v1.0.0以降、破壊的変更はありません。
+**後方互換性があります。** v1.0.0以降、破壊的変更はありません — 既存のWikiページ、設定、ワークフローは再設定なしで保持されます。
 
-**v1.20.3へアップグレードする場合**：ソースページのスラッグにフィンガープリントが付与されます（すべての `sources/<slug>.md` が `sources/<ベース名>_<6桁hex>.md` になります）。次回の取り込み時に、既存の `sources/` ページはその場でリネームされ、すべての `[[sources/<slug>]]` バックリンクが自動更新されます。操作は不要ですが、Obsidian のファイルエクスプローラーで一瞬リネームが表示されることがあります。`sources/<slug>.md` パスを直接参照する外部スクリプトやブックマークがある場合は、新しいフィンガープリント付きパスに更新してください。
+**アップグレード後**、**Lint Wiki** → **Smart Fix All** でワンクリックの因果順修復を実行してください：
+1. 🏷️ エイリアス補完（翻訳、略語、別名をLLMがバッチ生成）
+2. 🔄 重複マージ（言語間、略語、高類似度マッチ）
+3. 🔗 リンク切れ / 孤立ページリンク / 空ページ拡張の修正
 
-**v1.16.0以前のバージョンからアップグレードする場合**、一度 **Lint Wiki** を実行して過去の問題を自動修正してください。
+その後 **Regenerate Index** で `wiki/index.md` を再構築し、すべてのページのエイリアスエントリーを有効にします — エイリアス対応検索が可能になります（例：「DSA」で「DeepSeek-Sparse-Attention」を検出）。
 
-**複数バージョンにわたって構築されたWikiの場合：**
+> 📖 特定のバージョン間アップグレードの詳細な手順（v1.20.3 slug fingerprint、v1.16.0 二重ネストリンクなど）は [GitHub Discussions / Upgrading](https://github.com/green-dalii/obsidian-llm-wiki/discussions) で管理されています。
 
-**1️⃣ インデックスを再構築** — `Cmd+P` → "Regenerate index"
-
-**2️⃣ Lint Wikiを実行** — `Cmd+P` → "Lint wiki" — 欠落エイリアス、重複、リンク切れ、孤立ページをスキャン
-
-**3️⃣ Smart Fix Allを使用** — Lintレポートでワンクリック修復
-
-**4️⃣ 並列ページ生成を有効化** — 設定 → Page Generation Concurrency: 3、Batch Delay: 300ms
-
-**5️⃣ 現在の設定を確認** — Wiki Output Language、Extraction Granularity、Auto-Maintenance
+**確認すべき設定:** Wiki Output Language（UIとは独立）、Extraction Granularity（Minimal–Fine、+ Custom）、Page Generation Concurrency（デフォルト3）、Batch Delay（デフォルト300ms）。
 
 ---
 ## ⚡ v1.23.0 更新のポイント
 
-v1.23.0 は **MINOR リリース** —— 1.0 以降最大のアーキテクチャ変更です。二つの主要テーマが同時にリリースされます：**Vercel AI-SDK v6 への移行**（手書きの 1625 行クライアントを安定しベンダーサポートされたトランスポートに置き換え）と **Graph Engine**（`[[wiki-link]]` グラフ上の Personalized PageRank）。これにより embedding コストゼロで embedding 相当の検索品質を実現、全プロバイダで動作し、新たな依存関係も追加されません。
+### v1.23.2 — 2026-07-05 (最新, PATCH)
 
-本リリースには v1.22.6 hotfix シリーズ（GPT-5.x Pro バリアントの Test Connection リグレッション修正 + LM Studio API-key ゲート）、knn ベースライン評価ゲート、Sponsor セクションも統合されています。
+5 つのマージ PR — バグ修正、リファクタリング、UX 改善。v1.23.0+ の全ユーザーにアップグレードを推奨します。
 
-### ⭐ ハイライト
-
-- **🤖 Vercel AI-SDK v6 移行。** 手書きの `OpenAICompatibleClient` / `AnthropicClient` / `AnthropicCompatibleClient`（1625 LOC、v1.20.0 以降蓄積された 30+ のプロバイダバージョンワークアラウンド）を `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2` に置き換え。新規 `src/llm-sdk/`（5 ファイル、1421 LOC）+ `src/core/obsidian-fetch-bridge.ts`（326 LOC）が安定しベンダーサポートされたトランスポートを提供。プロバイダバージョンリグレッションのクラス全体（#137 / #141 / #143 / #147 / #207）を排除。
-- **🕸️ `[[wiki-link]]` グラフ上の Personalized PageRank（Issue #198, #117, #157, #175）。** 新規 Monte-Carlo PPR エンジンが既存の wiki-link 構造を辿り、外向きリンク構造でソースページを回復 —— embedding コストゼロで embedding 相当の R@k、オフライン動作、新たな依存なし、全プロバイダ対応。三層パイプライン（lex 高速パス → LLM シード → PPR ウォーク）+ ハイブリッドガード（グラフが小さすぎる場合は lex フォールバック）。Hub-link 識別度スキャナを lint パスとして同梱。
-- **🛡️ プロバイダエラー UX 強化。** 推論モデル（`gpt-5.1+`、`gpt-5.5`、`o1`/`o3`/`o4-mini`）を OpenAI Responses API にルーティング。Token-key probe-then-retry（`max_tokens` ↔ `max_completion_tokens`）を **あらゆる** HTTP 400 で実行 —— 正規表現なし、モデル名ハードコードなし、`if 400 → retry with alt key` のみ。LM Studio API-key ゲート（Issue #223）でローカルプロバイダが API キーなしで接続テスト可能。URL フォールバックでカスタム baseURL の `/v1` 欠落を自動修正（Kimi Coding Plan）。
-
-### ✨ 新機能
-
-- **🔍 Personalized PageRank（PPR）エンジン。** `core/monte-carlo-ppr.ts`（Fogaras 2005 MC-PPR）がクエリページごとに K 回の短いランダムウォークを実行、O(K×L) コストで |V| に依存しない。2142 ページのリアル vault で調整：`damping=0.05, numWalks=3000, walkLength=20` で R@5 を 21.5% → 23.8% に改善（+11% 相対）。詳細は `REAL_VAULT_EVAL.md`。
-- **🎯 ハイブリッド検索カスケード（PPR + LLM シード + lex 高速パス）。** `core/ppr-cascade.ts`（213 LOC）が三層 Query Wiki パイプラインを編成。`core/section-extractor.ts`（Tier B zero-LLM）が従来の LLM ベースシード選択を置換。
-- **🔗 Hub-link 識別度スキャナ（#157, #175）。** 外向きリンクが主に低識別度ハブを指すページをマークする新規 lint パス。229 LOC + 15 テスト。@DocTpoint 寄稿。
-- **🏷️ Hub 退役結晶化シグナル（#215, @DocTpoint）。** `core/hub-retirement.ts`（175 LOC + 12 ユニットテスト + 136 LOC 統合テスト）。純粋な百分位ベースの判定 + 二重絶対ガード。lint 統合は v1.24.0 で予定。
-- **🤖 AI-SDK v6 クライアントセット。** `openai-sdk-client.ts`（455 LOC、推論モデルの自動 Responses API ルーティング）、`anthropic-sdk-client.ts`（300 LOC、Coding Plan / z.ai / GLM-Antropic baseURL サポート）、`openai-compat-sdk-client.ts`（449 LOC、8 つの OpenAI 形式 baseURL）。`create-llm-client.ts`（151 LOC）が async + sync shim + preload パターンを提供。
-- **🌐 カスタム baseURL の統一 URL フォールバック。** `core/url-fallback.ts`（395 LOC）がユーザー入力 baseURL の `/v1` 欠落を自動解決。モジュールレベル静的キャッシュが `createLLMClient` 再作成を生き延び、Ingest / Lint / Query 全てが恩恵を受ける。
-- **🔁 Token-key probe-then-retry（KISS、正規表現なし）。** `src/llm-sdk/token-key-probe.ts`（70 LOC）が初回失敗時に動作する `max_tokens` ↔ `max_completion_tokens` キーを baseURL ごとにキャッシュ。
-- **🎬 全プロバイダ向けリアルタイムストリーミング。** `result.textStream` の真のチャンク毎ストリーミングが 3 つの `llm-sdk` クライアントで動作。「Restore true streaming for 3rd-party providers」バックログ項目は **完了**。
-- **🎉 ウェルカムノート（Phase 5.1.5）。** 初回起動時の三層ウェルカムノート（Tier A 空 / Tier B 既存 / Tier C アップグレード）。`type: welcome` フロントマター、`createWelcomeNote` トグル、`Recreate Welcome Note` コマンド。
-- **📥 マルチファイル提案モーダル（Issue #130）。** 再帰的フォルダツリー、右ペインライブ進捗、ファイル毎キャンセル、「キューに追加」二段階フロー。
-
-![マルチファイル取り込みモーダル — 左：ファイル毎チェックボックス付き再帰フォルダツリー、右：ライブ取り込みキューとステータス](assets/multi-file-ingest.png)
-- **🔑 LM Studio API-key ゲート（Issue #223）。** `main.ts:962` が `ollama` と `lmstudio` を API キー検証から除外。
-- **🛡️ GPT-5.x Pro バリアントルーティング（Issue #207 follow-up、v1.22.6 hotfix）。** `gpt-5.1-pro` / `gpt-5.2-pro` / `gpt-5.5-pro` を `/v1/responses` に正しくルーティング。
-- **🛡️ Auto Ingest 完了パス（Issue #204 follow-up、v1.22.6 hotfix）。** `IngestReport` / `IngestOptions` の `trigger='auto'|'manual'` フィールド。
-- **📊 knn ベースライン分析（P2-3 eval acceptance gate）。** DocTpoint が同じ `sample-50page` フィクスチャで knn ベースライン（bge-m3、グラフなし）を実行：cascade R@5 27.1% vs knn 24.1%（3pp 差）。2026-06-22 の #175 拒否を強化 —— embedding は恒久的に拒否、グラフ信号で全 PPR ユースケースに十分。
-- **🌍 i18n 設定書き直し（10 言語）。** 全箇所でユーザーファースト言語（「思考を無効化」）。
-- **💖 Sponsor セクション。** Ko-fi ボタン + 💖 プロジェクトサポートセクションを 10 READMEs 全てに。
-
-### 🔧 改善
-
-- **📜 プロバイダエラーボディが Test Connection UI に到達。**
-- **♻️ Lint パフォーマンス調整値を一元化（`src/constants.ts`）。**
-- **⏱️ Responses API パスで 429/5xx 指数バックオフ。**
-- **🧹 `thinkingControlCache` 廃止。** 3 方言プローブ削除；AI-SDK が thinking を内部処理。
-- **⚡ バンドルサイズ 1.24 MB → 3.17 MB**（2026-06-29 ユーザー承認）。
-
-### 🐛 修正
-
-- **GPT-5.x モデルが 400 で Test Connection を失敗しなくなった**（#207）—— `-pro` バリアントを含む完全カバレッジ。
-- **LM Studio Test Connection が API キーを要求しなくなった**（#223）。
-- **#204 Auto Ingest がブロッキングモーダルを開かなくなった** —— Notice パスを正しく配線。
-- **リアルタイムストリーミングがバッチ処理だった** —— macrotask yield + `result.textStream` のみ消費で修正。
-- **`generation_complete` が `log.md` / `index.md` / `schema/` にスタンプされなくなった**（v1.22.3）。
-- **デッドリンクスタブ捏造クラスバグ閉鎖**（#197）。
-
-### 📊 テスト
-
-- **1376 テスト合格**、100 ファイル（v1.22.0 以降 +272）。
-- 新規テストファイルは CHANGELOG.md に記載。
-
-アップグレードを推奨 —— AI-SDK 移行はプロバイダバージョンリグレッションのクラス（#137 / #141 / #143 / #147 / #207）を排除し、Graph Engine は embedding コストゼロで embedding 相当の検索品質を提供します。カスタム baseURL を持つ OpenAI 互換ゲートウェイを使用している場合、URL フォールバック + token-key probe-then-retry の修正により設定変更なしで接続問題を解決できるはずです。
+- **🔄 取り込み時のライブ PPR グラフ無効化** — 同じセッション内の取り込みが、後続のクエリですぐに見えるようになりました。
+- **🔁 ストリーミング保持クライアントラッパー** — クラスベース SDK クライアントの v1.23.0 時代のストリーミング回帰を排除。
+- **🖱️ Query ターンインジケーター + クリック可能な取得ラベル (#221, #219)** — 会話ターンごとの右端ドット、ホバープレビュー、質問へスクロール。取得ラベルはインライン展開（ポップアップなし）。
+- **📋 セマンティック駆動の進捗通知 (#219)** — 手動操作は Notice + ステータスバー、バックグラウンド操作はステータスバーのみ。Lint Notice は自動消去（5–8秒）。
+- **🧩 Frontmatter シリアライザー統合 (PR #238 @DocTpoint)** — 今後の `supersedes:` フラグに向け、単一の `serializeFrontmatter` ライターへ。
+- **📝 セクションヘッダー正規化 (PR #241 @DocTpoint)** — 境界付き Levenshtein で、LLM が誤ったセクションヘッダーを書き込み時に正規ラベルに戻します。
+- **📜 ライセンスアップグレード** — MIT → Apache 2.0 + DCO。NOTICE に全 6 名の人間貢献者を記載。
 
 ### v1.23.1 — 2026-07-02 (PATCH)
 
-v1.23.0 のコミュニティプラグイン提出をブロックしていた Obsidian レビューボットの 3 つの指摘を解決。ユーザーに見える変更はありません。
+Obsidian レビューボットの 3 つの指摘を解決：`strictBindCallApply: true` の整合、未使用関数の削除、CI ビルド検証用の lockfile 再生成。ユーザーに見える動作変更はありません。
 
-- **TypeScript 厳格モードのアライメント。** `tsconfig.json` に `strictBindCallApply: true` を追加し、`.bind()` 呼び出しが正しい型を推論するように —— ローカル開発環境を Obsidian のレビュー環境に合わせ、ボットが不要と指摘した型アサーションを削除。
-- **未使用コードの削除。** 非推奨の `getThinkingControlCacheKey` 関数を削除（v1.23.0 AI-SDK 移行以降呼び出し元なし）。
-- **ビルドの再現性。** タグ付け前に lockfile を再生成し、CI ビルドされた `main.js` が Obsidian のビルド検証ステップでソースコードと一致するように。
+### v1.23.0 — 2026-07-02 (MINOR)
 
-### v1.23.2 — 2026-07-05 (PATCH)
+1.0 以降最大のアーキテクチャ変更。2 つの主要テーマ：
 
-5 つのマージ PR — バグ修正、リファクタリング、UX 改善。1431 テスト合格。新規ユーザー向け設定なし。v1.23.0+ 全ユーザーにアップグレードを推奨。
-
-- **🛠️ sources プロンプト候補の分離 (#234)。** LLM 候補リストはデフォルトで `wiki/sources/` ページを除外するため、弱いローカルモデルが誤った `[[sources/<誤slug>|<正ラベル>]]` リンクを生成しなくなり、RAG が誤ページにルーティングされなくなりました。プログラム生成の関連ページマッチング（`source-analyzer.ts:421`）は影響を受けません。Constraints プロンプトは候補リストを明示的に参照します。
-- **🔄 取り込み時の PPR グラフキャッシュ無効化。** `wiki/` に触れる取り込みは、開いているすべての Query パネルの PPR グラフキャッシュを無効化します —— 同じ Obsidian セッション内の取り込み後、すぐにクエリ可能になります。
-- **🔁 ストリーミング保持のクライアントラッパー。** `wrapWithAdvancedSettings` を合成パターン（`Object.create(client)` + 明示的な `createMessage` 上書き）に書き換え。クラスベースの SDK クライアントが `{ ...client }` でプロトタイプチェーンから `createMessageStream` を失い、非ストリーミングにフォールバックしていた v1.23.0 時代の回帰を排除。
-- **🧩 Frontmatter シリアライザー統合 (DocTpoint, PR #238)。** `mergeFrontmatter` / `enforceFrontmatterConstraints` / `mergeDuplicatePages` を単一の `serializeFrontmatter` に委譲。動作変更なし（YAML 等価）ですが、近日予定の `supersedes:` フラグ（v1.24.0）は一箇所に追加するだけで済みます。
-- **🖱️ Query ターンインジケーター + 取得ラベル UX 改善 (#219, #221)。** 各会話ターンの右側ドット、ホバーで元の質問をプレビュー、IntersectionObserver 駆動のアクティブハイライト、クリックでスクロール。`🔍 N page(s) · …` 取得ラベルがクリック可能に —— クリックすると取得したページ一覧をインラインで展開（Notice ポップアップなし）。生成完了時は回答末尾ではなくユーザーの質問へスクロール。
-- **📋 セマンティック駆動の進捗通知 (#219)。** 手動操作は Notice + ステータスバー、バックグラウンド操作（watch モード自動取り込み、定期 lint、起動時 QuickFixes）はステータスバーのみ表示。新規ユーザー設定なし —— チャネル選択は操作種別から派生。Lint 完了通知は `NOTICE_NORMAL` / `NOTICE_ERROR` タイムアウトを遵守し、手動で閉じるまで残らなくなりました。
-- **📝 正規化されたセクションヘッダー (DocTpoint, PR #241)。** `wikiLanguage: de` 下でローカルモデルがセクションヘッダーを誤字する場合（例：正規ラベル `Erwähnungen in der Quelle` を `Erwägungen…` / `Erwurnungen…` と書く）が、書き込み時に境界付き Levenshtein で正規ラベルにスナップバックされるようになりました —— Tier-B 取得からのサイレントドロップを排除。
-- **📜 ライセンスアップグレード。** MIT → Apache License 2.0 + DCO。NOTICE ファイルに全人類貢献者を記載。既存の貢献には遡及的な影響なし；今後の commit には `Signed-off-by:` が必要です。
+- **🤖 Vercel AI-SDK v6 移行。** 手書きの 1625 行クライアントを `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2` に置き換え。プロバイダバージョンリグレッションのクラス全体（#137 / #141 / #143 / #147 / #207）を排除。
+- **🕸️ Graph Engine — `[[wiki-link]]` グラフ上の Personalized PageRank。** Monte-Carlo PPR が embedding コストゼロで embedding 並みの R@k を提供。オフライン動作、全プロバイダ対応。3 層パイプライン（lex 高速パス → LLM シード → PPR ウォーク）+ hub-link 識別度スキャナ。
+- **🎬 全プロバイダ向けリアルタイムストリーミング。** 真のチャンク毎ストリーミング、マクロタスク yield でスムーズな UX。
+- **📥 マルチファイル取り込み UI (#130)。** 再帰的フォルダツリー + ライブキュー + ファイル毎キャンセルの 2 ペイン選択モーダル。
+- **🎉 ウェルカムノート。** 3 層の初回起動体験、D8 LLM 動的翻訳（ハードコード i18n なし）。
+- **🔑 LM Studio API-key ゲート (#223)。** ローカルプロバイダが API キーなしで接続テスト可能。
+- **🛡️ GPT-5.x Pro ルーティング + URL フォールバック + token-key probe-then-retry。** プロバイダエラーの全面的な堅牢化。
 
 ## ✨ 特徴
 
 ### 📊 ナレッジ品質
 
-- **🔍 エンティティ・概念の抽出** — LLMがノートからエンティティ（人物、組織、製品、イベントなど）と概念（理論、方法、用語など）を抽出します。抽出粒度（最小〜5項目、粗め〜10、標準〜50、詳細〜100、カスタム1〜300）を柔軟に調整でき、分析の深さとAPIコストを両立できます。
+- **🔍 エンティティ・概念の抽出** — LLMがノートからエンティティ（人物、組織、製品、イベントなど）と概念（理論、方法、用語など）を抽出します。抽出粒度（最小〜5項目、粗め〜10、標準〜50、詳細〜100、カスタム1〜500）を柔軟に調整でき、分析の深さとAPIコストを両立できます。
 - **🏷️ 必須ページエイリアス** — 生成される各ページに最低1つのエイリアス（翻訳、略語、別名）が含まれ、言語をまたいだ重複検出が有効になります。
 - **🔄 重複検出とマージ** — セマンティック階層化により真の重複（言語間の翻訳、略語、表記ゆれ）を発見。LLMによる知的なマージが内容を統合し、エイリアスを保持します。
 - **🧩 スマート知識融合** — 複数ソースからの更新で冗長性なく新情報をマージ。矛盾は出典を伴って保持され、`reviewed: true` ページは上書きから保護されます。
@@ -289,8 +233,8 @@ v1.23.0 のコミュニティプラグイン提出をブロックしていた Ob
 - **🔌 マルチプロバイダー対応** — Anthropic、Anthropic互換（Coding Plan）、Gemini、OpenAI、DeepSeek、Kimi、GLM、MiniMax、LM Studio、OpenRouter、Ollama、カスタムエンドポイント。
 - **🔄 5xx自動再試行** — 全クライアントでHTTP 5xx/429/529エラー時に指数バックオフで再試行（最大2回）。
 - **📋 動的モデル一覧** — プロバイダーAPIからリアルタイム取得。
-- **🌐 Wiki出力言語** — UI言語と独立した9言語（英語・中文・日本語・韓国語・ドイツ語・フランス語・スペイン語・ポルトガル語・イタリア語）、カスタム入力オプション対応。
-- **🌍 UI完全国際化** — プラグインUIは9言語対応（EN/ZH/JA/KO/DE/FR/ES/PT/IT）、269以上のUI項目を自然な現地表現で完全翻訳。
+- **🌐 Wiki出力言語** — UI言語と独立した10言語（English / 简体中文 / 繁體中文 / 日本語 / 한국어 / Deutsch / Français / Español / Português / Italiano）、カスタム入力オプション対応。
+- **🌍 UI完全国際化** — プラグインUIは10言語対応（EN / ZH / ZH-Hant / JA / KO / DE / FR / ES / PT / IT）、277以上のUI項目を自然な現地表現で完全翻訳。
 - **⚡ レート制限ガード** — 並列生成でレート制限が発生した場合、自動的に検出し並列度の低下・バッチ遅延の増加・プロバイダー切り替えを提案。
 - **🦙 Web Clipper互換** — 公式Obsidian Web Clipperの`Clippings/`フォルダをワンクリックで監視リストに追加し、クリップしたWebページを自動的にWikiに取り込み。
 
@@ -309,19 +253,6 @@ v1.23.0 のコミュニティプラグイン提出をブロックしていた Ob
 - **最小限の権限。** VaultファイルアクセスはWiki管理に必要です（ノートの読み取り、ページの生成、リンク切れの検出）。ネットワークアクセスは設定したプロバイダーへのLLM API呼び出しのみに使用されます。クリップボードアクセスはQueryモーダルの「コピー」ボタンのみ——クリックした時だけです。
 
 ---
-## ⌨️ コマンド
-
-| コマンド | 説明 |
-|---------|------|
-| **📥 単一ソースの取り込み** | 単一ノートを選択 → エンティティ、概念、サマリーを含むWikiページを生成 |
-| **📂 フォルダーからの取り込み** | 任意のフォルダを選択 → 既存ノートからWikiを一括生成 |
-| **📑 複数ファイルを取り込み** | 2 ペイン選択モーダルを開く → ファイル別チェックボックスで特定のノートを選択 → 選択分を一括取り込み（ライブキュー + ファイル別キャンセル付き） |
-| **🔍 Wikiに問い合わせ** | ストリーミング出力と`[[wiki-links]]`を伴う対話式Q&A |
-| **🛠️ WikiのLint** | 包括的健康スキャン：重複、リンク切れ、空ページ、孤立ページ、欠落エイリアス、矛盾 |
-| **📋 インデックスの再生成** | `wiki/index.md`を手動で再構築 |
-| **⏹️ 操作キャンセル** | `Cmd+P` → "Cancel current ingestion" またはステータスバークリック — バッチ境界で安全に停止し、完了済みの作業を保持 |
-| **📊 操作履歴を表示 (v1.21.0)** | 過去のインゲスト、lintレポート、メンテナンス実行を検索・フィルタリング可能なUIで閲覧 |
-
 ---
 
 ## 📖 例
@@ -417,37 +348,7 @@ wiki/        # 🧠 LLM生成のWikiページ
 schema/      # 📋 Wiki構造設定（命名規則、ページテンプレート、分類ルール）
 ```
 
-**コード構造** (`src/`):
-
-```
-main.ts              # 🔌 プラグインエントリ
-wiki/                # Wikiエンジンモジュール
-  wiki-engine.ts     # 🎯 オーケストレータ
-  query-engine.ts    # 💬 対話クエリ
-  source-analyzer.ts # 📊 イテレーティブバッチ抽出
-  page-factory.ts    # 🏗️ Entity/Concept CRUD + マージ
-  conversation-ingest.ts # 📥 チャット → Wikiナレッジ
-  contradictions.ts  # ⚠️ 矛盾検出
-  system-prompts.ts  # 🗣️ 言語ディレクティブ + セクションラベル
-  lint/              # Lintサブモジュール
-    controller.ts        # 🔍 Lintオーケストレーション
-    fix-runners.ts       # ⚡ バッチ修正実行ヘルパー
-    scanners.ts          # 🔍 Scanners (dead links, orphans, aliases, quote grounding)
-    duplicate-detection.ts # 🔄 プログラムによる候補生成
-    report-builder.ts    # 📋 純粋関数レポートビルダー
-    phases/              # 段階的Lint実行
-  prompts/           # ドメイン別LLMプロンプトテンプレート
-schema/              # Schema共進化
-  manager.ts         # 📋 Schema CRUD + 提案
-  auto-maintain.ts   # 🔄 ファイルウォッチャ + 定期Lint + 起動時クイック修正
-  analyze.ts         # 📊 キャンセル配線付きSchema分析
-ui/                  # ユーザーインターフェース
-  settings.ts        # ⚙️ 設定パネル
-  modals.ts          # 📦 Lint / Ingest / Query / Historyモーダル
-core/                # 🧩 純粋関数モジュール (IOなし、独立テスト可能)
-  i18n, slug, json, frontmatter, tag-vocab, sources-normalizer, ...
-+ 共有: llm-client.ts, llm-client-wrapper.ts, texts.ts, prompts.ts, types.ts
-```
+> 📖 完全なコード構造は[CONTRIBUTING.md → Project Structure](../CONTRIBUTING.md#project-structure)をご覧ください。
 
 **生成されるページ:**
 - `wiki/sources/filename.md` — 📄 ソース要約
@@ -460,111 +361,44 @@ core/                # 🧩 純粋関数モジュール (IOなし、独立テス
 
 ## ❓ FAQ
 
-> **プラグインを最新に保ってください。** このプロジェクトは頻繁に更新され、数日ごとに新機能や修正が追加されます。Obsidianで **設定 → コミュニティプラグイン → 更新を確認** を定期的に実行してください。
+> **プラグインを最新に保ってください。** 新機能と修正が頻繁にリリースされます。**設定 → コミュニティプラグイン → 更新を確認** を定期的に実行してください。
 >
-> その他の質問は [GitHub FAQ Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28) をご覧ください。
+> 📖 その他のFAQは [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28) をご覧ください。
 
-### 💡 一般
+**このプラグインは実際に何をしますか？**
+notes/ではなく`sources/`にノートを置くと、LLMがエンティティと概念を抽出し、`[[双方向リンク]]`で接続されたWikiを生成します。質問すると、インターネット検索ではなく*あなたのノート*に基づいた会話型の回答が得られます。
 
-**このプラグインは実際に何をするのですか？**
-ノートを入れると、人物、概念、理論を抽出し、`[[双方向リンク]]` 付きの相互リンクされたWikiを生成します。*あなたの*ノートに基づいた回答が得られます — インターネットの幻覚ではありません。
+**データは第三者に送信されますか？**
+🔒 **プライバシー最重視。** バックエンドなし、トラッキングなし、分析なし — プラグインは完全にObsidian内部で動作します。取り込み/クエリのために明示的に送信したテキストのみがデバイスを離れ、それも設定したLLMプロバイダーにのみ送られます。完全なデータローカリティにはローカルプロバイダー（OllamaまたはLM Studio、APIキー不要）を使用してください — データはインターネットに触れません。
 
-**最低要件は？**
-Obsidian v1.11.0+、デスクトップ（Windows/macOS/Linux）、LLM ProviderのAPI key。Ollamaはローカルで動作し、API keyは不要です。
+**RAGチャットボットとは何が違いますか？**
+チャンク化されたRAGがコンテキストを断片化するのに対し、LLM-Wikiは既存の`[[wiki-link]]`グラフ上で**Personalized PageRank**エンジンを実行 — リンク構造で関連ページを見つけます。これにより、埋込コストゼロ、新しい依存関係なし、ローカル/オフラインモデルでも完全に動作します。
 
-**どのモデルを選ぶべきですか？**
-上記の[モデル推奨](#-モデル推奨)を参照。長いコンテキストウィンドウを持つモデルを推奨 — Wikiが大きいほど、LLMはより多くのコンテキストを必要とします。
+**どのLLMを使うべきですか？**
+長いコンテキストウィンドウ（≥200Kトークン）のモデルが最適です。コスパ重視: DeepSeek V4-Flash（$0.14/M）、Gemini 3.5 Flash、Qwen3.6-Plus。Ollama/LM Studioのローカルモデルはクエリに使えますが、コンテキストウィンドウは小さめ（8K–128K）です。詳細は[モデル推奨](#-モデル推奨)を参照。
 
-### 🏷️ エイリアスと重複
+**始め方は？**
+Obsidianコミュニティプラグインからインストール → LLMプロバイダーを選択 → **Test Connection** → `sources/`にノートを置く → **Ingest single source**。最初のWikiページが数秒で生成されます。詳細は上記の[クイックスタート](#-クイックスタート)を参照。
 
-**Lintでほとんどのページに「missing aliases」と表示されるのはなぜ？**
-v1.7.11より前に生成されたページにはエイリアスが含まれていません。これは無害です — エイリアスは必須ではなく機能強化です。Lintレポートの **Complete Aliases** をクリックすると、LLMが翻訳、略語、別名を一括生成します。エイリアスが揃うと、重複検出とエイリアスを考慮した検索がはるかに効果的になります。
+**APIコストをどう管理できますか？**
+バッチ取り込みには粗い/最小の抽出粒度を使用（LLM呼び出しを削減）。スマートバッチスキップが既に取り込んだファイルを自動検出。自動メンテナンスはデフォルトでOFF（必要な場合のみ有効化）。Lintは実行前に件数を表示 — 承認なしでは課金されません。
 
-**類似した名前の重複ページが表示されるのはなぜ？**
-v1.7.10より前のバージョンにはエイリアスを考慮した重複検出がありませんでした。**Lint Wiki** を実行 → **Merge Duplicates** をクリックして統合します。統合後のページは両方のエイリアスを保持し、将来の重複を防止します。
+**既存のWikiは安全ですか？**
+✅ v1.0.0以降後方互換性があります。上書きから保護するには任意のページに`reviewed: true`を設定してください。プラグインはソースファイル（`sources/`）を決して変更しません — 生成されたWikiページのみです。
 
-**重複検出はどのように機能しますか？（v1.7.10+）**
-2層のセマンティック検出：第1層（常にLLM検証）は言語間マッチ、略語、高類似度タイトルを取得します。第2層は残りのトークン予算を中程度類似度の候補で埋めます。エイリアスは第1層にとって重要です — ページがv1.7.11より前の場合は **Complete Aliases** を実行してください。
+**自分の言語で使えますか？**
+🌐 UIとWiki出力の両方で**10言語**対応：English、简体中文、繁體中文、日本語、한국어、Deutsch、Français、Español、Português、Italiano。UI言語とWiki言語は独立 — インターフェースは英語のまま、Wikiを日本語で出力できます。11言語目はコントリビューター主導（Italian PR #159のパターンに従う）。
 
-**「汚染ページ」とは？（v1.9.0）**
-フォルダプレフィックスが誤ってファイル名に含まれたページ（例：`concepts/conceptsレイアウト最適化.md`）。**Lint Wiki** → **🧹 Fix Polluted Pages** で名前を変更し、すべての入リンクを更新します。
+**必要な最小セットアップは？**
+Obsidian v1.11.0+（デスクトップ：Windows/macOS/Linux）。LLMプロバイダーのAPIキー（またはローカルのOllama/LM Studio、APIキー不要）。コア機能のロックを解除するには、プラグインの**llmReadyガード**が成功した接続テストを要求 — これにより、設定ミスのプロバイダーからの静かな失敗を防止します。
 
-### ⚡ パフォーマンスとコスト管理
+**実行中の操作をキャンセルするには？**
+ステータスバーのテキスト（「取り込み中… クリックでキャンセル」と表示）をクリックするか、`Cmd+P` → "Cancel current ingestion"を実行。次のバッチ境界でクリーンに停止し、完了した作業は保持されます。
 
-**取り込みを高速化するには？**
-**設定 → LLM Configuration** で：**Page Generation Concurrency** を3～5に増やし（並列ページ作成）、**Batch Delay** を100～300msに下げます（レート制限に注意）。「最小」「粗め」または「標準」の**抽出粒度**を選択すると、生成ページ数が減りAPIコストを節約できます。
-
-**HTTP 429エラーが発生するのはなぜ？**
-プラグインは自動的にレート制限を検出し、提案します：同時実行数を1～2に下げる、Batch Delayを500～800msに増やす、またはより高い制限のプロバイダーに切り替える。
-
-**APIコストをコントロールするには？**
-- Auto-MaintenanceはデフォルトでOFF（必要な場合のみ有効化）
-- Smart Batch Skipは既取り込みファイルを自動スキップ
-- 「Standard」または「Coarse」粒度 = より少ないLLM呼び出し
-- Batch Delay > 500msは呼び出しを分散するだけでトークン消費は増えない
-- Lintレポートは修正実行前にカウントを表示し、コストに見合うか判断可能
-
-### 🧹 メンテナンス
-
-**Smart Fix Allは何をしますか？**
-因果関係の順序で修正を実行（v1.9.0+）：
-1. 🧹 汚染ページ修正 → 2. 🏷️ エイリアス補完 → 3. 🔄 重複統合 → 4. 🔗 デッドリンク修正 → 5. 🔗 孤立ページリンク → 6. 📝 空ページ拡充
-
-**大きなWikiでLintがフリーズする？**
-v1.7.17+にアップグレード — Lintは50ページごとにObsidianのUIスレッドに制御を戻し、1200+ページのWikiでもフリーズを防止します。
-
-### 🔍 トラブルシューティング
-
-**インストール後、機能が使えないのはなぜですか？**
-設定 → Karpathy LLM Wiki → プロバイダー選択 → APIキー入力 → Fetch Models → モデル選択 → Test Connection。緑の「LLM Ready」表示が出れば全機能が利用可能になります。設定の誤りによる静かな失敗を防ぐための仕様です。
-
-**実行中の取り込み/Lintをキャンセルするには？**
-ステータスバークリックまたは Ctrl+P → "Cancel current ingestion"。現在のバッチ完了後に安全に停止します。
-
-**編集中のファイルをワンクリックで取り込むには？**
-リボン左の `sticker` アイコンをクリック、または `Ctrl+P` → "Ingest current file"。ファイルピッカーをスキップし、現在のエディタタブを直接取り込みます。
-
-**log.mdの二重括弧 `[[[[...]]]]` を修正するには？**
-**Lint Wiki** を実行してください。スキャナがwikiディレクトリ全体（log.mdを含む）の二重入れ子wikiリンクをLLMコストゼロで自動検出・修正します。手動でのクリーンアップは不要です。
-
-**"Overloaded" エラーが発生するのは？**
-プラグインはAnthropicの 529 オーバーロードエラーを再試行可能と認識します。すべてのプロバイダで指数バックオフにより自動再試行されます。
-
-**entities/ や concepts/ に既にページがあるのに重複スタブが作成されるのは？**
-プラグインはスラッグベースのマッチングを使用します — 同じ名前の異なる書式は、重複スタブを作成する代わりに既存ページに解決されます。
-
-**Queryが存在を知っているページを見つけられない？**
-3つの原因：（1）インデックスが古い → **Regenerate index**。（2）エイリアス不足 → **Complete Aliases**。（3）言い回しを変える — LLMはセマンティックマッチングを行い、キーワード検索ではありません。
-
-**Wikiページを手動で編集できますか？**
-はい。frontmatterに `reviewed: true` を設定すると上書きから保護されます。手動で追加したエイリアス、タグ、ソースはマージ時にも保持されます。
-
-**安全なアップグレード方法は？**
-プラグインはソースファイルを変更しません。`wiki/` をバックアップ → プラグイン更新 → **Regenerate index** → **Lint Wiki** → 選択的に修正。
-
-**ローカルモデル（Ollama、LM Studio）が空白や frontmatter のみのノートから奇妙なエンティティ名を捏造する。（v1.21.0）**
-v1.21.0 のインゲスト前要件ゲートで修正済み：空/空白/frontmatterのみのノートは LLM 呼び出し*前*に拒否され、コンテンツハッシュによる重複排除でパス間の同一ファイルを検出します。v1.21.0+ にアップグレードすれば、「空ファイル幻覚」クラスのバグ（ローカルモデルが空白プロンプトでエンティティ名を捏造する）を完全に止められます。
-
-**v1.20.3 へのアップグレード後、`sources/` ファイル名が変更されました。問題ですか？（v1.20.3+）**
-いいえ — 新しい衝突回避のためのソースページスラッグフィンガープリントが機能しています。すべての `sources/<slug>.md` が `sources/<ベース名>_<6桁hex>.md` になります（hex はファイルのフルパスの FNV-1a ハッシュ）。別フォルダで同じベース名のファイル（例：Academy コースの 11 個の `About this course.md`）が衝突しなくなります。再取り込み時に既存の `sources/` ページはその場でリネームされ、すべての `[[sources/<slug>]]` バックリンクが自動更新されます。`sources/<古いslug>.md` を指す外部スクリプトやブックマークがある場合は、新しいフィンガープリント付きパスに更新してください。
-
-**無関係なソースを再取り込みすると、`reviewed: true` でロックしたページを上書きしますか？（v1.20.3+）**
-いいえ — Stage 4（`updateRelatedPage`）も `reviewed: true` を尊重し、追記専用パスにルーティングされます。取り込みパスと同じ動作です。編集済みの本文はそのまま保持され、本当に新しいコンテンツのみが追加されます。
-
-**ヘルプを得るには？**
+**ヘルプはどこで得られますか？**
 - [GitHub Issues](https://github.com/green-dalii/obsidian-llm-wiki/issues) — バグ報告
-- [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions) — 質問とフィードバック
-
-**トラブルシューティング用のデバッグログを収集するには？**
-
-1. 開発者ツールを開く（`Ctrl+Shift+I` / `Cmd+Option+I`）
-2. **Console** タブを開く
-3. 目的の操作（インゲスト、クエリ、Lint）を実行
-4. `[Step]`、`[LLM]`、モジュール名などのモジュール名プレフィックス付きメッセージを探す
-5. ローカルテストでは `pnpm build` の代わりに `pnpm build:dev` を使い、完全なデバッグ出力を保持する
-6. 関連するログ行をコピーして GitHub Issue に添付する — バグ診断が大幅に速くなります
-
----
+- [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions) — 質問、機能リクエスト、アップグレードヘルプ
+- 開発者コンソール（`Ctrl+Shift+I` / `Cmd+Option+I`）— モジュール名プレフィックス付きのログをコピーして、より高速な診断に
 
 ## 🔒 透明性とコンプライアンス
 
