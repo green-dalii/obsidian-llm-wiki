@@ -1,158 +1,52 @@
-// Query Engine - Conversational Wiki Query Modal
+// PR #3 split: QueryView Obsidian ItemView class extracted from query-engine.ts.
+//
+// This is the thin class wrapper. Most of the public surface (constructor,
+// getViewType/getDisplayText/getIcon, invalidateGraph, onOpen, onClose,
+// sendMessage, stopGeneration, scrollToBottom, renderMarkdownContent,
+// renderHistoryMessage) lives here because it carries the view's instance
+// state (streaming flags, rAF handle, graph cache, turn indicator ref, etc.).
+//
+// Renderer + pipeline helpers were extracted in earlier Steps to sibling
+// files; QueryView delegates to them via the imports below.
+//
+// - renderMarkdownContent uses extractThinkingPanel + bindWikiLinkClicks
+//   (renderers/thinking-extract + renderers/wiki-link-clicks)
+// - buildWikiContext is decomposed into 4 pipeline phases (read-index,
+//   select-seeds, load-pages, assemble-context) but `_graph` /
+//   `_lastRetrieval` writes remain on the class (the cache lives here).
 
-import { App, Modal, ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component } from 'obsidian';
-import LLMWikiPlugin from '../main';
-import { TEXTS } from '../texts';
-import { WIKI_LANGUAGES } from '../types';
-import { PROMPTS } from '../prompts';
-import { parseJsonResponse } from '../core/json';
-import { parseIndexForPages } from '../core/index-search';
-import { normalizeWikiLinkContent } from '../core/prompt-builders';
-import { extractThinkingBlocks } from '../core/markdown';
-import { buildTurnIndicator, observeVisibleTurn, scrollTurnToStart } from './turn-indicator';
-import { MAX_PAGE_CONTENT_CHARS, TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
-import { pprCascade, type PageRef } from '../core/ppr-cascade';
-import { buildGraphFromContent, type LoadedPage } from '../core/build-graph';
-import { extractSummaryFromPage } from '../core/section-extractor';
-import { getSectionLabels } from './system-prompts';
+import { ItemView, WorkspaceLeaf, Notice, MarkdownRenderer, Component } from 'obsidian';
+import LLMWikiPlugin from '../../main';
+import { TEXTS } from '../../texts';
+import { PROMPTS } from '../../prompts';
+import { parseJsonResponse } from '../../core/json';
+import { buildTurnIndicator, observeVisibleTurn } from '../turn-indicator';
+import { TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
+import { buildGraphFromContent, type LoadedPage } from '../../core/build-graph';
+import { getSectionLabels } from '../system-prompts';
 
-/**
- * v1.20.0: Render extracted thinking blocks as a <details> collapsible
- * panel, ChatGPT/Claude.ai style. The summary line is localized via the
- * TEXTS table (with English fallback). Returns null when there are no
- * blocks so the caller can skip the wrapper entirely.
- *
- * Pure DOM construction — no Obsidian API dependency, fully testable
- * under jsdom. Tested by src/__tests__/wiki/query-thinking-ui.test.ts.
- */
-export function renderThinkingBlocksUI(
-  thinkingBlocks: string[],
-  language: string
-): HTMLElement | null {
-  if (!thinkingBlocks || thinkingBlocks.length === 0) return null;
+import { extractThinkingPanel } from './renderers/thinking-extract';
+import { bindWikiLinkClicks } from './renderers/wiki-link-clicks';
+import { renderHistoryMessage as buildHistoryMessage, addCopyButton } from './renderers/history-message';
+import {
+  scrollToBottom,
+  scrollToStartOfCurrentTurn,
+  scrollToTurn,
+} from './renderers/turn-scroll';
+import { renderRetrievalLabel } from './renderers/retrieval-label';
+import { SuggestSaveModal } from './SuggestSaveModal-class';
+import { InternalView } from './state';
 
-  const langTexts = (TEXTS as unknown as Record<string, Record<string, string>>)[language]
-    ?? (TEXTS as unknown as Record<string, Record<string, string>>).en;
-  const summaryLabel = langTexts?.queryThinkingSummary
-    ?? (language === 'zh' || language === 'ja' || language === 'ko'
-      ? '思考过程'
-      : 'Thinking process');
-  const stepsLabel = langTexts?.queryThinkingSteps
-    ?? (language === 'zh' ? '步' : language === 'ja' ? 'ステップ' : 'steps');
-
-  // v1.20.0: use activeDocument for popout-window compatibility.
-  // Test environment stubs activeDocument on globalThis (see setup.ts).
-  const doc = activeDocument;
-  if (!doc) return null;
-  const details = doc.createElement('details');
-  details.className = 'llm-wiki-query-thinking-block';
-
-  const summary = doc.createElement('summary');
-  const count = thinkingBlocks.length;
-  summary.textContent = count > 1
-    ? `💭 ${summaryLabel} (${count} ${stepsLabel})`
-    : `💭 ${summaryLabel}`;
-  details.appendChild(summary);
-
-  for (const block of thinkingBlocks) {
-    const pre = doc.createElement('pre');
-    pre.className = 'llm-wiki-query-thinking-content';
-    pre.textContent = block;
-    details.appendChild(pre);
-  }
-
-  return details;
-}
-
-// ---- Suggest Save Modal (post-query feedback) ----
-
-class SuggestSaveModal extends Modal {
-  private plugin: LLMWikiPlugin;
-  private history: {
-    messages: Array<{
-      role: 'user' | 'assistant';
-      content: string;
-      timestamp: number;
-    }>;
-  };
-  private reason: string;
-
-  constructor(
-    app: App,
-    plugin: LLMWikiPlugin,
-    history: { messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }> },
-    reason?: string
-  ) {
-    super(app);
-    this.plugin = plugin;
-    this.history = history;
-    this.reason = reason || '';
-  }
-
-  onOpen() {
-    const { contentEl } = this;
-    const texts = TEXTS[this.plugin.settings.language];
-
-    contentEl.addClass('llm-wiki-suggest-save-modal');
-
-    contentEl.createEl('h3', { text: texts.querySuggestSaveTitle });
-    contentEl.createEl('p', { text: texts.querySuggestSaveDesc });
-
-    if (this.reason) {
-      const reasonBox = contentEl.createDiv({ cls: 'llm-wiki-suggest-save-reason' });
-      reasonBox.createEl('strong', { text: 'Reason: ' });
-      reasonBox.createSpan({ text: this.reason });
-    }
-
-    const buttonRow = contentEl.createDiv({ cls: 'llm-wiki-suggest-save-buttons' });
-
-    buttonRow.createEl('button', { text: texts.querySuggestSaveYes, cls: 'mod-cta' })
-      .addEventListener('click', () => {
-        this.close();
-        void this.doSave();
-      });
-
-    buttonRow.createEl('button', { text: texts.querySuggestSaveNo })
-      .addEventListener('click', () => {
-        this.close();
-      });
-  }
-
-  private async doSave(): Promise<void> {
-    const texts = TEXTS[this.plugin.settings.language];
-    const progressNotice = new Notice(texts.savingToWiki, 0);
-
-    const origProgress = this.plugin.wikiEngine.getProgressCallback();
-    this.plugin.wikiEngine.setProgressCallback((msg: string) => {
-      progressNotice.setMessage(msg);
-    });
-
-    try {
-      const report = await this.plugin.wikiEngine.ingestConversation(this.history);
-      this.plugin.settings.lastOfferedQueryHash = JSON.stringify(this.history.messages);
-      void this.plugin.saveSettings();
-      const summary = texts.saveSummary
-        .replace('{entities}', String(report.entitiesCreated))
-        .replace('{concepts}', String(report.conceptsCreated))
-        .replace('{pages}', String(report.createdPages.length));
-      new Notice(`${texts.saveToWikiSuccess}\n${summary}`, NOTICE_NORMAL);
-    } catch (error) {
-      console.error('Save failed:', error);
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      new Notice(texts.queryModalErrorPrefix + errorMsg, NOTICE_ERROR);
-    } finally {
-      progressNotice.hide();
-      this.plugin.wikiEngine.setProgressCallback(origProgress);
-    }
-  }
-
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-}
-
-// ---- Query View (right-docked side panel) ----
+import { readWikiIndex } from './pipeline/read-index';
+import { selectPprSeeds } from './pipeline/select-seeds';
+import { selectSeedsWithLLM } from './pipeline/seed-selector';
+import { loadRelevantPagesForQuery } from './pipeline/load-pages';
+import {
+  assembleWikiContext,
+  emptyWikiHint,
+  wikiContextErrorHint,
+} from './pipeline/assemble-context';
+import type { RetrievalLabelData } from './types';
 
 export const VIEW_TYPE_QUERY = 'llm-wiki-query-view';
 
@@ -180,7 +74,7 @@ export class QueryView extends ItemView {
   /** Cached section labels for Tier B extraction (settings don't change mid-query). */
   private _sectionLabels: ReturnType<typeof getSectionLabels> | null = null;
   /** Last PPR cascade result — for displaying retrieval source in the response UI. */
-  private _lastRetrieval: { arm: string; count: number; topPaths: string[] } | null = null;
+  private _lastRetrieval: RetrievalLabelData | null = null;
   private _turnIndicator: HTMLElement | null = null;
   private _turnObserver: IntersectionObserver | null = null;
   /**
@@ -240,10 +134,6 @@ export class QueryView extends ItemView {
    * across every open QueryView. Idempotent.
    */
   public invalidateGraph(): void {
-    type InternalView = {
-      _graph: unknown;
-      _lastRetrieval: unknown;
-    };
     const self = this as unknown as InternalView;
     self._graph = null;
     self._lastRetrieval = null;
@@ -635,10 +525,10 @@ export class QueryView extends ItemView {
           cleanupTimer();
         }
 
-        // v1.20.0: Final render with fullResponse (includes <think> blocks
+        // v1.20.0: Final render with fullResponse (includes 抠hink blocks
         // from reasoning_content). During streaming, onChunk only received
         // delta.text — the thinking content was accumulated separately by
-        // createMessageStream and prepended as <think> tags in the return value.
+        // createMessageStream and prepended as 抠hink tags in the return value.
         // v1.23.0 P2: Remove streaming plain-text preview, then run the full
         // MarkdownRenderer pass into contentDiv. Cancel any pending rAF
         // from the streaming phase first — the final renderMarkdownContent
@@ -769,16 +659,7 @@ export class QueryView extends ItemView {
   }
 
   private scrollToStartOfCurrentTurn(): void {
-    const lastTurnIdx = Math.floor((this.history.messages.length - 2) / 2);
-    if (lastTurnIdx < 0) return;
-    // Scroll to the USER question of the current turn, not the assistant
-    // answer, so the user sees the question that triggered this response.
-    const target = this.historyContainer.querySelector(
-      `.llm-wiki-query-message-user[data-turn="${lastTurnIdx}"]`
-    );
-    if (target) {
-      scrollTurnToStart(target as HTMLElement);
-    }
+    scrollToStartOfCurrentTurn(this.historyContainer, this.history.messages.length);
   }
 
   renderMarkdownContent(content: string, container: HTMLElement) {
@@ -788,26 +669,20 @@ export class QueryView extends ItemView {
     // markdown goes to MarkdownRenderer and the reasoning goes into a
     // collapsible <details> panel above it (default collapsed, ChatGPT-style).
     // Fast guard: skip regex during streaming (onChunk only receives text deltas,
-    // never <think> tags). Only run the full extraction when delimiters are present.
-    const lower = content.toLowerCase();
-    const hasThinkTags = lower.includes('<think');
-    const { thinkingBlocks, visibleContent } = hasThinkTags
-      ? extractThinkingBlocks(content)
-      : { thinkingBlocks: [] as string[], visibleContent: content };
-    const normalizedContent = normalizeWikiLinkContent(
-      visibleContent,
-      this.plugin.settings.wikiFolder
+    // never think tags). Only run the full extraction when delimiters are present.
+    //
+    // PR #3 split: delegated to renderers/thinking-extract.ts. The wiki-link
+    // normalization reuses the real `wikiFolder` so user configs with non-default
+    // folders get the correct [[{folder}/path|display]] prefix substitution.
+    const { thinkingEl, normalized: normalizedContent } = extractThinkingPanel(
+      content,
+      this.plugin.settings.language,
+      this.plugin.settings.wikiFolder,
     );
 
     // If reasoning is present, render the collapsible panel first so it
     // appears above the visible answer.
-    if (thinkingBlocks.length > 0) {
-      const thinkingEl = renderThinkingBlocksUI(
-        thinkingBlocks,
-        this.plugin.settings.language
-      );
-      if (thinkingEl) container.appendChild(thinkingEl);
-    }
+    if (thinkingEl) container.appendChild(thinkingEl);
 
     // Dispose previous render component to avoid stale/orphaned components
     if (this.activeRenderComponent) {
@@ -831,21 +706,12 @@ export class QueryView extends ItemView {
     // Bind click handlers on wiki-links so they work inside the Modal.
     // Obsidian's global delegated handler on document.body may not see
     // events from Modal DOM, so we attach per-link listeners manually.
-    container.querySelectorAll('.internal-link').forEach(link => {
-      const el = link as HTMLAnchorElement;
-      const href = el.getAttribute('data-href') || el.getAttribute('href');
-      if (!href) return;
-
-      el.addEventListener('click', (evt) => {
-        evt.preventDefault();
-        evt.stopPropagation();
-        void this.app.workspace.openLinkText(href, sourcePath);
-      });
-    });
+    // PR #3 split: delegated to renderers/wiki-link-clicks.ts.
+    bindWikiLinkClicks(container, this.app, sourcePath);
   }
 
   scrollToBottom() {
-    this.historyContainer.scrollTop = this.historyContainer.scrollHeight;
+    scrollToBottom(this.historyContainer);
   }
 
   /**
@@ -884,11 +750,7 @@ export class QueryView extends ItemView {
   }
 
   private scrollToTurn(idx: number): void {
-    const target = this.historyContainer.querySelector(
-      `.llm-wiki-query-message-user[data-turn="${idx}"]`
-    );
-    if (!target) return;
-    scrollTurnToStart(target as HTMLElement);
+    scrollToTurn(this.historyContainer, idx);
   }
 
   /**
@@ -911,47 +773,28 @@ export class QueryView extends ItemView {
   }
 
   renderHistoryMessage(role: 'user' | 'assistant', content: string, turnIdx?: number) {
-
-    const messageDiv = this.historyContainer.createDiv({
-      cls: ['llm-wiki-query-message-wrapper', role === 'user' ? 'llm-wiki-query-message-user' : 'llm-wiki-query-message-assistant']
-    });
-
-    if (turnIdx !== undefined) {
-      messageDiv.setAttribute('data-turn', String(turnIdx));
-    }
-
-    messageDiv.createDiv({
-      cls: 'llm-wiki-query-message-label',
-      text: role === 'user' ? '👤 You' : '🤖 Wiki'
-    });
-
-    const bodyDiv = messageDiv.createDiv({
-      cls: role === 'user' ? 'llm-wiki-query-message-body' : 'llm-wiki-query-message-body markdown-reading-view'
-    });
-
+    // Preserve the original conditional data-turn behavior: when turnIdx is
+    // explicitly provided, set the attribute; otherwise leave it unset.
+    const messageDiv = buildHistoryMessage(
+      this.historyContainer,
+      role,
+      content,
+      // forwarding via undefined propagates the same omit behavior to the
+      // extracted renderer.
+      turnIdx,
+    );
     if (role === 'assistant') {
-      bodyDiv.setAttribute('data-raw-content', content);
-      this.renderMarkdownContent(content, bodyDiv);
-      this.addCopyButton(messageDiv, bodyDiv);
-    } else {
-      bodyDiv.setText(content);
+      const bodyDiv = messageDiv.querySelector('.llm-wiki-query-message-body') as HTMLElement;
+      if (bodyDiv) {
+        bodyDiv.setAttribute('data-raw-content', content);
+        this.renderMarkdownContent(content, bodyDiv);
+        addCopyButton(messageDiv, bodyDiv);
+      }
     }
   }
 
   private addCopyButton(messageWrapper: HTMLElement, bodyDiv: HTMLElement) {
-    const copyBtn = messageWrapper.createDiv({ cls: 'llm-wiki-query-copy-btn' });
-    copyBtn.setText('Copy');
-    copyBtn.addEventListener('click', (evt) => {
-      evt.stopPropagation();
-      const raw = bodyDiv.getAttribute('data-raw-content') || '';
-      navigator.clipboard.writeText(raw).then(() => {
-        copyBtn.setText('Copied!');
-        window.setTimeout(() => copyBtn.setText('Copy'), 1500);
-      }).catch(() => {
-        copyBtn.setText('Failed');
-        window.setTimeout(() => copyBtn.setText('Copy'), 1500);
-      });
-    });
+    addCopyButton(messageWrapper, bodyDiv);
   }
 
   /**
@@ -962,38 +805,7 @@ export class QueryView extends ItemView {
    */
   private addRetrievalLabel(messageWrapper: HTMLElement): void {
     if (!this._lastRetrieval) return;
-    const r = this._lastRetrieval;
-    const armDisplay = r.arm === 'none'
-      ? '—'
-      : r.arm
-          .split('/')
-          .map(a => {
-            if (a === 'PPR+LLM') return '🔗 PPR+LLM';
-            if (a === 'PPR') return '🔗 PPR';
-            if (a === 'PPR+') return '🔗 PPR+';
-            return '📇 index';
-          })
-          .join(' · ');
-    const label = messageWrapper.createDiv({
-      cls: 'llm-wiki-query-retrieval-label',
-    });
-    label.setText(`🔍 ${r.count} page(s) · ${armDisplay}`);
-    // v1.23.2: click to expand/collapse the list of retrieved pages
-    // inline below the label (no Notice).
-    const detail = messageWrapper.createDiv({
-      cls: 'llm-wiki-query-retrieval-detail',
-    });
-    r.topPaths.forEach(p => {
-      const rel = p.replace(this.plugin.settings.wikiFolder + '/', '').replace('.md', '');
-      const pageDiv = detail.createDiv({ cls: 'llm-wiki-query-retrieval-page' });
-      pageDiv.setText(`📄 [[${rel}]]`);
-    });
-
-    label.addClass('llm-wiki-query-retrieval-label-clickable');
-    label.addEventListener('click', (evt) => {
-      evt.stopPropagation();
-      detail.classList.toggle('llm-wiki-query-retrieval-detail-open');
-    });
+    renderRetrievalLabel(messageWrapper, this._lastRetrieval, this.plugin.settings.wikiFolder);
   }
 
   limitHistory() {
@@ -1084,99 +896,84 @@ export class QueryView extends ItemView {
     );
   }
 
+  /**
+   * Build the wiki context system prompt sent to the query LLM.
+   *
+   * PR #3 split: this used to be a 165-LOC method with 4 inline phases.
+   * Now delegates to the pure pipeline modules:
+   *   1. readWikiIndex (Phase 1)
+   *   2. selectPprSeeds (Phase 2 — PPR + optional LLM augmentation)
+   *   3. loadRelevantPagesForQuery (Phase 3 — Tier B summaries)
+   *   4. assembleWikiContext (Phase 4 — system prompt assembly)
+   *
+   * `_graph` and `_lastRetrieval` writes remain on the class — cache lives
+   * here, not in the pipeline.
+   */
   async buildWikiContext(userMessage: string, onProgress?: (phase: string) => void): Promise<string> {
     console.debug('=== buildWikiContext started ===');
     console.debug('User question:', userMessage);
 
     const texts = TEXTS[this.plugin.settings.language];
+    const wikiFolder = this.plugin.settings.wikiFolder;
+    const reader = this.plugin.wikiEngine;
 
     try {
-      const indexPath = `${this.plugin.settings.wikiFolder}/index.md`;
-      console.debug('[Step 1] Index path:', indexPath);
-      const indexContent = await this.plugin.wikiEngine.tryReadFile(indexPath);
-      console.debug('[Step 1] Index content:', indexContent ? 'loaded' : 'not found');
+      // Phase 1: Read the wiki index
+      const indexResult = await readWikiIndex(wikiFolder, reader);
+      console.debug('[Step 1] Index content:', indexResult.indexContent ? 'loaded' : 'not found');
 
-      if (!indexContent) {
+      if (!indexResult.indexContent) {
         console.debug('[Step 1] Wiki is empty, returning hint');
-        const lang = this.plugin.settings.wikiLanguage || 'en';
-        const langName = WIKI_LANGUAGES[lang] || lang;
-        return `IMPORTANT: You MUST write ALL responses in ${langName}.\n\nYou are a Wiki assistant. The Wiki is empty. Please answer based on your knowledge and suggest the user ingest sources first.`;
+        return emptyWikiHint(this.plugin.settings.wikiLanguage);
       }
 
-      // Phase: Searching for relevant pages — PPR cascade
-      onProgress?.(texts.queryPhaseSearching);
+      // Phase 2: PPR cascade + optional LLM seed augmentation.
+      // delegate returns { matches, armLabel, llmAugmented }
+      const seedResult = await selectPprSeeds(
+        userMessage,
+        indexResult.pageRefs,
+        this._graph,
+        this.plugin.llmClient as unknown as Parameters<typeof selectPprSeeds>[3],
+        this.plugin.settings,
+        texts as unknown as Record<string, string>,
+        onProgress,
+      );
 
-      // Step 2: Parse index into PageRef[] for the pprCascade.
-      const allPages = parseIndexForPages(indexContent);
-      const pageRefs: PageRef[] = allPages.map(p => ({
-        path: p.path,
-        title: p.title,
-        aliases: p.aliases,
-        summary: p.summary,
-      }));
-      const allPaths = new Set(allPages.map(p => p.path));
-
-      // === Tier 1: FAST PATH (lex-based) ===
-      // Run the PPR cascade first — uses lex + graph structure.
-      const matches = pprCascade(userMessage, pageRefs, {
-        graph: this._graph ?? undefined,
-        topN: 5,
-      });
-
-      // === Tier 2: LLM AUGMENTATION (only when fast path is weak) ===
-      // Trigger: lex returned no hits OR top hit has score < 2 (i.e.
-      // matched only in summary, not title/alias). At that point the
-      // LLM's semantic understanding gives better seeds than lex alone.
-      const maxScore = matches.length > 0 ? matches[0].score : 0;
-      const needsLLMSeeds = matches.length === 0 || maxScore < 2;
-      let finalMatches = matches;
-      if (needsLLMSeeds) {
-        console.debug(`[Step 2b] LLM seed selection triggered (maxScore=${maxScore}, lexHits=${matches.length})`);
-        const llmSeeds = await this.selectSeedsWithLLM(userMessage, pageRefs);
-        console.debug(`[Step 2b] LLM returned ${llmSeeds.length} seeds:`, llmSeeds);
-        if (llmSeeds.length > 0) {
-          // Re-run cascade with LLM-provided seeds.
-          finalMatches = pprCascade(userMessage, pageRefs, {
-            graph: this._graph ?? undefined,
-            topN: 5,
-            seeds: llmSeeds,
-          });
-          console.debug(`[Step 2b] Cascade with LLM seeds returned ${finalMatches.length} pages`);
-        }
-      }
-
-      let relevantPages = finalMatches.map(m => m.page.path);
-
-      // === PPR cascade debug signals ===
-      const arms = new Set(finalMatches.map(m => m.arm));
-      const armInfo = [...arms].map(a =>
-        a === 'graph-first-ppr' ? 'PPR' : a === 'lex-seeded-ppr' ? 'PPR+' : 'index'
-      ).join('/');
-      const llmAugmented = needsLLMSeeds && finalMatches.some(m => m.score > 0);
-      const armDisplay = llmAugmented ? `${armInfo}+LLM` : armInfo;
-      const pageNames = relevantPages.map(p => p.split('/').pop() || p).join(', ');
-      const foundText = texts.queryPhaseFoundPages
-        .replace('{count}', relevantPages.length.toString())
-        .replace('{pages}', pageNames);
-      onProgress?.(`${foundText} · ${armDisplay}`);
-      console.debug(`[Step 2] PPR cascade selected ${relevantPages.length} pages (arm: ${armDisplay || 'none'})`);
-      console.debug(`[Step 2]   top-5 paths:`, finalMatches.slice(0, 5).map(m => `${m.page.path} (${m.arm}, score=${m.score.toFixed(3)})`));
-      console.debug(`[Step 2]   query tokens:`, userMessage.toLowerCase().split(/\s+/).filter(k => k.length > 0));
-      console.debug(`[Step 2]   graph state: ${this._graph ? `${this._graph.nodes.length} nodes / ${this._graph.edges.size} edges` : 'none'}`);
-      console.debug(`[Step 2]   LLM augmentation: ${needsLLMSeeds ? 'triggered' : 'skipped (fast path sufficient)'}`);
-
-      // Persist retrieval metadata for the response UI label.
+      // Write back _lastRetrieval for retrieval label UI
+      const relevantPages = seedResult.matches.map(m => m.page.path);
       this._lastRetrieval = {
-        arm: armDisplay || 'none',
+        arm: seedResult.armLabel || 'none',
         count: relevantPages.length,
         topPaths: relevantPages.slice(0, 5),
       };
 
-      // Phase: Loading pages
-      onProgress?.(texts.queryPhaseLoadingPages);
+      console.debug(`[Step 2] PPR cascade selected ${relevantPages.length} pages (arm: ${seedResult.armLabel || 'none'})`);
+      console.debug(`[Step 2]   top-5 paths:`, seedResult.matches.slice(0, 5).map(m => `${m.page.path} (${m.arm}, score=${m.score.toFixed(3)})`));
+      console.debug(`[Step 2]   query tokens:`, userMessage.toLowerCase().split(/\s+/).filter(k => k.length > 0));
+      console.debug(`[Step 2]   graph state: ${this._graph ? `${this._graph.nodes.length} nodes / ${this._graph.edges.size} edges` : 'none'}`);
+      console.debug(`[Step 2]   LLM augmentation: ${seedResult.llmAugmented ? 'triggered' : 'skipped (fast path sufficient)'}`);
 
+      // Phase 3: Loading pages
+      onProgress?.(texts.queryPhaseLoadingPages);
       console.debug('[Step 3] Loading page content...');
-      const rawLoadedPages = await this.loadRelevantPages(relevantPages);
+
+      // Section labels for extractSummaryFromPage (Tier B). Cache on first call.
+      if (!this._sectionLabels) {
+        this._sectionLabels = getSectionLabels(this.plugin.settings);
+      }
+      const sectionLabels = this._sectionLabels
+        ? {
+            description: (this._sectionLabels as unknown as { description?: string }).description,
+            definition: (this._sectionLabels as unknown as { definition?: string }).definition,
+          }
+        : null;
+
+      const rawLoadedPages = await loadRelevantPagesForQuery(
+        relevantPages,
+        wikiFolder,
+        reader,
+        sectionLabels,
+      );
       console.debug('[Step 3] Pages loaded:', rawLoadedPages.length);
 
       // Build the graph from loaded pages (first query only, then cached).
@@ -1185,70 +982,30 @@ export class QueryView extends ItemView {
           path,
           content: rawLoadedPages[i] || '',
         }));
-        this._graph = buildGraphFromContent(loadedForGraph, allPaths, this.plugin.settings.wikiFolder);
+        this._graph = buildGraphFromContent(loadedForGraph, indexResult.allPaths, wikiFolder);
         console.debug('[Step 3] Graph built:', this._graph.nodes.length, 'nodes,', this._graph.edges.size, 'edges');
       }
 
       // Phase: Context ready, about to generate
       onProgress?.(texts.queryPhaseContextReady);
 
-      const lang = this.plugin.settings.wikiLanguage || 'en';
-      const langName = WIKI_LANGUAGES[lang] || lang;
-      const langDirective = `IMPORTANT: You MUST write ALL responses in ${langName}. Every answer, explanation, and label must be in ${langName}.`;
-
-      // Build a shorter note for the context: which arm was used.
-      const retrievalNote = matches.length > 0
-        ? `(Pages selected via ${armInfo} retrieval.)`
-        : '(No relevant pages found. The LLM should answer from general knowledge.)';
-
-      const wikiContext = `${langDirective}
-
-You are a Wiki assistant with access to a structured knowledge base.
-
-Wiki Index:
-${indexContent}
-
-Relevant Wiki Pages (loaded with full content):
-${rawLoadedPages.length > 0 ? rawLoadedPages.join('\n\n---\n\n') : 'No directly relevant pages found in Wiki.'}
-
-${retrievalNote}
-
-Instructions:
-- Answer based on the Wiki pages above (not general knowledge)
-- Use ONLY Obsidian's wiki-link syntax: [[${this.plugin.settings.wikiFolder}/entities/page-name]] (NOT HTML links)
-- Link format MUST include wiki folder: [[${this.plugin.settings.wikiFolder}/entities/page-name]]
-
-CRITICAL RULES:
-✅ CORRECT: [[${this.plugin.settings.wikiFolder}/entities/example-page]], [[${this.plugin.settings.wikiFolder}/concepts/example-concept]]
-❌ WRONG: <a href="...">, [link text](url), [[example-page]], [[entities/example-page]]
-- Obsidian wiki-links use DOUBLE brackets: [[path]]
-- NO HTML: Never use <a href="...">text</a>
-- NO Markdown external links: Never use [text](url)
-- Include ${this.plugin.settings.wikiFolder}/ prefix: Links must start with [[${this.plugin.settings.wikiFolder}/...
-
-CITATION REQUIREMENTS:
-- When referencing specific information from a Wiki page, include an inline wiki-link
-- At the end of your answer, add a "## References" section (or "## 参考文献" for Chinese) listing all wiki pages you cited
-- Format each reference as: [[${this.plugin.settings.wikiFolder}/path/page-name|Display Name]] — brief description
-- Example:
-  ## References
-  1. [[${this.plugin.settings.wikiFolder}/concepts/example-concept|Example Concept]] — Core mechanism explanation
-  2. [[${this.plugin.settings.wikiFolder}/entities/example-entity|Example Entity]] — Background and history
-
-If Wiki lacks relevant information:
-- Acknowledge it and suggest ingesting more sources
-- Do NOT make up information outside Wiki
-
-Respond in ${langName}`;
+      // Phase 4: Assemble the system prompt
+      const wikiContext = assembleWikiContext({
+        indexContent: indexResult.indexContent,
+        pageBodies: rawLoadedPages,
+        armLabel: seedResult.armLabel,
+        llmAugmented: seedResult.llmAugmented,
+        matchesCount: relevantPages.length,
+        wikiFolder,
+        wikiLanguage: this.plugin.settings.wikiLanguage,
+      });
 
       console.debug('[Step 4] Wiki context built');
       console.debug('[Step 4] Context length:', wikiContext.length);
       return wikiContext;
     } catch (error) {
       console.error('[Error] buildWikiContext failed:', error);
-      const lang2 = this.plugin.settings.wikiLanguage || 'en';
-      const langName2 = WIKI_LANGUAGES[lang2] || lang2;
-      return `IMPORTANT: You MUST write ALL responses in ${langName2}.\n\nYou are a Wiki assistant. Failed to load Wiki context. Please answer based on your knowledge.`;
+      return wikiContextErrorHint(this.plugin.settings.wikiLanguage);
     }
   }
 
@@ -1256,118 +1013,30 @@ Respond in ${langName}`;
     console.debug('=== loadRelevantPages started ===');
     console.debug('Page titles:', pageTitles);
 
-    const pages: string[] = [];
-
-    const wikiPrefix = this.plugin.settings.wikiFolder + '/';
-
-    // Section labels for extractSummaryFromPage (Tier B).
-    // Cache on first call because settings don't change mid-query.
-    if (!this._sectionLabels) {
-      this._sectionLabels = getSectionLabels(this.plugin.settings);
-    }
-    const sectionLabels = this._sectionLabels;
-
-    for (const title of pageTitles) {
-      console.debug(`[Load Page] Processing title: "${title}"`);
-
-      // Strip wiki folder prefix if path has it (e.g., "wiki/entities/xxx" → "entities/xxx")
-      const normalizedTitle = title.startsWith(wikiPrefix) ? title.slice(wikiPrefix.length) : title;
-      const pagePath = `${this.plugin.settings.wikiFolder}/${normalizedTitle}.md`;
-
-      console.debug(`[Load Page] Full path: "${pagePath}"`);
-
-      const content = await this.plugin.wikiEngine.tryReadFile(pagePath);
-      console.debug(`[Load Page] File exists: ${content ? 'yes' : 'no'}`);
-
-      if (content) {
-        const displayTitle = `${this.plugin.settings.wikiFolder}/${normalizedTitle}`;
-
-        // Determine the page type from path: "entities/xxx" → entity, "concepts/xxx" → concept, else source.
-        const pathSegment = normalizedTitle.split('/')[0];
-        const pageTypeHint = pathSegment === 'entities' ? 'entity' : pathSegment === 'concepts' ? 'concept' : null;
-
-        let body: string;
-
-        // Tier B: extract summary section for entity/concept pages (zero LLM).
-        if (pageTypeHint && sectionLabels.description && sectionLabels.definition) {
-          const summary = extractSummaryFromPage(content, {
-            descriptionLabel: sectionLabels.description,
-            definitionLabel: sectionLabels.definition,
-            pageType: pageTypeHint,
-            maxChars: Math.floor(MAX_PAGE_CONTENT_CHARS / 3), // shorter summary
-          });
-          if (summary) {
-            body = summary;
-            console.debug(`[Load Page] Tier B summary extracted (${body.length} chars)`);
-          } else {
-            // Fall back to truncated full content if no summary section found.
-            body = content.length > MAX_PAGE_CONTENT_CHARS
-              ? content.substring(0, MAX_PAGE_CONTENT_CHARS) + '\n\n... (truncated)'
-              : content;
-            console.debug(`[Load Page] No summary section found, using full content (${body.length} chars)`);
-          }
-        } else {
-          body = content.length > MAX_PAGE_CONTENT_CHARS
-            ? content.substring(0, MAX_PAGE_CONTENT_CHARS) + '\n\n... (truncated)'
-            : content;
-          console.debug(`[Load Page] Source page or unknown type, using full content (${body.length} chars)`);
+    const sectionLabels = this._sectionLabels
+      ? {
+          description: (this._sectionLabels as unknown as { description?: string }).description,
+          definition: (this._sectionLabels as unknown as { definition?: string }).definition,
         }
+      : null;
 
-        pages.push(`## ${displayTitle}\n\n${body}`);
-      } else {
-        console.warn(`[Load Page] Cannot read page: ${pagePath}`);
-      }
-    }
-
-    console.debug(`[Load Page] Successfully loaded pages`);
-    return pages;
+    return loadRelevantPagesForQuery(
+      pageTitles,
+      this.plugin.settings.wikiFolder,
+      this.plugin.wikiEngine,
+      sectionLabels,
+    );
   }
 
-  /**
-   * Tier 2: LLM-based semantic seed selection.
-   *
-   * Called when the Tier 1 lex fast path returns no hits or weak signals.
-   * Sends the user's query + a compact list of (path, summary) pairs to
-   * the LLM, which returns up to 3 page paths as seeds. The LLM is the
-   * primary semantic matcher here — it's the layer that handles
-   * synonyms, cross-language aliases, and abstract queries that pure
-   * string matching can't reach.
-   *
-   * Graceful degradation: returns empty array on any failure (LLM
-   * unavailable, parse error, network timeout). Caller falls back to
-   * whatever the lex fast path returned.
-   */
-  async selectSeedsWithLLM(query: string, pageRefs: PageRef[]): Promise<string[]> {
-    if (!this.plugin.llmClient) return [];
-    if (pageRefs.length === 0) return [];
-
-    // Build compact (path, summary) list — cap at 50 pages to keep
-    // prompt bounded.
-    const pagesList = pageRefs
-      .slice(0, 50)
-      .map(p => `- ${p.path}: ${p.summary || '(no summary)'}`)
-      .join('\n');
-
-    const prompt = PROMPTS.seedSelection
-      .replace('{{query}}', query)
-      .replace('{{pages}}', pagesList);
-
-    try {
-      const response = await this.plugin.llmClient.createMessage({
-        model: this.plugin.settings.model,
-        max_tokens: 200,
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),
-      });
-      const parsed = await parseJsonResponse(response) as { seeds?: string[] } | null;
-      const rawSeeds = parsed?.seeds || [];
-      // Validate against pageRefs — drop any paths that don't exist.
-      const validPaths = new Set(pageRefs.map(p => p.path));
-      return rawSeeds.filter(s => validPaths.has(s));
-    } catch (error) {
-      console.warn('[LLM seed selection failed]', error);
-      return [];
-    }
+  async selectSeedsWithLLM(
+    query: string,
+    pageRefs: import('../../core/ppr-cascade').PageRef[],
+  ): Promise<string[]> {
+    return selectSeedsWithLLM(
+      query,
+      pageRefs,
+      this.plugin.llmClient as unknown as Parameters<typeof selectSeedsWithLLM>[2],
+      this.plugin.settings,
+    );
   }
 }
