@@ -63,7 +63,7 @@ You write. AI organizes. You ask. That's it.
 
 **✨ The fix.** [Andrej Karpathy suggested](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) something elegant: treat your notes as raw material, and let an LLM do the architect work. It reads what you write, pulls out entities and concepts, and weaves them into a structured Wiki — complete with `[[bidirectional links]]`, an auto-generated index, and a chat interface that answers questions from *your* knowledge.
 
-**📚 So you don't have to be the librarian.** No deciding what deserves a page. No maintaining cross-links. No wondering if something is out of date. Drop notes into `sources/` and the LLM reads, extracts, writes, links, and even flags contradictions — while you stay in flow.
+**📚 So you don't have to be the librarian.** No deciding what deserves a page. No maintaining cross-links. No wondering if something is out of date. Pick any note (or folder, or selection) from your vault — the LLM reads, extracts, writes, links, and even flags contradictions — while you stay in flow.
 
 **🤖 And it's not another chatbot.** ChatGPT knows the internet. LLM-Wiki knows *you* — or rather, what you've taught it. Every answer carries `[[wiki-links]]` back into your knowledge graph. Every response is a trailhead, not a dead end.
 
@@ -255,7 +255,7 @@ Biggest architectural change since 1.0. Two major themes:
 
 - **⚡ Parallel page generation** — configurable 1–5 concurrent pages, default 3 (parallel), 2–3× speedup on large sources; per-page error isolation.
 - **📚 Iterative batched extraction** — adaptive batch sizing eliminates the long-document max_tokens bottleneck.
-- **🏛️ Three-layer architecture** — `sources/` (read-only) → `wiki/` (LLM-generated) → `schema/` (co-evolved configuration).
+- **🏛️ Three-layer architecture** — Your vault notes (read-only) → `wiki/` (LLM-generated pages organized as `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`) → `schema/` (co-evolved configuration).
 - **🧩 Modular codebase** — 20+ focused modules in `src/`.
 
 ### 🔒 Privacy & Security
@@ -349,11 +349,11 @@ For local models (Ollama): context windows are typically smaller (8K–128K). Co
 Karpathy's three-layer separation design:
 
 ```
-sources/     # 📄 Your source documents (read-only)
+📄 Your vault notes (any folder)   # 📖 You pick which notes to ingest
   ↓ ingest
-wiki/        # 🧠 LLM-generated Wiki pages
+wiki/                              # 🧠 LLM-generated Wiki pages (wiki/sources/, wiki/entities/, wiki/concepts/)
   ↓ query / maintain
-schema/      # 📋 Wiki structure configuration (naming, templates, categories)
+schema/                            # 📋 Wiki structure configuration (naming, templates, categories)
 ```
 
 > 📖 See the full codebase structure in [CONTRIBUTING.md → Project Structure](./CONTRIBUTING.md#project-structure).
@@ -374,7 +374,7 @@ schema/      # 📋 Wiki structure configuration (naming, templates, categories)
 > 📖 More FAQs on [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28).
 
 **What does the plugin actually do?**
-You drop notes in `sources/`; the LLM extracts entities and concepts and generates an interlinked wiki with `[[bidirectional links]]`. Ask questions and get conversational answers grounded in *your* notes — not internet search.
+Pick any note, folder, or selection from your vault; the LLM extracts entities and concepts and generates an interlinked wiki with `[[bidirectional links]]`. Ask questions and get conversational answers grounded in *your* notes — not internet search. Generated summaries live under `wiki/sources/`, entities under `wiki/entities/`, and concepts under `wiki/concepts/` — your original vault notes are never modified.
 
 **Is my data sent to third parties?**
 🔒 **Privacy first.** No backend, no tracking, no analytics — the plugin runs entirely inside Obsidian. Only text you explicitly send for ingestion/query leaves your device, and only to the LLM provider you configure. For complete data locality, use a local provider (Ollama or LM Studio with no API key) — your data never touches the internet.
@@ -386,13 +386,13 @@ Unlike chunked RAG that fragments context, LLM-Wiki runs a **Personalized PageRa
 Long-context models (≥200K tokens) work best. Budget-friendly picks: DeepSeek V4-Flash ($0.14/M), Gemini 3.5 Flash, Qwen3.6-Plus. Local models via Ollama/LM Studio work for query but have smaller context windows (8K–128K). See the [Model Selection Guide](#-model-selection-guide) for details.
 
 **How do I get started?**
-Install from Obsidian Community Plugins → pick an LLM provider → **Test Connection** → drop notes in `sources/` → **Ingest single source**. Your first wiki pages appear within seconds. See [Quick Start](#-quick-start) above.
+Install from Obsidian Community Plugins → pick an LLM provider → **Test Connection** → run **Ingest single source** (or **Ingest from folder**) on any note in your vault → your first wiki pages appear within seconds. See [Quick Start](#-quick-start) above.
 
 **How can I control API costs?**
 Use Coarse or Minimal extraction granularity for batch ingestion (fewer LLM calls). Smart Batch Skip auto-detects already-ingested files. Auto-Maintenance is OFF by default (enable only if needed). Lint shows counts before running fixes — nothing is charged without your approval.
 
 **Is my existing wiki safe?**
-✅ Backward compatible since v1.0.0. Set `reviewed: true` on any page to protect it from overwrite. The plugin never modifies your source files ('`sources/`') — only generated wiki pages.
+✅ Backward compatible since v1.0.0. Set `reviewed: true` on any page to protect it from overwrite. The plugin never modifies your original vault notes — only generates new pages inside the `wiki/` folder.
 
 **Can I use the plugin in my language?**
 🌐 **10 languages** for both UI and wiki output: English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano. UI and wiki language are independent — your wiki can be in Chinese while the interface stays in English. Adding an 11th language is contributor-driven (follow the Italian PR #159 pattern).

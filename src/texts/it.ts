@@ -135,7 +135,7 @@ export const IT_TEXTS = {
     // Impostazioni Query
     querySectionTitle: 'Configurazione query Wiki',
     maxConversationHistoryName: 'Cronologia conversazione massima',
-    maxConversationHistoryDesc: 'Limita i messaggi della conversazione per evitare il superamento dei token',
+    maxConversationHistoryDesc: 'Limite morbido dei turni di conversazione (i messaggi più vecchi vengono eliminati automaticamente). Valori preimpostati: 1/10/30/50/100/500.',
     maxConversationHistoryHint: 'Consigliato: non superare 50 turni',
     numberRangeValidation: 'Inserisci un numero tra 1 e 50',
     numberRangeClamped: 'Il valore supera il range (1-500), impostato automaticamente a {}',

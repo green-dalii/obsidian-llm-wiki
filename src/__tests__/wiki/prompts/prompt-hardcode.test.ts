@@ -42,7 +42,9 @@ describe('Prompt templates — merge.ts section headers (#188)', () => {
     expect(tpl).toContain('{{section_related_concepts}}');
     expect(tpl).toContain('{{section_basic_information}}');
     expect(tpl).toContain('{{section_description}}');
-    expect(tpl).toContain('{{section_mentions_in_source}}');
+    // Issue #244: Mentions in Source section is now written programmatically
+    // by the page-factory post-processing. No longer part of LLM prompt.
+    expect(tpl).not.toContain('{{section_mentions_in_source}}');
   });
 
   it('mergeConceptPage uses {{section_*}} placeholders for Related sections', () => {
@@ -51,6 +53,7 @@ describe('Prompt templates — merge.ts section headers (#188)', () => {
     expect(tpl).toContain('{{section_related_concepts}}');
     expect(tpl).toContain('{{section_basic_information}}');
     expect(tpl).toContain('{{section_description}}');
-    expect(tpl).toContain('{{section_mentions_in_source}}');
+    // Issue #244: Mentions in Source section is now written programmatically.
+    expect(tpl).not.toContain('{{section_mentions_in_source}}');
   });
 });

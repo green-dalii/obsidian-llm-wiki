@@ -26,6 +26,7 @@ import {
   EntityInfo,
   ConceptInfo,
   ContradictionInfo,
+  MentionWithProvenance,
   WIKI_LANGUAGES,
 } from '../types';
 import { PROMPTS } from '../prompts';
@@ -47,6 +48,40 @@ import { createEmptyAccumulation, mergeBatchResults, buildSourceAnalysis, calcul
 // `|| []` fallbacks. Pure functions (no IO) — fully unit-testable.
 
 export type BatchValidity = 'valid' | 'empty' | 'unusable';
+
+/**
+ * Issue #244 — auto-fill mentions_with_provenance from legacy
+ * mentions_in_source when the LLM did not return the structured form.
+ * This enables the page-factory to always use mentions_with_provenance
+ * for programmatic Mentions writes, even when ingesting from older models
+ * that only output the legacy string[] format.
+ *
+ * Manual-test fix: when we synthesize provenance from legacy, ALSO clear the
+ * legacy `mentions_in_source` field so the LLM doesn't see both arrays in
+ * the analysis log (and so downstream code that prefers the structured form
+ * never accidentally falls back to a stale legacy array).
+ */
+function fillMentionsWithProvenance<T extends EntityInfo | ConceptInfo>(item: T): T {
+  // If the LLM already returned structured provenance, keep it as-is
+  // but clear the legacy field when both are present (avoids duplicate output).
+  if (item.mentions_with_provenance?.length) {
+    if (item.mentions_in_source?.length) {
+      return { ...item, mentions_in_source: undefined };
+    }
+    return item;
+  }
+  // Otherwise, synthesize provenance from the legacy string[].
+  const quotes = item.mentions_in_source?.filter(q => q?.trim()) ?? [];
+  if (quotes.length === 0) return item;
+  const now = new Date().toISOString();
+  const provenance: MentionWithProvenance[] = quotes.map(quote => ({
+    quote,
+    source_path: '',      // filled by page-factory at write time
+    source_slug: '',      // filled by page-factory at write time
+    extracted_at: now,
+  }));
+  return { ...item, mentions_with_provenance: provenance, mentions_in_source: undefined };
+}
 
 export interface NormalizedBatch {
   entities: EntityInfo[];
@@ -71,9 +106,11 @@ export function normalizeBatchResponse(
   }
 
   const entities = coerceToArray<EntityInfo>(raw.entities)
-    .filter(e => e?.name?.trim());
+    .filter(e => e?.name?.trim())
+    .map(e => fillMentionsWithProvenance(e));
   const concepts = coerceToArray<ConceptInfo>(raw.concepts)
-    .filter(c => c?.name?.trim());
+    .filter(c => c?.name?.trim())
+    .map(c => fillMentionsWithProvenance(c));
 
   // Strip wiki-link formatting if LLM outputs [[path|name]] instead of plain name
   const relatedPages = coerceToArray<string>(raw.related_pages).map(p => {
@@ -177,10 +214,14 @@ export class SourceAnalyzer {
     // ⚡ Page list removed from extraction prompt — PageFactory.resolvePagePath
     // handles deduplication via slug/alias/LLM matching. Programmatic
     // related_pages matching runs after extraction instead.
+    // Issue #244 (manual test fix): inject the source's original vault path
+    // so the LLM records it in `mentions_with_provenance[i].source_path`
+    // instead of guessing `wiki/sources/<slug>`.
     const templateUntouched = PROMPTS.analyzeSource
       .replace('{{content}}', content)
       .replace('{{existing_pages}}', '')  // Empty — dedup handled downstream
-      .replace('{{existing_slugs}}', existingSlugs);
+      .replace('{{existing_slugs}}', existingSlugs)
+      .replace(/\{\{source_path\}\}/g, file.path);
     const batchMarker = '{{batch_context}}';
     const markerIdx = templateUntouched.indexOf(batchMarker);
     const staticPrefix = templateUntouched.substring(0, markerIdx);
@@ -222,12 +263,22 @@ export class SourceAnalyzer {
         .replace('{{granularity_instruction}}', granularityInstruction)
         .replace(/{{batch_size}}/g, String(currentBatchSize));
 
-      const langHint = `\n\nCRITICAL LANGUAGE REQUIREMENT: Summaries, descriptions, source_title, and key_points in your JSON output MUST be written in ${WIKI_LANGUAGES[this.ctx.settings.wikiLanguage || 'en'] || this.ctx.settings.wikiLanguage || 'English'}. HOWEVER: entity names and concept names MUST be preserved in their original source language — NEVER translate names. mentions_in_source MUST be verbatim quotes from the source (preserve original language).`;
+      const wikiLang = this.ctx.settings.wikiLanguage || 'en';
+      const wikiLangName = WIKI_LANGUAGES[wikiLang] || wikiLang;
+      const langHint = `\n\nCRITICAL LANGUAGE REQUIREMENT: Summaries, descriptions, source_title, and key_points in your JSON output MUST be written in ${wikiLangName}. HOWEVER: entity names and concept names MUST be preserved in their original source language -- NEVER translate names. mentions_in_source MUST be verbatim quotes from the source (preserve original language).`;
+      // Issue #244 (manual test fix): when the user's wiki language differs
+      // from English, instruct the LLM to ALSO emit a 'translation' field
+      // alongside each quote in mentions_with_provenance. The downstream
+      // formatter renders: "<verbatim>" (<translation>) -- [[path|display]].
+      // When source and wiki languages match, skip the translation field.
+      const translationHint = wikiLang !== 'en'
+        ? `\n\nTRANSLATION (cross-language wikis): For each entry in mentions_with_provenance, ALSO add a 'translation' field containing a ${wikiLangName} translation of the quote text. The 'quote' field MUST stay verbatim in the source's original language; the translation goes in a separate 'translation' field. Example: {"quote": "Machine learning is fun", "translation": "机器学习很有趣", "source_path": "...", ...}`
+        : '';
       // Issue #85 v6: inject the active tag vocabulary so the LLM emits
       // type values that match the user's custom vocabulary (or the
       // hardcoded defaults). Without this, the LLM invents its own types
       // and the frontmatter validator silently drops them.
-      const finalPrompt = prompt + langHint + '\n\n' + tagVocabularySection;
+      const finalPrompt = prompt + langHint + translationHint + '\n\n' + tagVocabularySection;
 
       console.debug(`[Batch ${batchNum + 1}/${limits.maxBatches}] LLM call started (batch_size=${currentBatchSize})...`);
       console.debug(`[Batch ${batchNum + 1}] Prompt length:`, prompt.length);

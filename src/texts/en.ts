@@ -135,7 +135,7 @@ export const EN_TEXTS = {
     // Query Settings
     querySectionTitle: 'Wiki Query Configuration',
     maxConversationHistoryName: 'Max Conversation History',
-    maxConversationHistoryDesc: 'Limit conversation messages to avoid token overflow',
+    maxConversationHistoryDesc: 'Soft cap on conversation rounds (older messages auto-dropped). Presets: 1/10/30/50/100/500.',
     maxConversationHistoryHint: 'Recommended: not exceed 50 rounds',
     numberRangeValidation: 'Please enter a number between 1-50',
     numberRangeClamped: 'Value exceeds range (1-500), automatically set to {}',

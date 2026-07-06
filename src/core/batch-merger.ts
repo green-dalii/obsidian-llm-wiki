@@ -2,7 +2,7 @@
 // Extracted from source-analyzer.ts::analyzeSource()
 // Zero side effects, fully unit-testable
 
-import { EntityInfo, ConceptInfo, ContradictionInfo, SourceAnalysis } from '../types';
+import { EntityInfo, ConceptInfo, ContradictionInfo, SourceAnalysis, MentionWithProvenance } from '../types';
 
 export interface BatchAccumulation {
   entities: EntityInfo[];
@@ -19,6 +19,76 @@ export interface MergeResult {
   allEntities: EntityInfo[];
   allConcepts: ConceptInfo[];
   extractedNames: Set<string>;
+}
+
+// ── Internal merge helpers for Issue #244 ────────────────────
+
+/**
+ * Deduplicate an array of MentionWithProvenance by quote string,
+ * preserving insertion order (first occurrence wins).
+ */
+function dedupMentionsByQuote(
+  a: MentionWithProvenance[] | undefined,
+  b: MentionWithProvenance[] | undefined,
+): MentionWithProvenance[] | undefined {
+  if (!a?.length && !b?.length) return undefined;
+  if (!a?.length) return b;
+  if (!b?.length) return a;
+  const seen = new Set(a.map(m => m.quote));
+  const merged = [...a];
+  for (const m of b) {
+    if (!seen.has(m.quote)) {
+      merged.push(m);
+      seen.add(m.quote);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Deduplicate two string arrays, preserving insertion order.
+ */
+function dedupStrings(a: string[] | undefined, b: string[] | undefined): string[] {
+  if (!a?.length && !b?.length) return [];
+  if (!a?.length) return b ?? [];
+  if (!b?.length) return a;
+  const seen = new Set(a);
+  const merged = [...a];
+  for (const s of b) {
+    if (!seen.has(s)) {
+      merged.push(s);
+      seen.add(s);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Merge mentions from a duplicate entity/concept into the existing one.
+ * Generic over the common mentions shape — eliminates the 11-line near-clones
+ * that were duplicated for EntityInfo vs ConceptInfo.
+ */
+function mergeMentionsFields<
+  T extends {
+    mentions_in_source?: string[];
+    mentions_with_provenance?: MentionWithProvenance[];
+  },
+>(existing: T, incoming: T): T {
+  const hasProvenance = incoming.mentions_with_provenance?.length;
+  const hasLegacy = incoming.mentions_in_source?.length;
+  if (!hasProvenance && !hasLegacy) return existing;
+
+  return {
+    ...existing,
+    mentions_with_provenance: dedupMentionsByQuote(
+      existing.mentions_with_provenance,
+      incoming.mentions_with_provenance,
+    ),
+    mentions_in_source: dedupStrings(
+      existing.mentions_in_source,
+      incoming.mentions_in_source,
+    ),
+  };
 }
 
 /**
@@ -54,16 +124,48 @@ export function mergeBatchResults(
   },
   customCaps?: { entityCap?: number | null; conceptCap?: number | null }
 ): MergeResult {
-  // Filter out duplicates
+  // Issue #244: separate duplicates whose mentions should be merged
+  // from truly unique entries.
+  const duplicateEntities: EntityInfo[] = [];
+  const duplicateConcepts: ConceptInfo[] = [];
+
   const newEntities = newBatch.entities.filter(e => {
     const name = e.name.trim().toLowerCase();
-    return !current.extractedNames.has(name);
+    if (current.extractedNames.has(name)) {
+      duplicateEntities.push(e);
+      return false;
+    }
+    return true;
   });
 
   const newConcepts = newBatch.concepts.filter(c => {
     const name = c.name.trim().toLowerCase();
-    return !current.extractedNames.has(name);
+    if (current.extractedNames.has(name)) {
+      duplicateConcepts.push(c);
+      return false;
+    }
+    return true;
   });
+
+  // Merge mentions from duplicates into the existing accumulation items.
+  // E1: Map lookup is O(1) per item, replacing the previous O(N×M) nested find.
+  let mergedEntities = current.entities;
+  if (duplicateEntities.length > 0) {
+    const dupeMap = new Map(duplicateEntities.map(d => [d.name.trim().toLowerCase(), d]));
+    mergedEntities = current.entities.map(existing => {
+      const dupe = dupeMap.get(existing.name.trim().toLowerCase());
+      return dupe ? mergeMentionsFields(existing, dupe) : existing;
+    });
+  }
+
+  let mergedConcepts = current.concepts;
+  if (duplicateConcepts.length > 0) {
+    const dupeMap = new Map(duplicateConcepts.map(d => [d.name.trim().toLowerCase(), d]));
+    mergedConcepts = current.concepts.map(existing => {
+      const dupe = dupeMap.get(existing.name.trim().toLowerCase());
+      return dupe ? mergeMentionsFields(existing, dupe) : existing;
+    });
+  }
 
   // Apply custom caps if in custom mode
   let cappedEntities = newEntities;
@@ -97,8 +199,8 @@ export function mergeBatchResults(
   return {
     newEntities: cappedEntities,
     newConcepts: cappedConcepts,
-    allEntities: [...current.entities, ...cappedEntities],
-    allConcepts: [...current.concepts, ...cappedConcepts],
+    allEntities: [...mergedEntities, ...cappedEntities],
+    allConcepts: [...mergedConcepts, ...cappedConcepts],
     extractedNames: updatedExtractedNames
   };
 }

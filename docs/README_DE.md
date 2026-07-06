@@ -62,7 +62,7 @@ Notizen schreiben. KI organisiert. Fragen stellen. Das ist alles.
 
 **✨ Die Lösung.** [Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) hat einen eleganten Ansatz vorgeschlagen: Notizen als Rohmaterial behandeln und den LLM die Architekturarbeit überlassen. Der LLM liest die Notizen, extrahiert Entities und Concepts und verknüpft sie zu einem strukturierten Wiki — mit `[[bidirektionalen Links]]`, automatisch generiertem Index und Chat-Interface für Anfragen an die eigene Wissensbasis.
 
-**📚 Keine Bibliotheksarbeit mehr.** Keine Bewertung des Seitenwerts. Keine Pflege von Querverweisen. Keine Angst vor veraltetem Content. Notizen in `sources/` ablegen — der LLM liest, extrahiert, schreibt, verlinkt und markiert Widersprüche, während Sie im Flow bleiben.
+**📚 Keine Bibliotheksarbeit mehr.** Keine Bewertung des Seitenwerts. Keine Pflege von Querverweisen. Keine Angst vor veraltetem Content. Wähle eine beliebige Notiz (oder einen Ordner, oder eine Mehrfachauswahl) aus deinem Vault — der LLM liest, extrahiert, schreibt, verlinkt und markiert Widersprüche, während Sie im Flow bleiben.
 
 **🤖 Kein weiterer Chatbot.** ChatGPT kennt das Internet. LLM Wiki kennt *Sie* — genauer: das, was Sie ihm beigebracht haben. Jede Antwort enthält `[[wiki-links]]` zurück in den Knowledge Graph. Jede Antwort ist ein Wegweiser, kein Dead End.
 
@@ -243,7 +243,7 @@ Größte Architekturänderung seit 1.0. Zwei Hauptthemen:
 
 - **⚡ Parallel Page Generation** — Konfigurierbare 1–5 parallele Pages, Standard 3 (parallel), 2–3× Speedup bei großen Sources, per-Page Error Isolation
 - **📚 Iterative Batch Extraction** — Adaptive Batch-Sizing, eliminiert max_tokens-Bottleneck bei langen Dokumenten
-- **🏛️ Three-Layer Architecture** — `sources/` (read-only) → `wiki/` (LLM-generated) → `schema/` (co-evolved Config)
+- **🏛️ Three-Layer Architecture** — Deine Vault-Notizen (read-only) → `wiki/` (LLM-generierte Seiten, organisiert als `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`) → `schema/` (co-evolved Config)
 - **🧩 Modular Codebase** — 20+ fokussierte Module in `src/`
 
 ### 🔒 Datenschutz & Sicherheit
@@ -345,11 +345,11 @@ Für lokale Modelle (Ollama): Context Windows normalerweise kleiner (8K–128K),
 Basierend auf Karpathys Drei-Schichten-Design:
 
 ```
-sources/     # 📄 Deine Quellendokumente (schreibgeschützt)
+📄 Deine Vault-Notizen (beliebiger Ordner)   # 📖 Du wählst, welche Notizen ingestiert werden
   ↓ ingest
-wiki/        # 🧠 LLM-generierte Wiki-Seiten
+wiki/                                          # 🧠 LLM-generierte Wiki-Seiten (wiki/sources/, wiki/entities/, wiki/concepts/)
   ↓ query / maintain
-schema/      # 📋 Wiki-Strukturkonfiguration (Benennung, Vorlagen, Kategorien)
+schema/                                        # 📋 Wiki-Strukturkonfiguration (Benennung, Vorlagen, Kategorien)
 ```
 
 > 📖 Die vollständige Code-Struktur findest du in [CONTRIBUTING.md → Project Structure](../CONTRIBUTING.md#project-structure).
@@ -371,7 +371,7 @@ schema/      # 📋 Wiki-Strukturkonfiguration (Benennung, Vorlagen, Kategorien)
 > 📖 Weitere FAQs in [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28).
 
 **Was macht das Plugin genau?**
-Lege Notizen in `sources/` ab; der LLM extrahiert Entitäten und Konzepte und generiert ein vernetztes Wiki mit `[[bidirektionalen Links]]`. Stelle Fragen und erhalte Antworten aus *deinen* Notizen — keine Internetsuche.
+Wähle eine beliebige Notiz, einen Ordner oder eine Mehrfachauswahl aus deinem Vault; der LLM extrahiert Entitäten und Konzepte und generiert ein vernetztes Wiki mit `[[bidirektionalen Links]]`. Stelle Fragen und erhalte Antworten aus *deinen* Notizen — keine Internetsuche. Generierte Zusammenfassungen liegen unter `wiki/sources/`, Entitäten unter `wiki/entities/`, Konzepte unter `wiki/concepts/` — deine ursprünglichen Vault-Notizen werden nie verändert.
 
 **Werden meine Daten an Dritte gesendet?**
 🔒 **Datenschutz zuerst.** Kein Backend, kein Tracking, keine Analysen — das Plugin läuft vollständig in Obsidian. Nur Text, den du explizit sendest, verlässt dein Gerät. Für vollständige Datenlokalität verwende einen lokalen Anbieter (Ollama oder LM Studio ohne API-Key) — deine Daten verlassen nie das Internet.
@@ -383,13 +383,13 @@ Anders als RAG, das den Kontext fragmentiert, verwendet LLM-Wiki eine **Personal
 Langkontext-Modelle (≥200K Tokens) funktionieren am besten. Preiswerte Optionen: DeepSeek V4-Flash ($0.14/M), Gemini 3.5 Flash, Qwen3.6-Plus. Lokale Modelle (Ollama/LM Studio) für Abfragen nutzbar, aber mit kleineren Kontextfenstern (8K–128K).
 
 **Wie fange ich an?**
-Aus Obsidian Community Plugins installieren → LLM-Anbieter wählen → **Test Connection** → Notizen in `sources/` ablegen → **Ingest single source**. Deine ersten Wiki-Seiten erscheinen in Sekunden.
+Aus Obsidian Community Plugins installieren → LLM-Anbieter wählen → **Test Connection** → **Ingest single source** (oder **Ingest from folder**) auf einer beliebigen Notiz in deinem Vault ausführen → Deine ersten Wiki-Seiten erscheinen in Sekunden. Siehe [Quick Start](#-quick-start) oben.
 
 **Wie kontrolliere ich API-Kosten?**
 Nutze Grobe oder Minimale Extraktionsgranularität für Batch-Aufnahme (weniger LLM-Aufrufe). Smart Batch Skip erkennt bereits verarbeitete Dateien automatisch. Auto-Maintenance ist standardmäßig AUS.
 
 **Ist mein bestehendes Wiki sicher?**
-✅ Rückwärtskompatibel seit v1.0.0. Setze `reviewed: true` auf einer Seite, um sie vor Überschreiben zu schützen. Das Plugin ändert nie deine Quelldateien (`sources/`), nur generierte Wiki-Seiten.
+✅ Rückwärtskompatibel seit v1.0.0. Setze `reviewed: true` auf einer Seite, um sie vor Überschreiben zu schützen. Das Plugin ändert nie deine ursprünglichen Vault-Notizen — es erzeugt nur neue Seiten im `wiki/`-Ordner.
 
 **Kann ich das Plugin in meiner Sprache nutzen?**
 🌐 **10 Sprachen** für UI und Wiki-Ausgabe: English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano. UI- und Wiki-Sprache sind unabhängig voneinander.

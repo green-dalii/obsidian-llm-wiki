@@ -124,7 +124,7 @@ export const DE_TEXTS = {
     // Query Settings
     querySectionTitle: 'Wiki-Anfrage-Konfiguration',
     maxConversationHistoryName: 'Maximaler Konversationsverlauf',
-    maxConversationHistoryDesc: 'Konversationsnachrichten begrenzen, um Token-Überlauf zu vermeiden',
+    maxConversationHistoryDesc: 'Weiche Obergrenze für Konversationsrunden (ältere Nachrichten werden automatisch verworfen). Voreinstellungen: 1/10/30/50/100/500.',
     maxConversationHistoryHint: 'Empfehlung: 50 Runden nicht überschreiten',
     numberRangeValidation: 'Bitte eine Zahl zwischen 1 und 50 eingeben',
     numberRangeClamped: 'Wert außerhalb des Bereichs (1-500), automatisch auf {} gesetzt',

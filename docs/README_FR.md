@@ -62,7 +62,7 @@ Vous écrivez. L'IA organise. Vous interrogez. Rien de plus.
 
 **✨ La solution.** [Andrej Karpathy a proposé](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) une approche élégante : traiter vos notes comme des matières premières et confier à un LLM le rôle d'architecte. Il analyse vos écrits, extrait les Entity et Concept, puis les intègre dans un Wiki structuré — doté de `[[Wiki-links]]` bidirectionnels, d'un index auto-généré et d'une interface conversationnelle répondant aux questions à partir de *vos* connaissances.
 
-**📚 Libérez-vous du rôle de bibliothécaire.** Plus besoin de décider ce qui mérite une page. Plus besoin de maintenir les liens croisés. Plus besoin de vérifier l'obsolescence. Déposez vos notes dans `sources/` : le LLM lit, extrait, rédige, relie et signale les contradictions — pendant que vous restez concentré sur l'essentiel.
+**📚 Libérez-vous du rôle de bibliothécaire.** Plus besoin de décider ce qui mérite une page. Plus besoin de maintenir les liens croisés. Plus besoin de vérifier l'obsolescence. Choisissez n'importe quelle note (ou dossier, ou sélection multiple) de votre vault — le LLM lit, extrait, rédige, relie et signale les contradictions — pendant que vous restez concentré sur l'essentiel.
 
 **🤖 Ce n'est pas un chatbot de plus.** ChatGPT connaît Internet. LLM-Wiki connaît *vous* — ou plutôt, ce que vous lui avez enseigné. Chaque réponse intègre des `[[Wiki-links]]` vers votre graphe de connaissances. Chaque réponse est un point de départ, jamais une impasse.
 
@@ -240,7 +240,7 @@ Plus grand changement architectural depuis 1.0. Deux thèmes majeurs :
 
 - **⚡ Parallel Page Generation** — 1–5 pages concurrentes configurables, défaut 3 (parallèle), 2–3× plus rapide pour les grandes sources, isolation des erreurs par page
 - **📚 Iterative Batch Extraction** — Taille de batch adaptative élimine le goulot d'étranglement max_tokens pour les documents longs
-- **🏛️ Three-Layer Architecture** — `sources/` (lecture seule) → `wiki/` (généré par LLM) → `schema/` (config co-évoluée)
+- **🏛️ Three-Layer Architecture** — Vos notes du vault (lecture seule) → `wiki/` (pages générées par le LLM, organisées en `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`) → `schema/` (config co-évoluée)
 - **🧩 Modular Codebase** — 20+ modules focalisés dans `src/`
 
 ### 🔒 Confidentialité et sécurité
@@ -343,11 +343,11 @@ Pour les modèles locaux (Ollama) : les fenêtres de contexte sont généralemen
 Le design à trois couches de Karpathy :
 
 ```
-sources/     # 📄 Vos documents source (lecture seule)
+📄 Vos notes du vault (dossier quelconque)   # 📖 Vous choisissez quelles notes ingérer
   ↓ ingest
-wiki/        # 🧠 Pages Wiki générées par LLM
+wiki/                                          # 🧠 Pages Wiki générées par le LLM (wiki/sources/, wiki/entities/, wiki/concepts/)
   ↓ query / maintain
-schema/      # 📋 Configuration de la structure du Wiki
+schema/                                        # 📋 Configuration de la structure du Wiki
 ```
 
 > 📖 Voir la structure complète du code dans [CONTRIBUTING.md → Project Structure](../CONTRIBUTING.md#project-structure).
@@ -369,7 +369,7 @@ schema/      # 📋 Configuration de la structure du Wiki
 > 📖 Plus de FAQ sur [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28).
 
 **Que fait exactement ce plugin ?**
-Déposez des notes dans `sources/` ; le LLM extrait les entités et concepts et génère un Wiki interconnecté avec `[[liens wiki]]`. Obtenez des réponses conversationnelles depuis *vos* notes — pas de recherche Internet.
+Choisissez n'importe quelle note, dossier ou sélection multiple de votre vault ; le LLM extrait les entités et concepts et génère un Wiki interconnecté avec `[[liens wiki]]`. Obtenez des réponses conversationnelles depuis *vos* notes — pas de recherche Internet. Les résumés générés vivent sous `wiki/sources/`, les entités sous `wiki/entities/`, les concepts sous `wiki/concepts/` — vos notes originales du vault ne sont jamais modifiées.
 
 **Mes données sont-elles envoyées à des tiers ?**
 🔒 **Confidentialité d'abord.** Pas de backend, pas de suivi, pas d'analyse — le plugin tourne entièrement dans Obsidian. Seul le texte que vous envoyez explicitement quitte votre appareil. Pour une localité complète des données, utilisez un fournisseur local (Ollama ou LM Studio sans clé API).
@@ -381,13 +381,13 @@ Contrairement au RAG qui fragmente le contexte, LLM-Wiki utilise un moteur **Per
 Les modèles à long contexte (≥200K tokens) fonctionnent le mieux. Options économiques : DeepSeek V4-Flash ($0.14/M), Gemini 3.5 Flash, Qwen3.6-Plus. Les modèles locaux (Ollama/LM Studio) fonctionnent pour les requêtes mais ont des fenêtres de contexte plus petites (8K–128K).
 
 **Comment commencer ?**
-Installez depuis les plugins communautaires Obsidian → choisissez un fournisseur LLM → **Test Connection** → mettez des notes dans `sources/` → **Ingest single source**. Vos premières pages Wiki apparaissent en secondes.
+Installez depuis les plugins communautaires Obsidian → choisissez un fournisseur LLM → **Test Connection** → exécutez **Ingest single source** (ou **Ingest from folder**) sur n'importe quelle note de votre vault → vos premières pages Wiki apparaissent en secondes. Voir [Démarrage rapide](#-démarrage-rapide) ci-dessus.
 
 **Comment contrôler les coûts d'API ?**
 Utilisez la granularité Grossière ou Minimale pour l'ingestion par lots (moins d'appels LLM). Smart Batch Skip détecte automatiquement les fichiers déjà traités. La maintenance automatique est désactivée par défaut.
 
 **Mon Wiki existant est-il sûr ?**
-✅ Rétrocompatible depuis v1.0.0. Définissez `reviewed: true` sur une page pour la protéger contre l'écrasement. Le plugin ne modifie jamais vos fichiers sources (`sources/`), seulement les pages Wiki générées.
+✅ Rétrocompatible depuis v1.0.0. Définissez `reviewed: true` sur une page pour la protéger contre l'écrasement. Le plugin ne modifie jamais vos notes originales du vault — il génère uniquement de nouvelles pages dans le dossier `wiki/`.
 
 **Puis-je utiliser le plugin dans ma langue ?**
 🌐 **10 langues** pour l'interface et la sortie Wiki : English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano. La langue de l'interface et celle du Wiki sont indépendantes.

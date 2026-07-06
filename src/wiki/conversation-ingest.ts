@@ -144,6 +144,7 @@ CRITICAL RULES:
 - entity.name: Choose or extract appropriate name from Wiki index (maintain consistency with existing Wiki)
 - concept.name: Same principle - reference Wiki index for concept names
 - mentions_in_source: REQUIRED field - list actual mentions in conversation text
+- DO NOT output mentions_with_provenance for conversations — the page-factory writes Mentions programmatically with a single citation pointing to the conversation summary page (Issue #244).
 - If no entities/concepts found, use empty arrays [] (never omit the field)
 - Names should be suitable for [[wiki-links]] referencing (judge appropriate naming based on Wiki index)`;
 

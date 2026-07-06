@@ -55,14 +55,12 @@ Rules:
 - ## {{section_description}}: Core definition and significance (3-6 sentences)
 - ## {{section_related_entities}}: Links to related entities
 - ## {{section_related_concepts}}: Links to related concepts
-- ## {{section_mentions_in_source}}: Chronological list of mentions with VERBATIM quotes in original language
 
 **Existing Page Content (the current version):**
 {{existing_body}}
 
 **New Information from Source "{{new_source}}":**
 - Summary: {{entity_summary}}
-- Mentions in source: {{mentions}}
 - Related entities: {{related_entities}}
 - Related concepts: {{related_concepts}}
 - Key details: {{key_details}}
@@ -75,10 +73,9 @@ Rules:
 2. DESCRIPTION: Integrate new facts naturally. Do NOT duplicate existing information.
 3. RELATED: Update "{{section_related_entities}}" and "{{section_related_concepts}}" sections with new relationships.
 4. CONTRADICTIONS: If new info conflicts with existing, preserve BOTH with clear attribution.
-5. MENTIONS: Append new mentions to "{{section_mentions_in_source}}". Preserve VERBATIM quotes in original language. Translation optional in parentheses.
-6. LINKS: Use [[path|display]] format. LEFT side = full path, RIGHT side = display name ONLY. NEVER duplicate folder prefixes (entities/, concepts/) in display name. Verify paths exist.
-7. STYLE: Match existing writing style.
-8. NO REDUNDANCY: Do NOT restate existing facts.
+5. LINKS: Use [[path|display]] format. LEFT side = full path, RIGHT side = display name ONLY. NEVER duplicate folder prefixes (entities/, concepts/) in display name. Verify paths exist.
+6. STYLE: Match existing writing style.
+7. NO REDUNDANCY: Do NOT restate existing facts.
 
 **Output Format:**
 Output ONLY the body content (no frontmatter):
@@ -93,12 +90,7 @@ Output ONLY the body content (no frontmatter):
 [Updated entity links]
 
 ## {{section_related_concepts}}
-[Updated concept links]
-
-## {{section_mentions_in_source}}
-[ALL mentions — existing preserved with their source attribution blocks, new appended under a new source block:
-> **Source: [[source-name]]**
-> - "Verbatim quote in original language"]`,
+[Updated concept links]`,
 
   mergeConceptPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing concept page following the schema-defined structure.
 
@@ -107,14 +99,12 @@ Output ONLY the body content (no frontmatter):
 - ## {{section_description}}: Detailed explanation with examples (3-6 sentences)
 - ## {{section_related_concepts}}: Connected concepts using [[concepts/...]]
 - ## {{section_related_entities}}: Connected entities using [[entities/...]]
-- ## {{section_mentions_in_source}}: VERBATIM quotes in original language with source attribution
 
 **Existing Page Content (the current version):**
 {{existing_body}}
 
 **New Information from Source "{{new_source}}":**
 - Summary: {{concept_summary}}
-- Mentions in source: {{mentions}}
 - Related concepts: {{related_concepts}}
 - Related entities: {{related_entities}}
 - Key details: {{key_details}}
@@ -128,10 +118,9 @@ Output ONLY the body content (no frontmatter):
 3. RELATED CONCEPTS: Update links — add new ones, preserve existing.
 4. RELATED ENTITIES: Update links — add new ones from this source.
 5. CONTRADICTIONS: If new info conflicts, preserve both with attribution.
-6. MENTIONS: Append to "{{section_mentions_in_source}}". Preserve VERBATIM quotes in original language.
-7. LINKS: Use [[path|display]] format. LEFT side = full path, RIGHT side = display name ONLY. NEVER duplicate folder prefixes (entities/, concepts/) in display name. Verify paths exist.
-8. STYLE: Match existing writing style.
-9. NO REDUNDANCY: Do NOT restate existing facts.
+6. LINKS: Use [[path|display]] format. LEFT side = full path, RIGHT side = display name ONLY. NEVER duplicate folder prefixes (entities/, concepts/) in display name. Verify paths exist.
+7. STYLE: Match existing writing style.
+8. NO REDUNDANCY: Do NOT restate existing facts.
 
 **Output Format:**
 Output ONLY the body content (no frontmatter):
@@ -146,12 +135,7 @@ Output ONLY the body content (no frontmatter):
 [Updated concept links]
 
 ## {{section_related_entities}}
-[Updated entity links]
-
-## {{section_mentions_in_source}}
-[ALL mentions — existing preserved with their source attribution blocks, new appended under a new source block:
-> **Source: [[source-name]]**
-> - "Verbatim quote in original language"]`,
+[Updated entity links]`,
 
   // Minimal append mode for reviewed pages
   appendToReviewedPage: `You are a Wiki editor adding new information to a user-reviewed page. The existing content is AUTHORITATIVE and must be preserved exactly.
@@ -161,7 +145,6 @@ Output ONLY the body content (no frontmatter):
 
 **New Information from Source "{{new_source}}":**
 - Summary: {{entity_summary}}
-- Mentions: {{mentions}}
 - Key details: {{key_details}}
 
 **Task:**

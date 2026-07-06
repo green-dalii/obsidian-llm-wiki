@@ -118,11 +118,18 @@ See [CHANGELOG](./CHANGELOG.md#1170-2026-06-08) for full details.
 
 TBD after v1.23.2 feedback. Architectural items deferred from v1.23.0–v1.23.2 cycle:
 
-- **#220 — Source-revision awareness for merge** (DocTpoint's 4-tier design). Tier 0 fingerprint + replace self-revision; Tier 1 `supersedes:` frontmatter flag; Tier 2 cross-source disagreement open question; Tier 3 review-queue UI. Tiers 0-1 tractable for v1.24.0; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
+- **#220 — Source-revision awareness for merge** (DocTpoint's 4-tier design). Tier 0 fingerprint + replace self-updates; Tier 1 `supersedes:` frontmatter flag; Tier 2 cross-source disagreement open question; Tier 3 review-queue UI. Tiers 0-1 tractable for v1.24.0; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
 - **#218 — PDF source ingest** (Discussion #222 topology).
 - **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by @DocTpoint (post-#215 merge).
 - **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
 - **LintFixer → module-level functions split** — 707-LOC god class, deprioritized since v1.18.x.
+- **#244 — Programmatic Mentions-citation writes (mentioned by @DocTpoint).** Root cause: `Mentions in Source` section is currently emitted by LLM in the page-generation prompt (`page-factory.ts:361/433/495` inject `{{mentions}}` as a few-shot example). LLM may drift on quote text, format, ordering, or — worse — copy the note-folder prefix into Related Concepts/Entities sections (Effect 2 from the bug report). Design intent (`schema-manager.ts:117-128`): Mentions is a deterministic academic-footnote structured output; should NOT depend on LLM creativity.
+  - **Scope:** Promote `mentions_in_source` to a structured `mentions_with_provenance` type (`{quote, source_path, source_slug, extracted_at, position?}`); emit the section programmatically via new `core/mentions-formatter.ts`; strip the LLM-written section in `page-factory.ts` post-processing; remove `{{mentions}}` injection + section directives from `prompts/generation.ts` and `prompts/merge.ts`; support multi-source merge (dedup by verbatim quote string, sort by source-ingest timestamp); programmatic verify that each emitted quote actually appears at the claimed source position (defends against LLM fabrication in the extraction stage).
+  - **Lint scanner compatibility:** Extend `lint/scanners.ts` `extractMentionsSection` + line regex to accept raw-note-path targets (`[[MyNote]]`) in addition to `wiki/sources/<slug>` paths, and to verify quote-grounding against the original source file when the link target is a note path. This heals the silent secondary damage (427 ungrounded-quote lint warnings caused by the current raw-note path).
+  - **Effect 1 (DocTpoint's original proposed fix — three-site patch threading sourceSlug into `truncateMentions`):** REJECTED. Effect 1 is the schema design intent; the per-quote link should land on the verbatim original source, not the wiki-summary round-trip.
+  - **Related-link corrector backstop (`correctRelatedLinkPrefixes.ts:55`):** still ship as defense-in-depth alongside this work.
+  - **Track:** PR target v1.23.3 PATCH if scope stays tight; otherwise v1.24.0 MINOR alongside other sink-cleanup work.
+- **#244a (linked) — Related-link corrector extension (defense-in-depth).** Extend `correctRelatedLinkPrefixes` regex at `src/core/related-link-corrector.ts:55` to recognize note-folder prefixes in Related Concepts/Entities sections and normalize them. Ship alongside #244 even if #244 alone would close Effect 2 — backstop for any future prompt leak.
 
 ### Not in v1.24.0 (Discussion-only)
 

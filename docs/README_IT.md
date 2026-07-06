@@ -63,7 +63,7 @@ Tu scrivi. L'IA organizza. Tu chiedi. Tutto qui.
 
 **✨ La soluzione.** [Andrej Karpathy ha proposto](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) qualcosa di elegante: trattare le tue note come materia prima e lasciare che sia un LLM a svolgere il lavoro di architetto. Legge ciò che scrivi, estrae entità e concetti e li intreccia in un Wiki strutturato — completo di `[[collegamenti bidirezionali]]`, un indice generato automaticamente e un'interfaccia di chat che risponde alle domande a partire dalla *tua* conoscenza.
 
-**📚 Così non devi più fare il bibliotecario.** Niente più decisioni su cosa merita una pagina. Nessun collegamento incrociato da mantenere. Nessun dubbio sull'obsolescenza dei contenuti. Inserisci le note in `sources/` e l'LLM legge, estrae, scrive, collega e segnala perfino le contraddizioni — mentre tu resti concentrato.
+**📚 Così non devi più fare il bibliotecario.** Niente più decisioni su cosa merita una pagina. Nessun collegamento incrociato da mantenere. Nessun dubbio sull'obsolescenza dei contenuti. Scegli una qualsiasi nota (o cartella, o selezione multipla) dal tuo vault — l'LLM legge, estrae, scrive, collega e segnala perfino le contraddizioni — mentre tu resti concentrato.
 
 **🤖 E non è l'ennesimo chatbot.** ChatGPT conosce internet. LLM-Wiki conosce *te* — o meglio, ciò che gli hai insegnato. Ogni risposta riporta `[[wiki-link]]` verso il tuo grafo della conoscenza. Ogni risposta è un punto di partenza, non un vicolo cieco.
 
@@ -270,7 +270,7 @@ Il più grande cambiamento architetturale da 1.0:
 
 - **⚡ Generazione parallela delle pagine** — 1–5 pagine concorrenti configurabili, predefinito 3 (parallelo), speedup 2–3× su sorgenti grandi; isolamento errori per pagina.
 - **📚 Estrazione iterativa a batch** — dimensione batch adattiva elimina il collo di bottiglia max_tokens sui documenti lunghi.
-- **🏛️ Architettura a tre livelli** — `sources/` (sola lettura) → `wiki/` (generato dall'LLM) → `schema/` (configurazione co-evoluta).
+- **🏛️ Architettura a tre livelli** — Le tue note del vault (sola lettura) → `wiki/` (pagine generate dall'LLM, organizzate come `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`) → `schema/` (configurazione co-evoluta).
 - **🧩 Base di codice modulare** — 20+ moduli focalizzati in `src/`.
 
 ### 🔒 Privacy e sicurezza
@@ -366,11 +366,11 @@ Per i modelli locali (Ollama): le finestre di contesto sono in genere più picco
 Il design a tre strati di Karpathy:
 
 ```
-sources/     # I tuoi documenti sorgente (sola lettura)
+📄 Le tue note del vault (qualsiasi cartella)   # 📖 Scegli tu quali note ingerire
   ↓ ingest
-wiki/        # Pagine Wiki generate da LLM
+wiki/                                            # Pagine Wiki generate dall'LLM (wiki/sources/, wiki/entities/, wiki/concepts/)
   ↓ query / maintain
-schema/      # Configurazione struttura Wiki
+schema/                                          # Configurazione struttura Wiki
 ```
 
 > 📖 Vedi la struttura completa del codice in [CONTRIBUTING.md → Project Structure](../CONTRIBUTING.md#project-structure).
@@ -393,7 +393,7 @@ schema/      # Configurazione struttura Wiki
 > 📖 Altre FAQ su [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions/28).
 
 **Cosa fa questo plugin?**
-Note in sources/ → LLM estrae entità e concetti → Wiki interconnesso con [[wiki-link]].
+Scegli una qualsiasi nota, cartella o selezione multipla dal tuo vault; l'LLM estrae entità e concetti e genera un Wiki interconnesso con `[[wiki-link]]`. Ottieni risposte conversazionali basate sulle *tue* note — non ricerche su Internet. I riassunti generati vivono sotto `wiki/sources/`, le entità sotto `wiki/entities/`, i concetti sotto `wiki/concepts/` — le tue note originali del vault non vengono mai modificate.
 
 **I miei dati vengono inviati a terze parti?**
 Privacy prima di tutto. Nessun backend, nessun tracciamento. Solo il testo inviato esplicitamente lascia il dispositivo. Usa fornitore locale (Ollama/LM Studio) per totale località.
@@ -405,13 +405,13 @@ LLM-Wiki usa Personalized PageRank sul grafo [[wiki-link]] — zero costo embedd
 Modelli >=200K token. Economici: DeepSeek V4-Flash ($0.14/M), Gemini 3.5 Flash, Qwen3.6-Plus.
 
 **Come iniziare?**
-Installare → scegliere fornitore → Test Connection → note in sources/ → Ingest single source.
+Installa → scegliere fornitore → **Test Connection** → esegui **Ingest single source** (o **Ingest from folder**) su una qualsiasi nota del tuo vault → le prime pagine Wiki appaiono in pochi secondi. Vedi [Avvio rapido](#-avvio-rapido) sopra.
 
 **Controllare costi API?**
 Granularità Grossolana/Minima per lotti. Smart Batch Skip. Manutenzione automatica DISATTIVATA.
 
 **Wiki esistente al sicuro?**
-reviewed: true protegge pagine. Plugin non modifica mai sources/.
+✅ Retrocompatibile dalla v1.0.0. `reviewed: true` protegge le pagine dalla sovrascrittura. Il plugin non modifica mai le tue note originali del vault — genera solo nuove pagine nella cartella `wiki/`.
 
 **Lingue?**
 10 lingue per interfaccia e Wiki: EN, ZH, ZH-Hant, JA, KO, DE, FR, ES, PT, IT.

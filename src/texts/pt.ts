@@ -124,7 +124,7 @@ export const PT_TEXTS = {
     // Query Settings
     querySectionTitle: 'Configuração de consulta Wiki',
     maxConversationHistoryName: 'Histórico máximo de conversa',
-    maxConversationHistoryDesc: 'Limitar mensagens da conversa para evitar excesso de tokens',
+    maxConversationHistoryDesc: 'Limite flexível de rodadas de conversa (as mensagens mais antigas são descartadas automaticamente). Predefinições: 1/10/30/50/100/500.',
     maxConversationHistoryHint: 'Recomendado: não ultrapassar 50 rodadas',
     numberRangeValidation: 'Insira um número entre 1 e 50',
     numberRangeClamped: 'Valor fora do intervalo (1-500), automaticamente definido como {}',

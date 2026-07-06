@@ -131,4 +131,51 @@ describe('scanQuoteGrounding', () => {
     const result = scanQuoteGrounding(pages, sources, 'wiki');
     expect(result.map(r => r.pagePath)).toEqual(['wiki/entities/A.md', 'wiki/entities/Z.md']);
   });
+
+  // ─── Issue #244 — raw-note-path link targets ─────────────────────────────
+
+  it('passes when link target is a raw note path and the quote exists in that note', () => {
+    const pages = makePageMap({
+      'wiki/entities/Foo.md': `# Foo\n\n## Mentions in Source\n- "verbatim quote text" — [[notes/source|source]]`,
+    });
+    // The note is a raw vault note (not under wiki/), so it's not in sourceMap
+    // by wiki folder. The scanner must fall back to looking it up by raw path.
+    const sources = makeSourceMap({
+      'notes/source.md': `# Source\n\nContains the verbatim quote text in body.`,
+    });
+    expect(scanQuoteGrounding(pages, sources, 'wiki')).toEqual([]);
+  });
+
+  it('flags when link target is a raw note path and the quote is NOT in that note', () => {
+    const pages = makePageMap({
+      'wiki/entities/Foo.md': `# Foo\n\n## Mentions in Source\n- "fabricated quote" — [[notes/source|source]]`,
+    });
+    const sources = makeSourceMap({
+      'notes/source.md': `# Source\n\nDifferent content here.`,
+    });
+    const result = scanQuoteGrounding(pages, sources, 'wiki');
+    expect(result).toHaveLength(1);
+    expect(result[0].hasSourceLink).toBe(true);
+  });
+
+  it('still flags an ungrounded quote when the raw-note link target does not exist in sourceMap', () => {
+    const pages = makePageMap({
+      'wiki/entities/Foo.md': `# Foo\n\n## Mentions in Source\n- "any quote" — [[notes/missing-note|missing-note]]`,
+    });
+    const sources = makeSourceMap({}); // empty
+    const result = scanQuoteGrounding(pages, sources, 'wiki');
+    expect(result).toHaveLength(1);
+    expect(result[0].hasSourceLink).toBe(true);
+  });
+
+  it('treats raw note path with .md extension and bare path as equivalent', () => {
+    const pages = makePageMap({
+      'wiki/entities/A.md': `# A\n\n## Mentions in Source\n- "present" — [[notes/source|src]]`,
+      'wiki/entities/B.md': `# B\n\n## Mentions in Source\n- "present" — [[notes/source.md|src]]`,
+    });
+    const sources = makeSourceMap({
+      'notes/source.md': `# Source\n\npresent`,
+    });
+    expect(scanQuoteGrounding(pages, sources, 'wiki')).toEqual([]);
+  });
 });

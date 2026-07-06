@@ -124,7 +124,7 @@ export const KO_TEXTS = {
     // Query Settings
     querySectionTitle: '위키 질의 설정',
     maxConversationHistoryName: '최대 대화 기록',
-    maxConversationHistoryDesc: '토큰 초과를 방지하기 위해 대화 메시지를 제한합니다',
+    maxConversationHistoryDesc: '대화 라운드의 소프트 상한 (오래된 메시지는 자동으로 폐기됨). 사전 설정 값: 1/10/30/50/100/500.',
     maxConversationHistoryHint: '추천: 50 라운드를 초과하지 않기',
     numberRangeValidation: '1-50 사이의 숫자를 입력하세요',
     numberRangeClamped: '값이 범위를 초과했습니다 (1-500), 자동으로 {}으로 설정되었습니다',

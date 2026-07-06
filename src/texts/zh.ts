@@ -124,7 +124,7 @@ export const ZH_TEXTS = {
     // Query 设置
     querySectionTitle: 'Wiki 查询配置',
     maxConversationHistoryName: '对话历史上限',
-    maxConversationHistoryDesc: '限制对话消息数，避免超出LLM token限制',
+    maxConversationHistoryDesc: '对话轮次软上限（超出时自动丢弃最旧的）。预设值：1/10/30/50/100/500。',
     maxConversationHistoryHint: '推荐：不超过50轮',
     numberRangeValidation: '请输入1-50之间的数字',
     numberRangeClamped: '数值超出范围（1-500），已自动设定为 {}',

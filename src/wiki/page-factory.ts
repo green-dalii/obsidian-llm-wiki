@@ -18,7 +18,7 @@ import { correctRelatedLinkPrefixes } from '../core/related-link-corrector';
 import { canonicalizeSectionHeaders } from '../core/section-header-canonicalizer';
 import { parseJsonResponse } from '../core/json';
 import { parseFrontmatter, mergeFrontmatter, enforceFrontmatterConstraints } from '../core/frontmatter';
-import { truncateMentions } from '../core/report';
+import { injectMentionsSection } from '../core/mentions-injector';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { normalizeLLMPath } from '../core/prompt-builders';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
@@ -34,6 +34,33 @@ function contextualizeError(error: unknown, name: string, pageType: string): Err
 function mergeError(error: unknown, name: string, pageType: string): Error {
   const msg = error instanceof Error ? error.message : String(error);
   return new Error(`Failed to merge ${pageType} page "${name}": ${msg}`);
+}
+
+/**
+ * Issue #244 + W5: Pick the first 2 quote strings for the merge/append
+ * `{{key_details}}` prompt injection. Prefers the new structured
+ * `mentions_with_provenance` over legacy `mentions_in_source` so an LLM
+ * that returns structured provenance still gets verbatim quotes as context.
+ */
+function firstQuotesForPrompt(info: EntityInfo | ConceptInfo): string {
+  const fromProvenance = info.mentions_with_provenance?.slice(0, 2).map(m => m.quote);
+  if (fromProvenance?.length) return fromProvenance.join('; ');
+  return info.mentions_in_source?.slice(0, 2).join('; ') || '';
+}
+
+/**
+ * Issue #244 — conversation ingest uses a synthetic "from <conversation>"
+ * citation rather than verbatim quotes. Detect by checking whether the
+ * sourceFile.path lives under `${wikiFolder}/sources/` (the conversation
+ * summary path) AND basename ends with a conversation-style slug. The
+ * detection is conservative: anything else uses the normal multi-quote path.
+ */
+function isConversationSource(
+  sourceFile: TFile | { path: string; basename: string },
+  wikiFolder: string,
+): boolean {
+  const summaryPrefix = `${wikiFolder}/sources/`;
+  return sourceFile.path.startsWith(summaryPrefix);
 }
 
 export class PageFactory {
@@ -358,7 +385,6 @@ export class PageFactory {
       .replace('{{concept_summary}}', info.summary)
       .replace('{{extraction_aliases}}', info.aliases?.length
         ? `[${info.aliases.join(', ')}]` : 'None')
-      .replace('{{mentions}}', truncateMentions(info.mentions_in_source, 500, sourceFile.path) || 'No specific mentions')
       .replace('{{related_entities}}', info.related_entities?.join(', ') || 'No related entities')
       .replace('{{related_concepts}}', info.related_concepts?.join(', ') || 'No related concepts')
       .replace('{{existing_pages}}', await this.buildPagesListForPrompt(extraPagePaths))
@@ -397,7 +423,30 @@ export class PageFactory {
       labels.related_concepts,
       this.ctx.settings.slugCase === 'preserve'
     );
-    await this.ctx.createOrUpdateFile(path, correctedContent);
+    // Issue #244: programmatically inject the Mentions section so the LLM
+    // cannot drift the citation format or leak note-folder prefixes into
+    // Related sections. User-curated <!-- reviewed: keep --> markers win.
+    // B2: prefer structured provenance when present; only fall back to legacy
+    // mentions_in_source if the structured form is absent (not just empty).
+    // Conversation mode: when sourceFile is a conversation summary, render a
+    // single programmatic citation regardless of the mentions array content.
+    const isConv = isConversationSource(sourceFile, this.ctx.settings.wikiFolder);
+    const mentionsForInject = isConv
+      ? []
+      : (info.mentions_with_provenance?.length
+        ? info.mentions_with_provenance
+        : info.mentions_in_source);
+    const mentionsInjectedContent = injectMentionsSection(
+      correctedContent,
+      mentionsForInject,
+      sourceFile.path,
+      {
+        sectionLabel: labels.mentions_in_source,
+        conversationMode: isConv,
+        conversationLabel: `Conversation: ${sourceFile.basename}`,
+      }
+    );
+    await this.ctx.createOrUpdateFile(path, mentionsInjectedContent);
     return path;
     } catch (error) {
       throw contextualizeError(error, info.name, pageType);
@@ -430,10 +479,9 @@ export class PageFactory {
       .replace('{{new_source}}', sourceFile.basename)
       .replace('{{entity_summary}}', info.summary)
       .replace('{{concept_summary}}', info.summary)
-      .replace('{{mentions}}', truncateMentions(info.mentions_in_source, 500, sourceFile.path))
       .replace('{{related_entities}}', info.related_entities?.join(', ') || '')
       .replace('{{related_concepts}}', info.related_concepts?.join(', ') || '')
-      .replace('{{key_details}}', info.mentions_in_source?.slice(0, 2).join('; ') || '')
+      .replace('{{key_details}}', firstQuotesForPrompt(info))
       .replace('{{existing_pages}}', await this.buildPagesListForPrompt(extraPagePaths));
 
     const finalPrompt = appendTagVocabularyToPrompt(applySectionLabels(prompt, this.ctx.settings), this.ctx.settings);
@@ -464,7 +512,27 @@ export class PageFactory {
       labels.related_concepts,
       this.ctx.settings.slugCase === 'preserve'
     );
-    const finalContent = `${frontmatter}\n\n${correctedBody}`;
+    // Issue #244: programmatic Mentions injection (see createEntityPage).
+    // B2: prefer structured provenance when present; only fall back to legacy
+    // mentions_in_source if the structured form is absent (not just empty).
+    // Conversation mode: see createEntityPage for rationale.
+    const isConv = isConversationSource(sourceFile, this.ctx.settings.wikiFolder);
+    const mergeMentionsForInject = isConv
+      ? []
+      : (info.mentions_with_provenance?.length
+        ? info.mentions_with_provenance
+        : info.mentions_in_source);
+    const correctedBodyWithMentions = injectMentionsSection(
+      correctedBody,
+      mergeMentionsForInject,
+      sourceFile.path,
+      {
+        sectionLabel: labels.mentions_in_source,
+        conversationMode: isConv,
+        conversationLabel: `Conversation: ${sourceFile.basename}`,
+      }
+    );
+    const finalContent = `${frontmatter}\n\n${correctedBodyWithMentions}`;
     await this.ctx.createOrUpdateFile(path, finalContent);
     return path;
     } catch (error) {
@@ -492,8 +560,7 @@ export class PageFactory {
       .replace('{{existing_body}}', existingBody)
       .replace('{{new_source}}', sourceFile.basename)
       .replace('{{entity_summary}}', info.summary)
-      .replace('{{mentions}}', truncateMentions(info.mentions_in_source, 500, sourceFile.path))
-      .replace('{{key_details}}', info.mentions_in_source?.slice(0, 2).join('; ') || '')
+      .replace('{{key_details}}', firstQuotesForPrompt(info))
       .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
 
     const finalPrompt = appendTagVocabularyToPrompt(applySectionLabels(prompt, this.ctx.settings), this.ctx.settings);
@@ -513,8 +580,28 @@ export class PageFactory {
       return path;
     }
 
-    // 3. Assemble final content
-    const finalContent = `${frontmatter}\n\n${cleanedContent}`;
+    // 3. Assemble final content (Issue #244: programmatic Mentions injection)
+    const labels = getSectionLabels(this.ctx.settings);
+    // B2: prefer structured provenance when present; only fall back to legacy
+    // mentions_in_source if the structured form is absent (not just empty).
+    // Conversation mode: see createEntityPage for rationale.
+    const isConv = isConversationSource(sourceFile, this.ctx.settings.wikiFolder);
+    const appendMentionsForInject = isConv
+      ? []
+      : (info.mentions_with_provenance?.length
+        ? info.mentions_with_provenance
+        : info.mentions_in_source);
+    const cleanedContentWithMentions = injectMentionsSection(
+      cleanedContent,
+      appendMentionsForInject,
+      sourceFile.path,
+      {
+        sectionLabel: labels.mentions_in_source,
+        conversationMode: isConv,
+        conversationLabel: `Conversation: ${sourceFile.basename}`,
+      }
+    );
+    const finalContent = `${frontmatter}\n\n${cleanedContentWithMentions}`;
     await this.ctx.createOrUpdateFile(path, finalContent);
     return path;
     } catch (error) {

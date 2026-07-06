@@ -266,6 +266,159 @@ describe('Batch Merger — Pure Functions', () => {
       expect(result.newConcepts).toHaveLength(0);
       expect(result.allEntities).toHaveLength(1);
     });
+
+    // ─── Issue #244: mentions_with_provenance merge on duplicate ─────────────
+
+    it('merges mentions_with_provenance from duplicate entity into existing', () => {
+      const current = createEmptyAccumulation();
+      current.entities.push({
+        name: 'shared-entity',
+        type: 'person',
+        summary: 'First source version',
+        mentions_in_source: ['quote from source A'],
+        mentions_with_provenance: [{
+          quote: 'quote from source A',
+          source_path: 'source-a.md',
+          source_slug: 'source-a',
+          extracted_at: '2026-07-05T00:00:00Z',
+        }],
+      });
+      current.extractedNames.add('shared-entity');
+
+      const newBatch = {
+        entities: [{
+          name: 'shared-entity',
+          type: 'person' as const,
+          summary: 'Different summary (dropped)',
+          mentions_in_source: ['quote from source B'],
+          mentions_with_provenance: [{
+            quote: 'quote from source B',
+            source_path: 'source-b.md',
+            source_slug: 'source-b',
+            extracted_at: '2026-07-05T01:00:00Z',
+          }],
+        }],
+        concepts: [],
+      };
+
+      const result = mergeBatchResults(current, newBatch);
+
+      // Duplicate should not appear as new
+      expect(result.newEntities).toHaveLength(0);
+      // Existing entity should have both quotes in mentions_with_provenance
+      expect(result.allEntities).toHaveLength(1);
+      expect(result.allEntities[0].mentions_with_provenance).toHaveLength(2);
+      expect(result.allEntities[0].mentions_with_provenance![0].quote).toBe('quote from source A');
+      expect(result.allEntities[0].mentions_with_provenance![1].quote).toBe('quote from source B');
+      // Legacy mentions_in_source should also be merged
+      expect(result.allEntities[0].mentions_in_source).toHaveLength(2);
+    });
+
+    it('does not duplicate identical quotes in mentions_with_provenance', () => {
+      const current = createEmptyAccumulation();
+      current.entities.push({
+        name: 'dup-entity',
+        type: 'person',
+        summary: 'Existing',
+        mentions_in_source: ['same quote'],
+        mentions_with_provenance: [{
+          quote: 'same quote',
+          source_path: 'source-a.md',
+          source_slug: 'source-a',
+          extracted_at: '2026-07-05T00:00:00Z',
+        }],
+      });
+      current.extractedNames.add('dup-entity');
+
+      const newBatch = {
+        entities: [{
+          name: 'dup-entity',
+          type: 'person' as const,
+          summary: 'Dup',
+          mentions_in_source: ['same quote'],
+          mentions_with_provenance: [{
+            quote: 'same quote',
+            source_path: 'source-b.md',
+            source_slug: 'source-b',
+            extracted_at: '2026-07-05T01:00:00Z',
+          }],
+        }],
+        concepts: [],
+      };
+
+      const result = mergeBatchResults(current, newBatch);
+
+      expect(result.allEntities[0].mentions_with_provenance).toHaveLength(1);
+      expect(result.allEntities[0].mentions_in_source).toHaveLength(1);
+    });
+
+    it('merges mentions_with_provenance from duplicate concept into existing', () => {
+      const current = createEmptyAccumulation();
+      current.concepts.push({
+        name: 'shared-concept',
+        type: 'theory',
+        summary: 'First source',
+        mentions_in_source: ['concept quote A'],
+        mentions_with_provenance: [{
+          quote: 'concept quote A',
+          source_path: 'source-a.md',
+          source_slug: 'source-a',
+          extracted_at: '2026-07-05T00:00:00Z',
+        }],
+        related_concepts: ['Related'],
+      });
+      current.extractedNames.add('shared-concept');
+
+      const newBatch = {
+        entities: [],
+        concepts: [{
+          name: 'shared-concept',
+          type: 'theory' as const,
+          summary: 'Second source (dropped)',
+          mentions_in_source: ['concept quote B'],
+          mentions_with_provenance: [{
+            quote: 'concept quote B',
+            source_path: 'source-b.md',
+            source_slug: 'source-b',
+            extracted_at: '2026-07-05T01:00:00Z',
+          }],
+          related_concepts: ['Related'],
+        }],
+      };
+
+      const result = mergeBatchResults(current, newBatch);
+
+      expect(result.newConcepts).toHaveLength(0);
+      expect(result.allConcepts).toHaveLength(1);
+      expect(result.allConcepts[0].mentions_with_provenance).toHaveLength(2);
+    });
+
+    it('maintains original entity when duplicate has no mentions', () => {
+      const current = createEmptyAccumulation();
+      current.entities.push({
+        name: 'no-mentions',
+        type: 'person',
+        summary: 'Original',
+        mentions_in_source: ['original quote'],
+      });
+      current.extractedNames.add('no-mentions');
+
+      const newBatch = {
+        entities: [{
+          name: 'no-mentions',
+          type: 'person' as const,
+          summary: 'No mentions',
+          mentions_in_source: [],
+        }],
+        concepts: [],
+      };
+
+      const result = mergeBatchResults(current, newBatch);
+
+      // Should preserve original (no new object created)
+      expect(result.allEntities[0].mentions_in_source).toHaveLength(1);
+      expect(result.allEntities[0].mentions_in_source[0]).toBe('original quote');
+    });
   });
 
   describe('buildSourceAnalysis', () => {
