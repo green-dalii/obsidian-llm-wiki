@@ -495,6 +495,7 @@ export const KO_TEXTS = {
 
     // Lint Analysis Prompt
     lintAnalysisPrompt: '당신은 위키 유지보수 보조 도구입니다. 다음 정보를 바탕으로 위키 건강 상태를 확인하세요.\n\n위키 인덱스:\n{index}\n\n위키 페이지 콘텐츠 샘플 (총 {total} 페이지, {sample} 페이지 표시):\n{contentSample}\n\n프로그램 검사 결과 (이미 확인됨, 반복하지 마세요):\n{progReport}\n\n다음 항목을 확인하세요 (프로그램 검사에서 이미 감지된 깨진 링크/빈 페이지/고아 페이지는 반복하지 마세요):\n1. **모순** — 서로 다른 페이지가 동일한 사실에 대해 모순되는지\n2. **노후화** — 명백히 오래된 주장이 있는지\n3. **누락** — 중요한 컨셉 중 독립 페이지가 없는 것\n4. **구조** — 페이지 구조가 적절한지 및 상호 참조가 충분한지\n\n출력 형식: Markdown 사용, "## LLM 분석"으로 시작. 각 발견 사항을 한 줄 "- [구체적 이슈]"로 작성. 이슈가 없으면 "명확한 이슈 없음."을 작성하세요.',
+    lintAnalysisProgReportEmpty: '프로그램적 검사에서 문제가 발견되지 않았습니다.',
 
     // Lint Fix Progress
     lintFixProgress: '수정 중 {current}/{total}: [[{target}]]',

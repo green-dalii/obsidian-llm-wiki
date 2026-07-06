@@ -16,6 +16,7 @@ function makeContext(settings?: Partial<LLMWikiSettings>): LintPhaseContext {
       customConceptTags: '',
       ...settings,
     } as LLMWikiSettings,
+    llmClient: () => null, // programmatic phase does not consume LLM
     wikiEngine: { updateStatusBar: () => {} } as unknown as LintPhaseContext['wikiEngine'],
     checkCancelled: () => {},
     stageNotice: null,

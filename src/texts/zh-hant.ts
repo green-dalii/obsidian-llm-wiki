@@ -481,6 +481,7 @@ export const ZH_HANT_TEXTS = {
 
     // 维护分析 Prompt
     lintAnalysisPrompt: '你是一個 Wiki 維護助手。請基於以下資訊檢查 Wiki 的健康狀況。\n\nWiki 索引：\n{index}\n\nWiki 頁面內容樣本（共 {total} 頁，展示 {sample} 頁）：\n{contentSample}\n\n程式檢測結果（已驗證，請勿重複報告）：\n{progReport}\n\n請檢查以下方面（跳過程式已檢測的斷鏈/空洞/孤立）：\n1. **矛盾** — 不同頁面對同一事實的說法是否矛盾\n2. **過時** — 是否有宣告明顯過時\n3. **缺失** — 哪些重要概念缺少獨立頁面\n4. **結構** — 頁面結構是否合理，交叉引用是否充分\n\n輸出格式：使用 Markdown，以 "## LLM 分析" 開頭。每個發現用一行 "- [具體問題]"。如無問題則寫 "✅ 未發現明顯問題。"',
+    lintAnalysisProgReportEmpty: '程式化檢查未發現任何問題。',
 
     // 维护修复进度
     lintFixProgress: '修復斷鏈 {current}/{total}：[[{target}]]',

@@ -481,6 +481,7 @@ export const ZH_TEXTS = {
 
     // 维护分析 Prompt
     lintAnalysisPrompt: '你是一个 Wiki 维护助手。请基于以下信息检查 Wiki 的健康状况。\n\nWiki 索引：\n{index}\n\nWiki 页面内容样本（共 {total} 页，展示 {sample} 页）：\n{contentSample}\n\n程序检测结果（已验证，请勿重复报告）：\n{progReport}\n\n请检查以下方面（跳过程序已检测的断链/空洞/孤立）：\n1. **矛盾** — 不同页面对同一事实的说法是否矛盾\n2. **过时** — 是否有声明明显过时\n3. **缺失** — 哪些重要概念缺少独立页面\n4. **结构** — 页面结构是否合理，交叉引用是否充分\n\n输出格式：使用 Markdown，以 "## LLM 分析" 开头。每个发现用一行 "- [具体问题]"。如无问题则写 "✅ 未发现明显问题。"',
+    lintAnalysisProgReportEmpty: '程序化检查未发现任何问题。',
 
     // 维护修复进度
     lintFixProgress: '修复断链 {current}/{total}：[[{target}]]',

@@ -37,6 +37,25 @@ export interface LintPhaseContext {
     };
   };
   settings: LLMWikiSettings;
+  /**
+   * v1.24.0: added for the LLM-assisted phases (dedup / analysis) extracted
+   * from controller.ts:runLintWiki into `llm-phases/`. The LLM was previously
+   * read off `LintContext`; phases now consume it via this phase ctx field so
+   * the phase functions are self-contained and can be unit-tested by injecting
+   * a stub LLMClient without standing up a full LintContext.
+   *
+   * B3 fix (v1.24.0 review): typed as a getter closure (NOT a direct ref)
+   * so settings changes mid-lint (e.g. user flips API key in Settings during
+   * a long dedup run) are observed on the next phase LLM call. The OLD
+   * controller.ts inlined `ctx.llmClient.createMessage(...)` at each LLM
+   * call site, which had this liveness for free. The phase extraction
+   * initially captured a snapshot, which is the wrapper-correctness defect
+   * the v1.24.0 review caught.
+   *
+   * May return null — the dedup-phase and analysis-phase treat null as
+   * a fast-skip signal.
+   */
+  llmClient: () => LLMClient | null;
   wikiEngine: {
     updateStatusBar: (text: string) => void;
     getExistingWikiPages: () => Promise<Array<{ path: string }>>;

@@ -1,46 +1,41 @@
 // Lint Controller — Wiki health analysis and fix orchestration.
 // Extracted from main.ts to keep the plugin entry point manageable.
 //
-// Modular split (v1.18.3+):
+// Modular split (v1.18.3+ → v1.24.0):
 //   - lint/types.ts: shared LintPhaseContext + findings interfaces
 //   - lint/phases/preparation.ts: page read + double-nested fix + sources normalize
 //   - lint/phases/programmatic.ts: alias/empty/orphan/tag/polluted/dead links/quote grounding
+//   - lint/llm-phases/dedup-phase.ts: LLM-assisted duplicate detection (extracted v1.24.0)
+//   - lint/llm-phases/contradiction-phase.ts: review_ok auto-resolve + report (extracted v1.24.0)
+//   - lint/llm-phases/analysis-phase.ts: LLM health analysis (extracted v1.24.0)
 //   - lint/report-builder.ts: pure-function report markdown builder
 //   - lint/fix-runners.ts: per-phase fix executors
 //   - lint/scanners.ts: pure-function scanners
 //
-// Duplicate detection and LLM analysis remain in this file because they
-// require rich ctx wiring that does not pay off in module isolation.
+// v1.24.0: dedup / contradiction / analysis phases were extracted from the
+// 959-LOC runLintWiki() god function into dedicated modules under
+// `llm-phases/`. Each phase receives a `LintPhaseContext` and returns a
+// pure-data result, mirroring the existing preparation / programmatic
+// phase pattern. runLintWiki() is now a 230-LOC orchestrator that
+// sequences the phases and builds the fix-callback dispatch.
 
 import { Notice } from 'obsidian';
 import { LintFixCallbacks, LintCounts, LintReportModal, FixReportPhase } from '../../ui/modals';
 import { TEXTS } from '../../texts';
-import { PROMPTS } from '../../prompts';
 import { getText } from '../../core/i18n';
-import { parseJsonResponse } from '../../core/json';
-import { detectRateLimitFailures, formatRateLimitNotice } from '../../core/rate-limit';
 import { nestReportUnderParent } from '../../core/report';
-import { cleanMarkdownResponse } from '../../core/markdown';
-import { normalizeLLMPath } from '../../core/prompt-builders';
-import { appendGranularityToPrompt, appendTagVocabularyToPrompt } from '../system-prompts';
-import {
-  TOKENS_LINT_DEDUP_LLM,
-  NOTICE_NORMAL,
-  NOTICE_RATE_LIMIT,
-  NOTICE_ERROR,
-  LINT_CANDIDATE_TOKEN_ESTIMATE,
-  LINT_MAX_INPUT_TOKENS,
-  LINT_DEDUP_BATCH_SIZE,
-} from '../../constants';
 import { isPageEmpty } from './utils';
-import { generateDuplicateCandidates, DuplicateCandidate } from './duplicate-detection';
 import { runAliasCompletion, runDeadLinkFixes, runEmptyPageFixes, runOrphanFixes, runDuplicateMerges, runRetagViolations, makeMirroredNotice } from './fix-runners';
 import { buildLintAnalysisContext } from './lint-analysis-context';
 import { buildGraphFromContent } from '../../core/build-graph';
 import { runPreparationPhase } from './phases/preparation';
 import { runProgrammaticPhase } from './phases/programmatic';
+import { runDedupPhase } from './llm-phases/dedup-phase';
+import { runContradictionPhase } from './llm-phases/contradiction-phase';
+import { runAnalysisPhase } from './llm-phases/analysis-phase';
 import { buildLintReport } from './report-builder';
 import { LintContext, LintPhaseContext, ProgrammaticFindings } from './types';
+import { NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
 
 // Re-export LintContext for back-compat — external callers (e.g. main.ts,
 // modals.ts indirect import) still reference `LintContext` from this file.
@@ -89,9 +84,14 @@ export async function runLintWiki(
   const stageNotice = new Notice('', 0);
 
   try {
+    // v1.24.0 B3: closure getter so settings changes (e.g. flipping API
+    // key in Settings tab during a long lint run) are picked up by the
+    // next phase call. Replaces the snapshot `llmClient: ctx.llmClient`
+    // that was caught by the v1.24.0 review.
     const phaseCtx: LintPhaseContext = {
       app: ctx.app,
       settings: ctx.settings,
+      llmClient: () => ctx.llmClient,
       wikiEngine: ctx.wikiEngine,
       checkCancelled,
       stageNotice,
@@ -138,186 +138,35 @@ export async function runLintWiki(
     const emptyPages: Array<{ path: string; content: string }> = [];
 
     // ---- 3. LLM-assisted checks (high latency / token cost) ----
-
-    // 3.1 Duplicate detection (Layer 1 programmatic candidates + Layer 3 LLM verification)
-    let duplicates: Array<{target: string, source: string, reason: string}> = [];
-    const entityConceptFiles = wikiFiles.filter(f =>
-      f.path.includes('/entities/') || f.path.includes('/concepts/')
+    //
+    // v1.24.0: extracted to lint/llm-phases/dedup-phase.ts.
+    // Behavior is identical to the previous inline implementation; see
+    // that file for the tier-classification + rate-limit details.
+    //
+    // TODO (v1.18.0+, performance): Duplicate detection is the dominant Lint
+    // bottleneck on large wikis (e.g. 580+ pages). Current implementation:
+    //   1. Tier 1: for each pair (A, B) in entityConceptFiles, do a tier-1
+    //      LLM verify → O(N²) pairs × 1 LLM call each (chunked by 100).
+    //   2. Tier 2: indirect signals (shared links, moderate similarity) fill
+    //      the token budget but are also O(N²) in pair generation.
+    //   3. A second LLM verify pass for the Tier-2 candidate list.
+    //
+    // Optimization roadmap (deferred, not in v1.17.0):
+    //   a. Hash-bucket dedup: hash titles (n-gram or phonetic) and only LLM-verify
+    //      pairs that share a bucket. Reduces Tier 1 pair count by 5-10x.
+    //   b. Embedding-based prefilter: use a local embedding model to compute
+    //      Tier 2 candidate pairs, replace the title-similarity heuristic.
+    //   c. Cache LLM verify results in a per-lint-run memo so re-runs don't
+    //      re-verify unchanged pairs.
+    //   d. Skip the second LLM pass if the Tier 1 confidence score is below
+    //      a threshold AND no new entries appeared since the last lint.
+    //
+    // See ROADMAP.md "Lint performance" section for the larger picture.
+    const duplicates = await runDedupPhase(
+      phaseCtx,
+      { wikiFiles, pageMap },
+      checkCancelled,
     );
-    if (entityConceptFiles.length >= 2 && ctx.llmClient) {
-      // TODO (v1.18.0+, performance): Duplicate detection is the dominant Lint
-      // bottleneck on large wikis (e.g. 580+ pages). Current implementation:
-      //   1. Tier 1: for each pair (A, B) in entityConceptFiles, do a tier-1
-      //      LLM verify → O(N²) pairs × 1 LLM call each (chunked by 100).
-      //   2. Tier 2: indirect signals (shared links, moderate similarity) fill
-      //      the token budget but are also O(N²) in pair generation.
-      //   3. A second LLM verify pass for the Tier-2 candidate list.
-      //
-      // Optimization roadmap (deferred, not in v1.17.0):
-      //   a. Hash-bucket dedup: hash titles (n-gram or phonetic) and only LLM-verify
-      //      pairs that share a bucket. Reduces Tier 1 pair count by 5-10x.
-      //   b. Embedding-based prefilter: use a local embedding model to compute
-      //      Tier 2 candidate pairs, replace the title-similarity heuristic.
-      //   c. Cache LLM verify results in a per-lint-run memo so re-runs don't
-      //      re-verify unchanged pairs.
-      //   d. Skip the second LLM pass if the Tier 1 confidence score is below
-      //      a threshold AND no new entries appeared since the last lint.
-      //
-      // See ROADMAP.md "Lint performance" section for the larger picture.
-      ctx.wikiEngine.updateStatusBar(getText(ctx.settings.language, 'lintStatusDuplicates'));
-      stageNotice.setMessage(t.lintCheckingDuplicates);
-      try {
-        const pagesForDedup: Array<{ path: string; content: string; title: string }> = [];
-        for (const file of entityConceptFiles) {
-          const info = pageMap.get(file.path);
-          if (info) {
-            pagesForDedup.push({ path: file.path, content: info.content, title: file.basename });
-          }
-        }
-
-        // Layer 1: Programmatic candidates (2 signals: sharedLinks + bigram/crossLang)
-        const allCandidates = await generateDuplicateCandidates(pagesForDedup);
-
-        // Tier classification: semantic meaning of each signal
-        // Tier 1 (must-send): direct evidence of duplication
-        // Tier 2 (fill): indirect evidence, only if token budget allows
-        const tier1: DuplicateCandidate[] = [];
-        const tier2: DuplicateCandidate[] = [];
-        for (const c of allCandidates) {
-          if (c.signal === 'crossLang' || c.signal === 'caseVariant') {
-            tier1.push(c);
-          } else if (c.signal === 'bigram') {
-            (c.score >= 0.6 ? tier1 : tier2).push(c);
-          } else if (c.signal === 'sharedLinks') {
-            tier2.push(c);
-          }
-        }
-
-        // Discard: bigram < 0.4 and sharedLinks < 0.4 already filtered in generateDuplicateCandidates
-        // Discard: all sharedSources signal removed
-
-        console.debug(`lintWiki: ${allCandidates.length} candidates → Tier 1: ${tier1.length}, Tier 2: ${tier2.length}`);
-        console.debug(`lintWiki: candidate breakdown by signal:`, {
-          crossLang: allCandidates.filter(c => c.signal === 'crossLang').length,
-          bigram: allCandidates.filter(c => c.signal === 'bigram').length,
-          sharedLinks: allCandidates.filter(c => c.signal === 'sharedLinks').length,
-        });
-
-        if (allCandidates.length === 0) {
-          console.debug('lintWiki: no duplicate candidates found — wiki is clean');
-        }
-
-        // Layer 3: LLM verification with token-budget batching
-        // Each candidate ≈ 120 chars ≈ 30 tokens. Batch size: 100 candidates ≈ 3K input tokens.
-        // Total input budget for this phase: 15K tokens (leaves room for prompt + output in 200K window).
-        const maxTotalCandidates = Math.floor(LINT_MAX_INPUT_TOKENS / LINT_CANDIDATE_TOKEN_ESTIMATE);
-
-        // Tier 1 always included in full. Tier 2 fills remaining token budget.
-        const verifyCandidates = [...tier1];
-        const tier2Budget = Math.max(0, maxTotalCandidates - tier1.length);
-        const tier2ToInclude = Math.min(tier2.length, tier2Budget);
-        for (let i = 0; i < tier2ToInclude; i++) {
-          verifyCandidates.push(tier2[i]);
-        }
-        console.debug(`lintWiki: sending ${verifyCandidates.length}/${maxTotalCandidates} candidates (Tier 1: ${tier1.length}, Tier 2: ${tier2ToInclude}/${tier2.length}, budget: ${LINT_MAX_INPUT_TOKENS} tokens)`);
-
-        if (verifyCandidates.length > 0) {
-          // Split into batches
-          const batches: DuplicateCandidate[][] = [];
-          for (let i = 0; i < verifyCandidates.length; i += LINT_DEDUP_BATCH_SIZE) {
-            batches.push(verifyCandidates.slice(i, i + LINT_DEDUP_BATCH_SIZE));
-          }
-
-          const concurrency = ctx.settings.pageGenerationConcurrency || 1;
-          console.debug(`lintWiki: ${batches.length} batches, concurrency=${concurrency}`);
-
-          // Process batches in parallel with concurrency limit
-          const allDuplicates: Array<{target: string, source: string, reason: string}> = [];
-          const dedupFailures: Array<{ name: string; reason: string }> = [];
-          for (let i = 0; i < batches.length; i += concurrency) {
-            checkCancelled();
-            const chunk = batches.slice(i, i + concurrency);
-            // Show the actual inner-batch range (matches console log) so the
-            // user sees consistent numbers in both places.
-            const batchStart = i + 1;
-            const batchEnd = Math.min(i + concurrency, batches.length);
-            // progressLabel already contains the batch range (e.g. "1-2/3" or "1/3").
-            // i18n template: 'Verifying duplicates: batch {current}...' — no extra /{total}.
-            const progressLabel = batchEnd > batchStart
-              ? `${batchStart}-${batchEnd}/${batches.length}`
-              : `${batchStart}/${batches.length}`;
-            stageNotice.setMessage(t.lintCheckingDuplicatesProgress
-              .replace('{current}', progressLabel));
-            const results = await Promise.allSettled(
-              chunk.map(async (batch, bi) => {
-                const batchNum = i + bi + 1;
-                const candidateList = batch.map(c =>
-                  `- Candidate A: ${c.target}\n  Candidate B: ${c.source}\n  Signal: ${c.reason}`
-                ).join('\n');
-
-                const dedupPrompt = PROMPTS.lintDuplicateDetection
-                  .replace('{{wikiFolder}}', ctx.settings.wikiFolder)
-                  .replace('{{candidates}}', candidateList)
-                  .replace('{{total}}', String(pagesForDedup.length));
-
-                console.debug(`lintWiki: batch ${batchNum}/${batches.length} — ${batch.length} candidates`);
-                const dedupResponse = await ctx.llmClient!.createMessage({
-                  model: ctx.settings.model,
-                  max_tokens: TOKENS_LINT_DEDUP_LLM,
-                  messages: [{ role: 'user', content: dedupPrompt }],
-                  response_format: { type: 'json_object' },
-                  ...(ctx.settings.disableThinking ? { enableThinking: false } : {}),
-                });
-
-                const dedupResult = await parseJsonResponse(dedupResponse) as {
-                  duplicates?: Array<{target: string, source: string, reason: string}>
-                } | null;
-
-                console.debug(`lintWiki: batch ${batchNum}/${batches.length} → ${dedupResult?.duplicates?.length || 0} duplicates confirmed`);
-                // Guard against non-array LLM responses (single object, string, etc.)
-                const rawDups = dedupResult?.duplicates;
-                return Array.isArray(rawDups) ? rawDups : [];
-              })
-            );
-
-            for (const result of results) {
-              if (result.status === 'fulfilled') {
-                const rawDups = Array.isArray(result.value) ? result.value : [];
-                const validDups = rawDups.filter(
-                  d => typeof d.target === 'string' && d.target.length > 0 &&
-                       typeof d.source === 'string' && d.source.length > 0
-                ).map(d => ({
-                  target: normalizeLLMPath(d.target, ctx.settings.wikiFolder),
-                  source: normalizeLLMPath(d.source, ctx.settings.wikiFolder),
-                  reason: d.reason,
-                }));
-                allDuplicates.push(...validDups);
-              } else {
-                const reason = result.reason instanceof Error ? result.reason.message : String(result.reason || 'unknown');
-                console.error('lintWiki: duplicate detection batch failed:', reason);
-                dedupFailures.push({ name: `batch-${i + 1}`, reason });
-              }
-            }
-          }
-
-          // Rate-limit detection for duplicate detection
-          const dedupRateInfo = detectRateLimitFailures(dedupFailures, concurrency, ctx.settings.batchDelayMs ?? 300);
-          if (dedupRateInfo) {
-            console.warn(`[Duplicate Rate Limit] ${dedupRateInfo.count} duplicate detection batch(es) failed with 429, ` +
-              `suggested concurrency=${dedupRateInfo.suggestedConcurrency}, delay=${dedupRateInfo.suggestedDelay}ms`);
-            new Notice(formatRateLimitNotice(dedupRateInfo, ctx.settings.language), NOTICE_RATE_LIMIT);
-          }
-
-          duplicates = allDuplicates;
-          console.debug(`lintWiki: LLM confirmed ${duplicates.length} duplicate pairs total`);
-        }
-      } catch (e) {
-        console.error('Duplicate detection failed:', e);
-        const errMsg = e instanceof Error ? e.message : String(e);
-        const errNotice = new Notice(t.lintDuplicateCheckFailedDetail.replace('{step}', 'Layer 3 (LLM verify)').replace('{error}', errMsg), NOTICE_ERROR);
-        window.setTimeout(() => errNotice.hide(), NOTICE_RATE_LIMIT);
-      }
-    }
 
     // ---- 3.5 Build empty-page list now that duplicates are known ----
     const emptyPageDuplicates = new Set<string>();
@@ -370,43 +219,18 @@ export async function runLintWiki(
     progReport = extractProgReport(progReport);
 
     // ---- 5. Contradiction scanning (LLM-assisted / mixed) ----
-    const openContradictions = await ctx.wikiEngine.getOpenContradictions();
-    let contradictionsReport = '';
-
-    const reviewOkItems = openContradictions.filter(c => c.status === 'review_ok');
-    for (const c of reviewOkItems) {
-      try {
-        await ctx.wikiEngine.resolveContradiction(c.path);
-        await ctx.wikiEngine.updateContradictionStatus(c.path, 'resolved');
-        console.debug('Auto-resolved contradiction:', c.path);
-      } catch (error) {
-        console.error('Failed to resolve contradiction:', c.path, error);
-        await ctx.wikiEngine.updateContradictionStatus(c.path, 'pending_fix');
-      }
-    }
-
-    const remaining = await ctx.wikiEngine.getOpenContradictions();
-    if (remaining.length > 0) {
-      contradictionsReport = `## ${t.lintContradictionSection}\n\n`;
-      contradictionsReport += `- ${(t.lintContradictionOpen as string).replace('{count}', String(remaining.length))}`;
-      const resolvedCount = openContradictions.length - remaining.length;
-      if (resolvedCount > 0) {
-        contradictionsReport += ` ${t.lintContradictionAutoFixed.replace('{count}', String(resolvedCount))}`;
-      }
-      contradictionsReport += '\n';
-      for (const c of remaining) {
-        const relPath = c.path.replace(ctx.settings.wikiFolder + '/', '').replace('.md', '');
-        const statusLabel = c.status === 'detected' ? t.lintContradictionStatusDetected :
-                            c.status === 'pending_fix' ? t.lintContradictionStatusPendingFix : c.status;
-        contradictionsReport += t.lintContradictionItem
-          .replace('{status}', statusLabel)
-          .replace('{page}', relPath)
-          .replace('{claim}', c.claim.substring(0, 80)) + '\n';
-      }
-      contradictionsReport += '\n';
-    }
+    //
+    // v1.24.0: extracted to lint/llm-phases/contradiction-phase.ts.
+    // Behavior is identical to the previous inline implementation; see
+    // that file for the review_ok auto-resolve + report-render details.
+    const { report: contradictionsReport } = await runContradictionPhase(phaseCtx);
 
     // ---- 6. LLM analysis ----
+    //
+    // v1.24.0: extracted to lint/llm-phases/analysis-phase.ts.
+    // Behavior is identical to the previous inline implementation; see
+    // that file for content-sample building and prompt-construction details.
+    //
     // TODO (v1.18.0+, performance): LLM health analysis is the other major
     // Lint bottleneck. Current implementation sends the full wiki content
     // sample (~8 pages × 600 chars) plus the programmatic findings report
@@ -427,47 +251,11 @@ export async function runLintWiki(
     //      N×tokens. Trade-off for large wikis.
     //
     // See ROADMAP.md "Lint performance" section.
-    const indexContent = await ctx.wikiEngine.tryReadFile(`${ctx.settings.wikiFolder}/index.md`) || '';
-
-    let contentSample = '';
-    const samplePages = wikiFiles.slice(0, 8);
-    for (const file of samplePages) {
-      const info = pageMap.get(file.path);
-      if (info) {
-        const body = info.content.substring(0, 600);
-        contentSample += `\n### ${info.basename}\n${body}\n`;
-      }
-    }
-
-    // Issue #96: honor user's extractionGranularity setting in the LLM
-    // analysis step (was previously unconstrained).
-    // Issue #85 v6: also append the active tag vocabulary so the LLM
-    // knows which entity/concept types are valid when suggesting fixes
-    // for pages with non-conforming tags.
-    const prompt = appendTagVocabularyToPrompt(
-      appendGranularityToPrompt(
-        t.lintAnalysisPrompt
-          .replace('{index}', indexContent)
-          .replace('{total}', String(wikiFiles.length))
-          .replace('{sample}', String(samplePages.length))
-          .replace('{contentSample}', contentSample)
-          .replace('{progReport}', progReport || 'No issues detected by programmatic checks.'),
-        ctx.settings
-      ),
-      ctx.settings
+    const cleanedLLM = await runAnalysisPhase(
+      phaseCtx,
+      { wikiFiles, pageMap, progReport },
+      checkCancelled,
     );
-
-    stageNotice.setMessage(t.lintAnalyzingLLM);
-    ctx.wikiEngine.updateStatusBar(getText(ctx.settings.language, 'lintStatusAnalyzing'));
-    checkCancelled();
-    const llmReport = await ctx.llmClient.createMessage({
-      model: ctx.settings.model,
-      max_tokens: TOKENS_LINT_DEDUP_LLM,
-      messages: [{ role: 'user', content: prompt }],
-      ...(ctx.settings.disableThinking ? { enableThinking: false } : {}),
-    });
-
-    const cleanedLLM = cleanMarkdownResponse(llmReport);
 
     // ---- 7. Combine and display ----
     // Measure elapsed wall time since runLintWiki started. Round to whole
@@ -494,32 +282,10 @@ export async function runLintWiki(
 
     const fullReport = `# ${t.lintReportTitle}\n\n> ${summaryText}\n\n${progReport}${contradictionsReport}${cleanedLLM.startsWith('##') ? '' : t.lintLLMAnalysisHeading + '\n\n'}${cleanedLLM}`;
 
-    // TODO (v1.18.0, future-work): Missing Concept Pages tracker
-    // ─────────────────────────────────────────────────────────
-    // The LLM analysis section (cleanedLLM) currently flags missing concept
-    // pages in prose ("- [缺少\"纪传体\"概念页——...]"). This is human-readable
-    // but not actionable: there's no programmatic tracking, no per-lint diff,
-    // no "create missing pages" command, and no resolution tracking over time.
-    //
-    // Distinction from dead links: a dead link is `[[X]]` pointing to a missing
-    // page X (resolvable mechanically by counting references). A missing concept
-    // page is a domain-knowledge gap the LLM identifies from source content
-    // (resolvable only by ingesting more sources, or accepting the gap).
-    //
-    // Future-work design (not implemented):
-    //   1. Programmatic detection: parse the LLM output's missing-page items
-    //      into structured `MissingConceptReport { name, source, reason }[]`
-    //      rather than just rendering as markdown bullets.
-    //   2. Persist to a sidecar file `wiki-folder/lint/missing-concepts.json`
-    //      so each lint run accumulates a stable list, and re-runs that resolve
-    //      gaps (e.g. user creates the page manually) are removed.
-    //   3. Command palette entry: "Create missing concept pages" — auto-ingests
-    //      the source note(s) named in the report, generating the missing pages.
-    //   4. Diff against previous run: show newly-discovered vs resolved concepts.
-    //
-    // Until designed and built, the LLM-prose section remains the only signal.
-    // Logged here so future contributors see the design intent.
-    // ─────────────────────────────────────────────────────────
+    // v1.24.0: removed the v1.18.0-era "Missing Concept Pages tracker" TODO
+    // (24 lines of design notes that had been parked here since 2026-07 and
+    // never implemented). If/when the missing-concept-pages feature is
+    // designed, see ROADMAP.md for the placeholder.
 
     const counts: LintCounts = {
       deadLinks: deadLinks.length,
