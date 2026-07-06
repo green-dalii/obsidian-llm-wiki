@@ -486,6 +486,7 @@ export const JA_TEXTS = {
 
     // Lint Analysis Prompt
     lintAnalysisPrompt: 'あなたはWikiメンテナンスの助手です。以下の情報に基づいてWikiの健全性を確認してください。\n\nWikiインデックス：\n{index}\n\nWikiページ内容サンプル（合計{total}ページ、{sample}ページを表示）：\n{contentSample}\n\nプログラムによるチェック結果（検証済み、重複報告不要）：\n{progReport}\n\n以下の項目を確認してください（プログラムにより検出済みのリンク切れ・空ページ・孤立ページは除外）：\n1. **矛盾** — 異なるページ間で同一事実に関する記述が矛盾していないか\n2. **陳腐化** — 明らかに古くなった記述がないか\n3. **不足** — 重要な概念に独立したページがないものはないか\n4. **構造** — ページ構造が妥当で、相互参照が十分か\n\n出力形式：Markdownを使用し、「## LLM分析」で始めてください。各発見は一行で「- [具体的な問題]」と記載。問題がない場合は「明らかな問題は見つかりませんでした。」と記載してください。',
+    lintAnalysisProgReportEmpty: 'プログラムによるチェックで問題は検出されませんでした。',
 
     // Lint Fix Progress
     lintFixProgress: '修復中 {current}/{total}：[[{target}]]',

@@ -494,6 +494,7 @@ export const ES_TEXTS = {
 
     // Lint Analysis Prompt
     lintAnalysisPrompt: 'Eres un asistente de mantenimiento de Wiki. Comprueba el estado de la Wiki basándote en la siguiente información.\n\nÍndice Wiki:\n{index}\n\nMuestra de contenido de páginas Wiki ({total} páginas en total, mostrando {sample} páginas):\n{contentSample}\n\nResultados de la comprobación programática (ya verificados, no repetir):\n{progReport}\n\nComprueba los siguientes aspectos (omite enlaces rotos/páginas vacías/huérfanas ya detectados por las comprobaciones programáticas):\n1. **Contradicciones** — si diferentes páginas se contradicen entre sí sobre los mismos hechos\n2. **Obsolescencia** — si alguna afirmación está claramente desactualizada\n3. **Faltantes** — qué conceptos importantes carecen de páginas independientes\n4. **Estructura** — si la estructura de las páginas es razonable y si los enlaces cruzados son adecuados\n\nFormato de salida: usa Markdown, comenzando con "## Análisis LLM". Cada hallazgo en una línea "- [problema específico]". Si no hay problemas, escribe "No se encontraron problemas evidentes."',
+    lintAnalysisProgReportEmpty: 'No se detectaron problemas en las verificaciones programáticas.',
 
     // Lint Fix Progress
     lintFixProgress: 'Corrigiendo {current}/{total}: [[{target}]]',

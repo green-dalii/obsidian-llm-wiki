@@ -34,6 +34,7 @@ function makeContext(files: Record<string, string>, abstractFiles: string[] = []
       slugCase: 'lower',
       ...settings,
     } as LLMWikiSettings,
+    llmClient: () => null, // preparation phase does not consume LLM
     wikiEngine: { updateStatusBar: () => {} } as unknown as LintPhaseContext['wikiEngine'],
     checkCancelled: () => {},
     stageNotice: null,

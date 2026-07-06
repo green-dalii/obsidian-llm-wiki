@@ -500,6 +500,7 @@ export const EN_TEXTS = {
 
     // Lint Analysis Prompt
     lintAnalysisPrompt: 'You are a Wiki maintenance assistant. Check the Wiki health based on the following information.\n\nWiki Index:\n{index}\n\nWiki Page Content Sample ({total} pages total, showing {sample} pages):\n{contentSample}\n\nProgrammatic check results (already verified, do not repeat):\n{progReport}\n\nCheck the following aspects (skip dead links/empty/orphans already detected by programmatic checks):\n1. **Contradictions** — whether different pages contradict each other on the same facts\n2. **Staleness** — whether any claims are clearly outdated\n3. **Missing** — which important concepts lack standalone pages\n4. **Structure** — whether page structure is reasonable and cross-references are adequate\n\nOutput format: Use Markdown, starting with "## LLM analysis". Each finding on one line "- [specific issue]". If no issues, write "No obvious issues found."',
+    lintAnalysisProgReportEmpty: 'No issues detected by programmatic checks.',
 
     // Lint Fix Progress
     lintFixProgress: 'Fixing {current}/{total}: [[{target}]]',
