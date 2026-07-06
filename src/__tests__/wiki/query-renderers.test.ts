@@ -1,0 +1,193 @@
+// PR #3 split: Pure-renderer unit tests for the split-from-QueryView helpers.
+// These cover the small extracted utilities (thinking-extract / wiki-link-clicks
+// / retrieval-label) — the rest of QueryView's surface stays covered by the
+// existing query-thinking-ui.test.ts (7 cases) and query-view-graph-invalidation.test.ts
+// (4 cases).
+//
+// Test environment follows existing pattern: jsdom + global activeDocument stub.
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { JSDOM } from 'jsdom';
+import { extractThinkingPanel } from '../../wiki/query-engine/renderers/thinking-extract';
+import { bindWikiLinkClicks } from '../../wiki/query-engine/renderers/wiki-link-clicks';
+import { renderRetrievalLabel } from '../../wiki/query-engine/renderers/retrieval-label';
+import type { RetrievalLabelData } from '../../wiki/query-engine/types';
+
+// Install Obsidian DOM helpers on every HTMLElement prototype (jsdom context).
+// createDiv / createEl / createSpan / setText / addClass are pure functions
+// that return DOM elements — declared outside the test file to avoid the
+// `noImplicitThis` lint rule and ensure clean type narrowing.
+function installObsidianDomHelpers(doc: Document): void {
+  const elementProto = doc.createElement('div').constructor.prototype as Record<string, unknown>;
+  const styleObj: Record<string, unknown> = {};
+  elementProto.createDiv = function (
+    this: HTMLElement,
+    opts: { text?: string; cls?: string; attr?: { style?: string } } = {},
+  ): HTMLElement {
+    const el = doc.createElement('div');
+    if (opts.cls) el.className = opts.cls;
+    if (opts.attr?.style) el.setAttribute('style', opts.attr.style);
+    if (opts.text) el.textContent = opts.text;
+    this.appendChild(el);
+    Object.assign(el, styleObj);
+    return el;
+  };
+  elementProto.createEl = function (
+    this: HTMLElement,
+    tag: string,
+    opts: { text?: string; cls?: string; attr?: { [k: string]: string } } = {},
+  ): HTMLElement {
+    const el = doc.createElement(tag);
+    if (opts.cls) el.className = opts.cls;
+    if (opts.attr) for (const [k, v] of Object.entries(opts.attr)) el.setAttribute(k, v);
+    if (opts.text) el.textContent = opts.text;
+    this.appendChild(el);
+    Object.assign(el, styleObj);
+    return el;
+  };
+  elementProto.createSpan = function (
+    this: HTMLElement,
+    opts: { text?: string; cls?: string } = {},
+  ): HTMLElement {
+    const el = doc.createElement('span');
+    if (opts.cls) el.className = opts.cls;
+    if (opts.text) el.textContent = opts.text;
+    this.appendChild(el);
+    Object.assign(el, styleObj);
+    return el;
+  };
+  elementProto.setText = function (this: HTMLElement, text: string): HTMLElement {
+    this.textContent = text;
+    return this;
+  };
+  elementProto.addClass = function (this: HTMLElement, cls: string): HTMLElement {
+    this.classList.add(cls);
+    return this;
+  };
+}
+
+beforeEach(() => {
+  const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+  const doc = dom.window.document;
+  // eslint-disable-next-line obsidianmd/no-global-this
+  globalThis.document = doc;
+  // eslint-disable-next-line obsidianmd/no-global-this
+  (globalThis as Record<string, unknown>).activeDocument = doc;
+  // eslint-disable-next-line obsidianmd/no-global-this
+  globalThis.HTMLElement = dom.window.HTMLElement;
+  installObsidianDomHelpers(doc);
+});
+
+afterEach(() => {
+  // eslint-disable-next-line obsidianmd/no-global-this
+  delete (globalThis as Record<string, unknown>).document;
+  // eslint-disable-next-line obsidianmd/no-global-this
+  delete (globalThis as Record<string, unknown>).activeDocument;
+  // eslint-disable-next-line obsidianmd/no-global-this
+  delete (globalThis as Record<string, unknown>).HTMLElement;
+});
+
+describe('extractThinkingPanel', () => {
+  it('returns null thinkingEl + visible content identical to input when no think tags', () => {
+    const result = extractThinkingPanel('Hello world. Markdown content.', 'en', 'wiki');
+    expect(result.thinkingEl).toBeNull();
+    expect(result.normalized).toBe('Hello world. Markdown content.');
+  });
+
+  it('extracts a thinking block and returns a details DOM element', () => {
+    const tagOpen = String.fromCharCode(60) + 'think' + String.fromCharCode(62); // 'think' open
+    const tagClose = String.fromCharCode(60) + '/think' + String.fromCharCode(62); // 'think' close
+    const input = 'Hello. ' + tagOpen + 'thinking-content' + tagClose + ' done.';
+    const result = extractThinkingPanel(input, 'en', 'wiki');
+    expect(result.thinkingEl).not.toBeNull();
+    expect(result.thinkingEl?.tagName).toBe('DETAILS');
+    expect(result.normalized).not.toContain('thinking-content');
+  });
+});
+
+describe('bindWikiLinkClicks', () => {
+  it('attaches click listeners to every .internal-link inside the container', () => {
+    const doc = activeDocument;
+    const container = doc.createElement('div');
+    const a = doc.createElement('a');
+    a.className = 'internal-link';
+    a.setAttribute('data-href', 'wiki/entities/foo');
+    container.appendChild(a);
+
+    const calls: string[] = [];
+    const app = {
+      workspace: {
+        openLinkText: (path: string) => {
+          calls.push(path);
+          return Promise.resolve();
+        },
+      },
+    } as unknown as import('obsidian').App;
+
+    bindWikiLinkClicks(container, app, 'wiki');
+
+    // Simulate click
+    a.click();
+
+    expect(calls).toEqual(['wiki/entities/foo']);
+  });
+
+  it('does not throw if a link has no data-href or href attribute', () => {
+    const doc = activeDocument;
+    const container = doc.createElement('div');
+    const a = doc.createElement('a');
+    a.className = 'internal-link';
+    container.appendChild(a);
+
+    const app = {
+      workspace: { openLinkText: () => Promise.resolve() },
+    } as unknown as import('obsidian').App;
+
+    expect(() => bindWikiLinkClicks(container, app, 'wiki')).not.toThrow();
+    expect(() => a.click()).not.toThrow();
+  });
+});
+
+describe('renderRetrievalLabel', () => {
+  it('creates a label container with the formatted arm text and inline detail pages', () => {
+    const doc = activeDocument;
+    const parent = doc.createElement('div');
+    const retrieval: RetrievalLabelData = {
+      arm: 'PPR+LLM',
+      count: 2,
+      topPaths: ['wiki/entities/foo.md', 'wiki/concepts/bar.md'],
+    };
+
+    renderRetrievalLabel(parent, retrieval, 'wiki');
+
+    const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+    expect(label).not.toBeNull();
+    expect(label?.textContent).toContain('2');
+    expect(label?.textContent).toContain('PPR');
+    expect(label?.textContent).toContain('LLM');
+
+    const detail = parent.querySelector('.llm-wiki-query-retrieval-detail');
+    expect(detail).not.toBeNull();
+    const pages = detail!.querySelectorAll('.llm-wiki-query-retrieval-page');
+    expect(pages.length).toBe(2);
+    expect(pages[0].textContent).toContain('foo');
+    expect(pages[1].textContent).toContain('bar');
+  });
+
+  it('handles empty topPaths and "none" arm gracefully', () => {
+    const doc = activeDocument;
+    const parent = doc.createElement('div');
+    const retrieval: RetrievalLabelData = {
+      arm: 'none',
+      count: 0,
+      topPaths: [],
+    };
+
+    renderRetrievalLabel(parent, retrieval, 'wiki');
+
+    const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+    expect(label).not.toBeNull();
+    const detail = parent.querySelector('.llm-wiki-query-retrieval-detail');
+    expect(detail!.children.length).toBe(0);
+  });
+});
