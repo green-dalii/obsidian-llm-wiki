@@ -793,32 +793,31 @@ export class LLMWikiSettingTab extends PluginSettingTab {
 
     updateTagVocabularyVisibility(this.tempSettings.tagVocabularyMode || 'default');
 
-    // Max Conversation History
+    // Max Conversation History — Issue #244 manual fix: switched from a free-form
+// text input (clamped to 1–50) to a dropdown of common presets (1/10/30/50/100/500).
+// The soft-cap behavior is unchanged: when history exceeds the limit during a
+// multi-turn conversation, the oldest messages are dropped (see query-engine.ts
+// history trim logic). The preset values let power users opt into much longer
+// context windows without typing arbitrary numbers.
     new Setting(containerEl)
       .setName(this.getText('maxConversationHistoryName'))
       .setDesc(this.getText('maxConversationHistoryDesc'))
-      .addText(text => {
-        text
-          .setValue(this.tempSettings.maxConversationHistory.toString())
-          .setPlaceholder('30')
-          .onChange((value) => {
-            const parsed = parseInt(value);
-            if (parsed > 50) {
-              this.tempSettings.maxConversationHistory = 50;
-              text.setValue('50');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '50'), NOTICE_SHORT);
-            } else if (parsed < 1) {
-              this.tempSettings.maxConversationHistory = 1;
-              text.setValue('1');
-              new Notice(this.getText('numberRangeClamped').replace('{}', '1'), NOTICE_SHORT);
-            } else if (!isNaN(parsed)) {
-              this.tempSettings.maxConversationHistory = parsed;
-            }
-          });
-        text.inputEl.type = 'number';
-        text.inputEl.min = '1';
-        text.inputEl.max = '50';
-        text.inputEl.classList.add('llm-wiki-number-input');
+      .addDropdown(dropdown => {
+        const presets = [1, 10, 30, 50, 100, 500];
+        for (const n of presets) {
+          dropdown.addOption(n.toString(), n.toString());
+        }
+        // Default to current value, but fall back to 50 if it's a legacy
+        // value not in the preset list (e.g. user typed 25 pre-update).
+        const current = this.tempSettings.maxConversationHistory;
+        const currentStr = presets.includes(current) ? current.toString() : '50';
+        dropdown.setValue(currentStr);
+        dropdown.onChange((value) => {
+          const parsed = parseInt(value);
+          if (!isNaN(parsed) && parsed >= 1) {
+            this.tempSettings.maxConversationHistory = parsed;
+          }
+        });
       });
 
     // Schema Management

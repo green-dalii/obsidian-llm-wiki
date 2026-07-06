@@ -7,7 +7,6 @@ export const GENERATION_PROMPTS = {
 - Name: {{entity_name}}
 - Type: {{entity_type}}
 - Summary: {{entity_summary}}
-- Mentions in source (VERBATIM — preserve original language): {{mentions}}
 - Related entities: {{related_entities}}
 - Related concepts: {{related_concepts}}
 - Extraction aliases (seeds): {{extraction_aliases}}
@@ -40,7 +39,6 @@ export const GENERATION_PROMPTS = {
    - Transformer (Chinese wiki) → ["Transformers", "BERT"]      ← NO 变换器 (no such usage in Chinese)
    - Rotary Position Embedding (Japanese wiki) → ["RoPE", "回転位置埋め込み"]
    - Neural Network (Chinese wiki) → ["神经网络", "NN"]
-6. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
 ---
@@ -67,10 +65,6 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 ## {{section_related_concepts}}
 [Reference related concepts using full paths from the list above]
 
-## {{section_mentions_in_source}}
-[Each verbatim quote as an academic-footnote style entry. The provided mentions in the input already include the source wiki-link — keep them as-is. If you need to add more quotes, use the same format:
-- "Verbatim quote in original language (optional translation)" — [[source-name]]]
-
 ---`,
 
   generateConceptPage: `You are a Wiki knowledge base maintainer. Create a Wiki page for the following concept.
@@ -79,7 +73,6 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 - Name: {{concept_name}}
 - Type: {{concept_type}}
 - Summary: {{concept_summary}}
-- Mentions in source (VERBATIM — preserve original language): {{mentions}}
 - Related concepts: {{related_concepts}}
 - Related entities: {{related_entities}}
 - Extraction aliases (seeds): {{extraction_aliases}}
@@ -112,7 +105,6 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
    - Transformer (Chinese wiki) → ["Transformers", "BERT"]      ← NO 变换器 (no such usage in Chinese)
    - Rotary Position Embedding (Japanese wiki) → ["RoPE", "回転位置埋め込み"]
    - Neural Network (Chinese wiki) → ["神经网络", "NN"]
-6. In "Mentions in Source" section: preserve the VERBATIM quotes in their ORIGINAL language. You may ADD a brief translation in parentheses if the wiki language differs, but the original text must be preserved exactly
 
 **Output Format:**
 ---
@@ -141,10 +133,6 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 
 ## {{section_related_entities}}
 [Reference related entities using full paths from the list above]
-
-## {{section_mentions_in_source}}
-[Each verbatim quote as an academic-footnote style entry. The provided mentions in the input already include the source wiki-link — keep them as-is. If you need to add more quotes, use the same format:
-- "Verbatim quote in original language (optional translation)" — [[source-name]]]
 
 ---`,
 
@@ -212,7 +200,6 @@ aliases: ["Alternative title or translation"]  # REQUIRED: at least 1 alias, mus
 - Name: {{entity_name}}
 - Type: {{entity_type}}
 - Summary: {{entity_summary}}
-- Mentions in source: {{mentions}}
 
 **Existing Wiki Pages (use these exact full paths when referencing):**
 {{existing_pages}}
@@ -254,7 +241,6 @@ reviewed: true
 - Name: {{concept_name}}
 - Type: {{concept_type}}
 - Summary: {{concept_summary}}
-- Mentions in source: {{mentions}}
 - Related concepts: {{related_concepts}}
 
 **Existing Wiki Pages (use these exact full paths when referencing):**

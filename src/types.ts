@@ -3,6 +3,34 @@
 import { App } from 'obsidian';
 import type { RejectionReason } from './core/source-requirements';
 
+/**
+ * Issue #244 — Programmatic Mentions writes (v1.23.3 / v1.24.0).
+ *
+ * A `MentionWithProvenance` is a verbatim quote from a source note plus
+ * the metadata needed to write a `[[source-path|basename]]` link and to
+ * sort/dedup across multiple sources. The schema intent
+ * (schema-manager.ts:117-128) is that Mentions is a per-quote
+ * provenance-to-original link — clicking should land on the verbatim
+ * source, not on a wiki-summary round-trip.
+ */
+export interface MentionWithProvenance {
+  /** The verbatim quote text (preserves original language; never translated). */
+  quote: string;
+  /**
+   * Optional translation of `quote` into the user's wiki output language.
+   * Only emitted by the LLM when wikiLanguage ≠ source language (cross-language).
+   * When present, the formatter renders: `"<verbatim>" (<translation>) — [[path|display]]`.
+   * Half-width parentheses are used regardless of locale.
+   */
+  translation?: string;
+  /** Original vault note path the quote was extracted from (e.g. "notes/foo.md"). */
+  source_path: string;
+  /** The sources/<slug> reference used in the page frontmatter `sources:` field. */
+  source_slug: string;
+  /** ISO timestamp of when this mention was extracted from the source. */
+  extracted_at: string;
+}
+
 export interface SourceAnalysis {
   source_file: string;
   source_title: string;
@@ -22,6 +50,14 @@ export interface EntityInfo {
   aliases?: string[];  // Pre-generated aliases from extraction (seeds for page generation)
   summary: string;
   mentions_in_source: string[];
+  /**
+   * Issue #244 — structured Mentions with provenance. When provided,
+   * the page-factory uses this instead of `mentions_in_source` to emit
+   * the Mentions section programmatically. Old `mentions_in_source`
+   * remains the legacy fallback for LLM extractions that haven't yet
+   * been upgraded to return the structured form.
+   */
+  mentions_with_provenance?: MentionWithProvenance[];
   related_entities?: string[];
   related_concepts?: string[];
 }
@@ -32,6 +68,8 @@ export interface ConceptInfo {
   aliases?: string[];  // Pre-generated aliases from extraction (seeds for page generation)
   summary: string;
   mentions_in_source: string[];
+  /** Issue #244 — see EntityInfo. */
+  mentions_with_provenance?: MentionWithProvenance[];
   related_concepts: string[];
   related_entities?: string[];
 }

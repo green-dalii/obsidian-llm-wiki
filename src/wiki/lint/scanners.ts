@@ -3,6 +3,7 @@
 
 import { parseFrontmatter } from '../../core/frontmatter';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from '../../core/tag-vocab';
+import { normalizeQuote, isQuoteGrounded } from './utils';
 import { LLMWikiSettings } from '../../types';
 
 export interface ScannerPage {
@@ -141,32 +142,29 @@ export interface QuoteGroundingIssue {
   hasSourceLink: boolean;
 }
 
-function normalizeQuote(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+/**
+ * Split a link target into its path-without-`.md` and a flag indicating
+ * whether the original ended in `.md`. Used by the Mentions scanner to
+ * support both `[[path/to/note]]` and `[[path/to/note.md]]` forms.
+ */
+function splitMdExtension(target: string): { basePath: string; hasMd: boolean } {
+  if (target.endsWith('.md')) {
+    return { basePath: target.slice(0, -3), hasMd: true };
+  }
+  return { basePath: target, hasMd: false };
 }
 
-function extractMentionsSection(content: string): string | undefined {
-  // Match the first "## Mentions in Source" section up to the next ## heading.
-  const match = content.match(/##\s+Mentions\s+in\s+Source\s*\n([\s\S]*?)(?=\n##\s|\n*$)/i);
+function extractMentionsSection(content: string, mentionsLabel: string): string | undefined {
+  // Match the localized "## <label>" section up to the next ## heading.
+  // Caller MUST pass the resolved label from getSectionLabels(settings).
+  const escaped = mentionsLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = content.match(new RegExp(`##\\s+${escaped}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|\\n*$)`, 'i'));
   return match?.[1];
 }
 
 function extractSourceBody(content: string): string {
   // Strip YAML frontmatter.
   return content.replace(/^---\n[\s\S]*?\n---\n?/, '');
-}
-
-function isQuoteGrounded(quote: string, sourceBody: string): boolean {
-  // Tier 1: exact substring.
-  if (sourceBody.includes(quote)) return true;
-  // Tier 2: normalized substring.
-  const normalizedQuote = normalizeQuote(quote);
-  if (normalizedQuote.length === 0) return false;
-  return normalizeQuote(sourceBody).includes(normalizedQuote);
 }
 
 /**
@@ -192,16 +190,24 @@ export function scanQuoteGrounding(
   pageMap: Map<string, ScannerPage>,
   sourceMap: Map<string, ScannerPage>,
   wikiFolder: string,
+  mentionsLabel: string = 'Mentions in Source',
 ): QuoteGroundingIssue[] {
   const issues: QuoteGroundingIssue[] = [];
 
-  // Pre-build the list of all source bodies for legacy bare-quote fallback.
-  const sourceBodies = Array.from(sourceMap.values()).map(s => extractSourceBody(s.content));
+  // E2/E3: pre-build source-body lookup + pre-normalize once for legacy fallback.
+  // Avoids re-stripping frontmatter per quote and re-normalizing per source per quote.
+  const sourceBodyMap = new Map<string, string>();
+  const normalizedSourceBodies: string[] = [];
+  for (const [p, s] of sourceMap) {
+    const body = extractSourceBody(s.content);
+    sourceBodyMap.set(p, body);
+    normalizedSourceBodies.push(normalizeQuote(body));
+  }
 
   for (const [path, page] of pageMap) {
     if (!path.startsWith(wikiFolder + '/')) continue;
 
-    const mentionsBlock = extractMentionsSection(page.content);
+    const mentionsBlock = extractMentionsSection(page.content, mentionsLabel);
     if (!mentionsBlock) continue;
 
     // Match lines like: - "quote text" — [[sources/slug]]
@@ -213,12 +219,44 @@ export function scanQuoteGrounding(
       const linkTarget = match[2]?.trim();
 
       if (linkTarget) {
-        // Current format: exact source link.
-        const sourcePath = linkTarget.endsWith('.md') ? linkTarget : `${linkTarget}.md`;
-        const resolvedPath = sourcePath.startsWith(wikiFolder + '/') ? sourcePath : `${wikiFolder}/${sourcePath}`;
-        const source = sourceMap.get(resolvedPath);
-        const body = source ? extractSourceBody(source.content) : '';
-        const grounded = source && isQuoteGrounded(quote, body);
+        // Strip any display-name suffix: [[path|name]] → path
+        const bareTarget = linkTarget.split('|')[0].trim();
+        // Current format: exact source link. Three supported target forms:
+        //   1. wiki/sources/<slug>     → resolvedPath = `wiki/sources/<slug>.md`
+        //      (legacy: `sources/<slug>` form was prepended with wikiFolder;
+        //      preserve this for the existing call sites and tests).
+        //   2. <raw-note-path>          → look up by raw vault path
+        //      (Issue #244 — Mentions citations link to the original source
+        //      note, which lives outside the wiki/ folder).
+        let source: ScannerPage | undefined;
+        let resolvedPath: string;
+
+        const sourcesPrefix = wikiFolder + '/sources/';
+        if (bareTarget.startsWith('sources/') || bareTarget.startsWith(sourcesPrefix)) {
+          // Legacy wiki-internal sources/ path. Always prepend wikiFolder.
+          const slug = bareTarget.replace(/^sources\//, '').replace(/^wiki\/sources\//, '');
+          resolvedPath = `${wikiFolder}/sources/${slug}.md`;
+          source = sourceMap.get(resolvedPath);
+        } else {
+          // Raw-note path. Try as-is, with and without .md.
+          const { basePath, hasMd } = splitMdExtension(bareTarget);
+          const candidates = [
+            bareTarget,
+            basePath + (hasMd ? '' : '.md'),
+          ];
+          resolvedPath = bareTarget;
+          for (const p of candidates) {
+            const found = sourceMap.get(p);
+            if (found) {
+              source = found;
+              resolvedPath = p;
+              break;
+            }
+          }
+        }
+
+        const body = source ? sourceBodyMap.get(source.path) ?? '' : '';
+        const grounded = body ? isQuoteGrounded(quote, body) : false;
         if (!grounded) {
           issues.push({
             pagePath: path,
@@ -229,7 +267,10 @@ export function scanQuoteGrounding(
         }
       } else {
         // Legacy format: accept if quote appears in any source file.
-        const grounded = sourceBodies.some(body => isQuoteGrounded(quote, body));
+        // E3: pre-normalized once, so this is O(Q) not O(Q*S).
+        const normalizedQuote = normalizeQuote(quote);
+        const grounded = normalizedQuote.length > 0 &&
+          normalizedSourceBodies.some(nb => nb.includes(normalizedQuote));
         if (!grounded) {
           issues.push({
             pagePath: path,

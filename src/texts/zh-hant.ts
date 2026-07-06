@@ -124,7 +124,7 @@ export const ZH_HANT_TEXTS = {
     // Query 设置
     querySectionTitle: 'Wiki 查詢配置',
     maxConversationHistoryName: '對話歷史上限',
-    maxConversationHistoryDesc: '限制對話訊息數，避免超出LLM token限制',
+    maxConversationHistoryDesc: '對話輪次軟上限（超出時自動丟棄最舊的）。預設值：1/10/30/50/100/500。',
     maxConversationHistoryHint: '推薦：不超過50輪',
     numberRangeValidation: '請輸入1-50之間的數字',
     numberRangeClamped: '數值超出範圍（1-500），已自動設定為 {}',

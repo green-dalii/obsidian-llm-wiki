@@ -124,7 +124,7 @@ export const JA_TEXTS = {
     // Query Settings
     querySectionTitle: 'Wiki 問い合わせ設定',
     maxConversationHistoryName: '会話履歴の最大数',
-    maxConversationHistoryDesc: 'トークンオーバーフローを防ぐため会話メッセージ数を制限します',
+    maxConversationHistoryDesc: '会話ラウンドのソフト上限（超過時は古いメッセージが自動的に破棄されます）。プリセット：1/10/30/50/100/500。',
     maxConversationHistoryHint: '推奨：50ラウンド以内',
     numberRangeValidation: '1〜50の数値を入力してください',
     numberRangeClamped: '値が範囲外です（1-500）、自動的に {} に設定されました',

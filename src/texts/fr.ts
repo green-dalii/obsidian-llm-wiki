@@ -124,7 +124,7 @@ export const FR_TEXTS = {
     // Query Settings
     querySectionTitle: 'Configuration de l\'interrogation du wiki',
     maxConversationHistoryName: 'Historique maximal de conversation',
-    maxConversationHistoryDesc: 'Limiter les messages de conversation pour éviter le dépassement de tokens',
+    maxConversationHistoryDesc: 'Limite souple du nombre de tours de conversation (les messages les plus anciens sont supprimés automatiquement). Préréglages : 1/10/30/50/100/500.',
     maxConversationHistoryHint: 'Recommandé : ne pas dépasser 50 tours',
     numberRangeValidation: 'Veuillez saisir un nombre entre 1 et 50',
     numberRangeClamped: 'Valeur hors plage (1-500), automatiquement réglée sur {}',

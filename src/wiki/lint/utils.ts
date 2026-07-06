@@ -92,3 +92,30 @@ export function detectPollutedPages(
   }
   return polluted;
 }
+
+// ── Quote grounding shared helpers (Issue #244) ────────────────────
+
+/**
+ * Normalize text for Tier 2 quote-grounding match:
+ * case-fold, strip non-letter/digit/whitespace characters, collapse whitespace.
+ * Shared by `lint/scanners.ts::isQuoteGrounded` and any future verifier.
+ */
+export function normalizeQuote(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Tier 1 + Tier 2 quote-grounding check. Single source of truth — used by
+ * both the lint scanner and the page-factory pre-write validator so the
+ * two implementations cannot drift.
+ */
+export function isQuoteGrounded(quote: string, sourceBody: string): boolean {
+  if (sourceBody.includes(quote)) return true;
+  const normalizedQuote = normalizeQuote(quote);
+  if (normalizedQuote.length === 0) return false;
+  return normalizeQuote(sourceBody).includes(normalizedQuote);
+}
