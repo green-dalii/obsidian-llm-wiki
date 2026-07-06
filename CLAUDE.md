@@ -337,6 +337,39 @@ Closes #94, #96, #99"
 
 **NEVER** use `gh issue close` or the GitHub UI to close issues manually — let the commit message do it. This keeps the git history → issue link intact and avoids premature closure before the code reaches default branch.
 
+### Commit author identity + co-authorship
+
+The Claude Code sandbox uses a placeholder git identity (`Claude Code <claude@anthropic.com>`) that **must not** be the commit author on this project. Every commit attributed to "Claude Code" inflates the GitHub contributor graph with a non-human identity and obscures the actual maintainer trail.
+
+**Canonical maintainer identity (verified against GitHub user `green-dalii`):**
+
+```
+name:  green-dalii
+email: 654534332@qq.com
+```
+
+Some older commits on `main` were authored as `Greener-Dalii` (capitalized, used by the GitHub UI on merge operations). All NEW commits — including `--amend` and squash operations — MUST use the lowercase canonical form `green-dalii`. Do not retroactively rewrite history unless the user explicitly asks.
+
+**Rules (added 2026-07-06 after manual test feedback):**
+
+1. **Commit author** MUST be the maintainer:
+   ```bash
+   git -c user.name="green-dalii" -c user.email="654534332@qq.com" commit --amend --no-edit
+   ```
+   Or set it once per session before any commits:
+   ```bash
+   git config user.name "green-dalii"
+   git config user.email "654534332@qq.com"
+   ```
+2. **Every commit MUST list the maintainer as `Co-authored-by`** (in addition to the AI model):
+   ```
+   Co-authored-by: green-dalii <654534332@qq.com>
+   Co-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+   ```
+3. **NEVER** amend/squash a commit in a way that drops the `Co-authored-by: green-dalii` trailer — re-add it after every `git commit --amend`.
+4. The `Co-Authored-By` line must NOT be wrapped in a code block or in any way obfuscated — GitHub reads it as a literal trailer.
+5. When the session ends or you notice a missing co-author on any recent commit, **stop and fix it before continuing** — do not let the oversight propagate to the PR.
+
 ## 🧪 Development Quality Closure (TDD + Planning)
 
 **Mandatory development loop for every code change** (new feature, bug fix, refactor). This is a quality closure — skipping any step is a violation.
