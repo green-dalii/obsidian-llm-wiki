@@ -38,7 +38,7 @@ import { LintContext, LintPhaseContext, ProgrammaticFindings } from './types';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
 
 // Re-export LintContext for back-compat — external callers (e.g. main.ts,
-// modals.ts indirect import) still reference `LintContext` from this file.
+// ui/modals/ indirect import) still reference `LintContext` from this file.
 export type { LintContext } from './types';
 
 /**

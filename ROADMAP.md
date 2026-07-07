@@ -2,11 +2,13 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.23.2 (shipped 2026-07-05) | **Updated:** 2026-07-05
+**Version:** 1.23.2 (shipped 2026-07-05) | **Updated:** 2026-07-06
 
 ## Current Status
 
-**v1.23.2 SHIPPED (2026-07-05, PATCH).** Five merged PRs (#234 + graph-cache invalidation + #221 + #219 + DocTpoint's #238 + #241). 1431 tests passing across 108 files. Recommended upgrade for everyone on v1.23.0+. License upgraded to Apache 2.0 + DCO. Next: v1.24.0 MINOR (PDF source ingest, source-revision awareness, hub-retirement lint wire-up).
+**v1.23.2 SHIPPED (2026-07-05, PATCH).** Five merged PRs (#234 + graph-cache invalidation + #221 + #219 + DocTpoint's #238 + #241). 1431 tests at ship; **1616 tests** after 3 monolith-split PRs (#248/#249/#250) added ~90 new test cases (+3 test files). 115 test files. Recommended upgrade for everyone on v1.23.0+. License upgraded to Apache 2.0 + DCO.
+
+**Post-ship work (2026-07-06 → 2026-07-07):** Three monolith-split PRs landed (#248 controller.ts / #249 history-modal.ts / #250 query-engine.ts). ROI analysis on remaining 6 large files complete — see `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_remaining_split_roi.md`. Next iteration: P0 = `ui/modals.ts` split (0.5 day), P1 = i18n altitude fixes (0.5 day), P2 = `wiki/wiki-engine.ts` 1391-LOC god-class split (2-3 days).
 
 **v1.23.1 SHIPPED (2026-07-02, PATCH).** Obsidian review bot reject hotfix: tsconfig `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. 1386 tests passing across 102 files.
 
@@ -68,7 +70,7 @@ No proactive 11th language — **contributor-driven only** (replicate PR #159 It
 - **#220 — Source-revision awareness for merge.** DocTpoint's 4-tier design (Tier 0 fingerprint + replace self-revision, Tier 1 `supersedes:` frontmatter flag, Tier 2 cross-source disagreement open question, Tier 3 review-queue UI). Tiers 0-1 tractable for v1.24.0 MINOR; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
 - Hub-retirement lint wire-up (`core/hub-retirement.ts` → call `assessHubs` in lint path) — owned by @DocTpoint, post-#215 merge
 - P2-2 cold-start settings UI (advanced users only; default parameters validated in P2-4)
-- LintFixer class → module-level functions (707-LOC god class split, 1 day)
+- ~~LintFixer class → module-level functions (707-LOC god class split, 1 day)~~ — **FALSE BACKLOG ITEM** (2026-07-07): the LintFixer god class was already split in v1.19.0 into 8 module-level functions under `src/wiki/lint/` (`fix-dead-link.ts`, `fill-empty-page.ts`, `link-orphan.ts`, `merge-duplicates.ts`, `delete-empty-stubs.ts`, `fix-polluted-page.ts`, `duplicate-detection.ts`). `fix-runners.ts` (500 LOC) is the unified dispatch layer — not a god class. See [[project_v1.24.0_remaining_split_roi]] for the corrected large-file analysis.
 
 **Deferred to v1.25.0+ (research / experimental):**
 - #213 configurable page categories (Discussion-only, NOT confirmed for any minor release — needs broader community/architectural discussion)
@@ -122,7 +124,9 @@ TBD after v1.23.2 feedback. Architectural items deferred from v1.23.0–v1.23.2 
 - **#218 — PDF source ingest** (Discussion #222 topology).
 - **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by @DocTpoint (post-#215 merge).
 - **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
-- **LintFixer → module-level functions split** — 707-LOC god class, deprioritized since v1.18.x.
+- **i18n altitude fixes** — `history-message.ts` / `QueryView-class.ts` 硬编码 '👤 You' / '🤖 Wiki'；`retrieval-label.ts` 硬编码 'page(s)'；7 处 `as unknown as Record<string, string>` 类型安全债务。Closed by `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_remaining_split_roi.md` P1 (0.5 day).
+- **`ui/modals.ts` → `ui/modals/` split** — 7 个独立 modal classes 共存 1 文件（1008 LOC）；最简单、最快胜利的拆分。Closed by `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_remaining_split_roi.md` P0 (0.5 day).
+- ~~LintFixer → module-level functions split~~ — **REMOVED 2026-07-07** as false backlog item (god class already split in v1.19.0).
 - **#244 — Programmatic Mentions-citation writes (mentioned by @DocTpoint).** Root cause: `Mentions in Source` section is currently emitted by LLM in the page-generation prompt (`page-factory.ts:361/433/495` inject `{{mentions}}` as a few-shot example). LLM may drift on quote text, format, ordering, or — worse — copy the note-folder prefix into Related Concepts/Entities sections (Effect 2 from the bug report). Design intent (`schema-manager.ts:117-128`): Mentions is a deterministic academic-footnote structured output; should NOT depend on LLM creativity.
   - **Scope:** Promote `mentions_in_source` to a structured `mentions_with_provenance` type (`{quote, source_path, source_slug, extracted_at, position?}`); emit the section programmatically via new `core/mentions-formatter.ts`; strip the LLM-written section in `page-factory.ts` post-processing; remove `{{mentions}}` injection + section directives from `prompts/generation.ts` and `prompts/merge.ts`; support multi-source merge (dedup by verbatim quote string, sort by source-ingest timestamp); programmatic verify that each emitted quote actually appears at the claimed source position (defends against LLM fabrication in the extraction stage).
   - **Lint scanner compatibility:** Extend `lint/scanners.ts` `extractMentionsSection` + line regex to accept raw-note-path targets (`[[MyNote]]`) in addition to `wiki/sources/<slug>` paths, and to verify quote-grounding against the original source file when the link target is a note path. This heals the silent secondary damage (427 ungrounded-quote lint warnings caused by the current raw-note path).
@@ -150,7 +154,7 @@ TBD after v1.23.2 feedback. Architectural items deferred from v1.23.0–v1.23.2 
 
 ## v1.23.2 — Implemented (shipped 2026-07-05)
 
-See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five merged PRs (#234 + graph-cache + #221 + #219 + DocTpoint's #238 + #241). 1431 tests passing across 108 files. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
+See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five merged PRs (#234 + graph-cache + #221 + #219 + DocTpoint's #238 + #241). 1431 tests at ship. Post-release monolith splits (#248/#249/#250) added ~90 test cases — **1616 tests across 115 files in latest main**. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
 
 ## v1.23.0 — Implemented (shipped 2026-07-02)
 
@@ -236,7 +240,7 @@ See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five 
 | # | Item | Effort | Status |
 |---|------|--------|--------|
 | D1 | page-factory resolvePagePath LLM fallback + merge + append tests | 1 day | Deferred |
-| D2 | LintFixer class split (707-line god class → 6 module functions) | 1 day | Deferred |
+| ~~D2~~ | ~~LintFixer class split (707-line god class → 6 module functions)~~ | — | **REMOVED 2026-07-07** — split already done in v1.19.0; `fix-runners.ts` (500 LOC) is the unified dispatch layer, not a god class. See `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_remaining_split_roi.md` for the corrected large-file analysis. |
 
 #### Deferred P2 — Test infrastructure (high mock complexity)
 | # | Item | Effort | Reason |

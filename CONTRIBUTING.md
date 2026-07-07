@@ -114,14 +114,21 @@ src/
 │   └── smoke-test.ts           # LLM configuration verification wrapper (v1.23.0)
 ├── wiki/                # Wiki engine modules
 │   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log)
-│   ├── query-engine.ts  # Conversational query with streaming + thinking UI
+│   ├── query-engine/    # Conversational query with streaming + thinking UI
+│   │   ├── index.ts                           # re-export shim
+│   │   ├── types.ts + state.ts                # type declarations + InternalView
+│   │   ├── QueryView-class.ts                 # ItemView (+ delegates renderers + pipeline)
+│   │   ├── SuggestSaveModal-class.ts          # post-query feedback Modal
+│   │   ├── renderers/                         # 6 pure-function modules
+│   │   └── pipeline/                          # 5 pure-function modules
 │   ├── source-analyzer.ts # Iterative batch extraction
 │   ├── page-factory.ts  # Entity/concept CRUD + merge
 │   ├── conversation-ingest.ts # Chat → wiki knowledge
 │   ├── contradictions.ts # Contradiction detection
 │   ├── system-prompts.ts # Language directive + section labels
+│   ├── turn-indicator.ts # Right-edge vertical dot conversation nav (v1.23.2, #221)
 │   ├── lint/            # Lint subsystem
-│   │   ├── controller.ts         # Lint orchestration
+│   │   ├── controller.ts         # Lint orchestration + 3 phase modules
 │   │   ├── fix-runners.ts        # Batch fix execution helpers
 │   │   ├── scanners.ts           # Scanners (dead links, orphans, aliases, quote grounding)
 │   │   ├── duplicate-detection.ts # Programmatic candidate generation
@@ -143,9 +150,9 @@ src/
 │   ├── schema-manager.ts # SchemaManager (read/write schema config)
 │   ├── auto-maintain.ts # File watcher, periodic lint, startup quick fixes
 │   └── analyze.ts       # Schema-analyze with cancel wiring
-├── ui/                  # Settings + Modals
+├── ui/                  # Settings + history-modal/ (14-file split)
 ├── texts/               # i18n (9 languages)
-└── __tests__/           # Unit tests (vitest, 1431 tests across 108 files)
+└── __tests__/           # Unit tests (vitest, 1616 tests across 115 files)
 ```
 
 ## Internationalization
@@ -181,16 +188,16 @@ graph TD
     User -->|Cmd+P| main.ts
     main.ts -->|ingest| WikiEngine
     main.ts -->|query| QueryEngine
-    main.ts -->|lint| lint("lint/controller.ts")
+    main.ts -->|lint| lint("lint/controller.ts + 3 phase modules")
 
     WikiEngine -->|analyze| SourceAnalyzer
     WikiEngine -->|CRUD + merge| PageFactory
     WikiEngine -->|write| Vault
 
-    QueryEngine -->|local match| localKeywordMatch["localKeywordMatch (Layer 1)"]
-    QueryEngine -->|LLM select| selectRelevantPagesWithLLM["selectRelevantPagesWithLLM (Layer 3)"]
-    QueryEngine -->|read| Vault
+    QueryEngine -->|4-phase pipeline: read-index / select-seeds / load-pages / assemble-context| Vault
+    QueryEngine -->|streaming + render| LLMClient
 
+    lint("lint/controller.ts") -->|LLM analysis/scoring/synthesis| llm-phases["lint/llm-phases/ (3 phase modules) <= Added in PR #248"]
     lint("lint/controller.ts") -->|dead links| fix-dead-link["lint/fix-dead-link.ts"]
     lint("lint/controller.ts") -->|empty pages| fill-empty-page["lint/fill-empty-page.ts"]
     lint("lint/controller.ts") -->|orphans| link-orphan["lint/link-orphan.ts"]
