@@ -190,4 +190,106 @@ describe('renderRetrievalLabel', () => {
     const detail = parent.querySelector('.llm-wiki-query-retrieval-detail');
     expect(detail!.children.length).toBe(0);
   });
+
+  // ── Text legibility (v1.24.0) ───────────────────────────────────
+  // User feedback 2026-07-07: `🔍 1 page(s) · 📇 index` is too cryptic.
+  // - 'page(s)' should be 'page' (count=1) or 'pages' (count>1)
+  // - 'index' is a misleading translation of the 'lex' arm (lexical
+  //   fallback, not the index file)
+  // - 'none' arm should say "No specific source" not just "—"
+  describe('text legibility (v1.24.0)', () => {
+    it('uses singular "page" when count is exactly 1', () => {
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: 'PPR',
+        count: 1,
+        topPaths: ['wiki/entities/Foo.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      expect(label?.textContent).toContain('1 page');
+      expect(label?.textContent).not.toContain('1 pages');
+      expect(label?.textContent).not.toContain('page(s)');
+    });
+
+    it('uses plural "pages" when count is 2+', () => {
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: 'PPR',
+        count: 3,
+        topPaths: ['wiki/a.md', 'wiki/b.md', 'wiki/c.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      expect(label?.textContent).toContain('3 pages');
+      expect(label?.textContent).not.toContain('page(s)');
+    });
+
+    it('translates "lex" arm as "Lexical" (NOT "index")', () => {
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: 'lex',
+        count: 1,
+        topPaths: ['wiki/entities/Foo.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      // "lex" arm should be "Lexical", not "index" (which is misleading)
+      expect(label?.textContent).toContain('Lexical');
+      expect(label?.textContent).not.toContain('📇 index');
+    });
+
+    it('shows "No specific source" when arm is "none"', () => {
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: 'none',
+        count: 1,
+        topPaths: ['wiki/entities/Foo.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      // "none" should be human-readable, not a dash
+      expect(label?.textContent).toContain('No specific source');
+    });
+
+    it('shows "No specific source" when arm is empty string', () => {
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: '',
+        count: 1,
+        topPaths: ['wiki/entities/Foo.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      expect(label?.textContent).toContain('No specific source');
+    });
+
+    it('renders mixed arms PPR/lex as "PPR · Lexical" (not "PPR · index")', () => {
+      // PPR cascade + lexical fallback both contributed.
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: 'PPR/lex',
+        count: 2,
+        topPaths: ['wiki/a.md', 'wiki/b.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      expect(label?.textContent).toContain('PPR');
+      expect(label?.textContent).toContain('Lexical');
+      expect(label?.textContent).not.toContain('📇 index');
+    });
+
+    it('renders PPR+LLM arm with both tokens separated', () => {
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: 'PPR+LLM',
+        count: 1,
+        topPaths: ['wiki/entities/Foo.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      expect(label?.textContent).toContain('PPR');
+      expect(label?.textContent).toContain('LLM');
+    });
+  });
 });
