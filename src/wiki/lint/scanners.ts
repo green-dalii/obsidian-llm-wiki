@@ -45,13 +45,73 @@ export function detectAliasDeficiency(
       const info = pageMap.get(file.path);
       if (info) {
         const fmMatch = info.content.match(/^---\n([\s\S]*?)\n---/);
-        if (fmMatch && !fmMatch[1].includes('aliases:')) {
+        if (fmMatch && !hasNonEmptyAliases(fmMatch[1])) {
           result.push(info);
         }
       }
     }
   }
   return result;
+}
+
+/**
+ * v1.24.0: A page is "alias-deficient" when the frontmatter either
+ * lacks an `aliases:` line entirely, OR the aliases line is empty
+ * (`aliases: []` or `aliases:\n  - ""`). The previous `includes('aliases:')`
+ * check falsely treated empty arrays as "has aliases" — when a user
+ * deleted every alias entry in Obsidian, lint missed the deficiency.
+ *
+ * Inline-style and block-style empty arrays are both detected:
+ *   - `aliases: []`                 → empty inline
+ *   - `aliases:\n  - ""\n  - ""`    → block with only empty strings
+ *   - `aliases:\n` (no entries)     → block with zero entries
+ */
+function hasNonEmptyAliases(frontmatter: string): boolean {
+  // Match `aliases:` followed by everything up to end-of-line (no \n).
+  // Use [^\n]* for the trailing content to avoid consuming newlines
+  // that belong to subsequent block entries.
+  const aliasesLineMatch = frontmatter.match(/^aliases:[ \t]*(.*)$/m);
+  if (!aliasesLineMatch) return false;
+
+  const inlineContent = aliasesLineMatch[1].trim();
+
+  // Inline-style: `aliases: []` or `aliases: [a, b, ...]`.
+  if (inlineContent.startsWith('[')) {
+    const innerMatch = inlineContent.match(/^\[(.*)\]$/);
+    if (innerMatch) {
+      const items = innerMatch[1]
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(s => s.replace(/^['"](.*)['"]$/, '$1'));
+      return items.some(item => item.length > 0);
+    }
+  }
+
+  // Inline empty OR block-style: look for indented `-` entries
+  // on subsequent lines and check whether they have content.
+  const aliasesLineIdx = aliasesLineMatch.index ?? 0;
+  const afterAliases = frontmatter.substring(aliasesLineIdx + aliasesLineMatch[0].length);
+  const blockEntries = afterAliases.match(/^[ \t]+-[ \t]*(.*)$/gm) || [];
+
+  let blockHasContent = false;
+  for (const rawEntry of blockEntries) {
+    const m = rawEntry.match(/^[ \t]+-[ \t]*(.*?)[ \t]*$/);
+    if (!m) continue;
+    const entryValue = m[1].replace(/^['"](.*)['"]$/, '$1');
+    if (entryValue.length > 0) {
+      blockHasContent = true;
+      break;
+    }
+  }
+
+  // If `aliases: foo` had inline content but no brackets, treat it
+  // as a single-entry list with content.
+  if (!blockHasContent && inlineContent.length > 0) {
+    return true;
+  }
+
+  return blockHasContent;
 }
 
 // Scan wiki pages for dead links ([[wikilinks]] pointing to non-existent targets).
