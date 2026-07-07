@@ -291,5 +291,37 @@ describe('renderRetrievalLabel', () => {
       expect(label?.textContent).toContain('PPR');
       expect(label?.textContent).toContain('LLM');
     });
+
+    // v1.24.0 follow-up: select-seeds.ts emits 'index' as the
+    // fallback arm identifier (NOT 'lex'). Translate it to a
+    // human-readable form — not the raw "🔎 index" leakage.
+    it('translates "index" arm as "Index" (not raw "🔎 index")', () => {
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: 'index',
+        count: 3,
+        topPaths: ['wiki/a.md', 'wiki/b.md', 'wiki/c.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      // "index" arm should be translated to "Index" (with a clear
+      // glyph) — the raw "🔎 index" leakage confuses users into
+      // thinking the wiki index file was searched.
+      expect(label?.textContent).toContain('Index');
+      expect(label?.textContent).not.toBe('🔎 index');
+    });
+
+    it('translates "PPR/index" mixed arm cleanly', () => {
+      const doc = activeDocument;
+      const parent = doc.createElement('div');
+      renderRetrievalLabel(parent, {
+        arm: 'PPR/index',
+        count: 2,
+        topPaths: ['wiki/a.md', 'wiki/b.md'],
+      }, 'wiki');
+      const label = parent.querySelector('.llm-wiki-query-retrieval-label');
+      expect(label?.textContent).toContain('PPR');
+      expect(label?.textContent).toContain('Index');
+    });
   });
 });

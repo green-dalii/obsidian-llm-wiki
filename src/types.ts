@@ -255,6 +255,17 @@ export interface QueryHistoryMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  /**
+   * v1.24.0: Retrieval metadata persisted per assistant turn so the
+   * label survives Obsidian restart. Optional — pre-v1.24.0 history
+   * is loaded without it, and the retrieval label simply won't render
+   * (no crash).
+   */
+  retrieval?: {
+    arm: string;
+    count: number;
+    topPaths: string[];
+  };
 }
 
 // Schema types

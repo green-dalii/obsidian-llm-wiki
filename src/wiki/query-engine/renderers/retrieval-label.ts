@@ -18,12 +18,16 @@ import type { RetrievalLabelData } from '../types';
  *   fell back to keyword scoring), not a reference to the wiki index
  *   file. The new label 'Lexical' tells the user "this came from word
  *   matching, not from the link graph".
+ * - 'index' (the actual arm identifier emitted by select-seeds.ts when
+ *   no PPR signal exists) was previously hidden behind the generic
+ *   "🔎 index" fallback — which read as a debug message. We now map
+ *   it explicitly to "📋 Index" (visual cue: list-style icon).
  * - 'none' / empty arm was previously rendered as '—' (em-dash) — looks
  *   like an error. The new label 'No specific source' tells the user
  *   the LLM ran without a defined retrieval arm.
- * - Unknown arm values are no longer hidden behind '📇 index' — the raw
- *   identifier is shown with a 🔎 prefix so future arms surface
- *   visibly rather than masquerading as a default.
+ * - Unknown arm values are no longer hidden — the raw identifier is
+ *   shown with a 🔎 prefix so future arms surface visibly rather than
+ *   masquerading as a default.
  */
 function armDisplay(arm: string): string {
   if (arm === 'none' || arm === '') {
@@ -36,6 +40,7 @@ function armDisplay(arm: string): string {
       if (a === 'PPR') return '🔗 PPR';
       if (a === 'PPR+') return '🔗 PPR+';
       if (a === 'lex') return '📖 Lexical';
+      if (a === 'index') return '📋 Index';
       // Unknown arm: surface the raw identifier so it's never hidden
       // behind a misleading default.
       return `🔎 ${a}`;

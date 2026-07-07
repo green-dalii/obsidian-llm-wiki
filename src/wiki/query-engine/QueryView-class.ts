@@ -57,6 +57,12 @@ export class QueryView extends ItemView {
       role: 'user' | 'assistant';
       content: string;
       timestamp: number;
+      /** v1.24.0: retrieval metadata persisted per assistant message. */
+      retrieval?: {
+        arm: string;
+        count: number;
+        topPaths: string[];
+      };
     }>;
   };
   isStreaming: boolean;
@@ -197,6 +203,14 @@ export class QueryView extends ItemView {
     this.history.messages.forEach((msg, idx) => {
       const turnIdx = Math.floor(idx / 2);
       this.renderHistoryMessage(msg.role, msg.content, turnIdx);
+      // v1.24.0: re-hydrate retrieval labels from persisted history.
+      // Find the just-rendered message wrapper by its position.
+      if (msg.role === 'assistant' && msg.retrieval) {
+        const wrapper = this.historyContainer.lastElementChild as HTMLElement | null;
+        if (wrapper) {
+          this.addRetrievalLabel(wrapper, msg.retrieval);
+        }
+      }
     });
 
     // 自动滚动到最新的消息底部
@@ -547,7 +561,10 @@ export class QueryView extends ItemView {
           this.history.messages.push({
             role: 'assistant',
             content: fullResponse,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            // v1.24.0: persist retrieval metadata so the label
+            // survives view re-open.
+            retrieval: this._lastRetrieval ?? undefined,
           });
           // v1.23.0 P2: Persist queryHistory after each completed turn
           // so that an abrupt Obsidian close (which may not trigger
@@ -583,7 +600,8 @@ export class QueryView extends ItemView {
         this.history.messages.push({
           role: 'assistant',
           content: response,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          retrieval: this._lastRetrieval ?? undefined,
         });
         // v1.23.0 P2: Crash-safe persistence (see streaming branch above).
         this.plugin.settings.queryHistory = this.history.messages;
@@ -803,9 +821,12 @@ export class QueryView extends ItemView {
    * rendered chat) can see which retrieval method was used.
    * Skipped silently if no retrieval metadata was captured.
    */
-  private addRetrievalLabel(messageWrapper: HTMLElement): void {
-    if (!this._lastRetrieval) return;
-    renderRetrievalLabel(messageWrapper, this._lastRetrieval, this.plugin.settings.wikiFolder);
+  private addRetrievalLabel(
+    messageWrapper: HTMLElement,
+    retrieval: RetrievalLabelData | null = this._lastRetrieval,
+  ): void {
+    if (!retrieval) return;
+    renderRetrievalLabel(messageWrapper, retrieval, this.plugin.settings.wikiFolder);
   }
 
   limitHistory() {

@@ -17,6 +17,14 @@ export interface HistoryMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  /**
+   * v1.24.0: Retrieval metadata for this assistant message.
+   * Set at generation time and persisted so the label survives
+   * view re-open / rehydration. Optional — older persisted
+   * history (from pre-v1.24.0) that lacks this field renders
+   * without a label (no crash).
+   */
+  retrieval?: RetrievalLabelData;
 }
 
 export interface QueryViewHistory {
