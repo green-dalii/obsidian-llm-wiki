@@ -105,6 +105,9 @@ export const FR_TEXTS = {
     errorUnknown: 'Erreur inconnue',
     savedNotice: 'Paramètres enregistrés !',
 
+    // v1.24.0 (Bug C 3.4 / plan C) : notification de migration progressive
+    queryHistoryMigrationNotice: 'L\'historique de Query Wiki contient des liens d\'un ancien dossier wiki. Les nouvelles requêtes utilisent automatiquement le dernier dossier. Pour actualiser tous les messages enregistrés, ouvrez le panneau Query Wiki et cliquez sur le bouton « Effacer l\'historique » qui s\'y trouve.',
+
     // Issue #137 : Notifications de repli LLM
     fallbackThinkingDialect: 'Contrôle de réflexion : basculé vers le dialecte « {dialect} » (ce fournisseur utilise un format différent). Le résultat est inchangé.',
     fallbackThinkingNone: 'Contrôle de réflexion entièrement désactivé pour ce fournisseur. Du contenu de raisonnement peut encore apparaître ; le cas échéant, essayez un autre modèle.',
@@ -113,7 +116,9 @@ export const FR_TEXTS = {
     // Wiki Folder
     wikiSection: 'Configuration du Wiki',
     wikiFolderName: 'Dossier wiki',
-    wikiFolderDesc: 'Emplacement des pages wiki générées',
+    // v1.24.0 : indication que le redémarrage d'Obsidian est nécessaire
+    // après modification (les caches du moteur et les panneaux Query Wiki ouverts doivent être reliés à nouveau).
+    wikiFolderDesc: 'Emplacement des pages wiki générées. Redémarrez Obsidian après modification — les caches du moteur et les panneaux Query Wiki ouverts doivent être reliés à nouveau.',
     wikiFolderPlaceholder: 'wiki',
 
     // Errors
@@ -123,9 +128,14 @@ export const FR_TEXTS = {
 
     // Query Settings
     querySectionTitle: 'Configuration de l\'interrogation du wiki',
-    maxConversationHistoryName: 'Historique maximal de conversation',
-    maxConversationHistoryDesc: 'Limite souple du nombre de tours de conversation (les messages les plus anciens sont supprimés automatiquement). Préréglages : 1/10/30/50/100/500.',
-    maxConversationHistoryHint: 'Recommandé : ne pas dépasser 50 tours',
+    // v1.24.0 : renommé de « Historique maximal de conversation » à
+    // « Tours de mémoire de conversation » pour plus de clarté.
+    // 1 = chaque tour indépendant (aucune mémoire inter-tours).
+    // Le réglage est une liste déroulante, pas besoin de lister les préréglages.
+    // v1.24.0 : maxConversationHistoryHint était une clé i18n inutilisée ;
+    // la recommandation est désormais intégrée à la description.
+    maxConversationHistoryName: 'Tours de mémoire de conversation',
+    maxConversationHistoryDesc: 'Combien de tours de conversation passés le LLM voit comme mémoire. 1 = chaque tour indépendant (aucune mémoire inter-tours) ; des valeurs plus élevées permettent au modèle de se souvenir des tours antérieurs de la session. Recommandé : 1 pour Q&R ponctuel, 10–50 pour une recherche continue.',
     numberRangeValidation: 'Veuillez saisir un nombre entre 1 et 50',
     numberRangeClamped: 'Valeur hors plage (1-500), automatiquement réglée sur {}',
     // Query Modal UI

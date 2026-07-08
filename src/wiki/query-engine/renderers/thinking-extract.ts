@@ -6,13 +6,13 @@
 // own the Component lifecycle.
 
 import { renderThinkingBlocksUI } from './thinking-block';
-import { normalizeWikiLinkContent } from '../../../core/prompt-builders';
+import { normalizeWikiLinkContent, substituteWikiFolderPlaceholder } from '../../../core/prompt-builders';
 import { extractThinkingBlocks } from '../../../core/markdown';
 
 export interface ThinkingPanelResult {
   /** DOM element to prepend (a <details> collapsible panel) — null when no blocks. */
   thinkingEl: HTMLElement | null;
-  /** Content after thinking blocks removed + wiki-links normalized — what MarkdownRenderer sees. */
+  /** Content after thinking blocks removed + wiki-links normalized + placeholder substituted — what MarkdownRenderer sees. */
   normalized: string;
 }
 
@@ -21,9 +21,15 @@ export interface ThinkingPanelResult {
  * Fast guard: skip the regex pass when no delimiters are present (the common
  * case during streaming when no reasoning content has yet arrived).
  *
- * `wikiFolder` is required — without it, `normalizeWikiLinkContent` skips
- * the prefix substitution and falls back to the test default. Caller
- * (QueryView.renderMarkdownContent) supplies the user's wiki folder.
+ * v1.24.0 (Bug C 3.0): pipeline order is
+ *   1. `normalizeWikiLinkContent` — collapse the LLM's emitted folder prefix
+ *      (current wikiFolder or the literal default 'wiki') into the placeholder
+ *      `__WIKI_FOLDER__`. This makes the rendered-text history invariant across
+ *      wikiFolder changes.
+ *   2. `substituteWikiFolderPlaceholder` — replace `__WIKI_FOLDER__` with the
+ *      user's CURRENT `wikiFolder` so the user sees a clickable Obsidian link.
+ * `wikiFolder` is required — without it, both steps become no-ops and we
+ * fall through with whatever the LLM emitted (caller is `QueryView.renderMarkdownContent`).
  */
 export function extractThinkingPanel(
   content: string,
@@ -35,7 +41,11 @@ export function extractThinkingPanel(
   const { thinkingBlocks, visibleContent } = hasThinkTags
     ? extractThinkingBlocks(content)
     : { thinkingBlocks: [] as string[], visibleContent: content };
-  const normalized = normalizeWikiLinkContent(visibleContent, wikiFolder);
+  // Collapse the LLM's folder back to the placeholder, then substitute the
+  // real folder at the very end. Doing these in the wrong order would lose
+  // information (substitute first would lock the current folder into history).
+  const withPlaceholder = normalizeWikiLinkContent(visibleContent, wikiFolder);
+  const normalized = substituteWikiFolderPlaceholder(withPlaceholder, wikiFolder);
   return {
     thinkingEl: renderThinkingBlocksUI(thinkingBlocks, language),
     normalized,

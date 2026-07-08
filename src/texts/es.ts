@@ -105,6 +105,9 @@ export const ES_TEXTS = {
     errorUnknown: 'Error desconocido',
     savedNotice: '¡Configuración guardada!',
 
+    // v1.24.0 (Bug C 3.4 / plan C): notificación de migración gradual
+    queryHistoryMigrationNotice: 'El historial de Query Wiki contiene enlaces de una carpeta wiki anterior. Las nuevas consultas usan automáticamente la carpeta más reciente. Para actualizar todos los mensajes almacenados, abra el panel de Query Wiki y haga clic en el botón "Borrar historial" que aparece allí.',
+
     // Issue #137: Avisos de fallback de LLM
     fallbackThinkingDialect: 'Control de pensamiento: cambiado al dialecto "{dialect}" (este proveedor usa un formato diferente). La salida no cambia.',
     fallbackThinkingNone: 'Control de pensamiento completamente deshabilitado para este proveedor. Puede seguir apareciendo contenido de razonamiento; si ocurre, pruebe con otro modelo.',
@@ -113,7 +116,9 @@ export const ES_TEXTS = {
     // Wiki Folder
     wikiSection: 'Configuración del Wiki',
     wikiFolderName: 'Carpeta Wiki',
-    wikiFolderDesc: 'Ubicación para las páginas Wiki generadas',
+    // v1.24.0: indica que se requiere reiniciar Obsidian tras un cambio
+    // (las cachés del motor y los paneles abiertos de Query Wiki deben rebindearse).
+    wikiFolderDesc: 'Ubicación para las páginas Wiki generadas. Reinicie Obsidian tras el cambio — las cachés del motor y los paneles abiertos de Query Wiki deben rebindearse.',
     wikiFolderPlaceholder: 'wiki',
 
     // Errors
@@ -123,9 +128,14 @@ export const ES_TEXTS = {
 
     // Query Settings
     querySectionTitle: 'Configuración de consulta Wiki',
-    maxConversationHistoryName: 'Máximo de historial de conversación',
-    maxConversationHistoryDesc: 'Límite flexible de rondas de conversación (los mensajes más antiguos se descartan automáticamente). Valores preestablecidos: 1/10/30/50/100/500.',
-    maxConversationHistoryHint: 'Recomendado: no superar 50 rondas',
+    // v1.24.0: renombrado de "Máximo de historial de conversación" a
+    // "Rondas de memoria de conversación" para mayor claridad.
+    // 1 = cada turno independiente (sin memoria entre turnos).
+    // El ajuste es un desplegable, no hace falta listar valores preestablecidos.
+    // v1.24.0: maxConversationHistoryHint era una clave i18n sin uso;
+    // la recomendación se integró en la descripción.
+    maxConversationHistoryName: 'Rondas de memoria de conversación',
+    maxConversationHistoryDesc: 'Cuántas rondas de conversación pasadas ve el LLM como memoria. 1 = cada turno independiente (sin memoria entre turnos); valores más altos permiten al modelo recordar turnos anteriores de la sesión. Recomendado: 1 para Q&A puntual, 10–50 para investigación continua.',
     numberRangeValidation: 'Introduce un número entre 1 y 50',
     numberRangeClamped: 'Valor fuera del rango (1-500), automáticamente establecido a {}',
     // Query Modal UI

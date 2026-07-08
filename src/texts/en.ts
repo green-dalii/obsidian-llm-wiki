@@ -105,6 +105,11 @@ export const EN_TEXTS = {
     saveButton: 'Save Settings',
     savedNotice: 'Settings saved!',
 
+    // v1.24.0 (Bug C 3.4 / plan C): gradual migration Notice — shown on
+    // startup or after a mid-session wikiFolder change when chat history
+    // contains links from a previous wiki folder.
+    queryHistoryMigrationNotice: 'Query Wiki history contains links from a previous wiki folder. New queries now use the latest folder automatically. To refresh all stored messages, open the Query Wiki panel and click the Clear history button there.',
+
     // Test Connection
     testConnectionSuccessful: 'Connection successful',
     testConnectionFailed: 'Connection failed',
@@ -124,7 +129,10 @@ export const EN_TEXTS = {
     // Wiki Folder
     wikiSection: 'Wiki Configuration',
     wikiFolderName: 'Wiki Folder',
-    wikiFolderDesc: 'Location for generated Wiki pages',
+    // v1.24.0: added the "restart Obsidian" hint because the wikiFolder
+    // affects engine caches and Query Wiki panels that aren't fully
+    // re-bound on settings change.
+    wikiFolderDesc: 'Location for generated Wiki pages. Restart Obsidian after changing — engine caches and open Query Wiki panels need to rebind.',
     wikiFolderPlaceholder: 'wiki',
 
     // Errors
@@ -134,9 +142,16 @@ export const EN_TEXTS = {
 
     // Query Settings
     querySectionTitle: 'Wiki Query Configuration',
-    maxConversationHistoryName: 'Max Conversation History',
-    maxConversationHistoryDesc: 'Soft cap on conversation rounds (older messages auto-dropped). Presets: 1/10/30/50/100/500.',
-    maxConversationHistoryHint: 'Recommended: not exceed 50 rounds',
+    // v1.24.0: renamed from "Max Conversation History" to clarify the
+    // semantics — this is a memory-window cap, not a hard storage limit
+    // (history is itself a rolling buffer). 1 = each turn independent
+    // (no cross-turn memory). Settings UI is a dropdown of presets, so
+    // no "presets: 1/10/30/50/100/500" list is needed in the description.
+    // v1.24.0: maxConversationHistoryHint was a dead i18n key (never
+    // referenced from UI code); the recommendation text now lives inline
+    // in the desc.
+    maxConversationHistoryName: 'Conversation Memory Rounds',
+    maxConversationHistoryDesc: 'How many past conversation rounds the LLM sees as memory. 1 = each turn independent (no cross-turn memory); higher values let the model remember earlier turns in the session. Recommended: 1 for one-shot Q&A, 10–50 for ongoing research.',
     numberRangeValidation: 'Please enter a number between 1-50',
     numberRangeClamped: 'Value exceeds range (1-500), automatically set to {}',
 

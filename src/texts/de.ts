@@ -105,6 +105,9 @@ export const DE_TEXTS = {
     errorUnknown: 'Unbekannter Fehler',
     savedNotice: 'Einstellungen gespeichert!',
 
+    // v1.24.0 (Bug C 3.4 / plan C): Schrittweise Migrations-Benachrichtigung
+    queryHistoryMigrationNotice: 'Der Query-Wiki-Verlauf enthält Links aus einem früheren Wiki-Ordner. Neue Anfragen verwenden automatisch den aktuellen Ordner. Um alle gespeicherten Nachrichten zu aktualisieren, öffnen Sie das Query-Wiki-Panel und klicken Sie dort auf „Verlauf löschen".',
+
     // Issue #137: LLM-Fallback-Hinweise
     fallbackThinkingDialect: 'Denksteuerung: Zum Dialekt "{dialect}" gewechselt (dieser Anbieter verwendet ein anderes Format für die Denksteuerung). Ausgabe unverändert.',
     fallbackThinkingNone: 'Denksteuerung für diesen Anbieter vollständig deaktiviert. Es können weiterhin Reasoning-Inhalte erscheinen; falls ja, versuchen Sie ein anderes Modell.',
@@ -113,7 +116,9 @@ export const DE_TEXTS = {
     // Wiki Folder
     wikiSection: 'Wiki-Konfiguration',
     wikiFolderName: 'Wiki-Ordner',
-    wikiFolderDesc: 'Speicherort für generierte Wiki-Seiten',
+    // v1.24.0: Hinweis, dass nach einer Änderung ein Neustart von Obsidian
+    // erforderlich ist (Engine-Caches und offene Query-Wiki-Panels müssen neu gebunden werden).
+    wikiFolderDesc: 'Speicherort für generierte Wiki-Seiten. Starten Sie Obsidian nach einer Änderung neu — Engine-Caches und offene Query-Wiki-Panels müssen neu gebunden werden.',
     wikiFolderPlaceholder: 'wiki',
 
     // Errors
@@ -123,9 +128,14 @@ export const DE_TEXTS = {
 
     // Query Settings
     querySectionTitle: 'Wiki-Anfrage-Konfiguration',
-    maxConversationHistoryName: 'Maximaler Konversationsverlauf',
-    maxConversationHistoryDesc: 'Weiche Obergrenze für Konversationsrunden (ältere Nachrichten werden automatisch verworfen). Voreinstellungen: 1/10/30/50/100/500.',
-    maxConversationHistoryHint: 'Empfehlung: 50 Runden nicht überschreiten',
+    // v1.24.0: Umbenannt von „Maximaler Konversationsverlauf" zu
+    // „Konversations-Gedächtnis-Runden", um die Semantik klarer zu machen.
+    // 1 = jede Runde unabhängig (kein vorgangsübergreifendes Gedächtnis).
+    // Die Einstellung ist ein Dropdown, daher keine Voreinstellungsliste nötig.
+    // v1.24.0: maxConversationHistoryHint war ein unbenutzter i18n-Schlüssel;
+    // der Empfehlungstext ist jetzt in der Beschreibung integriert.
+    maxConversationHistoryName: 'Konversations-Gedächtnis-Runden',
+    maxConversationHistoryDesc: 'Wie viele vergangene Konversationsrunden das LLM als Gedächtnis sieht. 1 = jede Runde unabhängig (kein vorgangsübergreifendes Gedächtnis); höhere Werte lassen das Modell sich an frühere Runden in der Sitzung erinnern. Empfehlung: 1 für einmalige Q&A, 10–50 für laufende Recherche.',
     numberRangeValidation: 'Bitte eine Zahl zwischen 1 und 50 eingeben',
     numberRangeClamped: 'Wert außerhalb des Bereichs (1-500), automatisch auf {} gesetzt',
     // Query Modal UI

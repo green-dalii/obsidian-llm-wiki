@@ -1,16 +1,92 @@
-// Bug C 3.2 — WikiEngine.updateSettings() invalidates caches when wikiFolder changes.
+// Bug C 3.0 — Wiki-folder-transparent prompt.
 //
-// Background: settings save can change `wikiFolder` mid-session. WikiEngine's
-// `pagesCache` and `ingestedHashesCache` are path-keyed (they walk files under
-// `<wikiFolder>/...`). Without invalidation, an old wikiFolder's cache survives
-// a folder change and the next query/ingest sees stale data.
-//
-// This test reproduces the regression: build a cache (via vault scan), then
-// change wikiFolder via updateSettings, then assert the cache was dropped.
+// Root cause: chat history persists LLM responses with the wikiFolder
+// string baked into [[…/entities/foo]] links. When the user changes
+// wikiFolder mid-session, the history still shows the old folder, the
+// LLM follows that established format, and continues emitting old-folder
+// paths even after the setting change. The fix: never put the real
+// wikiFolder in the prompt or in history — use the placeholder
+// `__WIKI_FOLDER__` everywhere, and substitute the real folder at
+// render time only.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DEFAULT_SETTINGS } from '../__support__/engine-context';
 import { createWikiEngineHarness } from '../__support__/wiki-engine-harness';
+import { assembleWikiContext } from '../../wiki/query-engine/pipeline/assemble-context';
+import { normalizeWikiLinkContent } from '../../core/prompt-builders';
+
+describe('Bug C 3.0 — wiki-folder-transparent prompt', () => {
+  describe('assembleWikiContext prompt template', () => {
+    it('uses __WIKI_FOLDER__ placeholder, not the real wikiFolder literal', () => {
+      const prompt = assembleWikiContext({
+        indexContent: '- [[entities/a|A]]',
+        pageBodies: [],
+        armLabel: 'PPR',
+        llmAugmented: false,
+        matchesCount: 0,
+        wikiFolder: 'test3', // ← user's CURRENT setting, but prompt must NOT contain it
+        wikiLanguage: 'en',
+      });
+
+      expect(prompt).toContain('__WIKI_FOLDER__');
+      expect(prompt).not.toContain('test3');
+      // The default 'wiki' literal also must not leak into the prompt.
+      expect(prompt).not.toMatch(/\[\[wiki\//);
+    });
+
+    it('placeholder survives a wikiFolder change', () => {
+      const before = assembleWikiContext({
+        indexContent: '', pageBodies: [], armLabel: 'PPR',
+        llmAugmented: false, matchesCount: 0,
+        wikiFolder: 'wiki', wikiLanguage: 'en',
+      });
+      const after = assembleWikiContext({
+        indexContent: '', pageBodies: [], armLabel: 'PPR',
+        llmAugmented: false, matchesCount: 0,
+        wikiFolder: 'test3', wikiLanguage: 'en',
+      });
+
+      // Both prompts must look identical to the LLM — only the placeholder
+      // appears in both, the real folder appears in neither.
+      expect(before).toBe(after);
+    });
+  });
+
+  describe('normalizeWikiLinkContent — collapses current/default folder prefix to __WIKI_FOLDER__', () => {
+    it('replaces [[wiki/...]] with [[__WIKI_FOLDER__/...]] when user folder differs from default', () => {
+      const out = normalizeWikiLinkContent('See [[wiki/entities/llm|LLM]]', 'mywiki');
+      expect(out).toContain('__WIKI_FOLDER__');
+      expect(out).not.toMatch(/\[\[wiki\//);
+    });
+
+    it('replaces user-configured folder prefix when LLM echoed it back', () => {
+      // The LLM has the user's current wikiFolder in the prompt template,
+      // so it may legitimately output [[mywiki/...]] for the CURRENT folder.
+      // We must collapse that to the placeholder so the persisted history
+      // is folder-agnostic.
+      const out = normalizeWikiLinkContent('See [[mywiki/entities/foo|Foo]]', 'mywiki');
+      expect(out).toContain('__WIKI_FOLDER__');
+      expect(out).not.toMatch(/\[\[mywiki\//);
+    });
+
+    // NOTE on backward compat: a stale history entry with a DIFFERENT,
+    // older wikiFolder (e.g. user once had 'test3', then changed to 'mywiki',
+    // and an old assistant message still has [[test3/entities/x]]) is NOT
+    // collapsed by normalizeWikiLinkContent — that would require guessing
+    // which folders the user has ever used. Such stale entries will render
+    // as-is until the user clears history OR until an explicit migration
+    // is implemented (tracked for v1.25.0+, see plan section 3.4).
+    it('does NOT collapse unknown folder prefixes (deferred to migration)', () => {
+      // The LLM echoing a folder we don't recognize: we leave it alone
+      // rather than guess. This is a deliberate non-goal for v1.24.0.
+      const out = normalizeWikiLinkContent('See [[test3/entities/foo|Foo]]', 'mywiki');
+      // test3 path is unchanged — render-time substitute still works for
+      // __WIKI_FOLDER__ (which isn't present in this string), and the
+      // explicit stale path renders literally as the LLM wrote it.
+      expect(out).toContain('test3/entities/foo');
+    });
+  });
+});
 
 describe('WikiEngine.updateSettings — Bug C 3.2 cache invalidation', () => {
   let harness: ReturnType<typeof createWikiEngineHarness>;

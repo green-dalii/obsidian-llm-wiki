@@ -58,6 +58,7 @@ import { slugify } from './core/slug';
 import { parseFrontmatter } from './core/frontmatter';
 import { applySettingsMigrations } from './core/settings-migrations';
 import { normalizeVocabularyCsv } from './core/tag-vocab';
+import { detectStaleWikiFolders } from './core/query-history-migration-check';
 import { buildIngestStatusBarText, BatchProgress } from './core/status-bar';
 import { IngestQueue } from './core/ingest-queue';
 import { decideProgressDisplay, ProgressScope } from './core/progress-notification';
@@ -340,7 +341,31 @@ export default class LLMWikiPlugin extends Plugin {
     // runStartupCheck() above. The standalone runOnboarding() method
     // is gone — single owner = single source of truth.
 
+    // v1.24.0 (Bug C 3.4 / plan C): gradual migration. Pre-v1.24.0
+    // chat history contains real wikiFolder-prefixed links. The
+    // placeholder scheme (Bug C 3.0) handles new turns correctly, but
+    // legacy entries still render the old path. We do NOT auto-migrate
+    // (guessing all historical folders is fragile); we show a one-time
+    // Notice so the user can decide whether to Clear history.
+    this.checkQueryHistoryForStaleFolders();
+
     console.debug('LLM Wiki Plugin loaded - Karpathy implementation');
+  }
+
+  /**
+   * Show a one-time Notice when persisted query history contains
+   * wiki-link prefixes from a wikiFolder the user is no longer using.
+   * Pure check + side-effect free except for the Notice itself; safe
+   * to call once on startup.
+   */
+  private checkQueryHistoryForStaleFolders(): void {
+    const history = this.settings.queryHistory;
+    if (!Array.isArray(history) || history.length === 0) return;
+
+    const detection = detectStaleWikiFolders(history, this.settings.wikiFolder);
+    if (!detection || !detection.hasStale) return;
+
+    new Notice(getText(this.settings.language, 'queryHistoryMigrationNotice'), NOTICE_NORMAL);
   }
 
   onunload() {
@@ -431,6 +456,11 @@ export default class LLMWikiPlugin extends Plugin {
       // PPR graphs (engine handles its own path-keyed caches).
       if (wikiFolderChanged) {
         this.invalidateAllQueryGraphs();
+        // Bug C 3.4 / plan C: when the user changes wikiFolder mid-session,
+        // the onload Notice won't fire (already shown at startup). Re-run
+        // the detection so the user gets the "stale history" prompt
+        // immediately, not after the next Obsidian restart.
+        this.checkQueryHistoryForStaleFolders();
       }
     }
     if (this.autoMaintainManager) {

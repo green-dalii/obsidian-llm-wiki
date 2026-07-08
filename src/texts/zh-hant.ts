@@ -105,6 +105,9 @@ export const ZH_HANT_TEXTS = {
     errorUnknown: '未知錯誤',
     savedNotice: '設定已儲存！',
 
+    // v1.24.0 (Bug C 3.4 / plan C): 漸進式遷移通知
+    queryHistoryMigrationNotice: 'Query Wiki 歷史紀錄中含有舊 wiki 目錄的連結。新的對話已自動使用最新目錄。如需重整所有歷史訊息，請開啟 Query Wiki 面板並點選其中的「清除紀錄」按鈕。',
+
     // Issue #137: LLM 回退通知（请求中触发 thinking-dialect 回退或字段剥离时显示）
     fallbackThinkingDialect: '思考控制：已切換至 "{dialect}" 方言（該提供商使用不同的思考控制欄位格式）。輸出內容不受影響。',
     fallbackThinkingNone: '該提供商已完全關閉思考控制。模型仍可能產生推理內容；若出現，請嘗試其他模型。',
@@ -113,7 +116,8 @@ export const ZH_HANT_TEXTS = {
     // Wiki 文件夹
     wikiSection: 'Wiki 配置',
     wikiFolderName: 'Wiki 資料夾',
-    wikiFolderDesc: '存放生成的 Wiki 頁面',
+    // v1.24.0: 提示需重啟 Obsidian 以讓 engine 快取和開啟的 Query Wiki 面板重新綁定
+    wikiFolderDesc: '存放生成的 Wiki 頁面。修改後需重啟 Obsidian 才能生效——engine 快取和已開啟的 Query Wiki 面板需要重新綁定。',
     wikiFolderPlaceholder: 'wiki',
 
     // 错误
@@ -123,9 +127,11 @@ export const ZH_HANT_TEXTS = {
 
     // Query 设置
     querySectionTitle: 'Wiki 查詢配置',
-    maxConversationHistoryName: '對話歷史上限',
-    maxConversationHistoryDesc: '對話輪次軟上限（超出時自動丟棄最舊的）。預設值：1/10/30/50/100/500。',
-    maxConversationHistoryHint: '推薦：不超過50輪',
+    // v1.24.0: 將「對話歷史上限」重命名為「對話關聯記憶輪數」，更貼切語義
+    // 1 = 每輪對話獨立（不關聯前文）。設定為下拉選單，無需列出預設值。
+    // v1.24.0: maxConversationHistoryHint 為死 i18n key（UI 無引用），推薦文案已併入 desc。
+    maxConversationHistoryName: '對話關聯記憶輪數',
+    maxConversationHistoryDesc: 'LLM 在新對話中可見的過往輪次數（作為記憶）。1 = 每輪對話獨立（不關聯前文）；數值越高，模型能記住會話中越早的輪次。推薦：一次性問答選 1；持續性研究選 10–50。',
     numberRangeValidation: '請輸入1-50之間的數字',
     numberRangeClamped: '數值超出範圍（1-500），已自動設定為 {}',
 

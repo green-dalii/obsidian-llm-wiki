@@ -73,6 +73,10 @@ export function renderRetrievalLabel(
     cls: 'llm-wiki-query-retrieval-detail',
   });
   r.topPaths.forEach(p => {
+    // topPaths are vault-real paths (e.g. "wiki/entities/foo.md") populated
+    // by selectPprSeeds from PPR matches — not LLM-generated strings. So no
+    // placeholder substitution is needed here; strip the user's current
+    // wikiFolder prefix + .md suffix to produce the relative form shown.
     const rel = p.replace(wikiFolder + '/', '').replace('.md', '');
     const pageDiv = detail.createDiv({ cls: 'llm-wiki-query-retrieval-page' });
     pageDiv.setText(`📄 [[${rel}]]`);

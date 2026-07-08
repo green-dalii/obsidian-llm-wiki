@@ -137,24 +137,96 @@ export function normalizeLLMPath(path: string, wikiFolder: string): string {
 }
 
 /**
- * Normalize wiki-link syntax in LLM-generated content to use the user's
- * configured wikiFolder. LLMs may still output [[wiki/entities/foo|Foo]]
- * even when the prompt uses {{wikiFolder}}. This handles both structured
- * paths and rendered content.
+ * v1.24.0 (Bug C 3.0): Sentinel placeholder used in the LLM prompt template
+ * and in persisted chat history. Render-time substitution
+ * (`substituteWikiFolderPlaceholder`) replaces this with the user's current
+ * `settings.wikiFolder`. The placeholder never appears in the rendered UI —
+ * it's an inter-process protocol between the prompt, the LLM, and the
+ * history, not a user-facing token.
  *
- * @param content - Markdown content with potential [[wiki/...]] links
- * @param wikiFolder - User's configured wiki folder
- * @returns Content with wiki-links updated to use the correct wikiFolder
+ * Keeping the LLM "folder-blind" prevents history-pollution regressions:
+ * when the user changes wikiFolder, the persisted LLM responses still use
+ * `__WIKI_FOLDER__`, so subsequent queries don't see stale examples of the
+ * old folder and don't get steered into emitting the wrong path.
+ */
+export const WIKI_FOLDER_PLACEHOLDER = '__WIKI_FOLDER__';
+
+/**
+ * v1.24.0 (Bug C 3.0): Canonical sub-folder list as a typed tuple, derived
+ * from the object-form `WIKI_SUBFOLDERS` in `constants.ts` (which is the
+ * one true source — pre-existing consumers like `conflict-resolver.ts`,
+ * `fix-dead-link.ts`, `dedup-phase.ts` etc. already use the object form).
+ * Use this tuple when you need an iterable (e.g. `for-of`, regex alternation,
+ * `Set` seeding); use the object form when you need a keyed lookup
+ * (`WIKI_SUBFOLDERS.entities`).
  *
- * @example
- * normalizeWikiLinkContent('See [[wiki/entities/llm|LLM]]', 'mywiki')
- * // => 'See [[mywiki/entities/llm|LLM]]'
+ * Adding a new sub-folder: update `constants.ts:WIKI_SUBFOLDERS` only — the
+ * tuple below derives from it, so all consumers pick up the new entry
+ * automatically. (TypeScript's `as const` + `typeof` keeps the literal
+ * narrow, so `archive` typed `WikiSubfolder` is a TS error if you forget.)
+ */
+import { WIKI_SUBFOLDERS } from '../constants';
+export const WIKI_SUBFOLDER_NAMES = [
+  WIKI_SUBFOLDERS.entities,
+  WIKI_SUBFOLDERS.concepts,
+  WIKI_SUBFOLDERS.sources,
+] as const;
+export type WikiSubfolder = typeof WIKI_SUBFOLDER_NAMES[number];
+
+/**
+ * Render-time substitution: replace every `__WIKI_FOLDER__` in `content`
+ * with the user's current `wikiFolder`. Called just before the LLM's
+ * response is shown to the user (MarkdownRenderer) — NOT before it's
+ * stored to chat history (history keeps the placeholder so the LLM sees a
+ * consistent token across folder changes).
+ *
+ * @param content - LLM-generated content with `__WIKI_FOLDER__` tokens
+ * @param wikiFolder - User's currently-configured wiki folder
+ * @returns Content with the placeholder swapped for the real folder
+ */
+export function substituteWikiFolderPlaceholder(content: string, wikiFolder: string): string {
+  if (!content || !wikiFolder) return content;
+  return content.split(WIKI_FOLDER_PLACEHOLDER).join(wikiFolder);
+}
+
+/**
+ * Normalize wiki-link syntax in LLM-generated content so any folder prefix
+ * is collapsed into the placeholder `__WIKI_FOLDER__`. v1.24.0 (Bug C 3.0)
+ * extension: the previous version only handled the literal `[[wiki/...]]`
+ * case. The new version also collapses arbitrary user-configured folders
+ * (e.g., `[[test3/entities/foo]]`, `[[mywiki/concepts/x]]`) so that an LLM
+ * that hallucinates a path based on stale history (or just imitates the
+ * user's old setting) doesn't break the placeholder invariant.
+ *
+ * Note: this function is the **inverse** of `substituteWikiFolderPlaceholder`.
+ *   - `normalizeWikiLinkContent` is called on LLM OUTPUT (before persisting to
+ *     history) → all folder prefixes → placeholder.
+ *   - `substituteWikiFolderPlaceholder` is called on display (after reading
+ *     from history) → placeholder → current folder.
+ *
+ * @param content - Markdown content with potential `[[folder/...]]` links
+ * @param wikiFolder - User's currently-configured wiki folder (used to detect
+ *   and collapse the user's old folder in case the LLM emitted it)
+ * @returns Content with every wiki-link folder prefix replaced by the placeholder
  */
 export function normalizeWikiLinkContent(content: string, wikiFolder: string): string {
-  if (!content || wikiFolder === 'wiki') return content;
+  if (!content) return content;
 
-  // Replace [[wiki/path|display]] with [[{wikiFolder}/path|display]]
-  return content.replace(/\[\[wiki\/([^\]]+)\]\]/g, (_match, rest) => {
-    return `[[${wikiFolder}/${rest}]]`;
-  });
+  // v1.24.0 (Bug C 3.0): collapse to the placeholder. We chain two `.replace`
+  // calls — one for the user's CURRENT configured folder (covers the LLM
+  // echoing the wikiFolder back from the prompt template), one for the
+  // literal default 'wiki' folder (covers the LLM falling back to the
+  // default). The second is skipped when wikiFolder is already 'wiki' to
+  // avoid a redundant pass.
+  const replacement = `[[${WIKI_FOLDER_PLACEHOLDER}/$1]]`;
+  let out = content;
+
+  if (wikiFolder && wikiFolder !== WIKI_FOLDER_PLACEHOLDER) {
+    const esc = wikiFolder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(`\\[\\[${esc}/([^\\]]+)\\]\\]`, 'g'), replacement);
+  }
+  if (wikiFolder !== 'wiki') {
+    out = out.replace(/\[\[wiki\/([^\]]+)\]\]/g, replacement);
+  }
+  return out;
 }
