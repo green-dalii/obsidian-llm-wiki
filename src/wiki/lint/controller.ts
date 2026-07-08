@@ -36,6 +36,7 @@ import { runAnalysisPhase } from './llm-phases/analysis-phase';
 import { buildLintReport } from './report-builder';
 import { LintContext, LintPhaseContext, ProgrammaticFindings } from './types';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
+import { SchemaTask } from '../../schema/schema-manager';
 
 // Re-export LintContext for back-compat — external callers (e.g. main.ts,
 // ui/modals/ indirect import) still reference `LintContext` from this file.
@@ -96,6 +97,10 @@ export async function runLintWiki(
       checkCancelled,
       stageNotice,
       totalPages: 0,
+      // v1.24.0: expose the shared system-prompt composer so LLM-assisted
+      // lint phases inject the same language directive + schema context +
+      // active tag vocabulary that the fix-runners receive.
+      buildSystemPrompt: (task: string) => ctx.wikiEngine.buildSystemPrompt(task as SchemaTask),
     };
 
     // ---- Phase 1: Preparation (read pages, fix links, normalize sources) ----

@@ -182,6 +182,14 @@ export async function runDedupPhase(
     const concurrency = ctx.settings.pageGenerationConcurrency || 1;
     console.debug(`lintWiki: ${batches.length} batches, concurrency=${concurrency}`);
 
+    // v1.24.0: compose the system prompt once for the whole dedup run and
+    // reuse it across every batch worker (it is identical for all batches,
+    // and re-resolving it per batch would re-parse the schema on each worker).
+    // Uses the shared buildSystemPrompt composer so dedup receives the same
+    // language directive + schema context + active tag vocabulary as the
+    // fix-runners.
+    const systemPrompt = await ctx.buildSystemPrompt('lint');
+
     // Process batches in parallel with concurrency limit
     const allDuplicates: DuplicateResult[] = [];
     const dedupFailures: Array<{ name: string; reason: string }> = [];
@@ -220,6 +228,7 @@ export async function runDedupPhase(
             model: ctx.settings.model,
             max_tokens: TOKENS_LINT_DEDUP_LLM,
             messages: [{ role: 'user', content: dedupPrompt }],
+            ...(systemPrompt ? { system: systemPrompt } : {}),
             response_format: { type: 'json_object' },
             ...(ctx.settings.disableThinking ? { enableThinking: false } : {}),
           });

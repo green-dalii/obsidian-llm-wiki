@@ -127,6 +127,7 @@ function makeLintPhaseContext(wikiEngine: LintPhaseContext['wikiEngine']): LintP
     checkCancelled: () => {},
     stageNotice: { setMessage: () => {} },
     totalPages: 0,
+    buildSystemPrompt: async () => undefined,
   };
 }
 

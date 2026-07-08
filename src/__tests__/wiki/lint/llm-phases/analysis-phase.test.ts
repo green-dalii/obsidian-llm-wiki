@@ -154,6 +154,7 @@ function makeLintPhaseContext(overrides: Partial<LintPhaseContext> = {}): LintPh
     checkCancelled: () => {},
     stageNotice: { setMessage: () => {} },
     totalPages: 0,
+    buildSystemPrompt: async () => undefined,
     ...overrides,
   };
 }
@@ -182,9 +183,12 @@ describe('runAnalysisPhase', () => {
     );
   });
 
-  it('reads index.md, builds sample, calls LLM, returns cleaned markdown', async () => {
+  it('reads index.md, builds sample, calls LLM with schema context, returns cleaned markdown', async () => {
     const { client, createMessage } = stubLlm('## Analysis\n\n- Issue 1\n- Issue 2');
-    const ctx = makeLintPhaseContext({ llmClient: () => client });
+    const ctx = makeLintPhaseContext({
+      llmClient: () => client,
+      buildSystemPrompt: async () => 'SCHEMA_CONTEXT_FOR_LINT',
+    });
     const wikiFiles = [
       { path: 'wiki/entities/a.md', basename: 'a.md' },
       { path: 'wiki/entities/b.md', basename: 'b.md' },
@@ -198,14 +202,36 @@ describe('runAnalysisPhase', () => {
     };
     const result = await runAnalysisPhase(ctx, input, () => {});
     expect(createMessage).toHaveBeenCalledTimes(1);
-    const callArgs = createMessage.mock.calls[0][0] as { max_tokens: number; messages: Array<{ content: string }> };
+    const callArgs = createMessage.mock.calls[0][0] as {
+      max_tokens: number;
+      system?: string;
+      messages: Array<{ content: string }>;
+    };
     expect(callArgs.max_tokens).toBeGreaterThan(0);
+    // System prompt contains the schema context.
+    expect(callArgs.system).toContain('SCHEMA_CONTEXT_FOR_LINT');
     // Prompt contains the index content
     expect(callArgs.messages[0].content).toContain('mock index content');
     // Prompt contains the progReport (no fallback)
     expect(callArgs.messages[0].content).toContain('Programmatic findings');
     // Result is the cleaned LLM response
     expect(result).toContain('## Analysis');
+  });
+
+  it('omits system prompt when schema context is empty', async () => {
+    const { client, createMessage } = stubLlm('## Analysis');
+    const ctx = makeLintPhaseContext({
+      llmClient: () => client,
+      buildSystemPrompt: async () => '',
+    });
+    const input: AnalysisPhaseInput = {
+      wikiFiles: [{ path: 'wiki/entities/a.md', basename: 'a.md' }],
+      pageMap: makePageMap([['wiki/entities/a.md', 'A']]),
+      progReport: '',
+    };
+    await runAnalysisPhase(ctx, input, () => {});
+    const callArgs = createMessage.mock.calls[0][0] as { system?: string };
+    expect(callArgs.system).toBeUndefined();
   });
 
   it('passes disableThinking=false when settings.disableThinking is false', async () => {

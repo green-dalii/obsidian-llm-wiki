@@ -303,10 +303,6 @@ export class WikiEngine {
     return c;
   }
 
-  private async buildSystemPrompt(task: SchemaTask): Promise<string | undefined> {
-    return buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t as SchemaTask), task);
-  }
-
   private applySectionLabels(prompt: string): string {
     return applySectionLabels(prompt, this.settings);
   }
@@ -379,6 +375,16 @@ export class WikiEngine {
     this._cachedGraph = null;
     this._cachedGraphAllPaths = null;
     console.debug('[WikiEngine] graph cache invalidated');
+  }
+
+  /**
+   * v1.24.0: expose buildSystemPrompt so lint phases can compose their
+   * `system` prompt through the shared composer (language directive + schema
+   * context + active tag vocabulary) — exactly like EngineContext and the
+   * fix-runners. Lint phases call this instead of raw getSchemaContext.
+   */
+  async buildSystemPrompt(task: SchemaTask): Promise<string | undefined> {
+    return buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t as SchemaTask), task);
   }
 
   /**
