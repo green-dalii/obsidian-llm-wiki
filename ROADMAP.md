@@ -116,9 +116,13 @@ See [CHANGELOG](./CHANGELOG.md#1170-2026-06-08) for full details.
 
 ## Next Milestone: v1.24.0 MINOR (target TBD)
 
-### Goals
+### In-flight (2026-07-08 → )
 
-TBD after v1.23.2 feedback. Architectural items deferred from v1.23.0–v1.23.2 cycle:
+- **Stage 2 Bug B+B+** — Query Wiki seed-selector retry + system field fix (commit `1d943ea` on `feat/modals-split`, 1706 tests). Lands as amended extension of the wikiFolder-transparent-prompt commit. Includes: new `core/transient-retry.ts` helper (3× exponential backoff, auth/rate-limit no-retry), seed-selector now passes `system` field to AI-SDK (DeepSeek in JSON mode requires system; without it, LLM returns empty body and the retry chain can't recover). e2e verified: arm upgraded from `index` to `index+LLM`, 2 seeds selected, no silent degradation. Memory: `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_p2_query_seed_selector.md`.
+- **Stage 3 Bug A** — graph warmup via `WikiEngine._cachedGraph` + getter (next; first-query PPR arm upgrade).
+- **Stage 4 #251** — `customQueryInstructions` MVP (after Stage 3).
+- **Follow-up: `dedup-phase.ts:219` system field** — lint LLM dedup has the same "JSON mode + no system" gap. `LintPhaseContext` interface lacks `getSchemaContext`, so the fix is a ~30-50 LOC multi-file change (extend ctx type, wire through `controller.ts`, update phase). Not in this commit per user decision 2026-07-08. Risk: lint dedup silently returns 0 duplicates on DeepSeek. Should be a single focused PR.
+- **Follow-up: `parseJsonResponse` preamble echo** — DeepSeek can return `{\n ` (length=3) as a preamble before the real JSON. Current retry chain recovers in 1-3 attempts (verified). No additional parsing-layer change needed; first-principles evaluation rejected sentinel/preamble-detect approaches.
 
 - **#220 — Source-revision awareness for merge** (DocTpoint's 4-tier design). Tier 0 fingerprint + replace self-updates; Tier 1 `supersedes:` frontmatter flag; Tier 2 cross-source disagreement open question; Tier 3 review-queue UI. Tiers 0-1 tractable for v1.24.0; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
 - **#218 — PDF source ingest** (Discussion #222 topology).
