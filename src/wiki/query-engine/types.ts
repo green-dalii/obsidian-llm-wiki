@@ -8,7 +8,6 @@
 // retrieval-label renderer).
 
 import type { Component } from 'obsidian';
-import type { buildGraphFromContent } from '../../core/build-graph';
 import type { getSectionLabels } from '../system-prompts';
 
 export type { QueryHistory } from './SuggestSaveModal-class';
@@ -45,6 +44,7 @@ export interface RetrievalLabelData {
  * Subset of QueryView instance fields exposed for type-safe reads/writes
  * outside the class (e.g., by the invalidateGraph public method, or by
  * test code via the white-box `as unknown as InternalView` cast).
+ * v1.24.0 Bug A: removed per-view `_graph`; graph now lives in WikiEngine.
  */
 export interface QueryViewStateFields {
   isStreaming: boolean;
@@ -57,7 +57,6 @@ export interface QueryViewStateFields {
   historyCountDisplay: HTMLElement;
   pendingInput: string;
   activeRenderComponent: Component | null;
-  _graph: ReturnType<typeof buildGraphFromContent> | null;
   _sectionLabels: ReturnType<typeof getSectionLabels> | null;
   _lastRetrieval: RetrievalLabelData | null;
   _turnIndicator: HTMLElement | null;

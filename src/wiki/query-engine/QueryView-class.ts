@@ -22,7 +22,6 @@ import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
 import { buildTurnIndicator, observeVisibleTurn } from '../turn-indicator';
 import { TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
-import { buildGraphFromContent, type LoadedPage } from '../../core/build-graph';
 import { getSectionLabels } from '../system-prompts';
 
 import { extractThinkingPanel } from './renderers/thinking-extract';
@@ -75,8 +74,8 @@ export class QueryView extends ItemView {
   historyCountDisplay: HTMLElement;
   private pendingInput: string;
   private activeRenderComponent: Component | null;
-  /** Cached graph for PPR — built lazily from loaded page content. */
-  private _graph: ReturnType<typeof buildGraphFromContent> | null = null;
+  // v1.24.0 Bug A: the per-view PPR graph cache has been removed; the graph
+  // now lives in WikiEngine and is shared across all QueryView leaves.
   /** Cached section labels for Tier B extraction (settings don't change mid-query). */
   private _sectionLabels: ReturnType<typeof getSectionLabels> | null = null;
   /** Last PPR cascade result — for displaying retrieval source in the response UI. */
@@ -134,16 +133,16 @@ export class QueryView extends ItemView {
   }
 
   /**
-   * v1.23.2 (review-C P0): Invalidate the cached PPR graph + last
-   * retrieval result so the next sendMessage rebuilds against whatever
-   * wiki/ state is current. Called from main.ts onIngestDoneDispatch
-   * across every open QueryView. Idempotent.
+   * v1.24.0 Bug A: Invalidate the engine-level PPR graph cache + this view's
+   * last retrieval result so the next sendMessage rebuilds against whatever
+   * wiki/ state is current. Called from main.ts onIngestDoneDispatch across
+   * every open QueryView. Idempotent.
    */
   public invalidateGraph(): void {
+    this.plugin.wikiEngine.invalidateGraph();
     const self = this as unknown as InternalView;
-    self._graph = null;
     self._lastRetrieval = null;
-    console.debug('[QueryView] graph + last retrieval invalidated');
+    console.debug('[QueryView] engine graph + last retrieval invalidated');
   }
 
   async onOpen() {
@@ -927,8 +926,8 @@ export class QueryView extends ItemView {
    *   3. loadRelevantPagesForQuery (Phase 3 — Tier B summaries)
    *   4. assembleWikiContext (Phase 4 — system prompt assembly)
    *
-   * `_graph` and `_lastRetrieval` writes remain on the class — cache lives
-   * here, not in the pipeline.
+   * v1.24.0 Bug A: the PPR graph cache moved to WikiEngine; only
+   * `_lastRetrieval` writes remain on the class.
    */
   async buildWikiContext(userMessage: string, onProgress?: (phase: string) => void): Promise<string> {
     console.debug('=== buildWikiContext started ===');
@@ -948,12 +947,17 @@ export class QueryView extends ItemView {
         return emptyWikiHint(this.plugin.settings.wikiLanguage);
       }
 
+      // v1.24.0 Bug A: warmup the engine-level graph BEFORE the PPR cascade
+      // so the first query already has full graph state. The cache is shared
+      // across QueryView leaves and invalidated on vault writes.
+      const graph = await this.plugin.wikiEngine.getOrBuildGraph(indexResult.allPaths);
+
       // Phase 2: PPR cascade + optional LLM seed augmentation.
       // delegate returns { matches, armLabel, llmAugmented }
       const seedResult = await selectPprSeeds(
         userMessage,
         indexResult.pageRefs,
-        this._graph,
+        graph,
         this.plugin.llmClient as unknown as Parameters<typeof selectPprSeeds>[3],
         this.plugin.settings,
         texts as unknown as Record<string, string>,
@@ -971,7 +975,7 @@ export class QueryView extends ItemView {
       console.debug(`[Step 2] PPR cascade selected ${relevantPages.length} pages (arm: ${seedResult.armLabel || 'none'})`);
       console.debug(`[Step 2]   top-5 paths:`, seedResult.matches.slice(0, 5).map(m => `${m.page.path} (${m.arm}, score=${m.score.toFixed(3)})`));
       console.debug(`[Step 2]   query tokens:`, userMessage.toLowerCase().split(/\s+/).filter(k => k.length > 0));
-      console.debug(`[Step 2]   graph state: ${this._graph ? `${this._graph.nodes.length} nodes / ${this._graph.edges.size} edges` : 'none'}`);
+      console.debug(`[Step 2]   graph state: ${graph ? `${graph.nodes.length} nodes / ${graph.edges.size} edges` : 'none'}`);
       console.debug(`[Step 2]   LLM augmentation: ${seedResult.llmAugmented ? 'triggered' : 'skipped (fast path sufficient)'}`);
 
       // Phase 3: Loading pages
@@ -997,15 +1001,7 @@ export class QueryView extends ItemView {
       );
       console.debug('[Step 3] Pages loaded:', rawLoadedPages.length);
 
-      // Build the graph from loaded pages (first query only, then cached).
-      if (!this._graph) {
-        const loadedForGraph: LoadedPage[] = relevantPages.map((path, i) => ({
-          path,
-          content: rawLoadedPages[i] || '',
-        }));
-        this._graph = buildGraphFromContent(loadedForGraph, indexResult.allPaths, wikiFolder);
-        console.debug('[Step 3] Graph built:', this._graph.nodes.length, 'nodes,', this._graph.edges.size, 'edges');
-      }
+      console.debug('[Step 3] Graph shared from engine:', graph.nodes.length, 'nodes,', graph.edges.size, 'edges');
 
       // Phase: Context ready, about to generate
       onProgress?.(texts.queryPhaseContextReady);

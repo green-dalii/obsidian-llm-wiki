@@ -2,19 +2,17 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.23.2 (shipped 2026-07-05) | **Updated:** 2026-07-06
+**Version:** 1.23.2 (shipped 2026-07-05) | **Updated:** 2026-07-08
 
 ## Current Status
 
-**v1.23.2 SHIPPED (2026-07-05, PATCH).** Five merged PRs (#234 + graph-cache invalidation + #221 + #219 + DocTpoint's #238 + #241). 1431 tests at ship; **1616 tests** after 3 monolith-split PRs (#248/#249/#250) added ~90 new test cases (+3 test files). 115 test files. Recommended upgrade for everyone on v1.23.0+. License upgraded to Apache 2.0 + DCO.
+**v1.24.0 P2 in flight (2026-07-08).** On branch `feat/modals-split`:
+- ✅ Stage 1 — `modals.ts` split into `src/ui/modals/` (4b65450).
+- ✅ Stage 2 — Query Wiki bug fixes: wikiFolder-transparent prompt (Bug C), LLM seed-selector retry + system field (Bug B/B+), 1711 tests.
+- ✅ Stage 3 — Graph warmup: engine-level `_cachedGraph` so first query uses PPR (608ae95).
+- ⏳ Stage 4 — Issue #251 custom Query Instructions MVP (query-local UI).
 
-**Post-ship work (2026-07-06 → 2026-07-07):** Three monolith-split PRs landed (#248 controller.ts / #249 history-modal.ts / #250 query-engine.ts). ROI analysis on remaining 6 large files complete — see `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_remaining_split_roi.md`. Next iteration: P0 = `ui/modals.ts` split (0.5 day), P1 = i18n altitude fixes (0.5 day), P2 = `wiki/wiki-engine.ts` 1391-LOC god-class split (2-3 days).
-
-**v1.23.1 SHIPPED (2026-07-02, PATCH).** Obsidian review bot reject hotfix: tsconfig `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. 1386 tests passing across 102 files.
-
-**v1.23.0 SHIPPED (2026-07-02).** Graph Engine PPR + Vercel AI-SDK v6 migration + Sponsor section + v1.22.6 hotfix series folded in. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
-
-Historical releases are summarized in [CHANGELOG](./CHANGELOG.md). The current sprint is described in **Next Milestone** below.
+Historical releases are summarized in [CHANGELOG](./CHANGELOG.md).
 
 ### v1.23.1: Obsidian Review Hotfix (2026-07-02, PATCH)
 

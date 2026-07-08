@@ -519,9 +519,11 @@ export default class LLMWikiPlugin extends Plugin {
   // IngestReportModal. Keeps backward compatibility — legacy
   // callers without trigger default to 'manual'.
   /**
-   * Drop the PPR graph in every open QueryView. Used by `onIngestDoneDispatch`
-   * (v1.23.2 review-C P0) and by `saveSettings` when `wikiFolder` changes
-   * (Bug C 3.1) — both want to invalidate the same per-view cache.
+   * Drop the engine-level PPR graph cache in WikiEngine and the last-retrieval
+   * state in every open QueryView. Used by `onIngestDoneDispatch` (v1.23.2
+   * review-C P0) and by `saveSettings` when `wikiFolder` changes (Bug C 3.1).
+   * v1.24.0 Bug A: the graph cache is now engine-level (shared), so the engine
+   * invalidation is the critical call; per-view invalidation only clears UI state.
    */
   private invalidateAllQueryGraphs(): void {
     const viewLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_QUERY);
