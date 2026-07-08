@@ -108,6 +108,16 @@ export const IT_TEXTS = {
     // v1.24.0 (Bug C 3.4 / plan C): notifica di migrazione graduale
     queryHistoryMigrationNotice: 'La cronologia di Query Wiki contiene link da una cartella wiki precedente. Le nuove query usano automaticamente la cartella più recente. Per aggiornare tutti i messaggi memorizzati, apri il pannello Query Wiki e fai clic sul pulsante "Cancella cronologia" al suo interno.',
 
+    // v1.24.0 Issue #251: istruzioni Query personalizzate (pannello richiudibile)
+    customInstructionsTitle: 'Istruzioni Query personalizzate',
+    customInstructionsDesc: 'Istruzioni persistenti aggiunte alla fine del prompt di sistema di Query Wiki. Riguardano solo la chat di Query Wiki; ingestione, lint e generazione pagine non sono interessati.',
+    customInstructionsPlaceholder: 'es.: tratta come ricerca: cerca ampiamente, cita le fonti, separa fatti e interpretazione...',
+    customInstructionsApply: 'Applica',
+    customInstructionsClear: 'Cancella',
+    customInstructionsCharCount: '{current}/{max} caratteri',
+    instructionsApplied: 'Istruzioni Query personalizzate salvate.',
+    instructionsCleared: 'Istruzioni Query personalizzate cancellate.',
+
     // Test Connessione
     testConnectionSuccessful: 'Connessione riuscita',
     testConnectionFailed: 'Connessione fallita',

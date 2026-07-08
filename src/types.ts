@@ -249,6 +249,16 @@ export interface LLMWikiSettings {
   // where lowercase is grammatically wrong (e.g. German nouns).
   // Note: switching affects new files only — existing lowercase files keep their names.
   slugCase: 'lower' | 'preserve';
+
+  /**
+   * v1.24.0 #251: persistent user-supplied instructions appended to the
+   * Query Wiki system prompt. Empty string or undefined = feature off
+   * (backward compatible). Scoped strictly to Query Wiki chat; no other
+   * workflow (ingest / lint / page generation / Save to Wiki / seed
+   * selection / duplicate merge) is affected. Stored in data.json
+   * alongside `queryHistory`.
+   */
+  customQueryInstructions?: string;
 }
 
 export interface QueryHistoryMessage {
@@ -650,4 +660,9 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   advancedSettingsMode: 'default',
   // Issue #111: default to 'lower' for backwards compatibility.
   slugCase: 'lower',
+  // v1.24.0 #251: persistent user-supplied instructions appended to the
+  // Query Wiki system prompt. Empty string = feature off (backward
+  // compatible). Stored in data.json alongside queryHistory. Scoped
+  // strictly to Query Wiki chat; no other workflow is affected.
+  customQueryInstructions: '',
 };

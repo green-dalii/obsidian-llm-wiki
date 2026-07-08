@@ -21,7 +21,7 @@ import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
 import { buildTurnIndicator, observeVisibleTurn } from '../turn-indicator';
-import { TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
+import { TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_SHORT, NOTICE_NORMAL, NOTICE_ERROR, CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS } from '../../constants';
 import { getSectionLabels } from '../system-prompts';
 
 import { extractThinkingPanel } from './renderers/thinking-extract';
@@ -45,6 +45,8 @@ import {
   emptyWikiHint,
   wikiContextErrorHint,
 } from './pipeline/assemble-context';
+import { appendCustomQueryInstructions, logCustomInstructionsInjectionContext } from './custom-instructions';
+import { renderCustomInstructionsPanel, type CustomInstructionsPanelHandle } from './renderers/custom-instructions-panel';
 import type { RetrievalLabelData } from './types';
 
 export const VIEW_TYPE_QUERY = 'llm-wiki-query-view';
@@ -72,6 +74,10 @@ export class QueryView extends ItemView {
   inputArea: HTMLTextAreaElement;
   sendBtn: HTMLButtonElement;
   historyCountDisplay: HTMLElement;
+  // v1.24.0 #251: collapsible Custom Query Instructions panel handle.
+  // The panel owns its own DOM + event listeners; the handle is disposed
+  // on view close to avoid leaks across open/close cycles.
+  private _customInstructionsPanel: CustomInstructionsPanelHandle | null = null;
   private pendingInput: string;
   private activeRenderComponent: Component | null;
   // v1.24.0 Bug A: the per-view PPR graph cache has been removed; the graph
@@ -249,6 +255,18 @@ export class QueryView extends ItemView {
       }
     });
 
+    // v1.24.0 UX: Sync the Send button's disabled state with the input.
+    // Empty / whitespace-only input visually disables Send (the click
+    // handler also early-returns, so this is defence in depth).
+    // The listener is registered BEFORE `sendBtn` exists so we can hook the
+    // input event early; the call into `updateSendDisabledState` short-
+    // circuits when `sendBtn` is still null (constructor placeholder).
+    const updateSendDisabledState = () => {
+      if (!this.sendBtn) return;
+      this.sendBtn.disabled = !this.isStreaming && this.inputArea.value.trim().length === 0;
+    };
+    this.inputArea.addEventListener('input', updateSendDisabledState);
+
     const buttonRow = inputContainer.createDiv({
       cls: 'llm-wiki-query-button-row'
     });
@@ -257,6 +275,8 @@ export class QueryView extends ItemView {
       text: `${texts.queryModalSendButton} (${modKey}+Enter)`,
       cls: 'llm-wiki-query-send-btn mod-cta'
     });
+    // Now that sendBtn exists, sync the initial disabled state.
+    updateSendDisabledState();
     this.sendBtn.addEventListener('click', () => {
       if (this.isStreaming) {
         this.stopGeneration();
@@ -279,6 +299,19 @@ export class QueryView extends ItemView {
       cls: 'llm-wiki-query-clear-btn'
     }).addEventListener('click', () => {
       void this.clearHistory();
+    });
+
+    // v1.24.0 #251: Custom Query Instructions collapsible panel.
+    // Lives between the button row and the history-count display so the
+    // input area stays compact (panel is collapsed by default). Mounted
+    // AFTER buttonRow so its DOM sits above historyCountDisplay but the
+    // panel is collapsed until the user explicitly expands it.
+    this._customInstructionsPanel = renderCustomInstructionsPanel(inputContainer, {
+      initialValue: this.plugin.settings.customQueryInstructions ?? '',
+      maxChars: CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS,
+      language: this.plugin.settings.language,
+      applyHandler: (value) => { void this.applyCustomInstructions(value); },
+      clearHandler: () => { void this.clearCustomInstructions(); },
     });
 
     this.historyCountDisplay = inputContainer.createDiv({
@@ -307,6 +340,12 @@ export class QueryView extends ItemView {
       window.cancelAnimationFrame(this._streamRafHandle);
       this._streamRafHandle = null;
     }
+
+    // v1.24.0 #251: dispose the Custom Query Instructions panel.
+    // Removes event listeners + clears internal refs so a subsequent
+    // open with a fresh panel doesn't see stale listeners.
+    this._customInstructionsPanel?.dispose();
+    this._customInstructionsPanel = null;
 
     // v1.23.0 P2: Skip persisting queryHistory on close if the user just
     // cleared it. clearHistory already awaits saveSettings; re-saving
@@ -463,11 +502,12 @@ export class QueryView extends ItemView {
     try {
       if (this.plugin.llmClient?.createMessageStream) {
         let fullResponse = '';
+        logCustomInstructionsInjectionContext('streaming', userMessage, this.plugin.settings.customQueryInstructions);
         try {
           fullResponse = await this.plugin.llmClient.createMessageStream({
             model: this.plugin.settings.model,
             max_tokens: TOKENS_QUERY_LLM_SELECT,
-            system: wikiContext,
+            system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
             messages: conversationMessages,
             onChunk: (chunk) => {
               if (this.aborted) return;
@@ -495,11 +535,12 @@ export class QueryView extends ItemView {
             : texts.queryPhaseNonStreaming;
           // Fallback: try non-streaming if streaming fails
           if (this.plugin.llmClient?.createMessage) {
+            logCustomInstructionsInjectionContext('non-stream-fallback', userMessage, this.plugin.settings.customQueryInstructions);
             try {
               fullResponse = await this.plugin.llmClient.createMessage({
                 model: this.plugin.settings.model,
                 max_tokens: TOKENS_QUERY_LLM_SELECT,
-                system: wikiContext,
+                system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
                 messages: conversationMessages,
                 ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),
                 ...(this.plugin.settings.chatTemperature !== undefined ? { temperature: this.plugin.settings.chatTemperature } : {}),
@@ -581,10 +622,11 @@ export class QueryView extends ItemView {
         statusTemplate = foundPagesInfo
           ? `${foundPagesInfo}, ${texts.queryPhaseNonStreaming}`
           : texts.queryPhaseNonStreaming;
+        logCustomInstructionsInjectionContext('non-stream-main', userMessage, this.plugin.settings.customQueryInstructions);
         const response = await this.plugin.llmClient!.createMessage({
           model: this.plugin.settings.model,
           max_tokens: TOKENS_QUERY_LLM_SELECT,
-          system: wikiContext,
+          system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
           messages: conversationMessages,
           ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),
           ...(this.plugin.settings.chatTemperature !== undefined ? { temperature: this.plugin.settings.chatTemperature } : {}),
@@ -653,6 +695,9 @@ export class QueryView extends ItemView {
     this.currentResponseDiv = null;
     this.sendBtn.setText(`${texts.queryModalSendButton} (Ctrl+Enter)`);
     this.sendBtn.className = 'llm-wiki-query-send-btn mod-cta';
+    // After generation: input area may be empty (consumed by send) OR have
+    // pending input restored. Re-sync the disabled state in both cases.
+    this.sendBtn.disabled = this.inputArea.value.trim().length === 0;
 
     // Restore pending input if user stopped generation
     if (this.pendingInput) {
@@ -914,6 +959,31 @@ export class QueryView extends ItemView {
         .replace('{}', '0')
         .replace('{}', maxRounds.toString())
     );
+  }
+
+  // v1.24.0 #251: persist user-supplied custom instructions and notify.
+  // The cap is applied here too (defense in depth — the panel also caps
+  // at the input layer).
+  async applyCustomInstructions(value: string): Promise<void> {
+    const capped = value.length > CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS
+      ? value.slice(0, CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS)
+      : value;
+    this.plugin.settings.customQueryInstructions = capped;
+    await this.plugin.saveSettings();
+    console.debug(
+      `[QueryView.applyCustomInstructions] saved length=${capped.length} chars`,
+    );
+    const texts = TEXTS[this.plugin.settings.language];
+    new Notice(texts.instructionsApplied, NOTICE_SHORT);
+  }
+
+  // v1.24.0 #251: clear user-supplied custom instructions and notify.
+  async clearCustomInstructions(): Promise<void> {
+    this.plugin.settings.customQueryInstructions = '';
+    await this.plugin.saveSettings();
+    console.debug('[QueryView.clearCustomInstructions] cleared');
+    const texts = TEXTS[this.plugin.settings.language];
+    new Notice(texts.instructionsCleared, NOTICE_SHORT);
   }
 
   /**

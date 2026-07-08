@@ -108,6 +108,16 @@ export const JA_TEXTS = {
     // v1.24.0 (Bug C 3.4 / plan C): 段階的移行の通知
     queryHistoryMigrationNotice: 'Query Wiki の履歴に以前の wiki フォルダーのリンクが含まれています。新しい会話は自動的に最新のフォルダーを使用します。すべての履歴メッセージをリフレッシュするには、Query Wiki パネルを開き、その中の「履歴をクリア」ボタンをクリックしてください。',
 
+    // v1.24.0 Issue #251: カスタム Query 命令（折りたたみ可能パネル）
+    customInstructionsTitle: 'カスタム Query 命令',
+    customInstructionsDesc: 'Query Wiki のすべてのチャット応答のシステムプロンプト末尾に追記される命令です。Query Wiki チャットのみに影響し、取り込み・lint・ページ生成には影響しません。',
+    customInstructionsPlaceholder: '例：リサーチタスクとして扱う：広く検索、ソースを引用、事実と解釈を区別する...',
+    customInstructionsApply: '適用',
+    customInstructionsClear: 'クリア',
+    customInstructionsCharCount: '{current}/{max} 文字',
+    instructionsApplied: 'カスタム Query 命令を保存しました。',
+    instructionsCleared: 'カスタム Query 命令をクリアしました。',
+
     // Issue #137: LLM フォールバック通知
     fallbackThinkingDialect: '思考制御：「{dialect}」方言に切り替えました（このプロバイダーは別の思考制御フィールド形式を使用します）。出力は変わりません。',
     fallbackThinkingNone: 'このプロバイダーでは思考制御を完全に無効化しました。推論コンテンツが引き続き表示される場合があります。その場合は別のモデルを試してください。',

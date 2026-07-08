@@ -108,6 +108,16 @@ export const KO_TEXTS = {
     // v1.24.0 (Bug C 3.4 / plan C): 점진적 마이그레이션 알림
     queryHistoryMigrationNotice: 'Query Wiki 기록에 이전 wiki 폴더의 링크가 포함되어 있습니다. 새 대화는 자동으로 최신 폴더를 사용합니다. 모든 기록 메시지를 새로 고치려면 Query Wiki 패널을 열고 그 안의 "기록 지우기" 버튼을 클릭하세요.',
 
+    // v1.24.0 Issue #251: 사용자 지정 Query 지시문 (접을 수 있는 패널)
+    customInstructionsTitle: '사용자 지정 Query 지시문',
+    customInstructionsDesc: '모든 Query Wiki 시스템 프롬프트 끝에 추가되는 영구 지시문입니다. Query Wiki 채팅에만 영향을 주며, 수집·lint·페이지 생성에는 영향을 주지 않습니다.',
+    customInstructionsPlaceholder: '예: 연구 작업으로 처리: 넓게 검색, 출처 인용, 사실과 해석 구분...',
+    customInstructionsApply: '적용',
+    customInstructionsClear: '지우기',
+    customInstructionsCharCount: '{current}/{max} 자',
+    instructionsApplied: '사용자 지정 Query 지시문이 저장되었습니다.',
+    instructionsCleared: '사용자 지정 Query 지시문이 지워졌습니다.',
+
     // Issue #137: LLM 폴백 알림
     fallbackThinkingDialect: '사고 제어: "{dialect}" 방언으로 전환됨(이 공급자는 다른 사고 제어 필드 형식을 사용함). 출력은 변경되지 않음.',
     fallbackThinkingNone: '이 공급자에 대해 사고 제어가 완전히 비활성화되었습니다. 추론 콘텐츠가 여전히 나타날 수 있습니다; 이 경우 다른 모델을 시도하세요.',

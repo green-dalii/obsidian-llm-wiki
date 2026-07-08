@@ -108,6 +108,16 @@ export const ZH_TEXTS = {
     // v1.24.0 (Bug C 3.4 / plan C): 渐进迁移通知
     queryHistoryMigrationNotice: 'Query Wiki 历史记录中包含来自旧 wiki 目录的链接。新对话已自动使用最新目录。如需刷新所有历史消息，请打开 Query Wiki 面板并点击其中的”清除历史”按钮。',
 
+    // v1.24.0 Issue #251: 自定义 Query 指令（可折叠面板）
+    customInstructionsTitle: '自定义 Query 指令',
+    customInstructionsDesc: '每次 Query Wiki 对话都会在系统提示末尾附加这些指令。仅影响 Query Wiki 聊天；不影响摄取、lint 和页面生成。',
+    customInstructionsPlaceholder: '例如：将其视为研究任务：广泛搜索、引用来源、区分事实与解读...',
+    customInstructionsApply: '应用',
+    customInstructionsClear: '清除',
+    customInstructionsCharCount: '{current}/{max} 字符',
+    instructionsApplied: '自定义 Query 指令已保存。',
+    instructionsCleared: '自定义 Query 指令已清除。',
+
     // Issue #137: LLM 回退通知（请求中触发 thinking-dialect 回退或字段剥离时显示）
     fallbackThinkingDialect: '思考控制：已切换至 "{dialect}" 方言（该提供商使用不同的思考控制字段格式）。输出内容不受影响。',
     fallbackThinkingNone: '该提供商已完全关闭思考控制。模型仍可能产生推理内容；若出现，请尝试其他模型。',

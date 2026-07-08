@@ -108,6 +108,16 @@ export const ZH_HANT_TEXTS = {
     // v1.24.0 (Bug C 3.4 / plan C): 漸進式遷移通知
     queryHistoryMigrationNotice: 'Query Wiki 歷史紀錄中含有舊 wiki 目錄的連結。新的對話已自動使用最新目錄。如需重整所有歷史訊息，請開啟 Query Wiki 面板並點選其中的「清除紀錄」按鈕。',
 
+    // v1.24.0 Issue #251: 自訂 Query 指令（可折疊面板）
+    customInstructionsTitle: '自訂 Query 指令',
+    customInstructionsDesc: '每次 Query Wiki 對話都會在系統提示字串末尾附加這些指令。僅影響 Query Wiki 聊天；不會影響擷取、lint 與頁面生成。',
+    customInstructionsPlaceholder: '例如：將此視為研究任務：廣泛搜尋、引用來源、區分事實與詮釋...',
+    customInstructionsApply: '套用',
+    customInstructionsClear: '清除',
+    customInstructionsCharCount: '{current}/{max} 字元',
+    instructionsApplied: '自訂 Query 指令已儲存。',
+    instructionsCleared: '自訂 Query 指令已清除。',
+
     // Issue #137: LLM 回退通知（请求中触发 thinking-dialect 回退或字段剥离时显示）
     fallbackThinkingDialect: '思考控制：已切換至 "{dialect}" 方言（該提供商使用不同的思考控制欄位格式）。輸出內容不受影響。',
     fallbackThinkingNone: '該提供商已完全關閉思考控制。模型仍可能產生推理內容；若出現，請嘗試其他模型。',

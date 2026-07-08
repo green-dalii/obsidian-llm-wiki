@@ -108,6 +108,16 @@ export const FR_TEXTS = {
     // v1.24.0 (Bug C 3.4 / plan C) : notification de migration progressive
     queryHistoryMigrationNotice: 'L\'historique de Query Wiki contient des liens d\'un ancien dossier wiki. Les nouvelles requêtes utilisent automatiquement le dernier dossier. Pour actualiser tous les messages enregistrés, ouvrez le panneau Query Wiki et cliquez sur le bouton « Effacer l\'historique » qui s\'y trouve.',
 
+    // v1.24.0 Issue #251 : instructions Query personnalisées (panneau pliable)
+    customInstructionsTitle: 'Instructions Query personnalisées',
+    customInstructionsDesc: 'Instructions persistantes ajoutées à chaque invite système de Query Wiki. Affectent uniquement le chat Query Wiki ; l\'ingestion, le lint et la génération de pages ne sont pas concernés.',
+    customInstructionsPlaceholder: 'ex. : traiter comme une tâche de recherche : rechercher largement, citer les sources, distinguer faits et interprétation...',
+    customInstructionsApply: 'Appliquer',
+    customInstructionsClear: 'Effacer',
+    customInstructionsCharCount: '{current}/{max} caractères',
+    instructionsApplied: 'Instructions Query personnalisées enregistrées.',
+    instructionsCleared: 'Instructions Query personnalisées effacées.',
+
     // Issue #137 : Notifications de repli LLM
     fallbackThinkingDialect: 'Contrôle de réflexion : basculé vers le dialecte « {dialect} » (ce fournisseur utilise un format différent). Le résultat est inchangé.',
     fallbackThinkingNone: 'Contrôle de réflexion entièrement désactivé pour ce fournisseur. Du contenu de raisonnement peut encore apparaître ; le cas échéant, essayez un autre modèle.',

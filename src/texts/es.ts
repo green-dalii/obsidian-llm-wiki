@@ -108,6 +108,16 @@ export const ES_TEXTS = {
     // v1.24.0 (Bug C 3.4 / plan C): notificación de migración gradual
     queryHistoryMigrationNotice: 'El historial de Query Wiki contiene enlaces de una carpeta wiki anterior. Las nuevas consultas usan automáticamente la carpeta más reciente. Para actualizar todos los mensajes almacenados, abra el panel de Query Wiki y haga clic en el botón "Borrar historial" que aparece allí.',
 
+    // v1.24.0 Issue #251: instrucciones de Query personalizadas (panel desplegable)
+    customInstructionsTitle: 'Instrucciones de Query personalizadas',
+    customInstructionsDesc: 'Instrucciones persistentes que se añaden al final del prompt del sistema de Query Wiki. Solo afectan al chat de Query Wiki; la ingestión, lint y generación de páginas no se ven afectadas.',
+    customInstructionsPlaceholder: 'p. ej. Trátelo como tarea de investigación: buscar ampliamente, citar fuentes, separar hechos de interpretación...',
+    customInstructionsApply: 'Aplicar',
+    customInstructionsClear: 'Borrar',
+    customInstructionsCharCount: '{current}/{max} caracteres',
+    instructionsApplied: 'Instrucciones de Query personalizadas guardadas.',
+    instructionsCleared: 'Instrucciones de Query personalizadas borradas.',
+
     // Issue #137: Avisos de fallback de LLM
     fallbackThinkingDialect: 'Control de pensamiento: cambiado al dialecto "{dialect}" (este proveedor usa un formato diferente). La salida no cambia.',
     fallbackThinkingNone: 'Control de pensamiento completamente deshabilitado para este proveedor. Puede seguir apareciendo contenido de razonamiento; si ocurre, pruebe con otro modelo.',

@@ -214,6 +214,18 @@ export const TIMER_UPDATE_INTERVAL_MS = 1000;
 export const YIELD_EVERY_ITERATIONS = 200;
 
 // ============================================================================
+// Query Custom Instructions (Issue #251)
+// ============================================================================
+
+/**
+ * Maximum length (chars) for the Issue #251 Custom Query Instructions
+ * textarea. Defensive cap against users pasting huge blocks into the
+ * system prompt area. Applied at the input layer AND at the injection
+ * layer (defense in depth).
+ */
+export const CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS = 5000;
+
+// ============================================================================
 // Lint Performance Knobs — central tunables for lint scan O(n²) work
 // ============================================================================
 

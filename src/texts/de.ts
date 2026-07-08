@@ -108,6 +108,16 @@ export const DE_TEXTS = {
     // v1.24.0 (Bug C 3.4 / plan C): Schrittweise Migrations-Benachrichtigung
     queryHistoryMigrationNotice: 'Der Query-Wiki-Verlauf enthält Links aus einem früheren Wiki-Ordner. Neue Anfragen verwenden automatisch den aktuellen Ordner. Um alle gespeicherten Nachrichten zu aktualisieren, öffnen Sie das Query-Wiki-Panel und klicken Sie dort auf „Verlauf löschen".',
 
+    // v1.24.0 Issue #251: Benutzerdefinierte Query-Anweisungen (einklappbares Panel)
+    customInstructionsTitle: 'Benutzerdefinierte Query-Anweisungen',
+    customInstructionsDesc: 'Persistente Anweisungen, die an jede Query-Wiki-Systemaufforderung angehängt werden. Betrifft nur den Query-Wiki-Chat; Ingestion, Lint und Seitengenerierung sind nicht betroffen.',
+    customInstructionsPlaceholder: 'z. B. Als Rechercheaufgabe behandeln: breit suchen, Quellen zitieren, Fakten von Interpretation trennen...',
+    customInstructionsApply: 'Anwenden',
+    customInstructionsClear: 'Löschen',
+    customInstructionsCharCount: '{current}/{max} Zeichen',
+    instructionsApplied: 'Benutzerdefinierte Query-Anweisungen gespeichert.',
+    instructionsCleared: 'Benutzerdefinierte Query-Anweisungen gelöscht.',
+
     // Issue #137: LLM-Fallback-Hinweise
     fallbackThinkingDialect: 'Denksteuerung: Zum Dialekt "{dialect}" gewechselt (dieser Anbieter verwendet ein anderes Format für die Denksteuerung). Ausgabe unverändert.',
     fallbackThinkingNone: 'Denksteuerung für diesen Anbieter vollständig deaktiviert. Es können weiterhin Reasoning-Inhalte erscheinen; falls ja, versuchen Sie ein anderes Modell.',
