@@ -296,9 +296,21 @@ export class WikiEngine {
     return applySectionLabels(prompt, this.settings);
   }
 
-  updateSettings(settings: LLMWikiSettings): void {
+  /**
+   * Apply new settings. Returns `true` iff `wikiFolder` changed (and the
+   * path-keyed caches were therefore dropped). The return value lets
+   * `main.saveSettings()` act on the same condition in one pass without
+   * exposing the cache-invalidation knob.
+   */
+  updateSettings(settings: LLMWikiSettings): boolean {
+    // Compare BEFORE assigning so a same-folder update doesn't drop the cache.
+    const wikiFolderChanged = settings.wikiFolder !== this.settings.wikiFolder;
     this.settings = settings;
     this.ctx.settings = settings;
+    if (wikiFolderChanged) {
+      this.invalidatePageCaches();
+    }
+    return wikiFolderChanged;
   }
 
   /**

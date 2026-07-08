@@ -425,8 +425,13 @@ export default class LLMWikiPlugin extends Plugin {
     this.initializeLLMClient();
     this.schemaManager?.updateSettings(this.settings);
     if (this.wikiEngine) {
-      this.wikiEngine.updateSettings(this.settings);
+      const wikiFolderChanged = this.wikiEngine.updateSettings(this.settings);
       console.debug('[saveSettings] wikiEngine provider updated to:', this.settings.provider);
+      // Bug C 3.1: extend wikiFolder-change invalidation to open QueryView
+      // PPR graphs (engine handles its own path-keyed caches).
+      if (wikiFolderChanged) {
+        this.invalidateAllQueryGraphs();
+      }
     }
     if (this.autoMaintainManager) {
       this.autoMaintainManager.settings = this.settings;
@@ -483,6 +488,20 @@ export default class LLMWikiPlugin extends Plugin {
   // ingest (trigger='manual' or undefined) to the legacy
   // IngestReportModal. Keeps backward compatibility — legacy
   // callers without trigger default to 'manual'.
+  /**
+   * Drop the PPR graph in every open QueryView. Used by `onIngestDoneDispatch`
+   * (v1.23.2 review-C P0) and by `saveSettings` when `wikiFolder` changes
+   * (Bug C 3.1) — both want to invalidate the same per-view cache.
+   */
+  private invalidateAllQueryGraphs(): void {
+    const viewLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_QUERY);
+    for (const leaf of viewLeaves) {
+      if (leaf.view instanceof QueryView) {
+        leaf.view.invalidateGraph();
+      }
+    }
+  }
+
   private onIngestDoneDispatch(report: IngestReport): void {
     // v1.23.2 (review-C P0): any ingest that touches wiki/ invalidates the
     // cached PPR graph in every open QueryView. Without this, a user who
@@ -490,12 +509,7 @@ export default class LLMWikiPlugin extends Plugin {
     // answers against the pre-ingest graph (and its pre-ingest neighbors).
     // We walk all leaves of VIEW_TYPE_QUERY because Obsidian lets the user
     // dock multiple Query panels in the workspace.
-    const viewLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_QUERY);
-    for (const leaf of viewLeaves) {
-      if (leaf.view instanceof QueryView) {
-        leaf.view.invalidateGraph();
-      }
-    }
+    this.invalidateAllQueryGraphs();
 
     if (report.trigger === 'auto') {
       this.onAutoIngestDone(report);
