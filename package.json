@@ -49,6 +49,7 @@
     }
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "^4.0.131",
     "@ai-sdk/anthropic": "^3.0.89",
     "@ai-sdk/openai": "^3.0.77",
     "@ai-sdk/openai-compatible": "^2.0.54",
