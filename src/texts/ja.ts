@@ -51,6 +51,10 @@ export const JA_TEXTS = {
     baseUrlDescCustom: '必須：カスタムOpenAI互換エンドポイント',
     baseUrlDescOverride: '任意：定義済みBase URLを上書き',
 
+    // Amazon Bedrock region
+    regionName: 'AWSリージョン',
+    regionDesc: 'Amazon Bedrockで使用するAWSリージョン。利用可能なモデルはリージョンによって異なります。',
+
     // Ollama Hint
     ollamaHint: 'Ollamaはローカルで動作するため、API Keyは不要です',
     lmstudioHint: 'LM Studioはローカルで動作します。API Keyは任意です',

@@ -51,6 +51,10 @@ export const ZH_HANT_TEXTS = {
     baseUrlDescCustom: '必填：自定義 OpenAI 相容服務的 endpoint',
     baseUrlDescOverride: '可選：覆蓋預設的 Base URL',
 
+    // Amazon Bedrock region
+    regionName: 'AWS 區域',
+    regionDesc: 'Amazon Bedrock 使用的 AWS 區域。不同區域可用的模型不同。',
+
     // Ollama 提示
     ollamaHint: 'Ollama 本地執行，無需 API Key',
     lmstudioHint: 'LM Studio 本地執行，API Key 可選',

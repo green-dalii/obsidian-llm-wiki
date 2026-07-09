@@ -51,6 +51,10 @@ export const KO_TEXTS = {
     baseUrlDescCustom: '필수: 사용자 정의 OpenAI 호환 엔드포인트',
     baseUrlDescOverride: '선택: preset Base URL 재정의',
 
+    // Amazon Bedrock region
+    regionName: 'AWS 리전',
+    regionDesc: 'Amazon Bedrock에 사용할 AWS 리전입니다. 리전에 따라 사용 가능한 모델이 다릅니다.',
+
     // Ollama Hint
     ollamaHint: 'Ollama는 로컬에서 실행되며 API 키가 필요하지 않습니다',
     lmstudioHint: 'LM Studio는 로컬에서 실행됩니다. API 키는 선택 사항입니다',

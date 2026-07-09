@@ -51,6 +51,10 @@ export const DE_TEXTS = {
     baseUrlDescCustom: 'Erforderlich: Benutzerdefinierte OpenAI-kompatible Endpunkt',
     baseUrlDescOverride: 'Optional: Voreingestellte Basis-URL überschreiben',
 
+    // Amazon Bedrock region
+    regionName: 'AWS-Region',
+    regionDesc: 'AWS-Region für Amazon Bedrock. Die Modellverfügbarkeit variiert je nach Region.',
+
     // Ollama Hint
     ollamaHint: 'Ollama läuft lokal, kein API-Schlüssel erforderlich',
     lmstudioHint: 'LM Studio läuft lokal, API-Key ist optional',
