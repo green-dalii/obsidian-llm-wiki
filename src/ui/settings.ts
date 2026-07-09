@@ -1,7 +1,7 @@
 import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIMIT_MIN } from '../constants';
 // Settings panel UI for LLM Wiki Plugin
 
-import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl, BaseComponent } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, Platform, TFile, requestUrl, BaseComponent } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, BEDROCK_REGIONS, BEDROCK_MODELS } from '../types';
 import { TEXTS } from '../texts';
@@ -180,6 +180,13 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     const isOllama = this.tempSettings.provider === 'ollama';
     const isLmStudio = this.tempSettings.provider === 'lmstudio';
     const isBedrock = this.tempSettings.provider === 'bedrock';
+    // v1.24.0: Bedrock auth mode. 'bearer' is the default when the
+    // setting is absent — matches prior-version behavior. Mobile is
+    // forced to bearer since ~/.aws is desktop-only.
+    const bedrockAuthMode: 'bearer' | 'profile' = isBedrock
+      ? (Platform.isMobile ? 'bearer' : (this.tempSettings.bedrockAuthMode ?? 'bearer'))
+      : 'bearer';
+    const isBedrockProfile = isBedrock && bedrockAuthMode === 'profile';
 
     // Provider Dropdown
     new Setting(containerEl)
@@ -212,8 +219,33 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         });
       });
 
-    // API Key
-    if (!isOllama && !isLmStudio) {
+    // Bedrock auth mode toggle (Bearer key ↔ AWS Profile / SSO).
+    // Only rendered for the bedrock provider. On mobile the profile
+    // option is disabled — Obsidian mobile has no ~/.aws filesystem.
+    if (isBedrock) {
+      // Write-through the default so tab-close auto-save persists
+      // 'bearer' rather than undefined, matching what the UI shows.
+      this.tempSettings.bedrockAuthMode = bedrockAuthMode;
+      new Setting(containerEl)
+        .setName(this.getText('bedrockAuthModeName'))
+        .setDesc(this.getText('bedrockAuthModeDesc'))
+        .addDropdown(dropdown => {
+          dropdown.addOption('bearer', this.getText('bedrockAuthModeBearer'));
+          if (!Platform.isMobile) {
+            dropdown.addOption('profile', this.getText('bedrockAuthModeProfile'));
+          }
+          dropdown.setValue(bedrockAuthMode);
+          dropdown.onChange((value) => {
+            this.tempSettings.bedrockAuthMode = value as 'bearer' | 'profile';
+            this.tempSettings.llmReady = false;
+            this.display();
+          });
+        });
+    }
+
+    // API Key — hidden for Ollama/LMStudio (local, no key) and for
+    // Bedrock in Profile / SSO mode (credentials come from ~/.aws).
+    if (!isOllama && !isLmStudio && !isBedrockProfile) {
       new Setting(containerEl)
         .setName(this.getText('apiKeyName'))
         .setDesc(this.getText('apiKeyDesc'))
@@ -222,6 +254,21 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             .setValue(this.tempSettings.apiKey)
             .onChange((value) => { this.tempSettings.apiKey = value; this.tempSettings.llmReady = false; });
           text.inputEl.type = 'password';
+        });
+    } else if (isBedrockProfile) {
+      // No API key needed; show the Profile Name text input in its
+      // place so the "no field at all" gap isn't confusing.
+      new Setting(containerEl)
+        .setName(this.getText('awsProfileName'))
+        .setDesc(this.getText('awsProfileDesc'))
+        .addText(text => {
+          text.setPlaceholder('default')
+            .setValue(this.tempSettings.awsProfile ?? '')
+            .onChange((value) => {
+              const trimmed = value.trim();
+              this.tempSettings.awsProfile = trimmed.length > 0 ? trimmed : undefined;
+              this.tempSettings.llmReady = false;
+            });
         });
     } else if (isLmStudio) {
       containerEl.createEl('p', {
