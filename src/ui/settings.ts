@@ -3,7 +3,7 @@ import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIM
 
 import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl, BaseComponent } from 'obsidian';
 import LLMWikiPlugin from '../main';
-import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from '../types';
+import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, BEDROCK_REGIONS, BEDROCK_MODELS } from '../types';
 import { TEXTS } from '../texts';
 import { FolderSuggestModal } from './modals';
 import { HistoryModal } from './history-modal';
@@ -179,6 +179,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     const providerConfig = PREDEFINED_PROVIDERS[this.tempSettings.provider];
     const isOllama = this.tempSettings.provider === 'ollama';
     const isLmStudio = this.tempSettings.provider === 'lmstudio';
+    const isBedrock = this.tempSettings.provider === 'bedrock';
 
     // Provider Dropdown
     new Setting(containerEl)
@@ -197,11 +198,16 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         dropdown.onChange((value) => {
           this.tempSettings.provider = value;
           this.tempSettings.llmReady = false;
-          this.tempSettings.availableModels = [];
           this.tempSettings.useCustomModel = false;
           this.tempSettings.model = '';
           const config = PREDEFINED_PROVIDERS[value];
           if (config && value !== 'custom') this.tempSettings.baseUrl = config.baseUrl;
+          if (value === 'bedrock') {
+            this.tempSettings.availableModels = [...BEDROCK_MODELS];
+            this.tempSettings.region = this.tempSettings.region || 'us-east-1';
+          } else {
+            this.tempSettings.availableModels = [];
+          }
           this.display();
         });
       });
@@ -239,6 +245,24 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           .setPlaceholder(providerConfig?.baseUrl || 'https://api.example.com/v1')
           .setValue(this.tempSettings.baseUrl)
           .onChange((value) => { this.tempSettings.baseUrl = value; this.tempSettings.llmReady = false; }));
+    }
+
+    // Amazon Bedrock region — dropdown of common regions, shown only
+    // for the bedrock provider. Bedrock has no user-entered baseURL in
+    // this design (endpoint is derived from region), so this replaces
+    // the Base URL field for this provider.
+    if (isBedrock) {
+      new Setting(containerEl)
+        .setName(this.getText('regionName'))
+        .setDesc(this.getText('regionDesc'))
+        .addDropdown(dropdown => {
+          BEDROCK_REGIONS.forEach(region => { dropdown.addOption(region, region); });
+          dropdown.setValue(this.tempSettings.region || 'us-east-1');
+          dropdown.onChange((value) => {
+            this.tempSettings.region = value;
+            this.tempSettings.llmReady = false;
+          });
+        });
     }
 
     // LLM execution controls (concurrency + batch delay) — Issue #81 layout refactor
@@ -284,7 +308,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     // Model section
     new Setting(containerEl).setName(this.getText('modelSection')).setHeading();
 
-    // Fetch Models button
+    // Fetch Models button — hidden for Bedrock, which has no live
+    // model-list API in bearer-key mode (see BEDROCK_MODELS below).
+    if (!isBedrock) {
     new Setting(containerEl)
       .setName(this.getText('fetchModelsName'))
       .setDesc(this.getText('fetchModelsDesc'))
@@ -384,6 +410,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           button.setButtonText(this.getText('fetchModelsButton'));
           button.setDisabled(false);
         }));
+    }
 
     // Model Selection
     if (this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0 && !this.tempSettings.useCustomModel) {
