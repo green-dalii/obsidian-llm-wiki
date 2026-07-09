@@ -55,6 +55,15 @@ export const KO_TEXTS = {
     regionName: 'AWS 리전',
     regionDesc: 'Amazon Bedrock에 사용할 AWS 리전입니다. 리전에 따라 사용 가능한 모델이 다릅니다.',
 
+    // Amazon Bedrock 인증 방식 (Bearer 키 vs AWS 프로파일 / SSO)
+    bedrockAuthModeName: '인증 방식',
+    bedrockAuthModeDesc: '플러그인이 Amazon Bedrock에 인증하는 방식을 선택합니다. Bearer API 키는 이동성이 뛰어나며, AWS 프로파일은 로컬 ~/.aws 자격 증명(SSO 포함)을 사용하고 자동으로 새로 고쳐집니다.',
+    bedrockAuthModeBearer: 'Bearer API 키',
+    bedrockAuthModeProfile: 'AWS 프로파일 (SSO / 공유 자격 증명)',
+    awsProfileName: 'AWS 프로파일 이름',
+    awsProfileDesc: '사용할 ~/.aws/config 또는 ~/.aws/credentials의 프로파일 이름 (기본값 "default"). 터미널에서 `aws sso login`을 실행하거나 정적 자격 증명을 구성해 두어야 합니다.',
+    bedrockSsoExpiredError: 'AWS SSO 토큰이 만료되었습니다. 터미널에서 "aws sso login --profile {}"을(를) 실행한 후 다시 시도하세요.',
+
     // Ollama Hint
     ollamaHint: 'Ollama는 로컬에서 실행되며 API 키가 필요하지 않습니다',
     lmstudioHint: 'LM Studio는 로컬에서 실행됩니다. API 키는 선택 사항입니다',

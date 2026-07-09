@@ -55,6 +55,15 @@ export const ZH_TEXTS = {
     regionName: 'AWS 区域',
     regionDesc: 'Amazon Bedrock 使用的 AWS 区域。不同区域可用的模型不同。',
 
+    // Amazon Bedrock 认证方式（Bearer 密钥 vs AWS 配置文件 / SSO）
+    bedrockAuthModeName: '认证方式',
+    bedrockAuthModeDesc: '选择插件如何向 Amazon Bedrock 进行认证。Bearer API 密钥便于跨设备使用；AWS 配置文件读取本地 ~/.aws 凭证（包括 SSO），并会自动刷新。',
+    bedrockAuthModeBearer: 'Bearer API 密钥',
+    bedrockAuthModeProfile: 'AWS 配置文件（SSO / 共享凭证）',
+    awsProfileName: 'AWS 配置文件名称',
+    awsProfileDesc: '要使用的 ~/.aws/config 或 ~/.aws/credentials 中的配置文件名（默认为 "default"）。使用前请先在终端运行 `aws sso login`（或配置静态凭证）。',
+    bedrockSsoExpiredError: 'AWS SSO 令牌已过期。请在终端运行 "aws sso login --profile {}"，然后重试。',
+
     // Ollama 提示
     ollamaHint: 'Ollama 本地运行，无需 API Key',
     lmstudioHint: 'LM Studio 本地运行，API Key 可选',

@@ -55,6 +55,15 @@ export const JA_TEXTS = {
     regionName: 'AWSリージョン',
     regionDesc: 'Amazon Bedrockで使用するAWSリージョン。利用可能なモデルはリージョンによって異なります。',
 
+    // Amazon Bedrock 認証方式（Bearer キー vs AWS プロファイル / SSO）
+    bedrockAuthModeName: '認証方式',
+    bedrockAuthModeDesc: 'プラグインが Amazon Bedrock に認証する方法を選択します。Bearer APIキーは移植性が高く、AWSプロファイルはローカルの ~/.aws 認証情報（SSO を含む）を使用し、自動的に更新されます。',
+    bedrockAuthModeBearer: 'Bearer APIキー',
+    bedrockAuthModeProfile: 'AWSプロファイル（SSO / 共有認証情報）',
+    awsProfileName: 'AWSプロファイル名',
+    awsProfileDesc: '使用する ~/.aws/config または ~/.aws/credentials のプロファイル名（デフォルトは "default"）。あらかじめターミナルで `aws sso login` を実行する（または静的な認証情報を設定する）必要があります。',
+    bedrockSsoExpiredError: 'AWS SSO トークンの有効期限が切れました。ターミナルで "aws sso login --profile {}" を実行してから再試行してください。',
+
     // Ollama Hint
     ollamaHint: 'Ollamaはローカルで動作するため、API Keyは不要です',
     lmstudioHint: 'LM Studioはローカルで動作します。API Keyは任意です',

@@ -55,6 +55,15 @@ export const IT_TEXTS = {
     regionName: 'Regione AWS',
     regionDesc: 'Regione AWS per Amazon Bedrock. La disponibilità dei modelli varia in base alla regione.',
 
+    // Amazon Bedrock metodo di autenticazione (chiave Bearer vs profilo AWS / SSO)
+    bedrockAuthModeName: 'Metodo di autenticazione',
+    bedrockAuthModeDesc: 'Scegli come il plugin si autentica su Amazon Bedrock. La chiave API Bearer è portabile; il profilo AWS utilizza le credenziali locali in ~/.aws (incluso SSO) e viene aggiornato automaticamente.',
+    bedrockAuthModeBearer: 'Chiave API Bearer',
+    bedrockAuthModeProfile: 'Profilo AWS (SSO / credenziali condivise)',
+    awsProfileName: 'Nome del profilo AWS',
+    awsProfileDesc: 'Il nome del profilo da ~/.aws/config o ~/.aws/credentials da utilizzare (predefinito "default"). Richiede di aver eseguito `aws sso login` (o configurato credenziali statiche) nel terminale.',
+    bedrockSsoExpiredError: 'Il token AWS SSO è scaduto. Esegui "aws sso login --profile {}" nel terminale, poi riprova.',
+
     // Suggerimento Ollama
     ollamaHint: 'Ollama gira in locale, nessuna chiave API richiesta',
     // Suggerimento LM Studio
