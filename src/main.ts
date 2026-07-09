@@ -39,6 +39,8 @@ export function createLLMClient(settings: LLMWikiSettings): LLMClient {
     apiKey: settings.apiKey,
     baseUrl: settings.baseUrl,
     region: settings.region,
+    bedrockAuthMode: settings.bedrockAuthMode,
+    awsProfile: settings.awsProfile,
   });
 
   // Wrap createMessage so user-configured advanced settings are applied.

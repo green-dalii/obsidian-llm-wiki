@@ -147,17 +147,6 @@ vi.mock('obsidian', () => ({
   },
   // Network requests — tests control return values via vi.mocked(requestUrl)
   requestUrl: vi.fn(),
-  // Platform detection — desktop by default. Tests can override via
-  // vi.mocked(Platform).isMobile = true.
-  Platform: {
-    isDesktop: true,
-    isMobile: false,
-    isMacOS: true,
-    isWin: false,
-    isLinux: false,
-    isIosApp: false,
-    isAndroidApp: false,
-  },
 }));
 
 // Stub activeDocument for jsdom test environment.
