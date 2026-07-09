@@ -115,6 +115,14 @@ export interface LLMWikiSettings {
   provider: string;
   apiKey: string;
   baseUrl: string;
+  /**
+   * v1.24.0: AWS region for the Amazon Bedrock provider. Optional —
+   * only meaningful when provider === 'bedrock'. Defaults to
+   * 'us-east-1' at client-construction time (create-llm-client.ts),
+   * not baked into DEFAULT_SETTINGS, so existing data.json files
+   * without this field continue to load unchanged.
+   */
+  region?: string;
   model: string;
   wikiFolder: string;
   language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it';
@@ -458,6 +466,33 @@ export interface EngineContext {
   onDone?: (report: IngestReport) => void;
 }
 
+// Amazon Bedrock: common regions with broad Bedrock model coverage.
+// Not exhaustive — free-text custom region entry is not supported in
+// v1 (dropdown-only, per design doc).
+export const BEDROCK_REGIONS: string[] = [
+  'us-east-1',
+  'us-west-2',
+  'eu-central-1',
+  'eu-west-1',
+  'ap-northeast-1',
+  'ap-southeast-1',
+  'ap-south-1',
+  'sa-east-1',
+];
+
+// Amazon Bedrock: curated model IDs (no live ListFoundationModels
+// fetch in v1 — see design doc). Cross-region inference profile IDs
+// (the "us." prefix) are preferred where available since they have
+// broader throughput quotas than the bare regional ID.
+export const BEDROCK_MODELS: string[] = [
+  'us.anthropic.claude-sonnet-5',
+  'us.anthropic.claude-opus-4-8',
+  'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+  'us.meta.llama3-3-70b-instruct-v1:0',
+  'us.amazon.nova-pro-v1:0',
+  'us.amazon.nova-lite-v1:0',
+];
+
 // Predefined LLM provider configurations
 
 export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
@@ -481,6 +516,17 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-ant-...',
     apiKeyPlaceholderEn: 'sk-ant-...',
     apiKeyPlaceholderZh: 'sk-ant-...',
+    requiresBaseUrl: false
+  },
+  bedrock: {
+    id: 'bedrock',
+    name: 'Amazon Bedrock',
+    nameEn: 'Amazon Bedrock',
+    nameZh: 'Amazon Bedrock',
+    baseUrl: '',
+    apiKeyPlaceholder: 'Bedrock API key',
+    apiKeyPlaceholderEn: 'Bedrock API key',
+    apiKeyPlaceholderZh: 'Bedrock API key',
     requiresBaseUrl: false
   },
   gemini: {
