@@ -39,21 +39,46 @@ function levenshtein(a: string, b: string): number {
   return prev[b.length];
 }
 
-export function canonicalizeSectionHeaders(content: string, canonicalLabels: string[]): string {
+/**
+ * v1.24.0 #216 Tier-2 — snap a free-form header string to its closest
+ * canonical label, or return null when no unambiguous match exists.
+ *
+ * Bounded so it only heals genuine near-misses and never rewrites a real
+ * content header: a candidate is snapped only when it is within
+ * MAX_DISTANCE edits of exactly one canonical label AND strictly closer
+ * to it than to any other. Exact labels return the same string (caller
+ * can detect "exact" by comparing input vs output).
+ *
+ * Used both by the forward pass (canonicalizeSectionHeaders rebuilds
+ * the body) and the Tier-2 reverse pass (resolveSectionAnchor snaps an
+ * LLM-provided target_section to the canonical label actually present
+ * in the body).
+ */
+export function snapHeaderToCanonical(
+  candidate: string,
+  canonicalLabels: string[],
+): string | null {
   const canonical = new Set(canonicalLabels);
-
-  const snap = (header: string): string | null => {
-    if (canonical.has(header)) return null; // exact — leave untouched
-    let best = Infinity, second = Infinity, bestLabel: string | null = null;
-    for (const label of canonicalLabels) {
-      const d = levenshtein(header, label);
-      if (d < best) { second = best; best = d; bestLabel = label; }
-      else if (d < second) { second = d; }
+  if (canonical.has(candidate)) return candidate;
+  let best = Infinity;
+  let second = Infinity;
+  let bestLabel: string | null = null;
+  for (const label of canonicalLabels) {
+    const d = levenshtein(candidate, label);
+    if (d < best) {
+      second = best;
+      best = d;
+      bestLabel = label;
+    } else if (d < second) {
+      second = d;
     }
-    if (bestLabel !== null && best <= MAX_DISTANCE && best < second) return bestLabel;
-    return null; // too far, or ambiguous
-  };
+  }
+  if (bestLabel !== null && best <= MAX_DISTANCE && best < second) return bestLabel;
+  return null;
+}
 
+export function canonicalizeSectionHeaders(content: string, canonicalLabels: string[]): string {
+  const snap = (header: string): string | null => snapHeaderToCanonical(header, canonicalLabels);
   return content.split('\n').map(line => {
     const m = /^(##\s+)(.+?)\s*$/.exec(line);
     if (!m) return line;

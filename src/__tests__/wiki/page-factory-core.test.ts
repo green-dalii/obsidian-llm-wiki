@@ -140,6 +140,7 @@ describe('PageFactory — Core Paths', () => {
           'wiki/entities/existing.md': '---\ntype: entity\naliases: ["Old Alias"]\n---\n# Existing\nOld content',
         },
         llmResponses: [
+          JSON.stringify({ strategy: 'merge', reason: 'has new info' }), // v1.24.0 #216 triage
           'Merged content here', // LLM merge response
         ],
       });
@@ -219,6 +220,7 @@ describe('PageFactory — Core Paths', () => {
           'wiki/concepts/collision.md': '---\ntype: concept\n---\n# Collision\nConcept content',
         },
         llmResponses: [
+          JSON.stringify({ strategy: 'merge', reason: 'has new info' }), // v1.24.0 #216 triage
           'Merged entity content into concept',
         ],
       });
@@ -302,6 +304,7 @@ describe('PageFactory — Core Paths', () => {
           'wiki/entities/keep.md': '---\ntype: entity\n---\n# Keep\nOriginal content',
         },
         llmResponses: [
+          JSON.stringify({ strategy: 'merge', reason: 'has new info' }), // v1.24.0 #216 triage
           'NO_NEW_CONTENT',
         ],
       });

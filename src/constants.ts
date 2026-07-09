@@ -111,6 +111,28 @@ export const TOKENS_CONVERSATION_PAGE = 8000;
 export const TOKENS_DEDUP_RESOLUTION = 1000;
 
 /**
+ * v1.24.0 #216 — max tokens for the merge triage pre-flight classification.
+ *
+ * v1.24.0 Tier-2 (commit ab23bc0 + amend): the triage output now includes
+ * a structured `items[]` array for the complementary path, with each
+ * item carrying `content` (the new fact) + `target_section` (the localized
+ * section label) + `reason`. A typical Tier-2 output with 2-3 items in
+ * Chinese easily runs to 500-900 tokens; e2e observed heavy truncation
+ * at 200 tokens with `{"strategy":` cut off mid-JSON. 2000 gives ample
+ * headroom for both Tier-1 (compact) and Tier-2 (verbose) outputs.
+ */
+export const TOKENS_MERGE_TRIAGE = 2000;
+
+/**
+ * v1.24.0 #216 Tier-2 — max tokens for a single per-section append call.
+ * The complementary path appends one paragraph per target section; the
+ * LLM is given (existingSectionContent + 1-N new facts) and must return
+ * just the appended paragraphs. 600 tokens covers ~3 paragraphs of
+ * markdown per section comfortably.
+ */
+export const TOKENS_COMPLEMENTARY_APPEND = 600;
+
+/**
  * Token budget for lint alias completion batch.
  */
 export const TOKENS_LINT_ALIAS_BATCH = 500;
