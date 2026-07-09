@@ -123,6 +123,24 @@ export interface LLMWikiSettings {
    * without this field continue to load unchanged.
    */
   region?: string;
+  /**
+   * v1.24.0: Amazon Bedrock auth mode. Optional — only meaningful when
+   * provider === 'bedrock'. Absent value is treated as 'bearer' for
+   * backward compat with users who configured Bedrock before this
+   * setting existed.
+   *   - 'bearer'  : long-lived Bedrock API key (uses `apiKey` field).
+   *   - 'profile' : AWS Profile / SSO — resolves credentials from
+   *                 ~/.aws via @aws-sdk/credential-providers'
+   *                 fromNodeProviderChain. Desktop-only; disabled on
+   *                 mobile (no ~/.aws filesystem).
+   */
+  bedrockAuthMode?: 'bearer' | 'profile';
+  /**
+   * v1.24.0: AWS profile name for Bedrock 'profile' auth mode. Optional
+   * — defaults to the profile that fromNodeProviderChain resolves from
+   * $AWS_PROFILE or the [default] block in ~/.aws/config.
+   */
+  awsProfile?: string;
   model: string;
   wikiFolder: string;
   language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it';
