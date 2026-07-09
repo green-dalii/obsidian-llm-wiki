@@ -38,6 +38,7 @@ export function createLLMClient(settings: LLMWikiSettings): LLMClient {
     provider: settings.provider,
     apiKey: settings.apiKey,
     baseUrl: settings.baseUrl,
+    region: settings.region,
   });
 
   // Wrap createMessage so user-configured advanced settings are applied.
