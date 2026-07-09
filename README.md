@@ -125,7 +125,7 @@ This project evolves rapidly — new features, bug fixes, and improvements are s
 ### 🔑 Configure an LLM Provider
 
 1. Open Settings → Karpathy LLM Wiki
-2. Pick a provider from the dropdown (Anthropic, Anthropic Compatible, Google Gemini, OpenAI, DeepSeek, Kimi, GLM, MiniMax, LM Studio, Ollama, OpenRouter, or custom)
+2. Pick a provider from the dropdown (Anthropic, Anthropic Compatible, Amazon Bedrock (bearer API key or AWS Profile / SSO), Google Gemini, OpenAI, DeepSeek, Kimi, GLM, MiniMax, LM Studio, Ollama, OpenRouter, or custom)
 3. Enter your API key (not needed for Ollama)
 4. Click **Fetch Models** to populate the model dropdown, or type a model name manually
 5. Click **Test Connection**, then **Save Settings**

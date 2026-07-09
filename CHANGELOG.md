@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Amazon Bedrock LLM provider** — new provider supporting AWS Bedrock in two auth modes:
+  - **Bearer API key** — long-lived Bedrock API key.
+  - **AWS Profile / SSO** — resolves credentials from `~/.aws` via `@aws-sdk/credential-providers` `fromNodeProviderChain`. Desktop-only; auto-refreshes SSO tokens 5 min before expiry.
+
+  Includes 8 curated inference profile models (Claude Sonnet 5 / Opus 4.8 / Haiku 4.5, Meta Llama 3.3 70B, Amazon Nova Pro / Lite; 2 global.\* + 6 us.\* variants), 8-region dropdown, extended-thinking control via `providerOptions.bedrock.reasoningConfig`, and 9 new i18n keys across all 10 locales.
+
 ### Changed
 
 - **`controller.ts` `runLintWiki` god function split into 3 phase modules (PR #248).** `src/wiki/lint/controller.ts:runLintWiki` (was a monolithic 200+ LOC function) decomposed into Phases A/B/C (`src/wiki/lint/llm-phases/analysis-phase.ts`, `src/wiki/lint/llm-phases/scoring-phase.ts`, `src/wiki/lint/llm-phases/synthesis-phase.ts`). The orchestrator now delegates: analysis → scoring → synthesis. Behavioral regression protected by existing 1616 test suite.

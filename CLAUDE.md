@@ -10,6 +10,7 @@
 
 Architectural items deferred from v1.23.0–v1.23.2 cycle:
 
+- **Amazon Bedrock LLM provider** — bearer-key + AWS Profile/SSO auth (via `@aws-sdk/credential-providers`), 8 curated inference profiles (`global.*` + `us.*` for Claude / Llama / Nova), 8-region dropdown, extended-thinking control. See PR #263.
 - **#220 — Source-revision awareness for merge** (DocTpoint's 4-tier design). Tier 0 fingerprint + replace self-revision; Tier 1 `supersedes:` frontmatter flag; Tier 2 cross-source disagreement open question; Tier 3 review-queue UI. Tiers 0-1 tractable for v1.24.0; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
 - **#218 — PDF source ingest** (Discussion #222 topology).
 - **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by @DocTpoint.
