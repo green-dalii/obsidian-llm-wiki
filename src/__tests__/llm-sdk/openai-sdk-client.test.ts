@@ -409,6 +409,40 @@ describe('OpenAISdkClient', () => {
       expect(mapped).toBe(regular);
       expect(mapped.message).not.toMatch(/aws sso login/i);
     });
+
+    // v1.24.0 review: the SSO-login hint must NOT be appended to
+    // non-SSO credential failures (profile typo, missing ~/.aws,
+    // missing shared credentials file). Otherwise users chase the
+    // wrong fix (rerun `aws sso login`) for a config issue.
+    it('does NOT append SSO login hint when CredentialsProviderError is a profile typo', () => {
+      const typoErr = new Error(
+        "Profile 'deafult' could not be found in shared credentials file."
+      );
+      typoErr.name = 'CredentialsProviderError';
+      const mapped = mapAiSdkError(typoErr);
+      // Original AWS message should surface, but no misleading SSO hint.
+      expect(mapped.message).toContain('Profile');
+      expect(mapped.message).not.toMatch(/aws sso login/i);
+    });
+
+    it('does NOT append SSO login hint when credential chain finds nothing', () => {
+      const noCredsErr = new Error(
+        'Could not load credentials from any providers'
+      );
+      noCredsErr.name = 'CredentialsProviderError';
+      const mapped = mapAiSdkError(noCredsErr);
+      expect(mapped.message).not.toMatch(/aws sso login/i);
+    });
+
+    it('does NOT append SSO login hint to non-SSO AI-SDK-wrapped errors', () => {
+      const wrappedTypo = new Error(
+        "AWS credential provider failed: Profile 'foo' could not be found."
+      );
+      const mapped = mapAiSdkError(wrappedTypo);
+      expect(mapped.message).not.toMatch(/aws sso login/i);
+      // But the original AWS SDK message must still reach the user.
+      expect(mapped.message).toContain('Profile');
+    });
   });
 
   describe('createMessageStream (real word-by-word streaming)', () => {

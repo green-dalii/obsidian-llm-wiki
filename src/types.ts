@@ -505,8 +505,8 @@ export const BEDROCK_REGIONS: string[] = [
 //
 // ID shape note: AWS dropped the `-YYYYMMDD-vN:M` suffix for Anthropic
 // models from Opus 4.6 onward (Sonnet 5, Opus 4.8 use the short form).
-// Haiku 4.5 was the last Anthropic model on the old shape. Verified
-// against AWS Bedrock model cards (2026-07-09).
+// Haiku 4.5 was the last Anthropic model on the old shape. Re-verify
+// against the AWS Bedrock model cards when Anthropic ships a new model.
 //
 // `global.*` profiles route to the lowest-latency region worldwide and
 // are ~10% cheaper than regional endpoints per Anthropic's Bedrock

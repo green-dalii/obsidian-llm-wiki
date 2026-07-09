@@ -8,6 +8,7 @@ import { TEXTS } from '../texts';
 import { fixPollutedSources, scanPollutedSources } from '../core/sources-normalizer';
 import { findIncompletePages, cleanIncompletePages } from '../core/incomplete-page-cleaner';
 import { needsLogHeaderMigration, migrateLogHeader } from '../core/log-header';
+import { requiresApiKey } from '../llm-sdk/provider-guards';
 import { ensureWelcomeNote, type EnsureResult, type VaultAdapter } from '../core/ensure-welcome-note';
 import { getWelcomeFileName } from '../core/i18n';
 import type { LLMClient } from '../types';
@@ -732,11 +733,7 @@ export class AutoMaintainManager {
     if (!llmClient) {
       return { ok: false, error: 'LLM client not configured. Open Settings → LLM Provider.' };
     }
-    // Bedrock + AWS Profile / SSO mode: credentials come from ~/.aws via
-    // fromNodeProviderChain, so settings.apiKey is legitimately empty.
-    const isBedrockProfile =
-      this.settings.provider === 'bedrock' && this.settings.bedrockAuthMode === 'profile';
-    if (!this.settings.apiKey && !isBedrockProfile) {
+    if (requiresApiKey(this.settings) && !this.settings.apiKey) {
       return { ok: false, error: 'API key not configured.' };
     }
     if (!this.settings.model) {

@@ -17,6 +17,7 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { LLMClient } from '../types';
 import { obsidianFetchBridge, streamWithFallback } from '../core/obsidian-fetch-bridge';
 import { mapAiSdkError } from './openai-sdk-client';
+import { BEDROCK_DEFAULT_REGION } from './provider-guards';
 
 /**
  * AWS credential provider signature — an async function returning
@@ -74,12 +75,15 @@ export class BedrockSdkClient implements LLMClient {
     }
     this.apiKey = opts.apiKey;
     this.credentialProvider = opts.credentialProvider;
-    this.region = opts.region ?? 'us-east-1';
+    // Trim + fall back so hand-edited data.json with whitespace or an
+    // empty-string region resolves to the default rather than being
+    // passed through to createAmazonBedrock.
+    this.region = opts.region?.trim() || BEDROCK_DEFAULT_REGION;
     this.fetchImpl = opts.fetch ?? obsidianFetchBridge;
     this.streamFetchImpl = opts.streamFetch ?? streamWithFallback;
   }
 
-  private getProvider(modelId: string, fetchFn: typeof obsidianFetchBridge | typeof streamWithFallback = this.streamFetchImpl): LanguageModel {
+  private getProvider(modelId: string, fetchFn: typeof obsidianFetchBridge | typeof streamWithFallback): LanguageModel {
     // @ai-sdk/amazon-bedrock: `apiKey` and `credentialProvider` are
     // mutually exclusive at the SDK level (see dist/index.js — the
     // provider picks one code path based on which is set). Constructor
@@ -181,6 +185,9 @@ export class BedrockSdkClient implements LLMClient {
       for await (const chunk of result.textStream) {
         fullText += chunk;
         onChunk(chunk);
+        // Yield to the event loop between chunks so DOM streaming
+        // render + user input stay responsive during long generations.
+        // Matches the pattern used in openai-compat-sdk-client + anthropic-sdk-client.
         await new Promise<void>(resolve => window.setTimeout(resolve, 0));
       }
 

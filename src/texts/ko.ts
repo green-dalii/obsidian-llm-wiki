@@ -63,7 +63,6 @@ export const KO_TEXTS = {
     awsProfileName: 'AWS 프로파일 이름',
     awsProfileDesc: '사용할 ~/.aws/config 또는 ~/.aws/credentials의 프로파일 이름 (기본값 "default"). 터미널에서 `aws sso login`을 실행하거나 정적 자격 증명을 구성해 두어야 합니다.',
     awsProfilePlaceholder: 'default',
-    bedrockSsoExpiredError: 'AWS SSO 토큰이 만료되었습니다. 터미널에서 "aws sso login --profile {}"을(를) 실행한 후 다시 시도하세요.',
 
     // Ollama Hint
     ollamaHint: 'Ollama는 로컬에서 실행되며 API 키가 필요하지 않습니다',

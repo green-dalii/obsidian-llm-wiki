@@ -63,7 +63,6 @@ export const FR_TEXTS = {
     awsProfileName: 'Nom du profil AWS',
     awsProfileDesc: 'Le nom du profil issu de ~/.aws/config ou ~/.aws/credentials à utiliser (par défaut "default"). Nécessite que vous ayez exécuté `aws sso login` (ou configuré des identifiants statiques) dans votre terminal.',
     awsProfilePlaceholder: 'default',
-    bedrockSsoExpiredError: 'Le jeton AWS SSO a expiré. Exécutez "aws sso login --profile {}" dans votre terminal, puis réessayez.',
 
     // Ollama Hint
     ollamaHint: "Ollama fonctionne localement, aucune clé API n'est requise",

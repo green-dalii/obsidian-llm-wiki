@@ -63,7 +63,6 @@ export const ZH_TEXTS = {
     awsProfileName: 'AWS 配置文件名称',
     awsProfileDesc: '要使用的 ~/.aws/config 或 ~/.aws/credentials 中的配置文件名（默认为 "default"）。使用前请先在终端运行 `aws sso login`（或配置静态凭证）。',
     awsProfilePlaceholder: 'default',
-    bedrockSsoExpiredError: 'AWS SSO 令牌已过期。请在终端运行 "aws sso login --profile {}"，然后重试。',
 
     // Ollama 提示
     ollamaHint: 'Ollama 本地运行，无需 API Key',

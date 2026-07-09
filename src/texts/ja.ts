@@ -63,7 +63,6 @@ export const JA_TEXTS = {
     awsProfileName: 'AWSプロファイル名',
     awsProfileDesc: '使用する ~/.aws/config または ~/.aws/credentials のプロファイル名（デフォルトは "default"）。あらかじめターミナルで `aws sso login` を実行する（または静的な認証情報を設定する）必要があります。',
     awsProfilePlaceholder: 'default',
-    bedrockSsoExpiredError: 'AWS SSO トークンの有効期限が切れました。ターミナルで "aws sso login --profile {}" を実行してから再試行してください。',
 
     // Ollama Hint
     ollamaHint: 'Ollamaはローカルで動作するため、API Keyは不要です',

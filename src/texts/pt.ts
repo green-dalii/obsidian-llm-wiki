@@ -63,7 +63,6 @@ export const PT_TEXTS = {
     awsProfileName: 'Nome do perfil AWS',
     awsProfileDesc: 'O nome do perfil de ~/.aws/config ou ~/.aws/credentials a utilizar (padrão "default"). Requer que tenha executado `aws sso login` (ou configurado credenciais estáticas) no seu terminal.',
     awsProfilePlaceholder: 'default',
-    bedrockSsoExpiredError: 'O token do AWS SSO expirou. Execute "aws sso login --profile {}" no seu terminal e tente novamente.',
 
     // Ollama Hint
     ollamaHint: 'O Ollama roda localmente, não requer API Key',

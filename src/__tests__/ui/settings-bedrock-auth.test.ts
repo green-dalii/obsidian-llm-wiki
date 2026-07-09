@@ -1,43 +1,32 @@
 import { describe, it, expect } from 'vitest';
+import { deriveBedrockAuthMode } from '../../llm-sdk/provider-guards';
 
 // v1.24.0: Bedrock auth-mode derivation from settings + Platform.
-// Extracted from src/ui/settings.ts:184-190. If this drifts, the
-// test will fail. Mirrors the ternary in the settings tab so the
-// mobile gate + backward-compat default are pinned.
+// Tests import the SAME `deriveBedrockAuthMode` used in production
+// (src/ui/settings.ts) so drift is impossible.
 
-function deriveBedrockAuthMode(
-  provider: string,
-  bedrockAuthModeSetting: 'bearer' | 'profile' | undefined,
-  isMobile: boolean
-): 'bearer' | 'profile' {
-  const isBedrock = provider === 'bedrock';
-  if (!isBedrock) return 'bearer';
-  if (isMobile) return 'bearer';
-  return bedrockAuthModeSetting ?? 'bearer';
-}
-
-describe('settings UI — Bedrock auth-mode derivation', () => {
+describe('provider-guards.deriveBedrockAuthMode', () => {
   it('non-bedrock provider: always bearer regardless of setting', () => {
-    expect(deriveBedrockAuthMode('openai', 'profile', false)).toBe('bearer');
-    expect(deriveBedrockAuthMode('anthropic', 'profile', false)).toBe('bearer');
+    expect(deriveBedrockAuthMode({ provider: 'openai', bedrockAuthMode: 'profile' }, false)).toBe('bearer');
+    expect(deriveBedrockAuthMode({ provider: 'anthropic', bedrockAuthMode: 'profile' }, false)).toBe('bearer');
   });
 
   it('bedrock + no setting: defaults to bearer (backward compat)', () => {
-    expect(deriveBedrockAuthMode('bedrock', undefined, false)).toBe('bearer');
+    expect(deriveBedrockAuthMode({ provider: 'bedrock' }, false)).toBe('bearer');
   });
 
   it('bedrock + bearer setting: bearer', () => {
-    expect(deriveBedrockAuthMode('bedrock', 'bearer', false)).toBe('bearer');
+    expect(deriveBedrockAuthMode({ provider: 'bedrock', bedrockAuthMode: 'bearer' }, false)).toBe('bearer');
   });
 
   it('bedrock + profile setting on desktop: profile', () => {
-    expect(deriveBedrockAuthMode('bedrock', 'profile', false)).toBe('profile');
+    expect(deriveBedrockAuthMode({ provider: 'bedrock', bedrockAuthMode: 'profile' }, false)).toBe('profile');
   });
 
   it('bedrock + profile setting on mobile: forced to bearer (no ~/.aws)', () => {
     // Mobile has no ~/.aws filesystem. The setting is ignored, mode
     // forces to bearer, and the UI hides the "profile" option so the
     // user can't switch to it.
-    expect(deriveBedrockAuthMode('bedrock', 'profile', true)).toBe('bearer');
+    expect(deriveBedrockAuthMode({ provider: 'bedrock', bedrockAuthMode: 'profile' }, true)).toBe('bearer');
   });
 });

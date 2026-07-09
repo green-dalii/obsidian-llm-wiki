@@ -393,7 +393,7 @@ describe('BedrockSdkClient', () => {
       expect(callOpts.credentialProvider).toBeUndefined();
     });
 
-    it('resolves credentialProvider lazily at request time (not construction)', async () => {
+    it('does NOT invoke credentialProvider during construction', async () => {
       // Regression protection: fromNodeProviderChain's memoization only
       // works if the provider function is held and invoked lazily.
       // Constructing the client must NOT eagerly invoke the provider.

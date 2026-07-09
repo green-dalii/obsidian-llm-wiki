@@ -9,6 +9,7 @@ import {
 import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, NOTICE_ABORT, NOTICE_RATE_LIMIT, COMPATIBLE_SOURCE_EXTENSIONS } from './constants';
 import { wrapWithAdvancedSettings } from './llm-client-wrapper';
 import { createLLMClientFromSettingsSync, preloadLLMClientModules } from './llm-sdk/create-llm-client';
+import { requiresApiKey } from './llm-sdk/provider-guards';
 import { runSchemaAnalyze } from './schema/analyze';
 
 // v1.23.0 P1-7: AI-SDK migration. Eagerly preload SDK modules on plugin
@@ -415,8 +416,7 @@ export default class LLMWikiPlugin extends Plugin {
 
     // Migrate existing users: if they already have a working config, trust it
     if (savedData && !('llmReady' in savedData)) {
-      const isBedrockProfile = savedData.provider === 'bedrock' && savedData.bedrockAuthMode === 'profile';
-      const hasConfig = savedData.provider && (savedData.apiKey?.trim() || savedData.provider === 'ollama' || isBedrockProfile) && savedData.model;
+      const hasConfig = savedData.provider && (savedData.apiKey?.trim() || !requiresApiKey(savedData)) && savedData.model;
       this.settings.llmReady = !!hasConfig;
       if (hasConfig) {
         console.debug('loadSettings: existing user with config detected, llmReady = true');
@@ -478,13 +478,9 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   initializeLLMClient() {
-    // Providers that don't require an apiKey in settings:
-    // - ollama / lmstudio: local, no auth
-    // - bedrock in 'profile' mode: credentials resolved from ~/.aws via
-    //   fromNodeProviderChain, so `settings.apiKey` is legitimately empty
-    const isLocalNoKeyProvider = this.settings.provider === 'ollama' || this.settings.provider === 'lmstudio';
-    const isBedrockProfile = this.settings.provider === 'bedrock' && this.settings.bedrockAuthMode === 'profile';
-    if (!this.settings.apiKey?.trim() && !isLocalNoKeyProvider && !isBedrockProfile) {
+    // Providers that don't require an apiKey (ollama, lmstudio,
+    // bedrock in 'profile' mode) are handled by requiresApiKey().
+    if (requiresApiKey(this.settings) && !this.settings.apiKey?.trim()) {
       this.llmClient = null;
       return;
     }
@@ -1059,12 +1055,7 @@ export default class LLMWikiPlugin extends Plugin {
   async testLLMConnection(): Promise<{ success: boolean; message: string }> {
     const t = TEXTS[this.settings.language] || TEXTS.en;
 
-    const localNoKeyProviders = ['ollama', 'lmstudio'];
-    const isLocalNoKeyProvider = localNoKeyProviders.includes(this.settings.provider);
-    // Bedrock + AWS Profile / SSO mode: credentials come from ~/.aws via
-    // fromNodeProviderChain, so settings.apiKey is legitimately empty.
-    const isBedrockProfile = this.settings.provider === 'bedrock' && this.settings.bedrockAuthMode === 'profile';
-    if (!isLocalNoKeyProvider && !isBedrockProfile && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
+    if (requiresApiKey(this.settings) && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
       return { success: false, message: t.errorNoApiKey || 'API Key is not configured' };
     }
 

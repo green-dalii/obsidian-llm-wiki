@@ -420,25 +420,37 @@ export function mapAiSdkError(err: unknown): Error {
   if (err instanceof InvalidPromptError) {
     return new Error(`Invalid prompt: ${err.message}`);
   }
-  // v1.24.0 Bedrock AWS Profile / SSO auth mode: catch credential
-  // failures from @aws-sdk/credential-providers and surface an
-  // actionable Notice. Two shapes to handle:
-  //   1. Direct throw from fromNodeProviderChain: `err.name ===
-  //      'CredentialsProviderError'` (identified by name — the class
-  //      is not `instanceof`-safe across dual-package copies of
-  //      @smithy/core).
-  //   2. AI-SDK's wrapper: the bedrock provider catches the AWS SDK
-  //      error and re-throws a plain Error whose message begins
-  //      "AWS credential provider failed:". This is a stable prefix
-  //      in @ai-sdk/amazon-bedrock@4.x.
+  // v1.24.0 Bedrock AWS Profile / SSO auth mode: surface AWS credential
+  // failures with the underlying message. Only append the "aws sso
+  // login" hint when the failure is actually an SSO-token expiry —
+  // other CredentialsProviderError causes (profile typo, missing
+  // ~/.aws, credential chain exhaustion) already have actionable
+  // messages from the AWS SDK, and appending a misleading login hint
+  // would send users chasing the wrong fix.
+  //
+  // Two error shapes reach this mapper:
+  //   1. Direct throw from fromNodeProviderChain (err.name ===
+  //      'CredentialsProviderError'). We identify by name because
+  //      the class is not instanceof-safe across dual-package copies
+  //      of @smithy/core.
+  //   2. AI-SDK's wrapper: the bedrock provider re-throws a plain
+  //      Error whose message begins "AWS credential provider failed:".
+  //      Stable prefix in @ai-sdk/amazon-bedrock@4.x.
   if (err instanceof Error) {
     const isCredError =
       err.name === 'CredentialsProviderError' ||
       err.message.startsWith('AWS credential provider failed:');
     if (isCredError) {
-      return new Error(
-        `${err.message} — Run "aws sso login" in your terminal to refresh credentials, then retry.`
-      );
+      // Narrow SSO detection: match phrases the AWS SDK actually
+      // emits for expired SSO tokens (verified against
+      // aws-sdk-js-v3 packages/credential-provider-sso).
+      const isSsoExpiry = /SSO Token|SSO session|token .* expired|has expired/i.test(err.message);
+      if (isSsoExpiry) {
+        return new Error(
+          `${err.message} — Run "aws sso login" in your terminal to refresh credentials, then retry.`
+        );
+      }
+      return new Error(err.message);
     }
     return err;
   }

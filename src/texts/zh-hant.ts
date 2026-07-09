@@ -63,7 +63,6 @@ export const ZH_HANT_TEXTS = {
     awsProfileName: 'AWS 設定檔名稱',
     awsProfileDesc: '要使用的 ~/.aws/config 或 ~/.aws/credentials 中的設定檔名稱（預設為 "default"）。使用前請先在終端機執行 `aws sso login`（或設定靜態憑證）。',
     awsProfilePlaceholder: 'default',
-    bedrockSsoExpiredError: 'AWS SSO Token 已過期。請在終端機執行 "aws sso login --profile {}"，然後重試。',
 
     // Ollama 提示
     ollamaHint: 'Ollama 本地執行，無需 API Key',

@@ -4,6 +4,7 @@ import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIM
 import { App, PluginSettingTab, Setting, Notice, Platform, TFile, requestUrl, BaseComponent } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, BEDROCK_REGIONS, BEDROCK_MODELS } from '../types';
+import { deriveBedrockAuthMode, BEDROCK_DEFAULT_REGION } from '../llm-sdk/provider-guards';
 import { TEXTS } from '../texts';
 import { FolderSuggestModal } from './modals';
 import { HistoryModal } from './history-modal';
@@ -180,12 +181,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     const isOllama = this.tempSettings.provider === 'ollama';
     const isLmStudio = this.tempSettings.provider === 'lmstudio';
     const isBedrock = this.tempSettings.provider === 'bedrock';
-    // v1.24.0: Bedrock auth mode. 'bearer' is the default when the
-    // setting is absent — matches prior-version behavior. Mobile is
-    // forced to bearer since ~/.aws is desktop-only.
-    const bedrockAuthMode: 'bearer' | 'profile' = isBedrock
-      ? (Platform.isMobile ? 'bearer' : (this.tempSettings.bedrockAuthMode ?? 'bearer'))
-      : 'bearer';
+    const bedrockAuthMode = deriveBedrockAuthMode(this.tempSettings, Platform.isMobile);
     const isBedrockProfile = isBedrock && bedrockAuthMode === 'profile';
 
     // Provider Dropdown
@@ -211,7 +207,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           if (config && value !== 'custom') this.tempSettings.baseUrl = config.baseUrl;
           if (value === 'bedrock') {
             this.tempSettings.availableModels = [...BEDROCK_MODELS];
-            this.tempSettings.region = this.tempSettings.region || 'us-east-1';
+            // Pre-select the first curated model so users who go
+            // straight to Test Connection don't send an empty modelId.
+            this.tempSettings.model = BEDROCK_MODELS[0];
+            this.tempSettings.region = this.tempSettings.region || BEDROCK_DEFAULT_REGION;
           } else {
             this.tempSettings.availableModels = [];
           }
@@ -301,8 +300,8 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     if (isBedrock) {
       // Write-through the default so the value shown in the dropdown matches
       // what auto-saves on tab close. Without this, users who never touch the
-      // dropdown save `region: undefined` even though the UI shows 'us-east-1'.
-      const currentRegion = this.tempSettings.region || 'us-east-1';
+      // dropdown save `region: undefined` even though the UI shows the default.
+      const currentRegion = this.tempSettings.region || BEDROCK_DEFAULT_REGION;
       this.tempSettings.region = currentRegion;
       new Setting(containerEl)
         .setName(this.getText('regionName'))
