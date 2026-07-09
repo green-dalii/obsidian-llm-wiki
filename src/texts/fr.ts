@@ -90,6 +90,18 @@ export const FR_TEXTS = {
     switchToDropdown: 'Passer à la sélection par liste déroulante',
     useDropdownButton: 'Utiliser la liste déroulante',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: 'Portée du modèle',
+    modelTaskModeDesc: 'Choisissez si toutes les tâches utilisent le même modèle ou si vous utilisez des modèles différents par tâche (ingestion / maintenance et réparation / requête). Les valeurs par tâche masquées sont conservées lorsque vous revenez au modèle unifié.',
+    modelTaskModeUnified: 'Utiliser un modèle unifié (par défaut)',
+    modelTaskModePerTask: 'Utiliser des modèles différents par tâche',
+    perTaskIngestModelName: 'Modèle d\'ingestion',
+    perTaskIngestModelDesc: 'Utilisé pour ingérer des notes, conversations, maintenance du schéma et génération de la note de bienvenue.',
+    perTaskLintModelName: 'Modèle de maintenance et réparation',
+    perTaskLintModelDesc: 'Utilisé pour l\'analyse Lint, la détection des doublons, les exécutions de réparation et la correction des liens orphelins.',
+    perTaskQueryModelName: 'Modèle de requête',
+    perTaskQueryModelDesc: 'Utilisé pour le chat Query Wiki et l\'évaluation d\'enregistrement dans le Wiki.',
+
     // Test & Save
     testConnectionName: 'Tester la connexion',
     testConnectionDesc: 'Vérifier que la configuration peut appeler l\'API LLM avec succès',

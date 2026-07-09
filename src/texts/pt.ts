@@ -90,6 +90,18 @@ export const PT_TEXTS = {
     switchToDropdown: 'Alternar para seleção por lista',
     useDropdownButton: 'Usar lista suspensa',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: 'Escopo do modelo',
+    modelTaskModeDesc: 'Escolha se todas as tarefas usam o mesmo modelo ou se usa modelos diferentes por tarefa (ingestão / manutenção e reparo / consulta). Os valores por tarefa ocultos são preservados ao voltar para o modelo unificado.',
+    modelTaskModeUnified: 'Usar modelo unificado (padrão)',
+    modelTaskModePerTask: 'Usar modelos diferentes por tarefa',
+    perTaskIngestModelName: 'Modelo de ingestão',
+    perTaskIngestModelDesc: 'Usado para ingerir notas, conversas, manutenção do esquema e geração da nota de boas-vindas.',
+    perTaskLintModelName: 'Modelo de manutenção e reparo',
+    perTaskLintModelDesc: 'Usado para análise Lint, detecção de duplicatas, execuções de reparo e correção de links órfãos.',
+    perTaskQueryModelName: 'Modelo de consulta',
+    perTaskQueryModelDesc: 'Usado para o chat Query Wiki e avaliação de salvamento no Wiki.',
+
     // Test & Save
     testConnectionName: 'Testar conexão',
     testConnectionDesc: 'Validar se a configuração consegue chamar a API LLM com sucesso',

@@ -90,6 +90,18 @@ export const ZH_TEXTS = {
     switchToDropdown: '切换到下拉选择',
     useDropdownButton: '使用下拉选择',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: '模型作用域',
+    modelTaskModeDesc: '选择所有任务使用同一个模型，还是按任务分别使用不同模型（摄取 / 维护修复 / 查询）。切换回统一模型时，已填的分任务模型会被保留而不会被清空。',
+    modelTaskModeUnified: '使用统一模型（默认）',
+    modelTaskModePerTask: '为不同任务使用不同模型',
+    perTaskIngestModelName: '摄取模型',
+    perTaskIngestModelDesc: '用于摄取笔记、对话、Schema 维护以及欢迎笔记生成。',
+    perTaskLintModelName: '维护修复模型',
+    perTaskLintModelDesc: '用于 Lint 分析、重复检测、各种修复任务以及孤儿链接修正。',
+    perTaskQueryModelName: '查询模型',
+    perTaskQueryModelDesc: '用于 Query Wiki 对话与保存到 Wiki 评估。',
+
     // 测试 & 保存
     testConnectionName: '测试连接',
     testConnectionDesc: '验证配置能否成功调用 LLM API',

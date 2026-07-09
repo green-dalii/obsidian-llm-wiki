@@ -94,6 +94,18 @@ export const EN_TEXTS = {
     switchToDropdown: 'Switch to Dropdown Selection',
     useDropdownButton: 'Use Dropdown',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: 'Model Scope',
+    modelTaskModeDesc: 'Choose whether all tasks use the same model, or use separate models per task (ingest / lint / query). Hidden per-task values are preserved when you switch back to unified.',
+    modelTaskModeUnified: 'Use unified model (default)',
+    modelTaskModePerTask: 'Use different models per task',
+    perTaskIngestModelName: 'Ingest Model',
+    perTaskIngestModelDesc: 'Used for ingesting notes, conversations, schema maintenance, and Welcome note generation.',
+    perTaskLintModelName: 'Lint Model',
+    perTaskLintModelDesc: 'Used for lint analysis, duplicate detection, fix-* runs, and link orphan correction.',
+    perTaskQueryModelName: 'Query Model',
+    perTaskQueryModelDesc: 'Used for Query Wiki chat and save-to-wiki evaluation.',
+
     // Test & Save
     testConnectionName: 'Test Connection',
     testConnectionDesc: 'Validate configuration can successfully call LLM API',

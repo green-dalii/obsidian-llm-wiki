@@ -274,6 +274,54 @@ export interface LLMWikiSettings {
    * alongside `queryHistory`.
    */
   customQueryInstructions?: string;
+
+  /**
+   * v1.24.0 #208: per-task model overrides. Each field is the MODEL
+   * string ONLY (same shape as `model`). Provider / apiKey / baseUrl /
+   * thinking-control stay shared — per-provider split would 4× the
+   * credentials UI and break Test Connection's contract.
+   *
+   * Resolution: `perTaskModel?.trim() || settings.model` — see
+   * `src/core/model-resolver.ts`. Empty / whitespace / undefined all
+   * fall through to `settings.model`, so pre-v1.24.0 data.json
+   * (no per-task fields) produces bit-identical behavior.
+   *
+   * - `ingestModel`: ingest extract / summarize / create / merge
+   *   (source-analyzer, page-factory Stage-1..4, conversation-ingest,
+   *    schema-manager, schema/auto-maintain, localize-welcome-note).
+   * - `lintModel`:   lint analysis / dedup / fix-* / link-orphan /
+   *   merge-duplicates / contradictions (all `src/wiki/lint/` + `contradictions.ts`).
+   * - `queryModel`:  Query Wiki chat (3 QueryView send sites) + save-to-wiki eval.
+   *
+   * UI invariant: `usePerTaskModels` toggles whether the settings
+   * panel renders the per-task pickers. Hidden per-task values are
+   * preserved when the user toggles back off (not cleared on save).
+   */
+  ingestModel?: string;
+  lintModel?: string;
+  queryModel?: string;
+
+  /**
+   * v1.24.0 #208: UI toggle for the per-task model picker.
+   * `false` = unified model (all 27 LLM call sites use `settings.model`).
+   * `true`  = per-task overrides active (3 dropdowns render).
+   * Defaults `false`. Setting does NOT affect `resolveModelForTask` —
+   * it is purely a UI rendering hint, since empty/undefined per-task
+   * values fall through to `settings.model` regardless of this flag.
+   */
+  usePerTaskModels?: boolean;
+
+  /**
+   * v1.24.0 #208: per-field "use custom model" toggles, parallel to
+   * `useCustomModel`. Only consumed by the UI when an `availableModels`
+   * list has been fetched — when set, the picker renders as a free-form
+   * text input instead of a dropdown, so the user can paste a model ID
+   * not in the fetched list. These flags are ephemeral UI state and
+   * `false` is the user-facing default ("show me the dropdown").
+   */
+  ingestModelUseCustom?: boolean;
+  lintModelUseCustom?: boolean;
+  queryModelUseCustom?: boolean;
 }
 
 export interface QueryHistoryMessage {

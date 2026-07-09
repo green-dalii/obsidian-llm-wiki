@@ -8,6 +8,13 @@ import { TEXTS } from '../texts';
 import { FolderSuggestModal } from './modals';
 import { HistoryModal } from './history-modal';
 import { classifyFetchError } from './settings-helpers';
+import {
+  resolveModelTaskUiMode,
+  resolveDisplayedModelForTask,
+  shouldRenderModelDropdown,
+  type ModelTaskUiMode,
+  type ModelFieldKey,
+} from './settings-per-task-helpers';
 import { TagChipInputComponent } from './tag-chip-input';
 import { fetchModelsWithFallback } from '../core/url-fallback';
 
@@ -52,6 +59,131 @@ export class LLMWikiSettingTab extends PluginSettingTab {
   getText(key: keyof typeof TEXTS.en): string {
     const texts = TEXTS[this.tempSettings.language];
     return (texts[key] as string) ?? TEXTS.en[key] ?? key;
+  }
+
+  /**
+   * v1.24.0 #208: shared model-picker renderer for all 4 model fields
+   * (unified `model` + per-task `ingestModel` / `lintModel` / `queryModel`).
+   *
+   * Renders either a dropdown (when a fetched list is available AND the
+   * field's `*UseCustom` flag is false) or a free-form text input (in
+   * all other cases). The dropdown carries a sentinel option that, when
+   * picked, either switches to text input mode (unified: `__custom__` →
+   * `useCustomModel=true`) or clears the per-task value to fall back to
+   * `settings.model` (per-task: `__unified__` → `field = ''`).
+   *
+   * Why a shared helper: the existing unified picker and the new
+   * per-task pickers share identical dropdown↔input switching logic.
+   * Implementing it inline 4 times would diverge over time (every
+   * pre-existing bug in the unified picker would reappear in the new
+   * pickers). One helper, four call sites — see settings-per-task-helpers.ts
+   * for the pure rendering policy (`shouldRenderModelDropdown`).
+   */
+  private renderModelField(
+    containerEl: HTMLElement,
+    field: ModelFieldKey,
+    options: {
+      name: string;
+      desc: string;
+      dropdownSentinel: string;
+      dropdownSentinelLabel: string;
+    },
+  ): void {
+    const setting = new Setting(containerEl)
+      .setName(options.name)
+      .setDesc(options.desc);
+    const useDropdown = shouldRenderModelDropdown(this.tempSettings, field);
+    if (useDropdown) {
+      setting.addDropdown(dropdown => {
+        (this.tempSettings.availableModels || []).forEach(model => {
+          dropdown.addOption(model, model);
+        });
+        dropdown.addOption(options.dropdownSentinel, options.dropdownSentinelLabel);
+        const currentVal = this.getCurrentModelValue(field);
+        // If the current value is empty OR not in the fetched list, default
+        // the dropdown to the sentinel option. This covers two cases:
+        //   1. User hasn't picked a per-task value yet (field === '') →
+        //      shows sentinel so user can choose "Custom input..." or
+        //      pick from the list.
+        //   2. User previously typed a custom model ID that isn't in the
+        //      fetched list → showing the sentinel matches the actual
+        //      state (the value is preserved in the field, just not in
+        //      the dropdown's visible options).
+        const displayVal = currentVal.trim() && (this.tempSettings.availableModels || []).includes(currentVal.trim())
+          ? currentVal.trim()
+          : options.dropdownSentinel;
+        dropdown.setValue(displayVal);
+        dropdown.onChange((value) => {
+          if (value === options.dropdownSentinel) {
+            // Unified picker: switch to text input (preserves field value).
+            // Per-task picker: also switch to text input — same UX. The
+            // "use unified model" semantic is expressed by *leaving the
+            // text input blank*, not by a separate sentinel option.
+            // (v1.24.0 #208 UX fix: previously per-task pickers cleared
+            // the field on sentinel pick, which made "use unified model"
+            // accidental — user couldn't tell the two states apart.)
+            if (field === 'model') {
+              this.tempSettings.useCustomModel = true;
+            } else {
+              this.setUseCustomFlag(field, true);
+            }
+            this.display();
+          } else {
+            // Pick a real model from the fetched list.
+            if (field === 'model') {
+              this.tempSettings.useCustomModel = false;
+            } else {
+              this.setUseCustomFlag(field, false);
+            }
+            this.setFieldValue(field, value);
+          }
+        });
+      });
+    } else {
+      // Free-form text input. Show "use dropdown" button only when a
+      // fetched list exists — otherwise there is no dropdown to switch to.
+      const hasFetched = (this.tempSettings.availableModels?.length ?? 0) > 0;
+      setting.addText(text => text
+        .setPlaceholder(this.getText('modelInputPlaceholder'))
+        .setValue(this.getCurrentModelValue(field))
+        .onChange((value) => { this.setFieldValue(field, value); }));
+      if (hasFetched) {
+        setting.addExtraButton(button => button
+          .setIcon('list')
+          .setTooltip(this.getText('useDropdownButton'))
+          .onClick(() => {
+            if (field === 'model') {
+              this.tempSettings.useCustomModel = false;
+            } else {
+              this.setUseCustomFlag(field, false);
+            }
+            this.display();
+          }));
+      }
+    }
+  }
+
+  /** Read the current model string for any of the 4 model fields. */
+  private getCurrentModelValue(field: ModelFieldKey): string {
+    if (field === 'model') return this.tempSettings.model;
+    const task = field === 'ingestModel' ? 'ingest' : field === 'lintModel' ? 'lint' : 'query';
+    return resolveDisplayedModelForTask(this.tempSettings, task);
+  }
+
+  /** Write a model string into any of the 4 model fields. */
+  private setFieldValue(field: ModelFieldKey, value: string): void {
+    if (field === 'model') {
+      this.tempSettings.model = value;
+    } else {
+      (this.tempSettings as unknown as Record<string, string | undefined>)[field] = value;
+    }
+  }
+
+  /** Toggle the <field>UseCustom flag for per-task fields; no-op for unified. */
+  private setUseCustomFlag(field: ModelFieldKey, value: boolean): void {
+    if (field === 'model') return; // useCustomModel is owned by the unified picker
+    const flagKey = `${field}UseCustom`;
+    (this.tempSettings as unknown as Record<string, boolean | undefined>)[flagKey] = value;
   }
 
   /**
@@ -385,42 +517,77 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           button.setDisabled(false);
         }));
 
-    // Model Selection
-    if (this.tempSettings.availableModels && this.tempSettings.availableModels.length > 0 && !this.tempSettings.useCustomModel) {
-      new Setting(containerEl)
-        .setName(this.getText('selectModelName'))
-        .setDesc(this.getText('selectModelDesc').replace('{}', this.tempSettings.availableModels.length.toString()))
-        .addDropdown(dropdown => {
-          (this.tempSettings.availableModels || []).forEach(model => { dropdown.addOption(model, model); });
-          dropdown.addOption('__custom__', this.getText('customInputOption'));
-          dropdown.setValue(this.tempSettings.model);
-          dropdown.onChange((value) => {
-            if (value === '__custom__') { this.tempSettings.useCustomModel = true; this.display(); }
-            else { this.tempSettings.model = value; this.tempSettings.useCustomModel = false; }
-          });
+    // Model Selection — see renderModelField call below.
+    // v1.24.0 #208 unified picker is rendered by the shared helper used
+    // for all 4 model fields (model / ingestModel / lintModel / queryModel).
+    // Sentinel mapping:
+    //   unified:  '__custom__' → useCustomModel=true (switch to text input)
+    //   per-task: '__unified__' → field = '' (fall back to settings.model)
+    // Hidden per-task values are preserved on toggle off.
+
+    // v1.24.0 #208: "Model Scope" dropdown — unified vs per-task mode.
+    // In unified mode, only the unified model picker is shown.
+    // In per-task mode, the unified picker re-labels to "Ingest model"
+    // and 2 additional (lint + query) pickers render below.
+    new Setting(containerEl)
+      .setName(this.getText('modelTaskModeName'))
+      .setDesc(this.getText('modelTaskModeDesc'))
+      .addDropdown(dropdown => {
+        dropdown.addOption('unified', this.getText('modelTaskModeUnified'));
+        dropdown.addOption('per-task', this.getText('modelTaskModePerTask'));
+        dropdown.setValue(resolveModelTaskUiMode(this.tempSettings));
+        dropdown.onChange((value) => {
+          const nextMode: ModelTaskUiMode = value === 'per-task' ? 'per-task' : 'unified';
+          this.tempSettings.usePerTaskModels = nextMode === 'per-task';
+          this.display(); // re-render to show/hide per-task pickers
         });
-    } else {
-      const useDropdown = (this.tempSettings.availableModels?.length ?? 0) > 0;
-      new Setting(containerEl)
-        .setName(this.getText('modelName'))
-        .setDesc(this.tempSettings.availableModels?.length
-          ? this.getText('modelDescCustom')
-          : this.getText('modelDescFetchFailed'))
-        .addText(text => text
-          .setPlaceholder(this.getText('modelInputPlaceholder'))
-          .setValue(this.tempSettings.model)
-          .onChange((value) => { this.tempSettings.model = value; }))
-        .addExtraButton(button => {
-          if (useDropdown) {
-            button
-              .setIcon('list')
-              .setTooltip(this.getText('useDropdownButton'))
-              .onClick(() => { this.tempSettings.useCustomModel = false; this.display(); });
-          }
-        });
+      });
+
+    // Unified model picker — re-labeled as "Ingest model" when per-task
+    // mode is active. Per-task lint/query pickers render only in per-task
+    // mode. All 4 pickers share the same `renderModelField` helper.
+    this.renderModelField(containerEl, 'model', {
+      name: resolveModelTaskUiMode(this.tempSettings) === 'per-task'
+        ? this.getText('perTaskIngestModelName')
+        : this.getText('selectModelName'),
+      desc: resolveModelTaskUiMode(this.tempSettings) === 'per-task'
+        ? this.getText('perTaskIngestModelDesc')
+        : this.getText('selectModelDesc').replace('{}', String(this.tempSettings.availableModels?.length ?? 0)),
+      // Unified picker keeps "Custom input..." → switches to text mode.
+      // Per-task picker keeps "__unified__" → falls back to settings.model.
+      dropdownSentinel: '__custom__',
+      dropdownSentinelLabel: this.getText('customInputOption'),
+    });
+
+    if (resolveModelTaskUiMode(this.tempSettings) === 'per-task') {
+      // Lint + Query pickers (per-task only). Each carries its own
+      // <field>UseCustom flag so dropdown↔input switching is independent
+      // per field (no cross-talk with the unified picker).
+      //
+      // v1.24.0 #208 (UX fix): the sentinel option is `__custom__`
+      // ("Custom input...") — IDENTICAL to the unified picker — NOT
+      // `__unified__`. Picking it switches to a text input where the
+      // user can type any model ID (including "leave blank to fall back
+      // to settings.model"). The "use unified model" semantic is
+      // expressed by *leaving the text input empty*, not by a separate
+      // sentinel option. One dropdown shape across all 4 fields.
+      this.renderModelField(containerEl, 'lintModel', {
+        name: this.getText('perTaskLintModelName'),
+        desc: this.getText('perTaskLintModelDesc'),
+        dropdownSentinel: '__custom__',
+        dropdownSentinelLabel: this.getText('customInputOption'),
+      });
+      this.renderModelField(containerEl, 'queryModel', {
+        name: this.getText('perTaskQueryModelName'),
+        desc: this.getText('perTaskQueryModelDesc'),
+        dropdownSentinel: '__custom__',
+        dropdownSentinelLabel: this.getText('customInputOption'),
+      });
     }
 
     // Issue #75: max tokens per call — shown for local/custom providers only
+
+    // Issue #75: max tokens per call — shown for local/custom providers only Issue #75: max tokens per call — shown for local/custom providers only
     const localLikeProviders = ['ollama', 'lmstudio', 'custom', 'anthropic-compatible'];
     if (localLikeProviders.includes(this.tempSettings.provider)) {
       const tokenOptions = [0, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576];

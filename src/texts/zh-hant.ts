@@ -90,6 +90,18 @@ export const ZH_HANT_TEXTS = {
     switchToDropdown: '切換到下拉選擇',
     useDropdownButton: '使用下拉選擇',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: '模型作用範圍',
+    modelTaskModeDesc: '選擇所有任務使用同一個模型，還是按任務分別使用不同模型（擷取 / 維護修復 / 查詢）。切換回統一模型時，已填的分任務模型會被保留而不會被清空。',
+    modelTaskModeUnified: '使用統一模型（預設）',
+    modelTaskModePerTask: '為不同任務使用不同模型',
+    perTaskIngestModelName: '擷取模型',
+    perTaskIngestModelDesc: '用於擷取筆記、對話、Schema 維護以及歡迎筆記生成。',
+    perTaskLintModelName: '維護修復模型',
+    perTaskLintModelDesc: '用於 Lint 分析、重複偵測、各種修復任務以及孤兒連結修正。',
+    perTaskQueryModelName: '查詢模型',
+    perTaskQueryModelDesc: '用於 Query Wiki 對話與儲存到 Wiki 評估。',
+
     // 测试 & 保存
     testConnectionName: '測試連線',
     testConnectionDesc: '驗證配置能否成功呼叫 LLM API',

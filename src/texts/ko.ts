@@ -90,6 +90,18 @@ export const KO_TEXTS = {
     switchToDropdown: '드롭다운 선택으로 전환',
     useDropdownButton: '드롭다운 사용',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: '모델 범위',
+    modelTaskModeDesc: '모든 작업에서 동일한 모델을 사용할지, 작업별로 다른 모델(수집 / 유지보수·수리 / 쿼리)을 사용할지 선택하세요. 통합 모델로 돌아가면 숨겨진 작업별 모델 값은 보존됩니다(삭제되지 않음).',
+    modelTaskModeUnified: '통합 모델 사용(기본값)',
+    modelTaskModePerTask: '작업별로 다른 모델 사용',
+    perTaskIngestModelName: '수집 모델',
+    perTaskIngestModelDesc: '노트·대화 수집, Schema 유지보수, 환영 노트 생성에 사용됩니다.',
+    perTaskLintModelName: '유지보수·수리 모델',
+    perTaskLintModelDesc: 'Lint 분석, 중복 감지, 다양한 수리 작업, 고아 링크 수정에 사용됩니다.',
+    perTaskQueryModelName: '쿼리 모델',
+    perTaskQueryModelDesc: 'Query Wiki 채팅 및 Wiki 저장 평가에 사용됩니다.',
+
     // Test & Save
     testConnectionName: '연결 테스트',
     testConnectionDesc: '설정이 LLM API를 성공적으로 호출할 수 있는지 확인합니다',

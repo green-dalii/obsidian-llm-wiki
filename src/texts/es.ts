@@ -90,6 +90,18 @@ export const ES_TEXTS = {
     switchToDropdown: 'Cambiar a selección con menú desplegable',
     useDropdownButton: 'Usar menú desplegable',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: 'Alcance del modelo',
+    modelTaskModeDesc: 'Elija si todas las tareas usan el mismo modelo o si usa modelos diferentes por tarea (ingesta / mantenimiento y reparación / consulta). Los valores por tarea ocultos se conservan al volver al modelo unificado.',
+    modelTaskModeUnified: 'Usar modelo unificado (predeterminado)',
+    modelTaskModePerTask: 'Usar modelos diferentes por tarea',
+    perTaskIngestModelName: 'Modelo de ingesta',
+    perTaskIngestModelDesc: 'Se usa para ingerir notas, conversaciones, mantenimiento del esquema y generación de la nota de bienvenida.',
+    perTaskLintModelName: 'Modelo de mantenimiento y reparación',
+    perTaskLintModelDesc: 'Se usa para análisis Lint, detección de duplicados, ejecuciones de reparación y corrección de enlaces huérfanos.',
+    perTaskQueryModelName: 'Modelo de consulta',
+    perTaskQueryModelDesc: 'Se usa para el chat Query Wiki y la evaluación de guardado en Wiki.',
+
     // Test & Save
     testConnectionName: 'Probar conexión',
     testConnectionDesc: 'Valida que la configuración puede llamar correctamente a la API LLM',
