@@ -60,6 +60,17 @@ describe('createLLMClientFromSettings (async)', () => {
         region: 'eu-central-1',
       });
       expect(c).toBeInstanceOf(BedrockSdkClient);
+      // Verify region actually propagates — an instanceof-only assertion
+      // would pass even if the factory dropped the region spread.
+      expect((c as unknown as { region: string }).region).toBe('eu-central-1');
+    });
+
+    it('defaults region to us-east-1 when omitted from settings', async () => {
+      const c = await createLLMClientFromSettings({
+        provider: 'bedrock',
+        apiKey: 'bedrock-test-key',
+      });
+      expect((c as unknown as { region: string }).region).toBe('us-east-1');
     });
   });
 
@@ -135,5 +146,24 @@ describe('createLLMClientFromSettingsSync (preloaded)', () => {
     expect(() =>
       createLLMClientFromSettingsSync({ provider: 'openai', apiKey: 'sk-test' })
     ).toThrow(/SDK modules not preloaded/);
+  });
+
+  it('returns BedrockSdkClient with forwarded region after preload', async () => {
+    // Production path: main.ts calls createLLMClientFromSettingsSync
+    // after preloadLLMClientModules() has run during plugin onload().
+    // A regression that dropped the bedrock branch from the sync
+    // factory would only surface at runtime — this test pins the
+    // preloaded-modules path.
+    const { createLLMClientFromSettingsSync, preloadLLMClientModules } = await import(
+      '../../llm-sdk/create-llm-client'
+    );
+    await preloadLLMClientModules();
+    const c = createLLMClientFromSettingsSync({
+      provider: 'bedrock',
+      apiKey: 'bedrock-test-key',
+      region: 'ap-northeast-1',
+    });
+    expect(c).toBeInstanceOf(BedrockSdkClient);
+    expect((c as unknown as { region: string }).region).toBe('ap-northeast-1');
   });
 });

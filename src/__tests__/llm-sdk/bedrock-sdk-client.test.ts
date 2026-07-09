@@ -182,6 +182,51 @@ describe('BedrockSdkClient', () => {
         bedrock: { reasoningConfig: { type: 'disabled' } },
       });
     });
+
+    it('does NOT send reasoningConfig when enableThinking is true (rely on model default)', async () => {
+      // Strict `=== false` guard: true must produce empty options, so
+      // the model's own default reasoning behavior applies.
+      const client = new BedrockSdkClient({ apiKey: 'bedrock-test-key' });
+      await client.createMessage({
+        model: 'us.anthropic.claude-sonnet-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+        enableThinking: true,
+      });
+
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      expect(call.providerOptions).toEqual({});
+    });
+  });
+
+  describe('parameter forwarding', () => {
+    it('forwards temperature when provided', async () => {
+      const client = new BedrockSdkClient({ apiKey: 'bedrock-test-key' });
+      await client.createMessage({
+        model: 'us.anthropic.claude-sonnet-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+        temperature: 0.7,
+      });
+
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      expect(call.temperature).toBe(0.7);
+    });
+
+    it('drops repetition_penalty (Bedrock has no equivalent)', async () => {
+      const client = new BedrockSdkClient({ apiKey: 'bedrock-test-key' });
+      await client.createMessage({
+        model: 'us.anthropic.claude-sonnet-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+        repetition_penalty: 1.5,
+      });
+
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      // repetition_penalty must NOT leak into providerOptions.bedrock
+      // (there is no Bedrock Converse/Invoke field for it).
+      expect(call.providerOptions).toEqual({});
+    });
   });
 
   describe('error mapping', () => {
@@ -200,16 +245,20 @@ describe('BedrockSdkClient', () => {
       mockGenerateText.mockRejectedValue(apiErr);
 
       const client = new BedrockSdkClient({ apiKey: 'bedrock-test-key' });
+      // Assert the enriched provider body is surfaced (not just any
+      // "status 400" — the mapper must extract responseBody.message).
       await expect(
         client.createMessage({
           model: 'us.anthropic.claude-sonnet-5',
           max_tokens: 100,
           messages: [{ role: 'user', content: 'hi' }],
         })
-      ).rejects.toThrow(/status 400/);
+      ).rejects.toThrow(/The model does not support the requested operation\./);
     });
+  });
 
-    function makeStreamResult(chunks: string[]) {
+  describe('createMessageStream', () => {
+    function makeStreamResult(chunks: string[], opts: { reasoning?: string } = {}) {
       return {
         textStream: (async function* () {
           for (const c of chunks) yield c;
@@ -218,6 +267,9 @@ describe('BedrockSdkClient', () => {
           for (const c of chunks) yield { type: 'text-delta', textDelta: c } as never;
         })(),
         text: chunks.join(''),
+        reasoning: opts.reasoning !== undefined
+          ? Promise.resolve(opts.reasoning)
+          : Promise.resolve(undefined),
         usage: Promise.resolve({ inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
         finishReason: Promise.resolve('stop'),
         response: Promise.resolve({
@@ -227,7 +279,7 @@ describe('BedrockSdkClient', () => {
           headers: {},
           body: {},
         }),
-      } as unknown as Awaited<ReturnType<typeof streamText>>;
+      } as unknown as ReturnType<typeof streamText>;
     }
 
     beforeEach(() => {
@@ -248,6 +300,40 @@ describe('BedrockSdkClient', () => {
 
       expect(chunks).toEqual(['hello', ' ', 'world']);
       expect(result).toBe('hello world');
+    });
+
+    it('prepends <think>...</think> wrap when reasoning content is present', async () => {
+      // Bedrock Claude models can return extended-thinking output; the
+      // client wraps it in <think> so downstream chat rendering can
+      // fold it. Regression protection for the wrap format.
+      mockStreamText.mockReturnValue(
+        makeStreamResult(['answer text'], { reasoning: 'chain of thought' })
+      );
+
+      const client = new BedrockSdkClient({ apiKey: 'bedrock-test-key' });
+      const result = await client.createMessageStream({
+        model: 'us.anthropic.claude-sonnet-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+        onChunk: () => {},
+      });
+
+      expect(result).toBe('<think>\nchain of thought\n</think>\n\nanswer text');
+    });
+
+    it('does NOT wrap when reasoning is absent (empty string)', async () => {
+      mockStreamText.mockReturnValue(makeStreamResult(['plain answer']));
+
+      const client = new BedrockSdkClient({ apiKey: 'bedrock-test-key' });
+      const result = await client.createMessageStream({
+        model: 'us.anthropic.claude-sonnet-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+        onChunk: () => {},
+      });
+
+      expect(result).toBe('plain answer');
+      expect(result).not.toContain('<think>');
     });
   });
 

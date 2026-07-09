@@ -54,7 +54,11 @@ export class BedrockSdkClient implements LLMClient {
   }
 
   async createMessage(params: LLMClient['createMessage'] extends (p: infer P) => unknown ? P : never): Promise<string> {
-    const { model, max_tokens, system, messages, temperature, repetition_penalty, enableThinking } = params;
+    // Bedrock's Converse/Invoke APIs have no repetition_penalty parameter
+    // for any hosted model family (Claude/Llama/Nova), so we drop it
+    // from the request. AnthropicSdkClient forwards it because
+    // Anthropic-compatible proxies (GLM/z.ai) accept the field.
+    const { model, max_tokens, system, messages, temperature, enableThinking } = params;
 
     try {
       const languageModel = this.getProvider(model, this.fetchImpl);
@@ -67,7 +71,6 @@ export class BedrockSdkClient implements LLMClient {
         maxOutputTokens: max_tokens,
         providerOptions: this.buildProviderOptions({
           enableThinking,
-          repetitionPenalty: repetition_penalty,
         }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
         ...(temperature !== undefined ? { temperature } : {}),
       });
@@ -82,13 +85,12 @@ export class BedrockSdkClient implements LLMClient {
    *
    * Bedrock extended thinking: AI-SDK exposes
    * `providerOptions.bedrock.reasoningConfig` with
-   * `{type: 'enabled' | 'disabled' | 'adaptive', budgetTokens?: number}`.
+   * `{type: 'enabled' | 'disabled', budgetTokens?: number}`.
    * We map `enableThinking=false` → `{type: 'disabled'}`, mirroring
    * AnthropicSdkClient's `thinking: {type: 'disabled'}` mapping.
    */
   private buildProviderOptions(opts: {
     enableThinking?: boolean;
-    repetitionPenalty?: number;
   }): Record<string, Record<string, unknown>> {
     const bedrockOpts: Record<string, unknown> = {};
 
@@ -109,7 +111,10 @@ export class BedrockSdkClient implements LLMClient {
     temperature?: number;
     repetition_penalty?: number;
   }): Promise<string> {
-    const { model, max_tokens, system, messages, onChunk, temperature, repetition_penalty, enableThinking } = params;
+    // repetition_penalty accepted for LLMClient signature parity but
+    // dropped — Bedrock has no equivalent request field (see
+    // createMessage above).
+    const { model, max_tokens, system, messages, onChunk, temperature, enableThinking } = params;
 
     try {
       const languageModel = this.getProvider(model, this.streamFetchImpl);
@@ -122,7 +127,6 @@ export class BedrockSdkClient implements LLMClient {
         maxOutputTokens: max_tokens,
         providerOptions: this.buildProviderOptions({
           enableThinking,
-          repetitionPenalty: repetition_penalty,
         }) as unknown as Parameters<typeof streamText>[0]['providerOptions'],
         ...(temperature !== undefined ? { temperature } : {}),
       });

@@ -481,10 +481,21 @@ export const BEDROCK_REGIONS: string[] = [
 ];
 
 // Amazon Bedrock: curated model IDs (no live ListFoundationModels
-// fetch in v1 — see design doc). Cross-region inference profile IDs
-// (the "us." prefix) are preferred where available since they have
-// broader throughput quotas than the bare regional ID.
+// fetch in v1 — see design doc). Inference profile IDs are preferred
+// where available since they have broader throughput quotas than the
+// bare regional model ID.
+//
+// ID shape note: AWS dropped the `-YYYYMMDD-vN:M` suffix for Anthropic
+// models from Opus 4.6 onward (Sonnet 5, Opus 4.8 use the short form).
+// Haiku 4.5 was the last Anthropic model on the old shape. Verified
+// against AWS Bedrock model cards (2026-07-09).
+//
+// `global.*` profiles route to the lowest-latency region worldwide and
+// are ~10% cheaper than regional endpoints per Anthropic's Bedrock
+// docs — recommended when data residency is flexible.
 export const BEDROCK_MODELS: string[] = [
+  'global.anthropic.claude-sonnet-5',
+  'global.anthropic.claude-opus-4-8',
   'us.anthropic.claude-sonnet-5',
   'us.anthropic.claude-opus-4-8',
   'us.anthropic.claude-haiku-4-5-20251001-v1:0',
