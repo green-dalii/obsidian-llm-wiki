@@ -72,6 +72,68 @@ describe('createLLMClientFromSettings (async)', () => {
       });
       expect((c as unknown as { region: string }).region).toBe('us-east-1');
     });
+
+    it('bearer mode: constructs client with apiKey, no credentialProvider', async () => {
+      const c = await createLLMClientFromSettings({
+        provider: 'bedrock',
+        apiKey: 'bedrock-test-key',
+        bedrockAuthMode: 'bearer',
+      });
+      expect(c).toBeInstanceOf(BedrockSdkClient);
+      const client = c as unknown as {
+        apiKey: string | undefined;
+        credentialProvider: unknown;
+      };
+      expect(client.apiKey).toBe('bedrock-test-key');
+      expect(client.credentialProvider).toBeUndefined();
+    });
+
+    it('profile mode: constructs client with credentialProvider, no apiKey', async () => {
+      const c = await createLLMClientFromSettings({
+        provider: 'bedrock',
+        apiKey: '',
+        bedrockAuthMode: 'profile',
+        awsProfile: 'dev-sso',
+        region: 'us-west-2',
+      });
+      expect(c).toBeInstanceOf(BedrockSdkClient);
+      const client = c as unknown as {
+        apiKey: string | undefined;
+        credentialProvider: (() => Promise<unknown>) | undefined;
+      };
+      expect(client.apiKey).toBeUndefined();
+      expect(typeof client.credentialProvider).toBe('function');
+    });
+
+    it('profile mode without awsProfile: uses default profile chain', async () => {
+      const c = await createLLMClientFromSettings({
+        provider: 'bedrock',
+        apiKey: '',
+        bedrockAuthMode: 'profile',
+      });
+      expect(c).toBeInstanceOf(BedrockSdkClient);
+      const client = c as unknown as {
+        credentialProvider: (() => Promise<unknown>) | undefined;
+      };
+      expect(typeof client.credentialProvider).toBe('function');
+    });
+
+    it('profile mode on mobile: throws desktop-only error', async () => {
+      const obsidianMock = await import('obsidian') as { Platform: { isMobile: boolean } };
+      const wasMobile = obsidianMock.Platform.isMobile;
+      obsidianMock.Platform.isMobile = true;
+      try {
+        await expect(
+          createLLMClientFromSettings({
+            provider: 'bedrock',
+            apiKey: '',
+            bedrockAuthMode: 'profile',
+          })
+        ).rejects.toThrow(/desktop/i);
+      } finally {
+        obsidianMock.Platform.isMobile = wasMobile;
+      }
+    });
   });
 
   describe('OpenAI-compatible backends (8 PREDEFINED_PROVIDERS + custom)', () => {
@@ -165,5 +227,29 @@ describe('createLLMClientFromSettingsSync (preloaded)', () => {
     });
     expect(c).toBeInstanceOf(BedrockSdkClient);
     expect((c as unknown as { region: string }).region).toBe('ap-northeast-1');
+  });
+
+  it('constructs Bedrock profile-mode client via preloaded credential-providers', async () => {
+    // Sync-factory production path when user has bedrockAuthMode='profile'.
+    // Requires @aws-sdk/credential-providers to be in the preloaded
+    // module map alongside the AI-SDK clients.
+    const { createLLMClientFromSettingsSync, preloadLLMClientModules } = await import(
+      '../../llm-sdk/create-llm-client'
+    );
+    await preloadLLMClientModules();
+    const c = createLLMClientFromSettingsSync({
+      provider: 'bedrock',
+      apiKey: '',
+      bedrockAuthMode: 'profile',
+      awsProfile: 'default',
+      region: 'us-east-1',
+    });
+    expect(c).toBeInstanceOf(BedrockSdkClient);
+    const client = c as unknown as {
+      apiKey: string | undefined;
+      credentialProvider: (() => Promise<unknown>) | undefined;
+    };
+    expect(client.apiKey).toBeUndefined();
+    expect(typeof client.credentialProvider).toBe('function');
   });
 });

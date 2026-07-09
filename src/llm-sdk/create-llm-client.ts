@@ -18,6 +18,7 @@
 // sites in main.ts / wiki-engine.ts / query-engine.ts unchanged
 // (they all expect a sync `LLMClient` instance).
 
+import { Platform } from 'obsidian';
 import { LLMClient } from '../types';
 
 export interface ProviderSettings {
@@ -25,6 +26,13 @@ export interface ProviderSettings {
   apiKey: string;
   baseUrl?: string;
   region?: string;
+  /**
+   * v1.24.0: Amazon Bedrock auth mode. 'bearer' (default) uses the
+   * apiKey field; 'profile' resolves credentials via AWS SDK's
+   * fromNodeProviderChain (~/.aws + SSO cache). Desktop-only.
+   */
+  bedrockAuthMode?: 'bearer' | 'profile';
+  awsProfile?: string;
   useOfficialOpenAI?: boolean;
 }
 
@@ -54,6 +62,21 @@ export async function createLLMClientFromSettings(settings: ProviderSettings): P
   }
 
   if (provider === 'bedrock') {
+    if (settings.bedrockAuthMode === 'profile') {
+      if (Platform.isMobile) {
+        throw new Error(
+          'Bedrock AWS Profile / SSO mode requires Obsidian desktop (mobile has no ~/.aws filesystem). Switch to Bearer API key mode in Settings.'
+        );
+      }
+      const { fromNodeProviderChain } = await import('@aws-sdk/credential-providers');
+      const credentialProvider = fromNodeProviderChain(
+        settings.awsProfile ? { profile: settings.awsProfile } : {}
+      );
+      return new BedrockSdkClient({
+        credentialProvider,
+        ...(settings.region ? { region: settings.region } : {}),
+      });
+    }
     return new BedrockSdkClient({
       apiKey,
       ...(settings.region ? { region: settings.region } : {}),
@@ -85,15 +108,23 @@ export interface PreloadedSdkModules {
   AnthropicSdkClient: typeof import('./anthropic-sdk-client').AnthropicSdkClient;
   OpenAICompatSdkClient: typeof import('./openai-compat-sdk-client').OpenAICompatSdkClient;
   BedrockSdkClient: typeof import('./bedrock-sdk-client').BedrockSdkClient;
+  /**
+   * v1.24.0: fromNodeProviderChain from @aws-sdk/credential-providers.
+   * Present only on desktop — mobile does not preload this module
+   * (see preloadLLMClientModules). Used by the sync factory when
+   * settings.bedrockAuthMode === 'profile'.
+   */
+  fromNodeProviderChain?: typeof import('@aws-sdk/credential-providers').fromNodeProviderChain;
 }
 
 let preloadedModules: PreloadedSdkModules | null = null;
 
 /**
- * Eagerly load all three SDK modules. Called once during plugin
- * `onload()` so subsequent sync `createLLMClientFromSettingsSync`
- * calls don't need to await dynamic imports (which would block the
- * sync API contract).
+ * Eagerly load all SDK modules. Called once during plugin `onload()`
+ * so subsequent sync `createLLMClientFromSettingsSync` calls don't
+ * need to await dynamic imports (which would block the sync API
+ * contract). @aws-sdk/credential-providers is only preloaded on
+ * desktop (mobile has no ~/.aws filesystem and Node builtins).
  */
 export async function preloadLLMClientModules(): Promise<void> {
   const [openai, anthropic, compat, bedrock] = await Promise.all([
@@ -102,12 +133,17 @@ export async function preloadLLMClientModules(): Promise<void> {
     import('./openai-compat-sdk-client'),
     import('./bedrock-sdk-client'),
   ]);
-  preloadedModules = {
+  const modules: PreloadedSdkModules = {
     OpenAISdkClient: openai.OpenAISdkClient,
     AnthropicSdkClient: anthropic.AnthropicSdkClient,
     OpenAICompatSdkClient: compat.OpenAICompatSdkClient,
     BedrockSdkClient: bedrock.BedrockSdkClient,
   };
+  if (!Platform.isMobile) {
+    const credProviders = await import('@aws-sdk/credential-providers');
+    modules.fromNodeProviderChain = credProviders.fromNodeProviderChain;
+  }
+  preloadedModules = modules;
 }
 
 /**
@@ -123,7 +159,7 @@ export function createLLMClientFromSettingsSync(settings: ProviderSettings): LLM
       'Call `await preloadLLMClientModules()` during plugin onload() before any LLM call.'
     );
   }
-  const { OpenAISdkClient, AnthropicSdkClient, OpenAICompatSdkClient, BedrockSdkClient } = preloadedModules;
+  const { OpenAISdkClient, AnthropicSdkClient, OpenAICompatSdkClient, BedrockSdkClient, fromNodeProviderChain } = preloadedModules;
 
   const provider = settings.provider;
   const apiKey = settings.apiKey.trim();
@@ -141,6 +177,25 @@ export function createLLMClientFromSettingsSync(settings: ProviderSettings): LLM
   }
 
   if (provider === 'bedrock') {
+    if (settings.bedrockAuthMode === 'profile') {
+      if (Platform.isMobile) {
+        throw new Error(
+          'Bedrock AWS Profile / SSO mode requires Obsidian desktop (mobile has no ~/.aws filesystem). Switch to Bearer API key mode in Settings.'
+        );
+      }
+      if (!fromNodeProviderChain) {
+        throw new Error(
+          '[v1.24.0 Bedrock SSO] @aws-sdk/credential-providers was not preloaded. Ensure preloadLLMClientModules() ran during plugin onload().'
+        );
+      }
+      const credentialProvider = fromNodeProviderChain(
+        settings.awsProfile ? { profile: settings.awsProfile } : {}
+      );
+      return new BedrockSdkClient({
+        credentialProvider,
+        ...(settings.region ? { region: settings.region } : {}),
+      });
+    }
     return new BedrockSdkClient({
       apiKey,
       ...(settings.region ? { region: settings.region } : {}),
