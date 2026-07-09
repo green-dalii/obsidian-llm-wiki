@@ -732,7 +732,11 @@ export class AutoMaintainManager {
     if (!llmClient) {
       return { ok: false, error: 'LLM client not configured. Open Settings → LLM Provider.' };
     }
-    if (!this.settings.apiKey) {
+    // Bedrock + AWS Profile / SSO mode: credentials come from ~/.aws via
+    // fromNodeProviderChain, so settings.apiKey is legitimately empty.
+    const isBedrockProfile =
+      this.settings.provider === 'bedrock' && this.settings.bedrockAuthMode === 'profile';
+    if (!this.settings.apiKey && !isBedrockProfile) {
       return { ok: false, error: 'API key not configured.' };
     }
     if (!this.settings.model) {
