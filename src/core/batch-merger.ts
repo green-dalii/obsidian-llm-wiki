@@ -224,7 +224,12 @@ export function buildSourceAnalysis(
     contradictions?: ContradictionInfo[];
     relatedPages?: string[];
     keyPoints?: string[];
-  }
+  },
+  // Issue #185: curated `aliases:` authored on the source note
+  // frontmatter. Forwarded as-is into SourceAnalysis.source_note_aliases
+  // so the downstream WikiEngine.createSummaryPage can inject them into
+  // the generated `sources/<slug>` frontmatter.
+  sourceNoteAliases?: string[]
 ): SourceAnalysis {
   return {
     source_file: filePath,
@@ -236,7 +241,8 @@ export function buildSourceAnalysis(
     related_pages: accumulation.relatedPages,
     key_points: accumulation.keyPoints,
     created_pages: [],
-    updated_pages: []
+    updated_pages: [],
+    source_note_aliases: sourceNoteAliases
   };
 }
 

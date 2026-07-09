@@ -168,6 +168,16 @@ export class SourceAnalyzer {
       return null;
     }
 
+    // Issue #185: source note's frontmatter `aliases:` are appended to
+    // the generated `sources/<slug>` page (consumed there by
+    // `fix-dead-link`'s slugify-normalized cross-page alias match).
+    const noteFm = this.ctx.app.metadataCache
+      .getFileCache(file)?.frontmatter as { aliases?: unknown } | undefined;
+    const rawNoteAliases = noteFm?.aliases;
+    const sourceNoteAliases: string[] = Array.isArray(rawNoteAliases)
+      ? rawNoteAliases.filter((a): a is string => typeof a === 'string')
+      : [];
+
     console.debug('Existing Wiki pages count: — delayed until post-extraction matching');
 
     // Calculate batch limits using pure functions (Phase 1)
@@ -496,7 +506,10 @@ export class SourceAnalyzer {
       firstBatchData ? {
         sourceTitle: firstBatchData.sourceTitle,
         summary: firstBatchData.summary
-      } : undefined
+      } : undefined,
+      // Issue #185: forward curated source-note aliases so the
+      // generated sources/<slug> page can carry them.
+      sourceNoteAliases
     );
 
     console.debug('=== Iterative extraction complete ===');

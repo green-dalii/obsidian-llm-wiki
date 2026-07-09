@@ -18,7 +18,7 @@ import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
 import { slugify } from '../core/slug';
 import { resolveSourceSlug } from '../core/source-slug';
-import { parseFrontmatter, upsertFrontmatterField, extractBody } from '../core/frontmatter';
+import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
 import { setGenerationComplete } from '../core/incomplete-page-cleaner';
 import { hashBody, checkContentRequirements } from '../core/source-requirements';
 import type { SourceRejection } from '../core/source-requirements';
@@ -996,8 +996,31 @@ export class WikiEngine {
     const cleanedContent = cleanMarkdownResponse(pageContent);
     // #164: stamp a content fingerprint so future ingests can detect duplicates.
     // Injected programmatically — the LLM can't be trusted to emit it.
-    const stampedContent = upsertFrontmatterField(cleanedContent, 'contentHash', hashBody(extractBody(content)));
-    await this.createOrUpdateFile(path, stampedContent);
+    let finalContent = upsertFrontmatterField(cleanedContent, 'contentHash', hashBody(extractBody(content)));
+
+    // Issue #185: append the source note's curated frontmatter `aliases:`
+    // to the generated `sources/<slug>` page. Merged inline (BEFORE the
+    // write) so the page lands complete on disk in one `createOrUpdateFile`
+    // call — no partial-write window. Downstream `fix-dead-link`
+    // (slugify-normalized cross-page alias match at lint/scanners.ts:150 +
+    // fix-dead-link.ts:237) consumes this pool to retarget dead links
+    // written with inflection variants — a German "Exekutiven Funktionen"
+    // link in body text resolves to the canonical page via this alias.
+    //
+    // `mergeFrontmatterArrayField` short-circuits when the additions are
+    // already present (frontmatter.ts:211), so the `!==` check below is
+    // purely an observability gate.
+    if (analysis.source_note_aliases?.length) {
+      const withAliases = mergeFrontmatterArrayField(finalContent, 'aliases', analysis.source_note_aliases);
+      if (withAliases !== finalContent) {
+        console.debug(
+          `[Issue #185] Propagated ${analysis.source_note_aliases.length} alias(es) to ${path}`
+        );
+        finalContent = withAliases;
+      }
+    }
+
+    await this.createOrUpdateFile(path, finalContent);
     return path;
   }
 
