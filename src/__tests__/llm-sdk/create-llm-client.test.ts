@@ -10,6 +10,7 @@ import { createLLMClientFromSettings } from '../../llm-sdk/create-llm-client';
 import { OpenAISdkClient } from '../../llm-sdk/openai-sdk-client';
 import { AnthropicSdkClient } from '../../llm-sdk/anthropic-sdk-client';
 import { OpenAICompatSdkClient } from '../../llm-sdk/openai-compat-sdk-client';
+import { BedrockSdkClient } from '../../llm-sdk/bedrock-sdk-client';
 
 describe('createLLMClientFromSettings (async)', () => {
   describe('official providers', () => {
@@ -40,6 +41,25 @@ describe('createLLMClientFromSettings (async)', () => {
         apiKey: 'sk-test',
       });
       expect(c).toBeInstanceOf(AnthropicSdkClient);
+    });
+  });
+
+  describe('Amazon Bedrock', () => {
+    it('returns BedrockSdkClient for provider="bedrock"', async () => {
+      const c = await createLLMClientFromSettings({
+        provider: 'bedrock',
+        apiKey: 'bedrock-test-key',
+      });
+      expect(c).toBeInstanceOf(BedrockSdkClient);
+    });
+
+    it('returns BedrockSdkClient with region for provider="bedrock"', async () => {
+      const c = await createLLMClientFromSettings({
+        provider: 'bedrock',
+        apiKey: 'bedrock-test-key',
+        region: 'eu-central-1',
+      });
+      expect(c).toBeInstanceOf(BedrockSdkClient);
     });
   });
 

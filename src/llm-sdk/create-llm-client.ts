@@ -24,6 +24,7 @@ export interface ProviderSettings {
   provider: string;
   apiKey: string;
   baseUrl?: string;
+  region?: string;
   useOfficialOpenAI?: boolean;
 }
 
@@ -35,6 +36,7 @@ export async function createLLMClientFromSettings(settings: ProviderSettings): P
   const { OpenAISdkClient } = await import('./openai-sdk-client');
   const { AnthropicSdkClient } = await import('./anthropic-sdk-client');
   const { OpenAICompatSdkClient } = await import('./openai-compat-sdk-client');
+  const { BedrockSdkClient } = await import('./bedrock-sdk-client');
 
   const provider = settings.provider;
   const apiKey = settings.apiKey.trim();
@@ -48,6 +50,13 @@ export async function createLLMClientFromSettings(settings: ProviderSettings): P
     return new AnthropicSdkClient({
       apiKey,
       ...(baseUrl ? { baseURL: baseUrl } : {}),
+    });
+  }
+
+  if (provider === 'bedrock') {
+    return new BedrockSdkClient({
+      apiKey,
+      ...(settings.region ? { region: settings.region } : {}),
     });
   }
 
@@ -75,6 +84,7 @@ export interface PreloadedSdkModules {
   OpenAISdkClient: typeof import('./openai-sdk-client').OpenAISdkClient;
   AnthropicSdkClient: typeof import('./anthropic-sdk-client').AnthropicSdkClient;
   OpenAICompatSdkClient: typeof import('./openai-compat-sdk-client').OpenAICompatSdkClient;
+  BedrockSdkClient: typeof import('./bedrock-sdk-client').BedrockSdkClient;
 }
 
 let preloadedModules: PreloadedSdkModules | null = null;
@@ -86,15 +96,17 @@ let preloadedModules: PreloadedSdkModules | null = null;
  * sync API contract).
  */
 export async function preloadLLMClientModules(): Promise<void> {
-  const [openai, anthropic, compat] = await Promise.all([
+  const [openai, anthropic, compat, bedrock] = await Promise.all([
     import('./openai-sdk-client'),
     import('./anthropic-sdk-client'),
     import('./openai-compat-sdk-client'),
+    import('./bedrock-sdk-client'),
   ]);
   preloadedModules = {
     OpenAISdkClient: openai.OpenAISdkClient,
     AnthropicSdkClient: anthropic.AnthropicSdkClient,
     OpenAICompatSdkClient: compat.OpenAICompatSdkClient,
+    BedrockSdkClient: bedrock.BedrockSdkClient,
   };
 }
 
@@ -111,7 +123,7 @@ export function createLLMClientFromSettingsSync(settings: ProviderSettings): LLM
       'Call `await preloadLLMClientModules()` during plugin onload() before any LLM call.'
     );
   }
-  const { OpenAISdkClient, AnthropicSdkClient, OpenAICompatSdkClient } = preloadedModules;
+  const { OpenAISdkClient, AnthropicSdkClient, OpenAICompatSdkClient, BedrockSdkClient } = preloadedModules;
 
   const provider = settings.provider;
   const apiKey = settings.apiKey.trim();
@@ -125,6 +137,13 @@ export function createLLMClientFromSettingsSync(settings: ProviderSettings): LLM
     return new AnthropicSdkClient({
       apiKey,
       ...(baseUrl ? { baseURL: baseUrl } : {}),
+    });
+  }
+
+  if (provider === 'bedrock') {
+    return new BedrockSdkClient({
+      apiKey,
+      ...(settings.region ? { region: settings.region } : {}),
     });
   }
 
