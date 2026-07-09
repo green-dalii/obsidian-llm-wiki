@@ -252,12 +252,17 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     // this design (endpoint is derived from region), so this replaces
     // the Base URL field for this provider.
     if (isBedrock) {
+      // Write-through the default so the value shown in the dropdown matches
+      // what auto-saves on tab close. Without this, users who never touch the
+      // dropdown save `region: undefined` even though the UI shows 'us-east-1'.
+      const currentRegion = this.tempSettings.region || 'us-east-1';
+      this.tempSettings.region = currentRegion;
       new Setting(containerEl)
         .setName(this.getText('regionName'))
         .setDesc(this.getText('regionDesc'))
         .addDropdown(dropdown => {
           BEDROCK_REGIONS.forEach(region => { dropdown.addOption(region, region); });
-          dropdown.setValue(this.tempSettings.region || 'us-east-1');
+          dropdown.setValue(currentRegion);
           dropdown.onChange((value) => {
             this.tempSettings.region = value;
             this.tempSettings.llmReady = false;
