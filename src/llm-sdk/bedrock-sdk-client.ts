@@ -18,8 +18,34 @@ import { LLMClient } from '../types';
 import { obsidianFetchBridge, streamWithFallback } from '../core/obsidian-fetch-bridge';
 import { mapAiSdkError } from './openai-sdk-client';
 
+/**
+ * AWS credential provider signature — an async function returning
+ * temporary credentials. Compatible with `fromNodeProviderChain` from
+ * `@aws-sdk/credential-providers` (which returns credentials plus
+ * optional `expiration`/`accountId` fields — ignored via structural
+ * subtyping).
+ */
+export type BedrockCredentialProvider = () => Promise<{
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
+}>;
+
 export interface BedrockSdkClientOptions {
-  apiKey: string;
+  /**
+   * Bearer API key (long-lived Bedrock API key). Mutually exclusive
+   * with `credentialProvider` — pass exactly one.
+   */
+  apiKey?: string;
+  /**
+   * AWS credential provider — typically `fromNodeProviderChain({profile})`
+   * from `@aws-sdk/credential-providers`. Handles SSO refresh
+   * transparently. Mutually exclusive with `apiKey`. Held by
+   * reference and invoked lazily by the AI-SDK per request; the
+   * caller is responsible for constructing it once (so the
+   * memoization in `fromNodeProviderChain` isn't defeated).
+   */
+  credentialProvider?: BedrockCredentialProvider;
   /** AWS region for the Bedrock provider. Defaults to 'us-east-1'. */
   region?: string;
   /** Override non-streaming fetch (used in tests with a mocked bridge). */
@@ -32,24 +58,44 @@ export interface BedrockSdkClientOptions {
 }
 
 export class BedrockSdkClient implements LLMClient {
-  private readonly apiKey: string;
+  private readonly apiKey: string | undefined;
+  private readonly credentialProvider: BedrockCredentialProvider | undefined;
   private readonly region: string;
   private readonly fetchImpl: typeof obsidianFetchBridge;
   private readonly streamFetchImpl: typeof streamWithFallback;
 
   constructor(opts: BedrockSdkClientOptions) {
+    const hasApiKey = typeof opts.apiKey === 'string' && opts.apiKey.length > 0;
+    const hasCredentialProvider = typeof opts.credentialProvider === 'function';
+    if (hasApiKey === hasCredentialProvider) {
+      throw new Error(
+        'BedrockSdkClient: exactly one of apiKey or credentialProvider must be provided.'
+      );
+    }
     this.apiKey = opts.apiKey;
+    this.credentialProvider = opts.credentialProvider;
     this.region = opts.region ?? 'us-east-1';
     this.fetchImpl = opts.fetch ?? obsidianFetchBridge;
     this.streamFetchImpl = opts.streamFetch ?? streamWithFallback;
   }
 
   private getProvider(modelId: string, fetchFn: typeof obsidianFetchBridge | typeof streamWithFallback = this.streamFetchImpl): LanguageModel {
-    const provider = createAmazonBedrock({
-      apiKey: this.apiKey,
-      region: this.region,
-      fetch: fetchFn as unknown as typeof fetch,
-    });
+    // @ai-sdk/amazon-bedrock: `apiKey` and `credentialProvider` are
+    // mutually exclusive at the SDK level (see dist/index.js — the
+    // provider picks one code path based on which is set). Constructor
+    // enforces the invariant; here we just pass through whichever is
+    // set.
+    const provider = this.apiKey
+      ? createAmazonBedrock({
+          apiKey: this.apiKey,
+          region: this.region,
+          fetch: fetchFn as unknown as typeof fetch,
+        })
+      : createAmazonBedrock({
+          credentialProvider: this.credentialProvider,
+          region: this.region,
+          fetch: fetchFn as unknown as typeof fetch,
+        });
     return provider(modelId);
   }
 

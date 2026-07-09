@@ -337,6 +337,89 @@ describe('BedrockSdkClient', () => {
     });
   });
 
+  describe('credentialProvider (SSO / AWS Profile) auth mode', () => {
+    beforeEach(() => {
+      mockCreateAmazonBedrock.mockClear();
+      mockGenerateText.mockReset();
+      mockGenerateText.mockResolvedValue(makeGenerateTextResult('hello from bedrock'));
+    });
+
+    it('throws when both apiKey and credentialProvider are set', () => {
+      const dummyProvider = async () => ({ accessKeyId: 'AKIA', secretAccessKey: 'x' });
+      expect(() => new BedrockSdkClient({
+        apiKey: 'bedrock-test-key',
+        credentialProvider: dummyProvider,
+      })).toThrow(/exactly one of apiKey or credentialProvider/i);
+    });
+
+    it('throws when neither apiKey nor credentialProvider is set', () => {
+      expect(() => new BedrockSdkClient({} as unknown as { apiKey: string })).toThrow(
+        /exactly one of apiKey or credentialProvider/i
+      );
+    });
+
+    it('passes credentialProvider (not apiKey) to createAmazonBedrock', async () => {
+      const dummyProvider = async () => ({
+        accessKeyId: 'AKIA-TEST',
+        secretAccessKey: 'secret-test',
+        sessionToken: 'session-test',
+      });
+      const client = new BedrockSdkClient({
+        credentialProvider: dummyProvider,
+        region: 'us-west-2',
+      });
+      await client.createMessage({
+        model: 'us.anthropic.claude-sonnet-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+
+      const callOpts = mockCreateAmazonBedrock.mock.calls.at(-1)![0] as Record<string, unknown>;
+      expect(callOpts.credentialProvider).toBe(dummyProvider);
+      expect(callOpts.apiKey).toBeUndefined();
+      expect(callOpts.region).toBe('us-west-2');
+    });
+
+    it('passes apiKey (not credentialProvider) in bearer mode — regression guard', async () => {
+      const client = new BedrockSdkClient({ apiKey: 'bedrock-test-key' });
+      await client.createMessage({
+        model: 'us.anthropic.claude-sonnet-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+
+      const callOpts = mockCreateAmazonBedrock.mock.calls.at(-1)![0] as Record<string, unknown>;
+      expect(callOpts.apiKey).toBe('bedrock-test-key');
+      expect(callOpts.credentialProvider).toBeUndefined();
+    });
+
+    it('resolves credentialProvider lazily at request time (not construction)', async () => {
+      // Regression protection: fromNodeProviderChain's memoization only
+      // works if the provider function is held and invoked lazily.
+      // Constructing the client must NOT eagerly invoke the provider.
+      let invocations = 0;
+      const spyProvider = async () => {
+        invocations++;
+        return { accessKeyId: 'AKIA', secretAccessKey: 'x' };
+      };
+      const client = new BedrockSdkClient({ credentialProvider: spyProvider });
+      expect(invocations).toBe(0);
+
+      // The AI-SDK bedrock provider itself may or may not invoke the
+      // callback depending on the mock; the key invariant is "not
+      // during construction". A single createMessage may or may not
+      // call it (mock doesn't reach the SigV4 signer), so we only
+      // pin the pre-request behavior.
+      await client.createMessage({
+        model: 'us.anthropic.claude-sonnet-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+      // No assertion on invocations post-request — the mock stub for
+      // createAmazonBedrock doesn't reach the signer.
+    });
+  });
+
   describe('listModels', () => {
     it('returns empty array (no live model list — curated list lives in settings UI)', async () => {
       const client = new BedrockSdkClient({ apiKey: 'bedrock-test-key' });
