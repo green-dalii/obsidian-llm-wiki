@@ -42,6 +42,21 @@ export interface SourceAnalysis {
   key_points: string[];
   created_pages: string[];
   updated_pages: string[];
+  /**
+   * Issue #185 — curated `aliases:` authored on the source note
+   * frontmatter. Read by `SourceAnalyzer.analyzeSource` from
+   * `app.metadataCache.getFileCache(file)?.frontmatter?.aliases`.
+   * Always a string array (or undefined when the source has no
+   * frontmatter at all). NOT normalized — values come through
+   * verbatim so downstream propagation can deduplicate against the
+   * generated `sources/<slug>` page's existing aliases.
+   *
+   * Strict scope: extracted by the analyzer; consumed by
+   * `WikiEngine.createSummaryPage` to inject into the
+   * `sources/<slug>` page (Step 2). NOT used for entity/concept
+   * pages — those follow the existing `info.aliases` path.
+   */
+  source_note_aliases?: string[];
 }
 
 export interface EntityInfo {

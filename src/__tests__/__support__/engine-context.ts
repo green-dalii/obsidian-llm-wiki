@@ -19,6 +19,7 @@
 
 import { TFile } from 'obsidian'; // mocked in setup.ts
 import { EngineContext, LLMClient, LLMWikiSettings } from '../../types';
+import { parseFrontmatter } from '../../core/frontmatter';
 
 // ── Mock File ────────────────────────────────────────────────────
 
@@ -143,6 +144,19 @@ export function createMockContext(opts: MockContextOptions = {}): { ctx: EngineC
             basename: path.split('/').pop()?.replace('.md', '') || '',
             extension: 'md',
           });
+        },
+      },
+      // Issue #185: mock metadataCache so SourceAnalyzer can read the
+      // source note's frontmatter `aliases:` for propagation to the
+      // generated sources/<slug> page. Delegates to the production
+      // `parseFrontmatter` so the mock handles every YAML shape the
+      // production path does (inline `[a, b]`, block `- a\n- b`,
+      // quoted strings, empty `[]`).
+      metadataCache: {
+        getFileCache: (file: { path: string }) => {
+          const content = vault.read(file.path);
+          const fm = content == null ? null : parseFrontmatter(content);
+          return fm ? { frontmatter: fm } : null;
         },
       },
     } as unknown as EngineContext['app'],
