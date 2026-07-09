@@ -38,6 +38,30 @@ function mergeError(error: unknown, name: string, pageType: string): Error {
 }
 
 /**
+ * Autodetect whether a section body is list-typed. A section is list-typed
+ * if **any** non-blank line begins with a markdown list marker (`-`, `*`,
+ * `+`, or a digit followed by `.`). The section may end with a closing
+ * paragraph — a hand-edited `## 相关概念` block ending with a summary line
+ * after its bullets still classifies as list-typed so the appended bullet
+ * stays visually contiguous with the existing list.
+ *
+ * Returns `false` (paragraph mode) only when the section has NO list
+ * markers anywhere — typical `## 描述` / `## 定义` blocks. Appended
+ * content uses a SINGLE `\n` separator for list-typed sections (no blank
+ * line) and a `\n\n` separator (blank line) for paragraph sections.
+ */
+function isListSection(body: string): boolean {
+  if (!body) return false;
+  const lines = body.split('\n');
+  for (const raw of lines) {
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) continue;
+    if (/^[-*+] |^\d+\. /.test(trimmed)) return true;
+  }
+  return false;
+}
+
+/**
  * Issue #244 + W5: Pick the first 2 quote strings for the merge/append
  * `{{key_details}}` prompt injection. Prefers the new structured
  * `mentions_with_provenance` over legacy `mentions_in_source` so an LLM
@@ -669,7 +693,18 @@ export class PageFactory {
       if (sectionContent !== null) {
         // Found anchor: insert appended paragraphs after the section's last
         // content line (before the next ## heading or EOF).
-        resultBody = this.spliceAfterSection(resultBody, sectionContent.anchorEnd, appendContent);
+        // The separator shape (single \n vs blank line) is decided from
+        // the section's own content: list-typed sections want a single \n
+        // (no blank line splitting the visual list); paragraph-typed
+        // sections want a blank line so the appended text reads as a
+        // distinct paragraph. See `spliceAfterSection` for the contract.
+        const sectionIsList = isListSection(sectionContent.content);
+        resultBody = this.spliceAfterSection(
+          resultBody,
+          sectionContent.anchorEnd,
+          appendContent,
+          sectionIsList,
+        );
       } else {
         // Anchor not found and append succeeded (unusual): treat as
         // fallback to New Information section.
@@ -853,23 +888,30 @@ export class PageFactory {
         ...(this.ctx.settings.disableThinking ? { enableThinking: false } : {}),
       });
       const cleaned = response?.trim() ?? '';
-      if (cleaned === 'NO_NEW_CONTENT') return 'NO_NEW_CONTENT';
-      // Prepend a blank line so the new content has one blank line from the section content.
-      return `\n${cleaned}`;
+      // Empty response (weak model or no new info to add) is equivalent to
+      // NO_NEW_CONTENT — falling through here would let spliceAfterSection
+      // inject a stray blank line with no content. Short-circuit so the
+      // caller's existing NO_NEW_CONTENT branch handles it.
+      if (cleaned === '' || cleaned === 'NO_NEW_CONTENT') return 'NO_NEW_CONTENT';
+      // Verbatim: the splice site picks the section-break separator (single \n
+      // for lists, blank line for paragraphs).
+      return cleaned;
     } catch {
       console.warn('[mergePage] per-section append failed — falling back to New Information section');
       return 'NO_NEW_CONTENT';
     }
   }
 
-  /**
-   * Splice appended text into body at a given anchor end index.
-   * The anchorEnd is the index right after the existing section content;
-   * we insert `appendText` there.
-   */
-  private spliceAfterSection(body: string, anchorEnd: number, appendText: string): string {
-    if (anchorEnd >= body.length) return body + appendText;
-    return body.slice(0, anchorEnd) + appendText + body.slice(anchorEnd);
+  private spliceAfterSection(
+    body: string,
+    anchorEnd: number,
+    appendText: string,
+    sectionIsList: boolean,
+  ): string {
+    const separator = sectionIsList ? '\n' : '\n\n';
+    const prefix = body.slice(0, anchorEnd).trimEnd();
+    const suffix = body.slice(anchorEnd);
+    return prefix + separator + appendText + suffix;
   }
 
   /**
