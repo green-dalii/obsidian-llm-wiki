@@ -1,11 +1,36 @@
 // Merge prompts — multi-source knowledge fusion and content integration
 
 export const MERGE_PROMPTS = {
-  // Multi-Source Knowledge Fusion: structured merge analysis
-  mergeAnalysis: `You are a Wiki knowledge fusion analyzer. Compare existing Wiki page content with new source file information, and output a structured merge strategy.
+  // Multi-Source Knowledge Fusion: structured merge analysis.
+//
+// v1.24.0 #216 — Tier-2: extended from binary triage to 4-class
+// per-item classification. The classifier outputs a structured
+// `items[]` array so the complementary path can append each new
+// fact into its target section (Tier-2: targeted append, not full
+// rewrite). Strategies:
+//
+//   - 'skip'           — every item is a duplicate; items[] is empty.
+//                         Skip path: only update frontmatter.
+//   - 'merge'          — substantial restructuring needed (e.g. new
+//                         section, full rewrite); items[] is empty.
+//                         Falls through to the existing body-merge path.
+//   - 'complementary'  — each item adds detail to an existing section;
+//                         populate items[] with target_section =
+//                         EXACTLY one of the {{section_labels}} values.
+//                         Per-section append path.
+//   - 'contradictory'  — new info conflicts with existing; items[]
+//                         is empty; falls through to the existing
+//                         body-merge path (which already handles
+//                         "preserve both with attribution").
+//
+// The {{section_labels}} placeholder is rendered with the **localized**
+// section names from getSectionLabels(settings), so target_section
+// values match the labels actually present in the existing page
+// (matters for i18n wikis: de uses "Beschreibung", ja uses "説明", etc.).
+  mergeAnalysis: `You are a Wiki knowledge fusion analyzer. Decide how to integrate new source information into the existing Wiki page.
 
 **Page Name:** {{page_name}}
-**Page Type:** entity or concept
+**Page Type:** {{page_type}}
 
 **Existing Page Content:**
 {{existing_content}}
@@ -13,40 +38,39 @@ export const MERGE_PROMPTS = {
 **New Information from Source File:**
 {{new_info}}
 
-**Task:**
-1. Compare each piece of new information against the existing content
-2. Classify each piece of new information as:
-   - "new" — completely new information not in the existing page
-   - "duplicate" — duplicates existing content; no need to add
-   - "complementary" — supplements existing content (additional detail on the same topic)
-   - "contradictory" — contradicts existing content
-3. For "complementary" information, specify which section of the existing page it should be inserted after
-4. For "contradictory" information, document the specific contradiction
+**Available sections in the existing page (target_section MUST be one of these exact names):**
+{{section_labels}}
 
-Output JSON format:
+**Task:**
+Examine the new information and classify each piece into ONE of the four strategies:
+
+- "skip" — every piece is already fully present in the existing page. No new content to add. \`items\` MUST be an empty array.
+- "merge" — substantial restructuring needed (e.g. a new section is required, the existing structure is wrong, or the new info contradicts existing). The full body-rewrite path will be used. \`items\` MUST be an empty array.
+- "complementary" — each piece adds new facts that fit into one of the existing sections. Populate \`items\` with one entry per new fact:
+  - \`kind\` = "complementary"
+  - \`content\` = the specific new fact to append (verbatim from the source if possible, otherwise a concise paraphrase)
+  - \`target_section\` = EXACTLY one name from the available sections list (this is critical for i18n matching)
+  - \`reason\` = one-sentence justification
+- "contradictory" — new info conflicts with existing facts. The full body-rewrite path will handle attribution. \`items\` MUST be an empty array.
+
+Output JSON format (ONLY this object, no other text):
 {
-  "merge_items": [
+  "strategy": "skip" | "merge" | "complementary" | "contradictory",
+  "items": [
     {
-      "content": "Specific content of the new information",
-      "classification": "new|duplicate|complementary|contradictory",
-      "target_section": "Section name to insert after (only for new and complementary)",
-      "reason": "Reason for classification (one sentence)"
+      "kind": "complementary",
+      "content": "Specific new fact text",
+      "target_section": "Exact section name from the available sections list",
+      "reason": "Why this belongs in target section (one sentence)"
     }
   ],
-  "contradictions": [
-    {
-      "claim": "What the new information claims",
-      "existing_claim": "Contradictory content in the existing page",
-      "resolution": "Suggested resolution"
-    }
-  ],
-  "merge_summary": "Merge strategy summary (one sentence)"
+  "reason": "One-sentence overall justification"
 }
 
 Rules:
-- Output ONLY JSON, nothing else
-- Existing content takes priority over new information (unless the new information is clearly more accurate)
-- Do NOT delete or rewrite any part of the existing content`,
+- Default to "merge" if uncertain — better to rewrite than to silently drop new info.
+- \`target_section\` MUST be exactly one of the available sections list (case-sensitive).
+- Output ONLY JSON, nothing else.`,
 
   mergeEntityPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing page following the schema-defined structure.
 

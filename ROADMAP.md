@@ -2,15 +2,17 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.23.2 (shipped 2026-07-05) | **Updated:** 2026-07-08
+**Version:** 1.23.2 (shipped 2026-07-05) → 1.24.0 P2 merged to main (PR #257, 2026-07-09, release pending) | **Updated:** 2026-07-09
 
 ## Current Status
 
-**v1.24.0 P2 in flight (2026-07-08).** On branch `feat/modals-split`:
+**v1.24.0 P2 — merged to main via PR #257 (2026-07-09), release pending.** All 4 stages shipped (1744 tests):
 - ✅ Stage 1 — `modals.ts` split into `src/ui/modals/` (4b65450).
-- ✅ Stage 2 — Query Wiki bug fixes: wikiFolder-transparent prompt (Bug C), LLM seed-selector retry + system field (Bug B/B+), 1711 tests.
-- ✅ Stage 3 — Graph warmup: engine-level `_cachedGraph` so first query uses PPR (608ae95).
-- ⏳ Stage 4 — Issue #251 custom Query Instructions MVP (query-local UI).
+- ✅ Stage 2 — Query Wiki bug fixes: wikiFolder-transparent prompt (Bug C), LLM seed-selector retry + system field (Bug B/B+), retrieval-label persistence + human-readable label.
+- ✅ Stage 3 — Graph warmup: engine-level `_cachedGraph` so first query uses PPR (305f601).
+- ✅ Stage 4 — Issue #251 custom Query Instructions MVP (query-local UI) (d4a93c4) + lint dedup/analysis system-prompt injection (cb4bf73, Closes #251).
+
+Release action (version bump + 9 README + CHANGELOG + tag) is a separate step via the `obsidian-plugin-release` workflow — PR #257 deliberately did NOT bump `manifest.json`.
 
 Historical releases are summarized in [CHANGELOG](./CHANGELOG.md).
 

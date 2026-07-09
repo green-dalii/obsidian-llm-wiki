@@ -8,14 +8,15 @@ import {
   ConceptInfo,
   SourceAnalysis,
   PageCreationResult,
+  LLMClient,
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { ConflictResolver } from '../core/conflict-resolver';
 import { WIKI_SUBFOLDERS } from '../constants';
-import { TOKENS_DEDUP_RESOLUTION, TOKENS_PAGE_GENERATION, TOKENS_APPEND_REVIEWED } from '../constants';
+import { TOKENS_DEDUP_RESOLUTION, TOKENS_PAGE_GENERATION, TOKENS_APPEND_REVIEWED, TOKENS_MERGE_TRIAGE, TOKENS_COMPLEMENTARY_APPEND } from '../constants';
 import { slugify, filterRedundantAliases } from '../core/slug';
 import { correctRelatedLinkPrefixes } from '../core/related-link-corrector';
-import { canonicalizeSectionHeaders } from '../core/section-header-canonicalizer';
+import { canonicalizeSectionHeaders, snapHeaderToCanonical } from '../core/section-header-canonicalizer';
 import { parseJsonResponse } from '../core/json';
 import { parseFrontmatter, mergeFrontmatter, enforceFrontmatterConstraints } from '../core/frontmatter';
 import { injectMentionsSection } from '../core/mentions-injector';
@@ -453,6 +454,447 @@ export class PageFactory {
     }
   }
 
+  /**
+   * v1.24.0 #216 — classify-then-route merge triage.
+   *
+   * Pre-flight check that decides whether the merge body rewrite should
+   * run or be skipped. The full merge prompt (mergeEntityPage /
+   * mergeConceptPage) is expensive and can introduce "drift" on duplicate
+   * re-ingests — this lightweight JSON-only call gives the LLM one job:
+   * classify the new information as either needing a body rewrite
+   * ('merge') or being fully redundant ('skip').
+   *
+   * Failures (LLM error, malformed JSON, unexpected strategy value) throw
+   * so the caller can fall back to the existing merge path. We never
+   * silently skip — that would risk dropping genuinely new information.
+   *
+   * v1.24.0 #216 Tier-2: extended return type to include `items[]`
+   * for the complementary path. Items are populated only when
+   * strategy='complementary'; other strategies return an empty array.
+   *
+   * Output contract:
+   *   - { strategy: 'skip',          items: [], reason: string }
+   *   - { strategy: 'merge',         items: [], reason: string }
+   *   - { strategy: 'contradictory', items: [], reason: string }
+   *   - { strategy: 'complementary', items: ComplementaryItem[],
+   *       reason: string }
+   */
+  private async classifyMergeNeed(
+    info: EntityInfo | ConceptInfo,
+    pageType: 'entity' | 'concept',
+    sourceFile: TFile | { path: string; basename: string },
+    existingContent: string,
+  ): Promise<{
+    strategy: 'merge' | 'skip' | 'complementary' | 'contradictory';
+    items: Array<{
+      kind: 'complementary';
+      content: string;
+      target_section: string;
+      reason?: string;
+    }>;
+    reason: string;
+  }> {
+    const client = this.ctx.getClient();
+    if (!client) throw new Error('LLM client not initialized');
+
+    // Tier-2: include the localized section labels so the LLM returns
+    // target_section values that match the existing page's headers
+    // (matters for i18n wikis where labels are translated).
+    const labels = getSectionLabels(this.ctx.settings);
+    const sectionLabelsList = Object.values(labels).join('\n- ');
+
+    const triagePrompt = PROMPTS.mergeAnalysis
+      .replace('{{page_name}}', info.name)
+      .replace('{{page_type}}', pageType)
+      .replace('{{existing_content}}', existingContent)
+      .replace('{{new_info}}', this.buildNewInfoSummary(info, sourceFile))
+      .replace('{{section_labels}}', `- ${sectionLabelsList}`);
+
+    const finalPrompt = appendTagVocabularyToPrompt(
+      applySectionLabels(triagePrompt, this.ctx.settings),
+      this.ctx.settings,
+    );
+
+    const response = await client.createMessage({
+      model: this.ctx.settings.model,
+      max_tokens: TOKENS_MERGE_TRIAGE,
+      system: await this.ctx.buildSystemPrompt('merge'),
+      messages: [{ role: 'user', content: finalPrompt }],
+      response_format: { type: 'json_object' },
+      ...(this.ctx.settings.disableThinking ? { enableThinking: false } : {}),
+    });
+
+    const parsed = await parseJsonResponse(response) as {
+      strategy?: string;
+      items?: Array<{
+        kind?: string;
+        content?: string;
+        target_section?: string;
+        reason?: string;
+      }>;
+      reason?: string;
+    } | null;
+
+    if (!parsed) throw new Error('merge triage: empty response');
+    const validStrategies = ['merge', 'skip', 'complementary', 'contradictory'];
+    if (!validStrategies.includes(parsed.strategy ?? '')) {
+      throw new Error(`merge triage: invalid strategy "${parsed.strategy}"`);
+    }
+    const strategy = parsed.strategy as 'merge' | 'skip' | 'complementary' | 'contradictory';
+    const reason = typeof parsed.reason === 'string' ? parsed.reason : '';
+
+    // Items are populated only for the complementary path. Validate the
+    // shape defensively — invalid items throw so the caller falls back.
+    const items: Array<{
+      kind: 'complementary';
+      content: string;
+      target_section: string;
+      reason?: string;
+    }> = [];
+    if (strategy === 'complementary') {
+      const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
+      if (rawItems.length === 0) {
+        // Defensive: classify said complementary but no items — caller falls back.
+        throw new Error('merge triage: complementary strategy with empty items');
+      }
+      for (const item of rawItems) {
+        if (
+          typeof item?.content !== 'string' || item.content.trim() === '' ||
+          typeof item?.target_section !== 'string' || item.target_section.trim() === ''
+        ) {
+          throw new Error('merge triage: invalid complementary item');
+        }
+        items.push({
+          kind: 'complementary',
+          content: item.content,
+          target_section: item.target_section,
+          reason: typeof item.reason === 'string' ? item.reason : undefined,
+        });
+      }
+    }
+
+    return { strategy, items, reason };
+  }
+
+  /**
+   * v1.24.0 #216 — build the compact `{{new_info}}` payload for the
+   * triage prompt. Mirrors the fields the full merge prompt uses, but
+   * kept tight to control classify-token cost.
+   */
+  private buildNewInfoSummary(
+    info: EntityInfo | ConceptInfo,
+    sourceFile: TFile | { path: string; basename: string },
+  ): string {
+    const parts: string[] = [];
+    parts.push(`Source: ${sourceFile.basename}`);
+    parts.push(`Summary: ${info.summary}`);
+    if (info.related_entities?.length) {
+      parts.push(`Related entities: ${info.related_entities.join(', ')}`);
+    }
+    if (info.related_concepts?.length) {
+      parts.push(`Related concepts: ${info.related_concepts.join(', ')}`);
+    }
+    const quotes = firstQuotesForPrompt(info);
+    if (quotes) parts.push(`Key details: ${quotes}`);
+    return parts.join('\n');
+  }
+
+  /**
+   * v1.24.0 #216 Tier-2 — apply complementary appends to the existing body.
+   *
+   * Groups items by target_section, then issues ONE per-section LLM call
+   * per group. The LLM sees (existingSectionContent + the new facts) and
+   * returns appended paragraph(s). The caller splices them into the body
+   * at the right location using programmatic section-aware insertion.
+   *
+   * i18n-aware: target resolution uses 4-layer fallback:
+   *   1. Exact match against canonical labels
+   *   2. Levenshtein snap (reuses snapHeaderToCanonical)
+   *   3. Body heading scan + snap
+   *   4. Per-section LLM sees the full section content and decides (NO_NEW_CONTENT)
+   *   Fallback: ## New Information ({{source}}) at EOF
+   */
+  private async applyComplementaryAppends(
+    items: Array<{ kind: 'complementary'; content: string; target_section: string; reason?: string }>,
+    existingBody: string,
+    info: EntityInfo | ConceptInfo,
+    sourceFile: TFile | { path: string; basename: string },
+  ): Promise<string> {
+    if (items.length === 0) return existingBody;
+
+    const client = this.ctx.getClient();
+    if (!client) return existingBody;
+
+    const labels = getSectionLabels(this.ctx.settings);
+    const canonicalLabels = Object.values(labels);
+
+    // 1. Group items by target_section (LLM returns one of the canonical labels).
+    const groups = new Map<string, typeof items>();
+    for (const item of items) {
+      const existing = groups.get(item.target_section) ?? [];
+      existing.push(item);
+      groups.set(item.target_section, existing);
+    }
+
+    // 2. For each group, resolve the section anchor, then call per-section LLM.
+    let resultBody = existingBody;
+    const failedGroups: string[] = [];
+
+    for (const [targetSection, sectionItems] of groups) {
+      const sectionContent = this.resolveSectionAnchor(targetSection, resultBody, canonicalLabels);
+
+      // If anchor resolution fully failed (Layer 1-3 all fail), the per-section
+      // LLM call still gets the full body — it can decide to NO_NEW_CONTENT.
+      const appendContent = await this.callPerSectionAppend(
+        sectionContent, // null if anchor not found
+        sectionItems,
+        info.name,
+        sourceFile.basename,
+        client,
+      );
+
+      if (appendContent === 'NO_NEW_CONTENT') {
+        if (sectionContent !== null) {
+          // Per-section LLM judged that the new info is already present
+          // in the section body. Skip this group — do NOT create a New
+          // Information fallback for it, since the info exists.
+          continue;
+        }
+        // Anchor not found AND LLM couldn't place it: fall back to
+        // "## New Information" section at EOF.
+        failedGroups.push(targetSection);
+        continue;
+      }
+
+      if (sectionContent !== null) {
+        // Found anchor: insert appended paragraphs after the section's last
+        // content line (before the next ## heading or EOF).
+        resultBody = this.spliceAfterSection(resultBody, sectionContent.anchorEnd, appendContent);
+      } else {
+        // Anchor not found and append succeeded (unusual): treat as
+        // fallback to New Information section.
+        failedGroups.push(targetSection);
+      }
+    }
+
+    // 3. Handle failed groups (sections that couldn't be found OR per-section
+    // LLM returned NO_NEW_CONTENT) — append to ## New Information at EOF.
+    if (failedGroups.length > 0) {
+      const newInfoSection = this.makeFallbackNewInfoSection(
+        failedGroups,
+        items,
+        sourceFile.basename,
+      );
+      resultBody = `${resultBody}\n\n${newInfoSection}`;
+    }
+
+    return resultBody !== existingBody ? resultBody : existingBody;
+  }
+
+  /**
+   * Find a section anchor in existing body: locate the position right
+   * AFTER the section's heading AND its existing content (before the
+   * next `##` heading or EOF). Returns both the content below the
+   * heading (for the per-section LLM) and the insertion point.
+   *
+   * 4-layer fallback:
+   *   Layer 1 — exact match on canonical labels
+   *   Layer 2 — snapHeaderToCanonical (Levenshtein, 3-edit window)
+   *   Layer 3 — body scan: extract every ## heading and snap each
+   *   Layer 4 — per-section LLM callback treats null body as "unknown"
+   *             and may return NO_NEW_CONTENT
+   *
+   * Returns: {
+   *   headingText: matched heading title (e.g. "Description")
+   *   content: everything after `## heading` up to next ## or EOF
+   *   anchorEnd: line index where next ## begins (or body.length)
+   * } or null when anchor not found.
+   */
+  private resolveSectionAnchor(
+    targetSection: string,
+    body: string,
+    canonicalLabels: string[],
+  ): { headingText: string; content: string; anchorEnd: number } | null {
+    if (!body) return null;
+
+    // Layer 1: exact match against canonical labels
+    const exactHeading = canonicalLabels.find(hl => hl === targetSection);
+    if (exactHeading !== undefined) {
+      const pos = this.findSectionInBody(exactHeading, body);
+      if (pos !== null) return pos;
+    }
+
+    // Layer 2: Levenshtein snap — snap target to a canonical label
+    const snapped = this.snapHeaderImport(targetSection, canonicalLabels);
+    if (snapped !== null && snapped !== targetSection) {
+      const pos = this.findSectionInBody(snapped, body);
+      if (pos !== null) return pos;
+    }
+
+    // Layer 3: Body scan — extract every ## heading from the body and
+    // check three match paths against targetSection (in order of cost):
+    //   a) canonical snap — heading snapped to canonical label matches target
+    //   b) exact match — heading text literally === target
+    //   c) Levenshtein — heading text is within 3 edits of target
+    // This handles i18n cases where the body uses localized headings that
+    // are NOT in the canonical label set (e.g. German body "## Beschreibung"
+    // with English target "Beschreibun" typo).
+    const headingPattern = /^##\s+(.+)$/gm;
+    let match: RegExpExecArray | null;
+    while ((match = headingPattern.exec(body)) !== null) {
+      const hd = match[1].trim();
+
+      // a) Canonical snap: if heading snaps to canonical label matching target
+      const headSnapped = this.snapHeaderImport(hd, canonicalLabels);
+      if (headSnapped !== null && headSnapped === targetSection) {
+        const pos = this.findSectionInBody(hd, body);
+        if (pos !== null) return { ...pos, headingText: headSnapped };
+      }
+
+      // b) Exact match: heading literal === target
+      if (hd === targetSection) {
+        const pos = this.findSectionInBody(hd, body);
+        if (pos !== null) return pos;
+      }
+
+      // c) Levenshtein: heading within 3 edits of target
+      if (
+        hd.length > 0 &&
+        targetSection.length > 0 &&
+        Math.abs(hd.length - targetSection.length) <= 3 &&
+        this.snapHeaderImport(hd, [targetSection]) !== null
+      ) {
+        const pos = this.findSectionInBody(hd, body);
+        if (pos !== null) return pos;
+      }
+    }
+
+    // Layer 4: all layers failed; caller gets null — per-section LLM
+    // decides, or falls back to New Information section.
+    return null;
+  }
+
+  /** Helper: find a `## headingName` in body, return its content + end index. */
+  private findSectionInBody(
+    headingText: string,
+    body: string,
+  ): { headingText: string; content: string; anchorEnd: number } | null {
+        // No /m flag — see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+    const nextLinePattern = new RegExp(
+      `(?:^|\\n)##\\s*${this.escapeRegExp(headingText)}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`,
+    
+    );
+    const m = nextLinePattern.exec(body);
+    if (!m) return null;
+
+    const content = m[1].trimEnd();
+    const anchorEnd = m.index + m[0].length;
+    return { headingText, content, anchorEnd };
+  }
+
+  /** Escape regex special characters in a string. */
+  private escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Import snapHeaderToCanonical from the core module. We can't call
+   * module-level functions directly with `this.`; instead call the
+   * import via a require-avoiding closure.
+   */
+  private snapHeaderImport(candidate: string, canonicalLabels: string[]): string | null {
+    return snapHeaderToCanonical(candidate, canonicalLabels);
+  }
+
+  /**
+   * Call per-section LLM. Input: existing-section content (may be null
+   * if anchor not found — LLM gets null and treats as unknown) + the
+   * complementary items targeting this section. Returns appended
+   * paragraph(s) or NO_NEW_CONTENT.
+   */
+  private async callPerSectionAppend(
+    sectionContent: { headingText: string; content: string; anchorEnd: number } | null,
+    items: Array<{ content: string; reason?: string }>,
+    pageName: string,
+    sourceBasename: string,
+    client: LLMClient,
+  ): Promise<string> {
+    const newFacts = items.map(i => `- ${i.content}${i.reason ? ` (${i.reason})` : ''}`).join('\n');
+    const sectionTitle = sectionContent?.headingText ?? '[[unknown section]]';
+    const existingSection = sectionContent?.content ?? '[[section not found in body]]';
+
+    const appendPrompt = [
+      `You are appending new facts to a single section of a wiki page.`,
+      ``,
+      `**Page Name:** ${pageName}`,
+      `**Section Title:** ${sectionTitle}`,
+      `**Source:** ${sourceBasename}`,
+      ``,
+      `**Existing section content (DO NOT DELETE OR REWRITE):**`,
+      existingSection,
+      ``,
+      `**New facts to append at the end of this section:**`,
+      newFacts,
+      ``,
+      `**Rules:**`,
+      `- Output ONLY the new paragraphs to append (1-3 lines of markdown).`,
+      `- Do NOT include the section heading or any of the existing content.`,
+      `- Match the tone and style of the existing section.`,
+      `- If the new facts are already present in the existing section content, output exactly "NO_NEW_CONTENT".`,
+      `- Do NOT delete or modify any existing content.`,
+    ].join('\n');
+
+    try {
+      const response = await client.createMessage({
+        model: this.ctx.settings.model,
+        max_tokens: TOKENS_COMPLEMENTARY_APPEND,
+        system: await this.ctx.buildSystemPrompt('merge'),
+        messages: [{ role: 'user', content: appendPrompt }],
+        ...(this.ctx.settings.disableThinking ? { enableThinking: false } : {}),
+      });
+      const cleaned = response?.trim() ?? '';
+      if (cleaned === 'NO_NEW_CONTENT') return 'NO_NEW_CONTENT';
+      // Prepend a blank line so the new content has one blank line from the section content.
+      return `\n${cleaned}`;
+    } catch {
+      console.warn('[mergePage] per-section append failed — falling back to New Information section');
+      return 'NO_NEW_CONTENT';
+    }
+  }
+
+  /**
+   * Splice appended text into body at a given anchor end index.
+   * The anchorEnd is the index right after the existing section content;
+   * we insert `appendText` there.
+   */
+  private spliceAfterSection(body: string, anchorEnd: number, appendText: string): string {
+    if (anchorEnd >= body.length) return body + appendText;
+    return body.slice(0, anchorEnd) + appendText + body.slice(anchorEnd);
+  }
+
+  /**
+   * Build a "## New Information ({{source}})" section for failed groups
+   * whose section could not be resolved or the per-section LLM returned
+   * NO_NEW_CONTENT. Collects all items from all failed groups.
+   */
+  private makeFallbackNewInfoSection(
+    failedGroups: string[],
+    allItems: Array<{ kind: string; content: string; target_section: string; reason?: string }>,
+    sourceBasename: string,
+  ): string {
+    if (failedGroups.length === 0) return '';
+    // Map ALL items — the `failedGroups` parameter tracks which target_section
+    // values could not be resolved; we emit all items from those groups for
+    // the fallback New Information section. Note: items from succeeded groups
+    // are NOT included (they were already placed into their sections above).
+    const failedSet = new Set(failedGroups);
+    const failedItems = allItems.filter(i => failedSet.has(i.target_section));
+    const body = failedItems.length > 0
+      ? failedItems.map(i => `- ${i.content}${i.reason ? ` (${i.reason})` : ''}`).join('\n')
+      : `- New information from ${sourceBasename}`;
+    return `## New Information (${sourceBasename})\n${body}`;
+  }
+
   private async mergePage(
     info: EntityInfo | ConceptInfo,
     pageType: 'entity' | 'concept',
@@ -466,12 +908,76 @@ export class PageFactory {
     if (!client) throw new Error('LLM client not initialized');
 
     try {
-      // 1. Programmatic frontmatter merge
-      // Issue #155: add the canonical source PAGE link so a disambiguated source
-      // slug is recorded, while existing sources are preserved by mergeFrontmatter.
+      // 0. Hoist frontmatter + system prompt above the triage so both the
+      // skip path and the body-merge path share them (avoids re-parsing
+      // frontmatter and re-loading the schema twice per merge).
       const { frontmatter, body: existingBody } = mergeFrontmatter(existingContent, sourceSlug ? `sources/${sourceSlug}` : sourceFile.path);
 
-    // 2. LLM intelligent body merge
+      // 1. v1.24.0 #216 — classify-then-route triage.
+      // Decide between rewriting the body (merge) or skipping the body
+      // rewrite (skip — only update frontmatter). The full body merge is
+      // expensive and risks "drift" on duplicate re-ingests, so a cheap
+      // pre-flight classification saves work in the common case where the
+      // new source has nothing to add.
+      //
+      // Failures here are NOT propagated — they fall through to the
+      // existing merge path, preserving backward-compatible behavior.
+      //
+      // The classify call and its decision happen INSIDE the inner try;
+      // the actual write happens OUTSIDE so a createOrUpdateFile failure
+      // is not misclassified as "triage failed" and trigger a double-write
+      // body-merge fallback.
+      let shouldSkip = false;
+      let complementaryBody: string | null = null;
+      try {
+        const triage = await this.classifyMergeNeed(info, pageType, sourceFile, existingBody);
+        if (triage.strategy === 'skip') {
+          console.debug(
+            `[mergePage] triage=skip reason="${triage.reason}" — preserving existing body for ${path}`,
+          );
+          shouldSkip = true;
+        } else if (triage.strategy === 'complementary' && triage.items.length > 0) {
+          // v1.24.0 #216 Tier-2: targeted per-section append. Existing
+          // body is preserved verbatim; only the named sections receive
+          // appended paragraphs from the per-section LLM call.
+          console.debug(
+            `[mergePage] triage=complementary items=${triage.items.length} — appending to existing sections for ${path}`,
+          );
+          complementaryBody = await this.applyComplementaryAppends(
+            triage.items,
+            existingBody,
+            info,
+            sourceFile,
+          );
+          if (complementaryBody === existingBody) {
+            // Per-section LLM returned NO_NEW_CONTENT for every group →
+            // fall through to body-merge so the new info isn't silently lost.
+            console.debug(
+              `[mergePage] complementary path produced no per-section appends — falling back to body-merge for ${path}`,
+            );
+          } else {
+            shouldSkip = true; // signal "use existing frontmatter + write complementaryBody"
+          }
+        }
+        // strategy === 'merge' | 'contradictory': fall through to the
+        // existing body rewrite below (contradictory uses the existing
+        // "preserve both with attribution" rule).
+      } catch (triageError) {
+        console.warn(
+          `[mergePage] triage failed (${triageError instanceof Error ? triageError.message : String(triageError)}) — falling back to merge path`,
+        );
+      }
+
+      if (shouldSkip) {
+        const bodyToWrite = complementaryBody ?? existingBody;
+        await this.ctx.createOrUpdateFile(
+          path,
+          await this.assembleFinalContent(frontmatter, bodyToWrite, info, sourceFile),
+        );
+        return path;
+      }
+
+      // 2. LLM intelligent body merge
     const mergePrompt = pageType === 'entity' ? PROMPTS.mergeEntityPage : PROMPTS.mergeConceptPage;
 
     const prompt = mergePrompt
@@ -512,32 +1018,54 @@ export class PageFactory {
       labels.related_concepts,
       this.ctx.settings.slugCase === 'preserve'
     );
-    // Issue #244: programmatic Mentions injection (see createEntityPage).
-    // B2: prefer structured provenance when present; only fall back to legacy
-    // mentions_in_source if the structured form is absent (not just empty).
-    // Conversation mode: see createEntityPage for rationale.
+    // v1.24.0 #216 — finalization (frontmatter + Mentions injection) lives
+    // in assembleFinalContent(), shared with the skip path.
+    await this.ctx.createOrUpdateFile(
+      path,
+      await this.assembleFinalContent(frontmatter, correctedBody, info, sourceFile),
+    );
+    return path;
+    } catch (error) {
+      throw mergeError(error, info.name, pageType);
+    }
+  }
+
+  /**
+   * v1.24.0 #216 — shared finalization for both the skip path (preserved
+   * body) and the body-merge path (rewritten body). Runs the Issue #244
+   * programmatic Mentions-in-Source injection and assembles the final
+   * `<frontmatter>\n\n<body>` shape that gets written via
+   * `createOrUpdateFile`.
+   *
+   * B2: prefer structured `mentions_with_provenance` when present;
+   * only fall back to legacy `mentions_in_source` if the structured form
+   * is absent (not just empty). Conversation sources emit an empty
+   * mentions list (the conversation-label suffix is the citation).
+   */
+  private async assembleFinalContent(
+    frontmatter: string,
+    body: string,
+    info: EntityInfo | ConceptInfo,
+    sourceFile: TFile | { path: string; basename: string },
+  ): Promise<string> {
+    const labels = getSectionLabels(this.ctx.settings);
     const isConv = isConversationSource(sourceFile, this.ctx.settings.wikiFolder);
     const mergeMentionsForInject = isConv
       ? []
       : (info.mentions_with_provenance?.length
         ? info.mentions_with_provenance
         : info.mentions_in_source);
-    const correctedBodyWithMentions = injectMentionsSection(
-      correctedBody,
+    const bodyWithMentions = injectMentionsSection(
+      body,
       mergeMentionsForInject,
       sourceFile.path,
       {
         sectionLabel: labels.mentions_in_source,
         conversationMode: isConv,
         conversationLabel: `Conversation: ${sourceFile.basename}`,
-      }
+      },
     );
-    const finalContent = `${frontmatter}\n\n${correctedBodyWithMentions}`;
-    await this.ctx.createOrUpdateFile(path, finalContent);
-    return path;
-    } catch (error) {
-      throw mergeError(error, info.name, pageType);
-    }
+    return `${frontmatter}\n\n${bodyWithMentions}`;
   }
 
   private async appendToReviewedPage(
