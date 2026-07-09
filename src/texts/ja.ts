@@ -90,6 +90,18 @@ export const JA_TEXTS = {
     switchToDropdown: 'ドロップダウン選択に切り替え',
     useDropdownButton: 'ドロップダウンを使用',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: 'モデル範囲',
+    modelTaskModeDesc: 'すべてのタスクで同じモデルを使用するか、タスク別に取り込み / 保守修復 / クエリで別モデルを使用するかを選択してください。統一モデルに戻すと、非表示のタスク別モデル値は保持されます（消去されません）。',
+    modelTaskModeUnified: '統一モデルを使用（デフォルト）',
+    modelTaskModePerTask: 'タスクごとに異なるモデルを使用',
+    perTaskIngestModelName: '取り込みモデル',
+    perTaskIngestModelDesc: 'ノート・会話の取り込み、Schema 保守、ウェルカムノート生成に使用されます。',
+    perTaskLintModelName: '保守修復モデル',
+    perTaskLintModelDesc: 'Lint 分析、重複検出、各種修復、孤立リンクの修正に使用されます。',
+    perTaskQueryModelName: 'クエリモデル',
+    perTaskQueryModelDesc: 'Query Wiki チャットと Wiki 保存評価に使用されます。',
+
     // Test & Save
     testConnectionName: '接続テスト',
     testConnectionDesc: '設定が正常にLLM APIを呼び出せるか確認します',

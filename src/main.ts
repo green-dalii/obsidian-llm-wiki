@@ -63,6 +63,7 @@ import { buildIngestStatusBarText, BatchProgress } from './core/status-bar';
 import { IngestQueue } from './core/ingest-queue';
 import { decideProgressDisplay, ProgressScope } from './core/progress-notification';
 import { LLMWikiSettingTab } from './ui/settings';
+import { resolveModelForTask, type LLMTask } from './core/model-resolver';
 import { WikiEngine } from './wiki/wiki-engine';
 import { QueryView, VIEW_TYPE_QUERY } from './wiki/query-engine';
 import { FileSuggestModal, FolderSuggestModal, MultiFileSuggestModal, IngestReportModal, ConfirmModal } from './ui/modals';
@@ -1055,20 +1056,35 @@ export default class LLMWikiPlugin extends Plugin {
       return { success: false, message: t.errorNoApiKey || 'API Key is not configured' };
     }
 
+    // v1.24.0 #208: when per-task models are enabled, probe every task's
+    // model separately. The unified mode probes only settings.model. If
+    // ANY task's probe fails, the whole Test Connection returns failure
+    // — there is no point claiming "Connection successful" when 2 out
+    // of 3 tasks would actually 400 on first real call.
+    const tasksToProbe: LLMTask[] = this.settings.usePerTaskModels === true
+      ? ['ingest', 'lint', 'query']
+      : [];
+    const probePlan: Array<{ label: string; model: string }> = tasksToProbe.length === 0
+      ? [{ label: 'unified', model: this.settings.model }]
+      : tasksToProbe.map(task => ({ label: task, model: resolveModelForTask(this.settings, task) }));
+
     try {
       const testClient = createLLMClient(this.settings);
 
-      // v1.23.0 P1-7: response is used as a "did it work" probe. AI-SDK's
-      // error mapper enriches failures with the provider body, surfaced
-      // in the Notice below. The successful response text is discarded.
-      await testClient.createMessage({
-        model: this.settings.model,
-        max_tokens: TOKENS_QUERY_MODEL_DETECT,
-        messages: [{
-          role: 'user',
-          content: 'Test connection. Please reply "Connection successful".'
-        }]
-      });
+      // Sequential probes — preserve order so error messages identify
+      // which task broke (ingest → lint → query). Each probe uses the
+      // same probe prompt; only `model` differs. Probe response text is
+      // discarded (success = no throw).
+      for (const probe of probePlan) {
+        await testClient.createMessage({
+          model: probe.model,
+          max_tokens: TOKENS_QUERY_MODEL_DETECT,
+          messages: [{
+            role: 'user',
+            content: 'Test connection. Please reply "Connection successful".'
+          }]
+        });
+      }
 
       // v1.23.0 P1-7: AI-SDK migration. The 3-tier thinking-control
       // probe (v1.20.0) and advanced-parameter probe (v1.20.0) were
@@ -1109,9 +1125,16 @@ export default class LLMWikiPlugin extends Plugin {
       // non-thinking-control settings changes like baseURL/apiKey.)
       this.initializeLLMClient();
 
+      // v1.24.0 #208: per-task probe summary. In unified mode, the
+      // message names the unified model. In per-task mode, it names
+      // each probed model so the user knows which task each one covers.
+      const probeSummary = probePlan.length === 1
+        ? `${providerName} (${probePlan[0].model})`
+        : `${providerName} (ingest=${probePlan[0].model}, lint=${probePlan[1].model}, query=${probePlan[2].model})`;
+
       return {
         success: true,
-        message: `✅ ${t.testConnectionSuccessful || 'Connection successful'}${t.testConnectionProvider ? ': ' : ''}${providerName}`
+        message: `✅ ${t.testConnectionSuccessful || 'Connection successful'}: ${probeSummary}`
       };
     } catch (error) {
       console.error('Connection test failed:', error);

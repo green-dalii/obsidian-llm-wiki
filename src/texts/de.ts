@@ -90,6 +90,18 @@ export const DE_TEXTS = {
     switchToDropdown: 'Zur Dropdown-Auswahl wechseln',
     useDropdownButton: 'Dropdown verwenden',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: 'Modellbereich',
+    modelTaskModeDesc: 'Wählen Sie, ob alle Aufgaben dasselbe Modell verwenden oder ob pro Aufgabe (Erfassung / Wartung & Reparatur / Abfrage) unterschiedliche Modelle genutzt werden. Beim Zurückwechseln auf das einheitliche Modell bleiben ausgeblendete aufgabenspezifische Werte erhalten (werden nicht gelöscht).',
+    modelTaskModeUnified: 'Einheitliches Modell verwenden (Standard)',
+    modelTaskModePerTask: 'Pro Aufgabe unterschiedliche Modelle verwenden',
+    perTaskIngestModelName: 'Erfassungsmodell',
+    perTaskIngestModelDesc: 'Wird für die Erfassung von Notizen, Gesprächen, Schema-Wartung und Willkommensnotiz-Erstellung verwendet.',
+    perTaskLintModelName: 'Wartungs- und Reparaturmodell',
+    perTaskLintModelDesc: 'Wird für Lint-Analyse, Duplikaterkennung, Reparaturläufe und Korrektur verwaister Links verwendet.',
+    perTaskQueryModelName: 'Abfragemodell',
+    perTaskQueryModelDesc: 'Wird für Query Wiki-Chat und Wiki-Speicherungsbewertung verwendet.',
+
     // Test & Save
     testConnectionName: 'Verbindung testen',
     testConnectionDesc: 'Konfiguration überprüfen und LLM-API-Aufruf validieren',

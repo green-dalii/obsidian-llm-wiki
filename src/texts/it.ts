@@ -94,6 +94,18 @@ export const IT_TEXTS = {
     switchToDropdown: 'Passa alla selezione a tendina',
     useDropdownButton: 'Usa menu a tendina',
 
+    // v1.24.0 #208: per-task model picker
+    modelTaskModeName: 'Ambito del modello',
+    modelTaskModeDesc: 'Scegli se tutte le attività usano lo stesso modello o se usi modelli diversi per attività (acquisizione / manutenzione e riparazione / query). I valori per attività nascosti vengono conservati quando torni al modello unificato.',
+    modelTaskModeUnified: 'Usa modello unificato (predefinito)',
+    modelTaskModePerTask: 'Usa modelli diversi per attività',
+    perTaskIngestModelName: 'Modello di acquisizione',
+    perTaskIngestModelDesc: 'Usato per acquisire note, conversazioni, manutenzione dello schema e generazione della nota di benvenuto.',
+    perTaskLintModelName: 'Modello di manutenzione e riparazione',
+    perTaskLintModelDesc: 'Usato per analisi Lint, rilevamento duplicati, esecuzioni di riparazione e correzione dei collegamenti orfani.',
+    perTaskQueryModelName: 'Modello di query',
+    perTaskQueryModelDesc: 'Usato per la chat Query Wiki e la valutazione di salvataggio nel Wiki.',
+
     // Test e Salvataggio
     testConnectionName: 'Testa connessione',
     testConnectionDesc: 'Verifica che la configurazione possa chiamare con successo la API LLM',
