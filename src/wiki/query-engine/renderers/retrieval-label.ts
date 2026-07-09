@@ -10,16 +10,40 @@
 
 import type { RetrievalLabelData } from '../types';
 
-/** Translate the internal arm identifier to a user-facing glyph + text segment. */
+/** Translate the internal arm identifier to a user-facing glyph + text segment.
+ *
+ * v1.24.0 (legibility pass):
+ * - 'lex' was previously rendered as '📇 index' — misleading, since 'lex'
+ *   is the **lexical fallback** (PPR cascade found no graph match and
+ *   fell back to keyword scoring), not a reference to the wiki index
+ *   file. The new label 'Lexical' tells the user "this came from word
+ *   matching, not from the link graph".
+ * - 'index' (the actual arm identifier emitted by select-seeds.ts when
+ *   no PPR signal exists) was previously hidden behind the generic
+ *   "🔎 index" fallback — which read as a debug message. We now map
+ *   it explicitly to "📋 Index" (visual cue: list-style icon).
+ * - 'none' / empty arm was previously rendered as '—' (em-dash) — looks
+ *   like an error. The new label 'No specific source' tells the user
+ *   the LLM ran without a defined retrieval arm.
+ * - Unknown arm values are no longer hidden — the raw identifier is
+ *   shown with a 🔎 prefix so future arms surface visibly rather than
+ *   masquerading as a default.
+ */
 function armDisplay(arm: string): string {
-  if (arm === 'none') return '—';
+  if (arm === 'none' || arm === '') {
+    return '🚫 No specific source';
+  }
   return arm
     .split('/')
     .map(a => {
-      if (a === 'PPR+LLM') return '🔗 PPR+LLM';
+      if (a === 'PPR+LLM') return '🔗 PPR + LLM';
       if (a === 'PPR') return '🔗 PPR';
       if (a === 'PPR+') return '🔗 PPR+';
-      return '📇 index';
+      if (a === 'lex') return '📖 Lexical';
+      if (a === 'index') return '📋 Index';
+      // Unknown arm: surface the raw identifier so it's never hidden
+      // behind a misleading default.
+      return `🔎 ${a}`;
     })
     .join(' · ');
 }
@@ -38,7 +62,10 @@ export function renderRetrievalLabel(
   const label = messageWrapper.createDiv({
     cls: 'llm-wiki-query-retrieval-label',
   });
-  label.setText(`🔍 ${r.count} page(s) · ${armDisplay(r.arm)}`);
+  // v1.24.0: pluralize correctly — "1 page" vs "3 pages" — instead of
+  // the previous "N page(s)" placeholder which read as jargon.
+  const pageWord = r.count === 1 ? 'page' : 'pages';
+  label.setText(`🔍 ${r.count} ${pageWord} · ${armDisplay(r.arm)}`);
 
   // v1.23.2: click to expand/collapse the list of retrieved pages inline
   // below the label (no Notice).
@@ -46,6 +73,10 @@ export function renderRetrievalLabel(
     cls: 'llm-wiki-query-retrieval-detail',
   });
   r.topPaths.forEach(p => {
+    // topPaths are vault-real paths (e.g. "wiki/entities/foo.md") populated
+    // by selectPprSeeds from PPR matches — not LLM-generated strings. So no
+    // placeholder substitution is needed here; strip the user's current
+    // wikiFolder prefix + .md suffix to produce the relative form shown.
     const rel = p.replace(wikiFolder + '/', '').replace('.md', '');
     const pageDiv = detail.createDiv({ cls: 'llm-wiki-query-retrieval-page' });
     pageDiv.setText(`📄 [[${rel}]]`);

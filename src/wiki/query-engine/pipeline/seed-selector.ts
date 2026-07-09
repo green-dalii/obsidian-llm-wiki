@@ -7,19 +7,24 @@
 // primary semantic matcher here — handles synonyms, cross-language
 // aliases, and abstract queries that pure string matching can't reach.
 //
-// Graceful degradation: returns empty array on any failure (LLM
-// unavailable, parse error, network timeout). Caller falls back to
-// whatever the lex fast path returned.
+// On failure (LLM unavailable, parse error, network timeout, persistent
+// empty), returns [] and the caller falls back to whatever the lex
+// fast path returned. See transient-retry.ts for the Bug B retry policy.
 
 import { PageRef } from '../../../core/ppr-cascade';
 import { parseJsonResponse } from '../../../core/json';
-import { PROMPTS } from '../../../prompts';
+import { withTransientRetry } from '../../../core/transient-retry';
+import {
+  SEED_SELECTION_SYSTEM_PROMPT,
+  buildSeedSelectionUserPrompt,
+} from '../../prompts/seed-selection';
 
 /** Minimal LLMClient surface — only `createMessage` is required for seed selection. */
 export interface SeedLLMClient {
   createMessage(params: {
     model: string;
     max_tokens: number;
+    system?: string;
     messages: Array<{ role: 'user' | 'assistant'; content: string }>;
     response_format?: { type: 'json_object' | 'text' };
     enableThinking?: boolean;
@@ -54,25 +59,62 @@ export async function selectSeedsWithLLM(
     .map(p => `- ${p.path}: ${p.summary || '(no summary)'}`)
     .join('\n');
 
-  const prompt = PROMPTS.seedSelection
-    .replace('{{query}}', query)
-    .replace('{{pages}}', pagesList);
+  // Bug B+ fix: split into system + user. DeepSeek in JSON mode returns
+  // empty body if no system message is provided (status 200, body='').
+  // Keeping the role instructions in the system field forces a proper
+  // response from the LLM.
+  //
+  // Wrap the LLM call + JSON parse in withTransientRetry so a
+  // transient empty-string response or malformed JSON is retried.
+  // The `fn` performs both steps so parse failures naturally surface
+  // as thrown errors caught by the retry helper. We do NOT pass
+  // `isTransientEmpty` because an empty `seeds` array is a valid
+  // answer per the prompt's task 4 ("no relevant pages" → []).
+  const retryResult = await withTransientRetry({
+    fn: async () => {
+      const response = await client.createMessage({
+        model: settings.model,
+        max_tokens: 200,
+        system: SEED_SELECTION_SYSTEM_PROMPT,
+        messages: [{
+          role: 'user',
+          content: buildSeedSelectionUserPrompt(query, pagesList),
+        }],
+        response_format: { type: 'json_object' },
+        ...(settings.disableThinking ? { enableThinking: false } : {}),
+      });
+      // Debug log: response length + first 100 chars AFTER the call.
+      // Critical for diagnosing empty-body / truncated / unexpected-shape
+      // responses that previously caused silent seed-selector failures.
+      // JSON.stringify escapes control chars (matches fix-runners.ts style).
+      console.debug(
+        `[LLM response] Seed selection: length=${response.length}, ` +
+        `first100=${JSON.stringify(response.slice(0, 100))}`,
+      );
+      const parsed = await parseJsonResponse(response) as { seeds?: string[] } | null;
+      if (!parsed || !Array.isArray(parsed.seeds)) {
+        throw new Error('parseJsonResponse returned null or non-array seeds');
+      }
+      return parsed.seeds;
+    },
+    label: 'Seed selection',
+    isAuthError: (error) => {
+      const statusCode = (error as { statusCode?: number }).statusCode;
+      return statusCode === 401 || statusCode === 403;
+    },
+    isRateLimitError: (error) => {
+      const statusCode = (error as { statusCode?: number }).statusCode;
+      return statusCode === 429;
+    },
+  });
 
-  try {
-    const response = await client.createMessage({
-      model: settings.model,
-      max_tokens: 200,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      ...(settings.disableThinking ? { enableThinking: false } : {}),
-    });
-    const parsed = await parseJsonResponse(response) as { seeds?: string[] } | null;
-    const rawSeeds = parsed?.seeds || [];
-    // Validate against pageRefs — drop any paths that don't exist.
-    const validPaths = new Set(pageRefs.map(p => p.path));
-    return rawSeeds.filter(s => validPaths.has(s));
-  } catch (error) {
-    console.warn('[LLM seed selection failed]', error);
+  if (retryResult.error) {
     return [];
   }
+
+  const rawSeeds = retryResult.value ?? [];
+
+  // Validate against pageRefs — drop any paths that don't exist.
+  const validPaths = new Set(pageRefs.map(p => p.path));
+  return rawSeeds.filter(s => validPaths.has(s));
 }

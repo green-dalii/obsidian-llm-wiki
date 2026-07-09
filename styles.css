@@ -132,6 +132,20 @@
   border: none;
   border-radius: 4px;
 }
+.llm-wiki-query-send-btn:hover:not(:disabled) {
+  background: var(--interactive-accent-hover);
+  filter: brightness(1.08);
+}
+.llm-wiki-query-send-btn:disabled {
+  background: var(--background-modifier-border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+.llm-wiki-query-send-btn:disabled:hover {
+  background: var(--background-modifier-border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
 
 .llm-wiki-query-stop-btn {
   flex: 2;
@@ -1084,4 +1098,97 @@
 }
 .llm-wiki-multi-file-actions button {
   padding: 6px 14px;
+}
+
+/* v1.24.0 #251: Custom Query Instructions collapsible panel.
+   Renders inside the Query Wiki input area; collapsed by default. */
+.llm-wiki-query-instructions-block {
+  margin: 12px 0 8px 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-secondary);
+}
+.llm-wiki-query-instructions-block > summary {
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.llm-wiki-query-instructions-block > summary::-webkit-details-marker {
+  display: none;
+}
+.llm-wiki-query-instructions-block > summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform 0.15s ease;
+  font-size: 0.85em;
+  color: var(--text-faint);
+}
+.llm-wiki-query-instructions-block[open] > summary::before {
+  content: '▾';
+}
+.llm-wiki-query-instructions-body {
+  padding: 0 12px 12px 12px;
+}
+.llm-wiki-query-instructions-desc {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  margin: 6px 0 8px 0;
+}
+.llm-wiki-query-instructions-textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: var(--font-monospace);
+  font-size: 0.85em;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+.llm-wiki-query-instructions-counter {
+  font-size: 0.75em;
+  color: var(--text-faint);
+  text-align: right;
+  margin: 2px 0 6px 0;
+}
+.llm-wiki-query-instructions-button-row {
+  display: flex;
+  gap: 8px;
+}
+.llm-wiki-query-instructions-apply {
+  flex: 1 1 0;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.llm-wiki-query-instructions-apply:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.llm-wiki-query-instructions-apply:disabled {
+  background: var(--background-modifier-border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+.llm-wiki-query-instructions-apply:disabled:hover {
+  background: var(--background-modifier-border);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+.llm-wiki-query-instructions-clear {
+  flex: 1 1 0;
+  background: var(--interactive-normal);
+  color: var(--text-muted);
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }

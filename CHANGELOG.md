@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`controller.ts` `runLintWiki` god function split into 3 phase modules (PR #248).** `src/wiki/lint/controller.ts:runLintWiki` (was a monolithic 200+ LOC function) decomposed into Phases A/B/C (`src/wiki/lint/llm-phases/analysis-phase.ts`, `src/wiki/lint/llm-phases/scoring-phase.ts`, `src/wiki/lint/llm-phases/synthesis-phase.ts`). The orchestrator now delegates: analysis → scoring → synthesis. Behavioral regression protected by existing 1616 test suite.
+- **`history-modal.ts` 1579-LOC single file split into directory (PR #249).** `src/ui/history-modal.ts` → `src/ui/history-modal/` with 14 files (~250 LOC each max): `types.ts`, `render-state.ts`, `HistoryModal-class.ts`, 9 renderer modules under `src/ui/history-modal/renderers/`, and an `index.ts` re-export shim. External API (`HistoryModal` class, `TEXTS`-based `HistoryTexts`) unchanged. Zero caller-side changes required. 1610 tests passing.
+- **`query-engine.ts` 1373-LOC monolith split into directory (PR #250).** `src/wiki/query-engine.ts` → 13 focused modules under `src/wiki/query-engine/`. `QueryView.buildWikiContext` (was 165 LOC inline) decomposes into 4 pure pipeline phases. External API (`QueryView`, `VIEW_TYPE_QUERY`, `renderThinkingBlocksUI`) unchanged via TypeScript directory resolution. 1616 tests passing.
+
 ## [1.23.2] - 2026-07-05
 
 **Theme:** Five merged PRs — bug fixes, refactor, and UX polish. 1431 tests passing. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.

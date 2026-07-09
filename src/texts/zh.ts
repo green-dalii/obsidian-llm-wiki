@@ -105,6 +105,19 @@ export const ZH_TEXTS = {
     errorUnknown: '未知错误',
     savedNotice: '设置已保存！',
 
+    // v1.24.0 (Bug C 3.4 / plan C): 渐进迁移通知
+    queryHistoryMigrationNotice: 'Query Wiki 历史记录中包含来自旧 wiki 目录的链接。新对话已自动使用最新目录。如需刷新所有历史消息，请打开 Query Wiki 面板并点击其中的”清除历史”按钮。',
+
+    // v1.24.0 Issue #251: 自定义 Query 指令（可折叠面板）
+    customInstructionsTitle: '自定义 Query 指令',
+    customInstructionsDesc: '每次 Query Wiki 对话都会在系统提示末尾附加这些指令。仅影响 Query Wiki 聊天；不影响摄取、lint 和页面生成。',
+    customInstructionsPlaceholder: '例如：将其视为研究任务：广泛搜索、引用来源、区分事实与解读...',
+    customInstructionsApply: '应用',
+    customInstructionsClear: '清除',
+    customInstructionsCharCount: '{current}/{max} 字符',
+    instructionsApplied: '自定义 Query 指令已保存。',
+    instructionsCleared: '自定义 Query 指令已清除。',
+
     // Issue #137: LLM 回退通知（请求中触发 thinking-dialect 回退或字段剥离时显示）
     fallbackThinkingDialect: '思考控制：已切换至 "{dialect}" 方言（该提供商使用不同的思考控制字段格式）。输出内容不受影响。',
     fallbackThinkingNone: '该提供商已完全关闭思考控制。模型仍可能产生推理内容；若出现，请尝试其他模型。',
@@ -113,7 +126,8 @@ export const ZH_TEXTS = {
     // Wiki 文件夹
     wikiSection: 'Wiki 配置',
     wikiFolderName: 'Wiki 文件夹',
-    wikiFolderDesc: '存放生成的 Wiki 页面',
+    // v1.24.0: 提示需重启 Obsidian 以让 engine 缓存和打开的 Query Wiki 面板重新绑定
+    wikiFolderDesc: '存放生成的 Wiki 页面。修改后需重启 Obsidian 才能生效——engine 缓存和已打开的 Query Wiki 面板需要重新绑定。',
     wikiFolderPlaceholder: 'wiki',
 
     // 错误
@@ -123,9 +137,13 @@ export const ZH_TEXTS = {
 
     // Query 设置
     querySectionTitle: 'Wiki 查询配置',
-    maxConversationHistoryName: '对话历史上限',
-    maxConversationHistoryDesc: '对话轮次软上限（超出时自动丢弃最旧的）。预设值：1/10/30/50/100/500。',
-    maxConversationHistoryHint: '推荐：不超过50轮',
+    // v1.24.0: 由"对话历史上限"重命名为"对话关联记忆轮数"，更准确地表达语义
+    // ——这是 LLM 的记忆窗口，不是硬性存储上限（历史记录本身就是滚动更新）。
+    // 1 = 每轮对话独立（不关联）。设置项为下拉框，无需在描述中列出预设值。
+    // v1.24.0: maxConversationHistoryHint 是死 i18n key（UI 代码无引用），
+    // 推荐文案已合并入 desc。
+    maxConversationHistoryName: '对话关联记忆轮数',
+    maxConversationHistoryDesc: 'LLM 在新对话中可见的过往轮次数（作为记忆）。1 = 每轮对话独立（不关联前文）；数值越高，模型能记住会话中越早的轮次。推荐：一次性问答选 1；持续性研究选 10–50。',
     numberRangeValidation: '请输入1-50之间的数字',
     numberRangeClamped: '数值超出范围（1-500），已自动设定为 {}',
 

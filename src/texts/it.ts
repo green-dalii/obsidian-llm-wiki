@@ -105,6 +105,19 @@ export const IT_TEXTS = {
     saveButton: 'Salva impostazioni',
     savedNotice: 'Impostazioni salvate!',
 
+    // v1.24.0 (Bug C 3.4 / plan C): notifica di migrazione graduale
+    queryHistoryMigrationNotice: 'La cronologia di Query Wiki contiene link da una cartella wiki precedente. Le nuove query usano automaticamente la cartella più recente. Per aggiornare tutti i messaggi memorizzati, apri il pannello Query Wiki e fai clic sul pulsante "Cancella cronologia" al suo interno.',
+
+    // v1.24.0 Issue #251: istruzioni Query personalizzate (pannello richiudibile)
+    customInstructionsTitle: 'Istruzioni Query personalizzate',
+    customInstructionsDesc: 'Istruzioni persistenti aggiunte alla fine del prompt di sistema di Query Wiki. Riguardano solo la chat di Query Wiki; ingestione, lint e generazione pagine non sono interessati.',
+    customInstructionsPlaceholder: 'es.: tratta come ricerca: cerca ampiamente, cita le fonti, separa fatti e interpretazione...',
+    customInstructionsApply: 'Applica',
+    customInstructionsClear: 'Cancella',
+    customInstructionsCharCount: '{current}/{max} caratteri',
+    instructionsApplied: 'Istruzioni Query personalizzate salvate.',
+    instructionsCleared: 'Istruzioni Query personalizzate cancellate.',
+
     // Test Connessione
     testConnectionSuccessful: 'Connessione riuscita',
     testConnectionFailed: 'Connessione fallita',
@@ -124,7 +137,9 @@ export const IT_TEXTS = {
     // Cartella Wiki
     wikiSection: 'Configurazione Wiki',
     wikiFolderName: 'Cartella Wiki',
-    wikiFolderDesc: 'Posizione delle pagine Wiki generate',
+    // v1.24.0: indica che è necessario riavviare Obsidian dopo la modifica
+    // (le cache del motore e i pannelli aperti di Query Wiki devono ricollegarsi).
+    wikiFolderDesc: 'Posizione delle pagine Wiki generate. Riavvia Obsidian dopo la modifica — le cache del motore e i pannelli aperti di Query Wiki devono ricollegarsi.',
     wikiFolderPlaceholder: 'wiki',
 
     // Errori
@@ -134,9 +149,14 @@ export const IT_TEXTS = {
 
     // Impostazioni Query
     querySectionTitle: 'Configurazione query Wiki',
-    maxConversationHistoryName: 'Cronologia conversazione massima',
-    maxConversationHistoryDesc: 'Limite morbido dei turni di conversazione (i messaggi più vecchi vengono eliminati automaticamente). Valori preimpostati: 1/10/30/50/100/500.',
-    maxConversationHistoryHint: 'Consigliato: non superare 50 turni',
+    // v1.24.0: rinominato da "Cronologia conversazione massima" a
+    // "Turni di memoria della conversazione" per maggiore chiarezza.
+    // 1 = ogni turno indipendente (nessuna memoria tra turni).
+    // L'impostazione è un menu a discesa, non serve elencare i valori preimpostati.
+    // v1.24.0: maxConversationHistoryHint era una chiave i18n inutilizzata;
+    // il consiglio è stato integrato nella descrizione.
+    maxConversationHistoryName: 'Turni di memoria della conversazione',
+    maxConversationHistoryDesc: 'Quanti turni di conversazione passati il LLM vede come memoria. 1 = ogni turno indipendente (nessuna memoria tra turni); valori più alti permettono al modello di ricordare turni precedenti della sessione. Consigliato: 1 per Q&A occasionale, 10–50 per ricerca continuativa.',
     numberRangeValidation: 'Inserisci un numero tra 1 e 50',
     numberRangeClamped: 'Il valore supera il range (1-500), impostato automaticamente a {}',
 

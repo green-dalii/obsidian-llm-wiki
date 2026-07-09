@@ -1,4 +1,5 @@
 // v1.23.2 graph-cache invalidation (called out by three-model review C).
+// v1.24.0 Bug A: graph cache moved from per-view QueryView to WikiEngine.
 //
 // Background: src/wiki/query-engine.ts `_graph: ... | null` is built
 // lazily on first sendMessage, then held for the lifetime of the
@@ -41,12 +42,16 @@ afterEach(() => {
  * constructor-time audit logging is tolerated).
  */
 function makeQueryViewStub(): QueryView {
+  const fakeWikiEngine = {
+    invalidateGraph: () => { /* no-op */ },
+  };
   const fakePlugin = {
     settings: {
       queryHistory: [],
       wikiFolder: 'wiki',
       language: 'en',
     },
+    wikiEngine: fakeWikiEngine,
   } as unknown as LLMWikiPlugin;
   // ItemView constructor requires a WorkspaceLeaf; we pass a stub.
   const fakeLeaf = {} as ConstructorParameters<typeof QueryView>[0];
@@ -55,7 +60,6 @@ function makeQueryViewStub(): QueryView {
 }
 
 interface InternalView {
-  _graph: unknown;
   _lastRetrieval: unknown;
 }
 
@@ -65,14 +69,18 @@ describe('QueryView — invalidateGraph (#review-C P0)', () => {
     expect(typeof view.invalidateGraph).toBe('function');
   });
 
-  it('clears the cached _graph so the next sendMessage rebuilds', () => {
+  it('delegates graph invalidation to WikiEngine.invalidateGraph()', () => {
     const view = makeQueryViewStub();
-    // Reach into the private field (white-box) to simulate prior state.
-    (view as unknown as InternalView)._graph = { nodes: [], edges: { size: 0 } };
+    let engineInvalidated = false;
+    const plugin = (view as unknown as { plugin: LLMWikiPlugin }).plugin;
+    const engine = plugin.wikiEngine as { invalidateGraph: () => void };
+    const original = engine.invalidateGraph;
+    engine.invalidateGraph = () => { engineInvalidated = true; };
 
     view.invalidateGraph();
 
-    expect((view as unknown as InternalView)._graph).toBeNull();
+    expect(engineInvalidated).toBe(true);
+    engine.invalidateGraph = original;
   });
 
   it('also clears _lastRetrieval so the next query starts fresh', () => {
@@ -88,16 +96,10 @@ describe('QueryView — invalidateGraph (#review-C P0)', () => {
     expect((view as unknown as InternalView)._lastRetrieval).toBeNull();
   });
 
-  it('is idempotent — calling twice is a no-op after first call', () => {
+  it('is idempotent — calling twice does not throw', () => {
     const view = makeQueryViewStub();
-    (view as unknown as InternalView)._graph = { stale: true };
 
-    view.invalidateGraph();
-    const firstCall = (view as unknown as InternalView)._graph;
-    expect(firstCall).toBeNull();
-
-    // Second call must not throw (null is a fine initial state already).
     expect(() => view.invalidateGraph()).not.toThrow();
-    expect((view as unknown as InternalView)._graph).toBeNull();
+    expect(() => view.invalidateGraph()).not.toThrow();
   });
 });

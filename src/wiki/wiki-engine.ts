@@ -46,6 +46,8 @@ import { SourceAnalyzer } from './source-analyzer';
 import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
+import { buildGraphFromContent } from '../core/build-graph';
+import type { Graph } from '../core/build-graph';
 
 /**
  * Issue #173 Symptom B: drop exact-string duplicates from a page-path list
@@ -63,6 +65,15 @@ export function dedupPages(paths: string[]): string[] {
     out.push(p);
   }
   return out;
+}
+
+/** True iff two sets contain exactly the same strings. */
+function setsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const v of a) {
+    if (!b.has(v)) return false;
+  }
+  return true;
 }
 
 export class WikiEngine {
@@ -100,6 +111,10 @@ export class WikiEngine {
   // pagesCache so back-to-back single-file ingests don't re-walk the vault.
   private ingestedHashesCache: Set<string> | null = null;
   private ingestedHashesCacheTime = 0;
+  // v1.24.0 Bug A: shared graph cache for PPR — built lazily from loaded page
+  // content, invalidated on every vault write via invalidatePageCaches.
+  private _cachedGraph: Graph | null = null;
+  private _cachedGraphAllPaths: Set<string> | null = null;
   private ctx: EngineContext;
 
   constructor(
@@ -288,17 +303,25 @@ export class WikiEngine {
     return c;
   }
 
-  private async buildSystemPrompt(task: SchemaTask): Promise<string | undefined> {
-    return buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t as SchemaTask), task);
-  }
-
   private applySectionLabels(prompt: string): string {
     return applySectionLabels(prompt, this.settings);
   }
 
-  updateSettings(settings: LLMWikiSettings): void {
+  /**
+   * Apply new settings. Returns `true` iff `wikiFolder` changed (and the
+   * path-keyed caches were therefore dropped). The return value lets
+   * `main.saveSettings()` act on the same condition in one pass without
+   * exposing the cache-invalidation knob.
+   */
+  updateSettings(settings: LLMWikiSettings): boolean {
+    // Compare BEFORE assigning so a same-folder update doesn't drop the cache.
+    const wikiFolderChanged = settings.wikiFolder !== this.settings.wikiFolder;
     this.settings = settings;
     this.ctx.settings = settings;
+    if (wikiFolderChanged) {
+      this.invalidatePageCaches();
+    }
+    return wikiFolderChanged;
   }
 
   /**
@@ -339,6 +362,62 @@ export class WikiEngine {
   private invalidatePageCaches(): void {
     this.pagesCache = null;
     this.ingestedHashesCache = null;
+    this._cachedGraph = null;
+    this._cachedGraphAllPaths = null;
+  }
+
+  /**
+   * v1.24.0 Bug A: public graph invalidation. Idempotent; drops the engine-level
+   * PPR graph cache so the next query rebuilds it from current vault content.
+   * Called by main.ts onIngestDoneDispatch across every open QueryView leaf.
+   */
+  invalidateGraph(): void {
+    this._cachedGraph = null;
+    this._cachedGraphAllPaths = null;
+    console.debug('[WikiEngine] graph cache invalidated');
+  }
+
+  /**
+   * v1.24.0: expose buildSystemPrompt so lint phases can compose their
+   * `system` prompt through the shared composer (language directive + schema
+   * context + active tag vocabulary) — exactly like EngineContext and the
+   * fix-runners. Lint phases call this instead of raw getSchemaContext.
+   */
+  async buildSystemPrompt(task: SchemaTask): Promise<string | undefined> {
+    return buildSystemPrompt(this.settings, t => this.schemaManager.getSchemaContext(t as SchemaTask), task);
+  }
+
+  /**
+   * v1.24.0 Bug A: shared graph builder for PPR. Returns a cached Graph when
+   * the requested path set is unchanged, otherwise rebuilds by reading every
+   * path in `allPaths` from the vault.
+   *
+   * The cache is intentionally long-lived: it only invalidates when the vault
+   * is written to (via invalidatePageCaches) or when the caller explicitly
+   * calls invalidateGraph(). This makes the first query of a session as fast
+   * as subsequent ones because the graph is already available for the PPR
+   * cascade.
+   */
+  async getOrBuildGraph(allPaths: Set<string>): Promise<Graph> {
+    const pathsChanged = this._cachedGraphAllPaths === null || !setsEqual(this._cachedGraphAllPaths, allPaths);
+    if (this._cachedGraph !== null && !pathsChanged) {
+      console.debug('[WikiEngine] graph cache hit:', this._cachedGraph.nodes.length, 'nodes');
+      return this._cachedGraph;
+    }
+
+    console.debug('[WikiEngine] graph cache miss — building', allPaths.size, 'nodes');
+    // Read all pages in parallel; cap concurrency with allSettled so one
+    // unreadable file does not abort the whole graph build.
+    const readTasks = [...allPaths].map(async (path) => {
+      const content = await this.tryReadFile(path);
+      return { path, content: content ?? '' };
+    });
+    const loadedPages = await Promise.all(readTasks);
+
+    const graph = buildGraphFromContent(loadedPages, allPaths, this.settings.wikiFolder);
+    this._cachedGraph = graph;
+    this._cachedGraphAllPaths = new Set(allPaths);
+    return graph;
   }
 
   /**

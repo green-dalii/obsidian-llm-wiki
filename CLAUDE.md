@@ -1,6 +1,6 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-05
+**Last Updated:** 2026-07-06
 
 ---
 
@@ -15,6 +15,15 @@ Architectural items deferred from v1.23.0–v1.23.2 cycle:
 - **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by @DocTpoint.
 - **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
 - **LintFixer → module-level functions split** — 707-LOC god class.
+
+### Deleted (v1.24.0) — Monolith splits
+
+The following files were split into sub-module directories (same pattern as PR #2/#3):
+
+- ✅ **controller.ts (PR #248, 2026-07-02)** — `runLintWiki` god function → 3 phase modules (`llm-phases/analysis-phase.ts`, `scoring-phase.ts`, `synthesis-phase.ts`).
+- ✅ **history-modal.ts (PR #249, 2026-07-02)** — 1579 LOC → `src/ui/history-modal/` (14 files).
+- ✅ **query-engine.ts (PR #250, 2026-07-06)** — 1373 LOC → `src/wiki/query-engine/` (15 files).
+- ⏳ LintFixer → module-level functions (707-LOC god class) — **pending**.
 
 ### Discussion-only (NOT in v1.24.0)
 
@@ -37,6 +46,8 @@ Five merged PRs (#239 + #240 + #238 + #241). **1431 tests passing** across 108 f
 - ✅ **License upgrade** — MIT → Apache 2.0 + DCO. NOTICE file lists all 6 human code contributors.
 - ✅ **Notice TTL compliance** — Lint completion Notices now use `NOTICE_NORMAL`/`NOTICE_ERROR`
 
+**v1.23.2 test count:** 1431 tests → 1616 tests (3 monolith split PRs added ~90 tests for controller.ts/#248, history-modal.ts/#249, query-engine.ts/#250). 115 test files.
+
 - v1.23.0 (2026-07-02, MINOR) — Graph Engine PPR + Vercel AI-SDK v6 + Multi-File Ingest + Sponsor section. 1376 tests. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
 - v1.22.6 (2026-06-30, hotfix) — #204 Auto Ingest modal + Auto Smart Fix context-aware + #207 GPT-5 Pro variants routing. 1118 tests.
 - v1.22.5 (2026-06-29) — Responses API path for reasoning model family + provider body in Notice. 1104 tests.
@@ -58,11 +69,31 @@ Five merged PRs (#239 + #240 + #238 + #241). **1431 tests passing** across 108 f
 - knn + cascade by-query-type complement (DocTpoint #198 follow-up, 2026-06-30)
 
 **Deferred to v1.24.0+:**
-- #220 Source-revision awareness (Discussion thread needed first)
-- #218 PDF source ingest → Discussion #222 topology
-- Hub-retirement lint wire-up (post-#215)
-- #36 source-title-in-extraction (low ROI vs PPR cascade)
-- LintFixer class → module-level functions (707-LOC god class split, 1 day)
+
+With 3 monolith splits (controller.ts/#248 ✅, history-modal.ts/#249 ✅, query-engine.ts/#250 ✅) done, remaining items in the v1.24.0 backlog:
+
+- **LintFixer → module-level functions** (707-LOC god class split, ~1 day) — the next monolith split candidate.
+- **#220 Source-revision awareness** (Discussion thread needed first)
+- **#218 PDF source ingest** → Discussion #222 topology
+- **Hub-retirement lint wire-up** (`core/hub-retirement.ts` 0 callers, post-#215)
+- **#36 source-title-in-extraction** (low ROI vs PPR cascade)
+- **knn + cascade by-query-type complement** (DocTpoint #198 follow-up, 2026-06-30)
+- **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
+
+**Non-blocking i18n altitude items (deferred from PR #250 code-review, **APPROVED FOR P1** — see `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_remaining_split_roi.md`):**
+- Hardcoded '🤖 Wiki' / '👤 You' assistant labels in `history-message.ts` and `QueryView-class.ts`
+- Hardcoded 'page(s)' pluralization in `retrieval-label.ts`
+- `as unknown as Record<string, string>` TEXTS casts (7 sites) — type safety debt
+
+**Approved monolith-split remaining (Q3 2026 backlog):**
+- **P0: `src/ui/modals.ts` → `src/ui/modals/` (7 modal classes, 1008 LOC, 0.5 day)** — highest ROI after #248/#249/#250 series
+- **P2: `src/wiki/wiki-engine.ts` (1391 LOC, `WikiEngine` god class, 44 methods × 20+ fields, 2-3 days)** — main v1.24.0 MINOR candidate
+- **P3: `src/schema/auto-maintain.ts` (756 LOC, 4 lifecycle intertwining, 1-1.5 days)** — post v1.24.0 MINOR
+
+**明确不做 (false backlog items / Obsidian lifecycle / low ROI):**
+- ❌ `src/main.ts` (1106 LOC) — `class LLMWikiPlugin extends Plugin` 是 Obsidian lifecycle 入口，**永远不应该拆**
+- ❌ `src/wiki/lint/fix-runners.ts` (500 LOC) — 500 LOC 期望边界内，非 god class
+- ❌ `src/core/` 平铺 (51 files / 9200 LOC) — 49 个文件内期望边界，重新组织 ROI 低、caller 调整风险高
 
 **Deferred to v1.25.0+ (research / experimental):**
 - Cold-start vocabulary seeding — rejected on ROI grounds (cascade R@5 27.1% vs knn 24.1% = 3pp gap).

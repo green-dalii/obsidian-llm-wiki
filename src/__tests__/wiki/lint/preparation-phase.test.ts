@@ -39,6 +39,7 @@ function makeContext(files: Record<string, string>, abstractFiles: string[] = []
     checkCancelled: () => {},
     stageNotice: null,
     totalPages: 0,
+    buildSystemPrompt: async () => undefined,
   };
 }
 

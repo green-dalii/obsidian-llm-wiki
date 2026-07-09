@@ -105,6 +105,19 @@ export const PT_TEXTS = {
     errorUnknown: 'Erro desconhecido',
     savedNotice: 'Configurações salvas!',
 
+    // v1.24.0 (Bug C 3.4 / plan C): notificação de migração gradual
+    queryHistoryMigrationNotice: 'O histórico do Query Wiki contém links de uma pasta wiki anterior. As novas consultas usam automaticamente a pasta mais recente. Para atualizar todas as mensagens armazenadas, abra o painel do Query Wiki e clique no botão "Limpar histórico" que está lá.',
+
+    // v1.24.0 Issue #251: instruções de Query personalizadas (painel recolhível)
+    customInstructionsTitle: 'Instruções de Query personalizadas',
+    customInstructionsDesc: 'Instruções persistentes adicionadas ao final do prompt do sistema do Query Wiki. Afetam apenas o chat do Query Wiki; ingestão, lint e geração de páginas não são afetados.',
+    customInstructionsPlaceholder: 'ex.: tratar como tarefa de pesquisa: buscar amplamente, citar fontes, separar fatos de interpretação...',
+    customInstructionsApply: 'Aplicar',
+    customInstructionsClear: 'Limpar',
+    customInstructionsCharCount: '{current}/{max} caracteres',
+    instructionsApplied: 'Instruções de Query personalizadas salvas.',
+    instructionsCleared: 'Instruções de Query personalizadas removidas.',
+
     // Issue #137: Avisos de fallback de LLM
     fallbackThinkingDialect: 'Controle de pensamento: alternado para o dialeto "{dialect}" (este provedor usa um formato diferente). A saída permanece inalterada.',
     fallbackThinkingNone: 'Controle de pensamento totalmente desativado para este provedor. Conteúdo de raciocínio ainda pode aparecer; se isso acontecer, tente outro modelo.',
@@ -113,7 +126,9 @@ export const PT_TEXTS = {
     // Wiki Folder
     wikiSection: 'Configuração do Wiki',
     wikiFolderName: 'Pasta Wiki',
-    wikiFolderDesc: 'Local para as páginas geradas da Wiki',
+    // v1.24.0: indica que é necessário reiniciar o Obsidian após a alteração
+    // (os caches do motor e os painéis abertos do Query Wiki precisam ser religados).
+    wikiFolderDesc: 'Local para as páginas geradas da Wiki. Reinicie o Obsidian após a alteração — os caches do motor e os painéis abertos do Query Wiki precisam ser religados.',
     wikiFolderPlaceholder: 'wiki',
 
     // Errors
@@ -123,9 +138,14 @@ export const PT_TEXTS = {
 
     // Query Settings
     querySectionTitle: 'Configuração de consulta Wiki',
-    maxConversationHistoryName: 'Histórico máximo de conversa',
-    maxConversationHistoryDesc: 'Limite flexível de rodadas de conversa (as mensagens mais antigas são descartadas automaticamente). Predefinições: 1/10/30/50/100/500.',
-    maxConversationHistoryHint: 'Recomendado: não ultrapassar 50 rodadas',
+    // v1.24.0: renomeado de "Histórico máximo de conversa" para
+    // "Rodadas de memória de conversa" para maior clareza.
+    // 1 = cada turno independente (sem memória entre turnos).
+    // A configuração é um menu suspenso, não precisa listar predefinições.
+    // v1.24.0: maxConversationHistoryHint era uma chave i18n sem uso;
+    // a recomendação foi integrada à descrição.
+    maxConversationHistoryName: 'Rodadas de memória de conversa',
+    maxConversationHistoryDesc: 'Quantas rodadas de conversa anteriores o LLM vê como memória. 1 = cada turno independente (sem memória entre turnos); valores mais altos permitem ao modelo lembrar turnos anteriores da sessão. Recomendado: 1 para Q&A pontual, 10–50 para pesquisa contínua.',
     numberRangeValidation: 'Insira um número entre 1 e 50',
     numberRangeClamped: 'Valor fora do intervalo (1-500), automaticamente definido como {}',
     // Query Modal UI

@@ -8,9 +8,10 @@
 /**
  * Subset of private QueryView state read/written by white-box tests.
  * Field names MUST match the QueryView implementation — keeping the cast
- * `(view as unknown as InternalView)._graph` working is the whole point.
+ * `(view as unknown as InternalView)._lastRetrieval` working is the whole
+ * point. v1.24.0 Bug A removed the per-view `_graph` cache; graph now lives
+ * in WikiEngine.
  */
 export interface InternalView {
-  _graph: unknown;
   _lastRetrieval: unknown;
 }

@@ -69,6 +69,15 @@ export interface LintPhaseContext {
     setMessage: (message: string) => void;
   } | null;
   totalPages: number;
+  /**
+   * v1.24.0: compose the `system` prompt for LLM-assisted lint phases.
+   * Mirrors `EngineContext.buildSystemPrompt` — the shared composer that
+   * injects the language directive + schema context + active tag vocabulary.
+   * Phases call it (e.g. with 'lint') and use the result as the `system`
+   * field, matching fill-empty-page / fix-dead-link / link-orphan /
+   * merge-duplicates. Returns undefined when there is nothing to inject.
+   */
+  buildSystemPrompt: (task: string) => Promise<string | undefined>;
 }
 
 export interface ScannerPage {

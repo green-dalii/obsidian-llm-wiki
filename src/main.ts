@@ -58,6 +58,7 @@ import { slugify } from './core/slug';
 import { parseFrontmatter } from './core/frontmatter';
 import { applySettingsMigrations } from './core/settings-migrations';
 import { normalizeVocabularyCsv } from './core/tag-vocab';
+import { detectStaleWikiFolders } from './core/query-history-migration-check';
 import { buildIngestStatusBarText, BatchProgress } from './core/status-bar';
 import { IngestQueue } from './core/ingest-queue';
 import { decideProgressDisplay, ProgressScope } from './core/progress-notification';
@@ -340,7 +341,31 @@ export default class LLMWikiPlugin extends Plugin {
     // runStartupCheck() above. The standalone runOnboarding() method
     // is gone — single owner = single source of truth.
 
+    // v1.24.0 (Bug C 3.4 / plan C): gradual migration. Pre-v1.24.0
+    // chat history contains real wikiFolder-prefixed links. The
+    // placeholder scheme (Bug C 3.0) handles new turns correctly, but
+    // legacy entries still render the old path. We do NOT auto-migrate
+    // (guessing all historical folders is fragile); we show a one-time
+    // Notice so the user can decide whether to Clear history.
+    this.checkQueryHistoryForStaleFolders();
+
     console.debug('LLM Wiki Plugin loaded - Karpathy implementation');
+  }
+
+  /**
+   * Show a one-time Notice when persisted query history contains
+   * wiki-link prefixes from a wikiFolder the user is no longer using.
+   * Pure check + side-effect free except for the Notice itself; safe
+   * to call once on startup.
+   */
+  private checkQueryHistoryForStaleFolders(): void {
+    const history = this.settings.queryHistory;
+    if (!Array.isArray(history) || history.length === 0) return;
+
+    const detection = detectStaleWikiFolders(history, this.settings.wikiFolder);
+    if (!detection || !detection.hasStale) return;
+
+    new Notice(getText(this.settings.language, 'queryHistoryMigrationNotice'), NOTICE_NORMAL);
   }
 
   onunload() {
@@ -425,8 +450,18 @@ export default class LLMWikiPlugin extends Plugin {
     this.initializeLLMClient();
     this.schemaManager?.updateSettings(this.settings);
     if (this.wikiEngine) {
-      this.wikiEngine.updateSettings(this.settings);
+      const wikiFolderChanged = this.wikiEngine.updateSettings(this.settings);
       console.debug('[saveSettings] wikiEngine provider updated to:', this.settings.provider);
+      // Bug C 3.1: extend wikiFolder-change invalidation to open QueryView
+      // PPR graphs (engine handles its own path-keyed caches).
+      if (wikiFolderChanged) {
+        this.invalidateAllQueryGraphs();
+        // Bug C 3.4 / plan C: when the user changes wikiFolder mid-session,
+        // the onload Notice won't fire (already shown at startup). Re-run
+        // the detection so the user gets the "stale history" prompt
+        // immediately, not after the next Obsidian restart.
+        this.checkQueryHistoryForStaleFolders();
+      }
     }
     if (this.autoMaintainManager) {
       this.autoMaintainManager.settings = this.settings;
@@ -483,6 +518,22 @@ export default class LLMWikiPlugin extends Plugin {
   // ingest (trigger='manual' or undefined) to the legacy
   // IngestReportModal. Keeps backward compatibility — legacy
   // callers without trigger default to 'manual'.
+  /**
+   * Drop the engine-level PPR graph cache in WikiEngine and the last-retrieval
+   * state in every open QueryView. Used by `onIngestDoneDispatch` (v1.23.2
+   * review-C P0) and by `saveSettings` when `wikiFolder` changes (Bug C 3.1).
+   * v1.24.0 Bug A: the graph cache is now engine-level (shared), so the engine
+   * invalidation is the critical call; per-view invalidation only clears UI state.
+   */
+  private invalidateAllQueryGraphs(): void {
+    const viewLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_QUERY);
+    for (const leaf of viewLeaves) {
+      if (leaf.view instanceof QueryView) {
+        leaf.view.invalidateGraph();
+      }
+    }
+  }
+
   private onIngestDoneDispatch(report: IngestReport): void {
     // v1.23.2 (review-C P0): any ingest that touches wiki/ invalidates the
     // cached PPR graph in every open QueryView. Without this, a user who
@@ -490,12 +541,7 @@ export default class LLMWikiPlugin extends Plugin {
     // answers against the pre-ingest graph (and its pre-ingest neighbors).
     // We walk all leaves of VIEW_TYPE_QUERY because Obsidian lets the user
     // dock multiple Query panels in the workspace.
-    const viewLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_QUERY);
-    for (const leaf of viewLeaves) {
-      if (leaf.view instanceof QueryView) {
-        leaf.view.invalidateGraph();
-      }
-    }
+    this.invalidateAllQueryGraphs();
 
     if (report.trigger === 'auto') {
       this.onAutoIngestDone(report);

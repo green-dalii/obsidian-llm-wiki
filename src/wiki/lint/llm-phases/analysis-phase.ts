@@ -151,10 +151,16 @@ export async function runAnalysisPhase(
   if (!llm) {
     throw new Error('runAnalysisPhase: LLM client not available');
   }
+  // v1.24.0: compose the system prompt through the shared buildSystemPrompt
+  // composer (language directive + schema context + active tag vocabulary),
+  // matching the other lint LLM calls (fill-empty-page, fix-dead-link,
+  // link-orphan, merge-duplicates).
+  const systemPrompt = await ctx.buildSystemPrompt('lint');
   const response = await llm.createMessage({
     model: ctx.settings.model,
     max_tokens: TOKENS_LINT_DEDUP_LLM,
     messages: [{ role: 'user', content: prompt }],
+    ...(systemPrompt ? { system: systemPrompt } : {}),
     ...(ctx.settings.disableThinking ? { enableThinking: false } : {}),
   });
 

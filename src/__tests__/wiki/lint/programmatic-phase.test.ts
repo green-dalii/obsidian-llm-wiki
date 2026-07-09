@@ -21,6 +21,7 @@ function makeContext(settings?: Partial<LLMWikiSettings>): LintPhaseContext {
     checkCancelled: () => {},
     stageNotice: null,
     totalPages: 0,
+    buildSystemPrompt: async () => undefined,
   };
 }
 

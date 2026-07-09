@@ -75,6 +75,127 @@ describe('detectAliasDeficiency', () => {
 
     expect(detectAliasDeficiency(files, pageMap)).toHaveLength(0);
   });
+
+  // v1.24.0 bug-hunt test: the original detection logic only
+  // checked `fmMatch[1].includes('aliases:')` — which falsely passes
+  // for `aliases: []` (empty array). A user who deletes every alias
+  // entry but leaves the `aliases:` key gets reported as "has aliases"
+  // and lint misses the deficiency.
+  //
+  // Fix: detect alias deficiency as "no aliases line OR aliases array
+  // is empty". A page with `aliases: []` is still deficient — the
+  // whole point of lint is to surface pages that need more aliases.
+  describe('aliases:[] must count as deficient (v1.24.0 fix)', () => {
+    it('detects entity page with aliases:[] (user deleted all entries)', () => {
+      const content = `---\ntype: entity\naliases: []\n---\n\n# Body`;
+      const pageMap = new Map<string, ScannerPage>();
+      pageMap.set('wiki/entities/Empty.md', {
+        path: 'wiki/entities/Empty.md',
+        content,
+        basename: 'Empty',
+      });
+      const result = detectAliasDeficiency(
+        [{ path: 'wiki/entities/Empty.md' }],
+        pageMap
+      );
+      // FAILING before fix: includes('aliases:') matches, returns 0.
+      // EXPECTED after fix: detects as deficient, returns 1.
+      expect(result).toHaveLength(1);
+      expect(result[0].path).toBe('wiki/entities/Empty.md');
+    });
+
+    it('detects concept page with aliases:[] ', () => {
+      const content = `---\ntype: concept\naliases: []\n---\n\n# Body`;
+      const pageMap = new Map<string, ScannerPage>();
+      pageMap.set('wiki/concepts/Empty.md', {
+        path: 'wiki/concepts/Empty.md',
+        content,
+        basename: 'Empty',
+      });
+      const result = detectAliasDeficiency(
+        [{ path: 'wiki/concepts/Empty.md' }],
+        pageMap
+      );
+      expect(result).toHaveLength(1);
+    });
+
+    it('still skips page with real aliases: [Real Alias]', () => {
+      const content = `---\ntype: entity\naliases: [Real Alias]\n---\n\n# Body`;
+      const pageMap = new Map<string, ScannerPage>();
+      pageMap.set('wiki/entities/Real.md', {
+        path: 'wiki/entities/Real.md',
+        content,
+        basename: 'Real',
+      });
+      const result = detectAliasDeficiency(
+        [{ path: 'wiki/entities/Real.md' }],
+        pageMap
+      );
+      expect(result).toHaveLength(0);
+    });
+
+    it('detects page with multi-line aliases: \n  - "" (empty string entries)', () => {
+      // User deletes all entries but leaves placeholder dashes.
+      const content = `---\ntype: entity\naliases:\n  - ""\n  - ""\n---\n\n# Body`;
+      const pageMap = new Map<string, ScannerPage>();
+      pageMap.set('wiki/entities/Placeholder.md', {
+        path: 'wiki/entities/Placeholder.md',
+        content,
+        basename: 'Placeholder',
+      });
+      const result = detectAliasDeficiency(
+        [{ path: 'wiki/entities/Placeholder.md' }],
+        pageMap
+      );
+      // Empty-string aliases provide no alias value → still deficient.
+      expect(result).toHaveLength(1);
+    });
+
+    it('skips page with multi-line aliases: \n  - Real\n  - Alias', () => {
+      const content = `---\ntype: entity\naliases:\n  - Real\n  - Alias\n---\n\n# Body`;
+      const pageMap = new Map<string, ScannerPage>();
+      pageMap.set('wiki/entities/Has.md', {
+        path: 'wiki/entities/Has.md',
+        content,
+        basename: 'Has',
+      });
+      const result = detectAliasDeficiency(
+        [{ path: 'wiki/entities/Has.md' }],
+        pageMap
+      );
+      expect(result).toHaveLength(0);
+    });
+
+    it('skips page with aliases: ["foo"]', () => {
+      const content = `---\ntype: entity\naliases: ["foo"]\n---\n\n# Body`;
+      const pageMap = new Map<string, ScannerPage>();
+      pageMap.set('wiki/entities/Quoted.md', {
+        path: 'wiki/entities/Quoted.md',
+        content,
+        basename: 'Quoted',
+      });
+      const result = detectAliasDeficiency(
+        [{ path: 'wiki/entities/Quoted.md' }],
+        pageMap
+      );
+      expect(result).toHaveLength(0);
+    });
+
+    it('skips page with single quoted alias', () => {
+      const content = `---\ntype: entity\naliases:\n  - "Real Alias"\n---\n\n# Body`;
+      const pageMap = new Map<string, ScannerPage>();
+      pageMap.set('wiki/entities/Single.md', {
+        path: 'wiki/entities/Single.md',
+        content,
+        basename: 'Single',
+      });
+      const result = detectAliasDeficiency(
+        [{ path: 'wiki/entities/Single.md' }],
+        pageMap
+      );
+      expect(result).toHaveLength(0);
+    });
+  });
 });
 
 // ── scanDeadLinks ──────────────────────────────────────────────

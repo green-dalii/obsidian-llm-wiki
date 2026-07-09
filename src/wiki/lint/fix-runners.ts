@@ -9,7 +9,7 @@ import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
 import { detectRateLimitFailures, formatRateLimitNotice } from '../../core/rate-limit';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from '../../core/tag-vocab';
-import { enforceFrontmatterConstraints } from '../../core/frontmatter';
+import { mergeFrontmatterArrayField, replaceFrontmatterArrayField, parseFrontmatter } from '../../core/frontmatter';
 import { TOKENS_LINT_ALIAS_BATCH, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
 import { buildWikiLanguageDirective, appendTagVocabularyToPrompt } from '../system-prompts';
 import { TagViolation } from './scanners';
@@ -92,24 +92,55 @@ export async function runAliasCompletion(
             response_format: { type: 'json_object' }
           });
 
+          // v1.24.0: Bug 3 — log provider + raw response shape BEFORE
+          // parseJsonResponse so an empty / unparseable result is
+          // attributable to either the provider (empty text) or our
+          // parser (rejected text). Without this, the user only sees
+          // "JSON parse completely failed (length 0)" with no context.
+          console.debug(
+            `[Alias] ${page.basename}: response type=${typeof response} ` +
+            `length=${typeof response === 'string' ? response.length : 'N/A'} | ` +
+            `provider=${client.constructor?.name ?? typeof client} | ` +
+            `first200=${JSON.stringify((typeof response === 'string' ? response : '').slice(0, 200))}`
+          );
+
           const parsed = await parseJsonResponse(response) as { aliases?: string[] } | null;
           if (parsed?.aliases?.length) {
             console.debug(`[Alias] ${page.basename}: generated ${parsed.aliases.length} aliases → [${parsed.aliases.join(', ')}]`);
 
-            const fmEnd = page.content.indexOf('\n---', 3);
-            if (fmEnd !== -1) {
-              const aliasesYaml = 'aliases:\n' + parsed.aliases.map(a => `  - "${a}"`).join('\n');
-              const updated = page.content.substring(0, fmEnd) + '\n' + aliasesYaml + page.content.substring(fmEnd);
-              await ctx.app.vault.adapter.write(page.path, updated);
-              results.push(`- [[${pageRel}]]: added ${parsed.aliases.length} aliases`);
-              return { success: true, name: page.basename, count: parsed.aliases.length };
-            } else {
-              console.warn(`[Alias] ${page.basename}: frontmatter closing marker not found`);
-            }
+            // v1.24.0: Bug 2 — use the shared merge helper so we never
+            // produce duplicate `aliases:` lines (the previous string-
+            // splice approach inserted a second `aliases:` even when
+            // the page already had `aliases: []`).
+            const fmBefore = parseFrontmatter(page.content);
+            const existingAliases = Array.isArray(fmBefore?.aliases) ? fmBefore.aliases : [];
+            const updated = mergeFrontmatterArrayField(page.content, 'aliases', parsed.aliases);
+            const fmAfter = parseFrontmatter(updated);
+            const mergedAliases = Array.isArray(fmAfter?.aliases) ? fmAfter.aliases : [];
+            const newAliases = mergedAliases.length - existingAliases.length;
+
+            await ctx.app.vault.adapter.write(page.path, updated);
+            results.push(`- [[${pageRel}]]: added ${newAliases} aliases (total ${mergedAliases.length})`);
+            return { success: true, name: page.basename, count: newAliases };
           }
-          return { success: false, name: page.basename, reason: 'No aliases generated' };
+          // v1.24.0 Bug 3: when parseJsonResponse fails to extract aliases,
+// surface the page basename + raw response shape via console.error
+// (not just console.debug). The user needs to see which page failed
+// without grepping through hundreds of LLM call logs.
+const respStr = typeof response === 'string' ? response : '';
+console.error(
+  `[Alias] ${page.basename}: no aliases extracted | ` +
+  `response length=${respStr.length} | ` +
+  `provider=${client.constructor?.name ?? typeof client} | ` +
+  `first100=${JSON.stringify(respStr.slice(0, 100))}`
+);
+return { success: false, name: page.basename, reason: 'No aliases generated' };
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : String(e);
+          // Note: `response` is in the outer try scope, so we can't
+          // reference it here. The pre-fix code already logged the
+          // page name in console.error. The richer diagnostic (provider
+          // name + raw response) is logged inside the try block above.
           console.error(`[Alias] ${page.basename}: generation failed — ${errMsg}`);
           new Notice(t.lintAliasesFillFailed.replace('{page}', page.basename).replace('{error}', errMsg), NOTICE_ERROR);
           return { success: false, name: page.basename, reason: errMsg };
@@ -457,23 +488,15 @@ Task: Return a JSON object with a single field "tags" that is an array of string
           continue;
         }
 
-        // Rebuild the frontmatter with the new tags. We reuse
-        // enforceFrontmatterConstraints so date / aliases / created /
-        // updated are preserved. The body is byte-identical to the
-        // input we read.
-        const updated = enforceFrontmatterConstraints(
-          content,  // original content; only the tags: line will change
-          v.pageType,
-          ctx.settings,
-        );
-        // enforceFrontmatterConstraints preserves all LLM-emitted tags
-        // (v6 preserve-LLM-intent), so we still need to REWRITE the
-        // tags: line explicitly with the LLM's new tags.
-        const rewritten = updated.replace(
-          /tags:\s*\[[^\]]*\]/,
-          `tags: [${safeNewTags.join(', ')}]`
-        );
-        await ctx.app.vault.adapter.write(v.path, rewritten);
+        // v1.24.0: use the shared REPLACE helper (full replacement
+        // semantic — retag rewrites the entire tags array, doesn't
+        // append). The previous regex `/tags:\s*\[[^\]]*\]/` only
+        // matched inline-style tags — block-style tags
+        // (`tags:\n  - x`) were silently not rewritten, leaving the
+        // LLM's retag un-applied. The replace helper also handles the
+        // block-style case correctly.
+        const updated = replaceFrontmatterArrayField(content, 'tags', safeNewTags);
+        await ctx.app.vault.adapter.write(v.path, updated);
         fixed++;
         results.push(`${v.path}: [${v.currentTags.join(', ')}] → [${safeNewTags.join(', ')}]`);
       } catch (e) {

@@ -168,6 +168,106 @@ export function upsertFrontmatterField(content: string, key: string, value: stri
   return `---\n${line}\n---\n\n${content}`;
 }
 
+/**
+ * v1.24.0: parse-aware merge helper for array-valued frontmatter fields
+ * (`aliases`, `tags`, `sources`, ...). Unlike `upsertFrontmatterField` which
+ * string-splices the value (and can produce duplicate `aliases:` lines if
+ * the key already exists), this function:
+ *
+ *   1. parses the existing frontmatter via `parseFrontmatter`
+ *   2. merges new items into the existing array, deduped (preserving order)
+ *   3. re-serializes via `serializeFrontmatter` (canonical field order + shape)
+ *   4. preserves all other frontmatter fields verbatim
+ *
+ * Handles every frontmatter style:
+ *   - `aliases: [a, b]`  (inline)
+ *   - `aliases:\n  - a\n  - b`  (block)
+ *   - `aliases: []` (empty placeholder — treated as "appending")
+ *   - field entirely missing — appended
+ *
+ * If the page has no frontmatter, prepends a fresh `---\n---\n` block.
+ * Returns the original content unchanged when the merge would be a no-op.
+ */
+export function mergeFrontmatterArrayField(
+  content: string,
+  field: string,
+  newItems: readonly string[],
+): string {
+  if (newItems.length === 0) return content;
+
+  const fm = parseFrontmatter(content);
+  const existingRaw: unknown = fm?.[field];
+  const existing: string[] = Array.isArray(existingRaw) ? (existingRaw as string[]) : [];
+
+  // Dedup new items against existing; preserve original order.
+  const existingSet = new Set(existing);
+  const additions: string[] = [];
+  for (const item of newItems) {
+    if (!existingSet.has(item)) {
+      additions.push(item);
+      existingSet.add(item);
+    }
+  }
+  if (additions.length === 0) return content;
+  const merged = [...existing, ...additions];
+
+  // Build a fresh frontmatter block via the canonical writer.
+  // Merge keeps everything we knew about, plus the new array.
+  const next: FrontmatterData = {
+    ...(fm ?? {}),
+    [field]: merged,
+  };
+  const fmBlock = serializeFrontmatter(next);
+
+  // Splice the new block in place of the existing frontmatter.
+  if (content.startsWith('---')) {
+    const endIdx = content.indexOf('\n---', 3);
+    if (endIdx !== -1) {
+      const body = content.substring(endIdx + 4); // '\n---<body>' → skip '---'
+      return `${fmBlock}\n${body}`;
+    }
+  }
+
+  // No existing frontmatter — prepend a fresh block.
+  return `${fmBlock}\n\n${content}`;
+}
+
+/**
+ * v1.24.0: replace (overwrite) the array-valued frontmatter field with
+ * a brand-new array. Unlike `mergeFrontmatterArrayField` which appends,
+ * this is the "full replacement" semantic used by `runRetagViolations`:
+ * the LLM returns the full new tag set (already filtered to vocab),
+ * and we replace whatever was on disk.
+ *
+ * Same handling for inline/block/missing/empty cases as the merge helper.
+ */
+export function replaceFrontmatterArrayField(
+  content: string,
+  field: string,
+  newItems: readonly string[],
+): string {
+  const fm = parseFrontmatter(content);
+
+  // Build a fresh frontmatter block. Keep everything we knew, drop the
+  // array field (we'll re-emit it with new items).
+  const next: FrontmatterData = { ...(fm ?? {}) };
+  if (newItems.length === 0) {
+    delete next[field];
+  } else {
+    next[field] = [...newItems];
+  }
+  const fmBlock = serializeFrontmatter(next);
+
+  if (content.startsWith('---')) {
+    const endIdx = content.indexOf('\n---', 3);
+    if (endIdx !== -1) {
+      const body = content.substring(endIdx + 4);
+      return `${fmBlock}\n${body}`;
+    }
+  }
+  return `${fmBlock}\n\n${content}`;
+}
+
 export interface SerializeFrontmatterOptions {
   /**
    * Verbatim frontmatter lines for non-canonical fields (e.g. a future

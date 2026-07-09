@@ -176,6 +176,7 @@ function makeLintPhaseContext(overrides: Partial<LintPhaseContext> = {}): LintPh
     checkCancelled: () => {},
     stageNotice: { setMessage: () => {} },
     totalPages: 0,
+    buildSystemPrompt: async () => undefined,
     ...overrides,
   };
 }
@@ -297,6 +298,54 @@ describe('runDedupPhase — LLM verify path', () => {
       const callArgs = createMessage.mock.calls[0][0] as { max_tokens: number };
       expect(callArgs.max_tokens).toBeGreaterThan(0);
     }
+  });
+
+  it('injects schema context as system prompt when LLM is called', async () => {
+    const { client, createMessage } = stubLlm('{"duplicates":[]}');
+    const ctx = makeLintPhaseContext({
+      llmClient: () => client,
+      buildSystemPrompt: async () => 'SCHEMA_CONTEXT_HERE',
+    });
+    const input: DedupPhaseInput = {
+      wikiFiles: [
+        { path: 'wiki/entities/x.md', basename: 'x.md' },
+        { path: 'wiki/entities/X.md', basename: 'X.md' },
+      ],
+      pageMap: makePageMap([
+        ['wiki/entities/x.md', '---\ntype: entity\n---\n# x\nshared content here'],
+        ['wiki/entities/X.md', '---\ntype: entity\n---\n# X\nshared content here'],
+      ]),
+    };
+    await runDedupPhase(ctx, input, () => {});
+    expect(createMessage).toHaveBeenCalled();
+    const callArgs = createMessage.mock.calls[0][0] as {
+      system?: string;
+      messages: Array<{ content: string }>;
+    };
+    expect(callArgs.system).toContain('SCHEMA_CONTEXT_HERE');
+  });
+
+  it('passes empty system prompt when buildSystemPrompt returns undefined', async () => {
+    const { client, createMessage } = stubLlm('{"duplicates":[]}');
+    const ctx = makeLintPhaseContext({
+      llmClient: () => client,
+      buildSystemPrompt: async () => undefined,
+    });
+    const input: DedupPhaseInput = {
+      wikiFiles: [
+        { path: 'wiki/entities/x.md', basename: 'x.md' },
+        { path: 'wiki/entities/X.md', basename: 'X.md' },
+      ],
+      pageMap: makePageMap([
+        ['wiki/entities/x.md', '---\ntype: entity\n---\n# x\nshared content here'],
+        ['wiki/entities/X.md', '---\ntype: entity\n---\n# X\nshared content here'],
+      ]),
+    };
+    await runDedupPhase(ctx, input, () => {});
+    const callArgs = createMessage.mock.calls[0][0] as {
+      system?: string;
+    };
+    expect(callArgs.system).toBeUndefined();
   });
 
   it('filters out LLM responses that are not arrays', async () => {

@@ -105,6 +105,19 @@ export const JA_TEXTS = {
     errorUnknown: '不明なエラー',
     savedNotice: '設定を保存しました！',
 
+    // v1.24.0 (Bug C 3.4 / plan C): 段階的移行の通知
+    queryHistoryMigrationNotice: 'Query Wiki の履歴に以前の wiki フォルダーのリンクが含まれています。新しい会話は自動的に最新のフォルダーを使用します。すべての履歴メッセージをリフレッシュするには、Query Wiki パネルを開き、その中の「履歴をクリア」ボタンをクリックしてください。',
+
+    // v1.24.0 Issue #251: カスタム Query 命令（折りたたみ可能パネル）
+    customInstructionsTitle: 'カスタム Query 命令',
+    customInstructionsDesc: 'Query Wiki のすべてのチャット応答のシステムプロンプト末尾に追記される命令です。Query Wiki チャットのみに影響し、取り込み・lint・ページ生成には影響しません。',
+    customInstructionsPlaceholder: '例：リサーチタスクとして扱う：広く検索、ソースを引用、事実と解釈を区別する...',
+    customInstructionsApply: '適用',
+    customInstructionsClear: 'クリア',
+    customInstructionsCharCount: '{current}/{max} 文字',
+    instructionsApplied: 'カスタム Query 命令を保存しました。',
+    instructionsCleared: 'カスタム Query 命令をクリアしました。',
+
     // Issue #137: LLM フォールバック通知
     fallbackThinkingDialect: '思考制御：「{dialect}」方言に切り替えました（このプロバイダーは別の思考制御フィールド形式を使用します）。出力は変わりません。',
     fallbackThinkingNone: 'このプロバイダーでは思考制御を完全に無効化しました。推論コンテンツが引き続き表示される場合があります。その場合は別のモデルを試してください。',
@@ -113,7 +126,8 @@ export const JA_TEXTS = {
     // Wiki Folder
     wikiSection: 'Wiki設定',
     wikiFolderName: 'Wiki フォルダー',
-    wikiFolderDesc: '生成されたWikiページの保存先',
+    // v1.24.0: 変更後に Obsidian の再起動が必要であることを明示（engine キャッシュと開いている Query Wiki パネルの再バインド）
+    wikiFolderDesc: '生成された Wiki ページの保存先。変更後は Obsidian の再起動が必要です——engine のキャッシュと開いている Query Wiki パネルの再バインドが行われます。',
     wikiFolderPlaceholder: 'wiki',
 
     // Errors
@@ -123,9 +137,13 @@ export const JA_TEXTS = {
 
     // Query Settings
     querySectionTitle: 'Wiki 問い合わせ設定',
-    maxConversationHistoryName: '会話履歴の最大数',
-    maxConversationHistoryDesc: '会話ラウンドのソフト上限（超過時は古いメッセージが自動的に破棄されます）。プリセット：1/10/30/50/100/500。',
-    maxConversationHistoryHint: '推奨：50ラウンド以内',
+    // v1.24.0: 「会話履歴の最大数」から「会話の関連記憶ラウンド数」に改名
+    // 意味をより正確に表現。1 = 各ターンが独立（前文を参照しない）。
+    // 設定はドロップダウンなので、プリセット値を説明に列挙する必要なし。
+    // v1.24.0: maxConversationHistoryHint は未使用の i18n key でした（UI から参照なし）。
+    // 推奨文を desc に統合しました。
+    maxConversationHistoryName: '会話の関連記憶ラウンド数',
+    maxConversationHistoryDesc: 'LLM が新しい会話で参照できる過去のラウンド数（記憶として）。1 = 各ターンが独立（前文を参照しない）；値が大きいほど、モデルがセッション前半のラウンドを覚えています。推奨：ワンショット Q&A は 1、継続的な調査は 10〜50。',
     numberRangeValidation: '1〜50の数値を入力してください',
     numberRangeClamped: '値が範囲外です（1-500）、自動的に {} に設定されました',
     // Query Modal UI

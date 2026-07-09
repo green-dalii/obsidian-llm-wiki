@@ -152,6 +152,140 @@ describe('fix-runners — AbortSignal propagation', () => {
   });
 });
 
+// ── runAliasCompletion: frontmatter write correctness (v1.24.0 bug fix) ──
+//
+// User-reported bug (2026-07-07): when a page already has `aliases: []`
+// (empty placeholder), running alias completion inserts a SECOND
+// `aliases:` line before the closing `---` instead of appending to
+// the existing array. The resulting frontmatter has duplicate keys
+// and breaks Obsidian's YAML parser.
+//
+// The fix is to delegate frontmatter mutation to
+// `enforceFrontmatterConstraints`, which parses existing aliases,
+// appends the new ones (deduped), and re-serializes through the
+// canonical `serializeFrontmatter` writer.
+
+describe('runAliasCompletion — frontmatter write correctness', () => {
+  // Capture what `vault.adapter.write` was called with.
+  function makeWriteCaptureCtx(): {
+    ctx: LintContext;
+    writes: Array<{ path: string; data: string }>;
+  } {
+    const writes: Array<{ path: string; data: string }> = [];
+    const ctx = makeCtx({
+      app: {
+        vault: {
+          adapter: {
+            write: vi.fn().mockImplementation(async (path: string, data: string) => {
+              writes.push({ path, data });
+            }),
+          },
+        },
+      } as unknown as LintContext['app'],
+      llmClient: {
+        createMessage: vi.fn().mockResolvedValue(
+          '{"aliases":["Foo","Bar"]}'
+        ),
+      } as unknown as LintContext['llmClient'],
+    });
+    return { ctx, writes };
+  }
+
+  it('appends aliases when page has existing `aliases: [X, Y]`', async () => {
+    const { ctx, writes } = makeWriteCaptureCtx();
+    const before = '---\ntype: entity\naliases: [Existing]\n---\n\n# Body';
+    const result = await runAliasCompletion(ctx, undefined, [
+      { path: 'wiki/entities/Has.md', content: before, basename: 'Has' },
+    ]);
+    expect(result.filled).toBe(1);
+    expect(writes).toHaveLength(1);
+    const written = writes[0].data;
+    // Must NOT have two `aliases:` lines
+    const aliasLineCount = (written.match(/^aliases:/gm) || []).length;
+    expect(aliasLineCount).toBe(1);
+    // Must contain both old and new aliases (Existing + Foo + Bar)
+    expect(written).toContain('Existing');
+    expect(written).toContain('Foo');
+    expect(written).toContain('Bar');
+  });
+
+  it('appends aliases when page has empty `aliases: []` (placeholder)', async () => {
+    const { ctx, writes } = makeWriteCaptureCtx();
+    const before = '---\ntype: entity\naliases: []\n---\n\n# Body';
+    const result = await runAliasCompletion(ctx, undefined, [
+      { path: 'wiki/entities/Empty.md', content: before, basename: 'Empty' },
+    ]);
+    expect(result.filled).toBe(1);
+    expect(writes).toHaveLength(1);
+    const written = writes[0].data;
+    // Must NOT have two `aliases:` lines — this is the user-reported bug
+    const aliasLineCount = (written.match(/^aliases:/gm) || []).length;
+    expect(aliasLineCount).toBe(1);
+    expect(written).toContain('Foo');
+    expect(written).toContain('Bar');
+  });
+
+  it('appends aliases when page has block-style `aliases:\n  - X`', async () => {
+    const { ctx, writes } = makeWriteCaptureCtx();
+    const before = '---\ntype: entity\naliases:\n  - BlockAlias\n---\n\n# Body';
+    const result = await runAliasCompletion(ctx, undefined, [
+      { path: 'wiki/entities/Block.md', content: before, basename: 'Block' },
+    ]);
+    expect(result.filled).toBe(1);
+    expect(writes).toHaveLength(1);
+    const written = writes[0].data;
+    const aliasLineCount = (written.match(/^aliases:/gm) || []).length;
+    expect(aliasLineCount).toBe(1);
+    expect(written).toContain('BlockAlias');
+    expect(written).toContain('Foo');
+    expect(written).toContain('Bar');
+  });
+
+  it('writes a fresh `aliases:` line when page has no aliases at all', async () => {
+    const { ctx, writes } = makeWriteCaptureCtx();
+    const before = '---\ntype: entity\ntags: [ai]\n---\n\n# Body';
+    const result = await runAliasCompletion(ctx, undefined, [
+      { path: 'wiki/entities/Fresh.md', content: before, basename: 'Fresh' },
+    ]);
+    expect(result.filled).toBe(1);
+    expect(writes).toHaveLength(1);
+    const written = writes[0].data;
+    const aliasLineCount = (written.match(/^aliases:/gm) || []).length;
+    expect(aliasLineCount).toBe(1);
+    expect(written).toContain('Foo');
+  });
+
+  it('logs the page basename + LLM response snippet when generation fails', async () => {
+    // Bug 3 (v1.24.0): when the LLM returns empty / unparseable
+    // text, the failure log must include the page basename and a
+    // response snippet — not just "JSON parse completely failed".
+    const ctx = makeCtx({
+      app: {
+        vault: { adapter: { write: vi.fn() } },
+      } as unknown as LintContext['app'],
+      llmClient: {
+        // Simulate a provider that returned nothing.
+        createMessage: vi.fn().mockResolvedValue(''),
+      } as unknown as LintContext['llmClient'],
+    });
+    const debugSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const result = await runAliasCompletion(ctx, undefined, [
+        { path: 'wiki/entities/Broken.md', content: '---\ntype: entity\n---\n\n# Body', basename: 'Broken' },
+      ]);
+      expect(result.filled).toBe(0);
+      // The error log must identify which page failed AND surface the
+      // raw response so the user can see whether the LLM returned
+      // empty / error / thinking-only text.
+      const allLogged = debugSpy.mock.calls.flat().join('\n');
+      expect(allLogged).toContain('Broken');
+      expect(allLogged).toMatch(/response length|response.*0|empty/i);
+    } finally {
+      debugSpy.mockRestore();
+    }
+  });
+});
+
 // ── runRetagViolations (Issue #85 v7) ───────────────────────────
 
 import type { TagViolation } from '../../../wiki/lint/scanners';
@@ -227,17 +361,22 @@ describe('runRetagViolations (Issue #85 v7)', () => {
     expect(result.results[0]).toContain('LLM client not initialized');
   });
 
-  it('rewrites frontmatter tags via LLM response (happy path)', async () => {
+  it('rewrites frontmatter tags via LLM response (happy path)', () => {
     const ctx = makeRetagCtx({});
-    const writeSpy = (ctx.app.vault.adapter as unknown as { write: ReturnType<typeof vi.fn> }).write;
-    const result = await runRetagViolations(ctx, undefined, [baseViolation]);
-    expect(result.fixed).toBe(1);
-    expect(result.results[0]).toContain('Alice.md');
-    // Verify write was called with updated tags: line
-    const writtenContent = writeSpy.mock.calls[0][1] as string;
-    expect(writtenContent).toContain('tags: [person, organization]');
-    // body is preserved
-    expect(writtenContent).toContain('Body of Alice.');
+    return runRetagViolations(ctx, undefined, [baseViolation]).then(result => {
+      expect(result.fixed).toBe(1);
+      expect(result.results[0]).toContain('Alice.md');
+      const writeSpy = (ctx.app.vault.adapter as unknown as { write: ReturnType<typeof vi.fn> }).write;
+      const writtenContent = writeSpy.mock.calls[0][1] as string;
+      // v1.24.0: tags are now serialized via the canonical writer.
+      // Both block (`tags:\n  - "person"`) and inline (`tags: [person]`)
+      // forms are valid YAML.
+      expect(
+        writtenContent.includes('tags:\n  - "person"') ||
+        writtenContent.includes('tags: [person, organization]')
+      ).toBe(true);
+      expect(writtenContent).toContain('Body of Alice.');
+    });
   });
 
   it('filters LLM-returned tags not in active vocabulary (defensive)', async () => {
@@ -251,8 +390,12 @@ describe('runRetagViolations (Issue #85 v7)', () => {
     const result = await runRetagViolations(ctx, undefined, [baseViolation]);
     expect(result.fixed).toBe(1);
     const writtenContent = writeSpy.mock.calls[0][1] as string;
-    // Only the in-vocab tag survives the filter.
-    expect(writtenContent).toContain('tags: [person]');
+    // Only the in-vocab tag survives the filter. v1.24.0: tags may
+    // appear in block or inline form depending on serialization style.
+    expect(
+      writtenContent.includes('tags:\n  - "person"') ||
+      writtenContent.includes('tags: [person]')
+    ).toBe(true);
     expect(writtenContent).not.toContain('bogus');
   });
 

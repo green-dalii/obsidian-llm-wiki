@@ -105,6 +105,19 @@ export const KO_TEXTS = {
     errorUnknown: '알 수 없는 오류',
     savedNotice: '설정이 저장되었습니다!',
 
+    // v1.24.0 (Bug C 3.4 / plan C): 점진적 마이그레이션 알림
+    queryHistoryMigrationNotice: 'Query Wiki 기록에 이전 wiki 폴더의 링크가 포함되어 있습니다. 새 대화는 자동으로 최신 폴더를 사용합니다. 모든 기록 메시지를 새로 고치려면 Query Wiki 패널을 열고 그 안의 "기록 지우기" 버튼을 클릭하세요.',
+
+    // v1.24.0 Issue #251: 사용자 지정 Query 지시문 (접을 수 있는 패널)
+    customInstructionsTitle: '사용자 지정 Query 지시문',
+    customInstructionsDesc: '모든 Query Wiki 시스템 프롬프트 끝에 추가되는 영구 지시문입니다. Query Wiki 채팅에만 영향을 주며, 수집·lint·페이지 생성에는 영향을 주지 않습니다.',
+    customInstructionsPlaceholder: '예: 연구 작업으로 처리: 넓게 검색, 출처 인용, 사실과 해석 구분...',
+    customInstructionsApply: '적용',
+    customInstructionsClear: '지우기',
+    customInstructionsCharCount: '{current}/{max} 자',
+    instructionsApplied: '사용자 지정 Query 지시문이 저장되었습니다.',
+    instructionsCleared: '사용자 지정 Query 지시문이 지워졌습니다.',
+
     // Issue #137: LLM 폴백 알림
     fallbackThinkingDialect: '사고 제어: "{dialect}" 방언으로 전환됨(이 공급자는 다른 사고 제어 필드 형식을 사용함). 출력은 변경되지 않음.',
     fallbackThinkingNone: '이 공급자에 대해 사고 제어가 완전히 비활성화되었습니다. 추론 콘텐츠가 여전히 나타날 수 있습니다; 이 경우 다른 모델을 시도하세요.',
@@ -113,7 +126,8 @@ export const KO_TEXTS = {
     // Wiki Folder
     wikiSection: 'Wiki 설정',
     wikiFolderName: '위키 폴더',
-    wikiFolderDesc: '생성된 위키 페이지의 저장 위치',
+    // v1.24.0: 변경 후 Obsidian 재시작이 필요함을 명시 (engine 캐시와 열린 Query Wiki 패널 재바인딩)
+    wikiFolderDesc: '생성된 위키 페이지의 저장 위치. 변경 후 Obsidian를 재시작해야 합니다——engine 캐시와 열려 있는 Query Wiki 패널을 다시 바인딩해야 합니다.',
     wikiFolderPlaceholder: 'wiki',
 
     // Errors
@@ -123,9 +137,13 @@ export const KO_TEXTS = {
 
     // Query Settings
     querySectionTitle: '위키 질의 설정',
-    maxConversationHistoryName: '최대 대화 기록',
-    maxConversationHistoryDesc: '대화 라운드의 소프트 상한 (오래된 메시지는 자동으로 폐기됨). 사전 설정 값: 1/10/30/50/100/500.',
-    maxConversationHistoryHint: '추천: 50 라운드를 초과하지 않기',
+    // v1.24.0: "최대 대화 기록"에서 "대화 연관 기억 라운드 수"로 이름 변경
+    // 의미가 더 정확함. 1 = 각 턴이 독립적 (이전 문맥 참조 안 함).
+    // 설정은 드롭다운이므로 사전 설정 값을 설명에 나열할 필요 없음.
+    // v1.24.0: maxConversationHistoryHint은 사용되지 않는 i18n key였습니다.
+    // 권장 문구를 desc에 통합했습니다.
+    maxConversationHistoryName: '대화 연관 기억 라운드 수',
+    maxConversationHistoryDesc: 'LLM이 새 대화에서 볼 수 있는 과거 라운드 수 (기억으로). 1 = 각 턴이 독립적 (이전 문맥 참조 안 함); 값이 클수록 모델이 세션 초반의 라운드를 기억합니다. 추천: 일회성 Q&A는 1, 지속적 연구는 10~50.',
     numberRangeValidation: '1-50 사이의 숫자를 입력하세요',
     numberRangeClamped: '값이 범위를 초과했습니다 (1-500), 자동으로 {}으로 설정되었습니다',
 

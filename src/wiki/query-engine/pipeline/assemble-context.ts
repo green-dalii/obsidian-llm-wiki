@@ -5,6 +5,7 @@
 // settings → returns the system prompt string sent to the LLM.
 
 import { WIKI_LANGUAGES } from '../../../types';
+import { WIKI_FOLDER_PLACEHOLDER } from '../../../core/prompt-builders';
 
 export interface AssembleContextInput {
   indexContent: string;
@@ -20,6 +21,18 @@ export interface AssembleContextInput {
 
 /**
  * Build the wiki-context system prompt for the query LLM.
+ *
+ * v1.24.0 (Bug C 3.0): the prompt uses the literal placeholder
+ * `__WIKI_FOLDER__` instead of `${input.wikiFolder}` for every wiki-link.
+ * Why: the LLM's responses persist to chat history, and history is replayed
+ * as few-shot context for every subsequent query. If the real wikiFolder
+ * were baked into the prompt, then into history, then into subsequent
+ * prompts, the LLM would follow that established folder even after the
+ * user changed the setting. The placeholder makes the LLM-folder
+ * relationship transparent; render-time substitution (in
+ * `thinking-extract.ts`) replaces the placeholder with the current
+ * `settings.wikiFolder` for the user-facing display only.
+ *
  * Identical wording to the original inline code (regression-tested by
  * existing manual e2e — prompts are not unit-tested to keep the
  * canonical template under one author's editorial control).
@@ -35,6 +48,9 @@ export function assembleWikiContext(input: AssembleContextInput): string {
     ? `(Pages selected via ${armInfo} retrieval.)`
     : '(No relevant pages found. The LLM should answer from general knowledge.)';
 
+  // Bug C 3.0: use the placeholder constant, never the real wikiFolder.
+  const wf = WIKI_FOLDER_PLACEHOLDER;
+
   const wikiContext = `${langDirective}
 
 You are a Wiki assistant with access to a structured knowledge base.
@@ -49,25 +65,25 @@ ${retrievalNote}
 
 Instructions:
 - Answer based on the Wiki pages above (not general knowledge)
-- Use ONLY Obsidian's wiki-link syntax: [[${input.wikiFolder}/entities/page-name]] (NOT HTML links)
-- Link format MUST include wiki folder: [[${input.wikiFolder}/entities/page-name]]
+- Use ONLY Obsidian's wiki-link syntax: [[${wf}/entities/page-name]] (NOT HTML links)
+- Link format MUST include wiki folder: [[${wf}/entities/page-name]]
 
 CRITICAL RULES:
-✅ CORRECT: [[${input.wikiFolder}/entities/example-page]], [[${input.wikiFolder}/concepts/example-concept]]
+✅ CORRECT: [[${wf}/entities/example-page]], [[${wf}/concepts/example-concept]]
 ❌ WRONG: <a href="...">, [link text](url), [[example-page]], [[entities/example-page]]
 - Obsidian wiki-links use DOUBLE brackets: [[path]]
 - NO HTML: Never use <a href="...">text</a>
 - NO Markdown external links: Never use [text](url)
-- Include ${input.wikiFolder}/ prefix: Links must start with [[${input.wikiFolder}/...
+- Include ${wf}/ prefix: Links must start with [[${wf}/...
 
 CITATION REQUIREMENTS:
 - When referencing specific information from a Wiki page, include an inline wiki-link
 - At the end of your answer, add a "## References" section (or "## 参考文献" for Chinese) listing all wiki pages you cited
-- Format each reference as: [[${input.wikiFolder}/path/page-name|Display Name]] — brief description
+- Format each reference as: [[${wf}/path/page-name|Display Name]] — brief description
 - Example:
   ## References
-  1. [[${input.wikiFolder}/concepts/example-concept|Example Concept]] — Core mechanism explanation
-  2. [[${input.wikiFolder}/entities/example-entity|Example Entity]] — Background and history
+  1. [[${wf}/concepts/example-concept|Example Concept]] — Core mechanism explanation
+  2. [[${wf}/entities/example-entity|Example Entity]] — Background and history
 
 If Wiki lacks relevant information:
 - Acknowledge it and suggest ingesting more sources
