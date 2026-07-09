@@ -62,6 +62,7 @@ export const DE_TEXTS = {
     bedrockAuthModeProfile: 'AWS-Profil (SSO / geteilte Anmeldedaten)',
     awsProfileName: 'Name des AWS-Profils',
     awsProfileDesc: 'Der aus ~/.aws/config oder ~/.aws/credentials zu verwendende Profilname (Standard: "default"). Setzt voraus, dass Sie im Terminal `aws sso login` ausgeführt (oder statische Anmeldedaten konfiguriert) haben.',
+    awsProfilePlaceholder: 'default',
     bedrockSsoExpiredError: 'AWS-SSO-Token abgelaufen. Führen Sie "aws sso login --profile {}" im Terminal aus und versuchen Sie es erneut.',
 
     // Ollama Hint

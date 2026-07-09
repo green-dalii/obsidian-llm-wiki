@@ -34,7 +34,12 @@ const context = await esbuild.context({
     '@lezer/common',
     '@lezer/highlight',
     '@lezer/lr',
-    ...builtinModules],
+    // Node builtins — both bare ("fs") and node:-prefixed ("node:fs")
+    // forms are required. v1.24.0 added @aws-sdk/credential-providers
+    // for Bedrock SSO/profile auth; the AWS SDK uses node:-prefixed
+    // imports which esbuild treats as distinct from the bare names.
+    ...builtinModules,
+    ...builtinModules.map((m) => `node:${m}`)],
   format: 'cjs',
   target: 'es2018',
   logLevel: "info",

@@ -62,6 +62,7 @@ export const ES_TEXTS = {
     bedrockAuthModeProfile: 'Perfil de AWS (SSO / credenciales compartidas)',
     awsProfileName: 'Nombre del perfil de AWS',
     awsProfileDesc: 'El nombre del perfil de ~/.aws/config o ~/.aws/credentials que se usará (por defecto "default"). Requiere haber ejecutado `aws sso login` (o configurado credenciales estáticas) en tu terminal.',
+    awsProfilePlaceholder: 'default',
     bedrockSsoExpiredError: 'El token de AWS SSO ha caducado. Ejecuta "aws sso login --profile {}" en tu terminal y vuelve a intentarlo.',
 
     // Ollama Hint

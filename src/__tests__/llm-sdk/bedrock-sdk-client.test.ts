@@ -353,7 +353,7 @@ describe('BedrockSdkClient', () => {
     });
 
     it('throws when neither apiKey nor credentialProvider is set', () => {
-      expect(() => new BedrockSdkClient({} as unknown as { apiKey: string })).toThrow(
+      expect(() => new BedrockSdkClient({})).toThrow(
         /exactly one of apiKey or credentialProvider/i
       );
     });

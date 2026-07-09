@@ -262,7 +262,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .setName(this.getText('awsProfileName'))
         .setDesc(this.getText('awsProfileDesc'))
         .addText(text => {
-          text.setPlaceholder('default')
+          text.setPlaceholder(this.getText('awsProfilePlaceholder'))
             .setValue(this.tempSettings.awsProfile ?? '')
             .onChange((value) => {
               const trimmed = value.trim();
