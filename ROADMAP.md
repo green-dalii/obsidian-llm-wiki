@@ -2,19 +2,40 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.23.2 (shipped 2026-07-05) → 1.24.0 P2 merged to main (PR #257, 2026-07-09, release pending) | **Updated:** 2026-07-09
+**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 in flight (target TBD) | **Updated:** 2026-07-10
 
 ## Current Status
 
-**v1.24.0 P2 — merged to main via PR #257 (2026-07-09), release pending.** All 4 stages shipped (1744 tests):
-- ✅ Stage 1 — `modals.ts` split into `src/ui/modals/` (4b65450).
-- ✅ Stage 2 — Query Wiki bug fixes: wikiFolder-transparent prompt (Bug C), LLM seed-selector retry + system field (Bug B/B+), retrieval-label persistence + human-readable label.
-- ✅ Stage 3 — Graph warmup: engine-level `_cachedGraph` so first query uses PPR (305f601).
-- ✅ Stage 4 — Issue #251 custom Query Instructions MVP (query-local UI) (d4a93c4) + lint dedup/analysis system-prompt injection (cb4bf73, Closes #251).
+**v1.24.0 — RELEASED 2026-07-10.** MINOR scope. Per-task model routing (#208), Custom Query Instructions (#251), four monolith splits (PR #248/#249/#250/#257), source-note aliases propagation (#185), frontmatter write repair (4 user-reported bugs), Tier-1+Tier-2 merge triage (#216), engine-level PPR graph warmup. 1825 tests passing. New optional settings: `ingestModel`, `lintModel`, `queryModel`, `usePerTaskModels`, `*UseCustom`, `customQueryInstructions`. New manifest field: `fundingUrl`.
 
-Release action (version bump + 9 README + CHANGELOG + tag) is a separate step via the `obsidian-plugin-release` workflow — PR #257 deliberately did NOT bump `manifest.json`.
+**v1.24.0 release composition:**
+- ✅ PR #248 — `controller.ts` `runLintWiki` god function → 3 LLM phase modules.
+- ✅ PR #249 — `history-modal.ts` 1579 → 14 files.
+- ✅ PR #250 — `query-engine.ts` 1373 → 15 files.
+- ✅ PR #257 — `modals.ts` 1008 → 7 files + Query Wiki bug fixes (Bug A/B/B+/C) + #251 + lint schema injection + PPR graph warmup.
+- ✅ PR #259 — #216 Tier-1+Tier-2 merge triage (`DocTpoint`).
+- ✅ PR #260 — `## 相关实体` / `## 相关概念` empty-line fix.
+- ✅ PR #261 — #185 source-note aliases propagation.
+- ✅ PR #262 + #264 — #208 per-task models (UI + Test Connection + 28 call sites).
+- ✅ `1d943ea` — 4 user-reported frontmatter write bugs (`aliases:[]`, dedupe, block-style, error logging).
 
 Historical releases are summarized in [CHANGELOG](./CHANGELOG.md).
+
+### v1.23.2 — Implemented (shipped 2026-07-05)
+
+See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five merged PRs (#234 + graph-cache + #221 + #219 + DocTpoint's #238 + #241). 1431 tests at ship. Post-release monolith splits (#248/#249/#250) added ~90 test cases — **1616 tests across 115 files in latest main**. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
+
+## Next Milestone: v1.24.1 PATCH (target TBD)
+
+### User-reported bugs awaiting triage
+
+- **Windows: `Connection test failed: TypeError: Failed to construct 'Headers': String contains non ISO-8859-1 code point`** — user screenshot, DeepSeek + GLM + compatible interfaces all failing. Root cause likely API key input containing non-ASCII chars (Chinese IME residue / trailing whitespace / Chinese punctuation) → AI-SDK `withUserAgentSuffix` builds `Authorization: Bearer <key>` → `new Headers()` throws (latin1 default). GLM 401 "令牌已过期或验证不正确" is a real token issue (re-generate key on zhipu console). AI-SDK 5.0.53 added a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix. Proposed (NOT yet acted on — user said deferred): Fix A — Settings apiKey input sanitization (trim + non-ASCII detection + Notice). Fix B — Map SDK `Headers` TypeError to a readable message. Fix C — Pre-set ASCII-safe `User-Agent` in our SDK clients.
+
+## v1.24.0 — Implemented (shipped 2026-07-10)
+
+MINOR scope. Per-task model routing + Custom Query Instructions + four monolith splits + source-note aliases + frontmatter write repair. 1825 tests passing.
+
+See [CHANGELOG](./CHANGELOG.md#1240--2026-07-10) for full details.
 
 ### v1.23.1: Obsidian Review Hotfix (2026-07-02, PATCH)
 
@@ -314,6 +335,7 @@ Fallback arm selection:
 ## Version Timeline
 | Version | Date | Headline |
 |---------|------|----------|
+| 1.24.0 | 2026-07-10 | MINOR: per-task models (#208) + Custom Query Instructions (#251) + 4 monolith splits (#248/#249/#250/#257) + source-note aliases (#185) + frontmatter write repair + merge triage (#216) + PPR graph warmup. 1825 tests |
 | 1.23.2 | 2026-07-05 | PATCH: #234/#221/#219 + DocTpoint #238/#241 + graph cache invalidation + Apache 2.0 + DCO. 1431 tests |
 | 1.23.1 | 2026-07-02 | Obsidian review hotfix — strictBindCallApply alignment + dead function removal + lockfile regen |
 | 1.23.0 | 2026-07-02 | Graph Engine PPR (Issue #198) + Vercel AI-SDK v6 migration + Sponsor section + v1.22.6 hotfix folded in |

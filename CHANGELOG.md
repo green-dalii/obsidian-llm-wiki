@@ -7,11 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-07-10
+
+**Theme:** Per-task model routing, custom query instructions, four monolith splits, source-note aliases, frontmatter write repair. 1825 tests passing. Recommended upgrade for everyone on v1.23.x.
+
+### Added
+
+- **Per-task Models (#208).** Three independent settings (`ingestModel`, `lintModel`, `queryModel`) on top of the existing `model`. Switch via *Settings → Wiki → Model Scope* dropdown: **Unified** (one model for all tasks) or **Per-Task** (independent choice per ingest / lint / query). Empty per-task field falls back to `settings.model`, so existing v1.23.x data.json continues to work bit-identically. New `core/model-resolver.ts` (`resolveModelForTask(settings, task)`) is the single decision point used by all 28 LLM call sites; `ui/settings-per-task-helpers.ts` owns the UI-scope logic (mode resolution, displayed-model computation, preserve-on-toggle). Each picker uses a sentinel `__custom__` ("Custom input…") — leaving the text input blank means "use unified model", matching the original picker behavior.
+- **Test Connection multi-probe (#208).** When `usePerTaskModels === true`, the **Test Connection** button now probes each configured model sequentially (ingest → lint → query) with fail-fast — until every per-task model passes, the connection is considered unhealthy. Console logs include `[testLLMConnection] probe plan: ingest=…, lint=…, query=…` for verification.
+- **Custom Query Instructions (#251, `jameses-cyber`).** Collapsible `<details>` panel inside the Query Wiki view, between the prompt and the history list. Appends user-supplied instructions to the system prompt at the three Query Wiki send sites (streaming, non-stream fallback, non-stream main). 5000-character defensive cap (centralised `CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS`). Strictly scoped to Query Wiki chat — ingest, lint, page generation, save-to-wiki evaluation, duplicate merge, and seed selection are intentionally unaffected. Persisted as `customQueryInstructions?: string` in data.json. Modes dropdown (Default / Research / Exact Facts / Commitments) + per-conversation override planned for v1.25.0+. Initial UI review used *Settings → Query Wiki*; shipped UI is the Query-local panel per user review.
+- **First-query PPR warmup.** Engine-level `_cachedGraph` (`WikiEngine.getOrBuildGraph(allPaths)`) loaded once on first query, invalidates on `wikiFolder` change or `invalidatePageCaches`. First query now uses Personalized PageRank instead of falling back to lex-only on cold start. `QueryView.invalidateGraph()` delegates to the engine.
+- **`fundingUrl` in manifest.** Adds `"fundingUrl": "https://ko-fi.com/greenerdalii"` to `manifest.json` per [Obsidian manifest spec](https://docs.obsidian.md/Reference/Manifest#fundingUrl). Optional field; Obsidian-side display depends on Community Plugin UI surfacing.
+
 ### Changed
 
-- **`controller.ts` `runLintWiki` god function split into 3 phase modules (PR #248).** `src/wiki/lint/controller.ts:runLintWiki` (was a monolithic 200+ LOC function) decomposed into Phases A/B/C (`src/wiki/lint/llm-phases/analysis-phase.ts`, `src/wiki/lint/llm-phases/scoring-phase.ts`, `src/wiki/lint/llm-phases/synthesis-phase.ts`). The orchestrator now delegates: analysis → scoring → synthesis. Behavioral regression protected by existing 1616 test suite.
-- **`history-modal.ts` 1579-LOC single file split into directory (PR #249).** `src/ui/history-modal.ts` → `src/ui/history-modal/` with 14 files (~250 LOC each max): `types.ts`, `render-state.ts`, `HistoryModal-class.ts`, 9 renderer modules under `src/ui/history-modal/renderers/`, and an `index.ts` re-export shim. External API (`HistoryModal` class, `TEXTS`-based `HistoryTexts`) unchanged. Zero caller-side changes required. 1610 tests passing.
-- **`query-engine.ts` 1373-LOC monolith split into directory (PR #250).** `src/wiki/query-engine.ts` → 13 focused modules under `src/wiki/query-engine/`. `QueryView.buildWikiContext` (was 165 LOC inline) decomposes into 4 pure pipeline phases. External API (`QueryView`, `VIEW_TYPE_QUERY`, `renderThinkingBlocksUI`) unchanged via TypeScript directory resolution. 1616 tests passing.
+- **`modals.ts` 1008-LOC split into directory (PR #257, `4b65450`).** `src/ui/modals.ts` → `src/ui/modals/` with 7 focused files. External API unchanged (barrel `index.ts` re-exports). Required after the v1.23.0 P2 modals feature set pushed the file past the 1000-LOC threshold.
+- **`controller.ts` `runLintWiki` god function split into 3 phase modules (PR #248, `ef44a58`).** `src/wiki/lint/controller.ts:runLintWiki` (was a monolithic 200+ LOC function) decomposed into Phases A/B/C (`src/wiki/lint/llm-phases/analysis-phase.ts`, `src/wiki/lint/llm-phases/scoring-phase.ts`, `src/wiki/lint/llm-phases/synthesis-phase.ts`). The orchestrator now delegates: analysis → scoring → synthesis.
+- **`history-modal.ts` 1579-LOC single file split into directory (PR #249, `fe273a4`).** `src/ui/history-modal.ts` → `src/ui/history-modal/` with 14 files (~250 LOC each max): `types.ts`, `render-state.ts`, `HistoryModal-class.ts`, 9 renderer modules under `src/ui/history-modal/renderers/`, and an `index.ts` re-export shim. External API (`HistoryModal` class, `TEXTS`-based `HistoryTexts`) unchanged. Zero caller-side changes required. 1610 tests passing.
+- **`query-engine.ts` 1373-LOC monolith split into directory (PR #250, `3ff0cc6`).** `src/wiki/query-engine.ts` → 15 focused modules under `src/wiki/query-engine/`. `QueryView.buildWikiContext` (was 165 LOC inline) decomposes into 4 pure pipeline phases (`read-index`, `load-pages`, `assemble-context`, `seed-selector`). External API (`QueryView`, `VIEW_TYPE_QUERY`, `renderThinkingBlocksUI`) unchanged via TypeScript directory resolution. 1616 tests passing.
+- **28 LLM call sites wired through `resolveModelForTask` (#208, `e96568e`).** Sourced via *Sliced change-by-change* across 11 production files: ingest (14 — `source-analyzer`, `page-factory` × 7, `conversation-ingest` × 4, `wiki-engine.createSummaryPage`, `schema-manager`, `auto-maintain` × 2), lint (9 — `analysis-phase`, `dedup-phase`, `fill-empty-page`, `fix-dead-link` × 2, `fix-runners` × 2, `link-orphan`, `merge-duplicates`, `contradictions`), query (5 — `QueryView` × 3 send sites + `save-eval`, `seed-selector`). Five `settings.model` direct reads intentionally preserved: Test Connection probe plan, 2 log metadata, console.debug, empty-model pre-flight. E2E observability: 6 `console.debug` lines show the resolved model at each major call site.
+- **Source-note aliases propagation (#185, `c0f0bc0`).** Frontmatter `aliases:` from source notes now propagates into generated `sources/<slug>` page frontmatter, so downstream `[[wiki-link]]` matching and alias-aware search reach every quote. Reduces "DSA ≠ DeepSeek-Sparse-Attention" type misses on cross-language aliases.
+- **Tier-1 + Tier-2 merge triage (#216, `b7bf5f0`, `DocTpoint`).** Classify-then-route duplicate-bypass decision: spurious Tier-1 candidates are skipped outright; Tier-2 runs only on the remainder. Reduces Lint merge batch size without sacrificing high-precision matches.
+
+### Fixed
+
+- **Frontmatter write repair (4 user-reported bugs, `1d943ea`).** `aliases:[]` no longer falsely passes the alias-deficiency lint check; duplicate aliases are collapsed on write via the new `replaceFrontmatterArrayField` helper; block-style frontmatter is preserved (no longer flattened to inline) via the new `mergeFrontmatterArrayField` helper; write failures are now logged with the offending field name. Affects Smart Fix and merge paths.
+- **Empty-line / trailing-blank-line fix for `## 相关实体` / `## 相关概念` sections (PR #260, `9793efd`).** Tier-2 per-section append normalized to use a single blank-line separator; previously produced double-blank or zero-blank depending on the input.
+- **`wikiFolder` change propagation (`1d943ea`, `8d5baf3`).** `saveSettings` now invalidates the QueryView graph cache and WikiEngine pagesCache when `wikiFolder` changes; `updateSettings` drops the path-keyed caches on `wikiFolder` change. Stale history migration Notice explains that pre-v1.24.0 query history keeps its old folder paths (clearing history remains the escape hatch).
+- **Retrieval label human-readable + persistence (#221 follow-up, `b46f7b1` / `81813ae`).** Retrieval-label text now reads "Found N page(s)" instead of the internal cache key; label is persisted across view re-open.
+
+### Maintenance
+
+- 1825 tests passing (132 test files). 81 tests added during the v1.24.0 cycle.
+- 5 new i18n keys × 10 locales for the per-task model pickers + Model Scope dropdown + Test Connection labels.
+- 8 new i18n keys × 10 locales for the Custom Query Instructions collapsible panel.
+
+
 
 ## [1.23.2] - 2026-07-05
 

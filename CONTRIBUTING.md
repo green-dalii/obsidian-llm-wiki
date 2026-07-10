@@ -111,7 +111,9 @@ src/
 │   ├── tier-detection.ts       # Three-tier onboarding decision logic (v1.23.0)
 │   ├── welcome-note-template.ts # Welcome note template builder (v1.23.0)
 │   ├── ensure-welcome-note.ts  # First-run Welcome note orchestrator (v1.23.0)
-│   └── smoke-test.ts           # LLM configuration verification wrapper (v1.23.0)
+│   ├── smoke-test.ts           # LLM configuration verification wrapper (v1.23.0)
+│   ├── transient-retry.ts      # Project-wide withTransientRetry<T> helper (v1.24.0, 3× exp backoff)
+│   └── model-resolver.ts       # resolveModelForTask(settings, task) #208 per-task routing helper (v1.24.0)
 ├── wiki/                # Wiki engine modules
 │   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log)
 │   ├── query-engine/    # Conversational query with streaming + thinking UI
@@ -142,6 +144,11 @@ src/
 │   │   ├── link-orphan.ts        # Orphan page linking
 │   │   ├── merge-duplicates.ts   # Duplicate page merge
 │   │   ├── fix-polluted-page.ts  # Polluted basename rename
+│   │   ├── llm-phases/
+│   │   │   ├── analysis-phase.ts    # Tier-1+Tier-2 merge analysis (#216, v1.24.0)
+│   │   │   ├── scoring-phase.ts     # PR #248
+│   │   │   ├── synthesis-phase.ts   # PR #248
+│   │   │   └── dedup-phase.ts       # lint dedup phase with #207 system-field injection (v1.24.0)
 │   │   └── phases/
 │   │       ├── preparation.ts    # Page read, link fix, sources normalize
 │   │       └── programmatic.ts   # Fast programmatic scanners
@@ -150,9 +157,9 @@ src/
 │   ├── schema-manager.ts # SchemaManager (read/write schema config)
 │   ├── auto-maintain.ts # File watcher, periodic lint, startup quick fixes
 │   └── analyze.ts       # Schema-analyze with cancel wiring
-├── ui/                  # Settings + history-modal/ (14-file split)
-├── texts/               # i18n (9 languages)
-└── __tests__/           # Unit tests (vitest, 1616 tests across 115 files)
+├── ui/                  # Settings + history-modal/ (14-file split, v1.24.0) + modals/ (7-file split, v1.24.0)
+├── texts/               # i18n (10 languages: EN/ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT)
+└── __tests__/           # Unit tests (vitest, 1825 tests across 132 files)
 ```
 
 ## Internationalization
@@ -188,7 +195,8 @@ graph TD
     User -->|Cmd+P| main.ts
     main.ts -->|ingest| WikiEngine
     main.ts -->|query| QueryEngine
-    main.ts -->|lint| lint("lint/controller.ts + 3 phase modules")
+    main.ts -->|lint| lint("lint/controller.ts + 4 LLM phase modules")
+    main.ts -->|Test Connection| modelResolver["core/model-resolver.ts (#208)"]
 
     WikiEngine -->|analyze| SourceAnalyzer
     WikiEngine -->|CRUD + merge| PageFactory
@@ -197,7 +205,7 @@ graph TD
     QueryEngine -->|4-phase pipeline: read-index / select-seeds / load-pages / assemble-context| Vault
     QueryEngine -->|streaming + render| LLMClient
 
-    lint("lint/controller.ts") -->|LLM analysis/scoring/synthesis| llm-phases["lint/llm-phases/ (3 phase modules) <= Added in PR #248"]
+    lint("lint/controller.ts") -->|LLM analysis/scoring/synthesis/dedup| llm-phases["lint/llm-phases/ (4 phase modules, PR #248 + v1.24.0)"]
     lint("lint/controller.ts") -->|dead links| fix-dead-link["lint/fix-dead-link.ts"]
     lint("lint/controller.ts") -->|empty pages| fill-empty-page["lint/fill-empty-page.ts"]
     lint("lint/controller.ts") -->|orphans| link-orphan["lint/link-orphan.ts"]
@@ -205,6 +213,12 @@ graph TD
     lint("lint/controller.ts") -->|scans| scanners["lint/scanners.ts"]
     lint("lint/controller.ts") -->|fix runners| fix-runners["lint/fix-runners.ts"]
     lint("lint/controller.ts") -->|report| report-builder["lint/report-builder.ts"]
+
+    SourceAnalyzer -->|iterative batch + per-task model| modelResolver
+    PageFactory -->|page generation + per-task model| modelResolver
+    QueryEngine -->|selection + answer + per-task model| modelResolver
+    llm-phases -->|per-task model| modelResolver
+    modelResolver -->|fallback to settings.model| settings["LLMWikiSettings"]
 
     SourceAnalyzer -->|iterative batch| LLMClient
     PageFactory -->|page generation| LLMClient
@@ -216,7 +230,7 @@ graph TD
 1. Run `pnpm lint && pnpm test && npx tsc --noEmit && pnpm build` — all must pass
 2. Add or update unit tests for any changed pure logic
 3. Update CHANGELOG.md if the change is user-visible
-4. Update all 9 README language variants if the change affects user-facing features or workflow
+4. Update all 10 README language variants if the change affects user-facing features or workflow
 5. Update CLAUDE.md and memory files to reflect completed work
 6. Commit with English conventional commit message
 7. Open a PR against `main` branch

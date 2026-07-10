@@ -32,10 +32,7 @@
     - [🔑 Configurer un fournisseur LLM](#-configurer-un-fournisseur-llm)
     - [🎮 Utilisation](#-utilisation)
     - [⚠️ Mise à niveau depuis une ancienne version ?](#️-mise-à-niveau-depuis-une-ancienne-version-)
-  - [⚡ Nouveautés de la v1.23.0](#-nouveautés-de-la-v1230)
-    - [v1.23.2 — 2026-07-05 (dernier, PATCH)](#v1232--2026-07-05-dernier-patch)
-    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
-    - [v1.23.0 — 2026-07-02 (MINOR)](#v1230--2026-07-02-minor)
+  - [⚡ Nouveautés de la v1.24.0](#-nouveautés-de-la-v1240)
   - [✨ Fonctionnalités](#-fonctionnalités)
     - [📊 Qualité des connaissances](#-qualité-des-connaissances)
     - [🛠️ Maintenance](#️-maintenance)
@@ -164,35 +161,20 @@ Puis **Régénérer l'index** pour reconstruire `wiki/index.md` avec les entrée
 **Paramètres à vérifier :** Langue de sortie du Wiki (indépendante de l'UI), Granularité d'extraction (Minimal–Fin + Personnalisé), Concurrence de génération de pages (défaut 3), Délai de batch (défaut 300ms).
 
 ---
-## ⚡ Nouveautés de la v1.23.0
+## ⚡ Nouveautés de la v1.24.0
 
-### v1.23.2 — 2026-07-05 (dernier, PATCH)
+Cinq thèmes : modèles par tâche, instructions de requête personnalisées, quatre fractionnements de monolithe, propagation des alias de notes sources, corrections frontmatter rapportées par les utilisateurs. Mise à niveau recommandée pour tous les utilisateurs de v1.23.x.
 
-Cinq PR fusionnés — corrections de bugs, refactorisation et polissage UX. Mise à niveau recommandée pour tous les utilisateurs de v1.23.0+.
+- **🎛️ Modèles par tâche (#208).** Choisissez un modèle différent pour **Ingestion / Lint / Requête**, ou gardez-les unifiés. Paramètres → Wiki → *Portée du modèle* bascule en un clic. Le bouton **Tester la connexion** sonde désormais chaque modèle configuré séquentiellement avec échec rapide — tant que tous les modèles par tâche ne réussissent pas, la connexion n'est pas considérée comme saine.
+- **📝 Instructions de requête personnalisées (#251, `jameses-cyber`).** Un panneau pliable dans la vue Query Wiki vous permet d'ajouter des instructions persistantes à chaque prompt système — mode recherche, style de citation, règles « pas de fabrication », etc. Plafond défensif de 5000 caractères. Strictement limité au chat Query Wiki ; l'ingestion / le lint / la génération de pages ne sont intentionnellement pas affectés. Menu déroulant de modes prévu pour v1.25.0+.
+- **🧱 Quatre fractionnements de monolithe (suite P0 de la série v1.23.0).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 fichiers, 93 tests), `query-engine.ts` (PR #250, 1373 → 15 fichiers), `modals.ts` (PR #257, 1008 → 7 fichiers) — chaque fonction-dieu / classe-dieu décomposée en modules ciblés. Le plugin est maintenant structurellement prêt pour la prochaine série de fonctionnalités.
+- **🏷️ Propagation des alias de notes sources (#185).** Les `aliases:` de frontmatter des notes sources circulent désormais vers les pages `sources/<slug>` générées, pour que l'appariement en aval `[[wiki-link]]` et la recherche sensible aux alias atteignent chaque citation. Réduit les manques de type « DSA ≠ DeepSeek-Sparse-Attention ».
+- **🔀 Triage de fusion Tier-1 + Tier-2 (#216, `DocTpoint`).** Décision de contournement des doublons par classification-puis-routage : ignorer directement les candidats Tier-1 parasites, n'exécuter Tier-2 que sur le reste. Réduit la taille du lot de fusion Lint sans sacrifier les correspondances haute précision.
+- **🐛 Réparation d'écriture frontmatter (4 bugs signalés par les utilisateurs).** `aliases:[]` n'est plus faussement détecté comme déficient en alias ; les alias en double sont repliés à l'écriture ; le frontmatter en bloc est préservé (non aplati en inline) ; les échecs sont maintenant journalisés avec le champ fautif. Affecte les chemins Smart Fix et fusion.
+- **🚀 Préchauffage PPR de première requête dans Query Wiki.** Cache de graphe PPR au niveau moteur (invalidation au changement de `wikiFolder` + purge du cache lors de `invalidatePageCaches`) — la première requête utilise désormais Personalized PageRank au lieu de retomber sur lex-only au démarrage à froid.
+- **🌐 Complétude i18n** — 7 nouvelles clés par locale pour les sélecteurs de modèle par tâche, le menu déroulant de portée du modèle, et les étiquettes du Test de connexion.
 
-- **🔄 Invalidation du cache PPR en direct lors de l'ingestion** — les ingestions dans la même session sont visibles dans les requêtes suivantes
-- **🔁 Wrapper client préservant le streaming** — élimine la régression de streaming de l'ère v1.23.0
-- **🖱️ Indicateur de tour de requête + étiquette de récupération cliquable (#221, #219)** — points par tour, aperçu au survol, défilement vers la question
-- **📋 Notifications de progression sémantiques (#219)** — opérations manuelles : Notice + barre d'état ; arrière-plan : barre d'état seulement. Notifications Lint auto-fermantes (5–8s)
-- **🧩 Consolidation du sérialiseur Frontmatter (PR #238 @DocTpoint)** — un seul rédacteur `serializeFrontmatter`
-- **📝 Canoniseur d'en-têtes de section (PR #241 @DocTpoint)** — Levenshtein borné corrige les en-têtes déformés par LLM à l'écriture
-- **📜 Mise à niveau de licence** — MIT → Apache 2.0 + DCO. NOTICE liste les 6 contributeurs humains
-
-### v1.23.1 — 2026-07-02 (PATCH)
-
-Trois constatations du bot de révision Obsidian résolues : alignement `strictBindCallApply: true`, suppression de code mort, régénération de lockfile. Aucun changement visible pour l'utilisateur.
-
-### v1.23.0 — 2026-07-02 (MINOR)
-
-Plus grand changement architectural depuis 1.0. Deux thèmes majeurs :
-
-- **🤖 Migration Vercel AI-SDK v6.** Client LLM fait main de 1625 lignes remplacé par `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2`. Élimine toute la classe de régressions de version fournisseur (#137 / #141 / #143 / #147 / #207)
-- **🕸️ Moteur de graphe — PageRank personnalisé sur le graphe `[[wiki-link]]`.** Monte-Carlo PPR, qualité de R@k de niveau embedding à coût zéro, hors ligne, pour chaque fournisseur
-- **🎬 Streaming en temps réel pour tous les fournisseurs**
-- **📥 UI d'ingestion multi-fichiers (#130)**
-- **🎉 Note de bienvenue** — expérience de premier lancement à trois niveaux
-- **🔑 Passerelle API-key LM Studio (#223)**
-- **🛡️ Routage GPT-5.x Pro + repli d'URL + sondage de clé de token**
+**Paramètres à vérifier :** Portée du modèle (Unifié / Par tâche, dans Paramètres → Wiki), champs de modèle par tâche (visibles uniquement en mode Par tâche), panneau pliable ⚙ Instructions personnalisées Query Wiki (uniquement dans la vue).
 
 ## ✨ Fonctionnalités
 

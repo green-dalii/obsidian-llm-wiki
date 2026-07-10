@@ -1,56 +1,67 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-06
+**Last Updated:** 2026-07-10
 
 ---
 
-## Current Phase: v1.23.2 RELEASED (2026-07-05) → v1.24.0 MINOR in flight (target TBD)
+## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.24.1 PATCH in flight (target TBD)
 
-### In Flight (v1.24.0) — MINOR scope (target TBD)
+### In Flight (v1.24.1) — PATCH scope (target TBD)
 
-Architectural items deferred from v1.23.0–v1.23.2 cycle:
+User-reported Windows bug from 2026-07-10:
 
-- **#220 — Source-revision awareness for merge** (DocTpoint's 4-tier design). Tier 0 fingerprint + replace self-revision; Tier 1 `supersedes:` frontmatter flag; Tier 2 cross-source disagreement open question; Tier 3 review-queue UI. Tiers 0-1 tractable for v1.24.0; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
-- **#218 — PDF source ingest** (Discussion #222 topology).
-- **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by @DocTpoint.
-- **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
-- **LintFixer → module-level functions split** — 707-LOC god class.
+- **DeepSeek / GLM / 兼容接口 `Connection test failed: TypeError: Failed to construct 'Headers': String contains non ISO-8859-1 code point`** — likely root cause: API key input contains non-ASCII chars (Chinese IME residue / trailing whitespace / Chinese punctuation) → AI-SDK `withUserAgentSuffix` builds `Authorization: Bearer <key>` → `new Headers()` throws (latin1 default). GLM 401 = real token expiry. AI-SDK 5.0.53 added a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix. Proposed fixes (NOT yet acted on): A — Settings apiKey input sanitization + user-facing Notice. B — Map SDK `Headers` TypeError to a readable message. C — Pre-set ASCII-safe `User-Agent` header in our SDK clients to bypass the AI-SDK Windows bug entirely.
 
-### Deleted (v1.24.0) — Monolith splits
+### Completed (v1.24.0) — MINOR (2026-07-10)
 
-The following files were split into sub-module directories (same pattern as PR #2/#3):
+Two PRs (#262 + #264) shipped #208; four monolith splits landed during the cycle (#257 / #248 / #249 / #250, plus LintFixer false-backlog item retired). **1825 tests passing** across 132 files. New optional settings: `ingestModel` / `lintModel` / `queryModel` / `usePerTaskModels` / `*UseCustom` / `customQueryInstructions`. New manifest field: `fundingUrl`.
 
-- ✅ **controller.ts (PR #248, 2026-07-02)** — `runLintWiki` god function → 3 phase modules (`llm-phases/analysis-phase.ts`, `scoring-phase.ts`, `synthesis-phase.ts`).
-- ✅ **history-modal.ts (PR #249, 2026-07-02)** — 1579 LOC → `src/ui/history-modal/` (14 files).
-- ✅ **query-engine.ts (PR #250, 2026-07-06)** — 1373 LOC → `src/wiki/query-engine/` (15 files).
-- ⏳ LintFixer → module-level functions (707-LOC god class) — **pending**.
+- ✅ **#208 Per-task Models** (PR #262 + #264, two-PR strategy) — settings UI + Test Connection multi-probe + 28 call sites routed through `resolveModelForTask` + console debug logs at 6 sites. Backward-compatible: empty per-task field falls back to `settings.model`.
+- ✅ **#251 Custom Query Instructions** (`jameses-cyber`, 2026-07-07) — collapsible panel inside Query Wiki view, 5000-char defensive cap, strictly Query-Wiki-scoped. UI = query-local panel (per user review, NOT Settings).
+- ✅ **modals.ts (PR #257, 1008 LOC)** → `src/ui/modals/` (7 files) — P0 monolith split.
+- ✅ **controller.ts (PR #248)** — `runLintWiki` god function → 3 LLM phase modules.
+- ✅ **history-modal.ts (PR #249, 1579 LOC)** → `src/ui/history-modal/` (14 files, 93 tests).
+- ✅ **query-engine.ts (PR #250, 1373 LOC)** → `src/wiki/query-engine/` (15 files).
+- ✅ **#185 source-note aliases propagation** (PR #261) — frontmatter `aliases:` flow into `sources/<slug>` pages.
+- ✅ **#216 Tier-1 + Tier-2 merge triage** (PR #259, `DocTpoint`) — classify-then-route duplicate-bypass.
+- ✅ **Empty-line fix** (PR #260) — `## 相关实体` / `## 相关概念` per-section append uses single blank-line separator.
+- ✅ **Bug A/B/B+/C Query Wiki fixes** (`305f601` + `1d943ea`) — engine-level PPR graph warmup + transient-retry helper + system field for JSON mode + wikiFolder propagation.
+- ✅ **Frontmatter write repair** (`1d943ea`) — 4 user-reported bugs fixed: `aliases:[]` detection, duplicate-aliases collapse, block-style preservation, failure logging.
+- ✅ **`fundingUrl` added** (`manifest.json`) — `https://ko-fi.com/greenerdalii`, [Obsidian spec](https://docs.obsidian.md/Reference/Manifest#fundingUrl).
+- ✅ **Retrieval label human-readable + persistence** (`b46f7b1` + `81813ae`) — "Found N page(s)"; persisted across view re-open.
 
-### Discussion-only (NOT in v1.24.0)
+**v1.24.0 test count:** 1744 → 1825 (+81 across the cycle). 132 test files.
+
+### Discussion-only (NOT in v1.24.0+ immediate scope)
 
 - **#213 configurable page categories** — user instruction 2026-06-30.
 - **#169 live preview of generated wiki files + sound / log-file per-task** — v1.25.0+ research scope.
+- **#220 — Source-revision awareness for merge** (`DocTpoint`'s 4-tier design). Tier 0 fingerprint + replace self-revision; Tier 1 `supersedes:` frontmatter flag. Prerequisite: open Discussion thread on fingerprint function design.
+- **#218 — PDF source ingest** (Discussion #222 topology).
+- **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by `DocTpoint`.
+- **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
+- **LintFixer → module-level functions split** — **DELETED 2026-07-07** as false backlog item (god class already split in v1.19.0).
 
-### Completed (v1.23.2) — Bug fixes + Refactor + UX polish (2026-07-05, PATCH)
+### v1.23.2 — Bug fixes + Refactor + UX polish (2026-07-05, PATCH)
 
-Five merged PRs (#239 + #240 + #238 + #241). **1431 tests passing** across 108 files. No new user-facing settings. License upgraded to Apache 2.0 + DCO. Recommended upgrade for everyone on v1.23.0+.
+Five merged PRs (#239 + #240 + #238 + #241). **1431 tests passing** across 108 files. License upgraded to Apache 2.0 + DCO.
 
 - ✅ **#234 sources/ candidate isolation** — `buildPagesListForPrompt` excludes sources/ by default; constraints prompt cross-references the candidate list.
 - ✅ **Graph cache invalidation** — `QueryView.invalidateGraph()` + `onIngestDoneDispatch` walks every VIEW_TYPE_QUERY leaf.
 - ✅ **Streaming-preserving client wrapper** — `Object.create(client)` preserves prototype chain; eliminates the v1.23.0-era streaming regression.
-- ✅ **Frontmatter serializer consolidation (DocTpoint, PR #238)** — `mergeFrontmatter`/`enforceFrontmatterConstraints`/`mergeDuplicatePages` delegate to a single `serializeFrontmatter` writer.
-- ✅ **Section header canonicalizer (DocTpoint, PR #241)** — `core/section-header-canonicalizer.ts`: bounded Levenshtein snaps LLM-garbled headers back to canonical labels on write.
+- ✅ **Frontmatter serializer consolidation (`DocTpoint`, PR #238)** — `mergeFrontmatter`/`enforceFrontmatterConstraints`/`mergeDuplicatePages` delegate to a single `serializeFrontmatter` writer.
+- ✅ **Section header canonicalizer (`DocTpoint`, PR #241)** — `core/section-header-canonicalizer.ts`: bounded Levenshtein snaps LLM-garbled headers back to canonical labels on write.
 - ✅ **#219 semantic-driven notification rewrite** — `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`. No new setting.
 - ✅ **#221 Query turn indicator** — `wiki/turn-indicator.ts`: right-edge vertical dots, IntersectionObserver, hover tooltip, click-to-scroll.
 - ✅ **Clickable retrieval label** — `🔍 N page(s) · …` toggles inline page-list panel.
 - ✅ **Lint completion Notice TTLs** — all `run*Fixes` use `NOTICE_NORMAL`/`NOTICE_ERROR`.
 - ✅ **License upgrade** — MIT → Apache 2.0 + DCO. NOTICE file lists all 6 human code contributors.
-- ✅ **Notice TTL compliance** — Lint completion Notices now use `NOTICE_NORMAL`/`NOTICE_ERROR`
 
 **v1.23.2 test count:** 1431 tests → 1616 tests (3 monolith split PRs added ~90 tests for controller.ts/#248, history-modal.ts/#249, query-engine.ts/#250). 115 test files.
 
 - v1.23.0 (2026-07-02, MINOR) — Graph Engine PPR + Vercel AI-SDK v6 + Multi-File Ingest + Sponsor section. 1376 tests. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
 - v1.22.6 (2026-06-30, hotfix) — #204 Auto Ingest modal + Auto Smart Fix context-aware + #207 GPT-5 Pro variants routing. 1118 tests.
-- v1.22.5 (2026-06-29) — Responses API path for reasoning model family + provider body in Notice. 1104 tests.
+- v1.22.5 (2026-06-29) — Responses API path for reasoning model family (#207 follow-up) + provider body in Notice. 1104 tests.
 - v1.22.4 (2026-06-27, PATCH) — GPT-5.x probe-then-cache (Closes #207) + provider error UX. 1076 tests.
 - v1.22.0 (2026-06-23, MINOR) — Schema one-click apply (#97) + dynamic tag sync + zh-Hant + ingest status bar. 1006 tests.
 
