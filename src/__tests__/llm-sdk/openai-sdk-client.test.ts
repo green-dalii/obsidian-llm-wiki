@@ -443,6 +443,84 @@ describe('OpenAISdkClient', () => {
       // But the original AWS SDK message must still reach the user.
       expect(mapped.message).toContain('Profile');
     });
+
+    // PR #263 review response: lock each of the four SSO-detection
+    // regex alternatives against the concrete AWS SDK message patterns
+    // they were designed to catch. If a future AWS SDK version renames
+    // any of these substrings, the corresponding test fails loudly
+    // instead of the hint silently disappearing or misfiring.
+    // Source: aws-sdk-js-v3 packages/credential-provider-sso and
+    // packages/token-providers (grep for the exact throw sites).
+    describe('SSO-detection regex alternatives (locked patterns)', () => {
+      it('detects "SSO Token" phrase (credential-provider-sso emits it)', () => {
+        const err = new Error('SSO Token refresh failed for profile prod.');
+        err.name = 'CredentialsProviderError';
+        expect(mapAiSdkError(err).message).toMatch(/aws sso login/i);
+      });
+
+      it('detects "SSO session" phrase (token-providers emits it)', () => {
+        const err = new Error('The SSO session associated with this profile has expired or is otherwise invalid.');
+        err.name = 'CredentialsProviderError';
+        expect(mapAiSdkError(err).message).toMatch(/aws sso login/i);
+      });
+
+      it('detects "token ... expired" phrase (loose token-expiry match)', () => {
+        const err = new Error('Cached token for session my-sso has expired since 2026-07-09.');
+        err.name = 'CredentialsProviderError';
+        expect(mapAiSdkError(err).message).toMatch(/aws sso login/i);
+      });
+
+      it('detects standalone "has expired" phrase', () => {
+        const err = new Error('Bearer token has expired.');
+        err.name = 'CredentialsProviderError';
+        expect(mapAiSdkError(err).message).toMatch(/aws sso login/i);
+      });
+
+      it('case-insensitivity holds ("sso token" lowercase)', () => {
+        const err = new Error('sso token missing');
+        err.name = 'CredentialsProviderError';
+        // Regex is case-insensitive (/i flag), so lowercase "sso token" still triggers
+        // the hint via the "SSO Token" alternative. This locks the /i flag against
+        // accidental removal in future edits.
+        expect(mapAiSdkError(err).message).toMatch(/aws sso login/i);
+      });
+    });
+
+    // PR #263 review response: the `err.name === 'CredentialsProviderError'`
+    // check is our primary identification path (instanceof would break
+    // across dual-package copies of @smithy/core). If AWS renames the
+    // error class in a future SDK version, we still catch it via the
+    // stable `startsWith('AWS credential provider failed:')` fallback
+    // that the AI-SDK re-throw uses. Both paths must remain functional.
+    describe('CredentialsProviderError name-check + AI-SDK fallback', () => {
+      it('identifies by err.name when name matches (primary path)', () => {
+        const err = new Error('SSO Token invalid');
+        err.name = 'CredentialsProviderError';
+        // The isCredError branch should fire and re-wrap the message.
+        expect(mapAiSdkError(err).message).toMatch(/aws sso login/i);
+      });
+
+      it('identifies by "AWS credential provider failed:" prefix when err.name does NOT match', () => {
+        // Simulates AWS SDK renaming CredentialsProviderError → SomethingElseError:
+        // the primary name-check would miss it, but AI-SDK's re-throw prefix
+        // still catches it because the prefix is defined by @ai-sdk/amazon-bedrock,
+        // not by AWS.
+        const err = new Error('AWS credential provider failed: The SSO session has expired.');
+        err.name = 'SomeRenamedErrorClass';
+        expect(mapAiSdkError(err).message).toMatch(/aws sso login/i);
+      });
+
+      it('does NOT misfire on generic error whose name coincidentally matches', () => {
+        // If somebody constructs `new Error("something else")` and then
+        // sets .name = 'CredentialsProviderError' by accident, the SSO-expiry
+        // regex still gates the hint — no false-positive login advice.
+        const err = new Error('completely unrelated failure');
+        err.name = 'CredentialsProviderError';
+        expect(mapAiSdkError(err).message).not.toMatch(/aws sso login/i);
+        // But the original message must survive to the user.
+        expect(mapAiSdkError(err).message).toContain('completely unrelated failure');
+      });
+    });
   });
 
   describe('createMessageStream (real word-by-word streaming)', () => {
