@@ -21,6 +21,7 @@ import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
 import { setGenerationComplete } from '../core/incomplete-page-cleaner';
 import { hashBody, checkContentRequirements } from '../core/source-requirements';
+import { resolveModelForTask } from '../core/model-resolver';
 import type { SourceRejection } from '../core/source-requirements';
 import { detectRateLimitFailures, formatRateLimitNotice } from '../core/rate-limit';
 import { extractSourceTags } from '../core/arrays';
@@ -986,7 +987,7 @@ export class WikiEngine {
     const finalPrompt = this.applySectionLabels(prompt);
 
     const pageContent = await this.client.createMessage({
-      model: this.settings.model,
+      model: resolveModelForTask(this.settings, 'ingest'),
       max_tokens: TOKENS_PAGE_GENERATION,
       system: await this.buildSystemPrompt('summary'),
       messages: [{ role: 'user', content: finalPrompt }],

@@ -1068,6 +1068,11 @@ export default class LLMWikiPlugin extends Plugin {
       ? [{ label: 'unified', model: this.settings.model }]
       : tasksToProbe.map(task => ({ label: task, model: resolveModelForTask(this.settings, task) }));
 
+    // v1.24.0 #208: log the probe plan so e2e verification of per-task
+    // routing is visible from console — the user can see which models
+    // will be probed before any API call lands.
+    console.debug('[testLLMConnection] probe plan:', probePlan.map(p => `${p.label}=${p.model}`).join(', '));
+
     try {
       const testClient = createLLMClient(this.settings);
 

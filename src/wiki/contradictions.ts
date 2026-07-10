@@ -6,6 +6,7 @@ import { parseFrontmatter } from '../core/frontmatter';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { TOKENS_CONTRADICTION } from '../constants';
 import { PROMPTS } from '../prompts';
+import { resolveModelForTask } from '../core/model-resolver';
 import {
   getSectionLabels,
   applySectionLabels,
@@ -181,7 +182,7 @@ ${contradiction.source_page}
     if (!client) throw new Error('LLM client not initialized');
 
     const fixedContent = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'lint'),
       max_tokens: TOKENS_CONTRADICTION,
       system: await buildSystemPrompt(
         this.ctx.settings,

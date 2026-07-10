@@ -6,6 +6,7 @@ import { parseFrontmatter, enforceFrontmatterConstraints, serializeFrontmatter }
 import { parseJsonResponse } from '../../core/json';
 import { cleanMarkdownResponse } from '../../core/markdown';
 import { escapeRegex } from './utils';
+import { resolveModelForTask } from '../../core/model-resolver';
 
 export async function mergeDuplicatePages(
   ctx: EngineContext,
@@ -84,7 +85,7 @@ export async function mergeDuplicatePages(
         .replace('{{source_content}}', sourceBody);
 
       const mergedContent = await client.createMessage({
-        model: ctx.settings.model,
+        model: resolveModelForTask(ctx.settings, 'lint'),
         max_tokens: TOKENS_LINT_PAGE_FIX,
         system: await buildSystemPrompt(
           ctx.settings,

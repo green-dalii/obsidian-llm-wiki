@@ -18,6 +18,7 @@ import {
   SEED_SELECTION_SYSTEM_PROMPT,
   buildSeedSelectionUserPrompt,
 } from '../../prompts/seed-selection';
+import { resolveModelForTask } from '../../../core/model-resolver';
 
 /** Minimal LLMClient surface — only `createMessage` is required for seed selection. */
 export interface SeedLLMClient {
@@ -31,9 +32,16 @@ export interface SeedLLMClient {
   }): Promise<string>;
 }
 
-/** Settings surface used by seed selector — disableThinking / model only. */
+/** Settings surface used by seed selector — disableThinking / model only.
+ *  v1.24.0 #208: per-task `queryModel` override is read via
+ *  `resolveModelForTask(settings, 'query')`. The seed selector runs
+ *  inside the Query Wiki flow, so it uses the 'query' domain. The
+ *  interface declares only the fields the helper reads so call sites
+ *  with partial settings (e.g. test fixtures) still type-check.
+ */
 export interface SeedSelectorSettings {
   model: string;
+  queryModel?: string;
   disableThinking?: boolean;
 }
 
@@ -72,8 +80,11 @@ export async function selectSeedsWithLLM(
   // answer per the prompt's task 4 ("no relevant pages" → []).
   const retryResult = await withTransientRetry({
     fn: async () => {
+      // v1.24.0 #208: log resolved query model for e2e verification.
+      const queryModel = resolveModelForTask(settings, 'query');
+      console.debug('[selectSeedsWithLLM] query model:', queryModel);
       const response = await client.createMessage({
-        model: settings.model,
+        model: queryModel,
         max_tokens: 200,
         system: SEED_SELECTION_SYSTEM_PROMPT,
         messages: [{

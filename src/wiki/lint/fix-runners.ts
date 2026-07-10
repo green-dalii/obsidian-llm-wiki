@@ -8,6 +8,7 @@ import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
 import { detectRateLimitFailures, formatRateLimitNotice } from '../../core/rate-limit';
+import { resolveModelForTask } from '../../core/model-resolver';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from '../../core/tag-vocab';
 import { mergeFrontmatterArrayField, replaceFrontmatterArrayField, parseFrontmatter } from '../../core/frontmatter';
 import { TOKENS_LINT_ALIAS_BATCH, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
@@ -85,7 +86,7 @@ export async function runAliasCompletion(
             .replace('{{body}}', body.substring(0, 2000));
 
           const response = await client.createMessage({
-            model: ctx.settings.model,
+            model: resolveModelForTask(ctx.settings, 'lint'),
             max_tokens: TOKENS_LINT_ALIAS_BATCH,
             system: buildWikiLanguageDirective(ctx.settings),
             messages: [{ role: 'user', content: prompt }],
@@ -462,7 +463,7 @@ Task: Return a JSON object with a single field "tags" that is an array of string
         );
 
         const response = await ctx.llmClient.createMessage({
-          model: ctx.settings.model,
+          model: resolveModelForTask(ctx.settings, 'lint'),
           max_tokens: 256,
           messages: [{ role: 'user', content: prompt }],
         });

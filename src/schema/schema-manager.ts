@@ -6,6 +6,7 @@ import { PROMPTS } from '../prompts';
 import { parseSchemaSuggestion } from './parse-suggestion';
 import { getActiveEntityTags, getActiveConceptTags } from '../core/tag-vocab';
 import { capMaxTokens } from '../core/token-cap';
+import { resolveModelForTask } from '../core/model-resolver';
 import { TOKENS_SCHEMA_SUGGESTION } from '../constants';
 
 const SCHEMA_FILENAME = 'schema/config.md';
@@ -354,7 +355,7 @@ ${body}`;
 
     try {
       const response = await this.client.createMessage({
-        model: this.settings.model,
+        model: resolveModelForTask(this.settings, 'ingest'),
         max_tokens: capMaxTokens(TOKENS_SCHEMA_SUGGESTION, this.settings),
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },

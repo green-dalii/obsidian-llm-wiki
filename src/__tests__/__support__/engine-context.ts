@@ -56,6 +56,9 @@ class MockVault {
 
 interface CreateMessageCall {
   enableThinking?: boolean;
+  // v1.24.0 #208: model string captured at the call site — wiring tests
+  // verify resolveModelForTask routed the correct domain value.
+  model?: string;
   // other fields intentionally omitted for the F6 test
 }
 
@@ -63,13 +66,14 @@ interface CreateMessageCall {
  * Mock LLM client that records every createMessage call's params. Tests
  * can inspect `ctx.lastCreateMessageCall` to verify wiring (e.g. that
  * `enableThinking: false` is propagated to all production call sites —
- * Issue #99 v2 Layer A).
+ * Issue #99 v2 Layer A; that `model` resolves through the per-task
+ * resolver — Issue #208 wiring).
  */
 export function createMockClient(responses: string[]): LLMClient & { lastCreateMessageCall?: CreateMessageCall } {
   let idx = 0;
   const client: LLMClient & { lastCreateMessageCall?: CreateMessageCall } = {
     createMessage: async (params: { enableThinking?: boolean } & Record<string, unknown>) => {
-      client.lastCreateMessageCall = { enableThinking: params.enableThinking };
+      client.lastCreateMessageCall = { enableThinking: params.enableThinking, model: params.model as string | undefined };
       return responses[idx++] ?? '{"entities":[],"concepts":[],"contradictions":[],"related_pages":[],"key_points":[]}';
     },
   };

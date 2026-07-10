@@ -16,6 +16,7 @@ import { WIKI_SUBFOLDERS } from '../constants';
 import { TOKENS_DEDUP_RESOLUTION, TOKENS_PAGE_GENERATION, TOKENS_APPEND_REVIEWED, TOKENS_MERGE_TRIAGE, TOKENS_COMPLEMENTARY_APPEND } from '../constants';
 import { slugify, filterRedundantAliases } from '../core/slug';
 import { correctRelatedLinkPrefixes } from '../core/related-link-corrector';
+import { resolveModelForTask } from '../core/model-resolver';
 import { canonicalizeSectionHeaders, snapHeaderToCanonical } from '../core/section-header-canonicalizer';
 import { parseJsonResponse } from '../core/json';
 import { parseFrontmatter, mergeFrontmatter, enforceFrontmatterConstraints } from '../core/frontmatter';
@@ -223,7 +224,7 @@ export class PageFactory {
         .replace('{{existing_pages}}', pagesList);
 
       const response = await client.createMessage({
-        model: this.ctx.settings.model,
+        model: resolveModelForTask(this.ctx.settings, 'ingest'),
         max_tokens: TOKENS_DEDUP_RESOLUTION,
         system: await this.ctx.buildSystemPrompt('full'),
         messages: [{ role: 'user', content: prompt }],
@@ -424,7 +425,7 @@ export class PageFactory {
     const finalPrompt = appendTagVocabularyToPrompt(applySectionLabels(prompt, this.ctx.settings), this.ctx.settings);
 
     const pageContent = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'ingest'),
       max_tokens: TOKENS_PAGE_GENERATION,
       system: await this.ctx.buildSystemPrompt(pageType),
       messages: [{ role: 'user', content: finalPrompt }],
@@ -540,7 +541,7 @@ export class PageFactory {
     );
 
     const response = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'ingest'),
       max_tokens: TOKENS_MERGE_TRIAGE,
       system: await this.ctx.buildSystemPrompt('merge'),
       messages: [{ role: 'user', content: finalPrompt }],
@@ -881,7 +882,7 @@ export class PageFactory {
 
     try {
       const response = await client.createMessage({
-        model: this.ctx.settings.model,
+        model: resolveModelForTask(this.ctx.settings, 'ingest'),
         max_tokens: TOKENS_COMPLEMENTARY_APPEND,
         system: await this.ctx.buildSystemPrompt('merge'),
         messages: [{ role: 'user', content: appendPrompt }],
@@ -1035,7 +1036,7 @@ export class PageFactory {
     const finalPrompt = appendTagVocabularyToPrompt(applySectionLabels(prompt, this.ctx.settings), this.ctx.settings);
 
     const mergedBody = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'ingest'),
       max_tokens: TOKENS_PAGE_GENERATION,
       system: await this.ctx.buildSystemPrompt('merge'),
       messages: [{ role: 'user', content: finalPrompt }],
@@ -1136,7 +1137,7 @@ export class PageFactory {
     const finalPrompt = appendTagVocabularyToPrompt(applySectionLabels(prompt, this.ctx.settings), this.ctx.settings);
 
     const newContent = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'ingest'),
       max_tokens: TOKENS_APPEND_REVIEWED,
       system: await this.ctx.buildSystemPrompt('merge'),
       messages: [{ role: 'user', content: finalPrompt }],
@@ -1234,7 +1235,7 @@ export class PageFactory {
     if (!client) throw new Error('LLM client not initialized');
 
     const updatedBody = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'ingest'),
       max_tokens: TOKENS_PAGE_GENERATION,
       system: await this.ctx.buildSystemPrompt('related'),
       messages: [{ role: 'user', content: prompt }],
