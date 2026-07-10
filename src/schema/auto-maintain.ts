@@ -10,6 +10,7 @@ import { findIncompletePages, cleanIncompletePages } from '../core/incomplete-pa
 import { needsLogHeaderMigration, migrateLogHeader } from '../core/log-header';
 import { ensureWelcomeNote, type EnsureResult, type VaultAdapter } from '../core/ensure-welcome-note';
 import { getWelcomeFileName } from '../core/i18n';
+import { resolveModelForTask } from '../core/model-resolver';
 import type { LLMClient } from '../types';
 
 export class AutoMaintainManager {
@@ -628,7 +629,7 @@ export class AutoMaintainManager {
       // the ensure-welcome-note signature is satisfied.
       smokeTestProbe: async () => this.probeLlm(),
       llmClient: llmClient ?? undefined,
-      model: this.settings.model,
+      model: resolveModelForTask(this.settings, 'ingest'),
     });
   }
 
@@ -741,7 +742,7 @@ export class AutoMaintainManager {
     return {
       ok: true,
       provider: this.settings.provider,
-      model: this.settings.model,
+      model: resolveModelForTask(this.settings, 'ingest'),
     };
   }
 

@@ -11,6 +11,7 @@ import { slugify } from '../core/slug';
 import { parseJsonResponse } from '../core/json';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { applySectionLabels } from './system-prompts';
+import { resolveModelForTask } from '../core/model-resolver';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { TOKENS_CONVERSATION_EXTRACTION, TOKENS_CONVERSATION_PAGE, TOKENS_PAGE_GENERATION, TOKENS_QUERY_SAVE_DEDUP } from '../constants';
 import { PageFactory } from './page-factory';
@@ -149,7 +150,7 @@ CRITICAL RULES:
 - Names should be suitable for [[wiki-links]] referencing (judge appropriate naming based on Wiki index)`;
 
     const analysis = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'ingest'),
       max_tokens: TOKENS_CONVERSATION_EXTRACTION,
       system: await this.ctx.buildSystemPrompt('conversation'),
       messages: [{
@@ -163,7 +164,7 @@ CRITICAL RULES:
     const parsed = await parseJsonResponse(analysis, async (malformedJson: string) => {
       const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
       return await client.createMessage({
-        model: this.ctx.settings.model,
+        model: resolveModelForTask(this.ctx.settings, 'ingest'),
         max_tokens: TOKENS_PAGE_GENERATION,
         system: await this.ctx.buildSystemPrompt('conversation'),
         messages: [{ role: 'user', content: repairPrompt }],
@@ -219,7 +220,7 @@ CRITICAL RULES:
 
     this.ctx.onProgress?.('Generating summary page...');
     const summaryPageContent = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'ingest'),
       max_tokens: TOKENS_CONVERSATION_PAGE,
       system: await this.ctx.buildSystemPrompt('summary'),
       messages: [{ role: 'user', content: finalSummaryPrompt }],
@@ -307,7 +308,7 @@ CRITICAL RULES:
     if (!client) throw new Error('LLM client not initialized');
 
     const response = await client.createMessage({
-      model: this.ctx.settings.model,
+      model: resolveModelForTask(this.ctx.settings, 'ingest'),
       max_tokens: TOKENS_QUERY_SAVE_DEDUP,
       system: await this.ctx.buildSystemPrompt('conversation'),
       messages: [{ role: 'user', content: prompt }],

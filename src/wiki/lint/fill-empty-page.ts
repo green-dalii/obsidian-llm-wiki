@@ -8,6 +8,7 @@ import {
 } from '../system-prompts';
 import { enforceFrontmatterConstraints } from '../../core/frontmatter';
 import { cleanMarkdownResponse } from '../../core/markdown';
+import { resolveModelForTask } from '../../core/model-resolver';
 import {
   buildEmptyPagePrompt,
   cleanWikiIndex,
@@ -57,7 +58,7 @@ export async function fillEmptyPage(
   if (!client) throw new Error('LLM client not initialized');
 
   const filledContent = await client.createMessage({
-    model: ctx.settings.model,
+    model: resolveModelForTask(ctx.settings, 'lint'),
     max_tokens: TOKENS_LINT_PAGE_FIX,
     system: await buildSystemPrompt(
       ctx.settings,

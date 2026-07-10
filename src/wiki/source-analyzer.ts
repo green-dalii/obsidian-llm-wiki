@@ -37,6 +37,7 @@ import { isBlankSource } from '../core/frontmatter';
 import { MAX_TOKENS_BATCH, TOKENS_PER_ITEM_BUDGET, SOURCE_ANALYZER_RETRY_MULTIPLIER } from '../constants';
 import { getExistingWikiPages } from './lint/get-existing-pages';
 import { getGranularityInstruction, buildActiveTagVocabularySection } from './system-prompts';
+import { resolveModelForTask } from '../core/model-resolver';
 import { calculateBatchLimits, adjustBatchSizeForResponse, getCustomTypeCaps } from '../core/batch-limits';
 import { detectConvergence, checkCumulativeLimits, checkEmptyBatch, formatConvergenceStatus } from '../core/convergence-detector';
 import { createEmptyAccumulation, mergeBatchResults, buildSourceAnalysis, calculateBatchStats } from '../core/batch-merger';
@@ -302,9 +303,14 @@ export class SourceAnalyzer {
         const systemPrompt = await this.ctx.buildSystemPrompt('analyze');
         // Scale max_tokens with current batch size to avoid truncation.
         const batchMaxTokens = Math.max(baseMaxTokens, currentBatchSize * TOKENS_PER_ITEM_BUDGET);
-        console.debug(`[Batch ${batchNum + 1}] Provider:`, this.ctx.settings.provider, '| Model:', this.ctx.settings.model, '| Prompt:', finalPrompt.length, 'chars', '| max_tokens:', batchMaxTokens);
+        // v1.24.0 #208: route through resolveModelForTask so the debug
+        // log reflects the ACTUAL model used (per-task override), not
+        // the unified setting. Without this, e2e verification of
+        // per-task routing would be impossible from console alone.
+        const resolvedModel = resolveModelForTask(this.ctx.settings, 'ingest');
+        console.debug(`[Batch ${batchNum + 1}] Provider:`, this.ctx.settings.provider, '| Model:', resolvedModel, '| Prompt:', finalPrompt.length, 'chars', '| max_tokens:', batchMaxTokens);
         const response = await client.createMessage({
-          model: this.ctx.settings.model,
+          model: resolvedModel,
           max_tokens: batchMaxTokens,
           system: systemPrompt,
           messages: [{ role: 'user', content: finalPrompt }],
@@ -319,7 +325,7 @@ export class SourceAnalyzer {
         const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
           const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
           return await client.createMessage({
-            model: this.ctx.settings.model,
+            model: resolveModelForTask(this.ctx.settings, 'ingest'),
             max_tokens: retryCap, // Repair may need full output if original was truncated at retryCap
             system: await this.ctx.buildSystemPrompt('analyze'),
             messages: [{ role: 'user', content: repairPrompt }],

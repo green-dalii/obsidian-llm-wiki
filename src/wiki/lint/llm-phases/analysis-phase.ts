@@ -17,6 +17,7 @@ import { TEXTS } from '../../../texts';
 import { cleanMarkdownResponse } from '../../../core/markdown';
 import { appendGranularityToPrompt, appendTagVocabularyToPrompt } from '../../system-prompts';
 import { TOKENS_LINT_DEDUP_LLM } from '../../../constants';
+import { resolveModelForTask } from '../../../core/model-resolver';
 import type { LintPhaseContext, ScannerPage } from '../types';
 
 export interface AnalysisPhaseInput {
@@ -156,8 +157,13 @@ export async function runAnalysisPhase(
   // matching the other lint LLM calls (fill-empty-page, fix-dead-link,
   // link-orphan, merge-duplicates).
   const systemPrompt = await ctx.buildSystemPrompt('lint');
+  // v1.24.0 #208: log the resolved lint model so e2e verification of
+  // per-task routing is visible from console output (the lint phase
+  // is otherwise silent about which model it called).
+  const lintModel = resolveModelForTask(ctx.settings, 'lint');
+  console.debug('[runAnalysisPhase] lint model:', lintModel);
   const response = await llm.createMessage({
-    model: ctx.settings.model,
+    model: lintModel,
     max_tokens: TOKENS_LINT_DEDUP_LLM,
     messages: [{ role: 'user', content: prompt }],
     ...(systemPrompt ? { system: systemPrompt } : {}),

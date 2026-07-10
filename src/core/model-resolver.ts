@@ -31,6 +31,19 @@ import type { LLMWikiSettings } from '../types';
 export type LLMTask = 'ingest' | 'lint' | 'query';
 
 /**
+ * Minimal settings shape required by the resolver. Accepts any object
+ * with `model` plus the 3 per-task override fields — callers that only
+ * carry a subset (e.g. `SeedSelectorSettings`) still type-check.
+ *
+ * `Pick<LLMWikiSettings, ...>` is the canonical shape; structural
+ * compatibility lets partial settings satisfy the contract.
+ */
+export type ModelResolverSettings = Pick<
+  LLMWikiSettings,
+  'model' | 'ingestModel' | 'lintModel' | 'queryModel'
+>;
+
+/**
  * Resolve the model string for a given LLM task.
  *
  * Fallback chain per task:
@@ -44,7 +57,7 @@ export type LLMTask = 'ingest' | 'lint' | 'query';
  * Pure function. No IO. Safe to call inline at every LLM call site.
  */
 export function resolveModelForTask(
-  settings: LLMWikiSettings,
+  settings: ModelResolverSettings,
   task: LLMTask,
 ): string {
   switch (task) {

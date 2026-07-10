@@ -24,6 +24,7 @@ import { getText } from '../../../core/i18n';
 import { TEXTS } from '../../../texts';
 import { generateDuplicateCandidates } from '../duplicate-detection';
 import type { DuplicateCandidate } from '../duplicate-detection';
+import { resolveModelForTask } from '../../../core/model-resolver';
 import { parseJsonResponse } from '../../../core/json';
 import { detectRateLimitFailures, formatRateLimitNotice } from '../../../core/rate-limit';
 import { normalizeLLMPath } from '../../../core/prompt-builders';
@@ -216,6 +217,9 @@ export async function runDedupPhase(
             .replace('{{total}}', String(pagesForDedup.length));
 
           console.debug(`lintWiki: batch ${batchNum}/${batches.length} — ${batch.length} candidates`);
+          // v1.24.0 #208: log resolved lint model for e2e verification
+          // of per-task routing in dedup batches.
+          const lintModel = resolveModelForTask(ctx.settings, 'lint');
           // B3 fix: capture the result of the getter so subsequent await
           // calls don't re-invoke (also narrows the non-null assertion
           // away — ctx.llmClient() returned null only at the early-return
@@ -225,7 +229,7 @@ export async function runDedupPhase(
             throw new Error('runDedupPhase: LLM client became null mid-run');
           }
           const dedupResponse = await llm.createMessage({
-            model: ctx.settings.model,
+            model: lintModel,
             max_tokens: TOKENS_LINT_DEDUP_LLM,
             messages: [{ role: 'user', content: dedupPrompt }],
             ...(systemPrompt ? { system: systemPrompt } : {}),

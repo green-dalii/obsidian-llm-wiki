@@ -4,6 +4,7 @@ import { TOKENS_LINT_PAGE_FIX, WIKI_SUBFOLDERS } from '../../constants';
 import { buildSystemPrompt } from '../system-prompts';
 import { parseJsonResponse } from '../../core/json';
 import { slugify } from '../../core/slug';
+import { resolveModelForTask } from '../../core/model-resolver';
 import {
   findDeadLinkTarget,
   buildDeadLinkReplacement,
@@ -134,7 +135,7 @@ export async function fixDeadLink(
   if (!client) return 'no action taken (no client)';
 
   let response = await client.createMessage({
-    model: ctx.settings.model,
+    model: resolveModelForTask(ctx.settings, 'lint'),
     max_tokens: TOKENS_LINT_PAGE_FIX,
     system: await buildSystemPrompt(
       ctx.settings,
@@ -151,7 +152,7 @@ export async function fixDeadLink(
       `fixDeadLink: empty response for target "${targetName}", retrying without JSON mode`
     );
     response = await client.createMessage({
-      model: ctx.settings.model,
+      model: resolveModelForTask(ctx.settings, 'lint'),
       max_tokens: TOKENS_LINT_PAGE_FIX,
       system: await buildSystemPrompt(
         ctx.settings,

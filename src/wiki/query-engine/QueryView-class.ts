@@ -25,6 +25,7 @@ import { TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_
 import { getSectionLabels } from '../system-prompts';
 
 import { extractThinkingPanel } from './renderers/thinking-extract';
+import { resolveModelForTask } from '../../core/model-resolver';
 import { bindWikiLinkClicks } from './renderers/wiki-link-clicks';
 import { renderHistoryMessage as buildHistoryMessage, addCopyButton } from './renderers/history-message';
 import {
@@ -386,8 +387,11 @@ export class QueryView extends ItemView {
       const prompt = PROMPTS.evaluateConversationValue
         .replace('{{conversation}}', conversationText.substring(0, 3000));
 
+      // v1.24.0 #208: log resolved query model for e2e verification.
+      const queryModel = resolveModelForTask(this.plugin.settings, 'query');
+      console.debug('[QueryView] evaluateConversationValue model:', queryModel);
       const response = await this.plugin.llmClient.createMessage({
-        model: this.plugin.settings.model,
+        model: queryModel,
         max_tokens: TOKENS_QUERY_SAVE_DEDUP,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
@@ -502,10 +506,13 @@ export class QueryView extends ItemView {
     try {
       if (this.plugin.llmClient?.createMessageStream) {
         let fullResponse = '';
+        // v1.24.0 #208: log resolved query model for e2e verification.
+        const queryModel = resolveModelForTask(this.plugin.settings, 'query');
+        console.debug('[QueryView] streaming chat model:', queryModel);
         logCustomInstructionsInjectionContext('streaming', userMessage, this.plugin.settings.customQueryInstructions);
         try {
           fullResponse = await this.plugin.llmClient.createMessageStream({
-            model: this.plugin.settings.model,
+            model: queryModel,
             max_tokens: TOKENS_QUERY_LLM_SELECT,
             system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
             messages: conversationMessages,
@@ -535,10 +542,13 @@ export class QueryView extends ItemView {
             : texts.queryPhaseNonStreaming;
           // Fallback: try non-streaming if streaming fails
           if (this.plugin.llmClient?.createMessage) {
+            // v1.24.0 #208: log resolved query model for e2e verification.
+            const queryModel = resolveModelForTask(this.plugin.settings, 'query');
+            console.debug('[QueryView] non-stream-fallback chat model:', queryModel);
             logCustomInstructionsInjectionContext('non-stream-fallback', userMessage, this.plugin.settings.customQueryInstructions);
             try {
               fullResponse = await this.plugin.llmClient.createMessage({
-                model: this.plugin.settings.model,
+                model: queryModel,
                 max_tokens: TOKENS_QUERY_LLM_SELECT,
                 system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
                 messages: conversationMessages,
@@ -623,8 +633,11 @@ export class QueryView extends ItemView {
           ? `${foundPagesInfo}, ${texts.queryPhaseNonStreaming}`
           : texts.queryPhaseNonStreaming;
         logCustomInstructionsInjectionContext('non-stream-main', userMessage, this.plugin.settings.customQueryInstructions);
+        // v1.24.0 #208: log resolved query model for e2e verification.
+        const queryModel = resolveModelForTask(this.plugin.settings, 'query');
+        console.debug('[QueryView] non-stream-main chat model:', queryModel);
         const response = await this.plugin.llmClient!.createMessage({
-          model: this.plugin.settings.model,
+          model: queryModel,
           max_tokens: TOKENS_QUERY_LLM_SELECT,
           system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
           messages: conversationMessages,

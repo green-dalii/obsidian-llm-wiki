@@ -4,6 +4,7 @@ import { TOKENS_LINT_ORPHAN_FIX } from '../../constants';
 import { buildSystemPrompt, getSectionLabels } from '../system-prompts';
 import { parseJsonResponse } from '../../core/json';
 import { cleanWikiIndex, normalizeLLMPath } from '../../core/prompt-builders';
+import { resolveModelForTask } from '../../core/model-resolver';
 import {
   buildOrphanLinkPrompt,
   validateOrphanLinkTarget,
@@ -32,7 +33,7 @@ export async function linkOrphanPage(
   if (!client) return [];
 
   const response = await client.createMessage({
-    model: ctx.settings.model,
+    model: resolveModelForTask(ctx.settings, 'lint'),
     max_tokens: TOKENS_LINT_ORPHAN_FIX,
     system: await buildSystemPrompt(
       ctx.settings,
