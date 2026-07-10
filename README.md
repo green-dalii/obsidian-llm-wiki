@@ -32,10 +32,7 @@
     - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
     - [🎮 Usage](#-usage)
     - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-  - [⚡ What's New in v1.23.0](#-whats-new-in-v1230)
-    - [v1.23.2 — 2026-07-05 (latest, PATCH)](#v1232--2026-07-05-latest-patch)
-    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
-    - [v1.23.0 — 2026-07-02 (MINOR)](#v1230--2026-07-02-minor)
+  - [⚡ What's New in v1.24.0](#-whats-new-in-v1240)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [🛠️ Maintenance](#️-maintenance)
@@ -173,35 +170,20 @@ alias-aware search (e.g., "DSA" finds "DeepSeek-Sparse-Attention").
 
 **Settings to review:** Wiki Output Language (independent from UI), Extraction Granularity (Minimal–Fine, + Custom), Page Generation Concurrency (default 3), Batch Delay (default 300ms).
 
-## ⚡ What's New in v1.23.0
+## ⚡ What's New in v1.24.0
 
-### v1.23.2 — 2026-07-05 (latest, PATCH)
+Five themes: per-task models, custom query instructions, four monolith splits, source-note alias propagation, and user-reported frontmatter fix. Recommended upgrade for everyone on v1.23.x.
 
-Five merged PRs — bug fixes, refactor, and UX polish. Recommended upgrade for everyone on v1.23.0+.
+- **🎛️ Per-task Models (#208).** Pick a different model for **Ingest** / **Lint** / **Query** — or keep them unified. Settings → Wiki → *Model Scope* lets you switch with one click. The **Test Connection** button now probes each configured model sequentially with fail-fast — until every per-task model passes, the connection is considered unhealthy.
+- **📝 Custom Query Instructions (#251, `jameses-cyber`).** A collapsible panel inside the Query Wiki view lets you append persistent instructions to every system prompt — research mode, citation style, "no fabrication" rules, etc. 5000-char defensive cap. Strictly scoped to Query Wiki chat; ingest / lint / page generation intentionally unaffected. Modes dropdown planned for v1.25.0+.
+- **🧱 Four monolith splits (P0 follow-up to v1.23.0 series).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 files, 93 tests), `query-engine.ts` (PR #250, 1373 → 15 files), and `modals.ts` (PR #257, 1008 → 7 files) — each god function / god class decomposed into focused modules. Plugin is now structurally ready for the next round of features.
+- **🏷️ Source-note aliases propagation (#185).** Frontmatter `aliases:` from source notes now flow into generated `sources/<slug>` pages, so downstream `[[wiki-link]]` matching and alias-aware search reach every quote. Reduces "DSA ≠ DeepSeek-Sparse-Attention" type misses.
+- **🔀 Tier-1 + Tier-2 merge triage (#216, `DocTpoint`).** Classify-then-route duplicate-bypass decision: skip spurious Tier-1 candidates outright, run Tier-2 only on the remainder. Reduces Lint merge batch size without sacrificing high-precision matches.
+- **🐛 Frontmatter write repair (4 user-reported bugs).** `aliases:[]` no longer falsely passes as alias-deficient; duplicate aliases collapsed on write; block-style frontmatter preserved (not flattened to inline); failures now logged with the offending field. Affects Smart Fix + merge paths.
+- **🚀 Query Wiki first-query PPR warmup.** Engine-level PPR graph cache (Key invalidation on `wikiFolder` change + cache-clear on `invalidatePageCaches`) — first query now uses Personalized PageRank instead of falling back to lex-only on cold start.
+- **🌐 i18n completeness** — 7 new keys per locale for the per-task model pickers + Model Scope dropdown + Test Connection labels.
 
-- **🔄 Live PPR graph invalidation on ingest** — ingests in the same session are now visible to follow-up queries.
-- **🔁 Streaming-preserving client wrapper** — eliminates the v1.23.0-era streaming regression for class-based SDK clients.
-- **🖱️ Query turn indicator + clickable retrieval label (#221, #219)** — right-edge dots per conversation turn, hover preview, scroll-to-question. Retrieval label expands inline (no popups).
-- **📋 Semantic progress notifications (#219)** — manual operations show Notice + status bar; background operations show status bar only. Lint Notices auto-dismiss (5–8s).
-- **🧩 Frontmatter serializer consolidation (PR #238 @DocTpoint)** — single `serializeFrontmatter` writer for upcoming `supersedes:` flag.
-- **📝 Section header canonicalizer (PR #241 @DocTpoint)** — bounded Levenshtein snaps LLM-garbled headers back to canonical labels on write.
-- **📜 License upgrade** — MIT → Apache 2.0 + DCO. NOTICE lists all 6 human contributors.
-
-### v1.23.1 — 2026-07-02 (PATCH)
-
-Resolved three Obsidian review bot findings: `strictBindCallApply: true` alignment, dead function removal, lockfile regeneration for CI build verification. No user-facing behavior changes.
-
-### v1.23.0 — 2026-07-02 (MINOR)
-
-Biggest architectural change since 1.0. Two major themes:
-
-- **🤖 Vercel AI-SDK v6 migration.** Replaced hand-rolled 1625-LOC LLM client with `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2`. Eliminates entire class of provider-version regressions (#137 / #141 / #143 / #147 / #207).
-- **🕸️ Graph Engine — Personalized PageRank over `[[wiki-link]]` graph.** Monte-Carlo PPR delivers embedding-grade R@k at zero embedding cost, offline, works for every provider. Three-tier pipeline (lex fast path → LLM seeds → PPR walks) plus hub-link distinctiveness scanner.
-- **🎬 Real-time streaming for all providers** — true chunk-by-chunk, with macrotask yield for paint-frame-per-chunk UX.
-- **📥 Multi-File Ingest UI (#130)** — two-pane picker with recursive folder tree + live queue + per-file cancel.
-- **🎉 Welcome note** — three-tier first-run experience, D8 LLM dynamic translation (no hardcoded i18n).
-- **🔑 LM Studio API-key gate (#223)** — local providers test connection without API key.
-- **🛡️ GPT-5.x Pro routing + URL fallback + token-key probe-then-retry** — provider error hardening across the board.
+**Settings to review:** Model Scope (Unified / Per-Task, in Settings → Wiki), per-task model fields (visible in Per-Task mode), Query Wiki → ⚙ Custom Instructions collapsible panel (in-view only).
 
 ## ✨ Features
 

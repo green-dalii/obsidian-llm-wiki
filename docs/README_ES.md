@@ -30,10 +30,7 @@
     - [🔑 Configurar un proveedor LLM](#-configurar-un-proveedor-llm)
     - [🎮 Uso](#-uso)
     - [⚠️ ¿Actualizar desde una versión anterior?](#️-actualizar-desde-una-versión-anterior)
-  - [⚡ Novedades de la v1.23.0](#-novedades-de-la-v1230)
-    - [v1.23.2 — 2026-07-05 (última, PATCH)](#v1232--2026-07-05-última-patch)
-    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
-    - [v1.23.0 — 2026-07-02 (MINOR)](#v1230--2026-07-02-minor)
+  - [⚡ Novedades de la v1.24.0](#-novedades-de-la-v1240)
   - [✨ Características](#-características)
     - [📊 Calidad del Conocimiento](#-calidad-del-conocimiento)
     - [🛠️ Mantenimiento](#️-mantenimiento)
@@ -162,37 +159,20 @@ Luego **Regenerar índice** para reconstruir `wiki/index.md` con entradas de ali
 
 **Ajustes a revisar:** Idioma de salida del Wiki (independiente de la UI), Granularidad de extracción, Concurrencia (predet. 3), Retraso de lote (predet. 300ms).
 
-## ⚡ Novedades de la v1.23.0
+## ⚡ Novedades de la v1.24.0
 
-La v1.23.0 es una **release MINOR** — el mayor cambio arquitectónico desde 1.0. Dos temas principales llegan juntos: la **migración a ## ⚡ Novedades de la v1.23.0
+Cinco temas: modelos por tarea, instrucciones de consulta personalizadas, cuatro divisiones de monolito, propagación de alias de notas fuente, correcciones de frontmatter reportadas por usuarios. Actualización recomendada para todos los usuarios de v1.23.x.
 
-### v1.23.2 — 2026-07-05 (última, PATCH)
+- **🎛️ Modelos por tarea (#208).** Elija un modelo diferente para **Ingesta / Lint / Consulta**, o manténgalos unificados. Configuración → Wiki → *Alcance del modelo* cambia con un clic. El botón **Probar conexión** ahora sondea cada modelo configurado secuencialmente con fail-fast — hasta que todos los modelos por tarea pasen, la conexión no se considera saludable.
+- **📝 Instrucciones de consulta personalizadas (#251, `jameses-cyber`).** Un panel desplegable dentro de la vista de Query Wiki le permite añadir instrucciones persistentes a cada prompt del sistema — modo investigación, estilo de citación, reglas de "no fabricación", etc. Límite defensivo de 5000 caracteres. Estrictamente limitado al chat de Query Wiki; la ingesta / el lint / la generación de páginas no se ven afectados intencionadamente. Menú desplegable de modos previsto para v1.25.0+.
+- **🧱 Cuatro divisiones de monolito (continuación P0 de la serie v1.23.0).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 archivos, 93 tests), `query-engine.ts` (PR #250, 1373 → 15 archivos), `modals.ts` (PR #257, 1008 → 7 archivos) — cada función-dios / clase-dios descompuesta en módulos enfocados. El plugin está ahora estructuralmente listo para la próxima ronda de funcionalidades.
+- **🏷️ Propagación de alias de notas fuente (#185).** Los `aliases:` del frontmatter de las notas fuente ahora fluyen hacia las páginas `sources/<slug>` generadas, para que el matching `[[wiki-link]]` y la búsqueda consciente de alias alcancen cada cita. Reduce fallos tipo "DSA ≠ DeepSeek-Sparse-Attention".
+- **🔀 Triaje de fusión Tier-1 + Tier-2 (#216, `DocTpoint`).** Decisión de bypass de duplicados clasificar-y-luego-rutear: salta directamente candidatos Tier-1 espurios, ejecuta Tier-2 sólo sobre el resto. Reduce el tamaño del lote de fusión del Lint sin sacrificar coincidencias de alta precisión.
+- **🐛 Reparación de escritura de frontmatter (4 bugs reportados por usuarios).** `aliases:[]` ya no se detecta erróneamente como deficiente en alias; los alias duplicados se pliegan al escribir; el frontmatter en bloque se preserva (no se aplana a inline); los fallos ahora se registran con el campo infractor. Afecta a las rutas Smart Fix y de fusión.
+- **🚀 Precalentamiento PPR en primera consulta de Query Wiki.** Caché de grafo PPR a nivel de motor (invalidación ante cambio de `wikiFolder` + vaciado de caché en `invalidatePageCaches`) — la primera consulta usa ahora Personalized PageRank en vez de caer a lex-only en arranque en frío.
+- **🌐 Completitud i18n** — 7 nuevas claves por locale para los selectores de modelo por tarea, el desplegable de alcance del modelo y las etiquetas de Prueba de conexión.
 
-Cinco PR fusionados — correcciones de errores, refactorización y mejora de UX. Actualización recomendada para todos los usuarios de v1.23.0+.
-
-- **🔄 Invalidación de caché PPR en vivo al ingerir** — las ingestiones en la misma sesión son visibles en consultas posteriores
-- **🔁 Wrapper cliente que preserva streaming** — elimina la regresión de streaming de la era v1.23.0
-- **🖱️ Indicador de turno de consulta + etiqueta de recuperación cliqueable (#221, #219)** — puntos por turno, vista previa al pasar el ratón, desplazamiento a la pregunta
-- **📋 Notificaciones de progreso semánticas (#219)** — manual: Notice + barra; segundo plano: solo barra. Notificaciones Lint auto-cierre (5–8s)
-- **🧩 Consolidación del serializador Frontmatter (PR #238 @DocTpoint)**
-- **📝 Canonizador de encabezados de sección (PR #241 @DocTpoint)**
-- **📜 Actualización de licencia** — MIT → Apache 2.0 + DCO
-
-### v1.23.1 — 2026-07-02 (PATCH)
-
-Tres hallazgos del bot de revisión Obsidian resueltos: alineación `strictBindCallApply: true`, eliminación de código muerto, regeneración de lockfile. Sin cambios visibles.
-
-### v1.23.0 — 2026-07-02 (MINOR)
-
-Mayor cambio arquitectónico desde 1.0. Dos temas principales:
-
-- **🤖 Migración Vercel AI-SDK v6.** Cliente LLM artesanal de 1625 líneas reemplazado por `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2`. Elimina regresiones de versión de proveedor
-- **🕸️ Motor de grafo — PageRank personalizado sobre grafo `[[wiki-link]]`.** Monte-Carlo PPR, calidad R@k de nivel embedding a costo cero
-- **🎬 Streaming en tiempo real para todos los proveedores**
-- **📥 UI de ingesta multi-archivo (#130)**
-- **🎉 Nota de bienvenida**
-- **🔑 Puerta API-key LM Studio (#223)**
-- **🛡️ Enrutamiento GPT-5.x Pro + respaldo URL + sonda de clave de token**
+**Configuraciones a revisar:** Alcance del modelo (Unificado / Por tarea, en Configuración → Wiki), campos de modelo por tarea (visibles sólo en modo Por tarea), panel desplegable ⚙ Instrucciones personalizadas de Query Wiki (sólo dentro de la vista).
 
 ## ✨ Características
 

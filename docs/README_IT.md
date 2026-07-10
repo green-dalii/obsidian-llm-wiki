@@ -32,10 +32,7 @@
     - [🔑 Configurare un provider LLM](#-configurare-un-provider-llm)
     - [🎮 Utilizzo](#-utilizzo)
     - [⚠️ Aggiornamento da una versione precedente?](#️-aggiornamento-da-una-versione-precedente)
-  - [⚡ Novità nella v1.23.0](#-novità-nella-v1230)
-    - [v1.23.2 — 2026-07-05 (ultima, PATCH)](#v1232--2026-07-05-ultima-patch)
-    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
-    - [v1.23.0 — 2026-07-02 (MINOR)](#v1230--2026-07-02-minor)
+  - [⚡ Novità nella v1.24.0](#-novità-nella-v1240)
   - [✨ Funzionalità](#-funzionalità)
     - [📊 Qualità della conoscenza](#-qualità-della-conoscenza)
     - [🛠️ Manutenzione](#️-manutenzione)
@@ -194,35 +191,20 @@ Impostazioni → **LLM Configuration**:
 > **🛡️ Sicurezza**: la generazione parallela usa `Promise.allSettled` — se una pagina fallisce, le altre proseguono. Le pagine fallite vengono ritentate individualmente con backoff esponenziale. Smart Batch Skip rileva automaticamente i file già acquisiti per risparmiare tempo e costi API.
 
 ---
-## ⚡ Novità nella v1.23.0
+## ⚡ Novità nella v1.24.0
 
-### v1.23.2 — 2026-07-05 (ultima, PATCH)
+Cinque temi: modelli per attività, istruzioni di query personalizzate, quattro suddivisioni di monoliti, propagazione alias note sorgente, correzioni frontmatter segnalate dagli utenti. Aggiornamento raccomandato per tutti gli utenti v1.23.x.
 
-Cinque PR uniti — correzioni di bug, refactoring e miglioramenti UX. Aggiornamento raccomandato per tutti gli utenti v1.23.0+.
+- **🎛️ Modelli per attività (#208).** Scegli un modello diverso per **Acquisizione / Lint / Query**, o mantienili unificati. Impostazioni → Wiki → *Ambito modello* commuta con un clic. Il pulsante **Test connessione** ora sonda ogni modello configurato in sequenza con fail-fast — finché tutti i modelli per attività non superano il test, la connessione non è considerata sana.
+- **📝 Istruzioni di query personalizzate (#251, `jameses-cyber`).** Un pannello richiudibile dentro la vista Query Wiki ti permette di aggiungere istruzioni persistenti a ogni prompt di sistema — modalità ricerca, stile citazione, regole "niente fabbricazione", ecc. Limite difensivo di 5000 caratteri. Rigorosamente limitato alla chat Query Wiki; acquisizione / lint / generazione pagine non sono intenzionalmente toccati. Menu a tendina delle modalità pianificato per v1.25.0+.
+- **🧱 Quattro suddivisioni di monoliti (continuazione P0 della serie v1.23.0).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 file, 93 test), `query-engine.ts` (PR #250, 1373 → 15 file), `modals.ts` (PR #257, 1008 → 7 file) — ogni funzione-dio / classe-dio decomposta in moduli focalizzati. Il plugin è ora strutturalmente pronto per il prossimo ciclo di funzionalità.
+- **🏷️ Propagazione alias note sorgente (#185).** Gli `aliases:` del frontmatter delle note sorgente ora confluiscono nelle pagine `sources/<slug>` generate, così che il matching `[[wiki-link]]` a valle e la ricerca consapevole degli alias raggiungano ogni citazione. Riduce i mancati riscontri tipo "DSA ≠ DeepSeek-Sparse-Attention".
+- **🔀 Triage fusione Tier-1 + Tier-2 (#216, `DocTpoint`).** Decisione di bypass duplicati classifica-poi-instrada: salta direttamente i candidati Tier-1 spuri, esegui Tier-2 solo sui restanti. Riduce la dimensione del lotto di fusione Lint senza sacrificare le corrispondenze ad alta precisione.
+- **🐛 Riparazione scrittura frontmatter (4 bug segnalati dagli utenti).** `aliases:[]` non è più falsamente rilevato come alias-carente; gli alias duplicati sono compressi in fase di scrittura; il frontmatter a blocchi viene preservato (non appiattito in inline); i fallimenti sono ora registrati con il campo colpevole. Riguarda i percorsi Smart Fix e fusione.
+- **🚀 Riscaldamento PPR prima query in Query Wiki.** Cache grafo PPR a livello motore (invalidazione al cambio `wikiFolder` + svuotamento cache in `invalidatePageCaches`) — la prima query ora usa Personalized PageRank invece di ripiegare su lex-only all'avvio a freddo.
+- **🌐 Completezza i18n** — 7 nuove chiavi per locale per i selettori modello per attività, il menu a tendina Ambito modello, e le etichette di Test connessione.
 
-- InvalidaZione cache PPR in tempo reale all'acquisizione — ingestioni nella stessa sessione visibili in query successive
-- Wrapper client che preserva lo streaming — elimina regressione streaming v1.23.0
-- Indicatore di turno query + etichetta cliccabile (#221, #219)
-- Notifiche di progressione semantiche (#219) — notifiche Lint auto-chiusura (5-8s)
-- Consolidamento serializzatore Frontmatter (PR #238 @DocTpoint)
-- Canonizzatore intestazioni sezione (PR #241 @DocTpoint)
-- Aggiornamento licenza — MIT ad Apache 2.0 + DCO
-
-### v1.23.1 — 2026-07-02 (PATCH)
-
-Tre riscontri del bot di revisione Obsidian risolti: allineamento strictBindCallApply: true, rimozione codice morto, rigenerazione lockfile. Nessuna modifica visibile.
-
-### v1.23.0 — 2026-07-02 (MINOR)
-
-Il più grande cambiamento architetturale da 1.0:
-
-- Migrazione Vercel AI-SDK v6. Client LLM di 1625 righe sostituito da @ai-sdk/openai@3 / @ai-sdk/anthropic@3 / @ai-sdk/openai-compatible@2
-- Motore grafico — PageRank personalizzato su [[wiki-link]]. Monte-Carlo PPR, qualità livello embedding a costo zero
-- Streaming in tempo reale per tutti i fornitori
-- UI acquisizione multi-file (#130)
-- Nota di benvenuto
-- Gate API-key LM Studio (#223)
-- Routing GPT-5.x Pro + fallback URL + sonda chiave token
+**Impostazioni da rivedere:** Ambito modello (Unificato / Per attività, in Impostazioni → Wiki), campi modello per attività (visibili solo in modalità Per attività), pannello richiudibile ⚙ Istruzioni personalizzate Query Wiki (solo dentro la vista).
 
 ## ✨ Funzionalità
 

@@ -31,10 +31,7 @@
     - [🔑 Configurar um provedor LLM](#-configurar-um-provedor-llm)
     - [🎮 Uso](#-uso)
     - [⚠️ Atualizando de uma versão anterior?](#️-atualizando-de-uma-versão-anterior)
-  - [⚡ Novidades da v1.23.0](#-novidades-da-v1230)
-    - [v1.23.2 — 2026-07-05 (última, PATCH)](#v1232--2026-07-05-última-patch)
-    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
-    - [v1.23.0 — 2026-07-02 (MINOR)](#v1230--2026-07-02-minor)
+  - [⚡ Novidades da v1.24.0](#-novidades-da-v1240)
   - [✨ Funcionalidades](#-funcionalidades)
     - [📊 Qualidade do Conhecimento](#-qualidade-do-conhecimento)
     - [🛠️ Manutenção](#️-manutenção)
@@ -163,35 +160,20 @@ Depois **Regenerar índice** para reconstruir `wiki/index.md` com entradas de al
 **Configurações a rever:** Idioma de saída da Wiki, Granularidade de extração, Concorrência (padrão 3), Atraso de lote (padrão 300ms).
 
 ---
-## ⚡ Novidades da v1.23.0
+## ⚡ Novidades da v1.24.0
 
-### v1.23.2 — 2026-07-05 (última, PATCH)
+Cinco temas: modelos por tarefa, instruções de consulta personalizadas, quatro divisões de monólito, propagação de aliases de notas-fonte, correções de frontmatter reportadas por utilizadores. Atualização recomendada para todos os utilizadores de v1.23.x.
 
-Cinco PRs fundidos — correções de bugs, refatoração e polimento de UX. Atualização recomendada para utilizadores v1.23.0+.
+- **🎛️ Modelos por tarefa (#208).** Escolha um modelo diferente para **Ingestão / Lint / Consulta**, ou mantenha-os unificados. Definições → Wiki → *Âmbito do modelo* alterna com um clique. O botão **Testar ligação** agora testa cada modelo configurado sequencialmente com falha rápida — até todos os modelos por tarefa passarem, a ligação não é considerada saudável.
+- **📝 Instruções de consulta personalizadas (#251, `jameses-cyber`).** Um painel colapsável dentro da vista Query Wiki permite anexar instruções persistentes a cada prompt do sistema — modo investigação, estilo de citação, regras "sem fabrico", etc. Limite defensivo de 5000 caracteres. Estritamente limitado ao chat Query Wiki; ingestão / lint / geração de páginas intencionalmente não afetadas. Menu pendente de modos previsto para v1.25.0+.
+- **🧱 Quatro divisões de monólito (continuação P0 da série v1.23.0).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 ficheiros, 93 testes), `query-engine.ts` (PR #250, 1373 → 15 ficheiros), `modals.ts` (PR #257, 1008 → 7 ficheiros) — cada função-deus / classe-deus decomposta em módulos focados. O plugin está agora estruturalmente pronto para a próxima ronda de funcionalidades.
+- **🏷️ Propagação de aliases de notas-fonte (#185).** Os `aliases:` do frontmatter das notas-fonte agora fluem para as páginas `sources/<slug>` geradas, para que a correspondência `[[wiki-link]]` e a pesquisa ciente de aliases atinjam cada citação. Reduz falhas tipo "DSA ≠ DeepSeek-Sparse-Attention".
+- **🔀 Triagem de fusão Tier-1 + Tier-2 (#216, `DocTpoint`).** Decisão de contorno de duplicados classificar-depois-rotear: salta diretamente candidatos Tier-1 espúrios, corre Tier-2 apenas no remanescente. Reduz o tamanho do lote de fusão Lint sem sacrificar correspondências de alta precisão.
+- **🐛 Reparação de escrita de frontmatter (4 bugs reportados por utilizadores).** `aliases:[]` já não é falsamente detetado como deficiente em aliases; aliases duplicados são colapsados ao escrever; frontmatter em bloco preservado (não achatado para inline); falhas agora registadas com o campo infrator. Afeta os caminhos Smart Fix e fusão.
+- **🚀 Pré-aquecimento PPR da primeira consulta em Query Wiki.** Cache de grafo PPR ao nível do motor (invalidação em mudança de `wikiFolder` + esvaziamento em `invalidatePageCaches`) — a primeira consulta usa agora Personalized PageRank em vez de cair em lex-only no arranque a frio.
+- **🌐 Completude i18n** — 7 novas chaves por locale para os seletores de modelo por tarefa, o menu pendente de âmbito do modelo e os rótulos do Teste de ligação.
 
-- Invalidação do cache PPR ao vivo na ingestão — ingestões na mesma sessão ficam visíveis em consultas posteriores
-- Wrapper cliente que preserva streaming — elimina regressão de streaming da era v1.23.0
-- Indicador de turno de consulta + etiqueta clicável (#221, #219)
-- Notificações de progresso semânticas (#219) — Lint Notices auto-fecho (5-8s)
-- Consolidação do serializador Frontmatter (PR #238 @DocTpoint)
-- Canonizador de cabeçalhos de secção (PR #241 @DocTpoint)
-- Atualização de licença — MIT para Apache 2.0 + DCO
-
-### v1.23.1 — 2026-07-02 (PATCH)
-
-Três achados do bot de revisão Obsidian resolvidos: alinhamento strictBindCallApply: true, remoção de código morto, regeneração de lockfile. Sem alterações visíveis.
-
-### v1.23.0 — 2026-07-02 (MINOR)
-
-Maior mudança arquitetural desde 1.0:
-
-- Migração Vercel AI-SDK v6. Cliente LLM de 1625 linhas substituído por @ai-sdk/openai@3 / @ai-sdk/anthropic@3 / @ai-sdk/openai-compatible@2
-- Motor de grafo — PageRank personalizado sobre [[wiki-link]]. Monte-Carlo PPR, qualidade de nível embedding a custo zero
-- Streaming em tempo real para todos os fornecedores
-- UI de ingestão multi-ficheiro (#130)
-- Nota de boas-vindas
-- Porta API-key LM Studio (#223)
-- Roteamento GPT-5.x Pro + fallback URL + sonda de token
+**Definições a rever:** Âmbito do modelo (Unificado / Por tarefa, em Definições → Wiki), campos de modelo por tarefa (visíveis só no modo Por tarefa), painel colapsável ⚙ Instruções personalizadas Query Wiki (só na vista).
 
 ## ✨ Funcionalidades
 

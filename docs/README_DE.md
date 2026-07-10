@@ -32,10 +32,7 @@
     - [🔑 LLM-Provider konfigurieren](#-llm-provider-konfigurieren)
     - [🎮 Verwendung](#-verwendung)
     - [⚠️ Upgrade von einer älteren Version?](#️-upgrade-von-einer-älteren-version)
-  - [⚡ Was ist neu in v1.23.0](#-was-ist-neu-in-v1230)
-    - [v1.23.2 — 2026-07-05 (aktuell, PATCH)](#v1232--2026-07-05-aktuell-patch)
-    - [v1.23.1 — 2026-07-02 (PATCH)](#v1231--2026-07-02-patch)
-    - [v1.23.0 — 2026-07-02 (MINOR)](#v1230--2026-07-02-minor)
+  - [⚡ Was ist neu in v1.24.0](#-was-ist-neu-in-v1240)
   - [✨ Funktionen](#-funktionen)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [🛠️ Maintenance](#️-maintenance)
@@ -167,35 +164,20 @@ Dann **Index neu generieren**, um `wiki/index.md` mit Alias-Einträgen neu aufzu
 
 **Zu prüfende Einstellungen:** Wiki-Ausgabesprache (unabhängig von UI), Extraktionsgranularität (Minimal–Fein + Benutzerdefiniert), Seiten-Generierungs-Parallelität (Standard 3), Batch-Verzögerung (Standard 300ms).
 
-## ⚡ Was ist neu in v1.23.0
+## ⚡ Was ist neu in v1.24.0
 
-### v1.23.2 — 2026-07-05 (aktuell, PATCH)
+Fünf Schwerpunkte: Aufgabenbezogene Modelle, benutzerdefinierte Query-Anweisungen, vier Monolith-Aufteilungen, Quellnotiz-Alias-Propagierung, benutzerberichtete Frontmatter-Korrekturen. Empfohlenes Upgrade für alle v1.23.x-Nutzer.
 
-Fünf zusammengeführte PRs — Fehlerbehebungen, Refaktor und UX-Verbesserungen. Empfohlenes Upgrade für alle v1.23.0+-Nutzer.
+- **🎛️ Aufgabenbezogene Modelle (#208).** Wählen Sie unterschiedliche Modelle für **Aufnahme / Lint / Abfrage**, oder vereinheitlichen Sie sie. Einstellungen → Wiki → *Modellumfang* wechseln Sie mit einem Klick. Die Schaltfläche **Verbindung testen** prüft nun jedes konfigurierte Modell sequentiell mit Fail-Fast — bis alle Aufgabenmodelle den Test bestehen, gilt die Verbindung als nicht erfolgreich.
+- **📝 Benutzerdefinierte Query-Anweisungen (#251, `jameses-cyber`).** Ein ausklappbares Panel innerhalb der Query-Wiki-Ansicht erlaubt es, dauerhafte Anweisungen an jeden System-Prompt anzuhängen (Forschungsmodus, Zitierstil, „Keine Fabrikation"-Regeln usw.). 5000-Zeichen-Sicherheitsgrenze. Strikt auf den Query-Wiki-Chat beschränkt; Aufnahme / Lint / Seitengenerierung sind absichtlich nicht betroffen. Modus-Dropdown ist für v1.25.0+ geplant.
+- **🧱 Vier Monolith-Aufteilungen (P0-Folge der v1.23.0-Serie).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 Dateien, 93 Tests), `query-engine.ts` (PR #250, 1373 → 15 Dateien), `modals.ts` (PR #257, 1008 → 7 Dateien) — jede God-Funktion / God-Klasse in fokussierte Module zerlegt. Das Plugin ist nun strukturell für die nächste Feature-Runde bereit.
+- **🏷️ Quellnotiz-Alias-Propagierung (#185).** Frontmatter-`aliases:` aus Quellnotizen fließen nun in die generierten `sources/<slug>`-Seiten, sodass nachgelagertes `[[wiki-link]]`-Matching und alias-bewusste Suche jedes Zitat erreichen. Reduziert Fehltreffer vom Typ „DSA ≠ DeepSeek-Sparse-Attention".
+- **🔀 Tier-1 + Tier-2 Merge-Triage (#216, `DocTpoint`).** Klassifizieren-dann-Routen-Entscheidung zur Duplikat-Umgehung: Schein-Tier-1-Kandidaten werden direkt übersprungen, Tier-2 läuft nur auf den übrigen. Verringert die Lint-Merge-Stapelgröße ohne Verlust hochpräziser Treffer.
+- **🐛 Frontmatter-Schreibreparatur (4 vom Nutzer gemeldete Fehler).** `aliases:[]` wird nicht mehr fälschlich als aliasarm erkannt; doppelte Aliase werden beim Schreiben automatisch zusammengeführt; Block-Frontmatter bleibt erhalten (nicht zu Inline abgeflacht); Fehler werden nun mit dem betreffenden Feld protokolliert. Betrifft Smart Fix und Merge-Pfade.
+- **🚀 Query-Wiki PPR-Aufwärmen für Erstabfrage.** PPR-Graph-Cache auf Engine-Ebene (Ungültigmachung bei `wikiFolder`-Änderung + Cache-Löschung bei `invalidatePageCaches`) — die erste Abfrage verwendet nun Personalized PageRank statt auf lex-only bei Kaltstart zurückzufallen.
+- **🌐 i18n-Vollständigkeit** — 7 neue Schlüssel pro Locale für die aufgabenbezogenen Model-Picker, das Modellumfang-Dropdown und die Verbindungstest-Beschriftungen.
 
-- **🔄 Live-PPR-Graph-Invalidierung bei Aufnahme** — Aufnahmen in derselben Sitzung sind sofort in Folgefragen sichtbar
-- **🔁 Streaming-erhaltender Client-Wrapper** — beseitigt die v1.23.0-Streaming-Regression
-- **🖱️ Query-Runden-Indikator + klickbares Retrieval-Label (#221, #219)** — Punkte pro Runde, Hover-Vorschau, Scrollen zur Frage. Label klappt inline auf
-- **📋 Semantische Fortschrittsbenachrichtigungen (#219)** — Manuelle Aktionen: Notice + Statusleiste; Hintergrundaktionen: nur Statusleiste. Lint-Notizen schließen automatisch (5–8s)
-- **🧩 Frontmatter-Serialisierung (PR #238 @DocTpoint)** — Einheitlicher `serializeFrontmatter`-Schreiber
-- **📝 Abschnittskopf-Kanonisierer (PR #241 @DocTpoint)** — Bounded Levenshtein korrigiert LLM-verzerrte Kopfzeilen beim Schreiben
-- **📜 Lizenz-Upgrade** — MIT → Apache 2.0 + DCO. NOTICE listet alle 6 menschlichen Beitragenden
-
-### v1.23.1 — 2026-07-02 (PATCH)
-
-Behebt drei Obsidian-Review-Bot-Feststellungen: `strictBindCallApply: true`-Ausrichtung, Löschung ungenutzten Codes, Lockfile-Neuerstellung. Keine sichtbaren Änderungen für Benutzer.
-
-### v1.23.0 — 2026-07-02 (MINOR)
-
-Größte Architekturänderung seit 1.0. Zwei Hauptthemen:
-
-- **🤖 Vercel AI-SDK v6 Migration.** Handgeschriebener 1625-Zeilen LLM-Client ersetzt durch `@ai-sdk/openai@3` / `@ai-sdk/anthropic@3` / `@ai-sdk/openai-compatible@2`. Beseitigt die gesamte Klasse von Provider-Versions-Regressionen (#137 / #141 / #143 / #147 / #207)
-- **🕸️ Graph-Engine — Personalized PageRank über `[[wiki-link]]`-Graph.** Monte-Carlo PPR liefert Embedding-Qualität zu null Embedding-Kosten, offline, für jeden Provider. Drei-Stufen-Pipeline + Hub-Link-Distinktivitäts-Scanner
-- **🎬 Echtzeit-Streaming für alle Provider** — echte Chunk-für-Chunk-Ausgabe
-- **📥 Multi-File-Ingest-UI (#130)** — Zwei-Fenster-Auswahl + Live-Queue + Datei-Abbrechen
-- **🎉 Willkommensnotiz** — Drei-Stufen-Erstlauf-Erfahrung, D8 LLM-Dynamikübersetzung
-- **🔑 LM Studio API-Key-Gate (#223)** — Lokale Provider testen Verbindung ohne API-Key
-- **🛡️ GPT-5.x Pro-Routing + URL-Fallback + Token-Key-Probe-then-Retry** — Umfassende Provider-Fehlerhärtung
+**Zu prüfende Einstellungen:** Modellumfang (Einheitlich / Pro Aufgabe, Einstellungen → Wiki), Pro-Aufgabe-Modellfelder (nur im Pro-Aufgabe-Modus sichtbar), Query Wiki → ⚙ Benutzerdefinierte Anweisungen ausklappbares Panel (nur in der Ansicht).
 
 ## ✨ Funktionen
 
