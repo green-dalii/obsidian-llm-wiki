@@ -10,6 +10,7 @@ import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, NOTICE_ABORT, N
 import { wrapWithAdvancedSettings } from './llm-client-wrapper';
 import { createLLMClientFromSettingsSync, preloadLLMClientModules } from './llm-sdk/create-llm-client';
 import { runSchemaAnalyze } from './schema/analyze';
+import { allowsEmptyApiKey } from './core/local-no-key-provider';
 
 // v1.23.0 P1-7: AI-SDK migration. Eagerly preload SDK modules on plugin
 // load so sync `createLLMClient` works without blocking. Failure is
@@ -453,7 +454,9 @@ export default class LLMWikiPlugin extends Plugin {
 
     // Migrate existing users: if they already have a working config, trust it
     if (savedData && !('llmReady' in savedData)) {
-      const hasConfig = savedData.provider && (savedData.apiKey?.trim() || savedData.provider === 'ollama') && savedData.model;
+      const hasConfig = savedData.provider
+        && allowsEmptyApiKey(savedData.provider, savedData.apiKey)
+        && savedData.model;
       this.settings.llmReady = !!hasConfig;
       if (hasConfig) {
         console.debug('loadSettings: existing user with config detected, llmReady = true');
@@ -515,7 +518,11 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   initializeLLMClient() {
-    if (!this.settings.apiKey?.trim() && this.settings.provider !== 'ollama') {
+    // Local providers (ollama, lmstudio) do not require an API key —
+    // same gate as testLLMConnection (#223). Leaving llmClient null here
+    // is what made ingest show errorNoApiKey after a successful LM Studio
+    // connection test.
+    if (!allowsEmptyApiKey(this.settings.provider, this.settings.apiKey)) {
       this.llmClient = null;
       return;
     }
@@ -1169,9 +1176,7 @@ export default class LLMWikiPlugin extends Plugin {
   async testLLMConnection(): Promise<{ success: boolean; message: string }> {
     const t = TEXTS[this.settings.language] || TEXTS.en;
 
-    const localNoKeyProviders = ['ollama', 'lmstudio'];
-    const isLocalNoKeyProvider = localNoKeyProviders.includes(this.settings.provider);
-    if (!isLocalNoKeyProvider && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
+    if (!allowsEmptyApiKey(this.settings.provider, this.settings.apiKey)) {
       return { success: false, message: t.errorNoApiKey || 'API Key is not configured' };
     }
 
