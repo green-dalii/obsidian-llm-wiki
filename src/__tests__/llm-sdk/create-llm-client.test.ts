@@ -10,9 +10,26 @@ import { createLLMClientFromSettings } from '../../llm-sdk/create-llm-client';
 import { OpenAISdkClient } from '../../llm-sdk/openai-sdk-client';
 import { AnthropicSdkClient } from '../../llm-sdk/anthropic-sdk-client';
 import { OpenAICompatSdkClient } from '../../llm-sdk/openai-compat-sdk-client';
+import { OpenAICodexSdkClient } from '../../llm-sdk/openai-codex-sdk-client';
+import { CodexAuthManager } from '../../llm-sdk/openai-codex/auth-manager';
+import { memoryCredentialStore } from './openai-codex-test-helpers';
+
+function fakeAuthManager(): CodexAuthManager {
+  return new CodexAuthManager({ store: memoryCredentialStore(), refresh: async (credential) => credential });
+}
 
 describe('createLLMClientFromSettings (async)', () => {
   describe('official providers', () => {
+    it('creates OpenAICodexSdkClient only with an auth manager', async () => {
+      const codexAuth = fakeAuthManager();
+      const client = await createLLMClientFromSettings({ provider: 'openai-codex', apiKey: '', codexAuth });
+      expect(client).toBeInstanceOf(OpenAICodexSdkClient);
+    });
+
+    it('rejects openai-codex without its auth manager', async () => {
+      await expect(createLLMClientFromSettings({ provider: 'openai-codex', apiKey: '' })).rejects.toThrow('Codex auth manager is required');
+    });
+
     it('returns AnthropicSdkClient for provider="anthropic"', async () => {
       const c = await createLLMClientFromSettings({ provider: 'anthropic', apiKey: 'sk-ant' });
       expect(c).toBeInstanceOf(AnthropicSdkClient);
@@ -115,5 +132,13 @@ describe('createLLMClientFromSettingsSync (preloaded)', () => {
     expect(() =>
       createLLMClientFromSettingsSync({ provider: 'openai', apiKey: 'sk-test' })
     ).toThrow(/SDK modules not preloaded/);
+  });
+
+  it('creates the preloaded Codex client only with its auth manager', async () => {
+    const { createLLMClientFromSettingsSync, preloadLLMClientModules } = await import('../../llm-sdk/create-llm-client');
+    await preloadLLMClientModules();
+    const codexAuth = fakeAuthManager();
+    expect(createLLMClientFromSettingsSync({ provider: 'openai-codex', apiKey: '', codexAuth })).toBeInstanceOf(OpenAICodexSdkClient);
+    expect(() => createLLMClientFromSettingsSync({ provider: 'openai-codex', apiKey: '' })).toThrow('Codex auth manager is required');
   });
 });

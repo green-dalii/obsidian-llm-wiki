@@ -533,7 +533,7 @@ Body`;
 
 describe('enforceFrontmatterConstraints (Issue #85 v6 — preserve LLM intent)', () => {
   const baseSettings: LLMWikiSettings = {
-    provider: 'anthropic', apiKey: '', baseUrl: '', model: 'claude-sonnet-4-6',
+    provider: 'anthropic', apiKey: '', openAICodexSecretId: '', baseUrl: '', model: 'claude-sonnet-4-6',
     wikiFolder: 'wiki', language: 'en', wikiLanguage: 'en',
     maxConversationHistory: 30, extractionGranularity: 'standard',
     enableSchema: true, autoWatchSources: false, autoWatchMode: 'notify',
@@ -642,4 +642,3 @@ Body`;
     expect(result).not.toContain('tags: [other]');
   });
 });
-

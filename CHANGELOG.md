@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Non-lossy Mentions re-ingest (#267).** On a merge, `assembleFinalContent` re-emitted the `## Mentions in Source` section from only the new source's mentions, dropping every earlier source's accumulated mentions (regression from #244; affected `triage=skip`, `triage=complementary`, and the body-merge path). The merge now parses the existing page's mentions and unions them with the new source's (composite `(quote, source_path)` dedup key) before injecting; a fail-safe preserves a hand-edited section verbatim rather than risk dropping curated quotes.
 
+## [1.25.0] - 2026-07-11
+
+### Added
+
+- **Experimental ChatGPT Plan (Codex OAuth) provider.** Adds a provider separate from the existing, usage-billed OpenAI Platform API-key path. Desktop users can sign in through an OpenAI-hosted browser flow with a `127.0.0.1:1455` callback; desktop and mobile users can use the OpenAI device-code flow. This is third-party Codex compatibility, not an OpenAI partnership or a general ChatGPT API.
+- **Secure OAuth lifecycle.** Access, refresh, and ID tokens plus account metadata are stored only through Obsidian SecretStorage. PKCE/state validation, bounded login flows, refresh-token rotation with a single retry, sign-out clearing, cancellation, and unload cleanup are included. SecretStorage raises the minimum Obsidian version to 1.11.4 while the plugin remains available on desktop and mobile.
+- **Dedicated Codex Responses transport and account model synchronization.** Requests use the Codex Responses endpoint with OAuth bearer and account headers without altering the OpenAI API-key client. After sign-in the plugin synchronizes picker-visible models from the official Codex account catalog, caches only sanitized metadata, supports manual refresh, and retains a minimal fallback when the catalog is unavailable; model availability and ChatGPT plan allowance remain controlled by OpenAI.
+
+### Tests
+
+- Added mocked coverage for PKCE and JWT parsing, SecretStorage persistence, browser callback and device-code login, cancellation/timeouts, refresh single-flight and retry boundaries, Codex request normalization/streaming, provider factory/readiness/migration, authentication controls, sign-out recovery, and parity across all 10 locales. No real credentials are used in automated tests.
+
 ## [1.24.0] - 2026-07-10
 
 **Theme:** Per-task model routing, custom query instructions, four monolith splits, source-note aliases, frontmatter write repair. 1825 tests passing. Recommended upgrade for everyone on v1.23.x.
@@ -737,4 +749,3 @@ Closes #137
 ## [0.2.0–0.2.2] - Earlier Beta
 
 - Initial plugin development and concept validation.
-

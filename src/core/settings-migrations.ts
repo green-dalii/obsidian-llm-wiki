@@ -9,6 +9,8 @@
 
 import { DEFAULT_SETTINGS, type LLMWikiSettings } from '../types';
 
+const LEGACY_CODEX_TOKEN_FIELDS = ['accessToken', 'refreshToken', 'idToken', 'access_token', 'refresh_token', 'id_token'] as const;
+
 export interface MigrationResult {
   settings: LLMWikiSettings;
   /** True iff a migration rule fired (for tests + future observability). */
@@ -27,6 +29,13 @@ export function applySettingsMigrations(
 ): MigrationResult {
   const applied: string[] = [];
   const settings: LLMWikiSettings = Object.assign({}, DEFAULT_SETTINGS, savedData || {});
+  const savedRecord = savedData;
+  const hasLegacyCodexToken = savedRecord !== null && LEGACY_CODEX_TOKEN_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(savedRecord, field));
+  const needsCodexSettingsMigration = savedRecord !== null && (typeof savedRecord.openAICodexSecretId !== 'string' || savedRecord.openAICodexSecretId.trim().length === 0 || hasLegacyCodexToken);
+  if (!settings.openAICodexSecretId.trim()) settings.openAICodexSecretId = 'karpathywiki-openai-codex';
+  const untrustedSettings = settings as unknown as Record<string, unknown>;
+  for (const field of LEGACY_CODEX_TOKEN_FIELDS) delete untrustedSettings[field];
+  if (needsCodexSettingsMigration) applied.push('v1.25.0-codex-settings');
 
   // v1.20.0 migration: reset disableThinking from old default (true) to
   // new default (false). Old behavior sent thinking.type='disabled' which

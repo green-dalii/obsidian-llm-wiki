@@ -1,12 +1,21 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-10
+**Last Updated:** 2026-07-11
 
 ---
 
-## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.24.1 PATCH in flight (target TBD)
+## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.25.0 FEATURE in development
 
 **v1.24.1 PATCH execution plan lives in [ROADMAP.md](./ROADMAP.md#v1241-patch--execution-plan)** (4 fixes, ordered by ROI + dependency). Out of scope for v1.24.1 documented there as well (deferred to v1.24.2 / v1.25.0).
+
+### v1.25.0 provider architecture
+
+- `openai` remains the OpenAI Platform API-key provider with separate usage billing.
+- `openai-codex` is displayed as **ChatGPT Plan (Codex OAuth)** and is experimental third-party compatibility, not an OpenAI partnership or a general ChatGPT API.
+- Desktop supports the OpenAI-hosted browser flow through a guarded loopback callback on `127.0.0.1:1455`; desktop and mobile support device-code login. Node `http` loading must stay behind the desktop platform guard.
+- OAuth credentials must remain in Obsidian SecretStorage only. Never put tokens in settings, `data.json`, logs, Notices, documentation, test fixtures, or copied examples. Sign-out overwrites the plugin-owned secret with an empty value and clears in-memory state.
+- The provider uses its dedicated Codex Responses client and synchronizes picker-visible models from the authenticated Codex `/models` catalog, with sanitized metadata caching and a minimal fallback. Do not merge it into the OpenAI API-key client, infer plan tier, promise model availability, depend on OpenCode/models.dev, or describe a fixed quota multiplier.
+- SecretStorage requires Obsidian 1.11.4, so `manifest.json`, badges, and user prerequisites must not advertise an older minimum. The plugin remains `isDesktopOnly: false` because device-code login is the mobile path.
 
 ### Withdrawn / non-issues (kept for archaeology)
 

@@ -2,6 +2,33 @@ import { describe, it, expect } from 'vitest';
 import { applySettingsMigrations } from '../../core/settings-migrations';
 
 describe('applySettingsMigrations — historical (#199 regression guard)', () => {
+  it('uses the stable Codex secret ID for new settings', () => {
+    expect(applySettingsMigrations(null).settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
+  });
+
+  it('preserves an old provider and API key while adding the Codex secret ID', () => {
+    const settings = applySettingsMigrations({ provider: 'openai', apiKey: 'existing-key' }).settings;
+    expect(settings.provider).toBe('openai');
+    expect(settings.apiKey).toBe('existing-key');
+    expect(settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
+  });
+
+  it('repairs a blank legacy Codex secret ID', () => {
+    const { settings, applied } = applySettingsMigrations({ openAICodexSecretId: '' });
+    expect(settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
+    expect(applied).toContain('v1.25.0-codex-settings');
+  });
+
+  it('never copies token-shaped fields into settings', () => {
+    const savedData = { provider: 'openai-codex', accessToken: 'access-secret', refreshToken: 'refresh-secret', idToken: 'id-secret' };
+    const { settings: migrated, applied } = applySettingsMigrations(savedData);
+    const settings = migrated as unknown as Record<string, unknown>;
+    expect(settings.accessToken).toBeUndefined();
+    expect(settings.refreshToken).toBeUndefined();
+    expect(settings.idToken).toBeUndefined();
+    expect(applied).toContain('v1.25.0-codex-settings');
+  });
+
   it('v1.23.0 migration overrides historical startupCheck:false to true (with silent Notice)', () => {
     // Historical behavior (#199): the v1.18.3 migration silently overrode
     // startupCheck:false on every load. After #199, that override was

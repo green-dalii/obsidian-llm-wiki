@@ -1,4 +1,4 @@
-import { Plugin, Notice, TFile } from 'obsidian';
+import { Platform, Plugin, Notice, TFile } from 'obsidian';
 
 import {
   PREDEFINED_PROVIDERS,
@@ -9,7 +9,15 @@ import {
 import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, NOTICE_ABORT, NOTICE_RATE_LIMIT, COMPATIBLE_SOURCE_EXTENSIONS } from './constants';
 import { wrapWithAdvancedSettings } from './llm-client-wrapper';
 import { createLLMClientFromSettingsSync, preloadLLMClientModules } from './llm-sdk/create-llm-client';
+import { isProviderConfigured, providerRequiresApiKey } from './core/provider-auth';
+import { CodexAuthManager, type DeviceLoginPrompt } from './llm-sdk/openai-codex/auth-manager';
+import { CodexCredentialStore } from './llm-sdk/openai-codex/credential-store';
+import { obsidianFetchBridge } from './core/obsidian-fetch-bridge';
+import type { FetchLike } from './llm-sdk/openai-codex/types';
 import { runSchemaAnalyze } from './schema/analyze';
+import { openCodexExternalUrl } from './ui/openai-codex-auth-controls';
+import { applyCodexModelPolicy } from './ui/openai-codex-auth-controls';
+import { fetchCodexModelCatalog } from './llm-sdk/openai-codex/model-catalog';
 
 // v1.23.0 P1-7: AI-SDK migration. Eagerly preload SDK modules on plugin
 // load so sync `createLLMClient` works without blocking. Failure is
@@ -18,6 +26,11 @@ const aiSdkModulesLoaded: Promise<void> = preloadLLMClientModules();
 void aiSdkModulesLoaded.catch((err) => {
   console.warn('[v1.23.0 LLM migration] Failed to preload AI-SDK modules:', err);
 });
+
+export async function initializeLLMClientAfterModules(modulesLoaded: Promise<void>, initialize: () => void): Promise<void> {
+  await modulesLoaded;
+  initialize();
+}
 
 // Exported for unit tests (see src/__tests__/root/main.test.ts).
 // Issue #99 / #128 / #128 follow-up: thin wrapper that injects only the
@@ -30,7 +43,7 @@ void aiSdkModulesLoaded.catch((err) => {
 // retained as legacy fallbacks in src/llm-client.ts for v1.23.0 backward
 // compat (will be removed in v1.24.0 once we've validated the new path
 // in production).
-export function createLLMClient(settings: LLMWikiSettings): LLMClient {
+export function createLLMClient(settings: LLMWikiSettings, codexAuth?: CodexAuthManager, codexVersion?: string): LLMClient {
   // v1.23.0 P1-7: use the AI-SDK-backed factory. Sync shim delegates
   // to the preloaded SDK modules (loaded by preloadLLMClientModules
   // at module-load time above). No more legacy hand-rolled classes.
@@ -38,6 +51,9 @@ export function createLLMClient(settings: LLMWikiSettings): LLMClient {
     provider: settings.provider,
     apiKey: settings.apiKey,
     baseUrl: settings.baseUrl,
+    codexAuth,
+    codexVersion,
+    codexQuotaMessage: getText(settings.language, 'codexAuthQuota'),
   });
 
   // Wrap createMessage so user-configured advanced settings are applied.
@@ -80,6 +96,8 @@ export default class LLMWikiPlugin extends Plugin {
   wikiEngine: WikiEngine;
   schemaManager: SchemaManager;
   autoMaintainManager: AutoMaintainManager;
+  codexAuthManager: CodexAuthManager | null = null;
+  private codexCredentialStore: CodexCredentialStore | null = null;
   /**
    * v1.23.0 Phase 5.1.5: single source of truth for the current
    * ingest session. Replaces the old "selected: TFile[]" inside the
@@ -95,11 +113,24 @@ export default class LLMWikiPlugin extends Plugin {
   // Tracks the current document position during a folder batch ingest so the
   // status bar can show "[current/total] <doc> · …". Null for single-file ingest.
   private batchProgress: BatchProgress | null = null;
+  private static readonly CODEX_MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
+
+  openExternal(url: string): void {
+    const target = typeof activeWindow !== 'undefined' ? activeWindow : window;
+    openCodexExternalUrl(target, url);
+  }
 
   async onload() {
     await this.loadSettings();
+    this.codexCredentialStore = new CodexCredentialStore(this.app.secretStorage, this.settings.openAICodexSecretId);
+    this.codexAuthManager = new CodexAuthManager({
+      store: this.codexCredentialStore,
+      fetchFn: obsidianFetchBridge as unknown as FetchLike,
+      openExternal: (url) => this.openExternal(url),
+    });
+    await this.clearUnboundOpenAICodexModelCache();
     this.cleanupVocabularyTags();
-    this.initializeLLMClient();
+    await initializeLLMClientAfterModules(aiSdkModulesLoaded, () => this.initializeLLMClient());
 
     this.schemaManager = new SchemaManager(
       this.app,
@@ -370,6 +401,7 @@ export default class LLMWikiPlugin extends Plugin {
   }
 
   onunload() {
+    this.codexAuthManager?.dispose();
     this.autoMaintainManager?.stop();
     console.debug('LLM Wiki Plugin unloaded');
   }
@@ -401,6 +433,7 @@ export default class LLMWikiPlugin extends Plugin {
     // `applySettingsMigrations`. See that file for the version-key gate.
     if (applied.length > 0) {
       console.debug(`loadSettings: applied migrations: ${applied.join(', ')}`);
+      await this.saveData(this.settings);
     }
 
     // v1.23.0 P2: Diagnostic — log actual queryHistory state on plugin
@@ -413,8 +446,10 @@ export default class LLMWikiPlugin extends Plugin {
 
     // Migrate existing users: if they already have a working config, trust it
     if (savedData && !('llmReady' in savedData)) {
-      const hasConfig = savedData.provider && (savedData.apiKey?.trim() || savedData.provider === 'ollama') && savedData.model;
-      this.settings.llmReady = !!hasConfig;
+      const secretStorage = this.app.secretStorage;
+      const hasCodexCredential = secretStorage ? new CodexCredentialStore(secretStorage, this.settings.openAICodexSecretId).hasCredential() : false;
+      const hasConfig = isProviderConfigured({ provider: this.settings.provider, apiKey: this.settings.apiKey, model: this.settings.model, hasCodexCredential });
+      this.settings.llmReady = hasConfig;
       if (hasConfig) {
         console.debug('loadSettings: existing user with config detected, llmReady = true');
       }
@@ -474,19 +509,90 @@ export default class LLMWikiPlugin extends Plugin {
     }
   }
 
-  initializeLLMClient() {
-    if (!this.settings.apiKey?.trim() && this.settings.provider !== 'ollama') {
+  initializeLLMClient(): void {
+    const hasCodexCredential = this.codexAuthManager?.hasCredential() === true;
+    if (!isProviderConfigured({ provider: this.settings.provider, apiKey: this.settings.apiKey, model: this.settings.model, hasCodexCredential })) {
       this.llmClient = null;
       return;
     }
 
     try {
-      this.llmClient = createLLMClient(this.settings);
+      this.llmClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version);
       console.debug('LLM Client initialized:', this.settings.provider);
     } catch (error) {
       console.error('LLM Client initialization failed:', error);
       this.llmClient = null;
     }
+  }
+
+  async loginOpenAICodexBrowser(): Promise<void> {
+    if (!Platform.isDesktopApp) throw new Error('Codex browser login is available only on desktop');
+    if (!this.codexAuthManager) throw new Error('Codex auth manager is not initialized');
+    const previousAccountId = this.codexAuthManager.currentAccountId();
+    const credential = await this.codexAuthManager.loginWithBrowser();
+    if (previousAccountId !== credential.accountId) await this.clearOpenAICodexModelCache();
+    try {
+      await this.refreshOpenAICodexModels(true);
+    } catch (error) {
+      this.showOpenAICodexModelRefreshFailure(error);
+    }
+    this.initializeLLMClient();
+  }
+
+  async beginOpenAICodexDeviceLogin(): Promise<DeviceLoginPrompt> {
+    if (!this.codexAuthManager) throw new Error('Codex auth manager is not initialized');
+    const previousAccountId = this.codexAuthManager.currentAccountId();
+    const prompt = await this.codexAuthManager.loginWithDeviceCode();
+    return { ...prompt, complete: prompt.complete.then(async (credential) => { if (previousAccountId !== credential.accountId) await this.clearOpenAICodexModelCache(); try { await this.refreshOpenAICodexModels(true); } catch (error) { this.showOpenAICodexModelRefreshFailure(error); } this.initializeLLMClient(); return credential; }) };
+  }
+
+  async refreshOpenAICodexModels(force = false): Promise<string[]> {
+    if (!this.codexAuthManager?.hasCredential()) throw new Error('ChatGPT sign-in required');
+    const accountId = this.codexAuthManager.currentAccountId();
+    if ((this.settings.openAICodexModels?.length ?? 0) > 0 && accountId && this.codexCredentialStore && !this.codexCredentialStore.isModelCatalogBound(accountId)) await this.clearOpenAICodexModelCache();
+    const cached = this.settings.openAICodexModels ?? [];
+    const fetchedAt = this.settings.openAICodexModelsFetchedAt ?? 0;
+    if (!force && cached.length > 0 && Date.now() - fetchedAt < LLMWikiPlugin.CODEX_MODEL_CACHE_TTL_MS) return cached.map((entry) => entry.slug);
+    const models = await fetchCodexModelCatalog({ auth: this.codexAuthManager, fetchFn: obsidianFetchBridge as unknown as FetchLike, version: this.manifest.version });
+    const candidate = { ...this.settings, openAICodexModels: models, openAICodexModelsFetchedAt: Date.now(), openAICodexUnavailableModels: [] };
+    applyCodexModelPolicy(candidate);
+    this.codexCredentialStore?.bindModelCatalog((await this.codexAuthManager.getAccess()).accountId);
+    await this.saveData(candidate);
+    this.settings = candidate;
+    this.initializeLLMClient();
+    return models.map((entry) => entry.slug);
+  }
+
+  private async clearOpenAICodexModelCache(): Promise<void> {
+    const candidate = { ...this.settings, openAICodexModels: [], openAICodexModelsFetchedAt: 0, openAICodexUnavailableModels: [] };
+    applyCodexModelPolicy(candidate);
+    this.settings = candidate;
+    await this.saveData(candidate);
+  }
+
+  private async clearUnboundOpenAICodexModelCache(): Promise<void> {
+    const accountId = this.codexAuthManager?.currentAccountId();
+    if ((this.settings.openAICodexModels?.length ?? 0) === 0 || accountId && this.codexCredentialStore?.isModelCatalogBound(accountId)) return;
+    await this.clearOpenAICodexModelCache();
+  }
+
+  private showOpenAICodexModelRefreshFailure(error: unknown): void {
+    const detail = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error';
+    new Notice(getText(this.settings.language, 'codexModelsRefreshFailed').replace('{}', detail), NOTICE_ERROR);
+  }
+
+  async signOutOpenAICodex(): Promise<void> {
+    if (!this.codexAuthManager) throw new Error('Codex auth manager is not initialized');
+    this.codexAuthManager.signOut();
+    this.settings.openAICodexModels = [];
+    this.settings.openAICodexModelsFetchedAt = 0;
+    this.settings.openAICodexUnavailableModels = [];
+    applyCodexModelPolicy(this.settings);
+    if (this.settings.provider === 'openai-codex') {
+      this.settings.llmReady = false;
+      this.llmClient = null;
+    }
+    await this.saveData(this.settings);
   }
 
   private showProgress(msg: string): void {
@@ -1050,9 +1156,11 @@ export default class LLMWikiPlugin extends Plugin {
   async testLLMConnection(): Promise<{ success: boolean; message: string }> {
     const t = TEXTS[this.settings.language] || TEXTS.en;
 
-    const localNoKeyProviders = ['ollama', 'lmstudio'];
-    const isLocalNoKeyProvider = localNoKeyProviders.includes(this.settings.provider);
-    if (!isLocalNoKeyProvider && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
+    if (this.settings.provider === 'openai-codex' && this.codexAuthManager?.hasCredential() !== true) {
+      return { success: false, message: t.codexAuthRequired };
+    }
+
+    if (providerRequiresApiKey(this.settings.provider) && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
       return { success: false, message: t.errorNoApiKey || 'API Key is not configured' };
     }
 
@@ -1074,21 +1182,35 @@ export default class LLMWikiPlugin extends Plugin {
     console.debug('[testLLMConnection] probe plan:', probePlan.map(p => `${p.label}=${p.model}`).join(', '));
 
     try {
-      const testClient = createLLMClient(this.settings);
+      const testClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version);
 
       // Sequential probes — preserve order so error messages identify
       // which task broke (ingest → lint → query). Each probe uses the
       // same probe prompt; only `model` differs. Probe response text is
       // discarded (success = no throw).
       for (const probe of probePlan) {
-        await testClient.createMessage({
-          model: probe.model,
-          max_tokens: TOKENS_QUERY_MODEL_DETECT,
-          messages: [{
-            role: 'user',
-            content: 'Test connection. Please reply "Connection successful".'
-          }]
-        });
+        const attempted = new Set<string>();
+        while (true) {
+          try {
+            await testClient.createMessage({ model: probe.model, max_tokens: TOKENS_QUERY_MODEL_DETECT, messages: [{ role: 'user', content: 'Test connection. Please reply "Connection successful".' }] });
+            break;
+          } catch (error) {
+            const statusCode = typeof error === 'object' && error !== null && 'statusCode' in error ? (error as { statusCode?: unknown }).statusCode : null;
+            if (this.settings.provider !== 'openai-codex' || statusCode !== 404) throw error;
+            attempted.add(probe.model);
+            this.settings.openAICodexUnavailableModels = [...new Set([...(this.settings.openAICodexUnavailableModels ?? []), probe.model])];
+            this.settings.openAICodexModels = (this.settings.openAICodexModels ?? []).filter((entry) => entry.slug !== probe.model);
+            applyCodexModelPolicy(this.settings);
+            const nextModel = this.settings.availableModels?.find((model) => !attempted.has(model));
+            if (!nextModel) throw error;
+            if (probe.label === 'unified') this.settings.model = nextModel;
+            if (probe.label === 'ingest') this.settings.ingestModel = nextModel;
+            if (probe.label === 'lint') this.settings.lintModel = nextModel;
+            if (probe.label === 'query') this.settings.queryModel = nextModel;
+            probe.model = nextModel;
+            await this.saveData(this.settings);
+          }
+        }
       }
 
       // v1.23.0 P1-7: AI-SDK migration. The 3-tier thinking-control

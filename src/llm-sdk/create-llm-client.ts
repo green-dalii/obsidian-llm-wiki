@@ -19,12 +19,16 @@
 // (they all expect a sync `LLMClient` instance).
 
 import { LLMClient } from '../types';
+import type { CodexAuthManager } from './openai-codex/auth-manager';
 
 export interface ProviderSettings {
   provider: string;
   apiKey: string;
   baseUrl?: string;
   useOfficialOpenAI?: boolean;
+  codexAuth?: CodexAuthManager;
+  codexVersion?: string;
+  codexQuotaMessage?: string;
 }
 
 /**
@@ -35,10 +39,16 @@ export async function createLLMClientFromSettings(settings: ProviderSettings): P
   const { OpenAISdkClient } = await import('./openai-sdk-client');
   const { AnthropicSdkClient } = await import('./anthropic-sdk-client');
   const { OpenAICompatSdkClient } = await import('./openai-compat-sdk-client');
+  const { OpenAICodexSdkClient } = await import('./openai-codex-sdk-client');
 
   const provider = settings.provider;
   const apiKey = settings.apiKey.trim();
   const baseUrl = settings.baseUrl?.trim() || undefined;
+
+  if (provider === 'openai-codex') {
+    if (!settings.codexAuth) throw new Error('Codex auth manager is required');
+    return new OpenAICodexSdkClient({ auth: settings.codexAuth, sessionId: () => crypto.randomUUID(), version: settings.codexVersion ?? 'unknown', quotaMessage: settings.codexQuotaMessage });
+  }
 
   if (provider === 'anthropic') {
     return new AnthropicSdkClient({ apiKey });
@@ -75,6 +85,7 @@ export interface PreloadedSdkModules {
   OpenAISdkClient: typeof import('./openai-sdk-client').OpenAISdkClient;
   AnthropicSdkClient: typeof import('./anthropic-sdk-client').AnthropicSdkClient;
   OpenAICompatSdkClient: typeof import('./openai-compat-sdk-client').OpenAICompatSdkClient;
+  OpenAICodexSdkClient: typeof import('./openai-codex-sdk-client').OpenAICodexSdkClient;
 }
 
 let preloadedModules: PreloadedSdkModules | null = null;
@@ -86,15 +97,17 @@ let preloadedModules: PreloadedSdkModules | null = null;
  * sync API contract).
  */
 export async function preloadLLMClientModules(): Promise<void> {
-  const [openai, anthropic, compat] = await Promise.all([
+  const [openai, anthropic, compat, codex] = await Promise.all([
     import('./openai-sdk-client'),
     import('./anthropic-sdk-client'),
     import('./openai-compat-sdk-client'),
+    import('./openai-codex-sdk-client'),
   ]);
   preloadedModules = {
     OpenAISdkClient: openai.OpenAISdkClient,
     AnthropicSdkClient: anthropic.AnthropicSdkClient,
     OpenAICompatSdkClient: compat.OpenAICompatSdkClient,
+    OpenAICodexSdkClient: codex.OpenAICodexSdkClient,
   };
 }
 
@@ -111,11 +124,16 @@ export function createLLMClientFromSettingsSync(settings: ProviderSettings): LLM
       'Call `await preloadLLMClientModules()` during plugin onload() before any LLM call.'
     );
   }
-  const { OpenAISdkClient, AnthropicSdkClient, OpenAICompatSdkClient } = preloadedModules;
+  const { OpenAISdkClient, AnthropicSdkClient, OpenAICompatSdkClient, OpenAICodexSdkClient } = preloadedModules;
 
   const provider = settings.provider;
   const apiKey = settings.apiKey.trim();
   const baseUrl = settings.baseUrl?.trim() || undefined;
+
+  if (provider === 'openai-codex') {
+    if (!settings.codexAuth) throw new Error('Codex auth manager is required');
+    return new OpenAICodexSdkClient({ auth: settings.codexAuth, sessionId: () => crypto.randomUUID(), version: settings.codexVersion ?? 'unknown', quotaMessage: settings.codexQuotaMessage });
+  }
 
   if (provider === 'anthropic') {
     return new AnthropicSdkClient({ apiKey });

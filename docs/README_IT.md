@@ -6,7 +6,7 @@
 
 > **Punteggio ufficiale Obsidian 95/100 | Supporto nativo per 10 lingue | Ricerca su grafo senza embedding | Piena sovranità dei dati | Compatibile con qualsiasi provider LLM**
 
-![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
+![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.4%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
 ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) <br>
 ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -119,14 +119,16 @@ Questo progetto evolve rapidamente — nuove funzionalità, correzioni di bug e 
 ### 🔑 Configurare un provider LLM
 
 1. Apri Impostazioni → Karpathy LLM Wiki
-2. Scegli un provider dal menu a discesa (Anthropic, Anthropic Compatible, Google Gemini, OpenAI, DeepSeek, Kimi, GLM, MiniMax, LM Studio, Ollama, OpenRouter o personalizzato)
-3. Inserisci la tua chiave API (non necessaria per Ollama)
-4. Clicca su **Fetch Models** per popolare il menu dei modelli, oppure digita manualmente il nome di un modello
+2. Scegli un provider dal menu a discesa (inclusi OpenAI o ChatGPT Plan (Codex OAuth))
+3. Per i provider API inserisci la chiave (non necessaria per Ollama, LM Studio o ChatGPT Plan (Codex OAuth))
+4. Per i provider diversi da Codex usa **Fetch Models** o inserisci un modello; ChatGPT Plan (Codex OAuth) popola automaticamente l'elenco dei modelli selezionati
 5. Clicca su **Test Connection**, poi su **Save Settings**
 
 **🦙 Ollama (locale, nessuna chiave API):** installa [Ollama](https://ollama.com), scarica un modello (`ollama pull gemma4` o `ollama pull qwen3.5:27b`), seleziona "Ollama (Local)" nel menu dei provider.
 
 **🎛️ LM Studio (locale, nessuna chiave API):** installa [LM Studio](https://lmstudio.ai), avvia il suo server locale (predefinito `http://localhost:1234/v1`), seleziona "LM Studio (Local)" nel menu dei provider. LM Studio esegue un server integrato compatibile con OpenAI — il campo della chiave API è facoltativo.
+
+**🔐 ChatGPT Plan (Codex OAuth) — sperimentale:** è separato da **OpenAI**, che usa una chiave OpenAI Platform fatturata a parte. Selezionalo e usa **Accedi con il browser** su desktop (callback localhost), oppure **Usa codice dispositivo** su desktop/mobile e completa l'autorizzazione nella pagina OpenAI. Il plugin sincronizza i modelli selezionabili dell'account Codex connesso e memorizza solo metadati ripuliti; **Aggiorna modelli account** li aggiorna manualmente. Se il catalogo è temporaneamente indisponibile, resta disponibile l'ultima cache o un elenco minimo di riserva. Poi verifica la connessione e salva. Le credenziali OAuth sono archiviate solo in Obsidian SecretStorage; **Esci** le cancella. La disponibilità segue le politiche di autenticazione, modelli e disponibilità di OpenAI Codex. È compatibilità di terze parti, non una partnership OpenAI né un'API ChatGPT generale.
 
 > Vedi la [Guida alla scelta del modello](#-guida-alla-scelta-del-modello) per i dettagli.
 
@@ -341,7 +343,7 @@ Per i modelli locali (Ollama): le finestre di contesto sono in genere più picco
 
 **🔌 Anthropic Compatible (Coding Plan):** se il tuo provider offre un endpoint API compatibile con Anthropic, seleziona "Anthropic Compatible" e inserisci l'URL di base e la chiave API del tuo provider.
 
-> 💡 **Piani in abbonamento:** i piani Coding Plan, OpenAI Pro o Anthropic Pro sono ottime opzioni per controllare i costi con un uso frequente. Questo plugin supporta tali servizi.
+> 💡 **Confine di fatturazione OpenAI:** **OpenAI** usa una chiave Platform fatturata separatamente. **ChatGPT Plan (Codex OAuth)** è un provider sperimentale distinto che usa una disponibilità Codex idonea dopo l'accesso via browser o codice dispositivo; il nome del piano non ne garantisce la disponibilità.
 
 ---
 
@@ -401,7 +403,7 @@ Granularità Grossolana/Minima per lotti. Smart Batch Skip. Manutenzione automat
 10 lingue per interfaccia e Wiki: EN, ZH, ZH-Hant, JA, KO, DE, FR, ES, PT, IT.
 
 **Requisiti?**
-Obsidian v1.11.0+. Chiave API LLM (o locale senza chiave). llmReady richiede Test Connection.
+Obsidian v1.11.4+ (desktop o mobile). È necessaria una chiave API LLM, Ollama/LM Studio locale o credenziali autorizzate ChatGPT Plan (Codex OAuth). llmReady richiede Test Connection.
 
 **Annullare operazione?**
 Barra di stato o Cmd+P → Cancel current ingestion.
@@ -453,4 +455,3 @@ Licenza Apache-2.0 — vedi [LICENSE](../LICENSE) e [NOTICE](../NOTICE).
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=bottom-right&sealed_token=Re7j5hAKVwsf4431hDF3XjSFlxH6zaRXZ9VDYF_N3A-dMANR-lm7zRjkpsgqvgZf0mJ1ksxNsZk1-g91PBr1DxQDip_kRn2lEuradbANK2Y-q4x17R7RPhF8ML_08Ca9G-AqyPZeJemfXZp2NczsFmjqrJw8fGeBwVpdjS5zV917x4COLQDbEH_j64Pt)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=bottom-right)
-
