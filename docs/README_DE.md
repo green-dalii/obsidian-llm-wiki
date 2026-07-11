@@ -151,6 +151,8 @@ Die erneute Aufnahme derselben Quelle führt zu inkrementellen Aktualisierungen 
 
 ### ⚠️ Upgrade von einer älteren Version?
 
+> 🔧 **Upgrade von v1.24.0.** Der interne Kommentar-Marker `<!-- reviewed: keep -->` (v1.24.0, #244), der nur den *Mentions-in-Source*-Abschnitt einer Seite schützte, wurde entfernt. Um einen kuratierten Mentions-Abschnitt zu erhalten, setze `reviewed: true` im Frontmatter der Seite — das schützt die gesamte Seite samt Mentions und bleibt, anders als der versteckte Kommentar, im Properties-Panel sichtbar und übersteht Markdown-Linter.
+
 **Rückwärtskompatibel.** Seit v1.0.0 keine Breaking Changes — bestehende Wiki-Seiten, Einstellungen und Workflows bleiben ohne Neukonfiguration erhalten.
 
 **Nach dem Upgrade** führe **Lint Wiki** → **Smart Fix All** für eine automatische Reparatur in kausaler Reihenfolge aus:

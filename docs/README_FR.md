@@ -147,6 +147,8 @@ La ré-ingestion d'une même source fusionne les nouvelles informations de mani�
 
 ### ⚠️ Mise à niveau depuis une ancienne version ?
 
+> 🔧 **Mise à niveau depuis v1.24.0.** Le marqueur de commentaire interne `<!-- reviewed: keep -->` (v1.24.0, #244), qui protégeait uniquement la section *Mentions in Source* d'une page, a été supprimé. Pour conserver une section Mentions organisée manuellement, définissez `reviewed: true` dans le frontmatter de la page : elle protège toute la page (Mentions comprises) et, contrairement au commentaire masqué, reste visible dans le panneau Propriétés et résiste aux linters Markdown.
+
 **Rétrocompatible.** Aucun changement cassant depuis la v1.0.0 — vos pages Wiki, paramètres et flux de travail existants sont préservés sans reconfiguration.
 
 **Après la mise à niveau**, exécutez **Lint Wiki** → **Smart Fix All** pour une réparation automatique en ordre causal :

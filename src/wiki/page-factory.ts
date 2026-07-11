@@ -454,7 +454,7 @@ export class PageFactory {
     );
     // Issue #244: programmatically inject the Mentions section so the LLM
     // cannot drift the citation format or leak note-folder prefixes into
-    // Related sections. User-curated <!-- reviewed: keep --> markers win.
+    // Related sections. (Create path — the page is new, never reviewed.)
     // B2: prefer structured provenance when present; only fall back to legacy
     // mentions_in_source if the structured form is absent (not just empty).
     // Conversation mode: when sourceFile is a conversation summary, render a
@@ -1210,6 +1210,10 @@ export class PageFactory {
         sectionLabel: labels.mentions_in_source,
         conversationMode: isConv,
         conversationLabel: `Conversation: ${sourceFile.basename}`,
+        // This path only runs for `reviewed: true` pages (page-factory routing
+        // at createOrUpdatePage): the existing Mentions section is protected
+        // and must not be overwritten (replaces the <!-- reviewed: keep --> marker).
+        pageIsReviewed: true,
       }
     );
     const finalContent = `${frontmatter}\n\n${cleanedContentWithMentions}`;

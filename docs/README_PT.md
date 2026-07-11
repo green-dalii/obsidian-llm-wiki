@@ -146,6 +146,8 @@ A re-ingestão da mesma fonte funde novas informações de forma incremental. Os
 
 ### ⚠️ Atualizando de uma versão anterior?
 
+> 🔧 **Atualizando de v1.24.0.** O marcador de comentário interno `<!-- reviewed: keep -->` (v1.24.0, #244), que protegia apenas a seção *Menções na Source* de uma página, foi removido. Para preservar uma seção de Menções curada manualmente, defina `reviewed: true` no frontmatter da página: ela protege a página inteira (Menções incluídas) e, ao contrário do comentário oculto, permanece visível no painel de Propriedades e resiste a linters de Markdown.
+
 **Retrocompatível.** Sem mudanças incompatíveis desde v1.0.0 — as suas páginas Wiki, configurações e fluxos de trabalho existentes são preservados sem reconfiguração.
 
 **Após atualizar**, execute **Lint Wiki** → **Smart Fix All** para reparação automática:

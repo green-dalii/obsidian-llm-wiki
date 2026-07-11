@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Consolidated the two "reviewed" protection mechanisms (#244 follow-up).** Removed the body-level `<!-- reviewed: keep -->` comment marker (v1.24.0) that protected only a page's `## Mentions in Source` section. Protection is now driven solely by frontmatter `reviewed: true`, which already guards the whole page via the minimal-append path — Properties-panel-visible and stable under Markdown linters, unlike the hidden body marker. `injectMentionsSection` takes a `pageIsReviewed` flag (set on the reviewed-page write path) and returns the body untouched when set.
+
+### Fixed
+
+- **Non-lossy Mentions re-ingest (#267).** On a merge, `assembleFinalContent` re-emitted the `## Mentions in Source` section from only the new source's mentions, dropping every earlier source's accumulated mentions (regression from #244; affected `triage=skip`, `triage=complementary`, and the body-merge path). The merge now parses the existing page's mentions and unions them with the new source's (composite `(quote, source_path)` dedup key) before injecting; a fail-safe preserves a hand-edited section verbatim rather than risk dropping curated quotes.
+
 ## [1.24.0] - 2026-07-10
 
 **Theme:** Per-task model routing, custom query instructions, four monolith splits, source-note aliases, frontmatter write repair. 1825 tests passing. Recommended upgrade for everyone on v1.23.x.
