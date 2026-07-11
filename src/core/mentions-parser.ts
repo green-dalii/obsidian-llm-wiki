@@ -17,6 +17,51 @@
 
 import type { MentionWithProvenance } from '../types';
 import { escapeRegex } from '../wiki/lint/utils';
+import { dedupMentionsByProvenanceKey } from './batch-merger';
+
+/**
+ * Issue #267 — pure, testable core of the non-lossy re-ingest union.
+ *
+ * Parses the `## <sectionLabel>` block already on the page and unions it
+ * with `newMentions` by the `(quote, source_path)` composite key, preserving
+ * insertion order (existing first). When the existing block cannot be
+ * structurally parsed (hand-edited / linter-reflowed lines), returns
+ * `preserveRaw` non-null so the caller preserves it verbatim rather than
+ * risk dropping curated quotes.
+ *
+ * `defaultSourcePath` fills any blank `source_path` (structured LLM output
+ * leaves them blank) and any `.md` suffix is stripped so legacy paths match
+ * the rendered on-page form — callers can hand raw mentions.
+ */
+export interface ReingestMentionsResult {
+  /** Unioned mentions to inject (when `preserveRaw` is null). */
+  mentions: MentionWithProvenance[];
+  /** Non-null ⇒ the existing block was hand-edited; caller preserves it verbatim and skips the union. */
+  preserveRaw: string | null;
+}
+
+export function computeReingestMentions(
+  existingBody: string,
+  newMentions: MentionWithProvenance[],
+  sectionLabel: string,
+  defaultSourcePath?: string,
+): ReingestMentionsResult {
+  const existing = parseMentionsSection(existingBody, sectionLabel);
+  if (existing.found && !existing.fullyParsed) {
+    return { mentions: [], preserveRaw: existing.raw ?? '' };
+  }
+  const normalize = (m: MentionWithProvenance) => ({
+    ...m,
+    source_path: (m.source_path || defaultSourcePath || '').replace(/\.md$/, ''),
+  });
+  return {
+    mentions: dedupMentionsByProvenanceKey(
+      existing.mentions.map(normalize),
+      newMentions.map(normalize),
+    ) ?? [],
+    preserveRaw: null,
+  };
+}
 
 /**
  * Locate the `## <sectionLabel>` block. Returns character offsets:
