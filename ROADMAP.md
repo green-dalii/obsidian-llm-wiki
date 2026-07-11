@@ -135,15 +135,248 @@ See [CHANGELOG](./CHANGELOG.md#1180-2026-06-11) for full details.
 
 See [CHANGELOG](./CHANGELOG.md#1170-2026-06-08) for full details.
 
-## Next Milestone: v1.24.0 MINOR (target TBD)
+## v1.24.1 PATCH — Execution Plan
 
-### In-flight (2026-07-08 → )
+GitHub milestone: https://github.com/green-dalii/obsidian-llm-wiki/milestone/6
 
-- **Stage 2 Bug B+B+** — Query Wiki seed-selector retry + system field fix (commit `1d943ea` on `feat/modals-split`, 1706 tests). Lands as amended extension of the wikiFolder-transparent-prompt commit. Includes: new `core/transient-retry.ts` helper (3× exponential backoff, auth/rate-limit no-retry), seed-selector now passes `system` field to AI-SDK (DeepSeek in JSON mode requires system; without it, LLM returns empty body and the retry chain can't recover). e2e verified: arm upgraded from `index` to `index+LLM`, 2 seeds selected, no silent degradation. Memory: `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_p2_query_seed_selector.md`.
-- **Stage 3 Bug A** — graph warmup via `WikiEngine._cachedGraph` + getter (next; first-query PPR arm upgrade).
-- **Stage 4 #251** — `customQueryInstructions` MVP (after Stage 3).
-- **Follow-up: `dedup-phase.ts:219` system field** — lint LLM dedup has the same "JSON mode + no system" gap. `LintPhaseContext` interface lacks `getSchemaContext`, so the fix is a ~30-50 LOC multi-file change (extend ctx type, wire through `controller.ts`, update phase). Not in this commit per user decision 2026-07-08. Risk: lint dedup silently returns 0 duplicates on DeepSeek. Should be a single focused PR.
-- **Follow-up: `parseJsonResponse` preamble echo** — DeepSeek can return `{\n ` (length=3) as a preamble before the real JSON. Current retry chain recovers in 1-3 attempts (verified). No additional parsing-layer change needed; first-principles evaluation rejected sentinel/preamble-detect approaches.
+### Execution sequence (4 fixes, ordered by ROI + dependency)
+
+#### Fix #1 — #268 Tier C `forceRecreate` bypass (immediate, green-dalii)
+
+**Root cause** (verified): `recreateWelcomeNote` command and `ensureWelcomeNote` short-circuit `shouldCreateWelcomeNote=false` for Tier C users (vault already has wiki pages) → `welcomeNotePath` undefined → "Willkommen-Notiz wurde nicht neu erstellt" Notice. The German error message misleadingly says "LLM configuration" but LLM is fine; the real cause is tier-based short-circuit, not LLM config.
+
+**Fix scope** (+5 LOC, ~30 LOC test, 10 locales i18n):
+- `src/core/ensure-welcome-note.ts` — `EnsureWelcomeNoteArgs` adds `forceRecreate?: boolean`; Step 3 short-circuit becomes `if (!action.shouldCreateWelcomeNote && !forceRecreate)`
+- `src/schema/auto-maintain.ts` — `recreateWelcomeNote()` passes `forceRecreate: true` to `runOnboardingPhase()`
+- `src/texts/<locale>.ts` — `welcomeNoteNotRecreated` text corrected (e.g., German: "Wiki-Voraussetzungen nicht erfüllt (Tier C) — siehe Tier-Diagnose.")
+
+**Branch**: `fix/welcome-recreate-tier-c-bypass`
+
+#### Fix #2 — `<!-- reviewed: keep -->` consolidation into frontmatter `reviewed: true` (immediate, green-dalii)
+
+**Rationale**: Two parallel reviewed-mechanisms are redundant. `<!-- reviewed: keep -->` (PR #244) protects only Mentions section; frontmatter `reviewed: true` protects entire page. User-facing semantics unify to "frontmatter `reviewed: true` = page + Mentions section both protected". Drops one hidden Easter-egg mechanism; Obsidian Properties panel auto-surfaces the field; MD linters don't strip frontmatter.
+
+**Fix scope** (net +5 LOC, 1 test rewrite, 10 locales migration note):
+- `src/core/mentions-injector.ts` — delete `REVIEWED_KEEP_MARKER`; `InjectMentionsOptions` adds `pageIsReviewed: boolean`; early-return on `options.pageIsReviewed`
+- `src/wiki/page-factory.ts` — `assembleFinalContent()` parses frontmatter and forwards `pageIsReviewed`
+- `src/__tests__/core/mentions.test.ts:274-284` — marker test rewritten as `pageIsReviewed: true` test
+- 10 README — Upgrading from v1.24.0 section adds 1 paragraph explaining the migration
+
+**CHANGELOG entry**: Changed (not Added / Fixed). "Consolidated reviewed mechanisms: `<!-- reviewed: keep -->` marker removed; use frontmatter `reviewed: true` to protect the entire page (covers both body and Mentions section)."
+
+**Branch**: `refactor/mentions-consolidate-reviewed-mechanisms`
+
+**MUST land BEFORE #267 PR** to avoid merge conflicts (both touch `assembleFinalContent` signature).
+
+#### Fix #3 — #267 Mentions union (DocTpoint PR incoming, our review pending)
+
+**Root cause** (verified): `assembleFinalContent` (`src/wiki/page-factory.ts:1088-1112`) takes only `info.mentions_with_provenance` (new source's set) and calls `injectMentionsSection` which strips existing `## Mentions in Source` and re-emits from new-source-only. Affects all 3 paths: `triage=skip` (line 1018), `triage=complementary`, `body-merge` (line 1068).
+
+**Fix shape** (DocTpoint to PR; we review):
+- Place union at `assembleFinalContent` entry (NOT `mergePage` entry — would change `info` semantics for downstream readers)
+- Reuse `mergeMentionsFields` from `src/core/batch-merger.ts`; upgrade dedup key to `(quote, source_path, position?)`
+- Honor BOTH reviewed mechanisms (frontmatter gate at `mergePage` entry → `appendToReviewedPage`; marker gate inside `injectMentionsSection`)
+- Strict round-trip test: `formatMentionsSection` ↔ new parser (`core/mentions-formatter-roundtrip.test.ts`)
+
+**Tracked under milestone v1.24.1**. Invite comment posted.
+
+#### Fix #4 — Bedrock provider via bedrock-mantle endpoint (immediate, green-dalii; replaces PR #263 design)
+
+**Approach**: 3-stage plan. v1.24.1 ships **Stage 1 only** (zero new deps, ~+3 KB bundle delta). PR #263's bearer + SSO design is moved to **Stage 2 + Stage 3** (deferred).
+
+**Stage 1 details** (this PR, ~750 LOC, mostly i18n):
+- **Reuse existing compatible-client paths** with custom baseURL. `AnthropicSdkClient` and `OpenAICompatSdkClient` already support arbitrary baseURL (v1.23.0 P1.5 baseURL fallback mechanism).
+- New `provider: 'bedrock-anthropic' | 'bedrock-openai'` settings + `bedrockRegion: string` (default `us-east-1`).
+- Two new branches in `createLLMClientFromSettings` + `Sync`:
+  ```ts
+  if (provider === 'bedrock-anthropic') {
+    return new AnthropicSdkClient({
+      apiKey,
+      baseURL: `https://bedrock-mantle.${bedrockRegion}.api.aws`,
+    });
+  }
+  if (provider === 'bedrock-openai') {
+    return new OpenAICompatSdkClient({
+      apiKey,
+      baseURL: `https://bedrock-mantle.${bedrockRegion}.api.aws/v1`,
+      provider: 'bedrock-mantle',
+    });
+  }
+  ```
+- 5 new i18n keys × 10 locales (bedrock provider label / region selector / API key hint / help URL / test connection hint).
+- Models covered (per AWS docs endpoint availability): Claude Sonnet 5 / Fable 5 / Haiku 4.5 / Opus 4.7 / 4.8 (Anthropic Messages via bedrock-mantle) + GPT-5.4 / 5.5 / GPT OSS / DeepSeek V3.1-V3.2 / Mistral Large 3 / Kimi K2 / Qwen3 / GLM 4.7-5 / Grok 4.3 / Google Gemma 3 / NVIDIA Nemotron 3 (OpenAI Chat Completions via bedrock-mantle).
+
+**Known gap** (Stage 1 doesn't cover): Claude Sonnet 4 / 4.5 / 4.6, Claude Opus 4.1 / 4.5 / 4.6, Llama 3.x / 4.x — these are bedrock-runtime-only and require Stage 2.
+
+**Bundle delta: ~+3 KB** (settings UI strings + factory branches; **zero new npm deps**).
+
+**Stage 2 (deferred to v1.25.0+ MINOR, conditional on demand)**:
+- Bearer-only via `@ai-sdk/amazon-bedrock@^5` (drop SSO from PR #263; drop `platform: 'node'` global flip).
+- Bundle delta: ~+0.3 MB (matches dmsessions' drop-test measurement).
+- Models: Sonnet 4.x + Opus 4.5-4.8 + Llama 4 family + Cohere Command R+ + Jamba + Titan embeddings.
+- Trigger: 3+ user issues requesting Claude Sonnet 4 / Llama 4 on Bedrock.
+
+**Stage 3 (indefinitely deferred)**:
+- SSO / profile / IMDS via `@aws-sdk/credential-providers` chain.
+- Bundle delta: +1.2 MB. Only land if 5+ users explicitly request enterprise auth.
+
+**Branch**: `feat/bedrock-mantle-stage1`
+
+**Files**:
+- `src/types.ts` — add `bedrock-anthropic` / `bedrock-openai` to `PREDEFINED_PROVIDERS`; add `bedrockRegion?: string` to `LLMWikiSettings`
+- `src/llm-sdk/create-llm-client.ts` — 2 new branches in each of async + sync factories (~16 LOC total)
+- `src/ui/settings.ts` — region dropdown (14 regions) conditional on bedrock provider
+- `src/texts/<locale>.ts` — 5 new keys per locale
+- `src/__tests__/llm-sdk/bedrock-factory.test.ts` (NEW) — factory path tests for both new providers
+- `docs/README*.md` — 1 paragraph Bedrock setup guide per locale (ABSK key generation link)
+- `CHANGELOG.md` — `[1.24.1]` entry under Added
+
+**PR #263 status**: review posted (state `COMMENTED`, body 7844 chars) proposing the 3-stage split. Awaiting dmsessions response.
+
+**Memory**: [`project_v1.24.1_bedrock_stage1.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.1_bedrock_stage1.md) — full design rationale + coverage matrix + bundle math.
+
+### Not in v1.24.1
+
+- **#258** (cosmetic P2 — `createNewPage` non-schema section drift) — defer
+- **#255** (Lint console noise — needs user detail on which fix-runner) — defer to v1.24.2
+- **Windows Headers TypeError** — withdrawn (user input error, not plugin bug)
+- **#220 + #224** (Source-revision / fingerprint / 3-class contradiction) — moved to **v1.25.0 MINOR** scope; prerequisite: v1.24.1 #267 ships (✅ DocTpoint PR #269 ready) + page-factory.ts split (v1.24.2)
+- **#218 PDF source ingest Tier 1** (topology A + Path 1 native LLM read) — moved to **v1.25.0 MINOR** scope; see v1.25.0 Execution Plan below
+
+## v1.24.2 PATCH — Code Health (target TBD)
+
+GitHub milestone: not yet created (open when v1.24.1 ships)
+
+**Theme**: Code health PATCH addressing the most acute debt identified by 2026-07-11 third-party audit + the changes #267 / #220 are about to make against `page-factory.ts` (now 1252 LOC, the new largest god-file candidate).
+
+### Fix #1 — `QueryView.sendMessage()` 501-line god-method split (P0, green-dalii)
+
+**Root cause** (verified 2026-07-11): `QueryView-class.ts:412-912` is a single 501-line method (`sendMessage`) that combines: custom instructions injection + request payload build + streaming + UI state update + thinking block extraction + history append + error handling + retrieval label update. 第三方审查低估为 294 行，实测 501 行——god-method 比报告还严重。
+
+**Fix shape** (~80 LOC net):
+```
+src/wiki/query-engine/
+  pipeline/send-message/
+    index.ts                 — orchestrator (~30 LOC)
+    build-request-payload.ts — custom instructions + 检索标签注入 (~30 LOC)
+    stream-and-render.ts     — 流式响应 + UI 更新 (~40 LOC)
+    post-process-response.ts — thinking block + retrieval label (~30 LOC)
+```
+
+`sendMessage` 收缩为 ~50 LOC orchestrator。`pipeline/` 目录已存在（read-index / load-pages / select-seeds / assemble-context from v1.24.0 PR #250）。
+
+**Branch**: `refactor/query-view-send-message-split`
+
+### Fix #2 — `page-factory.ts` 1252-line split (P1, green-dalii)
+
+**Root cause** (verified 2026-07-11): `src/wiki/page-factory.ts` is 1252 LOC and is the file that `assembleFinalContent` lives in (touched by #267 PR #269 + planned by #220 / #224). 越早拆分，越减少后续 PR 的 merge 冲突。
+
+**Fix shape** (~50 LOC net):
+```
+src/wiki/page-factory/
+  index.ts                — 公开 API re-export
+  create-page.ts          — 新建路径
+  merge-page.ts           — merge/skip/complementary/body-merge 4 triage 路径
+  mentions-integration.ts — assembleFinalContent 的 Mentions 处理
+  conflict-resolution.ts  — ConflictResolver 调用
+  triage.ts               — 分类决策
+  constants.ts            — section labels 等
+```
+
+**Branch**: `refactor/page-factory-split`
+
+### Fix #3 — Lint 性能优化 (parallel dedup batches) (P1, green-dalii)
+
+**Root cause** (per 3rd-party audit 2026-07-11): Lint controller 两个 TODO（"Duplicate detection is the dominant Lint bottleneck" + "LLM health analysis is the other major bottleneck"）从 v1.18.0 起挂 6 个版本未处理。真实测试 vault 已达 2142 页，影响在加速恶化。
+
+**Fix shape** (~30 LOC + 5 测试):
+- `src/wiki/lint/llm-phases/dedup-phase.ts` — `Promise.allSettled` 分批处理 dedup candidates
+- 受并发上限约束（`MAX_CONCURRENT_LLM_CALLS`）
+- 不破坏 `transient-retry.ts` 已有的 retry 语义
+
+**Branch**: `perf/lint-parallel-dedup`
+
+### Not in v1.24.2
+
+- **#258** (cosmetic P2) — defer to v1.24.3 or v1.25.0
+- **#255** (Lint console noise) — defer to v1.24.3
+
+## v1.25.0 MINOR (target TBD)
+
+GitHub milestone: not yet created (target: 2026-08-XX)
+
+**Theme**: Source-revision awareness + PDF native ingest + LLM-driven memory hygiene. This is a feature MINOR, not a refactor MINOR — every item here is user-visible.
+
+### Fix #1 — #220 + #224 Source-revision awareness (Tier 0 + Tier 1, DocTpoint-led)
+
+**Root cause** (per Discussion #224, 2026-07-10): Wiki treats knowledge as static. Re-ingest is the user's "commit + push" decision, but the current pipeline re-litigates it ("existing content takes priority unless clearly more accurate"). Two-class design: same-source (faithfully execute) vs cross-source (conserve both with provenance).
+
+**Prerequisites** (must land first):
+1. ✅ #267 non-lossy write path (DocTpoint PR #269 ready)
+2. v1.24.2 Fix #2 page-factory.ts split (reduces merge conflict surface)
+
+**Fix shape** (~1500 LOC, 1-2 weeks):
+- **Tier 0** — Deterministic same-source replace (low risk): fingerprint source (normalized body hash), compare against existing source attribution, surgically replace that source's block in place (no LLM prose regeneration). `last_modified_by_ingest:` frontmatter field.
+- **Tier 1** — `supersedes:` frontmatter flag for cases detection can't see (note renamed/split).
+- **Calibration fixture** for contradiction/orthogonal/corroborate detection — capability-gate per-task model routing.
+
+**Branch**: `feat/source-revision-tier0-tier1`
+
+### Fix #2 — #218 PDF native ingest Tier 1 (A-NGJ-led, design from Discussion #222)
+
+**Topology** (decided in Discussion #222): **Topology A + Path 1** — plugin-native extraction via provider's own document support, **zero new dependencies**.
+
+**Fix shape** (~600 LOC):
+- `src/llm-sdk/read-document.ts` — `readDocument(path)` chokepoint in LLM client interface (cross-provider)
+- `src/llm-sdk/anthropic-sdk-client.ts` — wire native PDF via `messages.content` blocks with `{type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: ...}}` (AI-SDK v6 Anthropic provider supports this natively)
+- `src/llm-sdk/openai-compat-sdk-client.ts` — wire vision-capable models (gpt-4o+) with PDF in `image_url` content type
+- `src/llm-sdk/openai-sdk-client.ts` — same as compat
+- `src/llm-sdk/google-gemini-compat-client.ts` (if not already) — wire file upload (gemini specific)
+- `src/core/document-extraction-cache.ts` — content-hash-keyed cache (PDF bytes → base64 + extracted text); lives at `.obsidian/plugins/karpathywiki/pdf-cache/`
+- `src/core/source-analyzer.ts` — accept `.pdf` extension in addition to `.md`/`.markdown`; route via `readDocument()`
+- Settings: `pdfProvider?: 'native-llm' | 'reject'` (default: 'native-llm'); `pdfMaxPages?: number` (default 50); `pdfCacheTtlDays?: number` (default 30)
+- 9 i18n keys × 10 locales (pdfSourceLabel, pdfUnsupportedNotice, pdfExtractionFailedNotice, pdfCacheHitNotice, etc.)
+- Graceful rejection: scanned/image-only PDFs → clear Notice with provider error message
+- Unsupported providers (DeepSeek / GLM / Ollama / LMStudio) → Notice "Your provider does not support PDF; please pre-convert to Markdown"
+
+**Provider support matrix** (Tier 1):
+| Provider | Status | Mechanism |
+|---|---|---|
+| Anthropic (Claude 3.5+ / Sonnet 4+) | ✅ | Native document content block (base64 PDF) |
+| OpenAI official (gpt-4o+) | ✅ | `image_url` content type with PDF mime |
+| OpenAI-compatible (Gemini via OpenAI compat) | ⚠️ Conditional | Gemini supports PDF via file upload, but compat layer requires custom routing |
+| Bedrock (Stage 2 — v1.25.0+ after Stage 1 ships) | ✅ | Converse API supports PDF document block |
+| DeepSeek / GLM / Ollama / LMStudio | ❌ Notice | Reject with clear error |
+| Custom baseURL | ⚠️ Probe | Try with probe-then-fallback (reuse TokenKeyProber pattern) |
+
+**Branch**: `feat/pdf-source-ingest`
+
+### Fix #3 — CI file-line-count warning (non-blocking, v1.25.0 research scope)
+
+Per 3rd-party audit 2026-07-11: CI script that warns (non-fail) when single file > 800 LOC. Catches the "should split now" signal earlier.
+
+**Fix shape** (~50 LOC):
+- `scripts/check-file-size.mjs` — grep `src/**/*.ts` for line count; warn at 800, fail at 1500 (configurable)
+- Wire into `pnpm lint` as non-blocking step
+
+**Branch**: `chore/ci-file-size-warning`
+
+### Not in v1.25.0
+
+- **Bedrock Stage 2** (bearer-only via `@ai-sdk/amazon-bedrock@^5`, +0.3 MB) — conditional on 3+ user issues asking for Claude Sonnet 4 / Llama 4 on Bedrock. Tracked but not scheduled.
+- **Bedrock Stage 3 SSO** (+1.2 MB) — indefinite deferral; only land if 5+ users explicitly request enterprise AWS auth.
+- **#258** (cosmetic P2) — defer to v1.25.1 PATCH
+- **#255** (Lint console noise) — defer to v1.25.1 PATCH
+
+### Closed milestones (already shipped)
+
+v1.23.0 / v1.23.1 / v1.23.2 / v1.24.0 — all closed on GitHub.
+
+---
+
+### Deprecated (kept for archaeology, see CHANGELOG for details)
+
+This section replaces the obsolete "Stage 2 Bug B+B+ / Stage 3 Bug A / Stage 4 #251" in-flight tracking that belonged to the v1.24.0 P2 cycle (shipped 2026-07-10).
 
 - **#220 — Source-revision awareness for merge** (DocTpoint's 4-tier design). Tier 0 fingerprint + replace self-updates; Tier 1 `supersedes:` frontmatter flag; Tier 2 cross-source disagreement open question; Tier 3 review-queue UI. Tiers 0-1 tractable for v1.24.0; Tier 3 likely v1.25.0+. Prerequisite: open Discussion thread on fingerprint function design.
 - **#218 — PDF source ingest** (Discussion #222 topology).
@@ -183,7 +416,7 @@ See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five 
 
 ## v1.23.0 — Implemented (shipped 2026-07-02)
 
-**Phase 5.1.5 + Core PPR modules + P1-5 (Query Wiki integration) + P1-6 (Lint) + P1-7 (AI-SDK Day 1-3 + Day 3.5-5) + P2-3 + P2-4 ALL COMPLETE.** All P1/P2 tasks finished. Eval gate: cascade R@5 27.1% (real vault) vs knn 24.1% (3pp gap) — embeddings permanently rejected per #175 + #198 follow-up. 1376 tests, 100 files.
+See [CHANGELOG](./CHANGELOG.md#v1.23.0) for full details. **MINOR** scope. Graph Engine PPR (Issue #198) + Vercel AI-SDK v6 migration + Sponsor section + v1.22.6 hotfix folded in. 1376 tests passing at ship; **1825 tests across 132 files in latest main** after subsequent v1.23.1 / v1.23.2 / v1.24.0 cycles. Eval gate: cascade R@5 27.1% (real vault) vs knn 24.1% (3pp gap) — embeddings permanently rejected per #175 + #198 follow-up.
 
 ### v1.23.0 Shipped Items
 
@@ -276,7 +509,7 @@ See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five 
 #### Deferred P3 — Backlog
 | # | Item | Effort |
 |---|------|--------|
-| B1 | LintFixer class → module-level functions | 1 day |
+| ~~B1~~ | ~~LintFixer class → module-level functions~~ — **FALSE BACKLOG ITEM** (2026-07-07, see §"Deferred to v1.24.0+ MINOR" above); v1.19.0 split into 8 module-level functions; `fix-runners.ts` (500 LOC) is the dispatch layer | — |
 | B2 | ~~Restore true streaming for 3rd-party providers~~ — **DONE (v1.23.0 P2, commit 2e51e23 + AI-SDK v6 migration 6be9258; `result.textStream` real逐块 streaming now in all 3 llm-sdk clients)** | — |
 | B3 | Missing Concept Pages tracker | 2 days |
 
