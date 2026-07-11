@@ -271,17 +271,19 @@ describe('injectMentionsSection', () => {
     expect(out).toContain('## Other Section'); // preserved
   });
 
-  it('preserves user-annotated reviewed markers (<!-- reviewed: keep -->)', () => {
+  it('preserves the Mentions section of a reviewed page (pageIsReviewed)', () => {
     const body = [
       '# Foo',
       '',
-      '<!-- reviewed: keep -->',
       '## Mentions in Source',
       '- "user-curated quote" — [[notes/Foo|Foo]]',
       '',
     ].join('\n');
-    const out = injectMentionsSection(body, ['replacement quote'], 'notes/Foo.md', { sectionLabel });
-    expect(out).toContain('reviewed: keep');
+    const out = injectMentionsSection(body, ['replacement quote'], 'notes/Foo.md', {
+      sectionLabel,
+      pageIsReviewed: true,
+    });
+    expect(out).toBe(body); // reviewed page → returned untouched
     expect(out).toContain('user-curated quote');
     expect(out).not.toContain('replacement quote');
   });

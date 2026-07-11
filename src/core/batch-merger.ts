@@ -24,22 +24,38 @@ export interface MergeResult {
 // ── Internal merge helpers for Issue #244 ────────────────────
 
 /**
- * Deduplicate an array of MentionWithProvenance by quote string,
- * preserving insertion order (first occurrence wins).
+ * Composite dedup key for a mention. Two mentions are "the same" only when
+ * they share both the verbatim quote AND the originating source note — quote
+ * alone collapses distinct same-quote mentions from different sources.
+ *
+ * Note (#267): `MentionWithProvenance` has no `position` field in v1.24.0, so
+ * the key is `(quote, source_path)`. If a per-quote offset is added later, it
+ * extends here without changing callers.
  */
-function dedupMentionsByQuote(
+function mentionKey(m: MentionWithProvenance): string {
+  return `${m.quote}\u0000${m.source_path}`;
+}
+
+/**
+ * Union two arrays of MentionWithProvenance, deduplicating by
+ * `(quote, source_path)` and preserving insertion order (first occurrence
+ * wins). Reused both here (batch accumulation) and by the page-factory's #267
+ * non-lossy re-ingest union.
+ */
+export function dedupMentionsByProvenanceKey(
   a: MentionWithProvenance[] | undefined,
   b: MentionWithProvenance[] | undefined,
 ): MentionWithProvenance[] | undefined {
   if (!a?.length && !b?.length) return undefined;
   if (!a?.length) return b;
   if (!b?.length) return a;
-  const seen = new Set(a.map(m => m.quote));
+  const seen = new Set(a.map(mentionKey));
   const merged = [...a];
   for (const m of b) {
-    if (!seen.has(m.quote)) {
+    const k = mentionKey(m);
+    if (!seen.has(k)) {
       merged.push(m);
-      seen.add(m.quote);
+      seen.add(k);
     }
   }
   return merged;
@@ -80,7 +96,7 @@ function mergeMentionsFields<
 
   return {
     ...existing,
-    mentions_with_provenance: dedupMentionsByQuote(
+    mentions_with_provenance: dedupMentionsByProvenanceKey(
       existing.mentions_with_provenance,
       incoming.mentions_with_provenance,
     ),

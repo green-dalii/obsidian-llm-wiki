@@ -156,6 +156,8 @@ Re-ingesting the same source does incremental updates on entity/concept pages (n
 
 ### ⚠️ Upgrading from an Older Version?
 
+> 🔧 **Upgrading from v1.24.0.** The internal `<!-- reviewed: keep -->` comment marker (v1.24.0, #244) that protected only a page's *Mentions in Source* section has been removed. To keep a curated Mentions section, set `reviewed: true` in the page frontmatter — it protects the whole page (Mentions included) and, unlike the hidden comment, stays visible in the Properties panel and survives Markdown linters.
+
 **Backward compatible.** No breaking changes since v1.0.0 — your existing wiki pages, settings, and workflows are preserved without reconfiguration.
 
 **After upgrading**, run **Lint Wiki** → **Smart Fix All** for a one-click, causality-ordered repair:
