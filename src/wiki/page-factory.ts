@@ -22,8 +22,7 @@ import { canonicalizeSectionHeaders, snapHeaderToCanonical } from '../core/secti
 import { parseJsonResponse } from '../core/json';
 import { parseFrontmatter, mergeFrontmatter, enforceFrontmatterConstraints } from '../core/frontmatter';
 import { injectMentionsSection } from '../core/mentions-injector';
-import { parseMentionsSection, stripMentionsSection } from '../core/mentions-parser';
-import { dedupMentionsByProvenanceKey } from '../core/batch-merger';
+import { stripMentionsSection, computeReingestMentions } from '../core/mentions-parser';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { normalizeLLMPath } from '../core/prompt-builders';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
@@ -1115,7 +1114,8 @@ export class PageFactory {
     // Issue #267 — injectMentionsSection re-emits the section from the array we
     // hand it, so passing only this source's mentions would drop every earlier
     // source's. Recover the accumulated mentions from the existing page and
-    // union them with the new source's before injecting.
+    // union them with the new source's before injecting. The helper owns
+    // source_path normalization (fill blanks from `sourceFile.path`, strip `.md`).
     const newMentions: MentionWithProvenance[] = info.mentions_with_provenance?.length
       ? info.mentions_with_provenance
       : (info.mentions_in_source ?? []).map(quote => ({
@@ -1125,9 +1125,13 @@ export class PageFactory {
           extracted_at: '',
         }));
 
-    const existing = parseMentionsSection(existingBody, labels.mentions_in_source);
-
-    if (existing.found && !existing.fullyParsed) {
+    const { mentions: unioned, preserveRaw } = computeReingestMentions(
+      existingBody,
+      newMentions,
+      labels.mentions_in_source,
+      sourceFile.path,
+    );
+    if (preserveRaw !== null) {
       // Fail-safe: the existing section has hand-edited or linter-reflowed
       // lines we cannot structurally parse. Preserve it verbatim rather than
       // risk dropping curated quotes (the very failure mode #267 is about);
@@ -1136,13 +1140,10 @@ export class PageFactory {
         `[assembleFinalContent] Mentions section on the existing page for "${info.name}" has hand-edited or unrecognized lines — preserving it verbatim and skipping the mentions merge for ${sourceFile.path} to avoid dropping curated quotes (#267).`,
       );
       const stripped = stripMentionsSection(body, labels.mentions_in_source);
-      const preserved = existing.raw
-        ? (stripped ? `${stripped}\n\n${existing.raw}` : existing.raw)
-        : body;
+      const preserved = stripped ? `${stripped}\n\n${preserveRaw}` : preserveRaw;
       return `${frontmatter}\n\n${preserved}`;
     }
 
-    const unioned = dedupMentionsByProvenanceKey(existing.mentions, newMentions) ?? [];
     const bodyWithMentions = injectMentionsSection(body, unioned, sourceFile.path, {
       sectionLabel: labels.mentions_in_source,
       conversationMode: false,
