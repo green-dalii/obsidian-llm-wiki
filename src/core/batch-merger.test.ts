@@ -314,7 +314,51 @@ describe('Batch Merger — Pure Functions', () => {
       expect(result.allEntities[0].mentions_in_source).toHaveLength(2);
     });
 
-    it('does not duplicate identical quotes in mentions_with_provenance', () => {
+    it('dedups an identical quote from the same source (composite key #267)', () => {
+      // Same quote AND same source_path → one mention. This is the realistic
+      // batch-accumulation case (every batch of one analyzeSource run shares a
+      // source_path), and the composite `(quote, source_path)` key collapses it.
+      const current = createEmptyAccumulation();
+      current.entities.push({
+        name: 'dup-entity',
+        type: 'person',
+        summary: 'Existing',
+        mentions_in_source: ['same quote'],
+        mentions_with_provenance: [{
+          quote: 'same quote',
+          source_path: 'source-a.md',
+          source_slug: 'source-a',
+          extracted_at: '2026-07-05T00:00:00Z',
+        }],
+      });
+      current.extractedNames.add('dup-entity');
+
+      const newBatch = {
+        entities: [{
+          name: 'dup-entity',
+          type: 'person' as const,
+          summary: 'Dup',
+          mentions_in_source: ['same quote'],
+          mentions_with_provenance: [{
+            quote: 'same quote',
+            source_path: 'source-a.md',
+            source_slug: 'source-a',
+            extracted_at: '2026-07-05T01:00:00Z',
+          }],
+        }],
+        concepts: [],
+      };
+
+      const result = mergeBatchResults(current, newBatch);
+
+      expect(result.allEntities[0].mentions_with_provenance).toHaveLength(1);
+      expect(result.allEntities[0].mentions_in_source).toHaveLength(1);
+    });
+
+    it('keeps an identical quote from a different source as distinct (composite key #267)', () => {
+      // #267: quote-only dedup would collapse the same sentence appearing in two
+      // different sources into one, losing a provenance fact. The composite
+      // `(quote, source_path)` key keeps both.
       const current = createEmptyAccumulation();
       current.entities.push({
         name: 'dup-entity',
@@ -348,8 +392,9 @@ describe('Batch Merger — Pure Functions', () => {
 
       const result = mergeBatchResults(current, newBatch);
 
-      expect(result.allEntities[0].mentions_with_provenance).toHaveLength(1);
-      expect(result.allEntities[0].mentions_in_source).toHaveLength(1);
+      const prov = result.allEntities[0].mentions_with_provenance!;
+      expect(prov).toHaveLength(2);
+      expect(prov.map(m => m.source_path).sort()).toEqual(['source-a.md', 'source-b.md']);
     });
 
     it('merges mentions_with_provenance from duplicate concept into existing', () => {

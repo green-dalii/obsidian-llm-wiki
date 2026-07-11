@@ -9,6 +9,7 @@ import {
   SourceAnalysis,
   PageCreationResult,
   LLMClient,
+  MentionWithProvenance,
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { ConflictResolver } from '../core/conflict-resolver';
@@ -21,6 +22,8 @@ import { canonicalizeSectionHeaders, snapHeaderToCanonical } from '../core/secti
 import { parseJsonResponse } from '../core/json';
 import { parseFrontmatter, mergeFrontmatter, enforceFrontmatterConstraints } from '../core/frontmatter';
 import { injectMentionsSection } from '../core/mentions-injector';
+import { parseMentionsSection, stripMentionsSection } from '../core/mentions-parser';
+import { dedupMentionsByProvenanceKey } from '../core/batch-merger';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { normalizeLLMPath } from '../core/prompt-builders';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
@@ -1015,7 +1018,7 @@ export class PageFactory {
         const bodyToWrite = complementaryBody ?? existingBody;
         await this.ctx.createOrUpdateFile(
           path,
-          await this.assembleFinalContent(frontmatter, bodyToWrite, info, sourceFile),
+          await this.assembleFinalContent(frontmatter, bodyToWrite, info, sourceFile, existingBody),
         );
         return path;
       }
@@ -1065,7 +1068,7 @@ export class PageFactory {
     // in assembleFinalContent(), shared with the skip path.
     await this.ctx.createOrUpdateFile(
       path,
-      await this.assembleFinalContent(frontmatter, correctedBody, info, sourceFile),
+      await this.assembleFinalContent(frontmatter, correctedBody, info, sourceFile, existingBody),
     );
     return path;
     } catch (error) {
@@ -1090,24 +1093,61 @@ export class PageFactory {
     body: string,
     info: EntityInfo | ConceptInfo,
     sourceFile: TFile | { path: string; basename: string },
+    // Issue #267 — the existing page body, source of the Mentions accumulated
+    // across every prior source. Merge callers pass it so the injection unions
+    // rather than overwrites; the create path never reaches this method.
+    existingBody: string,
   ): Promise<string> {
     const labels = getSectionLabels(this.ctx.settings);
     const isConv = isConversationSource(sourceFile, this.ctx.settings.wikiFolder);
-    const mergeMentionsForInject = isConv
-      ? []
-      : (info.mentions_with_provenance?.length
-        ? info.mentions_with_provenance
-        : info.mentions_in_source);
-    const bodyWithMentions = injectMentionsSection(
-      body,
-      mergeMentionsForInject,
-      sourceFile.path,
-      {
+
+    if (isConv) {
+      // Conversation sources emit a single citation line (Issue #244); no
+      // cross-source accumulation of verbatim quotes, so nothing to union.
+      const bodyWithMentions = injectMentionsSection(body, [], sourceFile.path, {
         sectionLabel: labels.mentions_in_source,
-        conversationMode: isConv,
+        conversationMode: true,
         conversationLabel: `Conversation: ${sourceFile.basename}`,
-      },
-    );
+      });
+      return `${frontmatter}\n\n${bodyWithMentions}`;
+    }
+
+    // Issue #267 — injectMentionsSection re-emits the section from the array we
+    // hand it, so passing only this source's mentions would drop every earlier
+    // source's. Recover the accumulated mentions from the existing page and
+    // union them with the new source's before injecting.
+    const newMentions: MentionWithProvenance[] = info.mentions_with_provenance?.length
+      ? info.mentions_with_provenance
+      : (info.mentions_in_source ?? []).map(quote => ({
+          quote,
+          source_path: sourceFile.path,
+          source_slug: '',
+          extracted_at: '',
+        }));
+
+    const existing = parseMentionsSection(existingBody, labels.mentions_in_source);
+
+    if (existing.found && !existing.fullyParsed) {
+      // Fail-safe: the existing section has hand-edited or linter-reflowed
+      // lines we cannot structurally parse. Preserve it verbatim rather than
+      // risk dropping curated quotes (the very failure mode #267 is about);
+      // skip this source's mentions merge for this pass.
+      console.warn(
+        `[assembleFinalContent] Mentions section on the existing page for "${info.name}" has hand-edited or unrecognized lines — preserving it verbatim and skipping the mentions merge for ${sourceFile.path} to avoid dropping curated quotes (#267).`,
+      );
+      const stripped = stripMentionsSection(body, labels.mentions_in_source);
+      const preserved = existing.raw
+        ? (stripped ? `${stripped}\n\n${existing.raw}` : existing.raw)
+        : body;
+      return `${frontmatter}\n\n${preserved}`;
+    }
+
+    const unioned = dedupMentionsByProvenanceKey(existing.mentions, newMentions) ?? [];
+    const bodyWithMentions = injectMentionsSection(body, unioned, sourceFile.path, {
+      sectionLabel: labels.mentions_in_source,
+      conversationMode: false,
+      conversationLabel: `Conversation: ${sourceFile.basename}`,
+    });
     return `${frontmatter}\n\n${bodyWithMentions}`;
   }
 
