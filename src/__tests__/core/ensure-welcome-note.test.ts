@@ -271,6 +271,65 @@ describe('ensureWelcomeNote — Tier C (existing wiki)', () => {
   });
 });
 
+describe('ensureWelcomeNote — forceRecreate bypass (v1.24.1 #268)', () => {
+  it('CREATES welcome note when forceRecreate=true even in Tier C vault', async () => {
+    // #268: user-initiated "Recreate Welcome Note" command must bypass
+    // the Tier C silent-upgrade short-circuit. Existing wiki pages stay
+    // untouched; the Welcome note is freshly written.
+    const vault = makeFakeVault({ 'wiki/entities/A.md': '# Existing entity' });
+    const result = await ensureWelcomeNote({
+      vault,
+      settings: { wikiFolder: 'wiki', createWelcomeNote: true },
+      targetLanguage: 'en',
+      createdAt: '2026-06-27',
+      smokeTestProbe: async () => ({ ok: true, provider: 'OpenAI', model: 'gpt-4o-mini' }),
+      forceRecreate: true,
+    });
+    // Tier is still detected correctly (informational; UI may surface it).
+    expect(result.tier).toBe('C-existing-wiki');
+    // Bypass worked: Welcome note was actually written.
+    expect(vault.written.has(TEST_WELCOME_PATH)).toBe(true);
+  });
+
+  it('PRESERVES Tier C short-circuit when forceRecreate is unset/false (regression guard)', async () => {
+    // The first-run onboarding path MUST keep its Tier C silent-upgrade
+    // behavior. forceRecreate is opt-in — the recreateWelcomeNote
+    // command passes it; auto-maintain Phase 0 onload does not.
+    // Mirrors the production destructure default (forceRecreate = false).
+    const vault = makeFakeVault({ 'wiki/entities/A.md': '# Existing entity' });
+    const result = await ensureWelcomeNote({
+      vault,
+      settings: { wikiFolder: 'wiki', createWelcomeNote: true },
+      targetLanguage: 'en',
+      createdAt: '2026-06-27',
+      smokeTestProbe: async () => ({ ok: true, provider: 'OpenAI', model: 'gpt-4o-mini' }),
+      forceRecreate: false,
+    });
+    expect(result.tier).toBe('C-existing-wiki');
+    expect(result.welcomeNotePath).toBeUndefined();
+    expect(vault.written.has(TEST_WELCOME_PATH)).toBe(false);
+  });
+
+  it('respects createWelcomeNote=false EVEN when forceRecreate=true (#268 boundary)', async () => {
+    // forceRecreate bypasses the Tier C short-circuit ONLY — it does NOT
+    // bypass the user-facing `createWelcomeNote` setting. A user who has
+    // turned off the setting globally AND clicks Recreate still gets
+    // nothing — the settings gate is a hard kill switch.
+    const vault = makeFakeVault({ 'wiki/entities/A.md': '# Existing entity' });
+    const result = await ensureWelcomeNote({
+      vault,
+      settings: { wikiFolder: 'wiki', createWelcomeNote: false },
+      targetLanguage: 'en',
+      createdAt: '2026-06-27',
+      smokeTestProbe: async () => ({ ok: true, provider: 'OpenAI', model: 'gpt-4o-mini' }),
+      forceRecreate: true,
+    });
+    expect(result.tier).toBe('C-existing-wiki');
+    expect(result.welcomeNotePath).toBeUndefined();
+    expect(vault.written.has(TEST_WELCOME_PATH)).toBe(false);
+  });
+});
+
 describe('ensureWelcomeNote — return value', () => {
   it('returns the tier that was detected', async () => {
     const vault = makeFakeVault();
