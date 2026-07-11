@@ -63,6 +63,8 @@ export interface EnsureWelcomeNoteArgs {
   llmClient?: LLMClient;
   /** Model name to use for the translation. Required if llmClient is provided. */
   model?: string;
+  /** v1.24.1 #268: bypass the Tier C "wiki exists" short-circuit. recreateWelcomeNote passes true; auto-maintain Phase 0 does not. */
+  forceRecreate?: boolean;
 }
 
 export interface EnsureResult {
@@ -83,7 +85,7 @@ export interface EnsureResult {
 export async function ensureWelcomeNote(args: EnsureWelcomeNoteArgs): Promise<EnsureResult> {
   const {
     vault, settings, targetLanguage, createdAt, smokeTestProbe,
-    llmClient, model,
+    llmClient, model, forceRecreate = false,
   } = args;
 
   // Step 1: probe vault state.
@@ -97,8 +99,10 @@ export async function ensureWelcomeNote(args: EnsureWelcomeNoteArgs): Promise<En
   // traffic on every onload.
   const action = decideOnboardingAction(probe, { llmAvailable: !!llmClient });
   // Step 3: short-circuit when no Welcome note is needed (Tier C, or
-  // Tier A without LLM client).
-  if (!action.shouldCreateWelcomeNote) {
+  // Tier A without LLM client). v1.24.1 #268: `forceRecreate` bypasses
+  // the tier-based "shouldCreateWelcomeNote" decision only — it does
+  // NOT bypass createWelcomeNote=false or smoke-test failure paths.
+  if (!action.shouldCreateWelcomeNote && !forceRecreate) {
     return { tier: action.tier, action };
   }
   // Step 4: respect createWelcomeNote setting.

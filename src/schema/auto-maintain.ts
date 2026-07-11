@@ -611,10 +611,9 @@ export class AutoMaintainManager {
   /**
    * Full ensure-welcome-note pipeline. Used by both createWelcomeNoteAsync
    * (background) and the recreateWelcomeNote command-palette entry
-   * (user-initiated). Synchronous from the caller's perspective: the
-   * caller awaits this Promise.
+   * (user-initiated). forceRecreate=true bypasses the Tier C short-circuit (#268).
    */
-  private async runOnboardingPhase(): Promise<EnsureResult> {
+  private async runOnboardingPhase(forceRecreate = false): Promise<EnsureResult> {
     const vault = this.makeVaultAdapter();
     const llmClient = (this.plugin as unknown as { llmClient: LLMClient | null }).llmClient;
     return ensureWelcomeNote({
@@ -630,6 +629,7 @@ export class AutoMaintainManager {
       smokeTestProbe: async () => this.probeLlm(),
       llmClient: llmClient ?? undefined,
       model: resolveModelForTask(this.settings, 'ingest'),
+      forceRecreate,
     });
   }
 
@@ -665,7 +665,7 @@ export class AutoMaintainManager {
         }
       }
     }
-    const result = await this.runOnboardingPhase();
+    const result = await this.runOnboardingPhase(true);
     if (result.welcomeNotePath) {
       // Show a 5s auto-dismissing confirmation (NOT 0 — that would be
       // sticky). Use NOTICE_NORMAL for transient feedback.
