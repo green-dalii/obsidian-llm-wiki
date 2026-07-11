@@ -6,110 +6,11 @@
 
 ## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.24.1 PATCH in flight (target TBD)
 
-### In Flight (v1.24.1) — PATCH scope (target TBD)
+**v1.24.1 PATCH execution plan lives in [ROADMAP.md](./ROADMAP.md#v1241-patch--execution-plan)** (4 fixes, ordered by ROI + dependency). Out of scope for v1.24.1 documented there as well (deferred to v1.24.2 / v1.25.0).
 
-User-reported Windows bug from 2026-07-10:
+### Withdrawn / non-issues (kept for archaeology)
 
-- **DeepSeek / GLM / 兼容接口 `Connection test failed: TypeError: Failed to construct 'Headers': String contains non ISO-8859-1 code point`** — likely root cause: API key input contains non-ASCII chars (Chinese IME residue / trailing whitespace / Chinese punctuation) → AI-SDK `withUserAgentSuffix` builds `Authorization: Bearer <key>` → `new Headers()` throws (latin1 default). GLM 401 = real token expiry. AI-SDK 5.0.53 added a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix. Proposed fixes (NOT yet acted on): A — Settings apiKey input sanitization + user-facing Notice. B — Map SDK `Headers` TypeError to a readable message. C — Pre-set ASCII-safe `User-Agent` header in our SDK clients to bypass the AI-SDK Windows bug entirely.
-
-### Completed (v1.24.0) — MINOR (2026-07-10)
-
-Two PRs (#262 + #264) shipped #208; four monolith splits landed during the cycle (#257 / #248 / #249 / #250, plus LintFixer false-backlog item retired). **1825 tests passing** across 132 files. New optional settings: `ingestModel` / `lintModel` / `queryModel` / `usePerTaskModels` / `*UseCustom` / `customQueryInstructions`. New manifest field: `fundingUrl`.
-
-- ✅ **#208 Per-task Models** (PR #262 + #264, two-PR strategy) — settings UI + Test Connection multi-probe + 28 call sites routed through `resolveModelForTask` + console debug logs at 6 sites. Backward-compatible: empty per-task field falls back to `settings.model`.
-- ✅ **#251 Custom Query Instructions** (`jameses-cyber`, 2026-07-07) — collapsible panel inside Query Wiki view, 5000-char defensive cap, strictly Query-Wiki-scoped. UI = query-local panel (per user review, NOT Settings).
-- ✅ **modals.ts (PR #257, 1008 LOC)** → `src/ui/modals/` (7 files) — P0 monolith split.
-- ✅ **controller.ts (PR #248)** — `runLintWiki` god function → 3 LLM phase modules.
-- ✅ **history-modal.ts (PR #249, 1579 LOC)** → `src/ui/history-modal/` (14 files, 93 tests).
-- ✅ **query-engine.ts (PR #250, 1373 LOC)** → `src/wiki/query-engine/` (15 files).
-- ✅ **#185 source-note aliases propagation** (PR #261) — frontmatter `aliases:` flow into `sources/<slug>` pages.
-- ✅ **#216 Tier-1 + Tier-2 merge triage** (PR #259, `DocTpoint`) — classify-then-route duplicate-bypass.
-- ✅ **Empty-line fix** (PR #260) — `## 相关实体` / `## 相关概念` per-section append uses single blank-line separator.
-- ✅ **Bug A/B/B+/C Query Wiki fixes** (`305f601` + `1d943ea`) — engine-level PPR graph warmup + transient-retry helper + system field for JSON mode + wikiFolder propagation.
-- ✅ **Frontmatter write repair** (`1d943ea`) — 4 user-reported bugs fixed: `aliases:[]` detection, duplicate-aliases collapse, block-style preservation, failure logging.
-- ✅ **`fundingUrl` added** (`manifest.json`) — `https://ko-fi.com/greenerdalii`, [Obsidian spec](https://docs.obsidian.md/Reference/Manifest#fundingUrl).
-- ✅ **Retrieval label human-readable + persistence** (`b46f7b1` + `81813ae`) — "Found N page(s)"; persisted across view re-open.
-
-**v1.24.0 test count:** 1744 → 1825 (+81 across the cycle). 132 test files.
-
-### Discussion-only (NOT in v1.24.0+ immediate scope)
-
-- **#213 configurable page categories** — user instruction 2026-06-30.
-- **#169 live preview of generated wiki files + sound / log-file per-task** — v1.25.0+ research scope.
-- **#220 — Source-revision awareness for merge** (`DocTpoint`'s 4-tier design). Tier 0 fingerprint + replace self-revision; Tier 1 `supersedes:` frontmatter flag. Prerequisite: open Discussion thread on fingerprint function design.
-- **#218 — PDF source ingest** (Discussion #222 topology).
-- **Hub-retirement lint wire-up** — `core/hub-retirement.ts` (0 callers) → wire `assessHubs` into lint path. Owned by `DocTpoint`.
-- **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
-- **LintFixer → module-level functions split** — **DELETED 2026-07-07** as false backlog item (god class already split in v1.19.0).
-
-### v1.23.2 — Bug fixes + Refactor + UX polish (2026-07-05, PATCH)
-
-Five merged PRs (#239 + #240 + #238 + #241). **1431 tests passing** across 108 files. License upgraded to Apache 2.0 + DCO.
-
-- ✅ **#234 sources/ candidate isolation** — `buildPagesListForPrompt` excludes sources/ by default; constraints prompt cross-references the candidate list.
-- ✅ **Graph cache invalidation** — `QueryView.invalidateGraph()` + `onIngestDoneDispatch` walks every VIEW_TYPE_QUERY leaf.
-- ✅ **Streaming-preserving client wrapper** — `Object.create(client)` preserves prototype chain; eliminates the v1.23.0-era streaming regression.
-- ✅ **Frontmatter serializer consolidation (`DocTpoint`, PR #238)** — `mergeFrontmatter`/`enforceFrontmatterConstraints`/`mergeDuplicatePages` delegate to a single `serializeFrontmatter` writer.
-- ✅ **Section header canonicalizer (`DocTpoint`, PR #241)** — `core/section-header-canonicalizer.ts`: bounded Levenshtein snaps LLM-garbled headers back to canonical labels on write.
-- ✅ **#219 semantic-driven notification rewrite** — `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`. No new setting.
-- ✅ **#221 Query turn indicator** — `wiki/turn-indicator.ts`: right-edge vertical dots, IntersectionObserver, hover tooltip, click-to-scroll.
-- ✅ **Clickable retrieval label** — `🔍 N page(s) · …` toggles inline page-list panel.
-- ✅ **Lint completion Notice TTLs** — all `run*Fixes` use `NOTICE_NORMAL`/`NOTICE_ERROR`.
-- ✅ **License upgrade** — MIT → Apache 2.0 + DCO. NOTICE file lists all 6 human code contributors.
-
-**v1.23.2 test count:** 1431 tests → 1616 tests (3 monolith split PRs added ~90 tests for controller.ts/#248, history-modal.ts/#249, query-engine.ts/#250). 115 test files.
-
-- v1.23.0 (2026-07-02, MINOR) — Graph Engine PPR + Vercel AI-SDK v6 + Multi-File Ingest + Sponsor section. 1376 tests. Closes #117/#130/#137/#141/#143/#147/#157/#175/#198/#204/#215/#223.
-- v1.22.6 (2026-06-30, hotfix) — #204 Auto Ingest modal + Auto Smart Fix context-aware + #207 GPT-5 Pro variants routing. 1118 tests.
-- v1.22.5 (2026-06-29) — Responses API path for reasoning model family (#207 follow-up) + provider body in Notice. 1104 tests.
-- v1.22.4 (2026-06-27, PATCH) — GPT-5.x probe-then-cache (Closes #207) + provider error UX. 1076 tests.
-- v1.22.0 (2026-06-23, MINOR) — Schema one-click apply (#97) + dynamic tag sync + zh-Hant + ingest status bar. 1006 tests.
-
-**v1.23.0 risk register:**
-- Bundle size 1.24 MB → 3.17 MB (user accepted 2026-06-29, monitor CDN experience)
-- #213 (configurable page categories): **Discussion-only, NOT confirmed for any minor release** per user instruction 2026-06-30.
-- #207 close: separate commit `Closes #207` (user-confirmed 2026-07-02, not part of v1.23.0/1.23.1)
-
-**Deferred to v1.23.2+:**
-- #219/#221 → v1.23.2 PATCH (deferred from v1.23.1 which was consumed by the review hotfix)
-- #218 PDF source ingest → Discussion #222 topology
-- #220 Source-revision awareness → needs Discussion on fingerprint function design
-- Hub-retirement lint wire-up (`core/hub-retirement.ts` 0 callers → wire `assessHubs` into lint path) — owned by @DocTpoint
-- #36 source-title-in-extraction (low ROI vs PPR cascade)
-- LintFixer class → module-level functions (707-LOC god class split, 1 day)
-- knn + cascade by-query-type complement (DocTpoint #198 follow-up, 2026-06-30)
-
-**Deferred to v1.24.0+:**
-
-With 3 monolith splits (controller.ts/#248 ✅, history-modal.ts/#249 ✅, query-engine.ts/#250 ✅) done, remaining items in the v1.24.0 backlog:
-
-- **LintFixer → module-level functions** (707-LOC god class split, ~1 day) — the next monolith split candidate.
-- **#220 Source-revision awareness** (Discussion thread needed first)
-- **#218 PDF source ingest** → Discussion #222 topology
-- **Hub-retirement lint wire-up** (`core/hub-retirement.ts` 0 callers, post-#215)
-- **#36 source-title-in-extraction** (low ROI vs PPR cascade)
-- **knn + cascade by-query-type complement** (DocTpoint #198 follow-up, 2026-06-30)
-- **#169 estimated-time-remaining** — velocity window + batch telemetry; needs tracking issue.
-
-**Non-blocking i18n altitude items (deferred from PR #250 code-review, **APPROVED FOR P1** — see `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.0_remaining_split_roi.md`):**
-- Hardcoded '🤖 Wiki' / '👤 You' assistant labels in `history-message.ts` and `QueryView-class.ts`
-- Hardcoded 'page(s)' pluralization in `retrieval-label.ts`
-- `as unknown as Record<string, string>` TEXTS casts (7 sites) — type safety debt
-
-**Approved monolith-split remaining (Q3 2026 backlog):**
-- **P0: `src/ui/modals.ts` → `src/ui/modals/` (7 modal classes, 1008 LOC, 0.5 day)** — highest ROI after #248/#249/#250 series
-- **P2: `src/wiki/wiki-engine.ts` (1391 LOC, `WikiEngine` god class, 44 methods × 20+ fields, 2-3 days)** — main v1.24.0 MINOR candidate
-- **P3: `src/schema/auto-maintain.ts` (756 LOC, 4 lifecycle intertwining, 1-1.5 days)** — post v1.24.0 MINOR
-
-**明确不做 (false backlog items / Obsidian lifecycle / low ROI):**
-- ❌ `src/main.ts` (1106 LOC) — `class LLMWikiPlugin extends Plugin` 是 Obsidian lifecycle 入口，**永远不应该拆**
-- ❌ `src/wiki/lint/fix-runners.ts` (500 LOC) — 500 LOC 期望边界内，非 god class
-- ❌ `src/core/` 平铺 (51 files / 9200 LOC) — 49 个文件内期望边界，重新组织 ROI 低、caller 调整风险高
-
-**Deferred to v1.25.0+ (research / experimental):**
-- Cold-start vocabulary seeding — rejected on ROI grounds (cascade R@5 27.1% vs knn 24.1% = 3pp gap).
-- Hub-retirement LLM signal
-- #169 ETR (estimated time remaining) implementation
+- **Windows: `Connection test failed: TypeError: Failed to construct 'Headers'`** — withdrawn 2026-07-10 (user input error: non-ASCII chars in API key field; not a plugin/AI-SDK bug). AI-SDK 5.0.53 has a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix; not worth patching given root cause is user-side.
 
 ---
 
@@ -129,7 +30,7 @@ Every change must pass all six gates before being considered complete. Gates 1-4
 | **2. No side effects** | Call-site audit + data flow trace + state mutation check + error propagation check | Structured review | Developer |
 | **3. No breaking changes** | API/Schema/File format/Default behavior/Command IDs/Obsidian API all backward-compatible | Breaking-change matrix | Developer |
 | **4. No performance regression** | CPU/memory/IO/network/token usage — 5-dim walkthrough, written assessment table | simplify + code-review + Gate 4 table | Developer |
-| **5. Docs complete** | 9 READMEs + ROADMAP + CLAUDE.md + CHANGELOG + memory all updated | pre-release-gate | Gate |
+| **5. Docs complete** | 10 READMEs (EN + 9 i18n) + ROADMAP + CLAUDE.md + CHANGELOG + memory all updated | pre-release-gate | Gate |
 | **6. Release clean (superset of 1-5)** | Gate 1-5 all green, PLUS TOC anchors + localization + Release Notes + Contributors + git hygiene + **Gate 4 perf re-verification** | pre-release-gate | Gate |
 
 ### Gate 1: Five-Gate automated
@@ -499,7 +400,7 @@ For any new function or behavior change: write a failing test first, then write 
 | **ROADMAP.md** | Planning | Next Milestone / Version Timeline (condensed) / Deferred & Backlog | Per-version detail (use CHANGELOG) |
 | **CHANGELOG.md** | History (Keep a Changelog) | Per-version Added/Changed/Fixed/Removed — ancient versions are pre-aggregated, **do not re-merge** | Forward-looking plans, dev standards |
 | **CONTRIBUTING.md** | Contributor guide | Project structure tree, architecture, Mermaid, dev setup | User docs, design philosophy |
-| **9 READMEs** | User docs | Features / Quick Start / FAQ / What's New | Implementation details, internal version numbers |
+| **10 READMEs (EN + 9 i18n)** | User docs | Features / Quick Start / FAQ / What's New | Implementation details, internal version numbers |
 | **memory/** | Session-persistent lessons | [[feedback-*]] (rules) + [[project-*]] (current state) | Code references that drift (use code comments) |
 
 **Cross-reference format:** `[section](./OTHER.md#anchor)` — keep one canonical source, link to it.
