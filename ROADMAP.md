@@ -2,11 +2,29 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 in flight (target TBD) | **Updated:** 2026-07-12
+**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 PATCH Phases 1-4 merged 2026-07-12 (Phases 5-7 in flight) | **Updated:** 2026-07-12
 
 ## Current Status
 
-**v1.24.0 — RELEASED 2026-07-10.** MINOR scope. Per-task model routing (#208), Custom Query Instructions (#251), four monolith splits (PR #248/#249/#250/#257), source-note aliases propagation (#185), frontmatter write repair (4 user-reported bugs), Tier-1+Tier-2 merge triage (#216), engine-level PPR graph warmup. 1825 tests passing. New optional settings: `ingestModel`, `lintModel`, `queryModel`, `usePerTaskModels`, `*UseCustom`, `customQueryInstructions`. New manifest field: `fundingUrl`.
+**v1.24.0 — RELEASED 2026-07-10.** MINOR scope. (unchanged; see full text below)
+
+**v1.24.1 — RELEASED 2026-07-12.** PATCH scope. 4 merged PRs + Bedrock Stage 1. 1953 tests passing.
+
+### v1.24.1 composition
+
+- ✅ **PR #271 (Phase 1)** — Fix #1 #268 Tier C forceRecreate bypass (`DocTpoint`).
+- ✅ **PR #276 (Phase 2)** — page-factory.ts 1297-LOC god-class → 10 module files + facade + 99 unit tests (`green-dalii`).
+- ✅ **PR #277/280 (Phase 3)** — Bedrock Stage 1 via bedrock-mantle. New providers `bedrock-anthropic` + `bedrock-openai`. 18-region dropdown. ~+3 KB bundle. Zero new npm deps (`green-dalii`, design based on dmsessions PR #263).
+- ✅ **PR #269/272 (Phase 4)** — LM Studio no-key ingest fix (`rkuzmin`).
+- 🟡 **PR #281 (Phase 5, in progress)** — parseJsonResponse quiet path + max_tokens 1000 raise (3 sites: seed-selector + fix-runners alias + fix-runners tags) — NO `disableThinking` injection (user decision 2026-07-12).
+- 🟡 **PR #282 (Phase 6, planned)** — #258 entities-page duplicate-info section suppressor (`green-dalii`).
+- ⏳ **Phase 7** — v1.24.1 release workflow: version bump, CHANGELOG, README ×10, ROADMAP sync, pre-release-gate, tag.
+
+### Deferred from v1.24.1 PATCH
+
+- **#275 (deepseek seed-selector empty body)** — root cause addressed in Phase 5 (max_tokens 200→1000). Streaming-mode port deferred to v1.24.2 Fix #0.
+- **Windows `Headers` TypeError** — withdrawn 2026-07-10 (user input error: non-ASCII in API key; not a plugin bug).
+- **PR #263 Bedrock Stage 2/3** — SSO/profile-mode + Converse protocol. Stage 2 triggers at 3+ user requests; Stage 3 at 5+ enterprise requests.
 
 **v1.24.0 release composition:**
 - ✅ PR #248 — `controller.ts` `runLintWiki` god function → 3 LLM phase modules.

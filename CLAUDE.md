@@ -1,12 +1,21 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-10
+**Last Updated:** 2026-07-12
 
 ---
 
-## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.24.1 PATCH in flight (target TBD)
+## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.24.1 PATCH Phases 1-4 merged (2026-07-12), Phases 5-7 in flight
 
-**v1.24.1 PATCH execution plan lives in [ROADMAP.md](./ROADMAP.md#v1241-patch--execution-plan)** (4 fixes, ordered by ROI + dependency). Out of scope for v1.24.1 documented there as well (deferred to v1.24.2 / v1.25.0).
+**v1.24.1 PATCH status (5 PRs merged on main between 2026-07-11 and 2026-07-12):**
+- ✅ Phase 1 (#271): Fix #1 #268 Tier C forceRecreate bypass
+- ✅ Phase 2 (#276): page-factory.ts 1297-LOC god-class split (10 modules + 99 tests)
+- ✅ Phase 3 (#277): Bedrock Stage 1 via bedrock-mantle (~+3 KB, zero new npm deps)
+- ✅ Phase 4 (#269): #272 LM Studio no-key ingest fix
+- 🟡 Phase 5 (in progress): parseJsonResponse quiet path + max_tokens 1000 raise (3 sites)
+- 🟡 Phase 6 (planned): #258 entities-page duplicate-info section suppressor
+- ⏳ Phase 7 (release): version bump + 10 READMEs + CHANGELOG + tag
+
+Full composition + execution plan: [ROADMAP.md](./ROADMAP.md#v1241-composition)
 
 ### Withdrawn / non-issues (kept for archaeology)
 
