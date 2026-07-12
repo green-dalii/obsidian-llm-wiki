@@ -243,6 +243,11 @@ export const JA_TEXTS = {
     anthropicSDK: 'Anthropic SDK',
     openaiSDK: 'OpenAI SDK',
 
+    // v1.24.1 PATCH Bedrock Stage 1
+    bedrockRegionName: 'AWS リージョン',
+    bedrockRegionDesc: 'このアカウントの Amazon Bedrock リージョン。bedrock-mantle エンドポイントの URL を決定し、baseURL で上書きできません。',
+    bedrockRegionHint: 'bedrock-mantle は 18 リージョンで利用可能。モデル対応はリージョンごとに異なります。',
+
     // Other
     availableModelsLoading: '利用可能なモデルを読み込み中...',
     noModelsAvailable: '利用可能なモデルがありません',

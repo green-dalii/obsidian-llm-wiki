@@ -134,6 +134,13 @@ export interface LLMWikiSettings {
   wikiFolder: string;
   language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it';
   wikiLanguage: string;
+  /**
+   * v1.24.1 PATCH Stage 1 — AWS region used by both Bedrock providers. Only
+   * applied when provider is `bedrock-anthropic` or `bedrock-openai`. Falls
+   * back to `us-east-1` (broadest model coverage) when unset. Always a
+   * region string (e.g. "us-east-1"), not a URL component.
+   */
+  bedrockRegion?: string;
   useCustomWikiLanguage?: boolean;
   availableModels?: string[];
   useCustomModel?: boolean;
@@ -612,6 +619,34 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholderZh: '...',
     requiresBaseUrl: false
   },
+  // v1.24.1 PATCH Bedrock Stage 1 — reuses AnthropicSdkClient via the
+  // bedrock-mantle endpoint (Bearer auth, no AWS SDK). baseUrl is filled
+  // dynamically by createLLMClientFromSettings based on `bedrockRegion`.
+  'bedrock-anthropic': {
+    id: 'bedrock-anthropic',
+    name: 'Amazon Bedrock (Anthropic via mantle)',
+    nameEn: 'Amazon Bedrock (Anthropic via mantle)',
+    nameZh: 'Amazon Bedrock（Anthropic via mantle）',
+    baseUrl: '',  // Resolved at runtime from bedrockRegion (see constants.ts)
+    apiKeyPlaceholder: 'ABSK... (Bedrock bearer key)',
+    apiKeyPlaceholderEn: 'ABSK... (Bedrock bearer key)',
+    apiKeyPlaceholderZh: 'ABSK...（Bedrock bearer key）',
+    requiresBaseUrl: false
+  },
+  // v1.24.1 PATCH Bedrock Stage 1 — reuses OpenAICompatSdkClient via
+  // bedrock-mantle /v1 chat-completions. Same bearer auth as Bedrock-
+  // Anthropic; region is resolved at runtime from `bedrockRegion`.
+  'bedrock-openai': {
+    id: 'bedrock-openai',
+    name: 'Amazon Bedrock (OpenAI via mantle)',
+    nameEn: 'Amazon Bedrock (OpenAI via mantle)',
+    nameZh: 'Amazon Bedrock（OpenAI via mantle）',
+    baseUrl: '',  // Resolved at runtime from bedrockRegion
+    apiKeyPlaceholder: 'ABSK... (Bedrock bearer key)',
+    apiKeyPlaceholderEn: 'ABSK... (Bedrock bearer key)',
+    apiKeyPlaceholderZh: 'ABSK...（Bedrock bearer key）',
+    requiresBaseUrl: false
+  },
   ollama: {
     id: 'ollama',
     name: 'Ollama (Local)',
@@ -728,4 +763,9 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // compatible). Stored in data.json alongside queryHistory. Scoped
   // strictly to Query Wiki chat; no other workflow is affected.
   customQueryInstructions: '',
+
+  // v1.24.1 PATCH Bedrock Stage 1 — default region is the broadest-coverage
+  // region (us-east-1). Only consulted when provider is one of the two
+  // bedrock-* provider ids. Has no effect on other providers.
+  bedrockRegion: 'us-east-1',
 };

@@ -242,6 +242,11 @@ export const ZH_HANT_TEXTS = {
     anthropicSDK: 'Anthropic SDK',
     openaiSDK: 'OpenAI SDK',
 
+    // v1.24.1 PATCH Bedrock Stage 1
+    bedrockRegionName: 'AWS 區域',
+    bedrockRegionDesc: '本帳號所在的 Amazon Bedrock 區域。驅動 bedrock-mantle 端點 URL；不能透過 baseURL 覆寫。',
+    bedrockRegionHint: 'bedrock-mantle 在 18 個區域可用；各區域模型覆蓋範圍不同。',
+
     // 其他
     availableModelsLoading: '載入可用模型...',
     noModelsAvailable: '無可用模型',
