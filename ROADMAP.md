@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 in flight (target TBD) | **Updated:** 2026-07-10
+**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 in flight (target TBD) | **Updated:** 2026-07-12
 
 ## Current Status
 
@@ -141,14 +141,16 @@ GitHub milestone: https://github.com/green-dalii/obsidian-llm-wiki/milestone/6
 
 ### Execution sequence (4 fixes, ordered by ROI + dependency)
 
-#### Fix #1 — #268 Tier C `forceRecreate` bypass (immediate, green-dalii)
+#### Fix #1 — #268 Tier C `forceRecreate` bypass ✅ SHIPPED (PR #271)
 
 **Root cause** (verified): `recreateWelcomeNote` command and `ensureWelcomeNote` short-circuit `shouldCreateWelcomeNote=false` for Tier C users (vault already has wiki pages) → `welcomeNotePath` undefined → "Willkommen-Notiz wurde nicht neu erstellt" Notice. The German error message misleadingly says "LLM configuration" but LLM is fine; the real cause is tier-based short-circuit, not LLM config.
 
-**Fix scope** (+5 LOC, ~30 LOC test, 10 locales i18n):
+**Fix scope** (+5 LOC, ~30 LOC test):
 - `src/core/ensure-welcome-note.ts` — `EnsureWelcomeNoteArgs` adds `forceRecreate?: boolean`; Step 3 short-circuit becomes `if (!action.shouldCreateWelcomeNote && !forceRecreate)`
 - `src/schema/auto-maintain.ts` — `recreateWelcomeNote()` passes `forceRecreate: true` to `runOnboardingPhase()`
-- `src/texts/<locale>.ts` — `welcomeNoteNotRecreated` text corrected (e.g., German: "Wiki-Voraussetzungen nicht erfüllt (Tier C) — siehe Tier-Diagnose.")
+- i18n deferred to v1.24.1 release workflow (kept EN.ts fallback)
+
+**Status**: PR #271 merged 2026-07-11 (commit `45d8b32`).
 
 **Branch**: `fix/welcome-recreate-tier-c-bypass`
 
@@ -235,19 +237,81 @@ GitHub milestone: https://github.com/green-dalii/obsidian-llm-wiki/milestone/6
 
 **Memory**: [`project_v1.24.1_bedrock_stage1.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.1_bedrock_stage1.md) — full design rationale + coverage matrix + bundle math.
 
+#### Fix #5 — `page-factory.ts` 1297-LOC god-class split (immediate, green-dalii)
+
+**Rationale**: Forward-ported from v1.24.2 P0 per third-party audit recommendation (2026-07-11). The file hosts `assembleFinalContent` (touched by PR #269 + planned by #220/#224) — splitting it now reduces merge-conflict surface area for the upcoming v1.25.0 work.
+
+**Fix scope** (~50 LOC net, 99 new unit tests):
+```
+src/wiki/page-factory/
+  index.ts                — PageFactory facade (preserves public API)
+  contextualize.ts        — 5 module-level helpers
+  aliases.ts              — appendAliases
+  mentions-integration.ts — assembleFinalContent (PR #269 hardened)
+  path-resolution.ts      — resolvePagePath + buildPagesListForPrompt
+  merge-triage.ts         — classifyMergeNeed + buildNewInfoSummary
+  complementary-appends.ts — 8 helpers (4-layer section anchor fallback
+                             + Tier-2 per-section appends, #216)
+  merge-page.ts           — mergePage + appendToReviewedPage
+  related-page.ts         — updateRelatedPage (3-branch routing)
+  create-page.ts          — 4 functions (createNewPage +
+                             createOrUpdateEntity/Concept/Page router)
+```
+
+**Branch**: `refactor/page-factory-split` (commit `6dadf18`)
+
+**Verification**:
+- 99 new unit tests in `src/__tests__/wiki/page-factory/*.test.ts`
+- All 1947 tests pass (was 1848 pre-Phase 2; +99 module tests)
+- Gate 1 clean (lint 0/0, tsc 0, build OK)
+- Existing callers (`wiki-engine.ts`, `conversation-ingest.ts`) unchanged — facade preserves public API
+- Existing integration tests (`page-factory-{core,merge-triage,complementary-append,list-section-no-blank,sources-filter}.test.ts`) unchanged — facade exposes `@internal` delegate methods for `HelperAccess` casts
+
+**Simplify + code-review** (Phase 2 P2.11): 3 parallel agents (reuse / quality / efficiency) flagged 18+ findings; applied 5 high-value fixes:
+- Use sibling `isConversationSource` helper in `mentions-integration.ts` (was inlined; split-introduced duplication)
+- Deduplicate `ComplementaryItem` interface (single source of truth in `merge-triage.ts`)
+- Remove dead `snapHeaderImport` wrapper (call `snapHeaderToCanonical` directly)
+- Unify `LLMClient` type across all context interfaces
+- Derive `MERGE_STRATEGIES` from the `MergeStrategy` union literal
+
+Pre-existing duplication carried over from the god class (regex escapers in 6 files, polluted-title predicate in 3 places) intentionally NOT consolidated — out of scope for this pure refactor.
+
+#### Fix #6 — LM Studio ingest without API key (#272, rkuzmin)
+
+**Rationale**: LM Studio (local OpenAI-compatible provider) accepts an empty API key, but the plugin's `initializeLLMClient` only exempted `ollama`. LM Studio users could pass Test Connection with an empty key, but Ingest still showed `errorNoApiKey`.
+
+**Fix scope** (~25 LOC + 9 tests):
+- New `src/core/local-no-key-provider.ts` — centralized `allowsEmptyApiKey(provider, apiKey)` helper
+- `src/main.ts` — 3 sites use the helper (`initializeLLMClient`, `llmReady` migration, `testLLMConnection`)
+- `src/schema/auto-maintain.ts` — `probeLlm` uses `isLocalNoKeyProvider` for the empty-key guard
+
+**Branch**: `fix/lmstudio-init-no-key` (rkuzmin)
+
 ### Not in v1.24.1
 
 - **#258** (cosmetic P2 — `createNewPage` non-schema section drift) — defer
 - **#255** (Lint console noise — needs user detail on which fix-runner) — defer to v1.24.2
 - **Windows Headers TypeError** — withdrawn (user input error, not plugin bug)
-- **#220 + #224** (Source-revision / fingerprint / 3-class contradiction) — moved to **v1.25.0 MINOR** scope; prerequisite: v1.24.1 #267 ships (✅ DocTpoint PR #269 ready) + page-factory.ts split (v1.24.2)
+- **#220 + #224** (Source-revision / fingerprint / 3-class contradiction) — moved to **v1.25.0 MINOR** scope; prerequisite: v1.24.1 #267 ships (✅ DocTpoint PR #269 ready) + page-factory.ts split (✅ Fix #5 in this PATCH)
 - **#218 PDF source ingest Tier 1** (topology A + Path 1 native LLM read) — moved to **v1.25.0 MINOR** scope; see v1.25.0 Execution Plan below
+- **#275 — `selectSeedsWithLLM` empty body with deepseek-v4-pro + json_object + thinking** (2026-07-12) — PPR fallback to lex. Workaround: disable thinking in settings. Proposed fix: switch `selectSeedsWithLLM` to streaming + parse first stop chunk. Out of scope for v1.24.1 PATCH (independent bug, page-factory unaffected — `seed-selector.ts` mtime = Jul 10 pre-refactor). **Defer to v1.24.2 or later.**
 
 ## v1.24.2 PATCH — Code Health (target TBD)
 
 GitHub milestone: not yet created (open when v1.24.1 ships)
 
-**Theme**: Code health PATCH addressing the most acute debt identified by 2026-07-11 third-party audit + the changes #267 / #220 are about to make against `page-factory.ts` (now 1252 LOC, the new largest god-file candidate).
+**Theme**: Code health PATCH addressing the most acute debt identified by 2026-07-11 third-party audit + the changes #267 / #220 are about to make against `page-factory.ts` (now split in v1.24.1 into 10 module-level files).
+
+### Fix #0 — `#275 selectSeedsWithLLM` empty body with deepseek-v4-pro + json_object + thinking (P0, green-dalii)
+
+**Root cause** (verified 2026-07-12): When DeepSeek-V4 returns `response_format: { type: 'json_object' }` non-streaming with thinking enabled and `max_tokens: 200`, the response body is empty (length=0). Streaming chat works fine. Affects `selectSeedsWithLLM` → PPR cascade falls back to lex-only (`arm: index`).
+
+**Fix shape** (~30 LOC):
+- Switch `selectSeedsWithLLM` (`src/wiki/query-engine/pipeline/seed-selector.ts:81-110`) to streaming mode
+- Collect chunks; parse JSON from the first `finish_reason: 'stop'` chunk
+- Adds resilience against the deepseek-v4-pro + json_object quirk regardless of provider tweaks
+
+**Branch**: `fix/seed-selector-streaming-mode`
 
 ### Fix #1 — `QueryView.sendMessage()` 501-line god-method split (P0, green-dalii)
 
