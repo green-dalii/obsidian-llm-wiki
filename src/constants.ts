@@ -273,6 +273,61 @@ export const LINT_YIELD_EVERY_COMPARISON = 500;
 /** Batch size for vault reads during lint preparation. */
 export const LINT_PREP_BATCH_READ = 200;
 
+// ============================================================================
+// Amazon Bedrock Stage 1 (v1.24.1 PATCH) — bedrock-mantle endpoint
+// ============================================================================
+
+/**
+ * AWS regions where Amazon Bedrock is currently available.
+ * Source: https://docs.aws.amazon.com/bedrock/latest/userguide/models-regions.html
+ * Stage 1 supports 18 regions via the unified bedrock-mantle endpoint (no
+ * regional variant suffix needed for Messages / Chat Completions endpoints).
+ */
+export const BEDROCK_REGIONS = [
+  'us-east-1',
+  'us-east-2',
+  'us-west-1',
+  'us-west-2',
+  'eu-west-1',
+  'eu-west-2',
+  'eu-west-3',
+  'eu-central-1',
+  'eu-central-2',
+  'eu-north-1',
+  'eu-south-1',
+  'ap-northeast-1',
+  'ap-northeast-2',
+  'ap-southeast-1',
+  'ap-southeast-2',
+  'ap-south-1',
+  'ca-central-1',
+  'sa-east-1',
+] as const;
+
+export type BedrockRegion = typeof BEDROCK_REGIONS[number];
+
+/** Default region if user has not selected one. us-east-1 has the broadest model coverage. */
+export const BEDROCK_DEFAULT_REGION: BedrockRegion = 'us-east-1';
+
+/**
+ * Returns the bedrock-mantle Anthropic Messages baseURL for the given region.
+ * Per https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-mantle.html
+ * the endpoint is region-scoped; bearer auth only; body schema is identical
+ * to api.anthropic.com.
+ */
+export function bedrockMantleMessagesUrl(region: BedrockRegion): string {
+  return `https://bedrock-mantle.${region}.api.aws`;
+}
+
+/**
+ * Returns the bedrock-mantle OpenAI Chat Completions baseURL for the given
+ * region. Same host as Messages, but the chat completions protocol lives
+ * at the `/v1` prefix.
+ */
+export function bedrockMantleChatCompletionsUrl(region: BedrockRegion): string {
+  return `https://bedrock-mantle.${region}.api.aws/v1`;
+}
+
 /**
  * Per-candidate token estimate for duplicate-detection prompt budget.
  * Each candidate ≈ 120 chars ≈ 30 tokens.

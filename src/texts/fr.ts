@@ -245,6 +245,11 @@ export const FR_TEXTS = {
     anthropicSDK: 'SDK Anthropic',
     openaiSDK: 'SDK OpenAI',
 
+    // v1.24.1 PATCH Bedrock Stage 1
+    bedrockRegionName: 'Région AWS',
+    bedrockRegionDesc: 'Région Amazon Bedrock pour ce compte. Détermine l\'URL du point de terminaison bedrock-mantle ; ne peut pas être remplacée via baseURL.',
+    bedrockRegionHint: 'bedrock-mantle est disponible dans 18 régions ; la couverture des modèles varie selon la région.',
+
     // Other
     availableModelsLoading: 'Chargement des modèles disponibles...',
     noModelsAvailable: 'Aucun modèle disponible',

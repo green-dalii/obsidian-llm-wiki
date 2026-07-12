@@ -5,6 +5,7 @@ import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl, BaseComponen
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from '../types';
 import { TEXTS } from '../texts';
+import { BEDROCK_REGIONS, BEDROCK_DEFAULT_REGION } from '../constants';
 import { FolderSuggestModal } from './modals';
 import { HistoryModal } from './history-modal';
 import { classifyFetchError } from './settings-helpers';
@@ -311,6 +312,8 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     const providerConfig = PREDEFINED_PROVIDERS[this.tempSettings.provider];
     const isOllama = this.tempSettings.provider === 'ollama';
     const isLmStudio = this.tempSettings.provider === 'lmstudio';
+    const isBedrock = this.tempSettings.provider === 'bedrock-anthropic'
+      || this.tempSettings.provider === 'bedrock-openai';
 
     // Provider Dropdown
     new Setting(containerEl)
@@ -371,6 +374,32 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           .setPlaceholder(providerConfig?.baseUrl || 'https://api.example.com/v1')
           .setValue(this.tempSettings.baseUrl)
           .onChange((value) => { this.tempSettings.baseUrl = value; this.tempSettings.llmReady = false; }));
+    }
+
+    // v1.24.1 PATCH Bedrock Stage 1 — region selector (only when provider
+    // is one of the two bedrock-* ids). Region drives the baseURL the
+    // factory resolves; the user does NOT edit baseURL for Bedrock.
+    if (isBedrock) {
+      const currentRegion = this.tempSettings.bedrockRegion || BEDROCK_DEFAULT_REGION;
+      new Setting(containerEl)
+        .setName(this.getText('bedrockRegionName'))
+        .setDesc(`${this.getText('bedrockRegionDesc')} ${this.getText('bedrockRegionHint')}`)
+        .addDropdown(dropdown => {
+          BEDROCK_REGIONS.forEach(region => {
+            dropdown.addOption(region, region);
+          });
+          dropdown.setValue(currentRegion);
+          dropdown.onChange((value) => {
+            // Region change alters the resolved baseURL → models fetched
+            // for the previous region are now stale (mirror the provider
+            // dropdown's reset).
+            this.tempSettings.bedrockRegion = value;
+            this.tempSettings.llmReady = false;
+            this.tempSettings.availableModels = [];
+            this.tempSettings.useCustomModel = false;
+            this.tempSettings.model = '';
+          });
+        });
     }
 
     // LLM execution controls (concurrency + batch delay) — Issue #81 layout refactor
