@@ -322,6 +322,13 @@ export class SourceAnalyzer {
         console.debug(`[Batch ${batchNum + 1}] Response length:`, response.length);
         this.ctx.onProgress?.(`Analyzed batch ${batchNum + 1}, processing...`);
 
+        // v1.24.1 PATCH Phase 5: silentOnEmpty. Source-analyzer batches
+        // run many LLM calls; thinking-model empty bodies used to emit
+        // 3-line console.error per batch, drowning devtools. Quiet
+        // path keeps logs readable; batch-level degradation is still
+        // visible via the existing "[Batch N] JSON parse failed,
+        // skipping batch" path because that uses `if (!analysisData)`
+        // not console.error.
         const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
           const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
           return await client.createMessage({
@@ -332,7 +339,7 @@ export class SourceAnalyzer {
             response_format: { type: 'json_object' },
             maxTokensPerCall: retryCap,
           });
-        }) as Partial<SourceAnalysis> | null;
+        }, { silentOnEmpty: true }) as Partial<SourceAnalysis> | null;
 
         if (!analysisData) {
           console.error(`[Batch ${batchNum + 1}] JSON parse failed, skipping batch`);

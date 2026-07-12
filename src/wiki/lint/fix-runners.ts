@@ -11,7 +11,7 @@ import { detectRateLimitFailures, formatRateLimitNotice } from '../../core/rate-
 import { resolveModelForTask } from '../../core/model-resolver';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from '../../core/tag-vocab';
 import { mergeFrontmatterArrayField, replaceFrontmatterArrayField, parseFrontmatter } from '../../core/frontmatter';
-import { TOKENS_LINT_ALIAS_BATCH, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
+import { TOKENS_LINT_ALIAS_BATCH, TOKENS_LINT_TAG_SELECT, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
 import { buildWikiLanguageDirective, appendTagVocabularyToPrompt } from '../system-prompts';
 import { TagViolation } from './scanners';
 
@@ -87,6 +87,9 @@ export async function runAliasCompletion(
 
           const response = await client.createMessage({
             model: resolveModelForTask(ctx.settings, 'lint'),
+            // v1.24.1 PATCH Phase 5: TOKENS_LINT_ALIAS_BATCH raised 500 → 1000
+            // (see constants.ts comment for reasoning). Centralized so the
+            // token budget is tunable in one place.
             max_tokens: TOKENS_LINT_ALIAS_BATCH,
             system: buildWikiLanguageDirective(ctx.settings),
             messages: [{ role: 'user', content: prompt }],
@@ -105,7 +108,16 @@ export async function runAliasCompletion(
             `first200=${JSON.stringify((typeof response === 'string' ? response : '').slice(0, 200))}`
           );
 
-          const parsed = await parseJsonResponse(response) as { aliases?: string[] } | null;
+          // v1.24.1 PATCH Phase 5: silentOnEmpty. When the LLM returns
+          // 0 bytes (thinking-model budget exhausted before JSON
+          // output), we silently skip the page rather than emit the
+          // legacy 3-line console.error spam that polluted devtools
+          // (#255). Per-Lint-run Notice aggregates these for the user.
+          // silentOnEmpty does NOT suppress error logging for malformed
+          // (non-empty) JSON — operators still need that signal.
+          const parsed = await parseJsonResponse(response, undefined, {
+            silentOnEmpty: true,
+          }) as { aliases?: string[] } | null;
           if (parsed?.aliases?.length) {
             console.debug(`[Alias] ${page.basename}: generated ${parsed.aliases.length} aliases → [${parsed.aliases.join(', ')}]`);
 
@@ -464,13 +476,22 @@ Task: Return a JSON object with a single field "tags" that is an array of string
 
         const response = await ctx.llmClient.createMessage({
           model: resolveModelForTask(ctx.settings, 'lint'),
-          max_tokens: 256,
+          // v1.24.1 PATCH Phase 5: hard-coded 256 → TOKENS_LINT_TAG_SELECT (1000).
+          // 256 was insufficient for thinking models — same root cause
+          // as TOKENS_LINT_ALIAS_BATCH. Centralized for consistency.
+          max_tokens: TOKENS_LINT_TAG_SELECT,
           messages: [{ role: 'user', content: prompt }],
         });
         if (signal?.aborted) {
           throw new DOMException('Lint fix cancelled by user', 'AbortError');
         }
-        const parsed = await parseJsonResponse(response) as { tags?: string[] } | null;
+        // v1.24.1 PATCH Phase 5: silentOnEmpty. Tag-revocab LLM call
+        // also gets thinking-model empty bodies (Claude Opus 4.8 +
+        // DeepSeek V3.1). Quiet path keeps devtools clean during batch
+        // Lint runs.
+        const parsed = await parseJsonResponse(response, undefined, {
+          silentOnEmpty: true,
+        }) as { tags?: string[] } | null;
         const newTags = Array.isArray(parsed?.tags)
           ? parsed.tags.map(t => String(t).trim()).filter(t => t.length > 0)
           : [];

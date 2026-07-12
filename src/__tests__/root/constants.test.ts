@@ -19,9 +19,11 @@ import {
 /**
  * Tests for Issue #75: token budget constants.
  *
- * These constants cap LLM output sizes per call type. Two changes:
+ * These constants cap LLM output sizes per call type. Changes:
  * - TOKENS_DEDUP_RESOLUTION: 300 → 1000 (insurance against thinking-model preamble)
  * - TOKENS_QUERY_SAVE_DEDUP: 150 → 300 (similar insurance)
+ * - v1.24.1 PATCH Phase 5: TOKENS_LINT_ALIAS_BATCH 500 → 1000 (alias
+ *   completion thinking-model budget, fixes #255/#274 noise on Lint runs)
  *
  * The other values are unchanged but explicitly asserted to document intent.
  */
@@ -49,8 +51,8 @@ describe('Token budget constants (Issue #75)', () => {
     expect(TOKENS_LINT_DEDUP_LLM).toBe(4000);
   });
 
-  it('short-output constants stay small', () => {
-    expect(TOKENS_LINT_ALIAS_BATCH).toBe(500);
+  it('short-output constants stay small (v1.24.1 PATCH #5: alias raised 500 → 1000)', () => {
+    expect(TOKENS_LINT_ALIAS_BATCH).toBe(1000);
     expect(TOKENS_LINT_ORPHAN_FIX).toBe(800);
     expect(TOKENS_QUERY_PAGE_SELECT).toBe(500);
     expect(TOKENS_QUERY_MODEL_DETECT).toBe(100);

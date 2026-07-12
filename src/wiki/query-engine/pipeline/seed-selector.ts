@@ -13,6 +13,7 @@
 
 import { PageRef } from '../../../core/ppr-cascade';
 import { parseJsonResponse } from '../../../core/json';
+import { TOKENS_QUERY_SEED_SELECT } from '../../../constants';
 import { withTransientRetry } from '../../../core/transient-retry';
 import {
   SEED_SELECTION_SYSTEM_PROMPT,
@@ -85,7 +86,13 @@ export async function selectSeedsWithLLM(
       console.debug('[selectSeedsWithLLM] query model:', queryModel);
       const response = await client.createMessage({
         model: queryModel,
-        max_tokens: 200,
+        // v1.24.1 PATCH Phase 5: raised 200 → 1000 to fix #275 (deepseek-v4-pro
+        // ran out of token budget before emitting JSON when thinking_mode
+        // was active). Centralized as TOKENS_QUERY_SEED_SELECT in
+        // src/constants.ts — honor the user's 2026-07-12 constraint
+        // "do NOT inject disableThinking: true" by widening budget instead
+        // of forcing thinking off.
+        max_tokens: TOKENS_QUERY_SEED_SELECT,
         system: SEED_SELECTION_SYSTEM_PROMPT,
         messages: [{
           role: 'user',
@@ -102,7 +109,16 @@ export async function selectSeedsWithLLM(
         `[LLM response] Seed selection: length=${response.length}, ` +
         `first100=${JSON.stringify(response.slice(0, 100))}`,
       );
-      const parsed = await parseJsonResponse(response) as { seeds?: string[] } | null;
+      // v1.24.1 PATCH Phase 5: silentOnEmpty + throwOnEmpty. When the
+      // LLM returns 0 bytes (thinking-model budget exhausted), we throw
+      // EmptyResponseError → withTransientRetry catches + retries. After
+      // retries exhaust, retryResult.error is set → caller falls back to
+      // [] (existing behavior, no regression). silentOnEmpty suppresses
+      // the 3-line console.error spam that polluted devtools (#255).
+      const parsed = await parseJsonResponse(response, undefined, {
+        silentOnEmpty: true,
+        throwOnEmpty: true,
+      }) as { seeds?: string[] } | null;
       if (!parsed || !Array.isArray(parsed.seeds)) {
         throw new Error('parseJsonResponse returned null or non-array seeds');
       }

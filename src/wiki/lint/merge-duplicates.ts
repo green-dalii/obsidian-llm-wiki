@@ -100,7 +100,16 @@ export async function mergeDuplicatePages(
       if (cleaned && cleaned.length > 100) {
         let parsed: { body?: string; aliases?: string[] } | null = null;
         try {
-          parsed = await parseJsonResponse(cleaned);
+          // v1.24.1 PATCH Phase 5: silentOnEmpty. merge-duplicates is
+          // an interactive user-facing call (manual merge button);
+          // legacy noisy 3-line console.error was particularly noisy
+          // here because the user sees the moment of failure. Quiet
+          // path falls back to programmatic merge (existing behavior
+          // at line 110). Malformed JSON still noisy (operators need
+          // signal).
+          parsed = await parseJsonResponse(cleaned, undefined, {
+            silentOnEmpty: true,
+          });
         } catch (parseErr) {
           console.error(`mergeDuplicatePages: JSON parse failed for ${sourcePath} → ${targetPath}`, parseErr);
         }

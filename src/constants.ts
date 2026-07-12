@@ -134,8 +134,43 @@ export const TOKENS_COMPLEMENTARY_APPEND = 600;
 
 /**
  * Token budget for lint alias completion batch.
+ *
+ * v1.24.1 PATCH Phase 5 — raised from 500 → 1000.
+ *
+ * Reasoning: 500 was too tight for thinking models (DeepSeek V3.1 Pro,
+ * Claude Opus 4.8 extended thinking, Qwen3.5) when invoked with
+ * `response_format: { type: 'json_object' }`. The model's `reasoning_content`
+ * can consume 200-500 tokens before producing the JSON aliases array,
+ * leaving no headroom. 1000 covers reasoning + JSON comfortably.
+ *
+ * User constraint 2026-07-12: "If Thinking content occupies context,
+ * increase max_tokens further. Do NOT inject disableThinking: true."
+ * This constant honors that constraint — no disableThinking was added.
  */
-export const TOKENS_LINT_ALIAS_BATCH = 500;
+export const TOKENS_LINT_ALIAS_BATCH = 1000;
+
+/**
+ * v1.24.1 PATCH Phase 5 — max tokens for lint tag re-vocabulary selection.
+ *
+ * Previous implementation hard-coded `max_tokens: 256` in fix-runners.ts.
+ * 256 was insufficient for the same reason as alias batch (thinking-model
+ * budget exhausted before JSON produced). Centralized here so the budget
+ * is tunable in one place alongside its sibling constants.
+ */
+export const TOKENS_LINT_TAG_SELECT = 1000;
+
+/**
+ * v1.24.1 PATCH Phase 5 — max tokens for query seed selection (`selectSeedsWithLLM`).
+ *
+ * Previous implementation hard-coded `max_tokens: 200` in seed-selector.ts.
+ * 200 was the root cause of #275 (deepseek-v4-pro + json_object + thinking
+ * → empty body). 1000 covers reasoning + the JSON `seeds: string[]` payload
+ * (typically 3-12 page paths, ~30 tokens).
+ *
+ * User constraint 2026-07-12: no disableThinking injection. This constant
+ * raises the budget so the model can BOTH think AND emit JSON.
+ */
+export const TOKENS_QUERY_SEED_SELECT = 1000;
 
 /**
  * Token budget for lint duplicate detection LLM check.
