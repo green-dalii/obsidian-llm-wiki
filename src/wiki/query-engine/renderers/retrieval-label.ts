@@ -10,29 +10,31 @@
 
 import type { RetrievalLabelData } from '../types';
 
-/** Translate the internal arm identifier to a user-facing glyph + text segment.
+/**
+ * Translate the internal arm identifier to a user-facing glyph + text segment.
  *
- * v1.24.0 (legibility pass):
- * - 'lex' was previously rendered as '📇 index' — misleading, since 'lex'
- *   is the **lexical fallback** (PPR cascade found no graph match and
- *   fell back to keyword scoring), not a reference to the wiki index
- *   file. The new label 'Lexical' tells the user "this came from word
- *   matching, not from the link graph".
- * - 'index' (the actual arm identifier emitted by select-seeds.ts when
- *   no PPR signal exists) was previously hidden behind the generic
- *   "🔎 index" fallback — which read as a debug message. We now map
- *   it explicitly to "📋 Index" (visual cue: list-style icon).
- * - 'none' / empty arm was previously rendered as '—' (em-dash) — looks
- *   like an error. The new label 'No specific source' tells the user
- *   the LLM ran without a defined retrieval arm.
- * - Unknown arm values are no longer hidden — the raw identifier is
- *   shown with a 🔎 prefix so future arms surface visibly rather than
- *   masquerading as a default.
+ * v1.24.1 PATCH Phase 5.5.1: arm identifiers are now "seed source + retrieval
+ * method" joined by '+'. Format:
+ *   - "Lex+PPR"  → "🔍 Lexical + PPR"  (lex strong, PPR expansion)
+ *   - "LLM+PPR"  → "🔗 LLM + PPR"      (LLM keywords found seeds, PPR expansion)
+ *   - "LLM+KB"   → "🌐 LLM Knowledge Base" (no wiki sources, pure LLM answer)
+ *   - "Lex++PPR" → "📖 Lexical + PPR (fallback)" (weak lex, used as fallback)
+ *
+ * The old "arm" values (PPR, PPR+LLM, PPR+, lex, index) are no longer emitted
+ * by selectPprSeeds but are kept as backwards-compatible fallbacks.
  */
 function armDisplay(arm: string): string {
   if (arm === 'none' || arm === '') {
     return '🚫 No specific source';
   }
+
+  // Phase 5.5.1 format: SeedSource+RetrievalMethod
+  if (arm === 'Lex+PPR') return '🔍 Lexical + PPR';
+  if (arm === 'LLM+PPR') return '🔗 LLM + PPR';
+  if (arm === 'LLM+KB') return '🌐 LLM Knowledge Base';
+  if (arm === 'Lex++PPR') return '📖 Lexical + PPR (fallback)';
+
+  // Backwards-compatible handling for old arm values and joined arms.
   return arm
     .split('/')
     .map(a => {
@@ -41,8 +43,7 @@ function armDisplay(arm: string): string {
       if (a === 'PPR+') return '🔗 PPR+';
       if (a === 'lex') return '📖 Lexical';
       if (a === 'index') return '📋 Index';
-      // Unknown arm: surface the raw identifier so it's never hidden
-      // behind a misleading default.
+      // Unknown arm: surface the raw identifier so it's never hidden.
       return `🔎 ${a}`;
     })
     .join(' · ');

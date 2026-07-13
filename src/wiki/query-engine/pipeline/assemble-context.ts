@@ -8,7 +8,6 @@ import { WIKI_LANGUAGES } from '../../../types';
 import { WIKI_FOLDER_PLACEHOLDER } from '../../../core/prompt-builders';
 
 export interface AssembleContextInput {
-  indexContent: string;
   /** Bodies produced by load-pages (already formatted with `## ${title}\n\n${body}`). */
   pageBodies: string[];
   /** PPR arm label, e.g. "PPR+LLM". */
@@ -17,6 +16,22 @@ export interface AssembleContextInput {
   matchesCount: number;
   wikiFolder: string;
   wikiLanguage: string;
+  /**
+   * v1.24.1 PATCH Phase 5.5.0 (optional): a compact per-page summary
+   * list derived from pageRefs (path + title + aliases). Sent to the
+   * chat LLM as a lightweight "what's in the wiki" hint so it can
+   * see pages that weren't retrieved but exist in the wiki. Replaces
+   * the heavy wiki index full text. Caller decides whether to pass
+   * `undefined` (skip) or include the list.
+   */
+  pageSummaryHint?: string;
+  /**
+   * v1.24.1 PATCH Phase 5.5.1: when true, the pipeline found no
+   * wiki-relevant pages. The chat LLM should answer from its general
+   * knowledge base and the UI must surface a verify-vault banner so the
+   * user does not mistake the answer for wiki-backed content.
+   */
+  pureLLM?: boolean;
 }
 
 /**
@@ -51,14 +66,29 @@ export function assembleWikiContext(input: AssembleContextInput): string {
   // Bug C 3.0: use the placeholder constant, never the real wikiFolder.
   const wf = WIKI_FOLDER_PLACEHOLDER;
 
+  // v1.24.1 PATCH Phase 5.5.0: the heavy `Wiki Index:` section (full
+  // wiki index text) is no longer included — it was the dominant
+  // contributor to prompt overflow on large vaults (2137 nodes →
+  // ~70K tokens of index text alone). The page bodies already give
+  // the LLM the content it needs; an optional `pageSummaryHint` (a
+  // compact path/title/aliases list derived from pageRefs) can be
+  // supplied by the caller if it wants the LLM to know about
+  // non-retrieved pages. The wiki structure is implied by the loaded
+  // pages and the entity/concept/source folder convention below.
+  // v1.24.1 PATCH Phase 5.5.1: pure LLM KB mode.
+  // When no wiki sources were found (pureLLM=true), we tell the chat
+  // LLM explicitly to answer from general knowledge AND we inject a
+  // user-facing banner both at the start and end of the response. The
+  // banner is written in the user's wiki language.
+  const verifyVaultNote = input.pureLLM
+    ? `${langName}: The Wiki does not contain pages matching your query. The following answer is generated from the LLM's general knowledge base, not from your vault. Please verify any facts independently.\n\n`
+    : '';
+
   const wikiContext = `${langDirective}
 
-You are a Wiki assistant with access to a structured knowledge base.
+${verifyVaultNote}You are a Wiki assistant with access to a structured knowledge base.
 
-Wiki Index:
-${input.indexContent}
-
-Relevant Wiki Pages (loaded with full content):
+${input.pageSummaryHint ? `Wiki Pages (summary list):\n${input.pageSummaryHint}\n\n` : ''}Relevant Wiki Pages (loaded with full content):
 ${input.pageBodies.length > 0 ? input.pageBodies.join('\n\n---\n\n') : 'No directly relevant pages found in Wiki.'}
 
 ${retrievalNote}
@@ -89,7 +119,9 @@ If Wiki lacks relevant information:
 - Acknowledge it and suggest ingesting more sources
 - Do NOT make up information outside Wiki
 
-Respond in ${langName}`;
+Respond in ${langName}
+
+${input.pureLLM ? `\n${verifyVaultNote}` : ''}`;
 
   return wikiContext;
 }

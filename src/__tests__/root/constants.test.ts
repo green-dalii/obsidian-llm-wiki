@@ -7,13 +7,16 @@ import {
   TOKENS_CONVERSATION_EXTRACTION,
   TOKENS_CONVERSATION_PAGE,
   TOKENS_DEDUP_RESOLUTION,
-  TOKENS_LINT_ALIAS_BATCH,
   TOKENS_LINT_DEDUP_LLM,
-  TOKENS_LINT_ORPHAN_FIX,
   TOKENS_QUERY_MODEL_DETECT,
   TOKENS_QUERY_PAGE_SELECT,
   TOKENS_QUERY_SAVE_DEDUP,
+  TOKENS_QUERY_SEED_SELECT,
   TOKENS_SCHEMA_SUGGESTION,
+  LEX_MATCH_MIN_COUNT,
+  LEX_MATCH_MIN_TOP_SCORE,
+  LEX_FALLBACK_TOP_K,
+  QUERY_SEED_LLM_MAX_CANDIDATES,
 } from '../../constants';
 
 /**
@@ -34,8 +37,8 @@ describe('Token budget constants (Issue #75)', () => {
     expect(TOKENS_DEDUP_RESOLUTION).toBe(1000);
   });
 
-  it('TOKENS_QUERY_SAVE_DEDUP is 300 (insurance for thinking models)', () => {
-    expect(TOKENS_QUERY_SAVE_DEDUP).toBe(300);
+  it('TOKENS_QUERY_SAVE_DEDUP is 2000 (insurance for thinking models, v1.24.1 PATCH Phase 5.5.0)', () => {
+    expect(TOKENS_QUERY_SAVE_DEDUP).toBe(2000);
   });
 
   it('page-level generation constants are 8000', () => {
@@ -49,11 +52,37 @@ describe('Token budget constants (Issue #75)', () => {
     expect(TOKENS_LINT_DEDUP_LLM).toBe(4000);
   });
 
-  it('short-output constants stay small', () => {
-    expect(TOKENS_LINT_ALIAS_BATCH).toBe(500);
-    expect(TOKENS_LINT_ORPHAN_FIX).toBe(800);
-    expect(TOKENS_QUERY_PAGE_SELECT).toBe(500);
-    expect(TOKENS_QUERY_MODEL_DETECT).toBe(100);
+  it('query constants are 2000 (Phase 5.5.0 thinking-model insurance)', () => {
+    // v1.24.1 PATCH Phase 5.5.0: raised all Query-token budgets to 2000
+    // so DeepSeek V3's reasoning preamble doesn't consume the entire
+    // budget before the JSON output is emitted. TOKENS_LINT_ORPHAN_FIX
+    // (800) and TOKENS_QUERY_LLM_SELECT (3000) stay at their non-2000
+    // values from prior cycles.
+    expect(TOKENS_QUERY_PAGE_SELECT).toBe(2000);
+    expect(TOKENS_QUERY_MODEL_DETECT).toBe(2000);
+    expect(TOKENS_QUERY_SEED_SELECT).toBe(2000);
+    expect(TOKENS_QUERY_SAVE_DEDUP).toBe(2000);
+  });
+
+  it('Query seed-selector LLM candidates cap is 50 (Phase 5.5.0)', () => {
+    // v1.24.1 PATCH Phase 5.5.0: the Stage 1.5 LLM seed selector is fed
+    // the lex-ranked top-N candidates so it sees the same title+aliases
+    // material the lex scorer saw (consistency between stages). 50 is
+    // large enough to capture a focused candidate set even on a small
+    // wiki, small enough to fit comfortably in the Stage 1.5 prompt.
+    expect(QUERY_SEED_LLM_MAX_CANDIDATES).toBe(50);
+  });
+
+  it('Lex escalation thresholds (Phase 5.5.0)', () => {
+    // Stage 1 → Stage 1.5 escalation: lex must have at least 3 hits
+    // AND the top hit score must be ≥ 5 (≈ 1 title hit + 1 alias hit,
+    // i.e. multi-signal match — not a single-particle substring).
+    expect(LEX_MATCH_MIN_COUNT).toBe(3);
+    expect(LEX_MATCH_MIN_TOP_SCORE).toBe(5);
+    // Stage FALLBACK (when Stage 1.5 LLM also returns empty): use the
+    // top 5 lex pages as seeds, so PPR still has *something* to walk
+    // from rather than nothing.
+    expect(LEX_FALLBACK_TOP_K).toBe(5);
   });
 
   it('TOKENS_SCHEMA_SUGGESTION is at least 1024 (v1.22.0 bumped to 4096 for full schema body + reasoning overhead)', () => {

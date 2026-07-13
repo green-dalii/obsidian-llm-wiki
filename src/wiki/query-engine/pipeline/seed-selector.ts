@@ -11,7 +11,7 @@
 // empty), returns [] and the caller falls back to whatever the lex
 // fast path returned. See transient-retry.ts for the Bug B retry policy.
 
-import { PageRef } from '../../../core/ppr-cascade';
+import { PageRef, formatPageRefSummary } from '../../../core/ppr-cascade';
 import { parseJsonResponse } from '../../../core/json';
 import { withTransientRetry } from '../../../core/transient-retry';
 import {
@@ -19,6 +19,7 @@ import {
   buildSeedSelectionUserPrompt,
 } from '../../prompts/seed-selection';
 import { resolveModelForTask } from '../../../core/model-resolver';
+import { TOKENS_QUERY_SEED_SELECT, QUERY_SEED_LLM_MAX_CANDIDATES } from '../../../constants';
 
 /** Minimal LLMClient surface — only `createMessage` is required for seed selection. */
 export interface SeedLLMClient {
@@ -61,10 +62,18 @@ export async function selectSeedsWithLLM(
   if (!client) return [];
   if (pageRefs.length === 0) return [];
 
-  // Build compact (path, summary) list — cap at 50 pages to keep prompt bounded.
+  // v1.24.1 PATCH Phase 5.5.0: feed the LLM `path + title + aliases`,
+  // NOT `path + summary`. User vault pages frequently lack `summary`
+  // frontmatter (e.g. entities/Janus.md has no summary field but rich
+  // aliases), so summary-only input caused the persistent empty-seed
+  // bug. Aliases carry the curated "what is this page" signal — they
+  // are stable, short, and explicitly written by the user/ingestion.
+  // Page list is capped at QUERY_SEED_LLM_MAX_CANDIDATES (50)
+  // to keep the prompt bounded; lex-ranked candidates are passed in
+  // by the caller (see select-seeds.ts Stage 1.5).
   const pagesList = pageRefs
-    .slice(0, 50)
-    .map(p => `- ${p.path}: ${p.summary || '(no summary)'}`)
+    .slice(0, QUERY_SEED_LLM_MAX_CANDIDATES)
+    .map(p => formatPageRefSummary(p))
     .join('\n');
 
   // Bug B+ fix: split into system + user. DeepSeek in JSON mode returns
@@ -85,7 +94,7 @@ export async function selectSeedsWithLLM(
       console.debug('[selectSeedsWithLLM] query model:', queryModel);
       const response = await client.createMessage({
         model: queryModel,
-        max_tokens: 200,
+        max_tokens: TOKENS_QUERY_SEED_SELECT,
         system: SEED_SELECTION_SYSTEM_PROMPT,
         messages: [{
           role: 'user',

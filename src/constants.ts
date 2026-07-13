@@ -154,23 +154,60 @@ export const TOKENS_LINT_ORPHAN_FIX = 800;
 
 /**
  * Token budget for query step 0 (model detection, tiny call).
+ *
+ * v1.24.1 PATCH Phase 5.5.0: raised 100 → 2000. Some providers' reasoning
+ * models consume the entire budget on the internal chain-of-thought and
+ * leave 0 tokens for the actual response body (a known DeepSeek V3 bug
+ * reported 2026-07-13). Widening the budget to 2000 lets the JSON output
+ * fit even after a verbose reasoning prelude.
  */
-export const TOKENS_QUERY_MODEL_DETECT = 100;
+export const TOKENS_QUERY_MODEL_DETECT = 2000;
 
 /**
  * Token budget for query page selection via LLM.
+ *
+ * v1.24.1 PATCH Phase 5.5.0: raised 500 → 2000. Same rationale as
+ * TOKENS_QUERY_MODEL_DETECT — DeepSeek V3 reasoning can swallow the
+ * previous budget before emitting JSON output.
  */
-export const TOKENS_QUERY_PAGE_SELECT = 500;
+export const TOKENS_QUERY_PAGE_SELECT = 2000;
 
 /**
  * Token budget for query LLM selection (Layer 2/3).
+ *
+ * v1.24.1 PATCH Phase 5.5.0: already 3000 from a prior cycle; unchanged.
+ * (Earlier note incorrectly said raise to 2000 — that would have been
+ * a regression. The user constraint is "only raise, never lower".)
  */
 export const TOKENS_QUERY_LLM_SELECT = 3000;
 
 /**
  * Token budget for query suggest-save dedup check.
+ *
+ * v1.24.1 PATCH Phase 5.5.0: raised 300 → 2000. Same rationale.
  */
-export const TOKENS_QUERY_SAVE_DEDUP = 300;
+export const TOKENS_QUERY_SAVE_DEDUP = 2000;
+
+/**
+ * v1.24.1 PATCH Phase 5.5.0 (new): token budget for the seed-selection
+ * step where the LLM picks up to 3 PPR seed pages from a 50-page
+ * (path, summary) list. Previously hardcoded at 200 in seed-selector.ts
+ * which was the root cause of the persistent empty-body bug on DeepSeek
+ * V3 — the 200-token budget was consumed by reasoning and the JSON
+ * body never made it out. Set equal to the other Query budgets (2000)
+ * for consistency.
+ */
+export const TOKENS_QUERY_SEED_SELECT = 2000;
+
+/**
+ * v1.24.1 PATCH Phase 5.5.1 (new): token budget for the Stage 1.5a
+ * query keyword extractor. The LLM returns 5-10 short keywords as a
+ * small JSON array — no need for a large budget. 1000 is enough for
+ * the JSON output + any reasoning preamble for thinking models.
+ *
+ * Used by `generateQueryKeywords` in query-keywords.ts.
+ */
+export const TOKENS_QUERY_KEYWORDS = 1000;
 
 /**
  * Token budget for schema suggestion generation.
@@ -342,6 +379,98 @@ export const LINT_MAX_INPUT_TOKENS = 15000;
 
 /** Number of candidates fed per lint dedup LLM call. */
 export const LINT_DEDUP_BATCH_SIZE = 100;
+
+// ============================================================================
+// Query Wiki — PPR top-N page retrieval
+// ============================================================================
+
+/**
+ * Default number of pages PPR returns for Query Wiki context assembly.
+ *
+ * v1.24.1 PATCH Phase 5.5.0: raised from 5 → 10 per user direction. With
+ * only 5 pages the `5 pages · PPR` chip loses meaning on large vaults
+ * (2137 nodes easily surface >5 relevant pages via PPR graph walk).
+ * 10 strikes a balance — fuller context without blowing the typical
+ * model's prompt window. Token overflow is handled by Phase 5.4's
+ * graceful overflow fallback (auto-shrink + retry).
+ *
+ * Adaptive top-N (select-seeds.ts) computes the effective top-N as:
+ *   effective = min(DEFAULT_QUERY_TOP_N_PAGES, totalPageRefs)
+ * then clamped by MAX_QUERY_TOP_N_PAGES below. A small wiki (e.g.
+ * 12 pages) returns all 12; a large wiki (2137 pages) returns 10.
+ */
+export const DEFAULT_QUERY_TOP_N_PAGES = 10;
+
+/**
+ * Hard cap on top-N regardless of wiki size. Defends against runaway
+ * token cost on very large vaults even when the adaptive formula
+ * would allow more. Phase 5.4 overflow fallback kicks in past this
+ * point (shrinks pages instead of dropping them) so the user always
+ * gets a result.
+ */
+export const MAX_QUERY_TOP_N_PAGES = 20;
+
+// ============================================================================
+// Query Wiki — 4-stage seed selection (Phase 5.5.0)
+// ============================================================================
+
+/**
+ * Stage 1 (lex match) → Stage 1.5 (LLM seed selector) escalation threshold:
+ * minimum number of lex hits required to trust the lex-only path.
+ *
+ * When the lex scorer finds at least this many matching pages, the
+ * top-K of them become the PPR seeds directly (skipping the LLM
+ * escalation). Below this count, the recall is considered too narrow
+ * to be useful and we escalate to the LLM for semantic matching.
+ *
+ * v1.24.1 PATCH Phase 5.5.0: 3 is a sweet spot — fewer than 3 hits
+ * can't reliably drive a PPR graph expansion; more than 3 hits and we
+ * already have enough material to skip the LLM call (saves a network
+ * round-trip).
+ */
+export const LEX_MATCH_MIN_COUNT = 3;
+
+/**
+ * Stage 1 (lex match) → Stage 1.5 (LLM seed selector) escalation threshold:
+ * minimum top-hit score required to trust the lex-only path.
+ *
+ * Lex scoring (see lexMatchByTitleAndAliases in ppr-cascade.ts):
+ *   - title hit:    3
+ *   - alias hit:    2
+ *   - summary hit:  1  (NB: not used by Stage 1, kept here for context)
+ *
+ * Score ≥ 5 ≈ "1 title hit + 1 alias hit" → multi-signal match, not a
+ * single-particle substring. Single-signal hits (e.g. just an alias
+ * match for "的") produce noisy results that PPR can't disambiguate.
+ *
+ * v1.24.1 PATCH Phase 5.5.0.
+ */
+export const LEX_MATCH_MIN_TOP_SCORE = 5;
+
+/**
+ * Stage FALLBACK seeds count: when both Stage 1 (lex) and Stage 1.5
+ * (LLM seed selector) fail to produce query-relevant seeds, use the
+ * top-K lex pages as seeds anyway. PPR can still extract *some*
+ * recall from low-quality seeds (better than no seeds → empty walk).
+ *
+ * v1.24.1 PATCH Phase 5.5.0. 5 is enough to give PPR enough graph
+ * anchors without polluting the chat LLM's page-bodies set with
+ * obviously-irrelevant pages.
+ */
+export const LEX_FALLBACK_TOP_K = 5;
+
+/**
+ * Stage 1.5 (LLM seed selector) input cap: maximum number of lex-
+ * ranked candidate pages sent to the LLM for semantic seed selection.
+ *
+ * Why cap: the LLM's Stage 1.5 prompt only carries path + title +
+ * aliases (no summary, no body — see seed-selector.ts). 50 pages of
+ * that material ≈ 3-5K tokens, well inside any model's prompt
+ * window. Larger caps dilute the LLM's selection precision.
+ *
+ * v1.24.1 PATCH Phase 5.5.0.
+ */
+export const QUERY_SEED_LLM_MAX_CANDIDATES = 50;
 
 // ============================================================================
 // Source-Analyzer / Page-Factory Batch Sizing

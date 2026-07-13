@@ -317,23 +317,21 @@ export class OpenAICompatSdkClient implements LLMClient {
       let fullText = '';
       let chunkCount = 0;
       const streamStartTime = Date.now();
+      // v1.23.0 P2: Force a macrotask yield between chunks so the
+      // browser can paint each onChunk's DOM update as a separate
+      // frame. Without this, AI-SDK's async iterator drains the
+      // entire response in a single microtask batch (all onChunk
+      // calls complete before the next requestAnimationFrame fires),
+      // making the UI appear to render the final state in one go.
+      //
+      // v1.24.1 PATCH Phase 5.5.0: removed per-chunk console.debug
+      // (was noisy + triggered DevTools forced-reflow on long
+      // streams). chunkCount is now used only by the post-loop
+      // summary line below; we still append each chunk to fullText.
       for await (const chunk of result.textStream) {
         chunkCount++;
-        // v1.23.0 P2: Print elapsed ms so we can see whether chunks are
-        // truly spread out in time (real streaming) or all arrive in the
-        // same macrotask (batched). If the elapsed values are 0/1ms for
-        // many chunks in a row, the stream is being yielded in a tight
-        // loop and the browser is too busy to paint between chunks.
-        const elapsed = Date.now() - streamStartTime;
-        console.debug(`[STREAM-CHUNK] chunk#${chunkCount} +${elapsed}ms len=${chunk.length} chars: "${chunk.substring(0, 80)}"`);
         fullText += chunk;
         onChunk(chunk);
-        // v1.23.0 P2: Force a macrotask yield between chunks so the
-        // browser can paint each onChunk's DOM update as a separate
-        // frame. Without this, AI-SDK's async iterator drains the
-        // entire response in a single microtask batch (all onChunk
-        // calls complete before the next requestAnimationFrame fires),
-        // making the UI appear to render the final state in one go.
         await new Promise<void>(resolve => window.setTimeout(resolve, 0));
       }
       console.debug(`[STREAM-CHUNK] total chunks forwarded: ${chunkCount} in ${Date.now() - streamStartTime}ms`);

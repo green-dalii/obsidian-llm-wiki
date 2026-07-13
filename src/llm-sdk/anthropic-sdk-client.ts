@@ -220,8 +220,6 @@ export class AnthropicSdkClient implements LLMClient {
       const streamStartTime = Date.now();
       for await (const chunk of result.textStream) {
         chunkCount++;
-        const elapsed = Date.now() - streamStartTime;
-        console.debug(`[STREAM-CHUNK] [anthropic] chunk#${chunkCount} +${elapsed}ms len=${chunk.length} chars: "${chunk.substring(0, 80)}"`);
         fullText += chunk;
         onChunk(chunk);
         // v1.23.0 P2: Force a macrotask yield between chunks (see

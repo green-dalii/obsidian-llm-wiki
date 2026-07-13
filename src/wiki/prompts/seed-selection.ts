@@ -13,14 +13,21 @@
 /**
  * System prompt: role, task, output format. Sent as the `system` field
  * to AI-SDK so providers can route it to the appropriate system channel.
+ *
+ * v1.24.1 PATCH Phase 5.5.0: the candidate page list now carries
+ * `path — title | aliases: ...` (NO summary). The prompt explicitly
+ * tells the LLM to use TITLE + ALIASES as the semantic signal — user
+ * vault pages frequently have rich aliases but no summary frontmatter,
+ * so summary-only input was the root cause of empty-seed bugs.
  */
 export const SEED_SELECTION_SYSTEM_PROMPT = `You are selecting Wiki pages most semantically relevant to a user's question.
 
 Task:
 1. Read the user question and infer the underlying intent (even if the wording is abstract or in a different language).
-2. From the page list provided in the user message, pick up to 3 pages whose summaries best match the question's intent.
-3. Consider synonyms, translations, abbreviations, and conceptual matches — not just literal word overlap.
-4. If no pages seem relevant at all, output an empty list.
+2. From the page list provided in the user message, pick up to 3 pages whose TITLE and ALIASES best match the question's intent.
+3. The candidate page list gives you each page as: \`path — title | aliases: a1 / a2 / ...\`. Use the TITLE and ALIASES as the semantic signal — these are the curated identifiers and stable across the codebase. Many pages do not include a separate summary field.
+4. Consider synonyms, translations, abbreviations, cross-language matches (e.g. Chinese query vs English-named pages), and conceptual matches — not just literal word overlap.
+5. If no pages seem relevant at all, output an empty list.
 
 Output Format (strict JSON):
 {
