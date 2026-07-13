@@ -36,6 +36,101 @@ export interface PageRef {
   summary?: string;
 }
 
+/**
+ * v1.24.1 PATCH Phase 5.5.0: render a PageRef as a compact markdown
+ * line (`path — title | aliases: ...`) for LLM candidate lists and the
+ * chat-prompt page-summary hint. Shared so the Stage 1.5 seed-selector
+ * prompt and the Phase 5.5.0 pageSummaryHint emit an identical format
+ * (one formatter, no drift). Pure function.
+ */
+export function formatPageRefSummary(p: PageRef): string {
+  const aliasPart = p.aliases.length > 0
+    ? ` | aliases: ${p.aliases.join(' / ')}`
+    : '';
+  return `- ${p.path} — ${p.title}${aliasPart}`;
+}
+
+/**
+ * Score pages by per-needle overlap against title + aliases. Shared
+ * primitive behind both Stage 1 (lex, needles = tokenized query) and
+ * Stage 1.5b (LLM-generated keywords). Needles are expected
+ * lowercased; each page's title + aliases are lowercased internally.
+ *
+ * Scoring per needle:
+ *   - title hit: 3
+ *   - alias hit: 2
+ *
+ * Returns pages with score > 0, sorted by score descending, with the
+ * count of needles matched (`tokensFound`) so callers can apply a
+ * multi-needle bonus. Pure function — no IO.
+ */
+export function scorePagesByNeedles(
+  pages: PageRef[],
+  needles: string[],
+): Array<{ page: PageRef; score: number; tokensFound: number }> {
+  const scored: Array<{ page: PageRef; score: number; tokensFound: number }> = [];
+  for (const page of pages) {
+    const titleLower = page.title.toLowerCase();
+    const aliasLowers = page.aliases.map(a => a.toLowerCase());
+
+    let score = 0;
+    let tokensFound = 0;
+    for (const kw of needles) {
+      if (kw.length === 0) continue;
+      if (titleLower.includes(kw)) {
+        score += 3;
+        tokensFound++;
+      } else if (aliasLowers.some(a => a.includes(kw))) {
+        score += 2;
+        tokensFound++;
+      }
+    }
+    if (score > 0) {
+      scored.push({ page, score, tokensFound });
+    }
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
+
+/**
+ * v1.24.1 PATCH Phase 5.5.0: lex match against TITLE + ALIASES only
+ * (no summary). Powers the Stage 1 of the 4-stage seed-selection
+ * pipeline.
+ *
+ * Why no summary: user vault pages frequently lack summary frontmatter
+ * (e.g. entities/Janus.md has no `summary:` field but rich aliases).
+ * Using summary in Stage 1 would silently drop many pages from
+ * consideration — including the page the user just searched for.
+ * Aliases carry the curated "what is this page" signal — stable,
+ * short, and explicitly written.
+ *
+ * Scoring (per token, first matching location wins):
+ *   - title hit: 3
+ *   - alias hit: 2
+ *
+ * Multi-token bonus: when ALL tokens are found somewhere in the
+ * page's title+aliases, +2 (strong relevance signal).
+ *
+ * Returns scored+ranked pages sorted by score descending. Pages
+ * with zero overlap are NOT included. Pure function — no IO.
+ */
+export function lexMatchByTitleAndAliases(
+  query: string,
+  pages: PageRef[],
+): Array<{ page: PageRef; score: number; arm: 'lex' }> {
+  const tokens = tokenizeQuery(query);
+  if (tokens.length === 0) return [];
+
+  return scorePagesByNeedles(pages, tokens).map(s => {
+    let score = s.score;
+    if (s.tokensFound === tokens.length && tokens.length > 1) {
+      score += 2;
+    }
+    return { page: s.page, score, arm: 'lex' as const };
+  });
+}
+
 export interface PageMatch {
   page: PageRef;
   score: number;
@@ -70,11 +165,14 @@ const DEFAULT_TOP_N = 10;
 /**
  * Tokenize a query into individual searchable terms. Language-aware:
  *
- * - ASCII runs of length ≥ 3 are extracted (handles mixed-language queries
+ * - ASCII runs of length ≥ 2 are extracted (handles mixed-language queries
  *   like "什么是Obsidian？" → "obsidian")
  * - Whitespace-split tokens (length ≥ 2) are kept
- * - CJK characters are kept as single-char terms so a single CJK
- *   character can match a single CJK character in a title
+ * - **CJK runs of length ≥ 2** are extracted (handles "深度学习" → "深度学习")
+ * - Single-character tokens (ASCII or CJK) are NOT extracted — they are
+ *   noise that produces spurious matches (e.g. "深" hits any page with
+ *   "深" anywhere). Per first-principles (2026-07-13 user direction):
+ *   text segmentation should be by meaningful run, not by character.
  *
  * All tokens are lowercased and de-duplicated.
  */
@@ -83,17 +181,70 @@ export function tokenizeQuery(query: string): string[] {
   const tokens = new Set<string>();
   const queryLower = query.toLowerCase();
 
+  // ASCII runs of length ≥ 2.
   const asciiRuns = queryLower.match(/[a-z0-9]{2,}/g);
   if (asciiRuns) for (const r of asciiRuns) tokens.add(r);
 
+  // Whitespace-split tokens of length ≥ 2 (catches words with CJK
+  // mixed in: "InterVL和Janus" → "intervl和janus", "和" rejected by length).
   for (const t of queryLower.split(/\s+/)) {
     if (t.length >= 2) tokens.add(t);
   }
 
-  const cjk = query.match(/[一-鿿぀-ゟ゠-ヿ]/g);
-  if (cjk) for (const c of cjk) tokens.add(c.toLowerCase());
+  // CJK Unified Ideographs (Chinese, Japanese Kanji) + Hiragana +
+  // Katakana (Japanese) + Hangul Syllables / Jamo (Korean) +
+  // CJK Ext A (rare Chinese). Extract CONTINUOUS runs of length ≥ 2
+  // (single CJK characters are noise: they match too widely and
+  // dilute lex precision — the substring "深" hits "深度", "深思",
+  // "深色" etc. with equal weight, all spurious).
+  const cjkRun = query.match(
+    /[一-鿿぀-ゟ゠-ヿ가-힯ퟀ-퟿㐀-䶿]{2,}/g,
+  );
+  if (cjkRun) for (const r of cjkRun) tokens.add(r.toLowerCase());
 
   return [...tokens];
+}
+
+/**
+ * v1.24.1 PATCH Phase 5.5.0: decide whether lex scoring is statistically
+ * reliable for a given tokenized query.
+ *
+ * Per user direction (2026-07-13): avoid hardcoded CJK regex
+ * detection. The fundamental signal is the distribution of token
+ * LENGTHS in the tokenized query, not the character ranges
+ * themselves.
+ *
+ * Lex scoring is reliable when:
+ *   1. At least 2 tokens are multi-character (≥ 2 chars). A single
+ *      multi-char token can only substring-match page titles with no
+ *      way to break ties — the score collapses to "matched / not
+ *      matched" with no granularity.
+ *   2. AND most tokens are multi-character (≥ 50%). A query that
+ *      tokenizes to 1 multi-char + 10 single-char tokens (typical
+ *      for CJK-heavy queries with embedded Latin keywords) is
+ *      dominated by low-discrimination single-char matches.
+ *
+ * Both conditions together — count AND proportion — give a robust
+ * "is this lex-query worth trusting?" signal without enumerating
+ * any character range.
+ *
+ * Examples:
+ *   "DeepSeek DSA HCA" → 3 multi-char tokens (100%) → reliable
+ *   "DSA" → 1 multi-char token → unreliable (single signal)
+ *   "为我梳理DeepSeek的DSA和HCA" → 4 multi-char / 21 total (19%) → unreliable
+ *   "你好世界" → 1 multi-char / 5 total (20%) → unreliable
+ *   "???!!" → 1 multi-char token → unreliable
+ *
+ * Pure function. No IO. Use after tokenizeQuery.
+ */
+export function lexIsReliable(tokens: string[]): boolean {
+  if (tokens.length === 0) return false;
+  let multiCharCount = 0;
+  for (const t of tokens) {
+    if (t.length >= 2) multiCharCount++;
+  }
+  // Need BOTH at least 2 multi-char tokens AND ≥ 50% multi-char ratio.
+  return multiCharCount >= 2 && multiCharCount / tokens.length >= 0.5;
 }
 
 /**
@@ -265,14 +416,40 @@ export function pprCascade(
     return lex.slice(0, topN).map(page => ({ page, score: lexScoreOf(page, lex), arm: 'lex' }));
   }
 
-  // Arm 3: graph-first PPR. Use explicit seeds if provided; otherwise
-  // use the first page as a generic seed (the graph structure does the
-  // work of bringing relevant pages to the top).
+  // Arm 3: graph-expanded PPR. PPR's value is graph-based recall
+  // expansion — given query-relevant seeds, walk the graph to find
+  // graph-adjacent pages.
+  //
+  // v1.24.1 PATCH Phase 5.5.0 user direction (2026-07-13): PPR from
+  // an ARBITRARY seed (e.g. `pages[0]`) is query-irrelevant noise — a
+  // random walk from "the wiki index's first page" produces graph-
+  // neighbors of that page, not pages related to the query. The
+  // pre-fix code did exactly that and surfaced "concepts/自我修正算法"
+  // for a "DeepSeek DSA HCA" query.
+  //
+  // New rule: PPR only fires when there are QUERY-RELEVANT seeds:
+  //   1. explicitSeeds (LLM-provided) — strongest signal.
+  //   2. lex hits — top of the keyword-matched pages, since these
+  //      are query-relevant by construction. PPR amplifies recall
+  //      from lex-discovered seeds (this is what PPR is for).
+  //   3. No lex hits AND no explicit seeds → return empty (caller
+  //      should escalate to LLM seed selector). Running PPR with
+  //      no query-relevant seed is wasted compute + noise.
   let seedList: string[];
   if (explicitSeeds.length > 0) {
     seedList = explicitSeeds;
-  } else if (pages.length > 0) {
-    seedList = [pages[0].path];
+  } else if (lex.length > 0) {
+    const seedMinDegree = options.seedMinDegree ?? DEFAULT_SEED_MIN_DEGREE;
+    const lexSeedPaths = lex.slice(0, 3).map(p => p.path);
+    const validSeeds = lexSeedPaths.filter(s => (graph.edges.get(s)?.length ?? 0) >= seedMinDegree);
+    if (validSeeds.length === 0) {
+      // Lex hits exist but none have graph neighbors worth expanding
+      // from (small vault or all orphan pages). Skip PPR — return
+      // pure lex ordering. Better relevance than random walk from
+      // an arbitrary seed.
+      return lex.slice(0, topN).map(page => ({ page, score: lexScoreOf(page, lex), arm: 'lex' }));
+    }
+    seedList = validSeeds;
   } else {
     return [];
   }

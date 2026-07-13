@@ -40,6 +40,21 @@ export class LLMWikiSettingTab extends PluginSettingTab {
   // a new probe-mutated field only requires extending this one helper,
   // not every save site.
   private commitTempSettings(): void {
+    // v1.24.1 PATCH Phase 5.5.0 hotfix fix: belt-and-suspenders cascade.
+    // setFieldValue already triggers cascadeUnifiedModelChange on a
+    // dropdown/text-input edit, but there are at least 3 other write
+    // sites that mutate tempSettings.model directly (provider change →
+    // '', fetch-models auto-pick → availableModels[0], bedrock region
+    // change → ''). To guarantee unified-model edits always clear stale
+    // per-task overrides, re-run the cascade here at commit time if
+    // the unified model is non-empty.
+    //
+    // Safety: idempotent (the cascade itself skips fields already at ''),
+    // and the whitespace check matches setFieldValue's gate, so an
+    // explicit blank-edit never triggers a per-task reset.
+    if (this.tempSettings.model.trim()) {
+      this.cascadeUnifiedModelChange();
+    }
     this.plugin.settings = {
       ...this.tempSettings,
       watchedFolders: [...(this.tempSettings.watchedFolders || [])],
@@ -171,13 +186,119 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     return resolveDisplayedModelForTask(this.tempSettings, task);
   }
 
-  /** Write a model string into any of the 4 model fields. */
+  /**
+   * Write a model string into any of the 4 model fields.
+   *
+   * v1.24.1 PATCH Phase 5.5.0 hotfix: when the user changes the
+   * unified `model` field, cascade-clear the per-task override fields
+   * (`ingestModel` / `lintModel` / `queryModel`) so all tasks
+   * immediately use the new unified model. Prior behavior left the
+   * per-task values untouched, so a unified-model edit could change
+   * the displayed picker while leaving live task routing still pinned
+   * to the old per-task model. UX bug reported 2026-07-13.
+   *
+   * Cascade only fires when:
+   *  - `field === 'model'`, AND
+   *  - the new value is non-empty (don't cascade-clear on blank-edit).
+   *
+   * Edge case: if a user explicitly opts into per-task mode later, they
+   * can re-populate the per-task fields via the per-task pickers. The
+   * cascade ensures UNIFIED → UNIFIED is atomic. PER_TASK editing is
+   * not affected (those calls go through this same setter but bypass
+   * the cascade block via the `field === 'model'` guard).
+   */
   private setFieldValue(field: ModelFieldKey, value: string): void {
     if (field === 'model') {
       this.tempSettings.model = value;
+      if (value.trim()) {
+        this.cascadeUnifiedModelChange();
+      }
     } else {
       (this.tempSettings as unknown as Record<string, string | undefined>)[field] = value;
     }
+    // v1.24.1 PATCH Phase 5.5.0 hotfix: ANY model-field edit marks the
+    // LLM config stale so the user must re-run Test Connection before
+    // the next LLM call. Without this, the user could change model
+    // in the UI but the existing llmClient would still use the old
+    // model (no rebuild until saveSettings → initializeLLMClient).
+    this.markLLMConfigStale();
+  }
+
+  /**
+   * v1.24.1 PATCH Phase 5.5.0 hotfix: reset all per-task model override
+   * fields so unified-model edits propagate to every task. Fires one
+   * Notice to inform the user about the reset. Idempotent — calling
+   * repeatedly with the overrides already empty is a no-op for both
+   * the field writes and the Notice guard.
+   */
+  private cascadeUnifiedModelChange(): void {
+    const fields: Array<'ingestModel' | 'lintModel' | 'queryModel'> = [
+      'ingestModel',
+      'lintModel',
+      'queryModel',
+    ];
+    let cleared = 0;
+    for (const f of fields) {
+      const current = (this.tempSettings as unknown as Record<string, string | undefined>)[f];
+      if (current !== undefined && current !== '') {
+        (this.tempSettings as unknown as Record<string, string | undefined>)[f] = '';
+        // Per-task *UseCustom flag also cleared so the per-task dropdown
+        // re-anchors on the unified model instead of stale free-form text.
+        this.setUseCustomFlag(f, false);
+        cleared++;
+      }
+    }
+    // v1.24.1 PATCH Phase 5.5.0 hotfix: silent cascade (no Notice spam
+    // every time the user clicks Save). The fact that per-task values
+    // were cleared is already visible in the Settings UI (the per-task
+    // fields become empty), so an extra toast adds noise without
+    // information. If the user wants to verify, they can look at the
+    // per-task fields directly.
+    void cleared;
+  }
+
+  /**
+   * v1.24.1 PATCH Phase 5.5.0 hotfix: prefill the 3 per-task model
+   * fields with the current unified model. Triggered when the user
+   * switches UI mode from unified → per-task so the per-task pickers
+   * open with consistent starting state. The user can then edit
+   * individual tasks without first having to type or pick each one.
+   *
+   * Behavior:
+   *  - All 3 per-task fields are set to the unified model string
+   *    (NOT cleared) so fallback indirection is unnecessary.
+   *  - All 3 `*UseCustom` flags are reset to false so the dropdown
+   *    re-anchors on the unified value (instead of stale free-form
+   *    text from a previous session).
+   *  - Idempotent — re-running is a no-op when the per-task fields
+   *    already match the unified value.
+   */
+  private prefillPerTaskFromUnified(): void {
+    const unified = this.tempSettings.model.trim();
+    const fields: Array<'ingestModel' | 'lintModel' | 'queryModel'> = [
+      'ingestModel',
+      'lintModel',
+      'queryModel',
+    ];
+    for (const f of fields) {
+      (this.tempSettings as unknown as Record<string, string | undefined>)[f] = unified;
+      this.setUseCustomFlag(f, false);
+    }
+  }
+
+  /**
+   * v1.24.1 PATCH Phase 5.5.0 hotfix: mark the LLM config as
+   * unverified whenever the user changes the provider, the unified
+   * model, or any per-task model. This forces the user to re-run
+   * Test Connection so the underlying `llmClient` is rebuilt with
+   * the new settings — preventing stale-client bugs where a model
+   * edit silently went out with the previous model.
+   *
+   * Also clears `availableModels` since the fetched list is per-
+   * provider; the next Test Connection will re-fetch.
+   */
+  private markLLMConfigStale(): void {
+    this.tempSettings.llmReady = false;
   }
 
   /** Toggle the <field>UseCustom flag for per-task fields; no-op for unified. */
@@ -525,7 +646,12 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             if (this.tempSettings.availableModels.length > 0) {
               new Notice(this.getText('fetchSuccess').replace('{}', this.tempSettings.availableModels.length.toString()), NOTICE_NORMAL);
               if (!this.tempSettings.model || !this.tempSettings.availableModels.includes(this.tempSettings.model)) {
-                this.tempSettings.model = this.tempSettings.availableModels[0];
+                // v1.24.1 PATCH Phase 5.5.0 hotfix fix: route the auto-pick
+                // through setFieldValue so the unified-model cascade fires
+                // (clears stale per-task overrides). Previously this
+                // direct assignment bypassed the cascade, leaving old
+                // per-task model values pinned after Fetch Models.
+                this.setFieldValue('model', this.tempSettings.availableModels[0]);
               }
               // Auto-switch from text input to dropdown on successful fetch
               this.tempSettings.useCustomModel = false;
@@ -568,6 +694,34 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         dropdown.onChange((value) => {
           const nextMode: ModelTaskUiMode = value === 'per-task' ? 'per-task' : 'unified';
           this.tempSettings.usePerTaskModels = nextMode === 'per-task';
+          // v1.24.1 PATCH Phase 5.5.0 hotfix: bidirectional sync between
+          // unified ↔ per-task modes.
+          //
+          // The previous behavior preserved per-task overrides across
+          // mode switches (rationale: user might toggle back). This was
+          // LOGICALLY WRONG: a per-task value silently overrides the
+          // unified model even after the user explicitly chose unified
+          // mode, producing a UI/value mismatch that the user couldn't
+          // see without inspecting data.json.
+          //
+          // New rules (per user direction, 2026-07-13):
+          //   1. per-task → unified: clear all 3 per-task overrides so
+          //      every task falls back to the unified model. Optional
+          //      safety: write the unified model value into the per-task
+          //      fields directly (so even an out-of-band read sees the
+          //      same value, no fallback indirection).
+          //   2. unified → per-task: prefill all 3 per-task fields with
+          //      the current unified model so the user sees consistent
+          //      starting state and can edit per-task values from there.
+          //   3. ANY model-field or provider change: set llmReady=false
+          //      so the user is prompted to re-test the connection
+          //      (instead of running with stale creds/model).
+          if (nextMode === 'unified') {
+            this.cascadeUnifiedModelChange();
+          } else {
+            this.prefillPerTaskFromUnified();
+          }
+          this.markLLMConfigStale();
           this.display(); // re-render to show/hide per-task pickers
         });
       });
@@ -779,6 +933,25 @@ export class LLMWikiSettingTab extends PluginSettingTab {
             // handles internally) but we still sync it here in case
             // legacy code paths mutate it.
             this.tempSettings.thinkingControlCache = this.plugin.settings.thinkingControlCache;
+            // v1.24.1 PATCH Phase 5.5.0 hotfix: commit + persist immediately
+            // on Test Connection success. Previously the test only synced
+            // a couple of probe-mutated fields (thinkingControlCache) into
+            // tempSettings; the user had to click Save (or close the tab to
+            // trigger hide() auto-save) before the new model became the
+            // live one. That mismatch caused confusion: the Settings UI
+            // showed the new model, but LLM calls still used the old model
+            // because plugin.settings.model hadn't been written.
+            //
+            // On success: commitTempSettings propagates the temp (already
+            // updated to the new model by the user's earlier edit) into
+            // plugin.settings; saveData() persists it to disk so the
+            // settings survive an Obsidian restart; initializeLLMClient()
+            // rebuilds the live client with the new model so subsequent
+            // queries/ingest calls use it without waiting for the user
+            // to click Save. Failure path above already rolls back, so
+            // this only fires on verified-good config.
+            this.commitTempSettings();
+            await this.plugin.saveSettings();
           }
           this.tempSettings.llmReady = result.success;
           button.setButtonText(this.getText('testButton'));

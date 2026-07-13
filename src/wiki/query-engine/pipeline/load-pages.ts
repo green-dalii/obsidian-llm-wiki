@@ -43,9 +43,25 @@ export async function loadRelevantPagesForQuery(
   const wikiPrefix = wikiFolder + '/';
 
   for (const title of pageTitles) {
-    // Strip wiki folder prefix if path has it (e.g., "wiki/entities/xxx" → "entities/xxx")
-    const normalizedTitle = title.startsWith(wikiPrefix) ? title.slice(wikiPrefix.length) : title;
-    const pagePath = `${wikiFolder}/${normalizedTitle}.md`;
+    // Strip wiki folder prefix if path has it (e.g. "wiki/entities/xxx" → "entities/xxx").
+    // v1.24.1 PATCH Phase 5.5.0: do NOT normalize the .md suffix blindly.
+    // Upstream sources are inconsistent:
+    //  - get-existing-pages.ts stores `f.path` which is the full vault
+    //    path with extension (e.g. "wiki/entities/Foo.md").
+    //  - Some other callers pass clean relative paths (e.g. "entities/Foo")
+    //    without an extension.
+    // Older code unconditionally appended `.md`, producing "Foo.md.md"
+    // for the first case → tryReadFile could not resolve double-suffix
+    // paths → caller saw an empty wiki context instead of the real pages.
+    // Defense: strip the wiki prefix, then append `.md` only if the
+    // resulting title does NOT already end in `.md`.
+    const normalizedTitle = title.startsWith(wikiPrefix)
+      ? title.slice(wikiPrefix.length)
+      : title;
+    const withExtension = normalizedTitle.endsWith('.md')
+      ? normalizedTitle
+      : `${normalizedTitle}.md`;
+    const pagePath = `${wikiFolder}/${withExtension}`;
     const content = await reader.tryReadFile(pagePath);
     if (!content) {
       console.warn(`[Load Page] Cannot read page: ${pagePath}`);

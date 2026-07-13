@@ -19,7 +19,6 @@ describe('Bug C 3.0 — wiki-folder-transparent prompt', () => {
   describe('assembleWikiContext prompt template', () => {
     it('uses __WIKI_FOLDER__ placeholder, not the real wikiFolder literal', () => {
       const prompt = assembleWikiContext({
-        indexContent: '- [[entities/a|A]]',
         pageBodies: [],
         armLabel: 'PPR',
         llmAugmented: false,
@@ -36,12 +35,12 @@ describe('Bug C 3.0 — wiki-folder-transparent prompt', () => {
 
     it('placeholder survives a wikiFolder change', () => {
       const before = assembleWikiContext({
-        indexContent: '', pageBodies: [], armLabel: 'PPR',
+        pageBodies: [], armLabel: 'PPR',
         llmAugmented: false, matchesCount: 0,
         wikiFolder: 'wiki', wikiLanguage: 'en',
       });
       const after = assembleWikiContext({
-        indexContent: '', pageBodies: [], armLabel: 'PPR',
+        pageBodies: [], armLabel: 'PPR',
         llmAugmented: false, matchesCount: 0,
         wikiFolder: 'test3', wikiLanguage: 'en',
       });
