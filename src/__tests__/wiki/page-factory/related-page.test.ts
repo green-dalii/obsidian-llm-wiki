@@ -190,3 +190,123 @@ describe('updateRelatedPage — normal path rewrites via LLM', () => {
     ).rejects.toThrow(/LLM client not initialized/);
   });
 });
+
+// Issue #267 established a non-lossy re-ingest on the merge path. This path
+// never had it: the Mentions section lives in the body handed to the LLM, and
+// the reply was persisted verbatim, so a rewrite that dropped the section
+// destroyed every accumulated quote. Observed in the wild with a local model:
+// a 2-source hub lost 4 quotes, a 3-source hub lost 1.
+describe('updateRelatedPage — Mentions are never LLM-owned (#267 parity)', () => {
+  const PAGE_WITH_MENTIONS = [
+    '---',
+    'created: 2026-07-10',
+    'updated: 2026-07-10',
+    'sources:',
+    '  - "[[sources/old]]"',
+    'tags: []',
+    '---',
+    '',
+    '## Description',
+    'Old body.',
+    '',
+    '## Mentions in Source',
+    '',
+    '- "a curated quote from an earlier source" — [[sources/old|old]]',
+  ].join('\n');
+
+  function analysisWithMentions(): SourceAnalysis {
+    return {
+      ...makeAnalysis(PAGE_TITLE),
+      entities: [{
+        name: PAGE_TITLE,
+        type: 'other' as const,
+        summary: 's',
+        mentions_in_source: ['a fresh quote from the new source'],
+        related_entities: [],
+        related_concepts: [],
+      }],
+    };
+  }
+
+  it('preserves accumulated quotes when the LLM rewrite omits the Mentions section', async () => {
+    const ctx = makeCtx({
+      pageContent: PAGE_WITH_MENTIONS,
+      llmResponse: '## Description\nA rewritten body with no mentions section at all.',
+    });
+
+    const result = await updateRelatedPage(
+      ctx,
+      PAGE_TITLE,
+      analysisWithMentions(),
+      { path: 'sources/new.md', basename: 'new' },
+    );
+
+    expect(result).toBe(true);
+    const written = ctx.written.get(PAGE_PATH)!;
+    expect(written).toContain('a curated quote from an earlier source');
+    expect(written).toContain('[[sources/old|old]]');
+    // The LLM's new prose is still adopted.
+    expect(written).toContain('A rewritten body with no mentions section at all.');
+  });
+
+  it('unions the new source\'s mentions with the accumulated ones', async () => {
+    const ctx = makeCtx({
+      pageContent: PAGE_WITH_MENTIONS,
+      llmResponse: '## Description\nRewritten.',
+    });
+
+    await updateRelatedPage(
+      ctx,
+      PAGE_TITLE,
+      analysisWithMentions(),
+      { path: 'sources/new.md', basename: 'new' },
+    );
+
+    const written = ctx.written.get(PAGE_PATH)!;
+    expect(written).toContain('a curated quote from an earlier source');
+    expect(written).toContain('a fresh quote from the new source');
+  });
+
+  it('canonicalizes a garbled section label in the LLM rewrite (#241 parity)', async () => {
+    const ctx = makeCtx({
+      pageContent: PAGE_WITH_MENTIONS,
+      // One edit away from the canonical label. Uncanonicalized, the injector
+      // would not recognize it, append a second section, and leave this one
+      // behind as an orphan that label-exact retrieval can no longer see.
+      llmResponse: '## Description\nRewritten.\n\n## Mentions in Sourse\n\n- stale',
+    });
+
+    await updateRelatedPage(
+      ctx,
+      PAGE_TITLE,
+      analysisWithMentions(),
+      { path: 'sources/new.md', basename: 'new' },
+    );
+
+    const written = ctx.written.get(PAGE_PATH)!;
+    expect(written).not.toContain('Mentions in Sourse');
+    expect(written.match(/^## Mentions in Source$/gm)).toHaveLength(1);
+  });
+
+  it('does not feed the Mentions section into the rewrite prompt', async () => {
+    let seenPrompt = '';
+    const ctx = makeCtx({ pageContent: PAGE_WITH_MENTIONS });
+    ctx.getClient = () => ({
+      createMessage: async (req: { messages: Array<{ content: string }> }) => {
+        seenPrompt = req.messages[0].content;
+        return '## Description\nRewritten.';
+      },
+    }) as ReturnType<RelatedPageContext['getClient']>;
+
+    await updateRelatedPage(
+      ctx,
+      PAGE_TITLE,
+      analysisWithMentions(),
+      { path: 'sources/new.md', basename: 'new' },
+    );
+
+    // The model never sees the citations, so it cannot drift their format.
+    expect(seenPrompt).not.toContain('a curated quote from an earlier source');
+    expect(seenPrompt).toContain('Old body.');
+  });
+});
