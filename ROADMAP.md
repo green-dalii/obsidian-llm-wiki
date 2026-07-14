@@ -49,6 +49,105 @@ See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five 
 
 ## Next Milestone: v1.25.0 MINOR (target TBD)
 
+**Theme:** PDF source support (Level 1) — unlock PDF as a native ingest format. Lint performance overhaul (v1.18.0+ TODO — 8 versions unaddressed). Status reporting improvements.
+
+**Scope decision (2026-07-15):**
+- ✅ **PDF Level 1 first** — user priority; Issue #218 has an active contributor (A-NGJ) with prototype offer. 3 PRs (~2 weeks).
+- ⏸️ **Lint performance overhaul (deferred to v1.25.x PATCH or v1.26.0)** — high ROI but Lint touches `wiki-engine.ts`; will be picked up after wiki-engine.ts decomposition (v1.26.0 plan).
+- ⏸️ **Source-revision awareness (#220)** — DocTpoint's 4-tier design; **moved to v1.26.0+** so v1.25.0 stays focused.
+
+**Final design decisions (user-confirmed 2026-07-15, post-review):**
+- ✅ **No `pdfIngestEnabled` toggle** — PDFs and MDs both visible by default in source picker. PDFs are a first-class format going forward.
+- ✅ **PDF conversion preserves source language** — system prompt instructs: "Preserve the source PDF's language; do NOT translate". `wikiLanguage` is NOT used for conversion.
+- ✅ **New setting `forcePdfSupport: boolean`** in Settings → Wiki → LLM Configuration → Advanced (under baseURL). Only visible when provider is openai-compat. Default: `false`. Purpose: lets users force PDF binary upload against OpenAI-compatible third-party providers that support PDF but our detection misses. UI shows warning "Enable at your own risk". Failure mode: if provider rejects PDF despite the flag, the error is surfaced verbatim.
+
+### v1.25.0 PDF Level 1 (3 PRs, ~2 weeks)
+
+**Goal:** PDFs become a first-class ingest source. Convert PDF → Markdown via the LLM's native PDF support (Anthropic `document` block / OpenAI `file` block), save the `.pdf.md` next to the original PDF, then run the existing `ingestSource()` flow on it. **Zero new dependencies. Zero SDK client modifications.**
+
+**Architecture:**
+```
+User picks foo.pdf
+  → Detect: file.extension === 'pdf'
+  → Convert: cache hit → skip; cache miss → LLM API call with PDF binary
+  → Save: <vault>/foo.pdf.pdf.md (with frontmatter: sourceType=pdf, sourcePath, hash, pdfTitle, pdfAuthor, pdfPages, convertedAt, converter)
+  → Ingest: ingestSource(<.pdf.md file>) — reuses 100% of existing flow
+  → Unsupported provider (Ollama/LMStudio/DeepSeek/GLM) → Notice + clear workaround instructions
+```
+
+**Why "API-native" (not local pdf.js):**
+- Zero new dependencies (CLAUDE.md Gate 3 / 3rd-party audit recommendation).
+- The conversion is "just another LLM call" — the AI SDK already maps `FilePart { type: 'file', data, mediaType }` to provider-native PDF blocks transparently.
+- Future Level 2 (visual/chart understanding) only needs a flag flip; no refactor.
+- Local pdf.js extraction quality varies wildly; the LLM is the best PDF reader we can afford.
+
+**Key design decisions (2026-07-15 user-confirmed):**
+1. **PDF default visible** in source picker — no `pdfIngestEnabled` toggle (PDF is a native format going forward).
+2. **`.pdf.md` saved to vault** at same path as source PDF (not in cache dir) — easier debugging + auditable.
+3. **Metadata in frontmatter** + **content in cache file** — dual storage; LLM sees metadata, cache holds extracted text.
+4. **Conversion at ingest time** (not vault-watcher background) — simplest, user-triggered.
+5. **Provider fallback = Notice** — if provider can't handle PDF, show clear "switch provider or pre-convert" instructions. No silent skip.
+6. **Progress feedback** — Notice (auto-dismiss 5s) + status bar (full ingest progress).
+
+**3 PR breakdown:**
+
+| PR | Scope | Est. | New files | Modified files |
+|----|-------|------|-----------|----------------|
+| **#1 Core** | PDF→MD converter + cache + metadata parser + LLMClient interface extension (1 type only, backward-compat) | 4 days | `core/pdf-cache.ts`, `core/pdf-converter.ts`, `core/pdf-metadata.ts`, `prompts/pdf-convert.ts` + 3 test files | `types.ts` (1 type extension) |
+| **#2 Ingest integration** | Ingest pipeline hookup + source-collector + 2 new commands | 5 days | `core/pdf-ingest-orchestrator.ts`, `core/source-collector.ts`, `commands/ingest-pdf.ts`, `commands/clear-pdf-cache.ts` + 3 test files | `wiki/wiki-engine.ts:497 ingestSource` (+5 lines), 2 suggest modals (1 line each) |
+| **#3 UX + docs** | Settings tab PDF section + 10-locale READMEs + CHANGELOG + ROADMAP update + memory | 3 days | `commands/clear-pdf-cache.ts` | `settings-tab.ts` (PDF section + `forcePdfSupport` toggle under baseURL), 10 README files, CHANGELOG, ROADMAP, this file |
+
+**LLMClient interface extension (PR #1):**
+```ts
+// Before
+messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+
+// After (backward-compatible)
+type MessageContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'file'; data: string;  // base64
+      mediaType: 'application/pdf' | 'image/png' | 'image/jpeg' | 'text/plain';
+      filename?: string };
+messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPart[] }>;
+```
+
+**3 SDK clients modified:** 0 (AI SDK v6 transparently maps `FilePart` to provider-native format).
+
+**Files using `getMarkdownFiles()` modified:** 2 (only UI source pickers: `suggest-modals.ts:20`, `MultiFileSuggestModal-class.ts:98`). The 4 wiki-engine.ts uses are for **wiki file lookup** (not source discovery) and stay untouched.
+
+**Cache:**
+- Path: `.obsidian/plugins/karpathywiki/pdf-cache/{sha256}.json`
+- Value: `{ markdown, metadata: {title, author, pageCount, convertedAt}, converter: "<provider>/<model>" }`
+- TTL: 30 days (configurable, PR #3)
+- LRU eviction: 500MB cap (PR #3)
+
+**Provider support matrix (Level 1):**
+| Provider | PDF support | Conversion path |
+|----------|-------------|-----------------|
+| anthropic | ✅ Native (document block) | Direct |
+| openai | ✅ Native (file block) | Direct |
+| bedrock-anthropic | ✅ Native (document block) | Direct |
+| bedrock-openai | ✅ Native (file block) | Direct |
+| ollama | ❌ | Notice + workaround |
+| lmstudio | ❌ | Notice + workaround |
+| deepseek | ❌ | Notice + workaround |
+| glm | ❌ | Notice + workaround |
+| other openai-compat | ❌ | Notice + workaround |
+
+**Test count target:** 2080 → ~2200 (~+30 new tests in PR #1, ~+12 in PR #2, ~+3 in PR #3).
+
+**Migration cost for users:** Zero. PDFs in the vault just become ingestible. Existing `.md` ingest path unchanged.
+
+**What PDF Level 1 does NOT do (deferred to Level 2):**
+- Visual/chart/image understanding (Level 2 will flip a "multimodal" flag in the conversion call).
+- Scanned PDF OCR (Level 2+; needs OCR library — likely out of scope).
+- Encrypted PDF (Level 2+; needs decryption strategy).
+- Sub-page-level extraction (Level 2+; needed for very large PDFs).
+
+**What about wiki-engine.ts split (3rd-party audit P1)?** Deferred to v1.26.0. The Lint performance work that originally justified the split is itself deferred. Splitting `wiki-engine.ts` without a feature driver is a "rewrite for taste" risk.
+
+---
+
 ### Backlog from v1.24.1 PATCH (research / experimental)
 
 - **Windows: `Connection test failed: TypeError: Failed to construct 'Headers': String contains non ISO-8859-1 code point`** — withdrawn 2026-07-10 (user input error: non-ASCII in API key field; not a plugin/AI-SDK bug). AI-SDK 5.0.53 has a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix; not worth patching given root cause is user-side.
