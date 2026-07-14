@@ -177,6 +177,19 @@ Cinco temas: modelos por tarefa, instruções de consulta personalizadas, quatro
 
 **Definições a rever:** Âmbito do modelo (Unificado / Por tarefa, em Definições → Wiki), campos de modelo por tarefa (visíveis só no modo Por tarefa), painel colapsável ⚙ Instruções personalizadas Query Wiki (só na vista).
 
+### v1.24.1 — 2026-07-14 (PATCH)
+
+Atualização recomendada para todos os utilizadores de v1.24.0.
+
+- **🔍 Cascata de seleção de sementes PPR em 5 etapas.** O Query Wiki executa agora cinco etapas complementares antes de gerar uma resposta (caminho rápido Lex → palavras-chave LLM → varredura local de substrings → fallback LLM KB → expansão de grafo PPR). Perguntas multi-hop obtêm contexto consciente do grafo sem opt-in de embeddings.
+- **🤫 Caminho silencioso para respostas vazias.** O `parseJsonResponse` já não regista erros ruidosos para corpos LLM vazios nos caminhos Lint/Query, corrigindo o spam de consola reportado por alguns utilizadores (#255, #274). O seletor de sementes também lança mais cedo com corpos vazios para recuperação mais clara (#275).
+- **🧹 Páginas de entidades mais limpas.** O bloco redundante `## Basic Information` / `## Basic Info` foi removido dos prompts e do esquema de geração de páginas de entidades; as novas páginas de entidades vão diretamente do frontmatter para H1 → descrição → secções relacionadas (#258).
+- **☁️ Provedores Bedrock Stage 1.** Adicionadas as opções `bedrock-anthropic` e `bedrock-openai` encaminhadas através do endpoint AWS bedrock-mantle. Zero novas dependências npm, bundle ~+3 KB.
+- **🦙 Ingestão LM Studio sem chave API.** A ingestão funciona agora com a chave API vazia do LM Studio, tal como o teste de ligação.
+- **🏗️ Limpezas internas.** O `page-factory.ts` foi dividido em 10 módulos focados (+99 testes); a re-ingestão não destrutiva de Mentions preserva as citações de fontes anteriores na fusão (#267).
+
+**Nota de atualização:** Se adicionou manualmente marcadores `<!-- reviewed: keep -->` na v1.24.0, mude para o frontmatter `reviewed: true` — protege toda a página e sobrevive a linters Markdown.
+
 ## ✨ Funcionalidades
 
 ### 📊 Qualidade do Conhecimento

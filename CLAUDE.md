@@ -1,24 +1,31 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-13
+**Last Updated:** 2026-07-14
 
 ---
 
-## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.24.1 PATCH Phase 5 merged (PR #281, 2026-07-13); #275 + Phase 6 #258 + Phase 7 release remaining
+## Current Phase: v1.24.1 PATCH RELEASED (2026-07-14, PR #271 + #276 + #277 + #269 + #281 + #282 + #283) → v1.24.2 PATCH next (Fix #0 `selectSeedsWithLLM` streaming-mode port); v1.25.0 MINOR planning for source-revision awareness + PDF native ingest + LLM-driven memory hygiene
 
-**v1.24.1 PATCH status (PRs merged on main 2026-07-11 to 2026-07-13):**
+**v1.24.1 PATCH release composition (2026-07-13/14 merge window):**
 - ✅ Phase 1 (#271): Fix #1 #268 Tier C forceRecreate bypass
 - ✅ Phase 2 (#276): page-factory.ts 1297-LOC god-class split (10 modules + 99 tests)
 - ✅ Phase 3 (#277/280): Bedrock Stage 1 via bedrock-mantle (~+3 KB, zero new npm deps)
 - ✅ Phase 4 (#269): #272 LM Studio no-key ingest fix
-- ✅ Phase 5 (#281, merged 2026-07-13): 5-stage seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes (Settings unified↔per-task cascade, wiki-engine graph path normalization, load-pages `.md` suffix defense, llm-sdk streaming-chunk console-debug removal, dead `indexContent` field removal). 1825 → 2060 tests.
-- 🟡 Phase 5.5 (Route 1): salvage `0a3bf3e` from `fix/json-empty-response-quiet-path` to close **#255**, **#274**, **#275** (parseJsonResponse quiet path + 3 max_tokens raised to 1000). Note: this is a DIFFERENT commit from #281 — the original "Phase 5" plan described `0a3bf3e`; #281 was a separately grown branch that landed first.
-- 🟡 Phase 6 (planned): #258 entities-page duplicate-info section suppressor (first-principles analysis pending).
-- ⏳ Phase 7 (release): version bump + 10 READMEs + CHANGELOG + tag. Re-scoped after #281 — see ROADMAP "Re-scoped v1.24.1 PATCH" section.
+- ✅ Phase 5 (#281): 5-stage PPR seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes. 1825 → 2060 tests.
+- ✅ Phase 5.5 (#282): parseJsonResponse empty-body quiet path (`silentOnEmpty` + `throwOnEmpty`). Closes #255 + #274. 2060 → 2073 tests (+13).
+- ✅ Phase 6 (#283): #258 entities-page redundant `## 基本信息` body block fix at the prompt + schema + lint layer. Closes #258. 2073 → 2080 tests (+7).
 
-**Open issues still pending after #281**: #255, #258, #274, #275 (the first three close with the Phase 5.5 salvage; #258 needs separate first-principles investigation).
+**Issues closed in v1.24.1:**
+- #255 — Lint console errors (CLOSED via #282)
+- #258 — entities-page `## 基本信息` drift (CLOSED via #283)
+- #274 — Ollama Qwen3.5:9b no-key empty body (CLOSED via #282)
+- #275 — deepseek seed-selector empty body (CLOSED via `Closes #275` in v1.24.1 release commit; e2e PASSED on deepseek-v4-flash)
 
-Full composition + execution plan: [ROADMAP.md](./ROADMAP.md#v1241-composition)
+**v1.24.2 PATCH open issues (next cycle):**
+- #255 follow-up — none
+- #275 streaming-mode port (`selectSeedsWithLLM` to streaming + parse first stop chunk) — Fix #0 candidate
+
+Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 
 ### Withdrawn / non-issues (kept for archaeology)
 
@@ -177,7 +184,7 @@ This rule exists because Obsidian's review ruleset is stricter than the local ES
 
 ## ⚠️ Editor Discipline — No Bulk Scripts for Code or Documents
 
-Every change via `Read` + `Edit` — no sed/awk/python for code or document editing. (2026-06-11: a brace-matching Python script broke 3 sites that 4-Gate still passed — wrong lexical block in `query-engine.ts`, unsafe `this: any` in `lint-controller.ts`.)
+Every change via `Read` + `Edit` — no sed/awk/python for code or document editing. (2026-06-11: a brace-matching Python script broke 3 sites that 4-Gate still passed — wrong lexical block in `query-engine.ts`, unsafe `this: any` in lint modules.)
 
 ### Document editing rules (2026-06-24 post-mortem)
 

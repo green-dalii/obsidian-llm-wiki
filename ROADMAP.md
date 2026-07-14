@@ -2,13 +2,13 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 PATCH Phases 1-6 merged (PR #281 + #282 + #283 on 2026-07-13/14). Phase 7 release remaining. | **Updated:** 2026-07-14
+**Version:** 1.24.1 (released 2026-07-14) → v1.25.0 next. | **Updated:** 2026-07-14
 
 ## Current Status
 
 **v1.24.0 — RELEASED 2026-07-10.** MINOR scope. (unchanged; see full text below)
 
-**v1.24.1 — RELEASED 2026-07-12.** PATCH scope. 4 merged PRs + Bedrock Stage 1. 1953 tests passing.
+**v1.24.1 — RELEASED 2026-07-14.** PATCH scope. 7 merged PRs + post-e2e fixes. 2080 tests passing (+255 since v1.24.0).
 
 ### v1.24.1 composition
 
@@ -16,29 +16,19 @@
 - ✅ **PR #276 (Phase 2)** — page-factory.ts 1297-LOC god-class → 10 module files + facade + 99 unit tests (`green-dalii`).
 - ✅ **PR #277/280 (Phase 3)** — Bedrock Stage 1 via bedrock-mantle. New providers `bedrock-anthropic` + `bedrock-openai`. 18-region dropdown. ~+3 KB bundle. Zero new npm deps (`green-dalii`, design based on dmsessions PR #263).
 - ✅ **PR #269/272 (Phase 4)** — LM Studio no-key ingest fix (`rkuzmin`).
-- ✅ **PR #281 (Phase 5, merged 2026-07-13)** — 5-stage seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes (Settings unified↔per-task cascade, wiki-engine graph path normalization, load-pages `.md` suffix defense, llm-sdk streaming-chunk console debug removal, dead `indexContent` field removal). 1825 → 2060 tests. **Note**: PR #281 is NOT the same as the original Phase 5 plan (`parseJsonResponse quiet path + max_tokens 1000`, the `0a3bf3e` commit on `fix/json-empty-response-quiet-path`). That earlier Phase 5 plan is **unmerged** — but a quiet-path-only salvage landed as PR #282 (see below).
-- ✅ **PR #282 (Phase 5.5, merged 2026-07-14)** — parseJsonResponse empty-body quiet path salvaged from `0a3bf3e` (NO max_tokens raise — that part discarded per "改大不改小" + main already has `TOKENS_QUERY_SEED_SELECT=2000`). Closes #255 + #274. `throwOnEmpty: true` is defense-in-depth for #275. 2060 → 2073 tests (+13).
-- ✅ **PR #283 (Phase 6, merged 2026-07-14)** — #258 entities-page redundant `## 基本信息` body block fix at the prompt + schema + lint layer. First-principles analysis: 5 independent code paths declared "Basic Information" as the first entity section (generation prompt, merge prompt entity + concept, default schema, canonical schema fallback, lint section-labels hint). Fix at the source layer per user decision (no sanitizer, no migration of legacy content). 2073 → 2080 tests (+7). Closes #258.
-- ⏳ **Phase 7** — v1.24.1 release workflow: version bump 1.24.0 → 1.24.1, CHANGELOG, README ×9, ROADMAP sync, pre-release-gate, tag. Reply drafts queued for #275 (post-e2e-pass) and other closed issues; will run in Phase 7 Step 7.
+- ✅ **PR #281 (Phase 5, merged 2026-07-13)** — 5-stage seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes (Settings unified↔per-task cascade, wiki-engine graph path normalization, load-pages `.md` suffix defense, llm-sdk streaming-chunk console debug removal, dead `indexContent` field removal). 1825 → 2060 tests.
+- ✅ **PR #282 (Phase 5.5, merged 2026-07-14)** — parseJsonResponse empty-body quiet path salvaged from `0a3bf3e`. Closes #255 + #274. Seed selector throws `EmptyResponseError` on empty body as defense-in-depth for #275. 2060 → 2073 tests (+13).
+- ✅ **PR #283 (Phase 6, merged 2026-07-14)** — #258 entities-page redundant `## 基本信息` body block fix at the prompt + schema + lint layer. 2073 → 2080 tests (+7). Closes #258.
 
-### Deferred from v1.24.1 PATCH
+### Closed issues (v1.24.1 release)
 
-- **#275 (deepseek seed-selector empty body)** — **E2E PASSED 2026-07-14** (post #283 squash). User ran Query Wiki with `deepseek-v4-flash` + Enable Thinking ON against a 2137-node vault; `parseJsonResponse` returned length=129 (non-empty), Stage 1.5a generated 10 keywords, cascade ran as `arm: LLM+PPR` selecting 10 pages. **No empty body, no retries**. Mitigation chain (TOKENS_QUERY_SEED_SELECT=2000 from #281 + throwOnEmpty + silentOnEmpty from #282) is **effective for the deepseek-v4-flash variant**. Original report was on `deepseek-v4-pro` — same provider endpoint, same max_tokens trigger mechanism, expected to apply symmetrically. Reply draft saved at `/tmp/issue-275-reply.md`; will be posted in Phase 7 Step 7. Issue will auto-close via `Closes #275` in the v1.24.1 release commit (per user decision "Option C" — single source of truth at release time).
-- **#255 (Lint console errors)** — **CLOSED by PR #282 (2026-07-14)**. silentOnEmpty across 3 Lint callers + 1 ingest caller.
-- **#274 (Ollama Qwen3.5:9b no-key)** — **CLOSED by PR #282 (2026-07-14)**. Same quiet path.
-- **#258 (createNewPage prompt drift: LLM emits non-schema sections)** — **CLOSED by PR #283 (2026-07-14)**. Root cause was prompt-level (5 code paths agreed entity should have Basic Information section); LLM copied the template occasionally. Fix at source: removed the section from prompt + schema + lint hint; entity page now goes frontmatter → H1 → `## 描述` → related.
+- **#255 (Lint console errors)** — CLOSED by PR #282. silentOnEmpty across Lint callers.
+- **#274 (Ollama Qwen3.5:9b no-key)** — CLOSED by PR #282. Same quiet path.
+- **#258 (createNewPage prompt drift)** — CLOSED by PR #283. Fix at the source: removed the `## 基本信息` section from 5 code paths.
+- **#275 (deepseek seed-selector empty body)** — closed via `Closes #275` in the v1.24.1 release commit. E2E PASSED 2026-07-14 (deepseek-v4-flash + Enable Thinking ON against 2137-node vault). Reply posted in Phase 7 Step 7.
 - **Windows `Headers` TypeError** — withdrawn 2026-07-10 (user input error: non-ASCII in API key; not a plugin bug).
 - **PR #263 Bedrock Stage 2/3** — SSO/profile-mode + Converse protocol. Stage 2 triggers at 3+ user requests; Stage 3 at 5+ enterprise requests.
 - **`selectSeedsWithLLM` streaming-mode port** — tracked as v1.24.2 Fix #0 (the proper root-cause fix if downstream deepseek-v4-pro e2e still surfaces empty body). The 10× max_tokens raise in #281 is sufficient for daily use and avoids streaming complexity.
-
-### Re-scoped v1.24.1 PATCH (post-#283)
-
-With #281 + #282 + #283 in main, the remaining work is **Phase 7 release only**:
-
-1. **Phase 7.1** — version bump manifest.json + package.json + versions.json, regenerate lockfiles (pnpm + npm), update 9 READMEs (What's New + TOC integrity), CHANGELOG, ROADMAP, CLAUDE.md, CONTRIBUTING.md, memory files.
-2. **Phase 7.2** — pre-release-gate + doc-review skills (must return 🟢 PASS / PASS).
-3. **Phase 7.3** — commit `chore: bump version to 1.24.1` on `chore/v1.24.1-release` branch. PR merge to main. Tag `1.24.1`. Squash or merge per existing project convention (recent cycle used squash).
-4. **Phase 7.4** — post-release replies to closed issues (#255 / #274 done in #282 with auto-reply at merge time; #258 done in #283; **#275 reply draft at /tmp/issue-275-reply.md to post after release**). README ×9 i18n parity check via `gh release edit`.
 
 **v1.24.0 release composition:**
 - ✅ PR #248 — `controller.ts` `runLintWiki` god function → 3 LLM phase modules.
@@ -57,11 +47,11 @@ Historical releases are summarized in [CHANGELOG](./CHANGELOG.md).
 
 See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five merged PRs (#234 + graph-cache + #221 + #219 + DocTpoint's #238 + #241). 1431 tests at ship. Post-release monolith splits (#248/#249/#250) added ~90 test cases — **1616 tests across 115 files in latest main**. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
 
-## Next Milestone: v1.24.1 PATCH (target TBD)
+## Next Milestone: v1.25.0 MINOR (target TBD)
 
-### User-reported bugs awaiting triage
+### Backlog from v1.24.1 PATCH (research / experimental)
 
-- **Windows: `Connection test failed: TypeError: Failed to construct 'Headers': String contains non ISO-8859-1 code point`** — user screenshot, DeepSeek + GLM + compatible interfaces all failing. Root cause likely API key input containing non-ASCII chars (Chinese IME residue / trailing whitespace / Chinese punctuation) → AI-SDK `withUserAgentSuffix` builds `Authorization: Bearer <key>` → `new Headers()` throws (latin1 default). GLM 401 "令牌已过期或验证不正确" is a real token issue (re-generate key on zhipu console). AI-SDK 5.0.53 added a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix. Proposed (NOT yet acted on — user said deferred): Fix A — Settings apiKey input sanitization (trim + non-ASCII detection + Notice). Fix B — Map SDK `Headers` TypeError to a readable message. Fix C — Pre-set ASCII-safe `User-Agent` in our SDK clients.
+- **Windows: `Connection test failed: TypeError: Failed to construct 'Headers': String contains non ISO-8859-1 code point`** — withdrawn 2026-07-10 (user input error: non-ASCII in API key field; not a plugin/AI-SDK bug). AI-SDK 5.0.53 has a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix; not worth patching given root cause is user-side.
 
 ## v1.24.0 — Implemented (shipped 2026-07-10)
 
@@ -664,6 +654,7 @@ Fallback arm selection:
 ## Version Timeline
 | Version | Date | Headline |
 |---------|------|----------|
+| 1.24.1 | 2026-07-14 | PATCH: 5-stage PPR cascade (#281) + parseJsonResponse quiet path (#282, closes #255/#274) + redundant Basic Information removal (#283, closes #258) + Bedrock Stage 1 (#277) + LM Studio no-key (#269) + Tier C bypass (#271) + page-factory split (#276) + non-lossy Mentions re-ingest (#267). 2080 tests |
 | 1.24.0 | 2026-07-10 | MINOR: per-task models (#208) + Custom Query Instructions (#251) + 4 monolith splits (#248/#249/#250/#257) + source-note aliases (#185) + frontmatter write repair + merge triage (#216) + PPR graph warmup. 1825 tests |
 | 1.23.2 | 2026-07-05 | PATCH: #234/#221/#219 + DocTpoint #238/#241 + graph cache invalidation + Apache 2.0 + DCO. 1431 tests |
 | 1.23.1 | 2026-07-02 | Obsidian review hotfix — strictBindCallApply alignment + dead function removal + lockfile regen |

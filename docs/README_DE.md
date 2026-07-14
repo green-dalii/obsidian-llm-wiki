@@ -181,6 +181,19 @@ Fünf Schwerpunkte: Aufgabenbezogene Modelle, benutzerdefinierte Query-Anweisung
 
 **Zu prüfende Einstellungen:** Modellumfang (Einheitlich / Pro Aufgabe, Einstellungen → Wiki), Pro-Aufgabe-Modellfelder (nur im Pro-Aufgabe-Modus sichtbar), Query Wiki → ⚙ Benutzerdefinierte Anweisungen ausklappbares Panel (nur in der Ansicht).
 
+### v1.24.1 — 2026-07-14 (PATCH)
+
+Empfohlenes Upgrade für alle v1.24.0-Nutzer.
+
+- **🔍 5-stufige PPR-Seed-Selektions-Kaskade.** Query Wiki durchläuft vor der Antwortgenerierung nun fünf komplementäre Stufen (Lex-Schnellpfad → LLM-Keywords → lokaler Substring-Scan → LLM-KB-Fallback → PPR-Graph-Expansion). Multi-Hop-Fragen erhalten graphenbewussten Kontext ohne Embedding-Opt-in.
+- **🤫 Leere-Antwort-Quiet-Path.** `parseJsonResponse` protokolliert bei leeren LLM-Bodies in Lint/Query-Pfaden keine lauten Fehler mehr, was die von einigen Nutzern gemeldete Konsolen-Spam behebt (#255, #274). Der Seed-Selector wirft bei leeren Bodies früher für eine klarere Wiederherstellung (#275).
+- **🧹 Sauberere Entity-Seiten.** Der redundante `## Basic Information` / `## Basic Info`-Block wurde aus Entity-Seiten-Generierungs-Prompts und Schema entfernt; neue Entity-Seiten gehen direkt von Frontmatter zu H1 → Beschreibung → verwandte Abschnitte (#258).
+- **☁️ Bedrock Stage 1 Provider.** `bedrock-anthropic` und `bedrock-openai` über den AWS bedrock-mantle-Endpunkt hinzugefügt. Null neue npm-Abhängigkeiten, Bundle ~+3 KB.
+- **🦙 LM Studio Ingest ohne API-Key.** Ingest funktioniert jetzt mit leerem API-Key bei LM Studio, passend zum Verbindungstest-Verhalten.
+- **🏗️ Interne Aufräumarbeiten.** `page-factory.ts` in 10 fokussierte Module aufgeteilt (+99 Tests); verlustfreies Mentions-Re-Ingest bewahrt frühere Source-Zitate beim Merge (#267).
+
+**Upgrade-Hinweis:** Wenn Sie in v1.24.0 manuell `<!-- reviewed: keep -->`-Marker hinzugefügt haben, wechseln Sie zu Frontmatter `reviewed: true` — es schützt die ganze Seite und überlebt Markdown-Linter.
+
 ## ✨ Funktionen
 
 ### 📊 Knowledge Quality

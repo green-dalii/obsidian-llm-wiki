@@ -187,6 +187,19 @@ Five themes: per-task models, custom query instructions, four monolith splits, s
 
 **Settings to review:** Model Scope (Unified / Per-Task, in Settings → Wiki), per-task model fields (visible in Per-Task mode), Query Wiki → ⚙ Custom Instructions collapsible panel (in-view only).
 
+### v1.24.1 — 2026-07-14 (PATCH)
+
+Recommended upgrade for all v1.24.0 users.
+
+- **🔍 5-stage PPR seed-selection cascade.** Query Wiki now runs five complementary stages (lex fast path → LLM keywords → local substring scan → LLM KB fallback → PPR graph expansion) before generating an answer. Multi-hop questions get graph-aware context without opt-in embeddings.
+- **🤫 Empty-response quiet path.** `parseJsonResponse` no longer logs noisy errors for empty LLM bodies in Lint/Query paths, fixing console spam reported by some users (#255, #274). Seed selector also throws earlier on empty bodies for clearer recovery (#275).
+- **🧹 Cleaner entity pages.** The redundant `## Basic Information` / `## Basic Info` block is removed from entity-page generation prompts and schema; new entity pages go straight from frontmatter to H1 → description → related sections (#258).
+- **☁️ Bedrock Stage 1 providers.** Added `bedrock-anthropic` and `bedrock-openai` provider options routed through the AWS bedrock-mantle endpoint. Zero new npm dependencies, ~+3 KB bundle.
+- **🦙 LM Studio no-key ingest.** Ingest now works with LM Studio's empty API key, matching Test Connection behavior.
+- **🏗️ Internal cleanups.** `page-factory.ts` is split into 10 focused modules (+99 tests); non-lossy Mentions re-ingest preserves earlier source quotes on merge (#267).
+
+**Upgrade note:** If you had manually added `<!-- reviewed: keep -->` markers in v1.24.0, switch to frontmatter `reviewed: true` — it protects the whole page and survives Markdown linters.
+
 ## ✨ Features
 
 ### 📊 Knowledge Quality

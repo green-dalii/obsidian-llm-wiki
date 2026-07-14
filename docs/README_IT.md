@@ -208,6 +208,19 @@ Cinque temi: modelli per attività, istruzioni di query personalizzate, quattro 
 
 **Impostazioni da rivedere:** Ambito modello (Unificato / Per attività, in Impostazioni → Wiki), campi modello per attività (visibili solo in modalità Per attività), pannello richiudibile ⚙ Istruzioni personalizzate Query Wiki (solo dentro la vista).
 
+### v1.24.1 — 2026-07-14 (PATCH)
+
+Aggiornamento consigliato a tutti gli utenti della v1.24.0.
+
+- **🔍 Cascata di selezione semi PPR a 5 stadi.** Query Wiki esegue ora cinque fasi complementari prima di generare una risposta (percorso rapido Lex → parole chiave LLM → scansione locale di sottostringhe → fallback LLM KB → espansione del grafo PPR). Le domande multi-hop ottengono contesto consapevole del grafo senza opt-in degli embedding.
+- **🤫 Percorso silenzioso per risposte vuote.** `parseJsonResponse` non registra più errori rumorosi per corpi LLM vuoti nei percorsi Lint/Query, risolvendo lo spam della console segnalato da alcuni utenti (#255, #274). Il selettore di semi lancia anche prima con corpi vuoti per un recupero più chiaro (#275).
+- **🧹 Pagine entità più pulite.** Il blocco ridondante `## Basic Information` / `## Basic Info` è stato rimosso dai prompt e dallo schema di generazione delle pagine entità; le nuove pagine entità passano direttamente dal frontmatter a H1 → descrizione → sezioni correlate (#258).
+- **☁️ Provider Bedrock Stage 1.** Aggiunte le opzioni `bedrock-anthropic` e `bedrock-openai` instradate tramite l'endpoint AWS bedrock-mantle. Zero nuove dipendenze npm, bundle ~+3 KB.
+- **🦙 Ingestion LM Studio senza chiave API.** L'ingestion ora funziona con chiave API vuota su LM Studio, come il test di connessione.
+- **🏗️ Pulizie interne.** `page-factory.ts` diviso in 10 moduli focalizzati (+99 test); la re-ingestion non distruttiva delle Mentions preserva le citazioni delle fonti precedenti durante il merge (#267).
+
+**Nota di aggiornamento:** Se hai aggiunto manualmente marcatori `<!-- reviewed: keep -->` nella v1.24.0, passa al frontmatter `reviewed: true` — protegge l'intera pagina e sopravvive ai linter Markdown.
+
 ## ✨ Funzionalità
 
 ### 📊 Qualità della conoscenza

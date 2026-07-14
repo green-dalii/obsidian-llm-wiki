@@ -176,6 +176,19 @@ Cinco temas: modelos por tarea, instrucciones de consulta personalizadas, cuatro
 
 **Configuraciones a revisar:** Alcance del modelo (Unificado / Por tarea, en Configuración → Wiki), campos de modelo por tarea (visibles sólo en modo Por tarea), panel desplegable ⚙ Instrucciones personalizadas de Query Wiki (sólo dentro de la vista).
 
+### v1.24.1 — 2026-07-14 (PATCH)
+
+Actualización recomendada para todos los usuarios de v1.24.0.
+
+- **🔍 Cascada de selección de semillas PPR en 5 etapas.** Query Wiki ahora ejecuta cinco etapas complementarias antes de generar una respuesta (camino rápido Lex → palabras clave LLM → escaneo local de subcadenas → fallback LLM KB → expansión de grafo PPR). Las preguntas multi-hop obtienen contexto consciente del grafo sin opt-in de embeddings.
+- **🤫 Ruta silenciosa para respuestas vacías.** `parseJsonResponse` ya no registra errores ruidosos para cuerpos LLM vacíos en rutas Lint/Query, corrigiendo el spam de consola reportado por algunos usuarios (#255, #274). El selector de semillas también lanza antes con cuerpos vacíos para una recuperación más clara (#275).
+- **🧹 Páginas de entidades más limpias.** Se eliminó el bloque redundante `## Basic Information` / `## Basic Info` de los prompts y el esquema de generación de páginas de entidades; las nuevas páginas de entidades van directamente de frontmatter a H1 → descripción → secciones relacionadas (#258).
+- **☁️ Proveedores Bedrock Stage 1.** Se añadieron las opciones `bedrock-anthropic` y `bedrock-openai` enrutadas a través del endpoint AWS bedrock-mantle. Cero nuevas dependencias npm, bundle ~+3 KB.
+- **🦙 Ingesta LM Studio sin clave API.** La ingesta ahora funciona con la clave API vacía de LM Studio, igual que el comportamiento del test de conexión.
+- **🏗️ Limpiezas internas.** `page-factory.ts` se dividió en 10 módulos enfocados (+99 tests); la re-ingesta no destructiva de Mentions preserva las citas de fuentes anteriores en la fusión (#267).
+
+**Nota de actualización:** Si añadiste manualmente marcadores `<!-- reviewed: keep -->` en v1.24.0, cambia al frontmatter `reviewed: true` — protege toda la página y sobrevive a los linters Markdown.
+
 ## ✨ Características
 
 ### 📊 Calidad del Conocimiento
