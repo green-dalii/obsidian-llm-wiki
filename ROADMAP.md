@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 PATCH Phase 5 (PR #281) merged 2026-07-13. #275 + #258 + Phase 7 release remaining. | **Updated:** 2026-07-13
+**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 PATCH Phases 1-5 merged (PR #281 + #282 on 2026-07-13/14). #275 + #258 + Phase 7 release remaining. | **Updated:** 2026-07-14
 
 ## Current Status
 
@@ -16,24 +16,26 @@
 - ✅ **PR #276 (Phase 2)** — page-factory.ts 1297-LOC god-class → 10 module files + facade + 99 unit tests (`green-dalii`).
 - ✅ **PR #277/280 (Phase 3)** — Bedrock Stage 1 via bedrock-mantle. New providers `bedrock-anthropic` + `bedrock-openai`. 18-region dropdown. ~+3 KB bundle. Zero new npm deps (`green-dalii`, design based on dmsessions PR #263).
 - ✅ **PR #269/272 (Phase 4)** — LM Studio no-key ingest fix (`rkuzmin`).
-- ✅ **PR #281 (Phase 5, merged 2026-07-13)** — 5-stage seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes (Settings unified↔per-task cascade, wiki-engine graph path normalization, load-pages `.md` suffix defense, llm-sdk streaming-chunk console debug removal, dead `indexContent` field removal). 1825 → 2060 tests. **Note**: PR #281 is NOT the same as the original Phase 5 plan (`parseJsonResponse quiet path + max_tokens 1000`, the `0a3bf3e` commit on `fix/json-empty-response-quiet-path`). That earlier Phase 5 plan is **unmerged** and is being re-scoped to v1.24.2 (see Fix #0 below).
-- 🟡 **PR #282 (Phase 6, planned)** — #258 entities-page duplicate-info section suppressor (`green-dalii`). First-principles analysis pending (prompt-cause vs schema-cause vs stochastic) before implementation.
-- ⏳ **Phase 7** — v1.24.1 release workflow: version bump, CHANGELOG, README ×10, ROADMAP sync, pre-release-gate, tag. (Re-scoped — see "Re-scoped v1.24.1 PATCH" below.)
+- ✅ **PR #281 (Phase 5, merged 2026-07-13)** — 5-stage seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes (Settings unified↔per-task cascade, wiki-engine graph path normalization, load-pages `.md` suffix defense, llm-sdk streaming-chunk console debug removal, dead `indexContent` field removal). 1825 → 2060 tests. **Note**: PR #281 is NOT the same as the original Phase 5 plan (`parseJsonResponse quiet path + max_tokens 1000`, the `0a3bf3e` commit on `fix/json-empty-response-quiet-path`). That earlier Phase 5 plan is **unmerged** — but a quiet-path-only salvage landed as PR #282 (see below).
+- ✅ **PR #282 (Phase 5.5, merged 2026-07-14)** — parseJsonResponse empty-body quiet path salvaged from `0a3bf3e` (NO max_tokens raise — that part discarded per "改大不改小" + main already has `TOKENS_QUERY_SEED_SELECT=2000`). Closes #255 + #274. `throwOnEmpty: true` is defense-in-depth for #275. 2060 → 2073 tests (+13).
+- 🟡 **Phase 6** — #258 entities-page duplicate-info section suppressor. First-principles analysis pending (prompt-cause vs schema-cause vs stochastic) before implementation.
+- ⏳ **Phase 7** — v1.24.1 release workflow: version bump, CHANGELOG, README ×10, ROADMAP sync, pre-release-gate, tag.
 
 ### Deferred from v1.24.1 PATCH
 
-- **#275 (deepseek seed-selector empty body)** — **STILL OPEN as of 2026-07-13**. PR #281 did NOT close it. The `0a3bf3e` commit on `fix/json-empty-response-quiet-path` (parseJsonResponse quiet path + 3 max_tokens raised to 1000) is the actual root-cause fix but **is unmerged** (WIP on that branch also includes an unfinished Phase 5.4 prompt-context overflow fallback). Salvage plan: peel `0a3bf3e` off the WIP, resolve the 3-file conflict with #281, land as a new PATCH. Streaming-mode port for `selectSeedsWithLLM` remains deferred to v1.24.2 Fix #0.
-- **#255 (Lint console errors)** and **#274 (Ollama Qwen3.5:9b no-key)** — root cause also addressed in the same `0a3bf3e` commit; will close together with #275.
+- **#275 (deepseek seed-selector empty body)** — **STILL OPEN as of 2026-07-14** (user chose Option A: keep OPEN until explicit deepseek-v4-pro + thinking + json_object e2e confirms non-empty body). PR #281 + #282 did NOT close it. Indirect mitigation: `TOKENS_QUERY_SEED_SELECT=2000` (raised from 200 out-of-band during the #281 cycle) gives 10× budget; user's #281 e2e did not observe #275 reproduce. **No targeted code fix**: max_tokens raise is budget-only, not root-cause. `throwOnEmpty: true` in seed-selector (added in #282) lets `withTransientRetry` retry 3 times, but retries with same `max_tokens` won't help if the model keeps emitting thinking. **To close properly**: needs an explicit e2e that runs `selectSeedsWithLLM` with deepseek-v4-pro + thinking + json_object and confirms non-empty body. Streaming-mode port for `selectSeedsWithLLM` remains the proper fix in v1.24.2 Fix #0.
+- **#255 (Lint console errors)** — **CLOSED by PR #282 (2026-07-14)**. silentOnEmpty across 3 Lint callers + 1 ingest caller.
+- **#274 (Ollama Qwen3.5:9b no-key)** — **CLOSED by PR #282 (2026-07-14)**. Same quiet path.
 - **Windows `Headers` TypeError** — withdrawn 2026-07-10 (user input error: non-ASCII in API key; not a plugin bug).
 - **PR #263 Bedrock Stage 2/3** — SSO/profile-mode + Converse protocol. Stage 2 triggers at 3+ user requests; Stage 3 at 5+ enterprise requests.
 
-### Re-scoped v1.24.1 PATCH (post-#281)
+### Re-scoped v1.24.1 PATCH (post-#281 / post-#282)
 
-The original Phase 5/6/7 plan in this document was written before #281 was created. With #281 now in main, the remaining work is narrower:
+The original Phase 5/6/7 plan in this document was written before #281 was created. With #281 + #282 now in main, the remaining work is narrower:
 
-1. **Salvage 0a3bf3e** to close #275/#274/#255. (Tracked separately — see Route 1 notes in project memory.)
+1. **#275 e2e verification** — explicit e2e that runs `selectSeedsWithLLM` with deepseek-v4-pro + thinking + json_object. If passes → close #275 (maintainer comment + state COMPLETED). If fails → open a v1.24.2 PATCH for proper root-cause fix (streaming mode per #275 workaround).
 2. **Phase 6 = #258** (one PR, first-principles analysis + small fix). Independent of #275.
-3. **Phase 7 = v1.24.1 PATCH release** — when (1) and (2) are merged, do version bump + 9 READMEs + CHANGELOG + ROADMAP + memory + pre-release-gate + tag. If (1) and (2) defer beyond a comfortable window, can ship v1.24.1 with just #281 and open v1.24.2 immediately.
+3. **Phase 7 = v1.24.1 PATCH release** — when (1) and (2) are done, do version bump + 9 READMEs + CHANGELOG + ROADMAP + memory + pre-release-gate + tag. If (1) and (2) defer beyond a comfortable window, can ship v1.24.1 with just #281 + #282 and open v1.24.2 immediately.
 
 **v1.24.0 release composition:**
 - ✅ PR #248 — `controller.ts` `runLintWiki` god function → 3 LLM phase modules.
