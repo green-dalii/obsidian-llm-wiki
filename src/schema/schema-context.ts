@@ -117,7 +117,6 @@ export { buildDefaultSchemaBody };
  *  explicit section list. */
 const CANONICAL_SECTIONS: Record<string, string[]> = {
   entity: [
-    'Basic Information',
     'Description',
     'Related Entities',
     'Related Concepts',
@@ -154,7 +153,7 @@ const TEMPLATE_HEADINGS: Record<string, string[]> = {
  * 4. If no explicit list found, fall back to canonical defaults
  *
  * Returns a markdown string with each section as a `## Heading` placeholder.
- * For example: `## Basic Information\n[content]\n\n## Description\n[content]`
+ * For example: `## Description\n[content]\n\n## Related Entities\n[content]`
  */
 export function buildSchemaSectionTemplate(ctx: SchemaContext, pageType: string): string {
   const fallbackSections = CANONICAL_SECTIONS[pageType] ?? [];

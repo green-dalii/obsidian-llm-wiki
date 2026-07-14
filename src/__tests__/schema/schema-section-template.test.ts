@@ -8,8 +8,12 @@ describe('buildSchemaSectionTemplate', () => {
     it('returns canonical entity sections when schema is default', () => {
       const ctx = parseSchemaContext(buildDefaultSchemaBody(), 'entity');
       const tpl = buildSchemaSectionTemplate(ctx, 'entity');
-      // Default behavior: canonical entity sections (no change from v1.20.0)
-      expect(tpl).toContain('## Basic Information');
+      // Default behavior: canonical entity sections (v1.24.1 PATCH — Basic
+      // Information removed from the prompt path and the default schema; the
+      // canonical fallback in schema-context.ts must agree or the
+      // system-prompt context will still tell the LLM to render the
+      // redundant block. See Issue #258.
+      expect(tpl).not.toContain('## Basic Information');
       expect(tpl).toContain('## Description');
       expect(tpl).toContain('## Related Entities');
       expect(tpl).toContain('## Related Concepts');
@@ -71,8 +75,11 @@ User added a new top-level section.
       const body = '## Concept Page Template\n**Sections:**\n1. **Definition**: x';
       const ctx = parseSchemaContext(body, 'entity');
       const tpl = buildSchemaSectionTemplate(ctx, 'entity');
-      // No Entity Page Template in body — fall back to canonical entity sections
-      expect(tpl).toContain('## Basic Information');
+      // No Entity Page Template in body — fall back to canonical entity
+      // sections. As of v1.24.1 PATCH (Issue #258), the canonical entity
+      // list starts at Description, not Basic Information.
+      expect(tpl).not.toContain('## Basic Information');
+      expect(tpl).toContain('## Description');
     });
   });
 });

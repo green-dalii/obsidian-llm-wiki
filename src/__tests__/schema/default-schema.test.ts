@@ -52,6 +52,21 @@ describe('buildDefaultSchemaBody', () => {
     expect(body).toContain('## Maintenance Policies');
   });
 
+  // #258: removed "Basic Information" section so system-prompt context the LLM reads agrees with the user-prompt output format.
+  it('Entity Page Template does NOT include a Basic Information section (#258)', () => {
+    const entityMatch = body.match(/## Entity Page Template[\s\S]*?(?=\n## |\s*$)/);
+    expect(entityMatch).not.toBeNull();
+    expect(entityMatch![0]).not.toMatch(/\*\*Basic Information\*\*/);
+    expect(entityMatch![0]).toContain('**Description**');
+  });
+
+  it('Concept Page Template has never included a Basic Information section (#258)', () => {
+    // Sentinel against future schema edits that introduce the block.
+    const conceptMatch = body.match(/## Concept Page Template[\s\S]*?(?=\n## |\s*$)/);
+    expect(conceptMatch).not.toBeNull();
+    expect(conceptMatch![0]).not.toMatch(/\*\*Basic Information\*\*/);
+  });
+
   it('preserves entity and concept subtype valid lists', () => {
     // Entity: person, organization, project, product, event, place, other
     expect(body).toMatch(/person[\s\S]*?organization[\s\S]*?project[\s\S]*?product[\s\S]*?event[\s\S]*?place[\s\S]*?other/);

@@ -52,10 +52,6 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 
 # {{entity_name}}
 
-## {{section_basic_information}}
-- Type: {{entity_type}}
-- Source: [[{{source_file}}]]
-
 ## {{section_description}}
 [Detailed description of the entity with bidirectional links]
 
