@@ -1,19 +1,22 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-12
+**Last Updated:** 2026-07-13
 
 ---
 
-## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.24.1 PATCH Phases 1-4 merged (2026-07-12), Phases 5-7 in flight
+## Current Phase: v1.24.0 RELEASED (2026-07-10) → v1.24.1 PATCH Phase 5 merged (PR #281, 2026-07-13); #275 + Phase 6 #258 + Phase 7 release remaining
 
-**v1.24.1 PATCH status (5 PRs merged on main between 2026-07-11 and 2026-07-12):**
+**v1.24.1 PATCH status (PRs merged on main 2026-07-11 to 2026-07-13):**
 - ✅ Phase 1 (#271): Fix #1 #268 Tier C forceRecreate bypass
 - ✅ Phase 2 (#276): page-factory.ts 1297-LOC god-class split (10 modules + 99 tests)
-- ✅ Phase 3 (#277): Bedrock Stage 1 via bedrock-mantle (~+3 KB, zero new npm deps)
+- ✅ Phase 3 (#277/280): Bedrock Stage 1 via bedrock-mantle (~+3 KB, zero new npm deps)
 - ✅ Phase 4 (#269): #272 LM Studio no-key ingest fix
-- 🟡 Phase 5 (in progress): parseJsonResponse quiet path + max_tokens 1000 raise (3 sites)
-- 🟡 Phase 6 (planned): #258 entities-page duplicate-info section suppressor
-- ⏳ Phase 7 (release): version bump + 10 READMEs + CHANGELOG + tag
+- ✅ Phase 5 (#281, merged 2026-07-13): 5-stage seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes (Settings unified↔per-task cascade, wiki-engine graph path normalization, load-pages `.md` suffix defense, llm-sdk streaming-chunk console-debug removal, dead `indexContent` field removal). 1825 → 2060 tests.
+- 🟡 Phase 5.5 (Route 1): salvage `0a3bf3e` from `fix/json-empty-response-quiet-path` to close **#255**, **#274**, **#275** (parseJsonResponse quiet path + 3 max_tokens raised to 1000). Note: this is a DIFFERENT commit from #281 — the original "Phase 5" plan described `0a3bf3e`; #281 was a separately grown branch that landed first.
+- 🟡 Phase 6 (planned): #258 entities-page duplicate-info section suppressor (first-principles analysis pending).
+- ⏳ Phase 7 (release): version bump + 10 READMEs + CHANGELOG + tag. Re-scoped after #281 — see ROADMAP "Re-scoped v1.24.1 PATCH" section.
+
+**Open issues still pending after #281**: #255, #258, #274, #275 (the first three close with the Phase 5.5 salvage; #258 needs separate first-principles investigation).
 
 Full composition + execution plan: [ROADMAP.md](./ROADMAP.md#v1241-composition)
 
