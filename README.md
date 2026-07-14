@@ -187,6 +187,19 @@ Five themes: per-task models, custom query instructions, four monolith splits, s
 
 **Settings to review:** Model Scope (Unified / Per-Task, in Settings → Wiki), per-task model fields (visible in Per-Task mode), Query Wiki → ⚙ Custom Instructions collapsible panel (in-view only).
 
+### v1.24.1 — 2026-07-14 (PATCH)
+
+Recommended upgrade for all v1.24.0 users.
+
+- **🔍 5-stage PPR seed-selection cascade.** Query Wiki now runs five complementary stages (lex fast path → LLM keywords → local substring scan → LLM KB fallback → PPR graph expansion) before generating an answer. Multi-hop questions get graph-aware context without opt-in embeddings.
+- **🤫 Empty-response quiet path.** `parseJsonResponse` no longer logs noisy errors for empty LLM bodies in Lint/Query paths, fixing console spam reported by some users (#255, #274). Seed selector also throws earlier on empty bodies for clearer recovery (#275).
+- **🧹 Cleaner entity pages.** The redundant `## Basic Information` / `## Basic Info` block is removed from entity-page generation prompts and schema; new entity pages go straight from frontmatter to H1 → description → related sections (#258).
+- **☁️ Bedrock Stage 1 providers.** Added `bedrock-anthropic` and `bedrock-openai` provider options routed through the AWS bedrock-mantle endpoint. Zero new npm dependencies, ~+3 KB bundle.
+- **🦙 LM Studio no-key ingest.** Ingest now works with LM Studio's empty API key, matching Test Connection behavior.
+- **🏗️ Internal cleanups.** `page-factory.ts` is split into 10 focused modules (+99 tests); non-lossy Mentions re-ingest preserves earlier source quotes on merge (#267).
+
+**Upgrade note:** If you had manually added `<!-- reviewed: keep -->` markers in v1.24.0, switch to frontmatter `reviewed: true` — it protects the whole page and survives Markdown linters.
+
 ## ✨ Features
 
 ### 📊 Knowledge Quality
@@ -200,6 +213,24 @@ Five themes: per-task models, custom query instructions, four monolith splits, s
 - **🎨 Customizable tag vocabulary (v1.18.0).** Settings → Wiki → Tag Vocabulary Mode → *Custom* lets you define your own entity-type and concept-type tag lists (e.g. `Medical_Arzneimittel`, `法规`). The plugin respects your vocabulary in extraction prompts and frontmatter validation; the existing Lint audit (Issue #85 v7) reports any page whose tags fall outside the active vocabulary.
 
 ![Custom tag vocabulary chip inputs](docs/assets/custom-tags.png)
+
+### 💬 Query & Feedback
+
+- **🔍 5-stage PPR seed-selection cascade (v1.24.1 PATCH).** When you ask a multi-hop question, Query Wiki composes the answer through five complementary stages before any generation runs:
+  1. **Lex fast path** — straight token-overlap against every entity/concept title and aliases (free, instant; gates the rest).
+  2. **LLM keyword generation** — the LLM proposes 8–12 cross-language keywords from your query (handles synonyms, abbreviations, token-overlap-resistant terms).
+  3. **Local substring scan** — every generated keyword is re-matched locally across page titles, aliases, and body snippets (no extra LLM call; rounds out noise-tolerant recall).
+  4. **LLM KB fallback** — when lex + keyword scan returns weak signals, the LLM re-seeds the top-N candidates against the full wiki for one semantic pass.
+  5. **PPR graph expansion** — Personalized PageRank (Haveliwala 2002) over the `[[wiki-link]]` graph starting from the candidate seed set; gives the LLM-graph-aware multi-hop context that linear search can't reach.
+
+  The cascade automatically truncates to whichever step returned enough signal — no fixed 5-step cost, no LLM calls when lex is sufficient, no lost precision when the LLM augmentation is needed. End-to-end relevance (PPR @5 = 27.1% on the project's own benchmark corpus) outperforms pure-knn baselines (24.1%) without opt-in embedding. Stage 1.5 (steps 2–3) handles the multi-hop query types that pure lex misses; Stage 1.7 (step 4) recovers when the LLM-injected keywords haven't seen enough signal yet; Stage 1.9 (step 5) guarantees that the LLM sees neighbor context, not just a flat top-N list. Replaces the older binary-tier cascade.
+
+- **🤖 Conversational query** — ChatGPT-style dialog with streaming Markdown output, automatic `[[wiki-links]]`, and multi-turn history.
+- **🪟 Right-docked side panel (v1.22.1, PR #196).** Query Wiki opens in a Copilot-style right sidebar leaf (reusing an existing leaf if already open) instead of a centered popup. The `message-circle` ribbon icon and `Query Wiki` command activate/reveal the panel; your notes stay visible alongside the conversation. All functionality is preserved unchanged.
+
+![Query Wiki side panel](docs/assets/query-side-panel.png)
+- **📤 Query → Wiki feedback** — save valuable conversations back into the Wiki, with entity/concept extraction and pre-save semantic dedup.
+- **🔒 Duplicate-save guard** — hash tracking prevents unchanged conversations from re-evaluating.
 
 ### 🛠️ Maintenance
 
@@ -216,15 +247,6 @@ Five themes: per-task models, custom query instructions, four monolith splits, s
 
 - **🧹 Incomplete-page cleaner (v1.21.0)** — pages left in a partial state after interrupted ingests are automatically archived on startup. Recoverable from Obsidian's `.trash`.
 
-### 💬 Query & Feedback
-
-- **🤖 Conversational query** — ChatGPT-style dialog with streaming Markdown output, automatic `[[wiki-links]]`, and multi-turn history.
-- **🪟 Right-docked side panel (v1.22.1, PR #196).** Query Wiki opens in a Copilot-style right sidebar leaf (reusing an existing leaf if already open) instead of a centered popup. The `message-circle` ribbon icon and `Query Wiki` command activate/reveal the panel; your notes stay visible alongside the conversation. All functionality is preserved unchanged.
-
-![Query Wiki side panel](docs/assets/query-side-panel.png)
-- **📤 Query → Wiki feedback** — save valuable conversations back into the Wiki, with entity/concept extraction and pre-save semantic dedup.
-- **🔒 Duplicate-save guard** — hash tracking prevents unchanged conversations from re-evaluating.
-
 ### 🌐 LLM & Language
 
 - **🔌 Multi-provider support** — Anthropic, Anthropic-compatible (Coding Plan), Gemini, OpenAI, DeepSeek, Kimi, GLM, MiniMax, LM Studio, OpenRouter, Ollama, custom endpoint.
@@ -237,6 +259,7 @@ Five themes: per-task models, custom query instructions, four monolith splits, s
 
 ### 🏗️ Architecture & Performance
 
+- **🕸️ PPR over [[wiki-link]] graph (v1.24.0+, mature in v1.24.1 PATCH).** Personalized PageRank (Haveliwala 2002) runs over the directed graph of `[[wiki-link]]` edges between your wiki pages; the cascade seeds PPR at the cascade's top-N candidate set so multi-hop context travels through up to 3 expansion rings. This is what makes the Query Wiki answers graph-aware (a "Founders of Microsoft" question resolves via Bill Gates → Microsoft → competitors, not just literal title overlap). 2,137-page vaults typically see <100 ms warm + 3-hop expansions, regardless of vault size. Used by all 4 stages of the seed-selection cascade (Query & Feedback section above) and by lint duplicate detection when indirect links tie two candidate pages together.
 - **⚡ Parallel page generation** — configurable 1–5 concurrent pages, default 3 (parallel), 2–3× speedup on large sources; per-page error isolation.
 - **📚 Iterative batched extraction** — adaptive batch sizing eliminates the long-document max_tokens bottleneck.
 - **🏛️ Three-layer architecture** — Your vault notes (read-only) → `wiki/` (LLM-generated pages organized as `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`) → `schema/` (co-evolved configuration).

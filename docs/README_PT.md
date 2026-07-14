@@ -177,6 +177,19 @@ Cinco temas: modelos por tarefa, instruções de consulta personalizadas, quatro
 
 **Definições a rever:** Âmbito do modelo (Unificado / Por tarefa, em Definições → Wiki), campos de modelo por tarefa (visíveis só no modo Por tarefa), painel colapsável ⚙ Instruções personalizadas Query Wiki (só na vista).
 
+### v1.24.1 — 2026-07-14 (PATCH)
+
+Atualização recomendada para todos os utilizadores de v1.24.0.
+
+- **🔍 Cascata de seleção de sementes PPR em 5 etapas.** O Query Wiki executa agora cinco etapas complementares antes de gerar uma resposta (caminho rápido Lex → palavras-chave LLM → varredura local de substrings → fallback LLM KB → expansão de grafo PPR). Perguntas multi-hop obtêm contexto consciente do grafo sem opt-in de embeddings.
+- **🤫 Caminho silencioso para respostas vazias.** O `parseJsonResponse` já não regista erros ruidosos para corpos LLM vazios nos caminhos Lint/Query, corrigindo o spam de consola reportado por alguns utilizadores (#255, #274). O seletor de sementes também lança mais cedo com corpos vazios para recuperação mais clara (#275).
+- **🧹 Páginas de entidades mais limpas.** O bloco redundante `## Basic Information` / `## Basic Info` foi removido dos prompts e do esquema de geração de páginas de entidades; as novas páginas de entidades vão diretamente do frontmatter para H1 → descrição → secções relacionadas (#258).
+- **☁️ Provedores Bedrock Stage 1.** Adicionadas as opções `bedrock-anthropic` e `bedrock-openai` encaminhadas através do endpoint AWS bedrock-mantle. Zero novas dependências npm, bundle ~+3 KB.
+- **🦙 Ingestão LM Studio sem chave API.** A ingestão funciona agora com a chave API vazia do LM Studio, tal como o teste de ligação.
+- **🏗️ Limpezas internas.** O `page-factory.ts` foi dividido em 10 módulos focados (+99 testes); a re-ingestão não destrutiva de Mentions preserva as citações de fontes anteriores na fusão (#267).
+
+**Nota de atualização:** Se adicionou manualmente marcadores `<!-- reviewed: keep -->` na v1.24.0, mude para o frontmatter `reviewed: true` — protege toda a página e sobrevive a linters Markdown.
+
 ## ✨ Funcionalidades
 
 ### 📊 Qualidade do Conhecimento
@@ -190,6 +203,22 @@ Cinco temas: modelos por tarefa, instruções de consulta personalizadas, quatro
 
 - **🎨 Vocabulário de tags personalizável (v1.18.0).** Configurações → Wiki → Modo de vocabulário de tags → *Personalizado* permite definir suas próprias listas de tags de tipo de entidade e conceito (por exemplo, `Medical_Arzneimittel`, `法规`). O plugin respeita seu vocabulário nos prompts de extração e na validação de frontmatter; a auditoria Lint (Issue #85 v7) reporta qualquer página cujas tags estejam fora do vocabulário ativo.
 
+### 💬 Consulta e Feedback
+
+- **🔍 Cascata de seleção de sementes PPR em 5 etapas (v1.24.1 PATCH).** Quando você faz uma pergunta multi-hop, o Query Wiki compõe a resposta por meio de cinco etapas complementares antes que qualquer geração comece:
+  1. **Caminho rápido Lex** — verificação direta de sobreposição de tokens contra cada título/alias de entity/concept (grátis, instantâneo; gateia as etapas seguintes)
+  2. **Geração de palavras-chave LLM** — o LLM propõe 8–12 palavras-chave inter-idiomas a partir da sua consulta (absorve sinônimos, abreviações, termos resistentes à sobreposição de tokens)
+  3. **Varredura local de substrings** — cada palavra-chave gerada é re-casada localmente contra títulos de página, aliases e trechos de corpo (sem chamada LLM extra; completa o recall tolerante a ruído)
+  4. **Fallback LLM KB** — quando lex + varredura de palavras-chave retornam sinais fracos, o LLM re-semeia os top-N candidatos com uma passagem semântica sobre o wiki inteiro
+  5. **Expansão de grafo PPR** — Personalized PageRank (Haveliwala 2002) executado sobre o grafo `[[wiki-link]]` a partir do conjunto de sementes candidatas; fornece ao LLM o contexto multi-hop ciente do grafo que a busca linear não alcança
+
+  A cascata se trunca automaticamente na etapa que devolver sinal suficiente — sem custo fixo de 5 etapas, sem chamadas LLM quando Lex basta, sem perda de precisão quando a augmentação LLM é necessária. A relevância end-to-end (PPR @5 = 27,1% no corpus de benchmark interno do projeto) supera as linhas-base knn puras (24,1%) sem opt-in de embedding. Stage 1.5 (passos 2–3) absorve os tipos de pergunta multi-hop que o Lex puro perde; Stage 1.7 (passo 4) recupera sinais fracos de palavras-chave injetadas pelo LLM; Stage 1.9 (passo 5) garante que o LLM veja contexto vizinho em vez de uma top-N plana. Substitui a antiga cascata binária por camadas.
+
+- **🤖 Consulta Conversacional** — Diálogo estilo ChatGPT com Markdown em streaming e `[[wiki-links]]`, histórico multi-turn
+- **🪟 Painel lateral acoplado à direita (v1.22.1, PR #196).** Query Wiki abre em um leaf do sidebar direito estilo Copilot (reutilizando um leaf existente) em vez de um popup centralizado. O ícone ribbon `message-circle` e o comando `Query Wiki` ativam/exibem o painel; suas notas ficam visíveis ao lado da conversa. Toda a funcionalidade é preservada sem alterações.
+- **📤 Query-to-Wiki Feedback** — Salve conversas valiosas para a Wiki com extração de Entity/Concept, deduplicação semântica antes de salvar
+- **🔒 Prevenção de Salvamento Duplicado** — Rastreamento por hash evita reavaliação de conversas inalteradas
+
 ### 🛠️ Manutenção
 
 - **🔍 Lint Health Scan** — Detecta duplicados, dead links, páginas vazias, órfãos, aliases ausentes e contradições em um relatório abrangente
@@ -201,13 +230,6 @@ Cinco temas: modelos por tarefa, instruções de consulta personalizadas, quatro
 - **🛡️ Portal de pré-ingestão (v1.21.0)** — Cada arquivo de origem é validado *antes* de qualquer chamada LLM: notas vazias/em branco/somente frontmatter são rejeitadas; a deduplicação por hash de conteúdo detecta arquivos idênticos entre caminhos. Impede que modelos locais alucinem nomes de entidades em entradas vazias.
 - **📊 Painel de histórico de operações (v1.21.0)** — UI pesquisável e filtrável para ingestões passadas, relatórios de lint e execuções de manutenção, com cartões KPI orientados por insights e links clicáveis para páginas.
 - **🧹 Limpador de páginas incompletas (v1.21.0)** — Páginas deixadas em estado parcial após ingestões interrompidas são arquivadas automaticamente na inicialização (recuperáveis da `.trash` do Obsidian).
-
-### 💬 Consulta e Feedback
-
-- **🤖 Consulta Conversacional** — Diálogo estilo ChatGPT com Markdown em streaming e `[[wiki-links]]`, histórico multi-turn
-- **🪟 Painel lateral acoplado à direita (v1.22.1, PR #196).** Query Wiki abre em um leaf do sidebar direito estilo Copilot (reutilizando um leaf existente) em vez de um popup centralizado. O ícone ribbon `message-circle` e o comando `Query Wiki` ativam/exibem o painel; suas notas ficam visíveis ao lado da conversa. Toda a funcionalidade é preservada sem alterações.
-- **📤 Query-to-Wiki Feedback** — Salve conversas valiosas para a Wiki com extração de Entity/Concept, deduplicação semântica antes de salvar
-- **🔒 Prevenção de Salvamento Duplicado** — Rastreamento por hash evita reavaliação de conversas inalteradas
 
 ### 🌐 LLM e Idioma
 
@@ -221,6 +243,7 @@ Cinco temas: modelos por tarefa, instruções de consulta personalizadas, quatro
 
 ### 🏗️ Arquitetura e Desempenho
 
+- **🕸️ PPR sobre o grafo [[wiki-link]] (v1.24.0+, amadurecido em v1.24.1 PATCH).** Personalized PageRank (Haveliwala 2002) executa sobre o grafo direcionado de arestas `[[wiki-link]]` entre suas páginas wiki; a cascata ancora as sementes PPR no conjunto de candidatos top-N, e o contexto multi-hop percorre até 3 anéis de expansão. É isso que torna as respostas do Query Wiki cientes do grafo (uma pergunta "fundadores da Microsoft" se resolve via Bill Gates → Microsoft → concorrentes, não só por sobreposição literal de títulos). Vaults de 2.137 páginas costumam ver <100 ms para warm + expansão de 3 saltos, independentemente do tamanho do vault. Usado pelas 4 etapas da cascata de seleção de sementes (seção Consulta e Feedback acima) e pela detecção de duplicados do Lint quando links indiretos conectam duas páginas candidatas.
 - **⚡ Geração de Páginas Paralela** — 1–5 páginas simultâneas configuráveis, padrão 3 (paralelo), 2–3× mais rápido para sources grandes, isolamento de erro por página
 - **📚 Extração em Lote Iterativa** — Dimensionamento adaptativo de lotes elimina o gargalo de max_tokens para documentos longos
 - **🏛️ Arquitetura de Três Camadas** — Suas notas do vault (somente leitura) → `wiki/` (páginas geradas pelo LLM, organizadas como `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`) → `schema/` (config co-evoluída)
