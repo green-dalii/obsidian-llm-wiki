@@ -149,6 +149,8 @@ La ri-acquisizione della stessa fonte fonde nuove informazioni in modo increment
 
 > 💡 **Smart Batch Skip:** Durante l'acquisizione di una cartella, il plugin rileva e salta automaticamente i file già elaborati — risparmia tempo e costi API.
 
+**Input PDF nativo.** Le fonti Markdown, testo normale e `.pdf` compaiono in tutti i selettori di acquisizione. I PDF vengono letti tramite l’input documento nativo del provider configurato; i PDF scansionati senza testo leggibile e i modelli che rifiutano l’input PDF vengono ignorati con un avviso.
+
 ![Command palette — cerca "karpa" per visualizzare tutti i comandi](assets/command-panel.png)
 
 ### ⚠️ Aggiornamento da una versione precedente?

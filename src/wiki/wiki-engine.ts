@@ -20,10 +20,11 @@ import { slugify } from '../core/slug';
 import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
 import { setGenerationComplete } from '../core/incomplete-page-cleaner';
-import { hashBody, checkContentRequirements } from '../core/source-requirements';
-import { resolveModelForTask } from '../core/model-resolver';
+import { hashBody, checkCompatibleType, checkContentRequirements } from '../core/source-requirements';
 import type { SourceRejection } from '../core/source-requirements';
+import { resolveModelForTask } from '../core/model-resolver';
 import { detectRateLimitFailures, formatRateLimitNotice } from '../core/rate-limit';
+import { PdfUnsupportedError, providerSupportsPdf } from '../core/pdf-support';
 import { extractSourceTags } from '../core/arrays';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { SchemaManager, SchemaTask } from '../schema/schema-manager';
@@ -44,7 +45,7 @@ import { fixPollutedSources } from '../core/sources-normalizer';
 import { buildLogHeader } from '../core/log-header';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
-import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS } from '../constants';
+import { TOKENS_PAGE_GENERATION, MAX_TOKENS_BATCH, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
 import { buildGraphFromContent } from '../core/build-graph';
@@ -117,6 +118,8 @@ export class WikiEngine {
   private _cachedGraph: Graph | null = null;
   private _cachedGraphAllPaths: Set<string> | null = null;
   private ctx: EngineContext;
+  /** Per-ingest Promise cache: analysis and summary share one source read. */
+  private sourceReadCache: Map<string, Promise<string>> | null = null;
 
   constructor(
     app: App,
@@ -140,6 +143,7 @@ export class WikiEngine {
       app: this.app,
       settings: this.settings,
       getClient: () => this.getLLMClient(),
+      readSourceContent: file => this.readSourceContent(file),
       createOrUpdateFile: (p, c) => this.createOrUpdateFile(p, c),
       deleteFile: p => this.deleteFile(p),
       tryReadFile: p => this.tryReadFile(p),
@@ -304,6 +308,39 @@ export class WikiEngine {
     return c;
   }
 
+  private async readSourceContent(file: TFile): Promise<string> {
+    const cacheKey = `${file.path}@${file.stat.mtime}`;
+    const cached = this.sourceReadCache?.get(cacheKey);
+    if (cached) return cached;
+
+    const content = file.extension.toLowerCase() === 'pdf'
+      ? this.readPdfSource(file)
+      : this.app.vault.read(file);
+    this.sourceReadCache?.set(cacheKey, content);
+    return content;
+  }
+
+  private async readPdfSource(file: TFile): Promise<string> {
+    if (!providerSupportsPdf(this.settings.provider)) {
+      throw new PdfUnsupportedError();
+    }
+
+    const client = this.client;
+    if (!client.readDocument) {
+      throw new PdfUnsupportedError();
+    }
+
+    this.onProgress?.(
+      getText(this.settings.language, 'pdfReadingInProgress').replace('{filename}', file.basename),
+    );
+    return client.readDocument({
+      model: resolveModelForTask(this.settings, 'ingest'),
+      max_tokens: MAX_TOKENS_BATCH,
+      data: await this.app.vault.readBinary(file),
+      ...(this.settings.disableThinking ? { enableThinking: false } : {}),
+    });
+  }
+
   private applySectionLabels(prompt: string): string {
     return applySectionLabels(prompt, this.settings);
   }
@@ -459,9 +496,14 @@ export class WikiEngine {
   }
 
   /** Map a rejection reason to its localized Notice key. */
-  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' {
+  private rejectionNoticeKey(reason: SourceRejection['reason']):
+    | 'sourceRejectedEmpty'
+    | 'sourceRejectedType'
+    | 'sourceRejectedDuplicate'
+    | 'sourceRejectedPdfUnsupported' {
     if (reason === 'incompatible-type') return 'sourceRejectedType';
     if (reason === 'duplicate') return 'sourceRejectedDuplicate';
+    if (reason === 'unsupported-pdf') return 'sourceRejectedPdfUnsupported';
     return 'sourceRejectedEmpty';
   }
 
@@ -498,20 +540,42 @@ export class WikiEngine {
     console.debug('=== Ingestion started ===');
     console.debug('Source file:', file.path);
 
-    // #164 pre-ingest requirements gate — runs BEFORE any cancellation/UI setup so
-    // a rejected file returns cleanly with nothing to tear down. Empty/type are
-    // hard skips; a duplicate auto-skips, except interactive ingest prompts first.
-    const fileContent = await this.app.vault.read(file);
-    const rejection = opts?.forceReingest ? null : await this.checkRequirements(file, fileContent, opts?.batchCtx);
-    if (rejection) {
-      const confirmed = rejection.reason === 'duplicate' && opts?.interactive && this.onConfirmReingest
-        ? await this.onConfirmReingest(file, rejection)
-        : false;
-      if (!confirmed) {
-        this.reportSkip(file, rejection, opts);
+    this.sourceReadCache = new Map();
+    try {
+      // Reject unsupported extensions before reading binary content or calling the LLM.
+      const typeRejection = checkCompatibleType({
+        extension: file.extension,
+        content: '',
+        allowedExtensions: COMPATIBLE_SOURCE_EXTENSIONS,
+      });
+      if (typeRejection) {
+        this.reportSkip(file, typeRejection, opts);
         return;
       }
-    }
+
+      let fileContent: string;
+      try {
+        fileContent = await this.readSourceContent(file);
+      } catch (error) {
+        if (error instanceof PdfUnsupportedError) {
+          this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
+          return;
+        }
+        throw error;
+      }
+
+      // #164 pre-ingest requirements gate retains empty and duplicate semantics
+      // after native PDF extraction has produced ordinary source text.
+      const rejection = opts?.forceReingest ? null : await this.checkRequirements(file, fileContent, opts?.batchCtx);
+      if (rejection) {
+        const confirmed = rejection.reason === 'duplicate' && opts?.interactive && this.onConfirmReingest
+          ? await this.onConfirmReingest(file, rejection)
+          : false;
+        if (!confirmed) {
+          this.reportSkip(file, rejection, opts);
+          return;
+        }
+      }
 
     const totalStartTime = Date.now();
 
@@ -926,6 +990,9 @@ export class WikiEngine {
       this.abortController = null;
       this.onIngestionEnd?.();
     }
+    } finally {
+      this.sourceReadCache = null;
+    }
   }
 
   private async apiDelay(ms?: number): Promise<void> {
@@ -956,7 +1023,7 @@ export class WikiEngine {
     const preserveCase = this.settings.slugCase === 'preserve';
     const slug = sourceSlug ?? slugify(file.basename, preserveCase);
     const path = normalizePath(`${this.settings.wikiFolder}/sources/${slug}.md`);
-    const content = await this.app.vault.read(file);
+    const content = await this.readSourceContent(file);
 
     // Issue #114: if the source page already exists with manually-set tags,
     // preserve them — re-ingesting a note must not overwrite corrections.
@@ -967,10 +1034,9 @@ export class WikiEngine {
       ? existingFm.tags
       : null;
 
-    // Issue #90: inherit tags from source note frontmatter when available,
-    // so the generated summary page doesn't pollute the tag vocabulary with
-    // LLM-derived concept names. Fallback to LLM-derived tags if source has none.
-    const sourceTags = extractSourceTags(content);
+    // Issue #90: inherit tags from text-source frontmatter when available.
+    // PDF transcription can contain YAML-like text, so it never contributes tags.
+    const sourceTags = file.extension.toLowerCase() === 'pdf' ? [] : extractSourceTags(content);
     const tagsValue = existingTags
       ? existingTags.join(', ')
       : sourceTags.length > 0
@@ -1032,6 +1098,10 @@ export class WikiEngine {
         );
         finalContent = withAliases;
       }
+    }
+
+    if (file.extension.toLowerCase() === 'pdf') {
+      finalContent += `\n\n## ${getText(this.settings.language, 'pdfExtractedTextHeading')}\n\n${content.trim()}`;
     }
 
     await this.createOrUpdateFile(path, finalContent);

@@ -5,6 +5,7 @@
 // No behavior change — pure code movement.
 
 import { App, TFile, TFolder, FuzzySuggestModal } from 'obsidian';
+import { filterCompatibleSourceFiles } from '../../core/source-files';
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   onSelect: (file: TFile) => void;
@@ -17,8 +18,11 @@ export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   }
 
   getItems(): TFile[] {
-    return this.app.vault.getMarkdownFiles()
-      .filter(f => !f.path.startsWith(this.wikiFolder) && !f.path.startsWith(this.app.vault.configDir));
+    return filterCompatibleSourceFiles(
+      this.app.vault.getFiles(),
+      this.wikiFolder,
+      this.app.vault.configDir,
+    );
   }
 
   getItemText(file: TFile): string {

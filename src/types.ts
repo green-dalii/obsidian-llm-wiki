@@ -1,6 +1,6 @@
 // Core Wiki data structures
 
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import type { RejectionReason } from './core/source-requirements';
 
 /**
@@ -451,6 +451,13 @@ export interface LLMClient {
     chat_template_kwargs?: Record<string, unknown>; // Issue #99: template-based reasoning disable
   }): Promise<string>;
 
+  readDocument?(params: {
+    model: string;
+    max_tokens: number;
+    data: ArrayBuffer;
+    enableThinking?: boolean;
+  }): Promise<string>;
+
   createMessageStream?(params: {
     model: string;
     max_tokens: number;
@@ -516,6 +523,7 @@ export interface EngineContext {
   app: App;
   settings: LLMWikiSettings;
   getClient: () => LLMClient | null;
+  readSourceContent: (file: TFile) => Promise<string>;
   createOrUpdateFile: (path: string, content: string) => Promise<void>;
   tryReadFile: (path: string) => Promise<string | null>;
   deleteFile: (path: string) => Promise<void>;

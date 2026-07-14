@@ -22,6 +22,7 @@ import type { LLMWikiSettings } from '../../types';
 import { getText } from '../../core/i18n';
 import { buildFolderTree, type TreeNode } from '../../core/build-folder-tree';
 import type { IngestQueue } from '../../core/ingest-queue';
+import { filterCompatibleSourceFiles } from '../../core/source-files';
 
 export class MultiFileSuggestModal extends Modal {
   /** The shared ingest queue. Modal reads + subscribes; never owns
@@ -90,14 +91,13 @@ export class MultiFileSuggestModal extends Modal {
     contentEl.addClass('llm-wiki-multi-file-modal');
     modalEl.addClass('llm-wiki-multi-file-modal');
 
-    // Build the candidate list (non-wiki, non-configDir) and the
-    // nested folder tree ONCE. The tree is then rendered once and
-    // updated in place — re-rendering on every queue change would
-    // close every <details> and force the user to re-expand
-    // folders (the bug v2 fixes).
-    const available = this.app.vault.getMarkdownFiles()
-      .filter(f => !f.path.startsWith(this.wikiFolder) && !f.path.startsWith(this.app.vault.configDir))
-      .sort((a, b) => a.path.localeCompare(b.path));
+    // Build the candidate list (non-wiki, non-configDir) and the nested folder
+    // tree ONCE. The tree is then rendered once and updated in place.
+    const available = filterCompatibleSourceFiles(
+      this.app.vault.getFiles(),
+      this.wikiFolder,
+      this.app.vault.configDir,
+    ).sort((a, b) => a.path.localeCompare(b.path));
     this.treeRoots = buildFolderTree(available);
 
     contentEl.createEl('h3', { text: getText(this.settings.language, 'multiFileModalTitle') });

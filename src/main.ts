@@ -6,10 +6,11 @@ import {
   LLMClient,
   IngestReport
 } from './types';
-import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, NOTICE_ABORT, NOTICE_RATE_LIMIT, COMPATIBLE_SOURCE_EXTENSIONS } from './constants';
+import { TOKENS_QUERY_MODEL_DETECT, NOTICE_NORMAL, NOTICE_ERROR, NOTICE_ABORT, NOTICE_RATE_LIMIT } from './constants';
 import { wrapWithAdvancedSettings } from './llm-client-wrapper';
 import { createLLMClientFromSettingsSync, preloadLLMClientModules } from './llm-sdk/create-llm-client';
 import { runSchemaAnalyze } from './schema/analyze';
+import { filterCompatibleSourceFiles } from './core/source-files';
 
 // v1.23.0 P1-7: AI-SDK migration. Eagerly preload SDK modules on plugin
 // load so sync `createLLMClient` works without blocking. Failure is
@@ -635,8 +636,7 @@ export default class LLMWikiPlugin extends Plugin {
     }
 
     // File-type validation is handled centrally by the ingest gate (#164),
-    // which accepts the text allowlist (.md, .txt, …) and shows a localized
-    // notice for anything else.
+    // including native PDF sources and localized rejection notices.
     this.showProgressFor(ProgressScope.IngestManual, `Ingesting: ${activeFile.basename}`);
     this.wikiEngine.ingestSource(activeFile, { interactive: true }).catch(e => {
       console.error('Ingest active file failed:', e);
@@ -653,12 +653,11 @@ export default class LLMWikiPlugin extends Plugin {
     }
 
     new FolderSuggestModal(this.app, this.settings.wikiFolder, (folder) => {
-      // #164: scan the compatible text-file allowlist (not just .md), so .txt
-      // sources in the folder are picked up too. The ingest gate is the final
-      // arbiter of type/empty/duplicate.
-      const allowedExts: readonly string[] = COMPATIBLE_SOURCE_EXTENSIONS;
-      const files = this.app.vault.getFiles()
-        .filter(f => f.path.startsWith(folder.path) && allowedExts.includes(f.extension.toLowerCase()));
+      const files = filterCompatibleSourceFiles(
+        this.app.vault.getFiles().filter(file => file.path.startsWith(folder.path)),
+        this.settings.wikiFolder,
+        this.app.vault.configDir,
+      );
 
       if (files.length === 0) {
         const msg = TEXTS[this.settings.language].selectFolderNoMdFiles.replace('{path}', folder.path);

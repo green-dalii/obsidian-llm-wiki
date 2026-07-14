@@ -227,6 +227,23 @@ describe('withTransientRetry', () => {
     consoleWarn.mockRestore();
   });
 
+  it('surfaces errors rejected by shouldRetry without another attempt', async () => {
+    const unsupported = Object.assign(new Error('PDF file input is not supported'), { statusCode: 400 });
+    const fn = vi.fn().mockRejectedValue(unsupported);
+
+    const result = await withTransientRetry({
+      fn,
+      label: 'PDF extraction',
+      shouldRetry: (error) => {
+        if (!(error instanceof Error) || !('statusCode' in error)) return false;
+        return error.statusCode === 429 || (typeof error.statusCode === 'number' && error.statusCode >= 500);
+      },
+    });
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(result.error).toBe(unsupported);
+  });
+
   it('uses defaults: maxAttempts=3, backoffBaseMs=250 when not specified', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('transient'));
 

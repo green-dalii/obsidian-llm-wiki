@@ -48,6 +48,11 @@ export interface TransientRetryOptions<T> {
    * Default: never match.
    */
   isRateLimitError?: (error: unknown) => boolean;
+  /**
+   * Optional predicate that restricts retryable thrown errors. Returning false
+   * surfaces the error immediately. Existing callers retain retry-all behavior.
+   */
+  shouldRetry?: (error: unknown) => boolean;
   /** Maximum number of attempts (including the first). Default: 3. */
   maxAttempts?: number;
   /** Backoff base in ms. Default: 250. */
@@ -109,8 +114,12 @@ export async function withTransientRetry<T>(
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
 
-      // Auth / rate-limit: surface immediately, do not retry.
-      if (opts.isAuthError?.(err) === true || opts.isRateLimitError?.(err) === true) {
+      // Auth / rate-limit and caller-selected non-transient errors surface immediately.
+      if (
+        opts.isAuthError?.(err) === true
+        || opts.isRateLimitError?.(err) === true
+        || opts.shouldRetry?.(err) === false
+      ) {
         return { error: err, attempts: attempt, totalBackoffMs };
       }
 

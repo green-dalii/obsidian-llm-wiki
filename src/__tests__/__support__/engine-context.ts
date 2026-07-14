@@ -166,6 +166,7 @@ export function createMockContext(opts: MockContextOptions = {}): { ctx: EngineC
     } as unknown as EngineContext['app'],
     settings,
     getClient: () => client,
+    readSourceContent: async (file) => vault.read(file.path) ?? '',
     createOrUpdateFile: async (path, content) => { vault.write(path, content); },
     tryReadFile: async (path) => vault.read(path),
     deleteFile: async () => {},

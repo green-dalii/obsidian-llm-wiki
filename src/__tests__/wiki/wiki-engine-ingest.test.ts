@@ -11,6 +11,7 @@ function sourceFile(path = 'sources/empty.md'): TFile {
     path,
     basename: dot > 0 ? name.slice(0, dot) : name,
     extension: dot > 0 ? name.slice(dot + 1) : 'md',
+    stat: { mtime: 1 },
   });
 }
 
@@ -58,12 +59,61 @@ describe('WikiEngine.ingestSource — empty source (#164)', () => {
 });
 
 describe('WikiEngine.ingestSource — requirements gate (#164)', () => {
-  it('rejects an unsupported file type without creating pages', async () => {
-    const h = createWikiEngineHarness({ files: { 'sources/diagram.pdf': 'not real text' } });
-    await expect(h.engine.ingestSource(sourceFile('sources/diagram.pdf'))).resolves.toBeUndefined();
-    expect(h.reports.at(-1)?.rejectedFiles?.[0]?.reason).toBe('incompatible-type');
+  it('ingests a PDF once and writes its extracted text to the source page', async () => {
+    const extracted = 'PDF body with a known sentence.';
+    const h = createWikiEngineHarness({
+      binaryFiles: { 'sources/paper.pdf': new Uint8Array([37, 80, 68, 70]).buffer },
+      documentText: extracted,
+      llmResponses: [
+        JSON.stringify({ source_title: 'Paper', summary: 'Summary', entities: [], concepts: [], contradictions: [], related_pages: [], key_points: [] }),
+        '---\ntype: source\n---\n\n# Paper summary',
+      ],
+    });
+
+    await h.engine.ingestSource(sourceFile('sources/paper.pdf'));
+
+    const sourcePath = h.writtenPaths.find(path => path.includes('/sources/'));
+    expect(sourcePath).toBeDefined();
+    expect(h.files.get(sourcePath ?? '')).toContain('## Extracted Text');
+    expect(h.files.get(sourcePath ?? '')).toContain(extracted);
+    expect(h.files.get(sourcePath ?? '')).toContain(hashBody(extracted));
+    expect(h.stats.documentReads).toBe(1);
+    expect(h.stats.binaryReads).toBe(1);
+  });
+
+  it('skips PDF before any document request when the provider is known unsupported', async () => {
+    const h = createWikiEngineHarness({
+      binaryFiles: { 'sources/paper.pdf': new ArrayBuffer(1) },
+      settings: { provider: 'deepseek' },
+    });
+
+    await expect(h.engine.ingestSource(sourceFile('sources/paper.pdf'))).resolves.toBeUndefined();
+
+    expect(h.reports.at(-1)?.rejectedFiles?.[0]?.reason).toBe('unsupported-pdf');
+    expect(h.stats.documentReads).toBe(0);
     expect(wikiPagesWritten(h.writtenPaths)).toEqual([]);
-    expect(h.stats.llmCalls).toBe(0);
+  });
+
+  it('reports empty when PDF extraction returns no readable text', async () => {
+    const h = createWikiEngineHarness({
+      binaryFiles: { 'sources/paper.pdf': new ArrayBuffer(1) },
+      documentText: '',
+    });
+
+    await expect(h.engine.ingestSource(sourceFile('sources/paper.pdf'))).resolves.toBeUndefined();
+
+    expect(h.reports.at(-1)?.rejectedFiles?.[0]?.reason).toBe('empty');
+    expect(h.stats.documentReads).toBe(1);
+  });
+
+  it('preserves a damaged or password-protected PDF provider error', async () => {
+    const h = createWikiEngineHarness({
+      binaryFiles: { 'sources/paper.pdf': new ArrayBuffer(1) },
+      documentError: new Error('password-protected PDF'),
+    });
+
+    await expect(h.engine.ingestSource(sourceFile('sources/paper.pdf'))).rejects.toThrow('password-protected PDF');
+    expect(h.stats.documentReads).toBe(1);
   });
 
   it('skips a file whose content already exists in the wiki (cross-session dedup)', async () => {

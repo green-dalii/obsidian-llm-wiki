@@ -157,7 +157,7 @@ export class SourceAnalyzer {
     console.debug('=== Source analysis started ===');
     console.debug('File:', file.path);
 
-    const content = await this.ctx.app.vault.read(file);
+    const content = await this.ctx.readSourceContent(file);
     console.debug('File content length:', content.length);
 
     // #164 defense-in-depth: a blank source (empty / whitespace / frontmatter-only)

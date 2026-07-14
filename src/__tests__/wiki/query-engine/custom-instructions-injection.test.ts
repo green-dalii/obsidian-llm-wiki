@@ -23,10 +23,11 @@ import { describe, it, expect } from 'vitest';
 /* eslint-disable import/no-nodejs-modules */
 import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
+import { fileURLToPath } from 'url';
 /* eslint-enable import/no-nodejs-modules */
 
 /** Resolve paths from this test file (uses Node fs/path — test only). */
-const SRC_ROOT = new URL('../../..', import.meta.url).pathname;
+const SRC_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 
 const queryViewPath = resolve(SRC_ROOT, 'wiki/query-engine/QueryView-class.ts');
 const helperImportPath = resolve(SRC_ROOT, 'wiki/query-engine/custom-instructions.ts');

@@ -146,6 +146,8 @@ Die erneute Aufnahme derselben Quelle führt zu inkrementellen Aktualisierungen 
 
 > 💡 **Smart Batch Skip:** Bei der Ordner-Aufnahme erkennt das Plugin bereits verarbeitete Dateien und überspringt sie — spart Zeit und API-Kosten.
 
+**Native PDF-Eingabe.** Markdown-, Klartext- und `.pdf`-Quellen erscheinen in allen Aufnahmeauswahlen. PDFs werden über die native Dokumenteingabe des konfigurierten Anbieters gelesen; gescannte PDFs ohne lesbaren Text und Modelle, die PDF-Eingaben ablehnen, werden mit einem Hinweis übersprungen.
+
 ![Befehlspalette — "karpa" suchen, um alle Karpathy LLM Wiki-Befehle zu sehen](assets/command-panel.png)
 
 

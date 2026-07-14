@@ -20,6 +20,7 @@
 
 import { type LanguageModel, APICallError } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { createOpenAI } from '@ai-sdk/openai';
 import { LLMClient } from '../types';
 import { obsidianFetchBridge, streamWithFallback } from '../core/obsidian-fetch-bridge';
 import { mapAiSdkError } from './openai-sdk-client';
@@ -29,6 +30,8 @@ import {
   isUrlError,
 } from '../core/url-fallback';
 import { TokenKeyProber } from './token-key-probe';
+import { isDocumentUnsupportedError, PdfUnsupportedError } from '../core/pdf-support';
+import { sendDocumentRequest } from './document-reader';
 
 export interface OpenAICompatSdkClientOptions {
   apiKey: string;
@@ -77,7 +80,12 @@ export class OpenAICompatSdkClient implements LLMClient {
    * streamFetchImpl pulls in a bit more code path; tests that
    * want to mock non-stream fetch pass fetchImpl explicitly.
    */
-  private getProvider(modelId: string, fetchFn: typeof obsidianFetchBridge | typeof streamWithFallback = this.streamFetchImpl, baseURLOverride?: string): LanguageModel {
+  private getProvider(
+    modelId: string,
+    fetchFn: typeof obsidianFetchBridge | typeof streamWithFallback = this.streamFetchImpl,
+    baseURLOverride?: string,
+    useTokenKeyTransform = true,
+  ): LanguageModel {
     // v1.23.0 P1.5: baseURLOverride lets the fallback retry path pass a
     // corrected URL (e.g., `/v1` appended for Kimi Coding Plan) without
     // mutating this.baseURL. Cached resolved URLs flow through this.
@@ -98,18 +106,40 @@ export class OpenAICompatSdkClient implements LLMClient {
       // a no-op and the request goes out with the AI-SDK default
       // (max_tokens). On rejection we probe + cache + next request
       // uses the swapped key.
-      transformRequestBody: (args: Record<string, unknown>) => {
-        const cached = this.tokenKeyProber.getCachedKey(this.baseURL);
-        if (!cached) return args;
-        if (cached === 'max_tokens') return args;
-        // cached === 'max_completion_tokens'
-        const body = { ...args };
-        if (body.max_tokens !== undefined) {
-          body.max_completion_tokens = body.max_tokens;
-          delete body.max_tokens;
-        }
-        return body;
-      },
+      ...(useTokenKeyTransform ? {
+        // v1.23.0 P1.5 follow-up: token-key probe hook. Read the
+        // current cached key for this baseURL at request time.
+        transformRequestBody: (args: Record<string, unknown>) => {
+          const cached = this.tokenKeyProber.getCachedKey(this.baseURL);
+          if (!cached || cached === 'max_tokens') return args;
+          const body = { ...args };
+          if (body.max_tokens !== undefined) {
+            body.max_completion_tokens = body.max_tokens;
+            delete body.max_tokens;
+          }
+          return body;
+        },
+      } : {}),
+    });
+    return provider(modelId);
+  }
+
+  /**
+   * Custom endpoints advertising GPT-family models commonly implement the
+   * OpenAI Responses API even when their chat-completions file handling is a
+   * no-op. Use Responses only for their document request; other compatible
+   * providers retain their established chat-completions adapter.
+   */
+  private getDocumentProvider(modelId: string, baseURLOverride?: string): LanguageModel {
+    if (this.provider !== 'custom') {
+      return this.getProvider(modelId, this.fetchImpl, baseURLOverride, false);
+    }
+
+    const effectiveBaseURL = baseURLOverride ?? getCachedUrl(this.baseURL) ?? this.baseURL;
+    const provider = createOpenAI({
+      apiKey: this.apiKey,
+      baseURL: effectiveBaseURL,
+      fetch: this.fetchImpl as unknown as typeof fetch,
     });
     return provider(modelId);
   }
@@ -221,6 +251,46 @@ export class OpenAICompatSdkClient implements LLMClient {
     }
   }
 
+  async readDocument(params: {
+    model: string;
+    max_tokens: number;
+    data: ArrayBuffer;
+    enableThinking?: boolean;
+  }): Promise<string> {
+    try {
+      return await sendDocumentRequest({
+        languageModel: this.getDocumentProvider(params.model),
+        data: params.data,
+        maxOutputTokens: params.max_tokens,
+        providerOptions: this.buildDocumentProviderOptions(params.enableThinking),
+      });
+    } catch (err) {
+      if (isUrlError(err)) {
+        try {
+          const resolved = await resolveBaseUrlWithFallback({
+            baseUrl: this.baseURL,
+            testFn: (url) => this.probeBaseURL(url),
+            originalError: mapAiSdkError(err),
+          });
+          return await sendDocumentRequest({
+            languageModel: this.getDocumentProvider(params.model, resolved),
+            data: params.data,
+            maxOutputTokens: params.max_tokens,
+            providerOptions: this.buildDocumentProviderOptions(params.enableThinking),
+          });
+        } catch (fallbackError) {
+          const mapped = mapAiSdkError(fallbackError);
+          if (isDocumentUnsupportedError(mapped)) throw new PdfUnsupportedError(mapped.message);
+          throw mapped;
+        }
+      }
+
+      const mapped = mapAiSdkError(err);
+      if (isDocumentUnsupportedError(mapped)) throw new PdfUnsupportedError(mapped.message);
+      throw mapped;
+    }
+  }
+
   /**
    * Map AI-SDK options → OpenAI-compatible provider options.
    *
@@ -266,6 +336,10 @@ export class OpenAICompatSdkClient implements LLMClient {
     }
 
     return Object.keys(openaiOpts).length > 0 ? { openaiCompatible: openaiOpts } : {};
+  }
+
+  private buildDocumentProviderOptions(enableThinking?: boolean): Record<string, Record<string, unknown>> {
+    return enableThinking === false ? { openai: { reasoningEffort: 'low' } } : {};
   }
 
   async createMessageStream(params: {

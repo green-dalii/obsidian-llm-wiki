@@ -40,6 +40,7 @@ vi.mock('@ai-sdk/anthropic', async () => {
 import { generateText, streamText } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { AnthropicSdkClient } from '../../llm-sdk/anthropic-sdk-client';
+import { PDF_EXTRACTION_PROMPT } from '../../core/pdf-support';
 
 const mockGenerateText = vi.mocked(generateText);
 const mockStreamText = vi.mocked(streamText);
@@ -340,6 +341,26 @@ describe('AnthropicSdkClient', () => {
       // is the canonical pattern when the implementation provides it.
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       expect(await client.listModels!()).toEqual([]);
+    });
+  });
+
+  describe('readDocument', () => {
+    it('sends the original PDF ArrayBuffer as an AI SDK file part', async () => {
+      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
+      const data = new Uint8Array([37, 80, 68, 70]).buffer;
+
+      await expect(client.readDocument({ model: 'claude-sonnet-4-5', max_tokens: 321, data })).resolves.toBe('hello from claude');
+
+      expect(mockGenerateText).toHaveBeenCalledWith(expect.objectContaining({
+        maxOutputTokens: 321,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: PDF_EXTRACTION_PROMPT },
+            { type: 'file', data, mediaType: 'application/pdf' },
+          ],
+        }],
+      }));
     });
   });
 });

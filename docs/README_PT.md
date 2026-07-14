@@ -142,6 +142,8 @@ A re-ingestão da mesma fonte funde novas informações de forma incremental. Os
 
 > 💡 **Smart Batch Skip:** Ao ingerir uma pasta, o plugin deteta e salta automaticamente ficheiros já processados — poupa tempo e custos de API.
 
+**Entrada PDF nativa.** As fontes Markdown, texto simples e `.pdf` aparecem em todos os seletores de ingestão. Os PDFs são lidos pela entrada nativa de documentos do provedor configurado; PDFs digitalizados sem texto legível e modelos que recusam entrada PDF são ignorados com um aviso.
+
 ![Paleta de comandos — pesquise "karpa" para ver todos os comandos](assets/command-panel.png)
 
 ### ⚠️ Atualizando de uma versão anterior?

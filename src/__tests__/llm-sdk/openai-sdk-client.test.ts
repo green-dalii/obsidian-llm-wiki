@@ -46,6 +46,7 @@ vi.mock('@ai-sdk/openai', async () => {
 
 import { generateText, streamText } from 'ai';
 import { OpenAISdkClient, mapAiSdkError } from '../../llm-sdk/openai-sdk-client';
+import { PDF_EXTRACTION_PROMPT } from '../../core/pdf-support';
 
 const mockGenerateText = vi.mocked(generateText);
 const mockStreamText = vi.mocked(streamText);
@@ -611,6 +612,26 @@ describe('OpenAISdkClient', () => {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       const models = await client.listModels!();
       expect(models).toEqual([]);
+    });
+  });
+
+  describe('readDocument', () => {
+    it('sends the original PDF ArrayBuffer as an AI SDK file part', async () => {
+      const client = new OpenAISdkClient({ apiKey: 'sk-test', baseURL: 'https://api.openai.com/v1' });
+      const data = new Uint8Array([37, 80, 68, 70]).buffer;
+
+      await expect(client.readDocument({ model: 'gpt-4.1', max_tokens: 321, data })).resolves.toBe('hello from openai');
+
+      expect(mockGenerateText).toHaveBeenCalledWith(expect.objectContaining({
+        maxOutputTokens: 321,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: PDF_EXTRACTION_PROMPT },
+            { type: 'file', data, mediaType: 'application/pdf' },
+          ],
+        }],
+      }));
     });
   });
 });

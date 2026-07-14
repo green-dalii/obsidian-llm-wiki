@@ -143,6 +143,8 @@ La ré-ingestion d'une même source fusionne les nouvelles informations de mani�
 
 > 💡 **Smart Batch Skip :** Lors de l'ingestion d'un dossier, le plugin détecte et ignore automatiquement les fichiers déjà traités — économise du temps et des coûts d'API.
 
+**Entrée PDF native.** Les sources Markdown, texte brut et `.pdf` apparaissent dans tous les sélecteurs d’ingestion. Les PDF sont lus par l’entrée de document native du fournisseur configuré ; les PDF numérisés sans texte lisible et les modèles qui refusent l’entrée PDF sont ignorés avec une notification.
+
 ![Palette de commandes — recherchez "karpa" pour voir toutes les commandes](assets/command-panel.png)
 
 ### ⚠️ Mise à niveau depuis une ancienne version ?

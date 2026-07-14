@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { APICallError } from 'ai';
+import type * as OpenAISdkModule from '@ai-sdk/openai';
 
 vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai');
@@ -32,12 +33,23 @@ vi.mock('@ai-sdk/openai-compatible', async () => {
   };
 });
 
+vi.mock('@ai-sdk/openai', async () => {
+  const actual = await vi.importActual<typeof OpenAISdkModule>('@ai-sdk/openai');
+  return {
+    ...actual,
+    createOpenAI: vi.fn(actual.createOpenAI),
+  };
+});
+
 import { generateText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { OpenAICompatSdkClient } from '../../llm-sdk/openai-compat-sdk-client';
+import { PDF_EXTRACTION_PROMPT } from '../../core/pdf-support';
 
 const mockGenerateText = vi.mocked(generateText);
 const mockCreateOpenAICompatible = vi.mocked(createOpenAICompatible);
+const mockCreateOpenAI = vi.mocked(createOpenAI);
 
 function makeResult(text: string): Awaited<ReturnType<typeof generateText>> {
   return {
@@ -75,6 +87,7 @@ describe('OpenAICompatSdkClient', () => {
     mockGenerateText.mockReset();
     mockGenerateText.mockResolvedValue(makeResult('hello'));
     mockCreateOpenAICompatible.mockClear();
+    mockCreateOpenAI.mockClear();
   });
 
   describe.each(PRESETS)('for provider "$id" ($baseURL)', (preset) => {
@@ -221,6 +234,35 @@ describe('OpenAICompatSdkClient', () => {
           messages: [{ role: 'user', content: 'hi' }],
         })
       ).rejects.toThrow(/quota/);
+    });
+  });
+
+  describe('readDocument', () => {
+    it('sends the original PDF ArrayBuffer without token-key probing', async () => {
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'test-key',
+        baseURL: 'https://example.test/v1',
+        provider: 'custom',
+      });
+      const data = new Uint8Array([37, 80, 68, 70]).buffer;
+
+      await expect(client.readDocument({ model: 'compatible-model', max_tokens: 321, data })).resolves.toBe('hello');
+
+      expect(mockGenerateText).toHaveBeenCalledWith(expect.objectContaining({
+        maxOutputTokens: 321,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: PDF_EXTRACTION_PROMPT },
+            { type: 'file', data, mediaType: 'application/pdf' },
+          ],
+        }],
+      }));
+      expect(mockCreateOpenAI).toHaveBeenCalledWith(expect.objectContaining({
+        apiKey: 'test-key',
+        baseURL: 'https://example.test/v1',
+      }));
+      expect(mockCreateOpenAICompatible).not.toHaveBeenCalled();
     });
   });
 });

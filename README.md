@@ -152,6 +152,8 @@ Re-ingesting the same source does incremental updates on entity/concept pages (n
 
 > 💡 **Smart Batch Skip:** When ingesting a folder, the plugin automatically detects already-processed files and skips them to save time and API costs. The batch report shows skipped count.
 
+**Native PDF input.** Markdown, plain-text, and `.pdf` sources appear in every ingest selector. PDFs are read with the configured provider's native document-input capability; scanned PDFs without readable text and models that reject PDF input are skipped with a notice.
+
 ![Command palette — search "karpa" to see all Karpathy LLM Wiki commands](docs/assets/command-panel.png)
 
 ### ⚠️ Upgrading from an Older Version?

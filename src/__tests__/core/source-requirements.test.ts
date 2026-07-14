@@ -8,7 +8,7 @@ import {
 } from '../../core/source-requirements';
 import type { ContentCheckInput } from '../../core/source-requirements';
 
-const ALLOWED = ['md', 'markdown', 'txt', 'text'] as const;
+const ALLOWED = ['md', 'markdown', 'txt', 'text', 'pdf'] as const;
 const inp = (content: string, extension = 'md'): ContentCheckInput => ({
   extension,
   content,
@@ -36,10 +36,10 @@ describe('checkCompatibleType', () => {
     expect(checkCompatibleType(inp('body', 'txt'))).toBeNull();
     expect(checkCompatibleType(inp('body', 'MD'))).toBeNull();
     expect(checkCompatibleType(inp('body', 'Markdown'))).toBeNull();
+    expect(checkCompatibleType(inp('body', 'PDF'))).toBeNull();
   });
 
   it('rejects non-allowlisted extensions and reports the extension as detail', () => {
-    expect(checkCompatibleType(inp('body', 'pdf'))).toEqual({ reason: 'incompatible-type', detail: 'pdf' });
     expect(checkCompatibleType(inp('body', 'png'))).toEqual({ reason: 'incompatible-type', detail: 'png' });
   });
 });
@@ -51,7 +51,7 @@ describe('checkContentRequirements (ordered registry)', () => {
   });
 
   it('reports type when content is non-empty but the extension is unsupported', () => {
-    expect(checkContentRequirements(inp('# Real body', 'pdf'))).toEqual({ reason: 'incompatible-type', detail: 'pdf' });
+    expect(checkContentRequirements(inp('# Real body', 'png'))).toEqual({ reason: 'incompatible-type', detail: 'png' });
   });
 
   it('returns null when every check passes', () => {

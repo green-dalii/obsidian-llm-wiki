@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.25.0] - Unreleased
+
+### Added
+
+- **Native PDF source ingest (#218).** `.pdf` files are available in single-file, multi-file, folder, and active-file ingest paths. The configured LLM provider receives the original PDF through AI SDK native document input; extracted text then follows the ordinary analysis, deduplication, source-summary, entity, and concept workflow.
+
+### Changed
+
+- **Per-ingest PDF extraction cache.** Source analysis and summary generation share one `${path}@${mtime}` document read. Generated PDF source pages retain the extracted text under `## Extracted Text`.
+
+### Maintenance
+
+- Added PDF capability/error classification, restricted document-request retry policy, and regression coverage for provider adapters, source selection, ingest caching, and all 10 interface locales.
+
 ## [1.24.1] - 2026-07-14
 
 **Theme:** 5-stage PPR seed-selection cascade, empty-response quiet path, cleaner entity pages, Bedrock Stage 1, LM Studio no-key ingest, page-factory split, non-lossy Mentions re-ingest. 2080 tests passing. Recommended upgrade for all v1.24.0 users.

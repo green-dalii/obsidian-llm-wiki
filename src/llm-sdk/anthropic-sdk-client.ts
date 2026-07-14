@@ -28,6 +28,8 @@ import {
   resolveBaseUrlWithFallback,
   isUrlError,
 } from '../core/url-fallback';
+import { isDocumentUnsupportedError, PdfUnsupportedError } from '../core/pdf-support';
+import { sendDocumentRequest } from './document-reader';
 
 // Re-export for callers that import from anthropic-sdk-client only.
 // Reuse the same error mapper as OpenAI — AI-SDK's APICallError shape is
@@ -153,6 +155,46 @@ export class AnthropicSdkClient implements LLMClient {
         return result.text;
       }
       throw mapAiSdkError(err);
+    }
+  }
+
+  async readDocument(params: {
+    model: string;
+    max_tokens: number;
+    data: ArrayBuffer;
+    enableThinking?: boolean;
+  }): Promise<string> {
+    try {
+      return await sendDocumentRequest({
+        languageModel: this.getProvider(params.model, this.fetchImpl),
+        data: params.data,
+        maxOutputTokens: params.max_tokens,
+        providerOptions: this.buildProviderOptions({ enableThinking: params.enableThinking }),
+      });
+    } catch (err) {
+      if (isUrlError(err) && this.baseURL) {
+        try {
+          const resolved = await resolveBaseUrlWithFallback({
+            baseUrl: this.baseURL,
+            testFn: (url) => this.probeBaseURL(url),
+            originalError: mapAiSdkError(err),
+          });
+          return await sendDocumentRequest({
+            languageModel: this.getProvider(params.model, this.fetchImpl, resolved),
+            data: params.data,
+            maxOutputTokens: params.max_tokens,
+            providerOptions: this.buildProviderOptions({ enableThinking: params.enableThinking }),
+          });
+        } catch (fallbackError) {
+          const mapped = mapAiSdkError(fallbackError);
+          if (isDocumentUnsupportedError(mapped)) throw new PdfUnsupportedError(mapped.message);
+          throw mapped;
+        }
+      }
+
+      const mapped = mapAiSdkError(err);
+      if (isDocumentUnsupportedError(mapped)) throw new PdfUnsupportedError(mapped.message);
+      throw mapped;
     }
   }
 

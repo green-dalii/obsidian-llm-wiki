@@ -13,7 +13,7 @@
 
 import { isBlankSource } from './frontmatter';
 
-export type RejectionReason = 'empty' | 'incompatible-type' | 'duplicate' | 'injection';
+export type RejectionReason = 'empty' | 'incompatible-type' | 'duplicate' | 'injection' | 'unsupported-pdf';
 
 export interface SourceRejection {
   reason: RejectionReason;

@@ -26,10 +26,10 @@ export const WIKI_SUBFOLDERS = {
 
 /**
  * File extensions (lowercase, no dot) accepted by the ingestion gate (#164).
- * Text-based notes the LLM can meaningfully read; everything else (binaries
- * like .pdf/.png) is rejected before any LLM call.
+ * Text sources are read directly; PDF sources are transcribed through the
+ * configured LLM provider's native document-input capability.
  */
-export const COMPATIBLE_SOURCE_EXTENSIONS = ['md', 'markdown', 'txt', 'text'] as const;
+export const COMPATIBLE_SOURCE_EXTENSIONS = ['md', 'markdown', 'txt', 'text', 'pdf'] as const;
 
 // ============================================================================
 // Lint & Performance Thresholds

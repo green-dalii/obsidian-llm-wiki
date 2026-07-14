@@ -28,6 +28,7 @@ function sourceFile(): TFile {
     path: SOURCE_NOTE_PATH,
     basename: 'exekutive-funktionen',
     extension: 'md',
+    stat: { mtime: 1 },
   });
 }
 

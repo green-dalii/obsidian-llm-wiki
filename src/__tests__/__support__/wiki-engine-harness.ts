@@ -20,14 +20,16 @@ export interface WikiEngineHarness {
   writtenPaths: string[];
   /** Every IngestReport delivered to onDone, in order. */
   reports: IngestReport[];
-  /** In-memory vault contents. */
   files: Map<string, string>;
   /** Mutable call stats. */
-  stats: { llmCalls: number; vaultMarkdownScans: number };
+  stats: { llmCalls: number; vaultMarkdownScans: number; sourceTextReads: number; binaryReads: number; documentReads: number };
 }
 
 export interface HarnessOptions {
   files?: Record<string, string>;
+  binaryFiles?: Record<string, ArrayBuffer>;
+  documentText?: string;
+  documentError?: Error;
   llmResponses?: string[];
   settings?: Partial<LLMWikiSettings>;
   /** Paths where getAbstractFileByPath returns null despite the file existing.
@@ -43,19 +45,28 @@ function mkFile(path: string): TFile {
     name,
     basename: dot > 0 ? name.slice(0, dot) : name,
     extension: dot > 0 ? name.slice(dot + 1) : 'md',
+    stat: { mtime: 1 },
   });
 }
 
 export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHarness {
   const files = new Map<string, string>(Object.entries(opts.files ?? {}));
+  const binaryFiles = new Map<string, ArrayBuffer>(Object.entries(opts.binaryFiles ?? {}));
   const writtenPaths: string[] = [];
   const reports: IngestReport[] = [];
-  const stats = { llmCalls: 0, vaultMarkdownScans: 0 };
+  const stats = { llmCalls: 0, vaultMarkdownScans: 0, sourceTextReads: 0, binaryReads: 0, documentReads: 0 };
   let llmIdx = 0;
 
   const app = {
     vault: {
-      read: async (f: { path: string }) => files.get(f.path) ?? '',
+      read: async (f: { path: string }) => {
+        stats.sourceTextReads++;
+        return files.get(f.path) ?? '';
+      },
+      readBinary: async (f: { path: string }) => {
+        stats.binaryReads++;
+        return binaryFiles.get(f.path) ?? new ArrayBuffer(0);
+      },
       create: async (p: string, c: string) => { files.set(p, c); },
       process: async (f: { path: string }, fn: (d: string) => string) => {
         files.set(f.path, fn(files.get(f.path) ?? ''));
@@ -98,6 +109,11 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
     createMessage: async () => {
       stats.llmCalls++;
       return opts.llmResponses?.[llmIdx++] ?? '{"entities":[],"concepts":[]}';
+    },
+    readDocument: async () => {
+      stats.documentReads++;
+      if (opts.documentError) throw opts.documentError;
+      return opts.documentText ?? '';
     },
   };
 
