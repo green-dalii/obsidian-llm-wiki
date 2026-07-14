@@ -111,7 +111,10 @@ export async function selectSeedsWithLLM(
         `[LLM response] Seed selection: length=${response.length}, ` +
         `first100=${JSON.stringify(response.slice(0, 100))}`,
       );
-      const parsed = await parseJsonResponse(response) as { seeds?: string[] } | null;
+      const parsed = await parseJsonResponse(response, undefined, {
+        silentOnEmpty: true,
+        throwOnEmpty: true,
+      }) as { seeds?: string[] } | null;
       if (!parsed || !Array.isArray(parsed.seeds)) {
         throw new Error('parseJsonResponse returned null or non-array seeds');
       }

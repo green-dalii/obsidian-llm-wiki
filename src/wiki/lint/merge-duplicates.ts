@@ -100,7 +100,7 @@ export async function mergeDuplicatePages(
       if (cleaned && cleaned.length > 100) {
         let parsed: { body?: string; aliases?: string[] } | null = null;
         try {
-          parsed = await parseJsonResponse(cleaned);
+          parsed = await parseJsonResponse(cleaned, undefined, { silentOnEmpty: true });
         } catch (parseErr) {
           console.error(`mergeDuplicatePages: JSON parse failed for ${sourcePath} → ${targetPath}`, parseErr);
         }

@@ -105,7 +105,7 @@ export async function runAliasCompletion(
             `first200=${JSON.stringify((typeof response === 'string' ? response : '').slice(0, 200))}`
           );
 
-          const parsed = await parseJsonResponse(response) as { aliases?: string[] } | null;
+          const parsed = await parseJsonResponse(response, undefined, { silentOnEmpty: true }) as { aliases?: string[] } | null;
           if (parsed?.aliases?.length) {
             console.debug(`[Alias] ${page.basename}: generated ${parsed.aliases.length} aliases → [${parsed.aliases.join(', ')}]`);
 
@@ -470,7 +470,7 @@ Task: Return a JSON object with a single field "tags" that is an array of string
         if (signal?.aborted) {
           throw new DOMException('Lint fix cancelled by user', 'AbortError');
         }
-        const parsed = await parseJsonResponse(response) as { tags?: string[] } | null;
+        const parsed = await parseJsonResponse(response, undefined, { silentOnEmpty: true }) as { tags?: string[] } | null;
         const newTags = Array.isArray(parsed?.tags)
           ? parsed.tags.map(t => String(t).trim()).filter(t => t.length > 0)
           : [];
