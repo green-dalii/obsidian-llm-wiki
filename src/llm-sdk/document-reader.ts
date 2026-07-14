@@ -10,6 +10,7 @@ import {
 export async function sendDocumentRequest(params: {
   languageModel: LanguageModel;
   data: ArrayBuffer;
+  filename?: string;
   maxOutputTokens: number;
   providerOptions: Record<string, Record<string, unknown>>;
 }): Promise<string> {
@@ -24,7 +25,12 @@ export async function sendDocumentRequest(params: {
           role: 'user',
           content: [
             { type: 'text', text: PDF_EXTRACTION_PROMPT },
-            { type: 'file', data: params.data, mediaType: PDF_MEDIA_TYPE },
+            {
+              type: 'file',
+              data: params.data,
+              mediaType: PDF_MEDIA_TYPE,
+              ...(params.filename ? { filename: params.filename } : {}),
+            },
           ],
         }],
         maxOutputTokens: params.maxOutputTokens,

@@ -337,6 +337,7 @@ export class WikiEngine {
       model: resolveModelForTask(this.settings, 'ingest'),
       max_tokens: MAX_TOKENS_BATCH,
       data: await this.app.vault.readBinary(file),
+      filename: file.name,
       ...(this.settings.disableThinking ? { enableThinking: false } : {}),
     });
   }

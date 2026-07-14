@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Native PDF source ingest (#218).** `.pdf` files are available in single-file, multi-file, folder, and active-file ingest paths. The configured LLM provider receives the original PDF through AI SDK native document input; extracted text then follows the ordinary analysis, deduplication, source-summary, entity, and concept workflow.
+- **Kimi PDF extraction.** The Kimi provider now uses its official Files API to upload a PDF with `file-extract`, retrieve Kimi's extracted text, and delete the temporary remote file before existing wiki analysis begins.
 
 ### Changed
 

@@ -12,7 +12,6 @@ export class PdfUnsupportedError extends Error {
 
 const PROVIDERS_WITHOUT_PDF_SUPPORT: Record<string, true> = {
   deepseek: true,
-  kimi: true,
   minimax: true,
   ollama: true,
   lmstudio: true,

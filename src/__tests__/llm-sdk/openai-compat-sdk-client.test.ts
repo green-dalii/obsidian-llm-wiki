@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { APICallError } from 'ai';
+import { requestUrl, type RequestUrlResponse } from 'obsidian';
 import type * as OpenAISdkModule from '@ai-sdk/openai';
 
 vi.mock('ai', async () => {
@@ -50,6 +51,7 @@ import { PDF_EXTRACTION_PROMPT } from '../../core/pdf-support';
 const mockGenerateText = vi.mocked(generateText);
 const mockCreateOpenAICompatible = vi.mocked(createOpenAICompatible);
 const mockCreateOpenAI = vi.mocked(createOpenAI);
+const mockRequestUrl = vi.mocked(requestUrl);
 
 function makeResult(text: string): Awaited<ReturnType<typeof generateText>> {
   return {
@@ -71,6 +73,16 @@ function makeResult(text: string): Awaited<ReturnType<typeof generateText>> {
   } as unknown as Awaited<ReturnType<typeof generateText>>;
 }
 
+function makeKimiResponse(status: number, text = '', json: unknown = {}): RequestUrlResponse {
+  return {
+    status,
+    text,
+    json,
+    headers: {},
+    arrayBuffer: new TextEncoder().encode(text).buffer,
+  };
+}
+
 const PRESETS = [
   { id: 'gemini', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash' },
   { id: 'openrouter', baseURL: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-3.5-sonnet' },
@@ -88,6 +100,7 @@ describe('OpenAICompatSdkClient', () => {
     mockGenerateText.mockResolvedValue(makeResult('hello'));
     mockCreateOpenAICompatible.mockClear();
     mockCreateOpenAI.mockClear();
+    mockRequestUrl.mockReset();
   });
 
   describe.each(PRESETS)('for provider "$id" ($baseURL)', (preset) => {
@@ -263,6 +276,28 @@ describe('OpenAICompatSdkClient', () => {
         baseURL: 'https://example.test/v1',
       }));
       expect(mockCreateOpenAICompatible).not.toHaveBeenCalled();
+    });
+
+    it('uses Kimi Files API instead of sending a file part to chat completions', async () => {
+      mockRequestUrl
+        .mockResolvedValueOnce(makeKimiResponse(200, '', { id: 'file-kimi-123' }))
+        .mockResolvedValueOnce(makeKimiResponse(200, 'Kimi extracted text'))
+        .mockResolvedValueOnce(makeKimiResponse(200, '', { id: 'file-kimi-123', deleted: true }));
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'kimi-test-key',
+        baseURL: 'https://api.moonshot.cn/v1',
+        provider: 'kimi',
+      });
+
+      await expect(client.readDocument({
+        model: 'kimi-k2.6',
+        max_tokens: 321,
+        data: new ArrayBuffer(1),
+        filename: 'paper.pdf',
+      })).resolves.toBe('Kimi extracted text');
+
+      expect(mockGenerateText).not.toHaveBeenCalled();
+      expect(mockRequestUrl).toHaveBeenCalledTimes(3);
     });
   });
 });

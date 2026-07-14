@@ -14,10 +14,10 @@ describe('PDF support contract', () => {
   });
 
   it('preflights only providers known not to support PDF input', () => {
-    for (const provider of ['deepseek', 'kimi', 'minimax', 'ollama', 'lmstudio']) {
+    for (const provider of ['deepseek', 'minimax', 'ollama', 'lmstudio']) {
       expect(providerSupportsPdf(provider)).toBe(false);
     }
-    for (const provider of ['openai', 'anthropic', 'gemini', 'custom', 'future-compatible-provider']) {
+    for (const provider of ['openai', 'anthropic', 'gemini', 'kimi', 'custom', 'future-compatible-provider']) {
       expect(providerSupportsPdf(provider)).toBe(true);
     }
   });

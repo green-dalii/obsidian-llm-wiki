@@ -32,6 +32,7 @@ import {
 import { TokenKeyProber } from './token-key-probe';
 import { isDocumentUnsupportedError, PdfUnsupportedError } from '../core/pdf-support';
 import { sendDocumentRequest } from './document-reader';
+import { readKimiDocument } from './kimi-document-reader';
 
 export interface OpenAICompatSdkClientOptions {
   apiKey: string;
@@ -256,11 +257,22 @@ export class OpenAICompatSdkClient implements LLMClient {
     max_tokens: number;
     data: ArrayBuffer;
     enableThinking?: boolean;
+    filename?: string;
   }): Promise<string> {
     try {
+      if (this.provider === 'kimi') {
+        return await readKimiDocument({
+          baseURL: this.baseURL,
+          apiKey: this.apiKey,
+          data: params.data,
+          filename: params.filename,
+        });
+      }
+
       return await sendDocumentRequest({
         languageModel: this.getDocumentProvider(params.model),
         data: params.data,
+        filename: params.filename,
         maxOutputTokens: params.max_tokens,
         providerOptions: this.buildDocumentProviderOptions(params.enableThinking),
       });
@@ -275,6 +287,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           return await sendDocumentRequest({
             languageModel: this.getDocumentProvider(params.model, resolved),
             data: params.data,
+            filename: params.filename,
             maxOutputTokens: params.max_tokens,
             providerOptions: this.buildDocumentProviderOptions(params.enableThinking),
           });

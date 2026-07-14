@@ -455,6 +455,7 @@ export interface LLMClient {
     model: string;
     max_tokens: number;
     data: ArrayBuffer;
+    filename?: string;
     enableThinking?: boolean;
   }): Promise<string>;
 
