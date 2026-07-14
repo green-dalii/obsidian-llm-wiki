@@ -59,7 +59,7 @@ See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five 
 **Final design decisions (user-confirmed 2026-07-15, post-review):**
 - ✅ **No `pdfIngestEnabled` toggle** — PDFs and MDs both visible by default in source picker. PDFs are a first-class format going forward.
 - ✅ **PDF conversion preserves source language** — system prompt instructs: "Preserve the source PDF's language; do NOT translate". `wikiLanguage` is NOT used for conversion.
-- ✅ **New setting `forcePdfSupport: boolean`** in Settings → Wiki → LLM Configuration → Advanced (under baseURL). Only visible when provider is openai-compat. Default: `false`. Purpose: lets users force PDF binary upload against OpenAI-compatible third-party providers that support PDF but our detection misses. UI shows warning "Enable at your own risk". Failure mode: if provider rejects PDF despite the flag, the error is surfaced verbatim.
+- ✅ **New setting `forcePdfSupport: boolean`** in Settings → Wiki → LLM Configuration → Advanced (under baseURL). **Visible only when provider is one of the two custom compatible providers: `custom` (Custom OpenAI-Compatible) or `anthropic-compatible` (Custom Anthropic-Compatible)**. Default: `false`. Purpose: lets users force PDF binary upload against third-party providers that route through our custom openai-compat or anthropic-compat code path and claim PDF support even though our built-in detection says they don't. UI shows warning "Enable at your own risk". Failure mode: if provider rejects PDF despite the flag, the error is surfaced verbatim.
 
 ### v1.25.0 PDF Level 1 (3 PRs, ~2 weeks)
 
@@ -95,7 +95,7 @@ User picks foo.pdf
 |----|-------|------|-----------|----------------|
 | **#1 Core** | PDF→MD converter + cache + metadata parser + LLMClient interface extension (1 type only, backward-compat) | 4 days | `core/pdf-cache.ts`, `core/pdf-converter.ts`, `core/pdf-metadata.ts`, `prompts/pdf-convert.ts` + 3 test files | `types.ts` (1 type extension) |
 | **#2 Ingest integration** | Ingest pipeline hookup + source-collector + 2 new commands | 5 days | `core/pdf-ingest-orchestrator.ts`, `core/source-collector.ts`, `commands/ingest-pdf.ts`, `commands/clear-pdf-cache.ts` + 3 test files | `wiki/wiki-engine.ts:497 ingestSource` (+5 lines), 2 suggest modals (1 line each) |
-| **#3 UX + docs** | Settings tab PDF section + 10-locale READMEs + CHANGELOG + ROADMAP update + memory | 3 days | `commands/clear-pdf-cache.ts` | `settings-tab.ts` (PDF section + `forcePdfSupport` toggle under baseURL), 10 README files, CHANGELOG, ROADMAP, this file |
+| **#3 UX + docs** | Settings tab PDF section + 10-locale READMEs + CHANGELOG + ROADMAP update + memory | 3 days | `commands/clear-pdf-cache.ts` | `settings-tab.ts` (PDF section + `forcePdfSupport` toggle under baseURL, shown ONLY for `custom` and `anthropic-compatible` providers), 10 README files, CHANGELOG, ROADMAP, this file |
 
 **LLMClient interface extension (PR #1):**
 ```ts

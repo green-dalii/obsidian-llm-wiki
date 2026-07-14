@@ -25,7 +25,7 @@ import { describe, it, expect } from 'vitest';
 import { PageFactory } from '../../wiki/page-factory';
 import { createMockContext, createMockFile } from '../__support__/engine-context';
 import { createMockEntity } from '../__support__/factories';
-import type { LLMClient } from '../../types';
+import type { LLMClient, MessageContentPart } from '../../types';
 
 // ── Helper: minimal valid entity info for merge tests ─────────────
 function entityForMerge() {
@@ -285,7 +285,7 @@ describe('mergePage() — triage integration', () => {
     classifyResponse: string | null; // null → throw to test fallback
     mergeResponse?: string | null;
   }) {
-    const calls: Array<{ system?: string; messages: Array<{ content: string }> }> = [];
+    const calls: Array<{ system?: string; messages: Array<{ content: string | MessageContentPart[] }> }> = [];
     const { ctx } = createMockContext({
       vaultFiles: {},
       llmResponses: [],

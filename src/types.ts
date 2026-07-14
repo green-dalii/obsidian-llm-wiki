@@ -436,12 +436,25 @@ export interface IngestOptions {
 
 // LLM Client interface
 
+/**
+ * A content part within a chat message. Extends the legacy `string` content
+ * type with multi-modal support (file / image). String content is still
+ * supported for backward compatibility — see `messages[].content: string | MessageContentPart[]`.
+ *
+ * v1.25.0 PDF Level 1: `type: 'file'` with `mediaType: 'application/pdf'`
+ * is the wire format for PDF ingestion. The AI SDK v6 transparently maps
+ * this to provider-native PDF blocks (Anthropic `document`, OpenAI `input_file`).
+ */
+export type MessageContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'file'; data: string; mediaType: 'application/pdf'; filename?: string };
+
 export interface LLMClient {
   createMessage(params: {
     model: string;
     max_tokens: number;
     system?: string;
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPart[] }>;
     response_format?: { type: 'json_object' };
     cacheBreakpoint?: number;
     maxTokensPerCall?: number;  // Issue #75: cap for truncation retry
@@ -455,7 +468,7 @@ export interface LLMClient {
     model: string;
     max_tokens: number;
     system?: string;
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPart[] }>;
     onChunk: (chunk: string) => void;
     enableThinking?: boolean;
     temperature?: number;

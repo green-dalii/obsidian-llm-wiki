@@ -30,7 +30,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { PageFactory } from '../../wiki/page-factory';
 import { createMockContext, createMockFile } from '../__support__/engine-context';
 import { createMockEntity } from '../__support__/factories';
-import type { LLMClient } from '../../types';
+import type { LLMClient, MessageContentPart } from '../../types';
 
 // ── Pure helpers ─────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ describe('applyComplementaryAppends — i18n-aware target resolution', () => {
 
   function setup(llmResponses: string[]) {
     let calls = 0;
-    let callParams: Array<{ messages: Array<{ content: string }> }> = [];
+    let callParams: Array<{ messages: Array<{ content: string | MessageContentPart[] }> }> = [];
     const { ctx } = createMockContext({
       vaultFiles: {
         'wiki/entities/microbiome.md': '# Microbiome\n',
@@ -455,7 +455,7 @@ describe('mergePage — complementary strategy dispatch', () => {
     classifyResponse: string;
     appendResponse: string;
   }) {
-    const calls: Array<{ messages: Array<{ content: string }> }> = [];
+    const calls: Array<{ messages: Array<{ content: string | MessageContentPart[] }> }> = [];
     const { ctx } = createMockContext({ vaultFiles: {}, llmResponses: [] });
     ctx.getClient = () => {
       const client: LLMClient = {
