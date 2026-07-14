@@ -1,6 +1,71 @@
+/**
+ * v1.24.1 PATCH Phase 5.5.0 (quiet path) — distinguishes "LLM returned 0 bytes"
+ * from "LLM gave garbage".
+ *
+ * Thrown by `parseJsonResponse` when the raw LLM response length is 0
+ * (optionally after stripping thinking/think tags and code fences).
+ *
+ * Why an exception instead of returning null:
+ *  - Returning null is ambiguous: callers historically treated null as
+ *    "JSON parse failed" and triggered noisy `console.error` chains.
+ *  - Empty body is a distinct, recoverable condition (thinking model
+ *    ran out of token budget before emitting JSON). Callers in
+ *    retry-helper flows (`withTransientRetry`) want to retry; callers
+ *    in alert flows want to silently skip.
+ *
+ * `rawLength` is the LENGTH OF THE RAW RESPONSE (before normalization).
+ * It tells callers exactly how many bytes the LLM SDK returned.
+ */
+export class EmptyResponseError extends Error {
+  readonly rawLength: number;
+  constructor(rawLength: number) {
+    super(`LLM returned empty response (length ${rawLength})`);
+    this.name = 'EmptyResponseError';
+    this.rawLength = rawLength;
+  }
+}
+
+/**
+ * v1.24.1 PATCH Phase 5.5.0 (quiet path) — quiet-path options for
+ * `parseJsonResponse`. Both options are empty-body-only — malformed
+ * non-empty JSON keeps the legacy noisy `console.error` path (operators
+ * need that signal).
+ *
+ * Backward-compat: omitting this argument preserves v1.24.0 behavior
+ * exactly. All existing callers (and the 21 tests in `json.test.ts`)
+ * continue to pass without modification.
+ */
+export interface ParseJsonOptions {
+  /**
+   * Suppress `console.error` when the raw response length is 0.
+   * Default: `false` (legacy noisy).
+   *
+   * Rationale: when the LLM returns 0 bytes, that is NOT a parse
+   * failure — there is nothing to parse. Three lines of console.error
+   * ("JSON parse completely failed / first 200 chars / last 200 chars")
+   * are pure noise that pollutes devtools during Lint runs. Set `true`
+   * for source-analyzer / seed-selector / lint-fix call sites where
+   * empty body is an expected condition (thinking-model budget
+   * exhaustion).
+   */
+  silentOnEmpty?: boolean;
+
+  /**
+   * Throw `EmptyResponseError` instead of returning `null` when the
+   * raw response length is 0. Default: `false` (return `null` for
+   * backward compat).
+   *
+   * Use this when the caller wants to distinguish "empty" (LLM ran
+   * out of budget) from "malformed" (LLM gave bad JSON) — e.g., for
+   * `withTransientRetry` flows where empty is retriable.
+   */
+  throwOnEmpty?: boolean;
+}
+
 export async function parseJsonResponse(
   response: string,
-  repairFn?: (malformedJson: string) => Promise<string>
+  repairFn?: (malformedJson: string) => Promise<string>,
+  options?: ParseJsonOptions,
 ): Promise<Record<string, unknown> | null> {
   console.debug('parseJsonResponse parsing started... response length:', response.length);
 
@@ -113,12 +178,43 @@ export async function parseJsonResponse(
       }
     }
 
+    // v1.24.1 PATCH Phase 5.5.0 (quiet path): detect empty-body SPECIFICALLY
+    // (raw bytes trim to nothing after Layer-1 normalization — no `{` found
+    // means no parseable payload). Empty body is "LLM returned nothing" —
+    // distinct from "LLM gave unparseable text". The legacy noisy 3-line
+    // console.error was good for malformed JSON (operators need signal)
+    // but pure noise for empty (the response is "I called and got nothing
+    // back" — it's right in the user's mental model).
+    //
+    // We use `normalized === ''` (post-trim, post-thinking-block-strip,
+    // post-code-fence-strip) rather than `response.length === 0` so
+    // whitespace-only responses are also classified as empty.
+    if (normalized === '') {
+      if (options?.silentOnEmpty) {
+        console.debug('parseJsonResponse: empty body (raw length %d) — silent path', response.length);
+      } else {
+        console.error('JSON parse completely failed (raw length %d) — empty response from LLM', response.length);
+      }
+      if (options?.throwOnEmpty) {
+        throw new EmptyResponseError(response.length);
+      }
+      return null;
+    }
+
+    // Non-empty + unparseable: legacy noisy default (operators need signal).
     console.error('JSON parse completely failed (length %d)', response.length);
     console.error('first 200 chars after normalization:', normalized.substring(0, 200));
     console.error('last 200 chars after normalization:', normalized.substring(Math.max(0, normalized.length - 200)));
     return null;
 
   } catch (error) {
+    // v1.24.1 PATCH Phase 5.5.0 (quiet path): EmptyResponseError is a
+    // domain signal we deliberately throw — must propagate to caller
+    // (re-throw without logging). Only UNEXPECTED exceptions get the
+    // generic catch log.
+    if (error instanceof EmptyResponseError) {
+      throw error;
+    }
     console.error('parseJsonResponse exception:', error);
     return null;
   }

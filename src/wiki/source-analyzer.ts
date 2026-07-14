@@ -332,7 +332,7 @@ export class SourceAnalyzer {
             response_format: { type: 'json_object' },
             maxTokensPerCall: retryCap,
           });
-        }) as Partial<SourceAnalysis> | null;
+        }, { silentOnEmpty: true }) as Partial<SourceAnalysis> | null;
 
         if (!analysisData) {
           console.error(`[Batch ${batchNum + 1}] JSON parse failed, skipping batch`);
