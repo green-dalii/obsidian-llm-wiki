@@ -31,7 +31,7 @@ import { PROMPTS } from '../../prompts';
 import { TOKENS_PAGE_GENERATION } from '../../constants';
 import { resolveModelForTask } from '../../core/model-resolver';
 import { cleanMarkdownResponse } from '../../core/markdown';
-import { canonicalizeSectionHeaders } from '../../core/section-header-canonicalizer';
+import { canonicalizeSectionHeaders, stripUnknownSections } from '../../core/section-header-canonicalizer';
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { parseFrontmatter, enforceFrontmatterConstraints } from '../../core/frontmatter';
 import { injectMentionsSection } from '../../core/mentions-injector';
@@ -227,8 +227,11 @@ export async function createNewPage(
     // garbled `## Verwandte …` header still resolves its section for prefix
     // correction.
     const canonicalizedContent = canonicalizeSectionHeaders(enforcedContent, Object.values(labels));
+    // Drop prompt-scaffolding sections the model copied into the body (e.g.
+    // `## Active Tag Vocabulary`) — the schema decides which sections exist.
+    const prunedContent = stripUnknownSections(canonicalizedContent, Object.values(labels));
     const correctedContent = correctRelatedLinkPrefixes(
-      canonicalizedContent,
+      prunedContent,
       info.related_entities,
       info.related_concepts,
       labels.related_entities,
