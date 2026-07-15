@@ -615,6 +615,11 @@ export const EN_TEXTS = {
     sourceRejectedPdfUnsupported: '⏭️ "{filename}" skipped — the current provider or model does not support PDF input. Switch provider or enable Force PDF Support in Settings → LLM Configuration → Advanced.',
     clearPdfCacheCommand: 'Clear PDF conversion cache',
     pdfCacheCleared: 'PDF cache cleared ({count} entries removed).',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'Force PDF Support',
+    forcePdfSupportDesc: 'Off by default. Only affects custom OpenAI-compatible / Anthropic-compatible providers — their PDF support varies, so enabling is at your own risk (may fail conversion). Native PDF providers (Anthropic / OpenAI / Bedrock) ignore this.',
+    writePdfMarkdownToVaultName: 'Write converted Markdown to Vault',
+    writePdfMarkdownToVaultDesc: 'Off by default. When on, each PDF conversion result is written to a "<basename>.pdf.md" file next to the source PDF. When off (cache-only architecture), results live only in the plugin cache and leave no artifacts in your Vault.',
     ingestRejectedSummary: '{count} file(s) skipped (empty, duplicate, or unsupported type).',
     reingestConfirmTitle: 'Re-ingest this file?',
     reingestConfirmBody: 'The content of "{filename}" is already in the wiki. Re-ingest it anyway?',

@@ -250,6 +250,20 @@ export interface LLMWikiSettings {
   // apply. 'custom' exposes the explicit opt-in controls.
   advancedSettingsMode?: 'default' | 'custom';
 
+  /**
+   * v1.25.0 PR3: opt-in escape hatch for OpenAI-compatible and
+   * Anthropic-compatible providers that can accept PDF input even though
+   * they are not in the native-PDF provider list. Default false.
+   */
+  forcePdfSupport?: boolean;
+
+  /**
+   * v1.25.0 PR3: when true, write the LLM-converted Markdown of each PDF
+   * to a `<basename>.pdf.md` sidecar next to the source PDF. Default false
+   * (cache-only architecture; the cache in `.obsidian/` is the only artifact).
+   */
+  writePdfMarkdownToVault?: boolean;
+
   // Issue #128: per-task sampling temperature. Leave undefined to use the
   // provider's default. Low values (e.g. 0.15) improve fidelity for extraction
   // and verbatim quotes; higher values (e.g. 0.7) make chat answers more fluid.
@@ -783,6 +797,12 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   disableThinking: false,
   // Advanced settings mode — default hides the toggles, custom reveals them.
   advancedSettingsMode: 'default',
+  // v1.25.0 PR3: PDF force-support and sidecar write are opt-in advanced
+  // toggles. Default false keeps the cache-only architecture as the only
+  // artifact and prevents unsupported-compatible providers from attempting
+  // PDF conversion.
+  forcePdfSupport: false,
+  writePdfMarkdownToVault: false,
   // Issue #111: default to 'lower' for backwards compatibility.
   slugCase: 'lower',
   // v1.24.0 #251: persistent user-supplied instructions appended to the

@@ -456,6 +456,11 @@ export const IT_TEXTS = {
     sourceRejectedPdfUnsupported: '⏭️ "{filename}" saltato — il provider o il modello corrente non supporta l\'input PDF. Cambia provider o abilita Force PDF Support in Settings → LLM Configuration → Advanced.',
     clearPdfCacheCommand: 'Svuota cache di conversione PDF',
     pdfCacheCleared: 'Cache PDF svuotata ({count} voci rimosse).',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'Forza supporto PDF',
+    forcePdfSupportDesc: 'Disattivato per impostazione predefinita. Riguarda solo i provider personalizzati compatibili OpenAI / Anthropic — il loro supporto PDF varia, quindi l’attivazione è a tuo rischio (la conversione potrebbe fallire). I provider PDF nativi (Anthropic / OpenAI / Bedrock) lo ignorano.',
+    writePdfMarkdownToVaultName: 'Scrivi il Markdown convertito nel Vault',
+    writePdfMarkdownToVaultDesc: 'Disattivato per impostazione predefinita. Quando attivo, il risultato di ogni conversione PDF viene scritto in un file « <basename>.pdf.md » accanto al PDF sorgente. Quando disattivato (architettura solo cache), i risultati vivono solo nella cache del plugin e non lasciano artefatti nel tuo Vault.',
 
     ingestRejectedSummary: '{count} file saltati (vuoti, duplicati o di tipo non supportato).',
     reingestConfirmTitle: 'Riacquisire questo file?',

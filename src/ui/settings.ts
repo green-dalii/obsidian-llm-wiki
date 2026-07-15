@@ -811,6 +811,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
               this.tempSettings.extractionTemperature = undefined;
               this.tempSettings.chatTemperature = undefined;
               this.tempSettings.repetitionPenalty = undefined;
+              // v1.25.0 PR3: reset PDF toggles that are rendered only in custom mode.
+              this.tempSettings.forcePdfSupport = false;
+              this.tempSettings.writePdfMarkdownToVault = false;
             }
             this.display();
           });
@@ -902,6 +905,25 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         text.inputEl.step = '0.05';
         text.inputEl.classList.add('llm-wiki-number-input');
       });
+
+    // v1.25.0 PR3: PDF force-support toggle — only meaningful for
+    // OpenAI-compatible / Anthropic-compatible providers; native PDF
+    // providers ignore it. Default off (manual opt-in).
+    new Setting(containerEl)
+      .setName(this.getText('forcePdfSupportName'))
+      .setDesc(this.getText('forcePdfSupportDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.forcePdfSupport === true)
+        .onChange((value) => { this.tempSettings.forcePdfSupport = value; }));
+
+    // v1.25.0 PR3: opt-in sidecar write. Default off keeps the cache-only
+    // architecture; enabling it writes `<basename>.pdf.md` next to the PDF.
+    new Setting(containerEl)
+      .setName(this.getText('writePdfMarkdownToVaultName'))
+      .setDesc(this.getText('writePdfMarkdownToVaultDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.writePdfMarkdownToVault === true)
+        .onChange((value) => { this.tempSettings.writePdfMarkdownToVault = value; }));
     }
 
     // Test Connection

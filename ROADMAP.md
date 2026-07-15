@@ -164,6 +164,18 @@ messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPa
 - Encrypted PDF (Level 2+; needs decryption strategy).
 - Sub-page-level extraction (Level 2+; needed for very large PDFs).
 
+---
+
+## v1.25.1 (PATCH, deferred from v1.25.0 simplify + code-review)
+
+| Item | Source | Scope estimate | Priority |
+|------|--------|---------------|----------|
+| **Generic `DiskCache<T>`** | Altitude F3 | Extract `PdfConversionCache` three-defense-layer + LRU-by-mtime + TTL + isExpiredByMtime into `core/disk-cache.ts`. `PdfConversionCache` becomes ~30 lines. Reusable by future Lint dedup cache (Issue #99 follow-up), image cache, etc. | HIGH |
+| **`enforceSizeLimit` ledger optimization** | Efficiency F1 | In-memory `bytesWritten`/`entryCount` ledger avoids full-stat scan on every set(). Only trigger `enforceSizeLimit` when ledger exceeds cap. 1000-entry cache set → 0 stat calls instead of 1000. | HIGH |
+| **Generic `provider-capabilities` registry** | Altitude F4 | `type Capability = 'pdf' \| 'streaming' \| 'structuredOutput' \| 'image' \| 'tools'` and `getCapability(provider, cap): 'native' \| 'opt-in' \| 'unsupported'`. Replaces `forcePdfSupport` bool + `NATIVE_PDF_PROVIDER_IDS` + `FORCE_PDF_PROVIDER_IDS` constants. | MEDIUM |
+| **Generic `HousekeepingTask` registry** | Altitude F5 | `interface HousekeepingTask { name: string; run(): Promise<...> }`. Plugin `onload` iterates registered tasks. Each cache registers itself, not `main.ts`. | MEDIUM |
+| **`PDF_CONVERTER_VERSION` move to `constants.ts`** | Reuse F4 | Move from `pdf-cache.ts` to `constants.ts` alongside `PDF_CACHE_*` constants. Single source of truth for version bumps. | LOW |
+
 **What about wiki-engine.ts split (3rd-party audit P1)?** Deferred to v1.26.0. The Lint performance work that originally justified the split is itself deferred. Splitting `wiki-engine.ts` without a feature driver is a "rewrite for taste" risk.
 
 ---

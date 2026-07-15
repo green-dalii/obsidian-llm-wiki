@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — v1.25.0 (in-progress)
+
+### Added
+
+- **PDF Level 1 settings (PR3).** Two new advanced toggles in Settings → LLM Configuration → Advanced:
+  - `Force PDF Support` (default off): opt-in escape hatch for custom OpenAI-compatible and Anthropic-compatible providers to attempt PDF input. Native PDF providers (Anthropic, OpenAI, Bedrock) ignore this toggle.
+  - `Write converted Markdown to Vault` (default off): when enabled, each PDF conversion result is also written to a `<basename>.pdf.md` sidecar next to the source PDF. Default (cache-only) keeps no vault-side artifacts.
+- **4 new i18n keys × 10 locales** for the PDF advanced-settings toggles.
+
+### Changed
+
+- PDF cache-only architecture remains the default; zero sidecar writes without explicit opt-in.
+- `PdfConversionContext` settings object is now typed (removed `as never` cast).
+
+### Tests
+
+- 2132 tests passing (163 files). +52 tests since v1.24.1.
+- New tests cover: default no-sidecar, `writePdfMarkdownToVault=true` creates sidecar, `writePdfMarkdownToVault=true` updates existing sidecar.
+
 ## [1.24.1] - 2026-07-14
 
 **Theme:** 5-stage PPR seed-selection cascade, empty-response quiet path, cleaner entity pages, Bedrock Stage 1, LM Studio no-key ingest, page-factory split, non-lossy Mentions re-ingest. 2080 tests passing. Recommended upgrade for all v1.24.0 users.

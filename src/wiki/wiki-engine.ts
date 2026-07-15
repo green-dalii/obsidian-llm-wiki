@@ -509,23 +509,27 @@ export class WikiEngine {
   }
 
   /**
-   * v1.25.0 PR2 redo: PDF ingest branch (cache-only architecture).
+   * v1.25.0 PR2 redo + PR3: PDF ingest branch.
    *
    * Converts the PDF binary to Markdown via the configured LLM provider's
-   * native PDF support, then re-enters `ingestSource` with the converted
-   * markdown threaded via `IngestOptions.contentOverride`. No sidecar file
-   * is written to the vault; the cache (`.obsidian/plugins/karpathywiki/pdf-cache/`)
-   * is the only persistent artifact unless the user opts in via
-   * `writePdfMarkdownToVault`.
+   * native PDF support (or `forcePdfSupport` for compatible providers), then
+   * re-enters `ingestSource` with the converted markdown threaded via
+   * `IngestOptions.contentOverride`.
+   *
+   * Artifact policy: the cache (`.obsidian/plugins/karpathywiki/pdf-cache/`) is
+   * always the source of truth. When the user opts in via `writePdfMarkdownToVault`,
+   * the converted markdown is also written to `<dir>/<basename>.pdf.md` next to
+   * the source PDF. Otherwise (default, cache-only) no sidecar is written — the
+   * vault contains no implementation artifacts from PDF ingestion.
    *
    * Errors are caught and surfaced via the standard `reportSkip` path so
    * the user sees a localized Notice rather than an unhandled exception.
    */
   private async ingestPdfSource(file: TFile, opts?: IngestOptions): Promise<void> {
     // Surface progress so the user knows the PDF is being read + converted.
-    // We use Notice only (not the progress callback) — batch ingest sees
-    // the same single Notice per file, while the progress bar is reserved
-    // for stage updates from the inner ingestSource run.
+    // A single Notice is shown, and the progress callback is updated so batch
+    // ingest can reflect it in its progress bar. The main progress bar is
+    // reserved for stage updates from the inner ingestSource run.
     const lang = this.settings.language;
     const pdfMsg = getText(lang, 'pdfReadingInProgress').replace('{filename}', file.basename);
     new Notice(pdfMsg, NOTICE_NORMAL);
@@ -535,7 +539,15 @@ export class WikiEngine {
     try {
       conversionResult = await convertPdfToMarkdown({
         app: this.app,
-        settings: this.settings as never,
+        // Narrow to the converter's settings shape so the provider gate
+        // sees `forcePdfSupport` (typed, not `as never`).
+        settings: {
+          provider: this.settings.provider,
+          apiKey: this.settings.apiKey,
+          baseUrl: this.settings.baseUrl,
+          model: this.settings.model,
+          forcePdfSupport: this.settings.forcePdfSupport,
+        },
         pdfFile: file,
         llmClient: this.getLLMClient() as never,
         resolveModelForTask: (settings, task) =>
@@ -554,6 +566,30 @@ export class WikiEngine {
       // LLM error: re-throw to the outer ingestSource's catch (preserves
       // existing retry / log behavior for transient errors).
       throw error;
+    }
+
+    // v1.25.0 PR3: optional sidecar write. When the user opts in via
+    // `writePdfMarkdownToVault`, persist the converted markdown next to the
+    // source PDF (`<dir>/<basename>.pdf.md`). Default off → cache-only; the
+    // `.obsidian` cache remains the only artifact. The write happens before
+    // re-entering the standard ingest path so the sidecar reflects the exact
+    // markdown fed to the analysis pipeline.
+    //
+    // We deliberately write via the vault adapter directly rather than
+    // `createOrUpdateFile` because: (a) the sidecar is a plain copy of
+    // LLM-converted markdown — no pollution detection needed; (b) writing
+    // through createOrUpdateFile would fire onFileWrite + invalidatePageCaches,
+    // which could trigger auto-ingest cascades if the source folder is watched.
+    if (this.settings.writePdfMarkdownToVault === true) {
+      const dir = file.parent?.path ?? '';
+      const rawPath = dir ? `${dir}/${file.basename}.pdf.md` : `${file.basename}.pdf.md`;
+      const sidecarPath = normalizePath(rawPath);
+      const existing = this.app.vault.getAbstractFileByPath(sidecarPath);
+      if (existing instanceof TFile) {
+        await this.app.vault.modify(existing, conversionResult.markdown);
+      } else {
+        await this.app.vault.create(sidecarPath, conversionResult.markdown);
+      }
     }
 
     // Re-enter the standard ingest path with the converted markdown as a

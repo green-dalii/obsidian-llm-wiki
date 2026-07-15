@@ -446,6 +446,11 @@ export const KO_TEXTS = {
     sourceRejectedPdfUnsupported: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 현재 provider 또는 모델이 PDF 입력을 지원하지 않습니다. Settings → LLM Configuration → Advanced에서 provider를 변경하거나 Force PDF Support를 활성화하세요.',
     clearPdfCacheCommand: 'PDF 변환 캐시 지우기',
     pdfCacheCleared: 'PDF 캐시를 지웠습니다({count}개 항목 제거됨).',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'PDF 지원 강제',
+    forcePdfSupportDesc: '기본값은 꺼짐. 사용자 정의 OpenAI 호환 / Anthropic 호환 제공업체에만 영향을 줍니다 — 해당 제공업체의 PDF 지원 정도는 제각각이므로 켜는 것은 사용자 책임입니다(변환이 실패할 수 있음). 네이티브 PDF 제공업체(Anthropic / OpenAI / Bedrock)는 이 설정을 무시합니다.',
+    writePdfMarkdownToVaultName: '변환된 Markdown을 Vault에 기록',
+    writePdfMarkdownToVaultDesc: '기본값은 꺼짐. 켜면 각 PDF 변환 결과가 원본 PDF 옆에 「<basename>.pdf.md」 파일로 기록됩니다. 꺼져 있으면(캐시 전용 아키텍처) 결과는 플러그인 캐시에만 남고 Vault에는 구현 아티팩트를 남기지 않습니다.',
 
     ingestRejectedSummary: '{count}개 파일을 건너뛰었습니다(비어 있음, 중복 또는 미지원 형식).',
     reingestConfirmTitle: '이 파일을 다시 가져올까요?',

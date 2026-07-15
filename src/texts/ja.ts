@@ -591,6 +591,11 @@ export const JA_TEXTS = {
     sourceRejectedPdfUnsupported: '⏭️ 「{filename}」をスキップしました — 現在の provider またはモデルは PDF 入力に対応していません。Settings → LLM Configuration → Advanced で provider を切り替えるか、Force PDF Support を有効にしてください。',
     clearPdfCacheCommand: 'PDF 変換キャッシュをクリア',
     pdfCacheCleared: 'PDF キャッシュをクリアしました（{count} 件のエントリを削除）。',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'PDF サポートを強制',
+    forcePdfSupportDesc: 'デフォルトはオフ。カスタム OpenAI 互換 / Anthropic 互換プロバイダーのみに影響します — これらの PDF サポートはまちまちなため、有効化は自己責任となります（変換が失敗する可能性あり）。ネイティブ PDF プロバイダー（Anthropic / OpenAI / Bedrock）は無視します。',
+    writePdfMarkdownToVaultName: '変換後の Markdown を Vault に書き込む',
+    writePdfMarkdownToVaultDesc: 'デフォルトはオフ。オンの場合、各 PDF 変換結果は元の PDF の隣に「<basename>.pdf.md」ファイルとして書き込まれます。オフの場合（キャッシュ専用アーキテクチャ）、結果はプラグインのキャッシュ内のみに存在し、Vault に実装アーティファクトを残しません。',
 
     ingestRejectedSummary: '{count} 個のファイルをスキップしました（空・重複・非対応形式）。',
     reingestConfirmTitle: 'このファイルを再取り込みしますか？',

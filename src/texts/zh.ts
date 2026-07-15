@@ -593,6 +593,11 @@ export const ZH_TEXTS = {
     sourceRejectedPdfUnsupported: '⏭️ "{filename}" 已跳过——当前 provider 或模型不支持 PDF 输入。可在 Settings → LLM Configuration → Advanced 中切换 provider 或开启 Force PDF Support。',
     clearPdfCacheCommand: '清除 PDF 转换缓存',
     pdfCacheCleared: 'PDF 缓存已清除（{count} 个条目已移除）。',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: '强制开启 PDF 支持',
+    forcePdfSupportDesc: '默认关闭。仅对自定义 OpenAI 兼容 / Anthropic 兼容类型的 provider 生效——这些端点的 PDF 支持度参差不齐，开启后风险自负（可能导致转换失败）。原生支持 PDF 的 provider（Anthropic / OpenAI / Bedrock）无需开启。',
+    writePdfMarkdownToVaultName: '将转换后的 Markdown 写入 Vault',
+    writePdfMarkdownToVaultDesc: '默认关闭。开启后，每次 PDF 转换的结果会写入源 PDF 旁边的 “<原名>.pdf.md” 文件。关闭时，转换结果仅保存在插件缓存，不在你的 Vault 中留下实现产物。',
 
     ingestRejectedSummary: '已跳过 {count} 个文件（空文件、重复或不支持的类型）。',
     reingestConfirmTitle: '重新提取该文件？',

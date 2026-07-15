@@ -593,6 +593,11 @@ export const FR_TEXTS = {
     sourceRejectedPdfUnsupported: '⏭️ « {filename} » ignoré — le provider ou le modèle actuel ne prend pas en charge l\'entrée PDF. Changez de provider ou activez Force PDF Support dans Settings → LLM Configuration → Advanced.',
     clearPdfCacheCommand: 'Vider le cache de conversion PDF',
     pdfCacheCleared: 'Cache PDF vidé ({count} entrées supprimées).',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'Forcer le support PDF',
+    forcePdfSupportDesc: 'Désactivé par défaut. Ne concerne que les fournisseurs personnalisés compatibles OpenAI / Anthropic — leur support PDF varie, donc l’activation se fait à vos risques (la conversion peut échouer). Les fournisseurs PDF natifs (Anthropic / OpenAI / Bedrock) l’ignorent.',
+    writePdfMarkdownToVaultName: 'Écrire le Markdown converti dans le Vault',
+    writePdfMarkdownToVaultDesc: 'Désactivé par défaut. Lorsqu’il est actif, le résultat de chaque conversion PDF est écrit dans un fichier « <basename>.pdf.md » à côté du PDF source. Lorsqu’il est désactivé (architecture cache seule), les résultats restent uniquement dans le cache du plugin et ne laissent aucun artefact dans votre Vault.',
 
     ingestRejectedSummary: '{count} fichier(s) ignoré(s) (vide, doublon ou type non pris en charge).',
     reingestConfirmTitle: 'Ré-ingérer ce fichier ?',

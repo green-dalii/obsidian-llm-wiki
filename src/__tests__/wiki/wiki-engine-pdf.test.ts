@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { TFile } from 'obsidian';
+import { TFile, TFolder } from 'obsidian';
 import { createWikiEngineHarness, wikiPagesWritten } from '../__support__/wiki-engine-harness';
 import * as pdfConverter from '../../core/pdf-converter';
 import { convertPdfToMarkdown } from '../../core/pdf-converter';
@@ -39,12 +39,21 @@ const { UnsupportedProviderError, EncryptedPdfError } = pdfConverter;
 
 function pdfFile(path = 'sources/paper.pdf'): TFile {
   const name = path.split('/').pop() ?? 'paper.pdf';
-  return Object.assign(new TFile(), {
+  const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+  const file = Object.assign(new TFile(), {
     path,
     name,
     basename: 'paper',
     extension: 'pdf',
   });
+  // Wire up a parent folder so the sidecar path computation
+  // (`file.parent.path/<basename>.pdf.md`) mirrors real Obsidian TFiles.
+  if (dir) {
+    const folder = new TFolder();
+    folder.path = dir;
+    (file as unknown as { parent: TFolder }).parent = folder;
+  }
+  return file;
 }
 
 describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => {
@@ -125,8 +134,8 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
     expect(h.reports.at(-1)?.skipped).toBeFalsy();
   });
 
-  it('does NOT write a sidecar file to the vault (cache-only architecture)', async () => {
-    // The whole point of the pivot: no <vault>/<basename>.pdf.md sidecar.
+  it('does NOT write a sidecar file by default (cache-only architecture)', async () => {
+    // PR3: default writePdfMarkdownToVault=false, so no .pdf.md sidecar.
     mockedConvert.mockResolvedValueOnce({
       markdown: '# Paper\n\nbody',
       metadata: { convertedAt: '2026-07-15T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
@@ -140,8 +149,48 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
 
     await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
 
-    // The sidecar pattern was "<pdfFile.path>.md" (e.g. sources/paper.pdf.md)
-    const sidecarWrites = h.writtenPaths.filter(p => p.endsWith('.pdf.md'));
-    expect(sidecarWrites).toEqual([]);
+    // No .pdf.md file should exist in the vault.
+    expect(h.files.has('sources/paper.pdf.md')).toBe(false);
+  });
+
+  it('writes sidecar file when writePdfMarkdownToVault is true (create)', async () => {
+    const MARKDOWN = '# Paper\n\nConverted content.';
+    mockedConvert.mockResolvedValueOnce({
+      markdown: MARKDOWN,
+      metadata: { convertedAt: '2026-07-15T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
+    });
+
+    const h = createWikiEngineHarness({
+      settings: { writePdfMarkdownToVault: true },
+      llmResponses: [
+        JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] }),
+      ],
+    });
+
+    await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+    // Sidecar must exist at the expected path with the converted markdown.
+    expect(h.files.get('sources/paper.pdf.md')).toBe(MARKDOWN);
+  });
+
+  it('writes sidecar file when writePdfMarkdownToVault is true (update existing)', async () => {
+    const MARKDOWN = '# Paper\n\nUpdated content.';
+    mockedConvert.mockResolvedValueOnce({
+      markdown: MARKDOWN,
+      metadata: { convertedAt: '2026-07-15T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
+    });
+
+    const h = createWikiEngineHarness({
+      files: { 'sources/paper.pdf.md': 'OLD SIDECAR' },
+      settings: { writePdfMarkdownToVault: true },
+      llmResponses: [
+        JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] }),
+      ],
+    });
+
+    await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+    // Old content must be replaced with the new conversion.
+    expect(h.files.get('sources/paper.pdf.md')).toBe(MARKDOWN);
   });
 });
