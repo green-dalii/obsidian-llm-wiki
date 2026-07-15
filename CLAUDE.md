@@ -1,10 +1,26 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-14
+**Last Updated:** 2026-07-15
 
 ---
 
-## Current Phase: v1.24.1 PATCH RELEASED (2026-07-14, PR #271 + #276 + #277 + #269 + #281 + #282 + #283) → v1.24.2 PATCH next (Fix #0 `selectSeedsWithLLM` streaming-mode port); v1.25.0 MINOR planning for source-revision awareness + PDF native ingest + LLM-driven memory hygiene
+## Current Phase: v1.25.0 PLANNING (2026-07-15, post-pivot) — cache-only PDF; PR2 redo + PR3 + PR4 next; v1.24.1 PATCH RELEASED 2026-07-14
+
+**v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
+
+Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basename>.pdf.md`) approach.
+
+- ⏳ **PR2 redo (1-1.5 days)** — delete `pdf-ingest-orchestrator.ts`; refactor `wiki-engine.ingestPdfSource` to feed `convertPdfToMarkdown` result into `analyzeSource` via `contentOverride`; extend `PdfConversionCache` with `purgeExpired/enforceSizeLimit/prepareBatchIngest` (100MB / 1000-entry / 10MB-single caps + LRU-by-mtime eviction); add `converterVersion` to cache key; delete 5 dead i18n keys across 10 locales.
+- ⏳ **PR3 (1 day)** — settings: `writePdfMarkdownToVault` Advanced toggle (default false); `forcePdfSupport` toggle for BOTH `custom` AND `anthropic-compatible` (default false, manual opt-in); 10-locale READMEs; CHANGELOG; ROADMAP sync; memory file.
+- ⏳ **PR4 (optional, by AkaSakana)** — Kimi Files API provider dispatch + error regex classifiers + transient-retry extension. If AkaSakana ships as follow-up PR after v1.25.0 lands, we merge after review. If schedule slips, we port ourselves (1-day).
+- ⏳ **Final** — `pnpm build:dev` + HARD STOP + user e2e + push decision.
+
+**AkaSakana PR #286 feedback adopted (2026-07-15):**
+- ✅ Cache key includes `converterVersion` so prompt upgrades invalidate stale entries.
+- ✅ `forcePdfSupport` kept for BOTH `custom` and `anthropic-compatible`, default `false` (manual opt-in, NOT opt-out — many compatible endpoints don't reliably support PDF). (2026-07-15 user correction.)
+- ⏳ Kimi Files API (PR4, optional contribution): upload → extract → delete, error regex classifiers, transient-retry extension. AkaSakana owns the contribution; we transfer responsibility to TA via PR #286 reply.
+
+Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 
 **v1.24.1 PATCH release composition (2026-07-13/14 merge window):**
 - ✅ Phase 1 (#271): Fix #1 #268 Tier C forceRecreate bypass

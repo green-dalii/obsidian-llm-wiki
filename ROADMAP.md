@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.24.1 (released 2026-07-14) → v1.25.0 next. | **Updated:** 2026-07-14
+**Version:** 1.24.1 (released 2026-07-14) → v1.25.0 next. | **Updated:** 2026-07-15
 
 ## Current Status
 
@@ -47,62 +47,99 @@ Historical releases are summarized in [CHANGELOG](./CHANGELOG.md).
 
 See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five merged PRs (#234 + graph-cache + #221 + #219 + DocTpoint's #238 + #241). 1431 tests at ship. Post-release monolith splits (#248/#249/#250) added ~90 test cases — **1616 tests across 115 files in latest main**. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
 
-## Next Milestone: v1.25.0 MINOR (target TBD)
+## Next Milestone: v1.25.0 MINOR (target TBD, ~3-4 days)
 
-**Theme:** PDF source support (Level 1) — unlock PDF as a native ingest format. Lint performance overhaul (v1.18.0+ TODO — 8 versions unaddressed). Status reporting improvements.
+**Theme:** PDF source support (Level 1, cache-only architecture). Lint performance overhaul deferred to v1.25.x PATCH or v1.26.0. Source-revision awareness (#220) deferred to v1.26.0+.
 
-**Scope decision (2026-07-15):**
-- ✅ **PDF Level 1 first** — user priority; Issue #218 has an active contributor (A-NGJ) with prototype offer. 3 PRs (~2 weeks).
-- ⏸️ **Lint performance overhaul (deferred to v1.25.x PATCH or v1.26.0)** — high ROI but Lint touches `wiki-engine.ts`; will be picked up after wiki-engine.ts decomposition (v1.26.0 plan).
+**Scope decision (2026-07-15, post-review pivot):**
+- ✅ **PDF Level 1 first** — user priority; Issue #218 has an active contributor (AkaSakana, PR #286). 3 PRs (~3-4 days).
+- ⏸️ **Lint performance overhaul** — high ROI but Lint touches `wiki-engine.ts`; will be picked up after wiki-engine.ts decomposition (v1.26.0 plan).
 - ⏸️ **Source-revision awareness (#220)** — DocTpoint's 4-tier design; **moved to v1.26.0+** so v1.25.0 stays focused.
 
-**Final design decisions (user-confirmed 2026-07-15, post-review):**
+### Architecture pivot (2026-07-15, user-confirmed)
+
+**Old plan (PR1+PR2 already pushed to remote):** Sidecar `<vault>/<basename>.pdf.md` next to the source PDF. PDF cache + sidecar dual storage.
+
+**New plan (post-pivot, this is what ships):** **Cache-only.** The PDF cache (`.obsidian/plugins/karpathywiki/pdf-cache/{sha256}.json`) is the **single source of truth** for the LLM-converted markdown. No sidecar file written to the user's vault by default. The converted markdown is fed **as a virtual source body** into the existing `analyzeSource()` pipeline.
+
+**Rationale (first-principles):**
+1. The user-visible product of PDF ingest is the wiki pages (entities / concepts / summary), not the intermediate markdown.
+2. The original PDF is the canonical, readable artifact; duplicating extracted text into a sidecar pollutes the vault with implementation artifacts.
+3. The cache (in `.obsidian/`) already provides persistence across ingests — re-running ingest of the same PDF returns cached markdown without re-billing the LLM.
+4. Less code: no `pdf-ingest-orchestrator.ts`, no sidecar write gate, no source-scanner exclusion logic.
+
+**Final design decisions (user-confirmed 2026-07-15):**
 - ✅ **No `pdfIngestEnabled` toggle** — PDFs and MDs both visible by default in source picker. PDFs are a first-class format going forward.
 - ✅ **PDF conversion preserves source language** — system prompt instructs: "Preserve the source PDF's language; do NOT translate". `wikiLanguage` is NOT used for conversion.
-- ✅ **New setting `forcePdfSupport: boolean`** in Settings → Wiki → LLM Configuration → Advanced (under baseURL). **Visible only when provider is one of the two custom compatible providers: `custom` (Custom OpenAI-Compatible) or `anthropic-compatible` (Custom Anthropic-Compatible)**. Default: `false`. Purpose: lets users force PDF binary upload against third-party providers that route through our custom openai-compat or anthropic-compat code path and claim PDF support even though our built-in detection says they don't. UI shows warning "Enable at your own risk". Failure mode: if provider rejects PDF despite the flag, the error is surfaced verbatim.
+- ✅ **No default sidecar write.** `Settings.writePdfMarkdownToVault: boolean` advanced toggle (default `false`). When `true`, additionally writes `<vault>/<basename>.pdf.md` for audit — same shape as old plan's sidecar.
+- ✅ **Cache growth bounded by hard caps + LRU eviction** — see Cache section below.
+- ✅ **`forcePdfSupport` — manual opt-in for both compatible providers.** Retained for both `custom` (Custom OpenAI-Compatible) and `anthropic-compatible` (Custom Anthropic-Compatible). Default: `false`. Many compatible endpoints don't reliably support PDF; users who know their gateway does (Kimi Coding Plan, etc.) flip it on at their own risk. UI shows warning "Enable at your own risk". Failure mode: if provider rejects PDF despite the flag, error surfaced verbatim. (2026-07-15 user correction: do NOT default to true; keep manual opt-in semantics.)
+- ✅ **AkaSakana (PR #286) feedback adopted**:
+  - Cache key includes `converterVersion` so prompt upgrades invalidate stale entries.
+  - Provider matrix accepts `kimi` via Kimi Files API (separate PR4).
 
-### v1.25.0 PDF Level 1 (3 PRs, ~2 weeks)
+### v1.25.0 PDF Level 1 (3 PRs, ~3-4 days)
 
-**Goal:** PDFs become a first-class ingest source. Convert PDF → Markdown via the LLM's native PDF support (Anthropic `document` block / OpenAI `file` block), save the `.pdf.md` next to the original PDF, then run the existing `ingestSource()` flow on it. **Zero new dependencies. Zero SDK client modifications.**
+**Goal:** PDFs become a first-class ingest source. Convert PDF → Markdown via the LLM's native PDF support (Anthropic `document` block / OpenAI `file` block), cache the result, then run the existing `ingestSource()` flow with the cached markdown as the source body. **Zero new dependencies. Zero SDK client modifications.**
 
-**Architecture:**
+**Architecture (post-pivot, cache-only):**
 ```
 User picks foo.pdf
   → Detect: file.extension === 'pdf'
-  → Convert: cache hit → skip; cache miss → LLM API call with PDF binary
-  → Save: <vault>/foo.pdf.pdf.md (with frontmatter: sourceType=pdf, sourcePath, hash, pdfTitle, pdfAuthor, pdfPages, convertedAt, converter)
-  → Ingest: ingestSource(<.pdf.md file>) — reuses 100% of existing flow
+  → Convert: convertPdfToMarkdown(file)
+       ├── Provider gate (must run before cache!)
+       ├── sha256(bytes) → cache key  =  "{sha256}:{model}:{converterVersion}"
+       ├── Cache hit  → return cached markdown (zero LLM call)
+       └── Cache miss → LLM API call (PDF binary as FilePart) → write cache → return markdown
+  → Ingest: analyzeSource(file, { contentOverride: markdown })
+       └── (no sidecar write to vault; cache in .obsidian/ is the only artifact)
+  → Page generation: summary / entities / concepts / related — unchanged
   → Unsupported provider (Ollama/LMStudio/DeepSeek/GLM) → Notice + clear workaround instructions
 ```
 
-**Why "API-native" (not local pdf.js):**
-- Zero new dependencies (CLAUDE.md Gate 3 / 3rd-party audit recommendation).
-- The conversion is "just another LLM call" — the AI SDK already maps `FilePart { type: 'file', data, mediaType }` to provider-native PDF blocks transparently.
-- Future Level 2 (visual/chart understanding) only needs a flag flip; no refactor.
-- Local pdf.js extraction quality varies wildly; the LLM is the best PDF reader we can afford.
+**Cache (`.obsidian/plugins/karpathywiki/pdf-cache/{sha256}.json`):**
 
-**Key design decisions (2026-07-15 user-confirmed):**
-1. **PDF default visible** in source picker — no `pdfIngestEnabled` toggle (PDF is a native format going forward).
-2. **`.pdf.md` saved to vault** at same path as source PDF (not in cache dir) — easier debugging + auditable.
-3. **Metadata in frontmatter** + **content in cache file** — dual storage; LLM sees metadata, cache holds extracted text.
-4. **Conversion at ingest time** (not vault-watcher background) — simplest, user-triggered.
-5. **Provider fallback = Notice** — if provider can't handle PDF, show clear "switch provider or pre-convert" instructions. No silent skip.
-6. **Progress feedback** — Notice (auto-dismiss 5s) + status bar (full ingest progress).
+| Knob | Default | Purpose |
+|---|---|---|
+| `PDF_CACHE_MAX_BYTES` | **100 MB** | Hard cap on total disk usage |
+| `PDF_CACHE_MAX_ENTRIES` | **1000** | Hard cap on entry count |
+| `PDF_CACHE_MAX_SINGLE_ENTRY_BYTES` | **10 MB** | Reject writes for oversized single entries (don't let one giant PDF hog the cache) |
+| `PDF_CACHE_TTL_MS` | **30 days** | TTL; expired entries purged on `onload()` and batch-start |
+| Eviction strategy | **LRU by mtime** | Oldest entries first when over cap ("去旧留新") |
+| Failure mode | **Degrade gracefully** | If cache write fails (disk full / quota), conversion result still returned; next ingest re-converts. Cache is performance, not correctness. |
+
+**Three defense layers against cache blow-up:**
+1. **Pre-write check** in `PdfConversionCache.set()`: if entry > `MAX_SINGLE_ENTRY_BYTES`, skip write (log warning); still return result.
+2. **Enforce-size-limit after write**: list all entries with mtime, sort oldest-first, delete until under both caps.
+3. **Batch-start housekeeping**: `prepareBatchIngest()` calls `purgeExpired()` (cheap mtime scan) before folder ingest begins.
+
+**Provider support matrix (Level 1):**
+
+| Provider | PDF support | Conversion path |
+|----------|-------------|-----------------|
+| anthropic | ✅ Native (document block) | AI SDK `FilePart` |
+| openai | ✅ Native (file block) | AI SDK `FilePart` |
+| bedrock-anthropic | ✅ Native (document block) | AI SDK `FilePart` |
+| bedrock-openai | ✅ Native (file block) | AI SDK `FilePart` |
+| anthropic-compatible | ⚠️ Manual opt-in (`forcePdfSupport=true`, default false) | AI SDK `FilePart`; provider capability errors → graceful skip |
+| custom | ⚠️ Manual opt-in (`forcePdfSupport=true`, default false) | AI SDK `FilePart`; provider capability errors → graceful skip |
+| ollama | ❌ | Notice + workaround |
+| lmstudio | ❌ | Notice + workaround |
+| deepseek | ❌ | Notice + workaround |
+| glm | ❌ | Notice + workaround |
+| kimi | (PR4 candidate, by AkaSakana) | Moonshot Files API: upload → extract → delete |
 
 **3 PR breakdown:**
 
-| PR | Scope | Est. | New files | Modified files |
-|----|-------|------|-----------|----------------|
-| **#1 Core** | PDF→MD converter + cache + metadata parser + LLMClient interface extension (1 type only, backward-compat) | 4 days | `core/pdf-cache.ts`, `core/pdf-converter.ts`, `core/pdf-metadata.ts`, `prompts/pdf-convert.ts` + 3 test files | `types.ts` (1 type extension) |
-| **#2 Ingest integration** | Ingest pipeline hookup + source-collector + 2 new commands | 5 days | `core/pdf-ingest-orchestrator.ts`, `core/source-collector.ts`, `commands/ingest-pdf.ts`, `commands/clear-pdf-cache.ts` + 3 test files | `wiki/wiki-engine.ts:497 ingestSource` (+5 lines), 2 suggest modals (1 line each) |
-| **#3 UX + docs** | Settings tab PDF section + 10-locale READMEs + CHANGELOG + ROADMAP update + memory | 3 days | `commands/clear-pdf-cache.ts` | `settings-tab.ts` (PDF section + `forcePdfSupport` toggle under baseURL, shown ONLY for `custom` and `anthropic-compatible` providers), 10 README files, CHANGELOG, ROADMAP, this file |
+| PR | Scope | Est. | New files | Modified / deleted files |
+|----|-------|------|-----------|--------------------------|
+| **PR2 redo (was PR2 Ingest integration, but now cache-only)** | Delete `pdf-ingest-orchestrator.ts`; refactor `wiki-engine.ingestPdfSource` to feed `convertPdfToMarkdown` result into `analyzeSource` via `contentOverride`; add `PdfConversionCache.purgeExpired/enforceSizeLimit/prepareBatchIngest`; cache key includes `converterVersion`; delete dead i18n keys | 1-1.5 days | `__tests__/wiki/wiki-engine-pdf.test.ts` (NEW) | `src/core/pdf-cache.ts` (extended), `src/core/pdf-converter.ts` (cache key + version), `src/wiki/wiki-engine.ts:ingestPdfSource` (rewritten), `src/wiki/source-analyzer.ts:analyzeSource` (signature + contentOverride), `src/main.ts` (delete `ingest-pdf` cmd alias; keep `clear-pdf-cache`), `src/constants.ts` (+3 caps), `src/texts/*.ts` (10 locales, delete 5 dead keys), delete `src/core/pdf-ingest-orchestrator.ts` + its tests |
+| **PR3 UX + docs** | Settings tab — `writePdfMarkdownToVault` toggle (Advanced, default false); `forcePdfSupport` toggle for BOTH `custom` AND `anthropic-compatible` (default false, manual opt-in); 10-locale README updates; CHANGELOG; ROADMAP (already this file); memory file | 1 day | `src/__tests__/types/settings.test.ts` (extended) | `src/types.ts` (+2 fields), `src/settings.ts` (defaults), `src/settings-tab.ts` (Advanced section, conditional visibility on provider), `src/texts/*.ts` (10 locales, +4 keys), 10 README files, CHANGELOG, `~/.claude/projects/.../memory/project_v1.25.0_pdf_cache_only.md` |
+| **PR4 Kimi Files API (optional, by AkaSakana)** | AkaSakana owns this; if TA ships as follow-up PR on top of v1.25.0, we merge after review. If TA's schedule slips, we port `kimi-document-reader.ts` + `pdf-error-classifier.ts` + `transient-retry` extension ourselves (1-day port). | (depends on AkaSakana) | `core/kimi-document-reader.ts`, `core/pdf-error-classifier.ts`, `__tests__/core/kimi-document-reader.test.ts`, `__tests__/core/pdf-error-classifier.test.ts` | `core/pdf-converter.ts` (provider dispatch by ID), `constants.ts` (NATIVE list), `texts/*.ts` (10 locales, +2 keys) |
 
-**LLMClient interface extension (PR #1):**
+**LLMClient interface extension (no change vs. old plan):**
 ```ts
-// Before
-messages: Array<{ role: 'user' | 'assistant'; content: string }>;
-
-// After (backward-compatible)
+// AI SDK already accepts this shape; no plugin-side type changes needed.
 type MessageContentPart =
   | { type: 'text'; text: string }
   | { type: 'file'; data: string;  // base64
@@ -113,30 +150,13 @@ messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPa
 
 **3 SDK clients modified:** 0 (AI SDK v6 transparently maps `FilePart` to provider-native format).
 
-**Files using `getMarkdownFiles()` modified:** 2 (only UI source pickers: `suggest-modals.ts:20`, `MultiFileSuggestModal-class.ts:98`). The 4 wiki-engine.ts uses are for **wiki file lookup** (not source discovery) and stay untouched.
+**Files using `getMarkdownFiles()` modified:** 2 (only UI source pickers: `suggest-modals.ts:20`, `MultiFileSuggestModal-class.ts:98`). The wiki-engine.ts uses are for **wiki file lookup** (not source discovery) and stay untouched.
 
-**Cache:**
-- Path: `.obsidian/plugins/karpathywiki/pdf-cache/{sha256}.json`
-- Value: `{ markdown, metadata: {title, author, pageCount, convertedAt}, converter: "<provider>/<model>" }`
-- TTL: 30 days (configurable, PR #3)
-- LRU eviction: 500MB cap (PR #3)
+**Test count target:** 2080 → ~2150 (~+30 new tests in PR2 redo, ~+15 in PR3, ~+25 in PR4).
 
-**Provider support matrix (Level 1):**
-| Provider | PDF support | Conversion path |
-|----------|-------------|-----------------|
-| anthropic | ✅ Native (document block) | Direct |
-| openai | ✅ Native (file block) | Direct |
-| bedrock-anthropic | ✅ Native (document block) | Direct |
-| bedrock-openai | ✅ Native (file block) | Direct |
-| ollama | ❌ | Notice + workaround |
-| lmstudio | ❌ | Notice + workaround |
-| deepseek | ❌ | Notice + workaround |
-| glm | ❌ | Notice + workaround |
-| other openai-compat | ❌ | Notice + workaround |
+**Migration cost for users:** Zero. PDFs in the vault just become ingestible. Existing `.md` ingest path unchanged. The pre-pivot code on `feat/pdf-level-1-core` (28e515d + 0abf2db) is replaced; sidecar files written during user testing are orphaned and can be manually deleted (or the user toggles `writePdfMarkdownToVault: true` to regenerate).
 
-**Test count target:** 2080 → ~2200 (~+30 new tests in PR #1, ~+12 in PR #2, ~+3 in PR #3).
-
-**Migration cost for users:** Zero. PDFs in the vault just become ingestible. Existing `.md` ingest path unchanged.
+**PR #286 handling:** AkaSakana's PR #286 — we keep the PR open for reference but do not merge as-is. After v1.25.0 lands on main, we invite AkaSakana to ship the Kimi Files API + error regex classifiers + transient-retry extension as a follow-up PR on top of the v1.25.0 baseline (PR #286 effectively becomes PR4-v2 if AkaSakana ships; otherwise we port it ourselves). Reply draft pending — thanks + announce new cache-only direction + clarify Kimi responsibility transfer.
 
 **What PDF Level 1 does NOT do (deferred to Level 2):**
 - Visual/chart/image understanding (Level 2 will flip a "multimodal" flag in the conversion call).
