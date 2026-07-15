@@ -610,14 +610,10 @@ export const EN_TEXTS = {
     sourceRejectedEmpty: '⏭️ "{filename}" has no content to ingest — skipped. Empty or frontmatter-only notes don\'t create wiki pages.',
     sourceRejectedType: '⏭️ "{filename}" is not a supported file type — skipped. Only text notes (e.g. .md, .txt) can be ingested.',
     sourceRejectedDuplicate: '⏭️ "{filename}" skipped — its content is already in the wiki.',
-    // v1.25.0 PDF Level 1
+    // v1.25.0 PDF Level 1 (cache-only architecture)
     pdfReadingInProgress: 'Reading PDF: {filename}',
-    pdfExtractedTextHeading: 'Extracted Text',
-    sourceRejectedPdfUnsupported: 'Skipped {filename}: the configured provider or model does not support PDF input.',
-    pdfIngestCommand: 'Ingest PDF as source',
-    pdfIngestCommandTooltip: 'Convert a PDF to Markdown via the LLM, save the .pdf.md next to the source, and ingest it.',
+    sourceRejectedPdfUnsupported: '⏭️ "{filename}" skipped — the current provider or model does not support PDF input. Switch provider or enable Force PDF Support in Settings → LLM Configuration → Advanced.',
     clearPdfCacheCommand: 'Clear PDF conversion cache',
-    clearPdfCacheCommandTooltip: 'Delete the cached PDF→Markdown conversion results. The next PDF ingest re-bills the LLM.',
     pdfCacheCleared: 'PDF cache cleared ({count} entries removed).',
     ingestRejectedSummary: '{count} file(s) skipped (empty, duplicate, or unsupported type).',
     reingestConfirmTitle: 'Re-ingest this file?',

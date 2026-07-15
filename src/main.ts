@@ -150,6 +150,15 @@ export default class LLMWikiPlugin extends Plugin {
       () => this.lintWiki('auto')
     );
 
+    // v1.25.0 PR2 fix: fire-and-forget PDF cache housekeeping on startup.
+    // Without this hook, the three-defense-layer design collapses — set()
+    // only triggers defense layer 2 (size cap), but layers 1 (per-write
+    // cap) and 3 (purgeExpired) never run. Over months, the cache would
+    // grow until the cap, then evict the user's most-valuable oldest
+    // entries on every new PDF ingest (cache hit rate collapses).
+    // Errors are swallowed inside performPdfCacheHousekeeping — never blocks startup.
+    void this.performPdfCacheHousekeeping();
+
     if (this.settings.autoWatchSources) {
       this.autoMaintainManager.startWatching();
     }
@@ -272,19 +281,11 @@ export default class LLMWikiPlugin extends Plugin {
     });
 
     // v1.25.0 PR2: explicit "Ingest PDF" command. Useful when the user has
-    // a PDF open and wants to ingest it without going through the active-file
-    // flow (which has additional readiness gates). The orchestrator handles
-    // conversion + sidecar write; the wikiEngine then runs the .md ingest.
-    this.addCommand({
-      id: 'ingest-pdf',
-      name: getText(this.settings.language, 'pdfIngestCommand'),
-      icon: 'file-text',
-      callback: () => this.ingestActiveFile(),
-    });
-
     // v1.25.0 PR2: clear the PDF conversion cache. Useful when switching
     // models and wanting to force re-conversion without invalidating by
-    // deleting the source PDF.
+    // deleting the source PDF. PR2 redo: the `ingest-pdf` command was a
+    // pure duplicate of `ingest-active-file` and is removed — PDFs are
+    // detected automatically by ingestSource when the active file is a PDF.
     this.addCommand({
       id: 'clear-pdf-cache',
       name: getText(this.settings.language, 'clearPdfCacheCommand'),
@@ -673,23 +674,41 @@ export default class LLMWikiPlugin extends Plugin {
   /**
    * v1.25.0 PR2: clear the PDF conversion cache. Useful when the user
    * switches models and wants to force re-conversion without deleting the
-   * source PDF. Counts entries before clearing for the user-facing Notice.
+   * source PDF. Returns a localized count for the user-facing Notice.
    */
   async clearPdfCache(): Promise<void> {
-    const { PdfConversionCache } = await import('./core/pdf-cache');
-    const cacheDir = `${this.app.vault.configDir}/plugins/karpathywiki/pdf-cache`;
-    const cache = new PdfConversionCache({
-      cacheDir,
-      adapter: this.app.vault.adapter,
-    });
-    // Pre-count via the underlying adapter for a localized Notice.
-    const files = await this.app.vault.adapter.list(cacheDir).catch(() => []);
-    const count = Array.isArray(files) ? files.length : 0;
-    await cache.clear();
+    const { createPdfCache } = await import('./core/pdf-cache');
+    const cache = createPdfCache(this.app);
+    const result = await cache.clear();
     new Notice(
-      getText(this.settings.language, 'pdfCacheCleared').replace('{count}', String(count)),
+      getText(this.settings.language, 'pdfCacheCleared').replace('{count}', String(result.removed)),
       NOTICE_NORMAL
     );
+  }
+
+  /**
+   * v1.25.0 PR2: PDF cache housekeeping on plugin load — purges expired
+   * entries and enforces hard size caps. Cheap on plugin startup; never
+   * blocks the user (errors are logged and swallowed).
+   *
+   * Called from onload() (fire-and-forget) so the three-defense-layer
+   * design doesn't collapse to just defense layer 2 (per-set cap).
+   */
+  async performPdfCacheHousekeeping(): Promise<void> {
+    try {
+      const { createPdfCache } = await import('./core/pdf-cache');
+      const cache = createPdfCache(this.app);
+      const expired = await cache.purgeExpired();
+      const size = await cache.enforceSizeLimit();
+      if (expired.removed > 0 || size.removed > 0) {
+        console.debug(
+          `[pdf-cache] housekeeping: purged ${expired.removed} expired, ` +
+          `evicted ${size.removed} oversized (${size.freedBytes} bytes freed)`
+        );
+      }
+    } catch (error) {
+      console.warn('[pdf-cache] housekeeping failed:', error);
+    }
   }
 
   selectFolderToIngest() {

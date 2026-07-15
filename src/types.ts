@@ -432,6 +432,13 @@ export interface IngestOptions {
    * Optional — missing/legacy callers default to 'manual'.
    */
   trigger?: 'auto' | 'manual';
+  /**
+   * v1.25.0 PR2 redo: pre-converted source body (e.g. LLM-converted PDF
+   * markdown). When set, skips `vault.read(file)` and feeds this string
+   * into the analyzer and summary-page generator. Path-based operations
+   * (slug, frontmatter inheritance) still use `file`.
+   */
+  contentOverride?: string;
 }
 
 // LLM Client interface

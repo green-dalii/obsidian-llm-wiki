@@ -59,6 +59,19 @@ export const TOKENS_PDF_CONVERSION = 8000;
 /** Default TTL for cached PDF→Markdown conversion entries (30 days, ms). */
 export const PDF_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+/**
+ * Cache growth hard caps (v1.25.0 PR2 redo — three-defense-layer design).
+ *
+ * - MAX_BYTES: total disk usage cap (100 MB ≈ 1000 typical papers).
+ * - MAX_ENTRIES: entry count cap. Lower bound on Obsidian startup scan time.
+ * - MAX_SINGLE_ENTRY_BYTES: rejects writes for oversized single entries so
+ *   one giant PDF (e.g. 500-page textbook → ~50 MB markdown) cannot hog
+ *   the cache. Cache is performance-only; caller still gets the conversion.
+ */
+export const PDF_CACHE_MAX_BYTES = 100 * 1024 * 1024;
+export const PDF_CACHE_MAX_ENTRIES = 1000;
+export const PDF_CACHE_MAX_SINGLE_ENTRY_BYTES = 10 * 1024 * 1024;
+
 /** Provider IDs whose built-in clients support PDF natively (v1.25.0 PR1). */
 export const NATIVE_PDF_PROVIDER_IDS = [
   'anthropic',

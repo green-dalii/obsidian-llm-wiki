@@ -7,7 +7,7 @@ import {
   type PdfConversionContext,
   type ConversionResult,
 } from '../../core/pdf-converter';
-import { sha256Bytes } from '../../core/pdf-cache';
+import { sha256Bytes, PDF_CONVERTER_VERSION } from '../../core/pdf-cache';
 
 // Inject the global SubtleCrypto mock from setup.ts so sha256Bytes has
 // a real implementation. The mock is deterministic (see setup.ts).
@@ -19,14 +19,16 @@ const testSubtle = (globalThis as { crypto: { subtle: SubtleCrypto } }).crypto.s
 const mockCacheStore = new Map<string, ConversionResult>();
 vi.mock('../../core/pdf-cache', async () => {
   const actual = await vi.importActual<typeof import('../../core/pdf-cache')>('../../core/pdf-cache');
+  class MockPdfConversionCache {
+    async get(key: string) { return mockCacheStore.get(key) ?? null; }
+    async set(key: string, entry: ConversionResult) { mockCacheStore.set(key, entry); }
+    async invalidate(key: string) { mockCacheStore.delete(key); }
+    async clear() { mockCacheStore.clear(); }
+  }
   return {
     ...actual,
-    PdfConversionCache: class {
-      async get(key: string) { return mockCacheStore.get(key) ?? null; }
-      async set(key: string, entry: ConversionResult) { mockCacheStore.set(key, entry); }
-      async invalidate(key: string) { mockCacheStore.delete(key); }
-      async clear() { mockCacheStore.clear(); }
-    },
+    PdfConversionCache: MockPdfConversionCache,
+    createPdfCache: () => new MockPdfConversionCache(),
   };
 });
 
@@ -122,9 +124,10 @@ describe('convertPdfToMarkdown', () => {
       },
     };
     const hash = await sha256Bytes(SAMPLE_BYTES, testSubtle);
-    // Cache key is composite (sha256:model) so that switching the ingest
-    // model does not silently return a conversion produced by a different model.
-    mockCacheStore.set(`${hash}:claude-opus-4-8`, cached);
+    // Cache key is composite (sha256:model:converterVersion) so that switching
+// the ingest model or bumping the converter prompt does not silently return
+// a conversion produced by a different model/version.
+mockCacheStore.set(`${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`, cached);
 
     const { ctx, mockCreateMessage } = makeContext();
     const result = await convertPdfToMarkdown(ctx);
@@ -217,7 +220,7 @@ describe('convertPdfToMarkdown', () => {
     };
     // Pre-populate cache as if user previously ingested via anthropic.
     const hash = await sha256Bytes(SAMPLE_BYTES, testSubtle);
-    mockCacheStore.set(`${hash}:claude-opus-4-8`, cached);
+    mockCacheStore.set(`${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`, cached);
 
     const { ctx } = makeContext({
       settings: {

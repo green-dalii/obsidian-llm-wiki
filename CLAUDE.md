@@ -342,8 +342,9 @@ Some older commits on `main` were authored as `Greener-Dalii` (capitalized, used
 2. **Every commit MUST list the maintainer as `Co-authored-by`** (in addition to the AI model):
    ```
    Co-authored-by: green-dalii <654534332@qq.com>
-   Co-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+   Co-authored-by: Claude Code <noreply@anthropic.com>
    ```
+   **Format rule**: the AI `Co-authored-by` line MUST be exactly `Claude Code <noreply@anthropic.com>`. Do **NOT** include the specific model name (e.g. `Opus 4.8`), version number, or context-window size (e.g. `1M context`) — these are ad copy that pollutes git history and goes stale when the model is upgraded. (2026-07-15 rule.)
 3. **NEVER** amend/squash a commit in a way that drops the `Co-authored-by: green-dalii` trailer — re-add it after every `git commit --amend`.
 4. The `Co-Authored-By` line must NOT be wrapped in a code block or in any way obfuscated — GitHub reads it as a literal trailer.
 5. When the session ends or you notice a missing co-author on any recent commit, **stop and fix it before continuing** — do not let the oversight propagate to the PR.

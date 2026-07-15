@@ -20,8 +20,7 @@ import { slugify } from '../core/slug';
 import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
 import { setGenerationComplete } from '../core/incomplete-page-cleaner';
-import { preparePdfForIngest } from '../core/pdf-ingest-orchestrator';
-import { UnsupportedProviderError, EncryptedPdfError } from '../core/pdf-converter';
+import { convertPdfToMarkdown, UnsupportedProviderError, EncryptedPdfError } from '../core/pdf-converter';
 import { hashBody, checkContentRequirements } from '../core/source-requirements';
 import { resolveModelForTask } from '../core/model-resolver';
 import type { SourceRejection } from '../core/source-requirements';
@@ -465,10 +464,18 @@ export class WikiEngine {
     return null;
   }
 
-  /** Map a rejection reason to its localized Notice key. */
-  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' {
+  /**
+   * Map a rejection reason to its localized Notice key.
+   *
+   * v1.25.0 PR2 redo: PDF provider-unsupported rejections route through
+   * `sourceRejectedPdfUnsupported` (restored in 10 locales). Without this
+   * mapping, users would see the generic "empty content" Notice for a PDF
+   * their provider can't handle — the dedicated i18n key would be orphaned.
+   */
+  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' | 'sourceRejectedPdfUnsupported' {
     if (reason === 'incompatible-type') return 'sourceRejectedType';
     if (reason === 'duplicate') return 'sourceRejectedDuplicate';
+    if (reason === 'unsupported-pdf') return 'sourceRejectedPdfUnsupported';
     return 'sourceRejectedEmpty';
   }
 
@@ -502,20 +509,35 @@ export class WikiEngine {
   }
 
   /**
-   * v1.25.0 PR2: PDF ingest branch. Converts the PDF to a sidecar .pdf.md
-   * via the LLM, then re-enters `ingestSource` with the sidecar so the
-   * existing text-ingest pipeline does the rest.
+   * v1.25.0 PR2 redo: PDF ingest branch (cache-only architecture).
+   *
+   * Converts the PDF binary to Markdown via the configured LLM provider's
+   * native PDF support, then re-enters `ingestSource` with the converted
+   * markdown threaded via `IngestOptions.contentOverride`. No sidecar file
+   * is written to the vault; the cache (`.obsidian/plugins/karpathywiki/pdf-cache/`)
+   * is the only persistent artifact unless the user opts in via
+   * `writePdfMarkdownToVault`.
    *
    * Errors are caught and surfaced via the standard `reportSkip` path so
    * the user sees a localized Notice rather than an unhandled exception.
    */
   private async ingestPdfSource(file: TFile, opts?: IngestOptions): Promise<void> {
-    let sidecar: TFile;
+    // Surface progress so the user knows the PDF is being read + converted.
+    // We use Notice only (not the progress callback) — batch ingest sees
+    // the same single Notice per file, while the progress bar is reserved
+    // for stage updates from the inner ingestSource run.
+    const lang = this.settings.language;
+    const pdfMsg = getText(lang, 'pdfReadingInProgress').replace('{filename}', file.basename);
+    new Notice(pdfMsg, NOTICE_NORMAL);
+    this.onProgress?.(pdfMsg);
+
+    let conversionResult;
     try {
-      sidecar = await preparePdfForIngest(file, {
+      conversionResult = await convertPdfToMarkdown({
         app: this.app,
-        llmClient: this.getLLMClient() as never,
         settings: this.settings as never,
+        pdfFile: file,
+        llmClient: this.getLLMClient() as never,
         resolveModelForTask: (settings, task) =>
           resolveModelForTask(this.settings, task as 'ingest' | 'lint' | 'query'),
         ...(this.subtle ? { subtle: this.subtle } : {}),
@@ -534,30 +556,37 @@ export class WikiEngine {
       throw error;
     }
 
-    // Re-enter the standard ingest path with the sidecar .md file.
-    // The sidecar has frontmatter identifying it as sourceType=pdf, so the
-    // entity/concept extraction runs on the LLM's PDF summary, not on
-    // raw PDF bytes.
-    return this.ingestSource(sidecar, opts);
+    // Re-enter the standard ingest path with the converted markdown as a
+    // virtual source body. The pipeline (analyzeSource → summary → entities
+    // → concepts → related → index) runs unchanged — contentOverride flows
+    // through IngestOptions into analyzeSource/createSummaryPage.
+    return this.ingestSource(file, { ...opts, contentOverride: conversionResult.markdown });
   }
 
   async ingestSource(file: TFile, opts?: IngestOptions) {
     console.debug('=== Ingestion started ===');
     console.debug('Source file:', file.path);
+    if (opts?.contentOverride !== undefined) {
+      console.debug('Content override length:', opts.contentOverride.length);
+    }
 
-    // v1.25.0 PR2: PDF ingest path. The orchestrator converts the PDF binary
-    // to a sidecar Markdown file (`<vault>/<basename>.pdf.md`) via the
-    // configured LLM provider's native PDF support, then we re-enter the
-    // existing ingest path with the sidecar file. Source picker therefore
-    // treats PDFs as first-class sources.
-    if (file.extension.toLowerCase() === 'pdf') {
+    // v1.25.0 PR2 redo: PDF ingest path converts the PDF binary to markdown
+    // via the configured LLM provider's native PDF support, caches by content
+    // hash, then re-enters the standard ingest path with the markdown as
+    // a virtual body (contentOverride). No sidecar file is written to the
+    // vault; the cache in `.obsidian/` is the sole persistent artifact.
+    //
+    // Guard: only dispatch to the PDF branch when the caller has NOT
+    // already provided a converted body — otherwise this would recurse
+    // (ingestPdfSource re-enters ingestSource with contentOverride set).
+    if (file.extension.toLowerCase() === 'pdf' && !opts?.contentOverride) {
       return this.ingestPdfSource(file, opts);
     }
 
     // #164 pre-ingest requirements gate — runs BEFORE any cancellation/UI setup so
     // a rejected file returns cleanly with nothing to tear down. Empty/type are
     // hard skips; a duplicate auto-skips, except interactive ingest prompts first.
-    const fileContent = await this.app.vault.read(file);
+    const fileContent = opts?.contentOverride ?? await this.app.vault.read(file);
     const rejection = opts?.forceReingest ? null : await this.checkRequirements(file, fileContent, opts?.batchCtx);
     if (rejection) {
       const confirmed = rejection.reason === 'duplicate' && opts?.interactive && this.onConfirmReingest
@@ -601,9 +630,11 @@ export class WikiEngine {
     try {
       await this.ensureWikiStructure();
 
-      // Stage 1: Source Analysis
+      // Stage 1: Source Analysis (contentOverride flows via opts)
       const analysisStart = Date.now();
-      analysis = await this.sourceAnalyzer.analyzeSource(file);
+      analysis = await this.sourceAnalyzer.analyzeSource(file, {
+        ...(opts?.contentOverride !== undefined ? { contentOverride: opts.contentOverride } : {}),
+      });
       if (!analysis) {
         throw new Error(`Source analysis failed for "${file.basename}". Check the developer console (Ctrl+Shift+I) for network or API errors. If you see SSL/network errors, verify your provider URL and network connection.`);
       }
@@ -633,9 +664,9 @@ export class WikiEngine {
       // and related pages all reference the same canonical [[sources/<slug>]].
       const sourceSlug = resolveSourceSlug(file.path, { preserveCase });
 
-      // Stage 2: Summary Page Generation
+      // Stage 2: Summary Page Generation (contentOverride flows through opts)
       const summaryStart = Date.now();
-      const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths, sourceSlug);
+      const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths, sourceSlug, opts?.contentOverride);
       const summaryTime = Date.now() - summaryStart;
       console.debug(`[Time] Summary page generation: ${summaryTime}ms`);
       analysis.created_pages.push(summaryPage);
@@ -1008,11 +1039,13 @@ export class WikiEngine {
     await this.schemaManager.ensureSchemaExists();
   }
 
-  async createSummaryPage(file: TFile, analysis: SourceAnalysis, plannedPaths: string[] = [], sourceSlug?: string): Promise<string> {
+  async createSummaryPage(file: TFile, analysis: SourceAnalysis, plannedPaths: string[] = [], sourceSlug?: string, contentOverride?: string): Promise<string> {
     const preserveCase = this.settings.slugCase === 'preserve';
     const slug = sourceSlug ?? slugify(file.basename, preserveCase);
     const path = normalizePath(`${this.settings.wikiFolder}/sources/${slug}.md`);
-    const content = await this.app.vault.read(file);
+    // PDF branch: use the LLM-converted markdown instead of reading raw PDF
+    // bytes (which would be garbage text). Text branch: unchanged.
+    const content = contentOverride ?? await this.app.vault.read(file);
 
     // Issue #114: if the source page already exists with manually-set tags,
     // preserve them — re-ingesting a note must not overwrite corrections.

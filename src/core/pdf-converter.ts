@@ -27,7 +27,7 @@
  */
 
 import { App, TFile } from 'obsidian';
-import { PdfConversionCache, PdfCacheEntry, sha256Bytes } from './pdf-cache';
+import { PdfCacheEntry, sha256Bytes, PDF_CONVERTER_VERSION, createPdfCache } from './pdf-cache';
 import {
   parsePdfInfoDictText,
   isEncryptedPdfText,
@@ -120,10 +120,11 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
   const model = resolveModelForTask(settings, 'ingest');
 
   // 4. Cache lookup (sha256 bytes → key). sha256 is required here for the
-  // key; latin1 decode is deferred to the miss branch.
-  const cacheDir = `${app.vault.configDir}/plugins/karpathywiki/pdf-cache`;
-  const cache = new PdfConversionCache({ cacheDir, adapter: app.vault.adapter });
-  const cacheKey = `${await sha256Bytes(bytes, subtle)}:${model}`;
+  // key; latin1 decode is deferred to the miss branch. Key includes the
+  // converter version so prompt upgrades invalidate stale entries (AkaSakana
+  // feedback in PR #286).
+  const cache = createPdfCache(app);
+  const cacheKey = `${await sha256Bytes(bytes, subtle)}:${model}:${PDF_CONVERTER_VERSION}`;
   const cached = await cache.get(cacheKey);
   if (cached) return cached;
 
