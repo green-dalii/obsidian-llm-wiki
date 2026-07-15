@@ -536,6 +536,13 @@ export interface EngineContext {
   getSectionLabels: () => Record<string, string>;
   getExistingWikiPages: () => Promise<Array<{ path: string; title: string; wikiLink: string; aliases?: string[] }>>;
   getSchemaContext: (task: string) => Promise<string | undefined>;
+  /**
+   * SubtleCrypto from Obsidian's popout-window-aware `activeWindow.crypto`.
+   * Used by the PDF cache to derive a content-addressed key without
+   * accessing the bare `window` global (CLAUDE.md `obsidianmd/no-global-this`).
+   * Undefined only in tests that don't stub SubtleCrypto.
+   */
+  subtle?: SubtleCrypto;
   onFileWrite?: (path: string) => void;
   onProgress?: (message: string) => void;
   onDone?: (report: IngestReport) => void;

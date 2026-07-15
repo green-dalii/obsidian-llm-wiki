@@ -32,6 +32,11 @@ import {
   parsePdfInfoDictText,
   isEncryptedPdfText,
 } from './pdf-metadata';
+import {
+  TOKENS_PDF_CONVERSION,
+  NATIVE_PDF_PROVIDER_IDS,
+  FORCE_PDF_PROVIDER_IDS,
+} from '../constants';
 import type { LLMClient } from '../types';
 
 // --- public types ---
@@ -135,7 +140,7 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
   // 7. Call LLM
   const response = await llmClient.createMessage({
     model,
-    max_tokens: 8000,
+    max_tokens: TOKENS_PDF_CONVERSION,
     system: PDF_EXTRACTION_SYSTEM_PROMPT,
     messages: [
       {
@@ -170,23 +175,21 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
 
 // --- helpers ---
 
-/** Providers whose built-in client we know supports PDF. */
-const NATIVE_PDF_PROVIDERS = new Set([
-  'anthropic',
-  'openai',
-  'bedrock-anthropic',
-  'bedrock-openai',
-]);
-
-/** Providers that need the `forcePdfSupport` escape hatch. */
-const FORCE_PDF_PROVIDERS = new Set([
-  'custom', // Custom OpenAI-Compatible
-  'anthropic-compatible', // Custom Anthropic-Compatible
-]);
-
+/**
+ * Provider capability gate. A provider supports PDF if either:
+ *   - it appears in NATIVE_PDF_PROVIDER_IDS (anthropic/openai/bedrock-*),
+ *   - it appears in FORCE_PDF_PROVIDER_IDS AND the user has enabled the
+ *     `forcePdfSupport` escape hatch (custom/anthropic-compatible).
+ * Everything else (deepseek/kimi/ollama/lmstudio/...) is rejected before
+ * any document request is sent. Negative lists are intentionally avoided
+ * — new providers default to unsupported (fail-safe).
+ */
 function providerSupportsPdf(settings: PdfConversionContext['settings']): boolean {
-  if (NATIVE_PDF_PROVIDERS.has(settings.provider)) return true;
-  if (FORCE_PDF_PROVIDERS.has(settings.provider) && settings.forcePdfSupport === true) {
+  if ((NATIVE_PDF_PROVIDER_IDS as readonly string[]).includes(settings.provider)) return true;
+  if (
+    (FORCE_PDF_PROVIDER_IDS as readonly string[]).includes(settings.provider)
+    && settings.forcePdfSupport === true
+  ) {
     return true;
   }
   return false;

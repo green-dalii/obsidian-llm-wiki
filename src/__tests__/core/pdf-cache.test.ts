@@ -124,7 +124,7 @@ describe('PdfConversionCache', () => {
       });
       await shortCache.set(SAMPLE_HASH, makeEntry());
       // wait > 1ms
-      await new Promise((r) => setTimeout(r, 5));
+      await new Promise((r) => window.setTimeout(r, 5));
       const result = await shortCache.get(SAMPLE_HASH);
       expect(result).toBeNull();
     });
@@ -182,35 +182,23 @@ describe('PdfConversionCache', () => {
 });
 
 describe('sha256Bytes', () => {
-  it('returns a deterministic FNV-style digest when subtle is undefined', async () => {
-    const a = new Uint8Array([1, 2, 3, 4]);
-    const b = new Uint8Array([1, 2, 3, 4]);
-    const c = new Uint8Array([1, 2, 3, 5]);
-    expect(await sha256Bytes(a)).toBe(await sha256Bytes(b));
-    expect(await sha256Bytes(a)).not.toBe(await sha256Bytes(c));
-  });
-
-  it('falls back to length-prefixed hex for empty bytes', async () => {
-    const empty = new Uint8Array(0);
-    const hash = await sha256Bytes(empty);
-    expect(hash.startsWith('fnv-')).toBe(true);
-    expect(hash.endsWith('-0')).toBe(true);
+  it('throws when subtle is undefined (production code must inject)', async () => {
+    await expect(sha256Bytes(new Uint8Array([1, 2, 3]))).rejects.toThrow(/SubtleCrypto is required/);
   });
 
   it('uses real SubtleCrypto when provided', async () => {
-    // jsdom doesn't ship SubtleCrypto by default; provide a minimal mock that
-    // emulates the production shape (digest returns ArrayBuffer).
-    const fakeSubtle = {
-      digest: vi.fn(async (_algo: string, data: ArrayBuffer) => {
-        // SHA-256 of the bytes prefixed by 0xAB → stable 32-byte output
-        const out = new Uint8Array(32);
-        out[0] = 0xab;
-        out.set(new Uint8Array(data), 1);
-        return out.buffer;
-      }),
-    } as unknown as SubtleCrypto;
-    const hash = await sha256Bytes(new Uint8Array([1, 2, 3]), fakeSubtle);
-    expect(hash.startsWith('ab')).toBe(true);
-    expect(hash.length).toBe(64); // 32 bytes * 2 hex chars
+    // setup.ts installs a deterministic test SubtleCrypto on globalThis.crypto.
+    // sha256Bytes should call it and return a 64-char hex string.
+    const a = new Uint8Array([1, 2, 3, 4]);
+    const b = new Uint8Array([1, 2, 3, 4]);
+    const c = new Uint8Array([1, 2, 3, 5]);
+    // eslint-disable-next-line obsidianmd/no-global-this
+    const subtle = (globalThis as { crypto: { subtle: SubtleCrypto } }).crypto.subtle;
+    const hashA = await sha256Bytes(a, subtle);
+    const hashB = await sha256Bytes(b, subtle);
+    const hashC = await sha256Bytes(c, subtle);
+    expect(hashA).toBe(hashB);
+    expect(hashA).not.toBe(hashC);
+    expect(hashA.length).toBe(64);
   });
 });

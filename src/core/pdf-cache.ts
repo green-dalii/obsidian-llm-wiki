@@ -12,6 +12,7 @@
  */
 
 import type { DataAdapter } from 'obsidian';
+import { PDF_CACHE_TTL_MS } from '../constants';
 
 /** Conversion metadata attached to each cache entry. */
 export interface PdfCacheMetadata {
@@ -28,27 +29,24 @@ export interface PdfCacheEntry {
   metadata: PdfCacheMetadata;
 }
 
-const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const DEFAULT_TTL_MS = PDF_CACHE_TTL_MS;
 
 /**
- * Returns the hex-encoded sha256 of the given bytes. Accepts the
- * SubtleCrypto instance so callers pass `activeWindow.crypto.subtle` (the
- * popout-window-aware wrapper) instead of the banned `window` global.
+ * Returns the hex-encoded sha256 of the given bytes. The caller must
+ * inject `SubtleCrypto` (from `activeWindow.crypto.subtle` in production).
  *
- * Falls back to a deterministic 8-char FNV-1a-style digest when `subtle`
- * is undefined (test environments that don't mock Web Crypto). This keeps
- * the cache key stable in unit tests while production never sees the path.
+ * Throws when `subtle` is undefined — production code paths must always
+ * have an injected implementation; tests that can't supply one should
+ * mock a minimal SubtleCrypto (see `pdf-cache.test.ts`). This is stricter
+ * than the previous FNV fallback: cache keys must be cryptographic in
+ * production so collisions cannot sneak through.
  */
 export async function sha256Bytes(bytes: Uint8Array, subtle?: SubtleCrypto): Promise<string> {
-  if (subtle) {
-    const digest = await subtle.digest('SHA-256', bytes as BufferSource);
-    return bytesToHex(new Uint8Array(digest));
+  if (!subtle) {
+    throw new Error('sha256Bytes: SubtleCrypto is required. Inject it via ctx.subtle (production) or a test mock.');
   }
-  // Test-only fallback: stable non-crypto hash so cache keys are deterministic
-  // without requiring jsdom + Web Crypto mocks.
-  let h = 0;
-  for (const b of bytes) h = ((h << 5) - h + b) | 0;
-  return `fnv-${Math.abs(h).toString(16).padStart(8, '0')}-${bytes.length}`;
+  const digest = await subtle.digest('SHA-256', bytes as BufferSource);
+  return bytesToHex(new Uint8Array(digest));
 }
 
 function bytesToHex(bytes: Uint8Array): string {

@@ -26,10 +26,10 @@ export const WIKI_SUBFOLDERS = {
 
 /**
  * File extensions (lowercase, no dot) accepted by the ingestion gate (#164).
- * Text-based notes the LLM can meaningfully read; everything else (binaries
- * like .pdf/.png) is rejected before any LLM call.
+ * Text sources are read directly; PDF sources are transcribed through the
+ * configured LLM provider's native document-input capability (v1.25.0 PR2).
  */
-export const COMPATIBLE_SOURCE_EXTENSIONS = ['md', 'markdown', 'txt', 'text'] as const;
+export const COMPATIBLE_SOURCE_EXTENSIONS = ['md', 'markdown', 'txt', 'text', 'pdf'] as const;
 
 // ============================================================================
 // Lint & Performance Thresholds
@@ -47,6 +47,32 @@ export const PAGES_CACHE_TTL_MS = 5000;
 
 /** Maximum custom entity/concept limit per type (settings UI cap). */
 export const CUSTOM_LIMIT_MAX = 500;
+
+// ============================================================================
+// PDF Source Ingestion (v1.25.0)
+// ============================================================================
+
+/** Max output tokens the LLM may emit when converting a PDF to Markdown.
+ *  Sized for typical research papers (5-30 pages) without truncation. */
+export const TOKENS_PDF_CONVERSION = 8000;
+
+/** Default TTL for cached PDF→Markdown conversion entries (30 days, ms). */
+export const PDF_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Provider IDs whose built-in clients support PDF natively (v1.25.0 PR1). */
+export const NATIVE_PDF_PROVIDER_IDS = [
+  'anthropic',
+  'openai',
+  'bedrock-anthropic',
+  'bedrock-openai',
+] as const;
+
+/** Provider IDs that need the `forcePdfSupport` user-opt-in escape hatch
+ *  (v1.25.0 PR3 — exposed as a Settings toggle for these IDs only). */
+export const FORCE_PDF_PROVIDER_IDS = [
+  'custom',           // Custom OpenAI-Compatible
+  'anthropic-compatible', // Custom Anthropic-Compatible
+] as const;
 
 /** Minimum custom entity/concept limit per type. */
 export const CUSTOM_LIMIT_MIN = 1;

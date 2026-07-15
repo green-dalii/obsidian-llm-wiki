@@ -20,6 +20,8 @@ import { slugify } from '../core/slug';
 import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
 import { setGenerationComplete } from '../core/incomplete-page-cleaner';
+import { preparePdfForIngest } from '../core/pdf-ingest-orchestrator';
+import { UnsupportedProviderError, EncryptedPdfError } from '../core/pdf-converter';
 import { hashBody, checkContentRequirements } from '../core/source-requirements';
 import { resolveModelForTask } from '../core/model-resolver';
 import type { SourceRejection } from '../core/source-requirements';
@@ -117,6 +119,8 @@ export class WikiEngine {
   private _cachedGraph: Graph | null = null;
   private _cachedGraphAllPaths: Set<string> | null = null;
   private ctx: EngineContext;
+  /** SubtleCrypto from `activeWindow.crypto.subtle`. Used by PDF cache. */
+  private subtle: SubtleCrypto | undefined;
 
   constructor(
     app: App,
@@ -125,7 +129,8 @@ export class WikiEngine {
     schemaManager: SchemaManager,
     onFileWrite?: (path: string) => void,
     onProgress?: (message: string) => void,
-    onDone?: (report: IngestReport) => void
+    onDone?: (report: IngestReport) => void,
+    subtle?: SubtleCrypto
   ) {
     this.app = app;
     this.settings = settings;
@@ -135,6 +140,7 @@ export class WikiEngine {
     this.onFileWrite = onFileWrite || null;
     this.onProgress = onProgress || null;
     this.onDone = onDone || null;
+    this.subtle = subtle;
 
     const ctx: EngineContext = {
       app: this.app,
@@ -149,6 +155,7 @@ export class WikiEngine {
       getExistingWikiPages: () =>
         getExistingWikiPages(this.app, this.settings.wikiFolder),
       getSchemaContext: t => this.schemaManager.getSchemaContext(t as SchemaTask),
+      ...(this.subtle ? { subtle: this.subtle } : {}),
       onFileWrite: path => this.onFileWrite?.(path),
       onProgress: msg => this.notifyProgress(msg),
       onDone: report => this.onDone?.(report),
@@ -494,9 +501,58 @@ export class WikiEngine {
     });
   }
 
+  /**
+   * v1.25.0 PR2: PDF ingest branch. Converts the PDF to a sidecar .pdf.md
+   * via the LLM, then re-enters `ingestSource` with the sidecar so the
+   * existing text-ingest pipeline does the rest.
+   *
+   * Errors are caught and surfaced via the standard `reportSkip` path so
+   * the user sees a localized Notice rather than an unhandled exception.
+   */
+  private async ingestPdfSource(file: TFile, opts?: IngestOptions): Promise<void> {
+    let sidecar: TFile;
+    try {
+      sidecar = await preparePdfForIngest(file, {
+        app: this.app,
+        llmClient: this.getLLMClient() as never,
+        settings: this.settings as never,
+        resolveModelForTask: (settings, task) =>
+          resolveModelForTask(this.settings, task as 'ingest' | 'lint' | 'query'),
+        ...(this.subtle ? { subtle: this.subtle } : {}),
+      });
+    } catch (error) {
+      if (error instanceof UnsupportedProviderError) {
+        this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
+        return;
+      }
+      if (error instanceof EncryptedPdfError) {
+        this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
+        return;
+      }
+      // LLM error: re-throw to the outer ingestSource's catch (preserves
+      // existing retry / log behavior for transient errors).
+      throw error;
+    }
+
+    // Re-enter the standard ingest path with the sidecar .md file.
+    // The sidecar has frontmatter identifying it as sourceType=pdf, so the
+    // entity/concept extraction runs on the LLM's PDF summary, not on
+    // raw PDF bytes.
+    return this.ingestSource(sidecar, opts);
+  }
+
   async ingestSource(file: TFile, opts?: IngestOptions) {
     console.debug('=== Ingestion started ===');
     console.debug('Source file:', file.path);
+
+    // v1.25.0 PR2: PDF ingest path. The orchestrator converts the PDF binary
+    // to a sidecar Markdown file (`<vault>/<basename>.pdf.md`) via the
+    // configured LLM provider's native PDF support, then we re-enter the
+    // existing ingest path with the sidecar file. Source picker therefore
+    // treats PDFs as first-class sources.
+    if (file.extension.toLowerCase() === 'pdf') {
+      return this.ingestPdfSource(file, opts);
+    }
 
     // #164 pre-ingest requirements gate — runs BEFORE any cancellation/UI setup so
     // a rejected file returns cleanly with nothing to tear down. Empty/type are

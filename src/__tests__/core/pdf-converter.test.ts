@@ -9,6 +9,11 @@ import {
 } from '../../core/pdf-converter';
 import { sha256Bytes } from '../../core/pdf-cache';
 
+// Inject the global SubtleCrypto mock from setup.ts so sha256Bytes has
+// a real implementation. The mock is deterministic (see setup.ts).
+// eslint-disable-next-line obsidianmd/no-global-this
+const testSubtle = (globalThis as { crypto: { subtle: SubtleCrypto } }).crypto.subtle;
+
 // Mock the cache class (only `get` and `set` are exercised by the converter;
 // `clear` / `invalidate` are also passthrough to the underlying mock).
 const mockCacheStore = new Map<string, ConversionResult>();
@@ -94,6 +99,7 @@ const makeContext = (overrides: Partial<PdfConversionContext> = {}): TestContext
     } as never,
     llmClient,
     resolveModelForTask: mockResolveModel as PdfConversionContext['resolveModelForTask'],
+    subtle: testSubtle,
     ...overrides,
   };
   return { ctx, mockCreateMessage, mockResolveModel };
@@ -115,7 +121,7 @@ describe('convertPdfToMarkdown', () => {
         converter: 'anthropic/claude-opus-4-8',
       },
     };
-    const hash = await sha256Bytes(SAMPLE_BYTES);
+    const hash = await sha256Bytes(SAMPLE_BYTES, testSubtle);
     // Cache key is composite (sha256:model) so that switching the ingest
     // model does not silently return a conversion produced by a different model.
     mockCacheStore.set(`${hash}:claude-opus-4-8`, cached);
@@ -210,7 +216,7 @@ describe('convertPdfToMarkdown', () => {
       },
     };
     // Pre-populate cache as if user previously ingested via anthropic.
-    const hash = await sha256Bytes(SAMPLE_BYTES);
+    const hash = await sha256Bytes(SAMPLE_BYTES, testSubtle);
     mockCacheStore.set(`${hash}:claude-opus-4-8`, cached);
 
     const { ctx } = makeContext({

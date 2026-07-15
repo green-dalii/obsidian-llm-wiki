@@ -121,7 +121,10 @@ export default class LLMWikiPlugin extends Plugin {
       // v1.22.6 #204: Dispatch based on report.trigger so watch-mode
       // auto-ingest goes through onAutoIngestDone (Notice) while
       // manual ingest keeps the legacy IngestReportModal behavior.
-      (report: IngestReport) => this.onIngestDoneDispatch(report)
+      (report: IngestReport) => this.onIngestDoneDispatch(report),
+      // v1.25.0 PR2: inject SubtleCrypto from Obsidian's popout-window-aware
+      // activeWindow so the PDF cache can hash without accessing bare `window`.
+      (typeof activeWindow !== 'undefined' ? activeWindow.crypto : undefined)?.subtle
     );
 
     // #164: when an interactive ingest hits a duplicate, ask the user whether to
@@ -266,6 +269,27 @@ export default class LLMWikiPlugin extends Plugin {
       id: 'recreate-welcome-note',
       name: t.welcomeNoteRecreateCommand,
       callback: () => void this.autoMaintainManager.recreateWelcomeNote(),
+    });
+
+    // v1.25.0 PR2: explicit "Ingest PDF" command. Useful when the user has
+    // a PDF open and wants to ingest it without going through the active-file
+    // flow (which has additional readiness gates). The orchestrator handles
+    // conversion + sidecar write; the wikiEngine then runs the .md ingest.
+    this.addCommand({
+      id: 'ingest-pdf',
+      name: getText(this.settings.language, 'pdfIngestCommand'),
+      icon: 'file-text',
+      callback: () => this.ingestActiveFile(),
+    });
+
+    // v1.25.0 PR2: clear the PDF conversion cache. Useful when switching
+    // models and wanting to force re-conversion without invalidating by
+    // deleting the source PDF.
+    this.addCommand({
+      id: 'clear-pdf-cache',
+      name: getText(this.settings.language, 'clearPdfCacheCommand'),
+      icon: 'trash-2',
+      callback: () => void this.clearPdfCache(),
     });
 
     this.addRibbonIcon('sticker', t.cmdIngestActiveFile, () => {
@@ -636,13 +660,36 @@ export default class LLMWikiPlugin extends Plugin {
 
     // File-type validation is handled centrally by the ingest gate (#164),
     // which accepts the text allowlist (.md, .txt, …) and shows a localized
-    // notice for anything else.
+    // notice for anything else. v1.25.0 PR2: PDFs are now first-class sources
+    // — the PDF ingest branch in WikiEngine.ingestSource handles them.
     this.showProgressFor(ProgressScope.IngestManual, `Ingesting: ${activeFile.basename}`);
     this.wikiEngine.ingestSource(activeFile, { interactive: true }).catch(e => {
       console.error('Ingest active file failed:', e);
       const errMsg = e instanceof Error ? e.message : String(e);
       new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
     });
+  }
+
+  /**
+   * v1.25.0 PR2: clear the PDF conversion cache. Useful when the user
+   * switches models and wants to force re-conversion without deleting the
+   * source PDF. Counts entries before clearing for the user-facing Notice.
+   */
+  async clearPdfCache(): Promise<void> {
+    const { PdfConversionCache } = await import('./core/pdf-cache');
+    const cacheDir = `${this.app.vault.configDir}/plugins/karpathywiki/pdf-cache`;
+    const cache = new PdfConversionCache({
+      cacheDir,
+      adapter: this.app.vault.adapter,
+    });
+    // Pre-count via the underlying adapter for a localized Notice.
+    const files = await this.app.vault.adapter.list(cacheDir).catch(() => []);
+    const count = Array.isArray(files) ? files.length : 0;
+    await cache.clear();
+    new Notice(
+      getText(this.settings.language, 'pdfCacheCleared').replace('{count}', String(count)),
+      NOTICE_NORMAL
+    );
   }
 
   selectFolderToIngest() {
