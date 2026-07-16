@@ -642,6 +642,12 @@ export default class LLMWikiPlugin extends Plugin {
         console.error('Single ingest failed:', e);
         const errMsg = e instanceof Error ? e.message : String(e);
         new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
+        // v1.25.0 PR3 follow-up #5: dismiss the persistent "Ingesting:" Notice.
+        // For failures that bypass `reportSkip` (e.g. transient network errors,
+        // vault IO failures, unexpected exceptions thrown out of ingestSource),
+        // the progressNotice is the only persistent Notice tied to this call —
+        // without this hide() it would remain on screen until the next ingest.
+        this.dismissProgress();
       });
     }).open();
   }
@@ -668,6 +674,10 @@ export default class LLMWikiPlugin extends Plugin {
       console.error('Ingest active file failed:', e);
       const errMsg = e instanceof Error ? e.message : String(e);
       new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
+      // v1.25.0 PR3 follow-up #5: see sibling comment in ingestSourceViaModal —
+      // dismiss the persistent "Ingesting:" Notice on failure paths that
+      // bypass reportSkip (network/IO/throw).
+      this.dismissProgress();
     });
   }
 

@@ -9,20 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **PDF Level 1 settings (PR3).** Two new advanced toggles in Settings → LLM Configuration → Advanced:
-  - `Force PDF Support` (default off): opt-in escape hatch for custom OpenAI-compatible and Anthropic-compatible providers to attempt PDF input. Native PDF providers (Anthropic, OpenAI, Bedrock) ignore this toggle.
-  - `Write converted Markdown to Vault` (default off): when enabled, each PDF conversion result is also written to a `<basename>.pdf.md` sidecar next to the source PDF. Default (cache-only) keeps no vault-side artifacts.
-- **4 new i18n keys × 10 locales** for the PDF advanced-settings toggles.
+- **PDF Level 1 settings (PR3).** Two new toggles shipped in two distinct settings locations:
+  - `Write converted Markdown to Vault` (default off): lives in **Settings → Karpathy LLM Wiki → Wiki Configuration → Wiki Folder** (always visible, not gated by Advanced mode). When enabled, each PDF conversion result is also written to a `<basename>.pdf.md` sidecar next to the source PDF. Default (cache-only) keeps no vault-side artifacts — the `.obsidian` PDF cache is the sole persistent state.
+  - `Force PDF Support` (default off): lives in **Settings → Karpathy LLM Wiki → LLM Configuration → Advanced** (only rendered when the selected provider is NOT a native PDF provider — Anthropic, OpenAI, Bedrock). This is a **universal escape hatch**: when enabled for any non-native provider (custom, anthropic-compatible, ollama, deepseek, kimi), the LLM endpoint is called with PDF input. If the endpoint actively refuses the PDF (400/415, "file part", "mediaType not allowed"), the error surfaces as a localized `sourceRejectedPdfUnsupported` Notice guiding the user to disable the toggle or switch provider. The trust boundary is the user — your endpoint either accepts PDF or it doesn't; the toggle tells us to ask it.
+- **4 new i18n keys × 10 locales** for the PDF advanced-settings toggles. Description text was rewritten in user-perspective language after PR3 follow-up #1 (dropped the provider-list and developer jargon in favor of "what the toggle does for you").
+- **PR3 follow-up #2**: tightened the PDF error classifier (requires BOTH a rejection verb AND a PDF/media marker); added 6 regression tests; pipeline now correctly routes obvious provider rejections to the localized `sourceRejectedPdfUnsupported` Notice while real network/IO errors propagate normally.
+- **PR3 follow-up #5**: dismiss the persistent "Ingesting: <basename>" Notice when an interactive ingest throws (network / vault IO / unexpected errors). Previously the Notice stayed on screen until the next ingest; now `dismissProgress()` runs from the `.catch` block in both single-file entry points.
 
 ### Changed
 
 - PDF cache-only architecture remains the default; zero sidecar writes without explicit opt-in.
 - `PdfConversionContext` settings object is now typed (removed `as never` cast).
+- PR3 follow-up #2: `prepareBatchIngest()` is fired fire-and-forget at the top of `runBatchIngest`, overlapping with the dedup check rather than blocking the first PDF conversion (cache maintenance never blocks the UI thread).
 
 ### Tests
 
-- 2132 tests passing (163 files). +52 tests since v1.24.1.
-- New tests cover: default no-sidecar, `writePdfMarkdownToVault=true` creates sidecar, `writePdfMarkdownToVault=true` updates existing sidecar.
+- 2138 tests passing (164 files). +58 tests since v1.24.1.
+- New tests cover: default no-sidecar, `writePdfMarkdownToVault=true` creates sidecar, `writePdfMarkdownToVault=true` updates existing sidecar, PDF error classifier happy-path + false-positive guards (413/5xx/null-deref/generic-invalid → re-throw).
 
 ## [1.24.1] - 2026-07-14
 
