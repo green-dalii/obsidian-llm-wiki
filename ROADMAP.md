@@ -88,13 +88,17 @@ User picks foo.pdf
   → Detect: file.extension === 'pdf'
   → Convert: convertPdfToMarkdown(file)
        ├── Provider gate (must run before cache!)
+       │     ├── NATIVE provider (anthropic/openai/bedrock-*) → allow
+       │     └── forcePdfSupport === true (any non-native provider) → allow
+       │           (user is the trust boundary: they said "try it")
        ├── sha256(bytes) → cache key  =  "{sha256}:{model}:{converterVersion}"
        ├── Cache hit  → return cached markdown (zero LLM call)
        └── Cache miss → LLM API call (PDF binary as FilePart) → write cache → return markdown
   → Ingest: analyzeSource(file, { contentOverride: markdown })
        └── (no sidecar write to vault; cache in .obsidian/ is the only artifact)
   → Page generation: summary / entities / concepts / related — unchanged
-  → Unsupported provider (Ollama/LMStudio/DeepSeek/GLM) → Notice + clear workaround instructions
+  → Provider rejects PDF despite forcePdfSupport → LLM error → localized Notice
+       guiding user to disable the toggle or check endpoint config
 ```
 
 **Cache (`.obsidian/plugins/karpathywiki/pdf-cache/{sha256}.json`):**
@@ -115,19 +119,23 @@ User picks foo.pdf
 
 **Provider support matrix (Level 1):**
 
-| Provider | PDF support | Conversion path |
-|----------|-------------|-----------------|
-| anthropic | ✅ Native (document block) | AI SDK `FilePart` |
-| openai | ✅ Native (file block) | AI SDK `FilePart` |
-| bedrock-anthropic | ✅ Native (document block) | AI SDK `FilePart` |
-| bedrock-openai | ✅ Native (file block) | AI SDK `FilePart` |
-| anthropic-compatible | ⚠️ Manual opt-in (`forcePdfSupport=true`, default false) | AI SDK `FilePart`; provider capability errors → graceful skip |
-| custom | ⚠️ Manual opt-in (`forcePdfSupport=true`, default false) | AI SDK `FilePart`; provider capability errors → graceful skip |
-| ollama | ❌ | Notice + workaround |
-| lmstudio | ❌ | Notice + workaround |
-| deepseek | ❌ | Notice + workaround |
-| glm | ❌ | Notice + workaround |
-| kimi | (PR4 candidate, by AkaSakana) | Moonshot Files API: upload → extract → delete |
+| Provider | PDF support | UI shows `Force PDF Support` | Behavior |
+|----------|-------------|------------------------------|----------|
+| anthropic | ✅ Native (document block) | ❌ (native 已走) | AI SDK `FilePart` |
+| openai | ✅ Native (file block) | ❌ (native 已走) | AI SDK `FilePart` |
+| bedrock-anthropic | ✅ Native (document block) | ❌ (native 已走) | AI SDK `FilePart` |
+| bedrock-openai | ✅ Native (file block) | ❌ (native 已走) | AI SDK `FilePart` |
+| custom | ⚠️ Manual opt-in (universal escape hatch) | ✅ | AI SDK `FilePart`; if endpoint rejects → LLM error → Notice |
+| anthropic-compatible | ⚠️ Manual opt-in (universal escape hatch) | ✅ | AI SDK `FilePart`; if endpoint rejects → LLM error → Notice |
+| ollama | ⚠️ Manual opt-in (universal escape hatch) | ✅ | User may know their endpoint supports it; LLM error surfaces failure |
+| lmstudio | ⚠️ Manual opt-in (universal escape hatch) | ✅ | Same as ollama |
+| deepseek | ⚠️ Manual opt-in (universal escape hatch) | ✅ | Same |
+| glm | ⚠️ Manual opt-in (universal escape hatch) | ✅ | Same |
+| gemini | ⚠️ Manual opt-in (universal escape hatch) | ✅ | Gemini OpenAI-compat β endpoint may support PDF on user's project |
+| openrouter | ⚠️ Manual opt-in (universal escape hatch) | ✅ | Depends on underlying model; user knows |
+| kimi | ⚠️ Manual opt-in (universal escape hatch) | ✅ | Moonshot Files API fallback in PR4 |
+
+**Trust boundary (2026-07-16, user correction):** The user is the authoritative source on what their endpoint supports. `forcePdfSupport` is a universal escape hatch — it does NOT pre-flight whitelist. The LLM endpoint decides. If the endpoint actually rejects PDF input, the error propagates through `wiki-engine.ingestPdfSource` → `reportSkip` → localized `sourceRejectedPdfUnsupported` Notice. This honors user intent and gives the user a definitive truth signal.
 
 **3 PR breakdown:**
 
@@ -175,6 +183,7 @@ messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPa
 | **Generic `provider-capabilities` registry** | Altitude F4 | `type Capability = 'pdf' \| 'streaming' \| 'structuredOutput' \| 'image' \| 'tools'` and `getCapability(provider, cap): 'native' \| 'opt-in' \| 'unsupported'`. Replaces `forcePdfSupport` bool + `NATIVE_PDF_PROVIDER_IDS` + `FORCE_PDF_PROVIDER_IDS` constants. | MEDIUM |
 | **Generic `HousekeepingTask` registry** | Altitude F5 | `interface HousekeepingTask { name: string; run(): Promise<...> }`. Plugin `onload` iterates registered tasks. Each cache registers itself, not `main.ts`. | MEDIUM |
 | **`PDF_CONVERTER_VERSION` move to `constants.ts`** | Reuse F4 | Move from `pdf-cache.ts` to `constants.ts` alongside `PDF_CACHE_*` constants. Single source of truth for version bumps. | LOW |
+| **`src/ui/settings.ts` split (1420 → ~200 LOC main + 5-6 section files)** | User 2026-07-16 request | Section 3 (LLM Provider, ~548 LOC) is 39% of the file. Restructure into `src/ui/settings/sections/` (language / status / llm-provider / llm-advanced / wiki-config / auto-maintenance) + extract existing helpers (`renderModelField`, `commitTempSettings`, cascade/prefill/markStale) into `src/ui/settings/helpers/`. Target: orchestrator class file ≤ 200 LOC; each section file ≤ 500 LOC; existing call sites (`main.ts`) unchanged because the exported class name stays the same. Risk: `display()` is a single linear stream — section methods must pass `containerEl` and share `tempSettings` consistently; i18n key resolution stays via `this.getText(key)` closure. **Phase 1 (recommended)**: extract just Section 3 (LLM Provider) into `sections/llm-provider.ts` (~30 min, ~870 LOC main file). **Phase 2 (full restructure)**: split remaining sections + helpers, achievable in 4-5 hours. | MEDIUM |
 
 **What about wiki-engine.ts split (3rd-party audit P1)?** Deferred to v1.26.0. The Lint performance work that originally justified the split is itself deferred. Splitting `wiki-engine.ts` without a feature driver is a "rewrite for taste" risk.
 

@@ -11,13 +11,19 @@
 Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basename>.pdf.md`) approach.
 
 - ✅ **PR2 redo (1-1.5 days)** — delete `pdf-ingest-orchestrator.ts`; refactor `wiki-engine.ingestPdfSource` to feed `convertPdfToMarkdown` result into `analyzeSource` via `contentOverride`; extend `PdfConversionCache` with `purgeExpired/enforceSizeLimit/prepareBatchIngest` (100MB / 1000-entry / 10MB-single caps + LRU-by-mtime eviction); add `converterVersion` to cache key; delete 5 dead i18n keys across 10 locales.
-- ✅ **PR3 (1 day)** — settings: `writePdfMarkdownToVault` Advanced toggle (default false); `forcePdfSupport` toggle for BOTH `custom` AND `anthropic-compatible` (default false, manual opt-in); CHANGELOG; ROADMAP sync.
-  - Settings types + DEFAULT_SETTINGS + advanced-settings toggle UI + advancedSettingsMode reset
+- ✅ **PR3 (1 day)** — settings: `writePdfMarkdownToVault` + `forcePdfSupport` toggles; CHANGELOG; ROADMAP sync.
+  - Settings types + DEFAULT_SETTINGS + advanced-settings toggle UI
   - 4 i18n keys × 10 locales for both PDF toggles
   - sidecar write via direct vault.create/modify (no createOrUpdateFile cascade)
   - normalizePath for cross-platform sidecar paths
   - 3 new tests: default no-sidecar, write creates sidecar, write updates existing
-  - Code-review findings applied: simplified ingestion `ingestPdfSource` comment; used `normalizePath`; avoided `createOrUpdateFile` for sidecar to prevent auto-watch cascades.
+  - Code-review findings applied: simplified `ingestPdfSource` comment; normalizePath; avoided `createOrUpdateFile` for sidecar
+  - **PR3 follow-ups (2026-07-16)**:
+    - `forcePdfSupport` → **universal escape hatch** (any non-NATIVE provider); toggle only renders for non-NATIVE providers; provider switch to NATIVE auto-resets value; `FORCE_PDF_PROVIDER_IDS` constant deleted; LLM endpoint decides (errors surface via Notice)
+    - `writePdfMarkdownToVault` moved to **Wiki Configuration → Wiki Folder** (semantic: vault storage policy, not LLM config); always visible; not bound to Advanced mode
+    - `advancedSettingsMode` → default no longer resets `forcePdfSupport` (toggle lifecycle owned by its own UI)
+    - 3 new tests: ollama + forcePdfSupport=true attempts LLM; deepseek same; endpoint-rejects error propagates verbatim
+  - **Trust boundary**: the user is the authoritative source on what their endpoint supports. Pre-flight whitelist rejects violate user intent. The provider gate must attempt the call; LLM errors surface as localized Notices guiding the user to disable the toggle or check endpoint config.
 - ⏳ **PR4 (optional, by AkaSakana)** — Kimi Files API provider dispatch + error regex classifiers + transient-retry extension. If AkaSakana ships as follow-up PR after v1.25.0 lands, we merge after review. If schedule slips, we port ourselves (1-day).
 - ⏳ **Final** — `pnpm build:dev` + HARD STOP + user e2e + push decision.
 

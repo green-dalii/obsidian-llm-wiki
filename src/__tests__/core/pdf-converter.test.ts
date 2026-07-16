@@ -299,6 +299,54 @@ mockCacheStore.set(`${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`, cached);
     expect(mockCreateMessage).toHaveBeenCalledTimes(1);
   });
 
+  // v1.25.0 PR3 (user correction 2026-07-16): `forcePdfSupport` is a
+  // universal escape hatch — it must work for ANY non-native provider,
+  // not just `custom` / `anthropic-compatible`. The trust boundary is
+  // the user: if they say "my ollama endpoint supports PDF", the
+  // converter must attempt the LLM call. If the endpoint actually
+  // rejects PDF, the LLM error propagates and the user gets a clear
+  // Notice (see `wiki-engine.ingestPdfSource`).
+  it('attempts LLM call for ollama when forcePdfSupport is true (universal escape hatch)', async () => {
+    const { ctx, mockCreateMessage } = makeContext({
+      settings: {
+        provider: 'ollama',
+        apiKey: 'ollama',
+        model: 'llama3',
+        forcePdfSupport: true,
+      },
+    });
+    const result = await convertPdfToMarkdown(ctx);
+    expect(result.markdown).toBeDefined();
+    expect(mockCreateMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('attempts LLM call for deepseek when forcePdfSupport is true', async () => {
+    const { ctx, mockCreateMessage } = makeContext({
+      settings: {
+        provider: 'deepseek',
+        apiKey: 'test-key',
+        model: 'deepseek-v4',
+        forcePdfSupport: true,
+      },
+    });
+    const result = await convertPdfToMarkdown(ctx);
+    expect(result.markdown).toBeDefined();
+    expect(mockCreateMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates LLM errors when forcePdfSupport endpoint rejects PDF', async () => {
+    const { ctx, mockCreateMessage } = makeContext({
+      settings: {
+        provider: 'ollama',
+        apiKey: 'ollama',
+        model: 'llama3',
+        forcePdfSupport: true,
+      },
+    });
+    mockCreateMessage.mockRejectedValueOnce(new Error('Provider rejected PDF input: 400 Bad Request'));
+    await expect(convertPdfToMarkdown(ctx)).rejects.toThrow(/rejected PDF/);
+  });
+
   it('propagates LLM errors with provider context (no silent failures)', async () => {
     const { ctx, mockCreateMessage } = makeContext();
     mockCreateMessage.mockRejectedValueOnce(new Error('Provider rejected PDF input: 400 Bad Request'));

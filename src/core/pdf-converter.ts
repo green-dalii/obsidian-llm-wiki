@@ -35,7 +35,6 @@ import {
 import {
   TOKENS_PDF_CONVERSION,
   NATIVE_PDF_PROVIDER_IDS,
-  FORCE_PDF_PROVIDER_IDS,
 } from '../constants';
 import type { LLMClient } from '../types';
 
@@ -177,22 +176,29 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
 // --- helpers ---
 
 /**
- * Provider capability gate. A provider supports PDF if either:
- *   - it appears in NATIVE_PDF_PROVIDER_IDS (anthropic/openai/bedrock-*),
- *   - it appears in FORCE_PDF_PROVIDER_IDS AND the user has enabled the
- *     `forcePdfSupport` escape hatch (custom/anthropic-compatible).
- * Everything else (deepseek/kimi/ollama/lmstudio/...) is rejected before
- * any document request is sent. Negative lists are intentionally avoided
- * — new providers default to unsupported (fail-safe).
+ * Provider capability gate.
+ *
+ * A provider can convert PDFs if EITHER:
+ *   - it appears in `NATIVE_PDF_PROVIDER_IDS` (anthropic / openai /
+ *     bedrock-anthropic / bedrock-openai) — the provider's built-in
+ *     client handles `application/pdf` content parts natively; OR
+ *   - the user has enabled the `forcePdfSupport` escape hatch in Settings.
+ *     This is a UNIVERSAL override: any non-native provider that the user
+ *     believes supports PDF input on their endpoint (custom / anthropic-
+ *     compatible / ollama / lmstudio / deepseek / glm / kimi / gemini /
+ *     openrouter / future providers) is allowed through. If the endpoint
+ *     actually rejects the PDF input, the LLM error propagates to
+ *     `wiki-engine.ingestPdfSource`, which surfaces a localized Notice
+ *     guiding the user to disable the toggle or check their endpoint.
+ *
+ * Design rationale: the user is the authoritative source on what their
+ * endpoint supports. A pre-flight whitelist reject violates user intent
+ * (the user explicitly opted in). The trust boundary is: the user said
+ * "try it" — so we try, and surface the truth if it fails.
  */
 function providerSupportsPdf(settings: PdfConversionContext['settings']): boolean {
   if ((NATIVE_PDF_PROVIDER_IDS as readonly string[]).includes(settings.provider)) return true;
-  if (
-    (FORCE_PDF_PROVIDER_IDS as readonly string[]).includes(settings.provider)
-    && settings.forcePdfSupport === true
-  ) {
-    return true;
-  }
+  if (settings.forcePdfSupport === true) return true;
   return false;
 }
 

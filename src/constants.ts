@@ -72,19 +72,14 @@ export const PDF_CACHE_MAX_BYTES = 100 * 1024 * 1024;
 export const PDF_CACHE_MAX_ENTRIES = 1000;
 export const PDF_CACHE_MAX_SINGLE_ENTRY_BYTES = 10 * 1024 * 1024;
 
-/** Provider IDs whose built-in clients support PDF natively (v1.25.0 PR1). */
+/** Provider IDs whose built-in clients support PDF natively (v1.25.0 PR1).
+ *  Providers NOT in this list fall through to the `forcePdfSupport`
+ *  universal escape hatch (user opt-in) — see `core/pdf-converter.ts`. */
 export const NATIVE_PDF_PROVIDER_IDS = [
   'anthropic',
   'openai',
   'bedrock-anthropic',
   'bedrock-openai',
-] as const;
-
-/** Provider IDs that need the `forcePdfSupport` user-opt-in escape hatch
- *  (v1.25.0 PR3 — exposed as a Settings toggle for these IDs only). */
-export const FORCE_PDF_PROVIDER_IDS = [
-  'custom',           // Custom OpenAI-Compatible
-  'anthropic-compatible', // Custom Anthropic-Compatible
 ] as const;
 
 /** Minimum custom entity/concept limit per type. */
