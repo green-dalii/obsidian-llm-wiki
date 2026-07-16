@@ -21,7 +21,7 @@ import { describe, it, expect } from 'vitest';
 // Test-environment only — Node fs/path APIs are not used in production
 // code (CLAUDE.md Obsidian Bot rule forbids Node builtins).
 /* eslint-disable import/no-nodejs-modules */
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 /* eslint-enable import/no-nodejs-modules */
 
@@ -77,9 +77,16 @@ describe('appendCustomQueryInstructions — wired into 3 QueryView send sites', 
   });
 
   it('strict scope guardrail: helper is NOT called in page-factory', () => {
-    const pageFactoryPath = resolve(SRC_ROOT, 'wiki/page-factory.ts');
-    const pageFactorySource = readFileSync(pageFactoryPath, 'utf8');
-    expect(pageFactorySource).not.toContain('appendCustomQueryInstructions');
+    // v1.24.1 Phase 2: page-factory.ts was split into a directory of
+    // module-level files under src/wiki/page-factory/. Scan every file in
+    // that directory to assert the helper is not imported or referenced.
+    const dir = resolve(SRC_ROOT, 'wiki/page-factory');
+    const entries = readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
+      const src = readFileSync(resolve(dir, entry.name), 'utf8');
+      expect(src, `${entry.name} must not reference appendCustomQueryInstructions`).not.toContain('appendCustomQueryInstructions');
+    }
   });
 
   it('helper module exports a stable header constant', () => {

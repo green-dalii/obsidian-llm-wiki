@@ -65,11 +65,10 @@ Pages in \`entities/\` MUST follow this structure:
 - \`reviewed:\` (optional) — if true, page is human-verified and protected
 
 **Sections:**
-1. **Basic Information**: Type, source file link
-2. **Description**: 3-6 sentences with concrete facts, bidirectional links
-3. **Related Entities**: Links to related entities using [[entities/...]]
-4. **Related Concepts**: Links to related concepts using [[concepts/...]]
-5. **Mentions in Source**: Verbatim quotes with source attribution — see [Mentions Format](#mentions-format) below
+1. **Description**: 3-6 sentences with concrete facts, bidirectional links
+2. **Related Entities**: Links to related entities using [[entities/...]]
+3. **Related Concepts**: Links to related concepts using [[concepts/...]]
+4. **Mentions in Source**: Verbatim quotes with source attribution — see [Mentions Format](#mentions-format) below
 
 ## Concept Page Template
 Pages in \`concepts/\` MUST follow this structure:

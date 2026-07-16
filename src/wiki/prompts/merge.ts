@@ -75,7 +75,6 @@ Rules:
   mergeEntityPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing page following the schema-defined structure.
 
 **Schema Rules (MUST follow this structure):**
-- ## {{section_basic_information}}: Type, sources, key attributes
 - ## {{section_description}}: Core definition and significance (3-6 sentences)
 - ## {{section_related_entities}}: Links to related entities
 - ## {{section_related_concepts}}: Links to related concepts
@@ -104,9 +103,6 @@ Rules:
 **Output Format:**
 Output ONLY the body content (no frontmatter):
 
-## {{section_basic_information}}
-[Type, sources, key attributes — updated]
-
 ## {{section_description}}
 [Integrated description — merge existing + new, no duplication]
 
@@ -119,7 +115,6 @@ Output ONLY the body content (no frontmatter):
   mergeConceptPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing concept page following the schema-defined structure.
 
 **Schema Rules (MUST follow this structure):**
-- ## {{section_basic_information}}: Type, sources, definition
 - ## {{section_description}}: Detailed explanation with examples (3-6 sentences)
 - ## {{section_related_concepts}}: Connected concepts using [[concepts/...]]
 - ## {{section_related_entities}}: Connected entities using [[entities/...]]
@@ -148,9 +143,6 @@ Output ONLY the body content (no frontmatter):
 
 **Output Format:**
 Output ONLY the body content (no frontmatter):
-
-## {{section_basic_information}}
-[Type, sources, definition — updated]
 
 ## {{section_description}}
 [Integrated description — merge existing + new]

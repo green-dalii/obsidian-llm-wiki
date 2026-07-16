@@ -172,7 +172,6 @@ export function createMockContext(opts: MockContextOptions = {}): { ctx: EngineC
     deleteFile: async () => {},
     buildSystemPrompt: async () => undefined,
     getSectionLabels: () => ({
-      section_basic_information: 'Basic Information',
       section_description: 'Description',
       section_related_entities: 'Related Entities',
       section_related_concepts: 'Related Concepts',

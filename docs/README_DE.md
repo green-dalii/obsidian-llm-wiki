@@ -183,6 +183,19 @@ Fünf Schwerpunkte: Aufgabenbezogene Modelle, benutzerdefinierte Query-Anweisung
 
 **Zu prüfende Einstellungen:** Modellumfang (Einheitlich / Pro Aufgabe, Einstellungen → Wiki), Pro-Aufgabe-Modellfelder (nur im Pro-Aufgabe-Modus sichtbar), Query Wiki → ⚙ Benutzerdefinierte Anweisungen ausklappbares Panel (nur in der Ansicht).
 
+### v1.24.1 — 2026-07-14 (PATCH)
+
+Empfohlenes Upgrade für alle v1.24.0-Nutzer.
+
+- **🔍 5-stufige PPR-Seed-Selektions-Kaskade.** Query Wiki durchläuft vor der Antwortgenerierung nun fünf komplementäre Stufen (Lex-Schnellpfad → LLM-Keywords → lokaler Substring-Scan → LLM-KB-Fallback → PPR-Graph-Expansion). Multi-Hop-Fragen erhalten graphenbewussten Kontext ohne Embedding-Opt-in.
+- **🤫 Leere-Antwort-Quiet-Path.** `parseJsonResponse` protokolliert bei leeren LLM-Bodies in Lint/Query-Pfaden keine lauten Fehler mehr, was die von einigen Nutzern gemeldete Konsolen-Spam behebt (#255, #274). Der Seed-Selector wirft bei leeren Bodies früher für eine klarere Wiederherstellung (#275).
+- **🧹 Sauberere Entity-Seiten.** Der redundante `## Basic Information` / `## Basic Info`-Block wurde aus Entity-Seiten-Generierungs-Prompts und Schema entfernt; neue Entity-Seiten gehen direkt von Frontmatter zu H1 → Beschreibung → verwandte Abschnitte (#258).
+- **☁️ Bedrock Stage 1 Provider.** `bedrock-anthropic` und `bedrock-openai` über den AWS bedrock-mantle-Endpunkt hinzugefügt. Null neue npm-Abhängigkeiten, Bundle ~+3 KB.
+- **🦙 LM Studio Ingest ohne API-Key.** Ingest funktioniert jetzt mit leerem API-Key bei LM Studio, passend zum Verbindungstest-Verhalten.
+- **🏗️ Interne Aufräumarbeiten.** `page-factory.ts` in 10 fokussierte Module aufgeteilt (+99 Tests); verlustfreies Mentions-Re-Ingest bewahrt frühere Source-Zitate beim Merge (#267).
+
+**Upgrade-Hinweis:** Wenn Sie in v1.24.0 manuell `<!-- reviewed: keep -->`-Marker hinzugefügt haben, wechseln Sie zu Frontmatter `reviewed: true` — es schützt die ganze Seite und überlebt Markdown-Linter.
+
 ## ✨ Funktionen
 
 ### 📊 Knowledge Quality
@@ -196,6 +209,22 @@ Fünf Schwerpunkte: Aufgabenbezogene Modelle, benutzerdefinierte Query-Anweisung
 
 - **🎨 Anpassbares Tag-Vokabular (v1.18.0).** Einstellungen → Wiki → Tag-Vokabular-Modus → *Custom* erlaubt es, eigene Entity- und Concept-Tag-Listen zu definieren (z. B. `Medical_Arzneimittel`, `法规`). Das Plugin respektiert dein Vokabular in Extraction-Prompts und Frontmatter-Validierung; die bestehende Lint-Audit (Issue #85 v7) meldet jede Seite, deren Tags außerhalb des aktiven Vokabulars liegen.
 
+### 💬 Query & Feedback
+
+- **🔍 5-Stufige PPR-Seed-Selektions-Kaskade (v1.24.1 PATCH).** Bei einer Multi-Hop-Frage baut Query Wiki die Antwort aus fünf komplementären Stufen zusammen, bevor irgendeine Generierung startet:
+  1. **Lex-Schnellpfad** — direkter Token-Überlappungs-Check gegen jeden Entity/Concept-Titel und Alias (kostenlos, sofort; gate't die nachfolgenden Stufen)
+  2. **LLM-Keyword-Generierung** — das LLM schlägt 8–12 sprachübergreifende Keywords aus deiner Anfrage vor (absorbiert Synonyme, Akronyme, token-resistente Begriffe)
+  3. **Lokaler Substring-Scan** — jedes generierte Keyword wird lokal erneut gegen Seitentitel, Aliase und Body-Snippets gematcht (kein zusätzlicher LLM-Aufruf; rundet die rauschtolerante Recall ab)
+  4. **LLM-KB-Fallback** — wenn lex + Keyword-Scan schwache Signale liefern, re-seed't das LLM die Top-N-Kandidaten mit einem semantischen Pass gegen die gesamte Wiki
+  5. **PPR-Graph-Expansion** — Personalized PageRank (Haveliwala 2002) startet auf dem `[[wiki-link]]`-Graph aus dem Kandidaten-Seed-Set; liefert dem LLM graph-bewussten Multi-Hop-Kontext, den lineare Suche nicht erreicht
+
+  Die Kaskade bricht automatisch ab, sobald genug Signal zurückkommt — keine fixen 5-Schritt-Kosten, keine LLM-Aufrufe wenn Lex ausreicht, kein Präzisionsverlust wenn LLM-Augmentation nötig ist. End-to-End-Relevanz (PPR @5 = 27,1% auf dem projekt-eigenen Benchmark-Korpus) übertrifft reine knn-Baselines (24,1%) ohne Embedding-Opt-in. Stage 1.5 (Schritte 2–3) übernimmt Multi-Hop-Fragetypen, die reines Lex verfehlt; Stage 1.7 (Schritt 4) rettet schwache LLM-injizierte Keyword-Signale; Stage 1.9 (Schritt 5) garantiert, dass das LLM Nachbarschaftskontext statt einer flachen Top-N-Liste sieht. Ersetzt die ältere binäre Tier-Kaskade.
+
+- **🤖 Conversational Query** — ChatGPT-Style-Dialog, Streaming Markdown Output, `[[wiki-links]]`, Multi-Turn History
+- **🪟 Rechts angedocktes Seitenpanel (v1.22.1, PR #196).** Query Wiki öffnet sich in einem Copilot-artigen rechten Sidebar-Leaf (existierendes Leaf wird wiederverwendet) statt eines zentrierten Popups. Das `message-circle` Ribbon-Icon und der `Query Wiki`-Befehl aktivieren/zeigen das Panel; deine Notizen bleiben neben der Konversation sichtbar. Alle Funktionen bleiben unverändert.
+- **📤 Query-to-Wiki Feedback** — Wertvolle Conversations ins Wiki speichern, Entity/Concept Extraction, Semantic Dedup vor dem Speichern
+- **🔒 Duplicate Save Prevention** — Hash Tracking verhindert Re-Evaluation unveränderter Conversations
+
 ### 🛠️ Maintenance
 
 - **🔍 Lint Health Scan** — Duplikate, tote Links, leere Pages, Orphans, fehlende Aliases und Widersprüche in einem umfassenden Report erkennen
@@ -207,13 +236,6 @@ Fünf Schwerpunkte: Aufgabenbezogene Modelle, benutzerdefinierte Query-Anweisung
 - **🛡️ Pre-Ingest Requirements Gate (v1.21.0)** — Jede Quelldatei wird *vor* jedem LLM-Aufruf validiert: leere/Whitelist-/nur-Frontmatter-Notizen werden abgelehnt; Content-Hash-Dedup erkennt identische Dateien über Pfade hinweg. Verhindert Halluzinationen lokaler Modelle bei leeren Eingaben.
 - **📊 Operation History Panel (v1.21.0)** — Durchsuchbare, filterbare UI für vergangene Ingests, Lint-Berichte und Wartungsläufe, mit Insight-getriebenen KPI-Karten und klickbaren Seitenlinks.
 - **🧹 Incomplete-Page Cleaner (v1.21.0)** — Durch unterbrochene Ingests unvollständig gebliebene Seiten werden beim Start automatisch archiviert (aus Obsidians `.trash` wiederherstellbar).
-
-### 💬 Query & Feedback
-
-- **🤖 Conversational Query** — ChatGPT-Style-Dialog, Streaming Markdown Output, `[[wiki-links]]`, Multi-Turn History
-- **🪟 Rechts angedocktes Seitenpanel (v1.22.1, PR #196).** Query Wiki öffnet sich in einem Copilot-artigen rechten Sidebar-Leaf (existierendes Leaf wird wiederverwendet) statt eines zentrierten Popups. Das `message-circle` Ribbon-Icon und der `Query Wiki`-Befehl aktivieren/zeigen das Panel; deine Notizen bleiben neben der Konversation sichtbar. Alle Funktionen bleiben unverändert.
-- **📤 Query-to-Wiki Feedback** — Wertvolle Conversations ins Wiki speichern, Entity/Concept Extraction, Semantic Dedup vor dem Speichern
-- **🔒 Duplicate Save Prevention** — Hash Tracking verhindert Re-Evaluation unveränderter Conversations
 
 ### 🌐 LLM & Language
 
@@ -227,6 +249,7 @@ Fünf Schwerpunkte: Aufgabenbezogene Modelle, benutzerdefinierte Query-Anweisung
 
 ### 🏗️ Architecture & Performance
 
+- **🕸️ PPR über [[wiki-link]]-Graph (v1.24.0+, ausgereift in v1.24.1 PATCH).** Personalized PageRank (Haveliwala 2002) läuft über den gerichteten Graph der `[[wiki-link]]`-Kanten zwischen deinen Wiki-Seiten; die Kaskade verankert PPR-Seeds auf der Top-N-Kandidatenmenge, sodass Multi-Hop-Kontext durch bis zu 3 Expansionsringe wandert. Das ist es, was Query-Wiki-Antworten graph-bewusst macht (eine „Gründer von Microsoft"-Frage löst sich über Bill Gates → Microsoft → Wettbewerber — nicht nur über wörtliche Titel-Überlappung). 2.137-Seiten-Vaults sehen typischerweise <100 ms für warm + 3-Hop-Expansion, unabhängig von der Vault-Größe. Wird von allen 4 Stufen der Seed-Selektions-Kaskade (Query & Feedback oben) verwendet und von der Lint-Duplikat-Detection, wenn indirekte Links zwei Kandidatenseiten verbinden.
 - **⚡ Parallel Page Generation** — Konfigurierbare 1–5 parallele Pages, Standard 3 (parallel), 2–3× Speedup bei großen Sources, per-Page Error Isolation
 - **📚 Iterative Batch Extraction** — Adaptive Batch-Sizing, eliminiert max_tokens-Bottleneck bei langen Dokumenten
 - **🏛️ Three-Layer Architecture** — Deine Vault-Notizen (read-only) → `wiki/` (LLM-generierte Seiten, organisiert als `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`) → `schema/` (co-evolved Config)

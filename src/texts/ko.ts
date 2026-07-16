@@ -264,6 +264,11 @@ export const KO_TEXTS = {
     anthropicSDK: 'Anthropic SDK',
     openaiSDK: 'OpenAI SDK',
 
+    // v1.24.1 PATCH Bedrock Stage 1
+    bedrockRegionName: 'AWS 리전',
+    bedrockRegionDesc: '이 계정의 Amazon Bedrock 리전. bedrock-mantle 엔드포인트 URL을 결정하며 baseURL로 재정의할 수 없습니다.',
+    bedrockRegionHint: 'bedrock-mantle은 18개 리전에서 사용 가능; 리전별로 모델 지원 범위가 다릅니다.',
+
     // Other
     availableModelsLoading: '사용 가능한 모델 로딩 중...',
     noModelsAvailable: '사용 가능한 모델 없음',

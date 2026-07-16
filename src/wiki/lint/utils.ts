@@ -8,7 +8,6 @@ export function escapeRegex(s: string): string {
 export function buildSectionLabelsHint(settings: LLMWikiSettings): string {
   const labels = getSectionLabels(settings);
   const entityLabels = [
-    `- ${labels.basic_information}`,
     `- ${labels.description}`,
     `- ${labels.related_entities}`,
     `- ${labels.related_concepts}`,

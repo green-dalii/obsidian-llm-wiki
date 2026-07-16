@@ -2,11 +2,33 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.24.0 (shipped 2026-07-10) → v1.24.1 in flight (target TBD) | **Updated:** 2026-07-10
+**Version:** 1.24.1 (released 2026-07-14) → v1.25.0 next. | **Updated:** 2026-07-14
 
 ## Current Status
 
-**v1.24.0 — RELEASED 2026-07-10.** MINOR scope. Per-task model routing (#208), Custom Query Instructions (#251), four monolith splits (PR #248/#249/#250/#257), source-note aliases propagation (#185), frontmatter write repair (4 user-reported bugs), Tier-1+Tier-2 merge triage (#216), engine-level PPR graph warmup. 1825 tests passing. New optional settings: `ingestModel`, `lintModel`, `queryModel`, `usePerTaskModels`, `*UseCustom`, `customQueryInstructions`. New manifest field: `fundingUrl`.
+**v1.24.0 — RELEASED 2026-07-10.** MINOR scope. (unchanged; see full text below)
+
+**v1.24.1 — RELEASED 2026-07-14.** PATCH scope. 7 merged PRs + post-e2e fixes. 2080 tests passing (+255 since v1.24.0).
+
+### v1.24.1 composition
+
+- ✅ **PR #271 (Phase 1)** — Fix #1 #268 Tier C forceRecreate bypass (`DocTpoint`).
+- ✅ **PR #276 (Phase 2)** — page-factory.ts 1297-LOC god-class → 10 module files + facade + 99 unit tests (`green-dalii`).
+- ✅ **PR #277/280 (Phase 3)** — Bedrock Stage 1 via bedrock-mantle. New providers `bedrock-anthropic` + `bedrock-openai`. 18-region dropdown. ~+3 KB bundle. Zero new npm deps (`green-dalii`, design based on dmsessions PR #263).
+- ✅ **PR #269/272 (Phase 4)** — LM Studio no-key ingest fix (`rkuzmin`).
+- ✅ **PR #281 (Phase 5, merged 2026-07-13)** — 5-stage seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes (Settings unified↔per-task cascade, wiki-engine graph path normalization, load-pages `.md` suffix defense, llm-sdk streaming-chunk console debug removal, dead `indexContent` field removal). 1825 → 2060 tests.
+- ✅ **PR #282 (Phase 5.5, merged 2026-07-14)** — parseJsonResponse empty-body quiet path salvaged from `0a3bf3e`. Closes #255 + #274. Seed selector throws `EmptyResponseError` on empty body as defense-in-depth for #275. 2060 → 2073 tests (+13).
+- ✅ **PR #283 (Phase 6, merged 2026-07-14)** — #258 entities-page redundant `## 基本信息` body block fix at the prompt + schema + lint layer. 2073 → 2080 tests (+7). Closes #258.
+
+### Closed issues (v1.24.1 release)
+
+- **#255 (Lint console errors)** — CLOSED by PR #282. silentOnEmpty across Lint callers.
+- **#274 (Ollama Qwen3.5:9b no-key)** — CLOSED by PR #282. Same quiet path.
+- **#258 (createNewPage prompt drift)** — CLOSED by PR #283. Fix at the source: removed the `## 基本信息` section from 5 code paths.
+- **#275 (deepseek seed-selector empty body)** — closed via `Closes #275` in the v1.24.1 release commit. E2E PASSED 2026-07-14 (deepseek-v4-flash + Enable Thinking ON against 2137-node vault). Reply posted in Phase 7 Step 7.
+- **Windows `Headers` TypeError** — withdrawn 2026-07-10 (user input error: non-ASCII in API key; not a plugin bug).
+- **PR #263 Bedrock Stage 2/3** — SSO/profile-mode + Converse protocol. Stage 2 triggers at 3+ user requests; Stage 3 at 5+ enterprise requests.
+- **`selectSeedsWithLLM` streaming-mode port** — tracked as v1.24.2 Fix #0 (the proper root-cause fix if downstream deepseek-v4-pro e2e still surfaces empty body). The 10× max_tokens raise in #281 is sufficient for daily use and avoids streaming complexity.
 
 **v1.24.0 release composition:**
 - ✅ PR #248 — `controller.ts` `runLintWiki` god function → 3 LLM phase modules.
@@ -25,11 +47,110 @@ Historical releases are summarized in [CHANGELOG](./CHANGELOG.md).
 
 See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five merged PRs (#234 + graph-cache + #221 + #219 + DocTpoint's #238 + #241). 1431 tests at ship. Post-release monolith splits (#248/#249/#250) added ~90 test cases — **1616 tests across 115 files in latest main**. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
 
-## Next Milestone: v1.24.1 PATCH (target TBD)
+## Next Milestone: v1.25.0 MINOR (target TBD)
 
-### User-reported bugs awaiting triage
+**Theme:** PDF source support (Level 1) — unlock PDF as a native ingest format. Lint performance overhaul (v1.18.0+ TODO — 8 versions unaddressed). Status reporting improvements.
 
-- **Windows: `Connection test failed: TypeError: Failed to construct 'Headers': String contains non ISO-8859-1 code point`** — user screenshot, DeepSeek + GLM + compatible interfaces all failing. Root cause likely API key input containing non-ASCII chars (Chinese IME residue / trailing whitespace / Chinese punctuation) → AI-SDK `withUserAgentSuffix` builds `Authorization: Bearer <key>` → `new Headers()` throws (latin1 default). GLM 401 "令牌已过期或验证不正确" is a real token issue (re-generate key on zhipu console). AI-SDK 5.0.53 added a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix. Proposed (NOT yet acted on — user said deferred): Fix A — Settings apiKey input sanitization (trim + non-ASCII detection + Notice). Fix B — Map SDK `Headers` TypeError to a readable message. Fix C — Pre-set ASCII-safe `User-Agent` in our SDK clients.
+**Scope decision (2026-07-15):**
+- ✅ **PDF Level 1 first** — user priority; Issue #218 has an active contributor (A-NGJ) with prototype offer. 3 PRs (~2 weeks).
+- ⏸️ **Lint performance overhaul (deferred to v1.25.x PATCH or v1.26.0)** — high ROI but Lint touches `wiki-engine.ts`; will be picked up after wiki-engine.ts decomposition (v1.26.0 plan).
+- ⏸️ **Source-revision awareness (#220)** — DocTpoint's 4-tier design; **moved to v1.26.0+** so v1.25.0 stays focused.
+
+**Final design decisions (user-confirmed 2026-07-15, post-review):**
+- ✅ **No `pdfIngestEnabled` toggle** — PDFs and MDs both visible by default in source picker. PDFs are a first-class format going forward.
+- ✅ **PDF conversion preserves source language** — system prompt instructs: "Preserve the source PDF's language; do NOT translate". `wikiLanguage` is NOT used for conversion.
+- ✅ **New setting `forcePdfSupport: boolean`** in Settings → Wiki → LLM Configuration → Advanced (under baseURL). Only visible when provider is openai-compat. Default: `false`. Purpose: lets users force PDF binary upload against OpenAI-compatible third-party providers that support PDF but our detection misses. UI shows warning "Enable at your own risk". Failure mode: if provider rejects PDF despite the flag, the error is surfaced verbatim.
+
+### v1.25.0 PDF Level 1 (3 PRs, ~2 weeks)
+
+**Goal:** PDFs become a first-class ingest source. Convert PDF → Markdown via the LLM's native PDF support (Anthropic `document` block / OpenAI `file` block), save the `.pdf.md` next to the original PDF, then run the existing `ingestSource()` flow on it. **Zero new dependencies. Zero SDK client modifications.**
+
+**Architecture:**
+```
+User picks foo.pdf
+  → Detect: file.extension === 'pdf'
+  → Convert: cache hit → skip; cache miss → LLM API call with PDF binary
+  → Save: <vault>/foo.pdf.pdf.md (with frontmatter: sourceType=pdf, sourcePath, hash, pdfTitle, pdfAuthor, pdfPages, convertedAt, converter)
+  → Ingest: ingestSource(<.pdf.md file>) — reuses 100% of existing flow
+  → Unsupported provider (Ollama/LMStudio/DeepSeek/GLM) → Notice + clear workaround instructions
+```
+
+**Why "API-native" (not local pdf.js):**
+- Zero new dependencies (CLAUDE.md Gate 3 / 3rd-party audit recommendation).
+- The conversion is "just another LLM call" — the AI SDK already maps `FilePart { type: 'file', data, mediaType }` to provider-native PDF blocks transparently.
+- Future Level 2 (visual/chart understanding) only needs a flag flip; no refactor.
+- Local pdf.js extraction quality varies wildly; the LLM is the best PDF reader we can afford.
+
+**Key design decisions (2026-07-15 user-confirmed):**
+1. **PDF default visible** in source picker — no `pdfIngestEnabled` toggle (PDF is a native format going forward).
+2. **`.pdf.md` saved to vault** at same path as source PDF (not in cache dir) — easier debugging + auditable.
+3. **Metadata in frontmatter** + **content in cache file** — dual storage; LLM sees metadata, cache holds extracted text.
+4. **Conversion at ingest time** (not vault-watcher background) — simplest, user-triggered.
+5. **Provider fallback = Notice** — if provider can't handle PDF, show clear "switch provider or pre-convert" instructions. No silent skip.
+6. **Progress feedback** — Notice (auto-dismiss 5s) + status bar (full ingest progress).
+
+**3 PR breakdown:**
+
+| PR | Scope | Est. | New files | Modified files |
+|----|-------|------|-----------|----------------|
+| **#1 Core** | PDF→MD converter + cache + metadata parser + LLMClient interface extension (1 type only, backward-compat) | 4 days | `core/pdf-cache.ts`, `core/pdf-converter.ts`, `core/pdf-metadata.ts`, `prompts/pdf-convert.ts` + 3 test files | `types.ts` (1 type extension) |
+| **#2 Ingest integration** | Ingest pipeline hookup + source-collector + 2 new commands | 5 days | `core/pdf-ingest-orchestrator.ts`, `core/source-collector.ts`, `commands/ingest-pdf.ts`, `commands/clear-pdf-cache.ts` + 3 test files | `wiki/wiki-engine.ts:497 ingestSource` (+5 lines), 2 suggest modals (1 line each) |
+| **#3 UX + docs** | Settings tab PDF section + 10-locale READMEs + CHANGELOG + ROADMAP update + memory | 3 days | `commands/clear-pdf-cache.ts` | `settings-tab.ts` (PDF section + `forcePdfSupport` toggle under baseURL), 10 README files, CHANGELOG, ROADMAP, this file |
+
+**LLMClient interface extension (PR #1):**
+```ts
+// Before
+messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+
+// After (backward-compatible)
+type MessageContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'file'; data: string;  // base64
+      mediaType: 'application/pdf' | 'image/png' | 'image/jpeg' | 'text/plain';
+      filename?: string };
+messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPart[] }>;
+```
+
+**3 SDK clients modified:** 0 (AI SDK v6 transparently maps `FilePart` to provider-native format).
+
+**Files using `getMarkdownFiles()` modified:** 2 (only UI source pickers: `suggest-modals.ts:20`, `MultiFileSuggestModal-class.ts:98`). The 4 wiki-engine.ts uses are for **wiki file lookup** (not source discovery) and stay untouched.
+
+**Cache:**
+- Path: `.obsidian/plugins/karpathywiki/pdf-cache/{sha256}.json`
+- Value: `{ markdown, metadata: {title, author, pageCount, convertedAt}, converter: "<provider>/<model>" }`
+- TTL: 30 days (configurable, PR #3)
+- LRU eviction: 500MB cap (PR #3)
+
+**Provider support matrix (Level 1):**
+| Provider | PDF support | Conversion path |
+|----------|-------------|-----------------|
+| anthropic | ✅ Native (document block) | Direct |
+| openai | ✅ Native (file block) | Direct |
+| bedrock-anthropic | ✅ Native (document block) | Direct |
+| bedrock-openai | ✅ Native (file block) | Direct |
+| ollama | ❌ | Notice + workaround |
+| lmstudio | ❌ | Notice + workaround |
+| deepseek | ❌ | Notice + workaround |
+| glm | ❌ | Notice + workaround |
+| other openai-compat | ❌ | Notice + workaround |
+
+**Test count target:** 2080 → ~2200 (~+30 new tests in PR #1, ~+12 in PR #2, ~+3 in PR #3).
+
+**Migration cost for users:** Zero. PDFs in the vault just become ingestible. Existing `.md` ingest path unchanged.
+
+**What PDF Level 1 does NOT do (deferred to Level 2):**
+- Visual/chart/image understanding (Level 2 will flip a "multimodal" flag in the conversion call).
+- Scanned PDF OCR (Level 2+; needs OCR library — likely out of scope).
+- Encrypted PDF (Level 2+; needs decryption strategy).
+- Sub-page-level extraction (Level 2+; needed for very large PDFs).
+
+**What about wiki-engine.ts split (3rd-party audit P1)?** Deferred to v1.26.0. The Lint performance work that originally justified the split is itself deferred. Splitting `wiki-engine.ts` without a feature driver is a "rewrite for taste" risk.
+
+---
+
+### Backlog from v1.24.1 PATCH (research / experimental)
+
+- **Windows: `Connection test failed: TypeError: Failed to construct 'Headers': String contains non ISO-8859-1 code point`** — withdrawn 2026-07-10 (user input error: non-ASCII in API key field; not a plugin/AI-SDK bug). AI-SDK 5.0.53 has a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix; not worth patching given root cause is user-side.
 
 ## v1.24.0 — Implemented (shipped 2026-07-10)
 
@@ -141,14 +262,16 @@ GitHub milestone: https://github.com/green-dalii/obsidian-llm-wiki/milestone/6
 
 ### Execution sequence (4 fixes, ordered by ROI + dependency)
 
-#### Fix #1 — #268 Tier C `forceRecreate` bypass (immediate, green-dalii)
+#### Fix #1 — #268 Tier C `forceRecreate` bypass ✅ SHIPPED (PR #271)
 
 **Root cause** (verified): `recreateWelcomeNote` command and `ensureWelcomeNote` short-circuit `shouldCreateWelcomeNote=false` for Tier C users (vault already has wiki pages) → `welcomeNotePath` undefined → "Willkommen-Notiz wurde nicht neu erstellt" Notice. The German error message misleadingly says "LLM configuration" but LLM is fine; the real cause is tier-based short-circuit, not LLM config.
 
-**Fix scope** (+5 LOC, ~30 LOC test, 10 locales i18n):
+**Fix scope** (+5 LOC, ~30 LOC test):
 - `src/core/ensure-welcome-note.ts` — `EnsureWelcomeNoteArgs` adds `forceRecreate?: boolean`; Step 3 short-circuit becomes `if (!action.shouldCreateWelcomeNote && !forceRecreate)`
 - `src/schema/auto-maintain.ts` — `recreateWelcomeNote()` passes `forceRecreate: true` to `runOnboardingPhase()`
-- `src/texts/<locale>.ts` — `welcomeNoteNotRecreated` text corrected (e.g., German: "Wiki-Voraussetzungen nicht erfüllt (Tier C) — siehe Tier-Diagnose.")
+- i18n deferred to v1.24.1 release workflow (kept EN.ts fallback)
+
+**Status**: PR #271 merged 2026-07-11 (commit `45d8b32`).
 
 **Branch**: `fix/welcome-recreate-tier-c-bypass`
 
@@ -235,19 +358,81 @@ GitHub milestone: https://github.com/green-dalii/obsidian-llm-wiki/milestone/6
 
 **Memory**: [`project_v1.24.1_bedrock_stage1.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.24.1_bedrock_stage1.md) — full design rationale + coverage matrix + bundle math.
 
+#### Fix #5 — `page-factory.ts` 1297-LOC god-class split (immediate, green-dalii)
+
+**Rationale**: Forward-ported from v1.24.2 P0 per third-party audit recommendation (2026-07-11). The file hosts `assembleFinalContent` (touched by PR #269 + planned by #220/#224) — splitting it now reduces merge-conflict surface area for the upcoming v1.25.0 work.
+
+**Fix scope** (~50 LOC net, 99 new unit tests):
+```
+src/wiki/page-factory/
+  index.ts                — PageFactory facade (preserves public API)
+  contextualize.ts        — 5 module-level helpers
+  aliases.ts              — appendAliases
+  mentions-integration.ts — assembleFinalContent (PR #269 hardened)
+  path-resolution.ts      — resolvePagePath + buildPagesListForPrompt
+  merge-triage.ts         — classifyMergeNeed + buildNewInfoSummary
+  complementary-appends.ts — 8 helpers (4-layer section anchor fallback
+                             + Tier-2 per-section appends, #216)
+  merge-page.ts           — mergePage + appendToReviewedPage
+  related-page.ts         — updateRelatedPage (3-branch routing)
+  create-page.ts          — 4 functions (createNewPage +
+                             createOrUpdateEntity/Concept/Page router)
+```
+
+**Branch**: `refactor/page-factory-split` (commit `6dadf18`)
+
+**Verification**:
+- 99 new unit tests in `src/__tests__/wiki/page-factory/*.test.ts`
+- All 1947 tests pass (was 1848 pre-Phase 2; +99 module tests)
+- Gate 1 clean (lint 0/0, tsc 0, build OK)
+- Existing callers (`wiki-engine.ts`, `conversation-ingest.ts`) unchanged — facade preserves public API
+- Existing integration tests (`page-factory-{core,merge-triage,complementary-append,list-section-no-blank,sources-filter}.test.ts`) unchanged — facade exposes `@internal` delegate methods for `HelperAccess` casts
+
+**Simplify + code-review** (Phase 2 P2.11): 3 parallel agents (reuse / quality / efficiency) flagged 18+ findings; applied 5 high-value fixes:
+- Use sibling `isConversationSource` helper in `mentions-integration.ts` (was inlined; split-introduced duplication)
+- Deduplicate `ComplementaryItem` interface (single source of truth in `merge-triage.ts`)
+- Remove dead `snapHeaderImport` wrapper (call `snapHeaderToCanonical` directly)
+- Unify `LLMClient` type across all context interfaces
+- Derive `MERGE_STRATEGIES` from the `MergeStrategy` union literal
+
+Pre-existing duplication carried over from the god class (regex escapers in 6 files, polluted-title predicate in 3 places) intentionally NOT consolidated — out of scope for this pure refactor.
+
+#### Fix #6 — LM Studio ingest without API key (#272, rkuzmin)
+
+**Rationale**: LM Studio (local OpenAI-compatible provider) accepts an empty API key, but the plugin's `initializeLLMClient` only exempted `ollama`. LM Studio users could pass Test Connection with an empty key, but Ingest still showed `errorNoApiKey`.
+
+**Fix scope** (~25 LOC + 9 tests):
+- New `src/core/local-no-key-provider.ts` — centralized `allowsEmptyApiKey(provider, apiKey)` helper
+- `src/main.ts` — 3 sites use the helper (`initializeLLMClient`, `llmReady` migration, `testLLMConnection`)
+- `src/schema/auto-maintain.ts` — `probeLlm` uses `isLocalNoKeyProvider` for the empty-key guard
+
+**Branch**: `fix/lmstudio-init-no-key` (rkuzmin)
+
 ### Not in v1.24.1
 
 - **#258** (cosmetic P2 — `createNewPage` non-schema section drift) — defer
 - **#255** (Lint console noise — needs user detail on which fix-runner) — defer to v1.24.2
 - **Windows Headers TypeError** — withdrawn (user input error, not plugin bug)
-- **#220 + #224** (Source-revision / fingerprint / 3-class contradiction) — moved to **v1.25.0 MINOR** scope; prerequisite: v1.24.1 #267 ships (✅ DocTpoint PR #269 ready) + page-factory.ts split (v1.24.2)
+- **#220 + #224** (Source-revision / fingerprint / 3-class contradiction) — moved to **v1.25.0 MINOR** scope; prerequisite: v1.24.1 #267 ships (✅ DocTpoint PR #269 ready) + page-factory.ts split (✅ Fix #5 in this PATCH)
 - **#218 PDF source ingest Tier 1** (topology A + Path 1 native LLM read) — moved to **v1.25.0 MINOR** scope; see v1.25.0 Execution Plan below
+- **#275 — `selectSeedsWithLLM` empty body with deepseek-v4-pro + json_object + thinking** (2026-07-12) — PPR fallback to lex. Workaround: disable thinking in settings. Proposed fix: switch `selectSeedsWithLLM` to streaming + parse first stop chunk. Out of scope for v1.24.1 PATCH (independent bug, page-factory unaffected — `seed-selector.ts` mtime = Jul 10 pre-refactor). **Defer to v1.24.2 or later.**
 
 ## v1.24.2 PATCH — Code Health (target TBD)
 
 GitHub milestone: not yet created (open when v1.24.1 ships)
 
-**Theme**: Code health PATCH addressing the most acute debt identified by 2026-07-11 third-party audit + the changes #267 / #220 are about to make against `page-factory.ts` (now 1252 LOC, the new largest god-file candidate).
+**Theme**: Code health PATCH addressing the most acute debt identified by 2026-07-11 third-party audit + the changes #267 / #220 are about to make against `page-factory.ts` (now split in v1.24.1 into 10 module-level files).
+
+### Fix #0 — `#275 selectSeedsWithLLM` empty body with deepseek-v4-pro + json_object + thinking (P0, green-dalii)
+
+**Root cause** (verified 2026-07-12): When DeepSeek-V4 returns `response_format: { type: 'json_object' }` non-streaming with thinking enabled and `max_tokens: 200`, the response body is empty (length=0). Streaming chat works fine. Affects `selectSeedsWithLLM` → PPR cascade falls back to lex-only (`arm: index`).
+
+**Fix shape** (~30 LOC):
+- Switch `selectSeedsWithLLM` (`src/wiki/query-engine/pipeline/seed-selector.ts:81-110`) to streaming mode
+- Collect chunks; parse JSON from the first `finish_reason: 'stop'` chunk
+- Adds resilience against the deepseek-v4-pro + json_object quirk regardless of provider tweaks
+
+**Branch**: `fix/seed-selector-streaming-mode`
 
 ### Fix #1 — `QueryView.sendMessage()` 501-line god-method split (P0, green-dalii)
 
@@ -568,6 +753,7 @@ Fallback arm selection:
 ## Version Timeline
 | Version | Date | Headline |
 |---------|------|----------|
+| 1.24.1 | 2026-07-14 | PATCH: 5-stage PPR cascade (#281) + parseJsonResponse quiet path (#282, closes #255/#274) + redundant Basic Information removal (#283, closes #258) + Bedrock Stage 1 (#277) + LM Studio no-key (#269) + Tier C bypass (#271) + page-factory split (#276) + non-lossy Mentions re-ingest (#267). 2080 tests |
 | 1.24.0 | 2026-07-10 | MINOR: per-task models (#208) + Custom Query Instructions (#251) + 4 monolith splits (#248/#249/#250/#257) + source-note aliases (#185) + frontmatter write repair + merge triage (#216) + PPR graph warmup. 1825 tests |
 | 1.23.2 | 2026-07-05 | PATCH: #234/#221/#219 + DocTpoint #238/#241 + graph cache invalidation + Apache 2.0 + DCO. 1431 tests |
 | 1.23.1 | 2026-07-02 | Obsidian review hotfix — strictBindCallApply alignment + dead function removal + lockfile regen |

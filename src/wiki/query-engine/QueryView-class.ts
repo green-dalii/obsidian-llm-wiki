@@ -20,6 +20,7 @@ import LLMWikiPlugin from '../../main';
 import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
+import { formatPageRefSummary } from '../../core/ppr-cascade';
 import { buildTurnIndicator, observeVisibleTurn } from '../turn-indicator';
 import { TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_SHORT, NOTICE_NORMAL, NOTICE_ERROR, CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS } from '../../constants';
 import { getSectionLabels } from '../system-prompts';
@@ -1052,11 +1053,19 @@ export class QueryView extends ItemView {
       this._lastRetrieval = {
         arm: seedResult.armLabel || 'none',
         count: relevantPages.length,
-        topPaths: relevantPages.slice(0, 5),
+        // v1.24.1 PATCH Phase 5.5.0: top-N display follows the PPR
+        // return value (which is already capped by select-seeds's
+        // adaptive formula), not a hardcoded 5. Small wikis may return
+        // fewer than 5 paths; large wikis may return 10–20.
+        topPaths: relevantPages,
       };
 
       console.debug(`[Step 2] PPR cascade selected ${relevantPages.length} pages (arm: ${seedResult.armLabel || 'none'})`);
-      console.debug(`[Step 2]   top-5 paths:`, seedResult.matches.slice(0, 5).map(m => `${m.page.path} (${m.arm}, score=${m.score.toFixed(3)})`));
+      // v1.24.1 PATCH Phase 5.5.0: log ALL matched paths (was hardcoded
+      // slice(0, 5)). Hardcoded 5 misled users on large vaults that
+      // return 10/20 pages via the adaptive top-N. Show every match
+      // so the log + UI reflect the same list.
+      console.debug(`[Step 2]   paths:`, seedResult.matches.map(m => `${m.page.path} (${m.arm}, score=${m.score.toFixed(3)})`));
       console.debug(`[Step 2]   query tokens:`, userMessage.toLowerCase().split(/\s+/).filter(k => k.length > 0));
       console.debug(`[Step 2]   graph state: ${graph ? `${graph.nodes.length} nodes / ${graph.edges.size} edges` : 'none'}`);
       console.debug(`[Step 2]   LLM augmentation: ${seedResult.llmAugmented ? 'triggered' : 'skipped (fast path sufficient)'}`);
@@ -1089,12 +1098,23 @@ export class QueryView extends ItemView {
       // Phase: Context ready, about to generate
       onProgress?.(texts.queryPhaseContextReady);
 
-      // Phase 4: Assemble the system prompt
+      // Phase 4: Assemble the system prompt.
+      // v1.24.1 PATCH Phase 5.5.0: stop sending the heavy `Wiki Index`
+      // full text to the chat LLM. The page bodies already contain
+      // the content the LLM needs; the index was redundant AND the
+      // dominant contributor to prompt overflow on large vaults
+      // (2137 nodes → ~70K tokens of index text). Optionally pass a
+      // compact page summary list (path + title + aliases) so the
+      // chat LLM can see what pages exist even if not retrieved.
+      const pageSummaryHint = indexResult.pageRefs.length > 0
+        ? indexResult.pageRefs.slice(0, 50).map(p => formatPageRefSummary(p)).join('\n')
+        : undefined;
       const wikiContext = assembleWikiContext({
-        indexContent: indexResult.indexContent,
+        pageSummaryHint,
         pageBodies: rawLoadedPages,
         armLabel: seedResult.armLabel,
         llmAugmented: seedResult.llmAugmented,
+        pureLLM: seedResult.pureLLM,
         matchesCount: relevantPages.length,
         wikiFolder,
         wikiLanguage: this.plugin.settings.wikiLanguage,

@@ -5,15 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.24.1] - 2026-07-14
+
+**Theme:** 5-stage PPR seed-selection cascade, empty-response quiet path, cleaner entity pages, Bedrock Stage 1, LM Studio no-key ingest, page-factory split, non-lossy Mentions re-ingest. 2080 tests passing. Recommended upgrade for all v1.24.0 users.
+
+### Added
+
+- **5-stage PPR seed-selection cascade (PR #281).** Query Wiki now composes context through five complementary stages before generation: (1) lex fast path over entity/concept titles and aliases; (2) LLM keyword generation for synonyms, abbreviations, and token-overlap-resistant terms; (3) local substring scan of generated keywords across titles, aliases, and body snippets; (4) LLM KB fallback that re-seeds top-N candidates semantically when earlier stages are weak; (5) Personalized PageRank (Haveliwala 2002) over the `[[wiki-link]]` graph starting from the seed set. The cascade auto-truncates at the stage that returns enough signal — no fixed 5-step cost, no LLM calls when lex suffices, no precision loss when augmentation is needed. Project benchmark: PPR @5 = 27.1% vs pure knn baseline 24.1%, zero embedding opt-in.
+- **Bedrock Stage 1 providers (PR #277/280).** Added `bedrock-anthropic` and `bedrock-openai` provider options routed through the AWS `bedrock-mantle.<region>.api.aws` endpoint. Region selector defaults to `us-east-1`. Zero new npm dependencies; bundle delta ~+3 KB. Stage 2/3 (bearer-only `@ai-sdk/amazon-bedrock`, SSO/profile) remain deferred pending demand.
+- **99 new page-factory module tests (PR #276).** Split `src/wiki/page-factory.ts` (1252 LOC) into 10 focused modules (`aliases.ts`, `complementary-appends.ts`, `contextualize.ts`, `create-page.ts`, `index.ts`, `mentions-integration.ts`, `merge-page.ts`, `merge-triage.ts`, `path-resolution.ts`, `related-page.ts`) with dedicated unit-test files.
 
 ### Changed
 
-- **Consolidated the two "reviewed" protection mechanisms (#244 follow-up).** Removed the body-level `<!-- reviewed: keep -->` comment marker (v1.24.0) that protected only a page's `## Mentions in Source` section. Protection is now driven solely by frontmatter `reviewed: true`, which already guards the whole page via the minimal-append path — Properties-panel-visible and stable under Markdown linters, unlike the hidden body marker. `injectMentionsSection` takes a `pageIsReviewed` flag (set on the reviewed-page write path) and returns the body untouched when set.
+- **Consolidated the two "reviewed" protection mechanisms (#244 follow-up, PR #283).** Removed the body-level HTML-comment marker (v1.24.0) that protected only a page's `## Mentions in Source` section. Protection is now driven solely by frontmatter `reviewed: true`, which already guards the whole page via the minimal-append path — Properties-panel-visible and stable under Markdown linters, unlike the hidden body marker. `injectMentionsSection` takes a `pageIsReviewed` flag (set on the reviewed-page write path) and returns the body untouched when set.
+- **Tier C welcome-note recreate bypass (PR #271).** `recreateWelcomeNote` command and `ensureWelcomeNote` now accept `forceRecreate: true`, bypassing the Tier C short-circuit that previously caused a misleading German "LLM configuration" Notice when users explicitly asked to rebuild the welcome note.
 
 ### Fixed
 
-- **Non-lossy Mentions re-ingest (#267).** On a merge, `assembleFinalContent` re-emitted the `## Mentions in Source` section from only the new source's mentions, dropping every earlier source's accumulated mentions (regression from #244; affected `triage=skip`, `triage=complementary`, and the body-merge path). The merge now parses the existing page's mentions and unions them with the new source's (composite `(quote, source_path)` dedup key) before injecting; a fail-safe preserves a hand-edited section verbatim rather than risk dropping curated quotes.
+- **Non-lossy Mentions re-ingest (#267, PR #269/272).** On a merge, `assembleFinalContent` previously re-emitted the `## Mentions in Source` section from only the new source's mentions, dropping every earlier source's accumulated mentions (regression from #244; affected `triage=skip`, `triage=complementary`, and the body-merge path). The merge now parses the existing page's mentions and unions them with the new source's (composite `(quote, source_path)` dedup key) before injecting; a fail-safe preserves a hand-edited section verbatim rather than risk dropping curated quotes.
+- **Empty-response quiet path (PR #282).** `parseJsonResponse` gained `silentOnEmpty` / `throwOnEmpty` options. Lint batch callers (`source-analyzer`, `fix-runners` alias/tag paths, `merge-duplicates`) and the seed selector now suppress noisy console errors for empty LLM bodies while still propagating failures where needed. Closes #255 (Lint console errors) and #274 (Ollama Qwen3.5:9b empty body). Seed selector throws `EmptyResponseError` on empty body as defense-in-depth for #275.
+- **Redundant `## Basic Information` block in entity pages (PR #283).** Five independent code paths (generation prompt, merge prompts for entity + concept, default schema, canonical schema fallback, lint section-labels hint) all declared "Basic Information" as the first entity section, causing the LLM to occasionally emit a duplicate-info block. Removed the section from all five locations; new entity pages now go frontmatter → H1 → description → related sections. Closes #258. Existing pages are not migrated.
+- **LM Studio no-key ingest (PR #269/272).** `initializeLLMClient`, `llmReady`, and `testLLMConnection` now treat LM Studio like Ollama for the API-key gate, so ingestion works with an empty API key (matching Test Connection behavior).
+- **Settings unified↔per-task cascade (post-#281 e2e).** Fixed three edge cases where toggling Model Scope or editing per-task model fields could leave `tempSettings` and committed `settings` out of sync, causing the UI to show stale values after save.
+- **`load-pages` `.md` suffix defense (post-#281 e2e).** Normalized path handling so wiki-page paths with or without `.md` suffix resolve consistently during seed-selection context loading.
+- **Streaming-chunk debug cleanup (post-#281 e2e).** Removed a stray `console.debug` in `openai-compat-sdk-client.ts` streaming path that emitted per-chunk noise during Query Wiki streaming.
+
+### Maintenance
+
+- 2080 tests passing (158 test files). +255 tests since v1.24.0.
+- 5 new i18n keys × 10 locales for Bedrock provider labels, region selector, API-key hint, help URL, and test-connection hint.
+- 7 new tests for redundant Basic Information regression (#283).
 
 ## [1.25.0] - 2026-07-11
 

@@ -409,8 +409,21 @@ export class WikiEngine {
     console.debug('[WikiEngine] graph cache miss — building', allPaths.size, 'nodes');
     // Read all pages in parallel; cap concurrency with allSettled so one
     // unreadable file does not abort the whole graph build.
+    //
+    // v1.24.1 PATCH Phase 5.5.0 hotfix fix: `allPaths` is in
+    // wiki-index format (`entities/Foo`, `concepts/Bar`) — relative
+    // to the wiki folder, with NO `wiki/` prefix and NO `.md` suffix.
+    // `tryReadFile` expects full vault paths (`wiki/entities/Foo.md`),
+    // so all 2137 calls previously failed → graph built from empty
+    // content → PPR cascade silently fell back to lex-only arm
+    // (`arm: index` in logs). Normalize before reading.
+    const wikiPrefix = this.settings.wikiFolder + '/';
     const readTasks = [...allPaths].map(async (path) => {
-      const content = await this.tryReadFile(path);
+      const vaultPath = path.startsWith(wikiPrefix)
+        ? path
+        : `${wikiPrefix}${path}`;
+      const fullPath = vaultPath.endsWith('.md') ? vaultPath : `${vaultPath}.md`;
+      const content = await this.tryReadFile(fullPath);
       return { path, content: content ?? '' };
     });
     const loadedPages = await Promise.all(readTasks);

@@ -56,7 +56,7 @@ src/
 ├── types.ts             # Shared types + EngineContext
 ├── constants.ts         # Centralized constants (token budgets, notice durations, WIKI_SUBFOLDERS)
 ├── texts.ts             # i18n texts (barrel, 10 languages)
-├── prompts.ts           # Prompt barrel (10 languages)
+├── prompts/              # LLM prompt templates by domain
 ├── llm-client-wrapper.ts # Advanced settings injection wrapper
 ├── llm-sdk/             # Vercel AI-SDK v6 client factories (v1.23.0, replaces llm-client.ts)
 │   ├── create-llm-client.ts        # Factory: async + sync shim + preload
@@ -124,7 +124,17 @@ src/
 │   │   ├── renderers/                         # 6 pure-function modules
 │   │   └── pipeline/                          # 5 pure-function modules
 │   ├── source-analyzer.ts # Iterative batch extraction
-│   ├── page-factory.ts  # Entity/concept CRUD + merge
+│   ├── page-factory/          # Entity/concept CRUD + merge (10 modules, v1.24.1 split)
+│   │   ├── index.ts                # Facade (preserves public API)
+│   │   ├── aliases.ts              # appendAliases
+│   │   ├── complementary-appends.ts # Tier-2 per-section appends
+│   │   ├── contextualize.ts        # 5 module-level helpers
+│   │   ├── create-page.ts          # 4 create functions
+│   │   ├── mentions-integration.ts # assembleFinalContent
+│   │   ├── merge-page.ts           # mergePage + appendToReviewedPage
+│   │   ├── merge-triage.ts         # classifyMergeNeed + buildNewInfoSummary
+│   │   ├── path-resolution.ts      # resolvePagePath + buildPagesListForPrompt
+│   │   └── related-page.ts         # updateRelatedPage (3-branch routing)
 │   ├── conversation-ingest.ts # Chat → wiki knowledge
 │   ├── contradictions.ts # Contradiction detection
 │   ├── system-prompts.ts # Language directive + section labels
@@ -159,7 +169,7 @@ src/
 │   └── analyze.ts       # Schema-analyze with cancel wiring
 ├── ui/                  # Settings + history-modal/ (14-file split, v1.24.0) + modals/ (7-file split, v1.24.0)
 ├── texts/               # i18n (10 languages: EN/ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT)
-└── __tests__/           # Unit tests (vitest, 1825 tests across 132 files)
+└── __tests__/           # Unit tests (vitest, 2080 tests across 158 files)
 ```
 
 ## Internationalization

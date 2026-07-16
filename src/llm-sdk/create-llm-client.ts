@@ -20,15 +20,72 @@
 
 import { LLMClient } from '../types';
 import type { CodexAuthManager } from './openai-codex/auth-manager';
+import {
+  bedrockMantleChatCompletionsUrl,
+  bedrockMantleMessagesUrl,
+  BEDROCK_DEFAULT_REGION,
+  type BedrockRegion,
+} from '../constants';
 
 export interface ProviderSettings {
   provider: string;
   apiKey: string;
   baseUrl?: string;
+  /**
+   * v1.24.1 PATCH Bedrock Stage 1 — AWS region used by the two
+   * `bedrock-*` provider ids. Ignored when provider is anything else.
+   * Falls back to BEDROCK_DEFAULT_REGION (us-east-1) when unset.
+   */
+  bedrockRegion?: string;
   useOfficialOpenAI?: boolean;
   codexAuth?: CodexAuthManager;
   codexVersion?: string;
   codexQuotaMessage?: string;
+}
+
+/**
+ * v1.24.1 PATCH Bedrock Stage 1 — resolve the AWS region from settings,
+ * narrowing `string | undefined` to the typed `BedrockRegion` union.
+ * Settings UI dropdown only emits `BEDROCK_REGIONS` values, so runtime
+ * is sound; the cast is here for TS-only safety.
+ */
+function resolveBedrockRegion(settings: ProviderSettings): BedrockRegion {
+  return (settings.bedrockRegion as BedrockRegion | undefined) || BEDROCK_DEFAULT_REGION;
+}
+
+/**
+ * v1.24.1 PATCH Bedrock Stage 1 — construct a Bedrock-backed LLM client
+ * for either the Anthropic Messages protocol or the OpenAI Chat
+ * Completions protocol. Both reuse existing SDK clients via the
+ * region-scoped bedrock-mantle baseURL; bearer auth is wired by the
+ * underlying SDK.
+ *
+ * The class constructors are injected (rather than dynamic-imported)
+ * so the same helper works for both the async factory (which does
+ * dynamic imports inside) and the sync factory (which reads from
+ * preloadedModules). Either way, the resolved client is identical.
+ */
+function createBedrockClient(
+  providers: {
+    AnthropicSdkClient: typeof import('./anthropic-sdk-client').AnthropicSdkClient;
+    OpenAICompatSdkClient: typeof import('./openai-compat-sdk-client').OpenAICompatSdkClient;
+  },
+  settings: ProviderSettings,
+  apiKey: string,
+  protocol: 'anthropic' | 'openai',
+): LLMClient {
+  const region = resolveBedrockRegion(settings);
+  if (protocol === 'anthropic') {
+    return new providers.AnthropicSdkClient({
+      apiKey,
+      baseURL: bedrockMantleMessagesUrl(region),
+    });
+  }
+  return new providers.OpenAICompatSdkClient({
+    apiKey,
+    baseURL: bedrockMantleChatCompletionsUrl(region),
+    provider: settings.provider,
+  });
 }
 
 /**
@@ -48,6 +105,25 @@ export async function createLLMClientFromSettings(settings: ProviderSettings): P
   if (provider === 'openai-codex') {
     if (!settings.codexAuth) throw new Error('Codex auth manager is required');
     return new OpenAICodexSdkClient({ auth: settings.codexAuth, sessionId: () => crypto.randomUUID(), version: settings.codexVersion ?? 'unknown', quotaMessage: settings.codexQuotaMessage });
+  }
+  // v1.24.1 PATCH Bedrock Stage 1 — region-scoped bedrock-mantle endpoint,
+  // reusing existing SDK clients via custom baseURL.
+  if (provider === 'bedrock-anthropic') {
+    return createBedrockClient(
+      { AnthropicSdkClient, OpenAICompatSdkClient },
+      settings,
+      apiKey,
+      'anthropic',
+    );
+  }
+
+  if (provider === 'bedrock-openai') {
+    return createBedrockClient(
+      { AnthropicSdkClient, OpenAICompatSdkClient },
+      settings,
+      apiKey,
+      'openai',
+    );
   }
 
   if (provider === 'anthropic') {
@@ -133,6 +209,25 @@ export function createLLMClientFromSettingsSync(settings: ProviderSettings): LLM
   if (provider === 'openai-codex') {
     if (!settings.codexAuth) throw new Error('Codex auth manager is required');
     return new OpenAICodexSdkClient({ auth: settings.codexAuth, sessionId: () => crypto.randomUUID(), version: settings.codexVersion ?? 'unknown', quotaMessage: settings.codexQuotaMessage });
+  }
+  // v1.24.1 PATCH Bedrock Stage 1 — region-scoped bedrock-mantle endpoint,
+  // reusing existing SDK clients via custom baseURL.
+  if (provider === 'bedrock-anthropic') {
+    return createBedrockClient(
+      { AnthropicSdkClient, OpenAICompatSdkClient },
+      settings,
+      apiKey,
+      'anthropic',
+    );
+  }
+
+  if (provider === 'bedrock-openai') {
+    return createBedrockClient(
+      { AnthropicSdkClient, OpenAICompatSdkClient },
+      settings,
+      apiKey,
+      'openai',
+    );
   }
 
   if (provider === 'anthropic') {
