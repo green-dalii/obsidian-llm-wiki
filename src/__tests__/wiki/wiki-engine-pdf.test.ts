@@ -193,4 +193,91 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
     // Old content must be replaced with the new conversion.
     expect(h.files.get('sources/paper.pdf.md')).toBe(MARKDOWN);
   });
+
+  // v1.25.0 PR3 follow-up #3 (P2): isPdfRelatedLlmError tightening + regression tests.
+  //
+  // Contract:
+  //   - Return true  → "provider refused to accept PDF binary" → route to `sourceRejectedPdfUnsupported`
+  //   - Return false → any other error (network, vault IO, abort, generic 5xx) → re-throw to outer ingest error path
+  //
+  // The pre-fix classifier substring-matched 'pdf' alone — it over-classified
+  // transient errors and file-name leaks into "unsupported PDF", misleading
+  // users into disabling `forcePdfSupport` for non-PDF issues. These six
+  // tests pin the contract for both the happy path (route) and the
+  // false-positive path (re-throw).
+  describe('WikiEngine.isPdfRelatedLlmError — P2 classifier tightening', () => {
+    /**
+     * Helper: reach into the private `isPdfRelatedLlmError` via the public
+     * ingest path. We can't unit-test the method directly (private), so we
+     * exercise it indirectly — by mocking the converter to throw the exact
+     * error string and observing whether the engine routes to skip or re-throws.
+     */
+    async function runWithConverterError(errorMessage: string): Promise<{ skipped: boolean; thrown: boolean; }> {
+      mockedConvert.mockRejectedValueOnce(new Error(errorMessage));
+      const h = createWikiEngineHarness();
+      try {
+        await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+        const last = h.reports.at(-1);
+        return { skipped: last?.skipped === true, thrown: false };
+      } catch (e) {
+        return { skipped: false, thrown: e instanceof Error };
+      }
+    }
+
+    it('routes OpenAI-compatible 400 with file part mention → unsupported-pdf', async () => {
+      const r = await runWithConverterError(
+        '400 Invalid file part: application/pdf not supported by this model'
+      );
+      expect(r.skipped).toBe(true);
+      expect(r.thrown).toBe(false);
+    });
+
+    it('routes Anthropic-style mediaType rejection → unsupported-pdf', async () => {
+      const r = await runWithConverterError(
+        "Error: mediaType 'application/pdf' is rejected by this provider"
+      );
+      expect(r.skipped).toBe(true);
+      expect(r.thrown).toBe(false);
+    });
+
+    // Pre-fix bug: 'pdf' substring alone routed this to unsupported-pdf → user
+    // got a misleading Notice and turned off forcePdfSupport for a transient
+    // network error that would have resolved on retry.
+    it('does NOT route 413 size-limit error (contains "pdf" but no rejection verb) → re-throws', async () => {
+      const r = await runWithConverterError(
+        '413 Request Entity Too Large: pdf conversion request exceeds 50MB provider limit'
+      );
+      expect(r.skipped).toBe(false);
+      expect(r.thrown).toBe(true);
+    });
+
+    it('does NOT route 5xx upstream failure → re-throws', async () => {
+      const r = await runWithConverterError(
+        'upstream connect error or disconnect/reset before headers'
+      );
+      expect(r.skipped).toBe(false);
+      expect(r.thrown).toBe(true);
+    });
+
+    // Pre-fix bug: dev log line "Cannot read property 'pdf_data' of undefined"
+    // was routed to unsupported-pdf via 'pdf' substring → user thinks
+    // provider doesn't support PDF but it's a null-deref in our code.
+    it('does NOT route internal null-deref errors containing "pdf_data" → re-throws', async () => {
+      const r = await runWithConverterError(
+        "Cannot read property 'pdf_data' of undefined"
+      );
+      expect(r.skipped).toBe(false);
+      expect(r.thrown).toBe(true);
+    });
+
+    // Pre-fix bug: rejection-verb without PDF/marker (a generic "invalid input"
+    // the LLM client throws for many reasons) was misclassified as PDF-related.
+    it('does NOT route generic "invalid input" without PDF marker → re-throws', async () => {
+      const r = await runWithConverterError(
+        '400 invalid input: missing required field'
+      );
+      expect(r.skipped).toBe(false);
+      expect(r.thrown).toBe(true);
+    });
+  });
 });

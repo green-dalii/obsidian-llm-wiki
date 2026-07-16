@@ -521,17 +521,26 @@ export class WikiEngine {
    */
   private isPdfRelatedLlmError(message: string): boolean {
     const lower = message.toLowerCase();
-    return (
+    // v1.25.0 PR3 follow-up #3 (P2): tightened — require BOTH a rejection verb
+    // AND a PDF/media marker. Pre-fix version substring-matched on 'pdf' alone,
+    // which misclassified 413 size-limit errors, internal 'pdf_data'
+    // null-derefs, and other PDF-adjacent strings as "provider doesn't
+    // support PDF", misleading users into disabling `forcePdfSupport` for
+    // non-PDF issues.
+    const hasRejectionVerb =
+      lower.includes('reject') ||
+      lower.includes('not support') ||
+      lower.includes('unsupported') ||
+      lower.includes('invalid') ||
+      lower.includes('not allowed');
+    const hasPdfMarker =
       lower.includes('pdf') ||
       lower.includes('application/pdf') ||
       lower.includes('file part') ||
       lower.includes('file_part') ||
       lower.includes('media type') ||
-      lower.includes('mediatype') ||
-      lower.includes('unsupported file') ||
-      lower.includes('does not support') ||
-      lower.includes('input not supported')
-    );
+      lower.includes('mediatype');
+    return hasRejectionVerb && hasPdfMarker;
   }
 
   /**
