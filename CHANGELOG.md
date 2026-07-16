@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
-- 2138 tests passing (164 files). +58 tests since v1.24.1.
+- 2144 tests passing (164 files). +64 tests since v1.24.1.
 - New tests cover: default no-sidecar, `writePdfMarkdownToVault=true` creates sidecar, `writePdfMarkdownToVault=true` updates existing sidecar, PDF error classifier happy-path + false-positive guards (413/5xx/null-deref/generic-invalid → re-throw).
 
 ## [1.24.1] - 2026-07-14
