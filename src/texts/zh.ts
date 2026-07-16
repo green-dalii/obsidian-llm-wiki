@@ -590,12 +590,12 @@ export const ZH_TEXTS = {
     sourceRejectedType: '⏭️ "{filename}" 不是受支持的文件类型，已跳过。仅可提取文本笔记（如 .md、.txt）。',
     sourceRejectedDuplicate: '⏭️ "{filename}" 已跳过——其内容已存在于 Wiki 中。',
     pdfReadingInProgress: '正在读取 PDF: {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ "{filename}" 已跳过——当前 provider 或模型不支持 PDF 输入。可在 Settings → LLM Configuration → Advanced 中切换 provider 或开启 Force PDF Support。',
+    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」已跳过——当前 provider 或模型不支持 PDF 输入。可在 Settings → LLM Configuration → Advanced 中切换 provider，或打开「强制启用 PDF 支持」再试一次。',
     clearPdfCacheCommand: '清除 PDF 转换缓存',
     pdfCacheCleared: 'PDF 缓存已清除（{count} 个条目已移除）。',
     // v1.25.0 PR3: Advanced PDF settings
-    forcePdfSupportName: '强制开启 PDF 支持',
-    forcePdfSupportDesc: '默认关闭。仅对自定义 OpenAI 兼容 / Anthropic 兼容类型的 provider 生效——这些端点的 PDF 支持度参差不齐，开启后风险自负（可能导致转换失败）。原生支持 PDF 的 provider（Anthropic / OpenAI / Bedrock）无需开启。',
+    forcePdfSupportName: '强制启用 PDF 支持',
+    forcePdfSupportDesc: '默认关闭。如果你的 provider 不是原生支持 PDF 的，但又确实能处理 PDF，可以打开这个开关试一试。打开后会发送 PDF 给当前 provider，如果被拒绝，会用提示告诉你。原生支持 PDF 的 provider（Anthropic / OpenAI / Bedrock）不需要这个开关。',
     writePdfMarkdownToVaultName: '将转换后的 Markdown 写入 Vault',
     writePdfMarkdownToVaultDesc: '默认关闭。开启后，每次 PDF 转换的结果会写入源 PDF 旁边的 “<原名>.pdf.md” 文件。关闭时，转换结果仅保存在插件缓存，不在你的 Vault 中留下实现产物。',
 

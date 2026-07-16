@@ -694,6 +694,30 @@ export default class LLMWikiPlugin extends Plugin {
    * Called from onload() (fire-and-forget) so the three-defense-layer
    * design doesn't collapse to just defense layer 2 (per-set cap).
    */
+  /**
+   * v1.25.0 PR3 follow-up #2 (P1 #2): run TTL purge + size enforcement
+   * before a batch ingest starts. Cheaper than the per-write cap because
+   * `enforceSizeLimit` after each new write evicts in proportion to that
+   * single write — pre-running it evicts once for the whole batch, so the
+   * user's most-valuable oldest entries don't get kicked out one write
+   * at a time as the batch progresses.
+   */
+  async preparePdfCacheForBatchIngest(): Promise<void> {
+    try {
+      const { createPdfCache } = await import('./core/pdf-cache');
+      const cache = createPdfCache(this.app);
+      const { expired, size } = await cache.prepareBatchIngest();
+      if (expired.removed > 0 || size.removed > 0) {
+        console.debug(
+          `[pdf-cache] batch prep: purged ${expired.removed} expired, ` +
+          `evicted ${size.removed} oversized (${size.freedBytes} bytes freed)`
+        );
+      }
+    } catch (error) {
+      console.warn('[pdf-cache] batch prep failed:', error);
+    }
+  }
+
   async performPdfCacheHousekeeping(): Promise<void> {
     try {
       const { createPdfCache } = await import('./core/pdf-cache');
@@ -794,6 +818,10 @@ export default class LLMWikiPlugin extends Plugin {
    * workaround).
    */
   private async runBatchIngest(files: TFile[], jobIds: string[], sourceLabel: string): Promise<void> {
+    // v1.25.0 PR3 follow-up #2 (P1 #2): batch-start housekeeping.
+    // Fire-and-forget — never blocks ingest on cache maintenance.
+    void this.preparePdfCacheForBatchIngest();
+
     this.showProgressFor(ProgressScope.IngestManual, 'Checking for already-ingested files...');
     const alreadyIngestedFiles: TFile[] = [];
     const newFiles: TFile[] = [];

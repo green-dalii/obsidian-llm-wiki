@@ -23,6 +23,12 @@ Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basen
     - `writePdfMarkdownToVault` moved to **Wiki Configuration → Wiki Folder** (semantic: vault storage policy, not LLM config); always visible; not bound to Advanced mode
     - `advancedSettingsMode` → default no longer resets `forcePdfSupport` (toggle lifecycle owned by its own UI)
     - 3 new tests: ollama + forcePdfSupport=true attempts LLM; deepseek same; endpoint-rejects error propagates verbatim
+  - **PR3 follow-up #2 (2026-07-16)** — third-party model audit fixes:
+    - **P0 (cross-platform cache filename safety)**: physical filename = `sha256(logicalKey).slice(0, 16)` (Git short-hash style); logical key retains `sha256:model:converterVersion` semantics; converter hashes via new `hashCacheKey()` helper before `cache.get/set`. Fixes Windows `ERROR_INVALID_NAME` + POSIX unintended subpath when model contains `/` or `:`.
+    - **P1 (batch-start housekeeping)**: new `PdfConversionCache.prepareBatchIngest()` (TTL purge + size enforce) wired into `runBatchIngest()` via `preparePdfCacheForBatchIngest()`.
+    - **P1 (PDF-shaped LLM errors → localized Notice)**: `isPdfRelatedLlmError(message)` classifier routes obvious PDF-rejection errors to `reportSkip('unsupported-pdf')` instead of generic re-throw.
+    - **P1 (settings defaults test)**: new `src/__tests__/types/settings.test.ts` covers `forcePdfSupport=false` + `writePdfMarkdownToVault=false` defaults.
+    - **P2 (i18n user-perspective rewrite)**: `forcePdfSupportDesc` + `sourceRejectedPdfUnsupported` rewritten in 10 locales — drop developer jargon ("escape hatch", "endpoint", "LLM error"), speak user outcome (what they get when they flip the switch, what they see if it fails).
   - **Trust boundary**: the user is the authoritative source on what their endpoint supports. Pre-flight whitelist rejects violate user intent. The provider gate must attempt the call; LLM errors surface as localized Notices guiding the user to disable the toggle or check endpoint config.
 - ⏳ **PR4 (optional, by AkaSakana)** — Kimi Files API provider dispatch + error regex classifiers + transient-retry extension. If AkaSakana ships as follow-up PR after v1.25.0 lands, we merge after review. If schedule slips, we port ourselves (1-day).
 - ⏳ **Final** — `pnpm build:dev` + HARD STOP + user e2e + push decision.

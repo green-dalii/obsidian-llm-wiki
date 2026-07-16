@@ -12,10 +12,11 @@
  * receive a cached conversion from a now-unsupported provider):
  *   1. Read PDF bytes (vault.adapter.readBinary)
  *   2. Provider capability gate (cheap, must run before cache return)
- *   3. sha256 the bytes → cache key
- *   4. Cache hit → return cached entry (no LLM call)
- *   5. Cache miss → encryption check, metadata extract, LLM call
- *   6. Write LLM response to cache (keyed by sha256:model)
+ *   3. sha256 the bytes + compose logical cache key (sha256:model:version)
+ *   4. Hash the logical key to a 16-char hex file token (cross-platform safe)
+ *   5. Cache hit → return cached entry (no LLM call)
+ *   6. Cache miss → encryption check, metadata extract, LLM call
+ *   7. Write LLM response to cache under the file token
  *
  * Provider support matrix:
  *   - anthropic / openai / bedrock-anthropic / bedrock-openai: native PDF support
@@ -27,7 +28,13 @@
  */
 
 import { App, TFile } from 'obsidian';
-import { PdfCacheEntry, sha256Bytes, PDF_CONVERTER_VERSION, createPdfCache } from './pdf-cache';
+import {
+  PdfCacheEntry,
+  sha256Bytes,
+  hashCacheKey,
+  PDF_CONVERTER_VERSION,
+  createPdfCache,
+} from './pdf-cache';
 import {
   parsePdfInfoDictText,
   isEncryptedPdfText,
@@ -118,13 +125,19 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
   // different model.
   const model = resolveModelForTask(settings, 'ingest');
 
-  // 4. Cache lookup (sha256 bytes → key). sha256 is required here for the
-  // key; latin1 decode is deferred to the miss branch. Key includes the
-  // converter version so prompt upgrades invalidate stale entries (AkaSakana
-  // feedback in PR #286).
+  // 4. Cache lookup. The logical `cacheKey` carries the model +
+  // converterVersion so cache hits distinguish "same PDF + same model +
+  // same prompt" from "same PDF + different model + same prompt".
+  //
+  // The on-disk filename is NOT the logical key (it contains `:` and may
+  // contain `/` from `provider/model` strings, which Windows forbids and
+  // POSIX treats as a subpath). We hash the logical key to a 16-char hex
+  // token (Git short-hash style) for filesystem safety; the logical key
+  // remains implicit through the converter-version + model contract.
   const cache = createPdfCache(app);
-  const cacheKey = `${await sha256Bytes(bytes, subtle)}:${model}:${PDF_CONVERTER_VERSION}`;
-  const cached = await cache.get(cacheKey);
+  const logicalKey = `${await sha256Bytes(bytes, subtle)}:${model}:${PDF_CONVERTER_VERSION}`;
+  const fileToken = await hashCacheKey(logicalKey, subtle);
+  const cached = await cache.get(fileToken);
   if (cached) return cached;
 
   // 5. Miss branch — decode once, run encryption + metadata scan, then LLM.
@@ -158,7 +171,8 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
     ],
   });
 
-  // 8. Build the result entry and cache it (key already includes model)
+  // 8. Build the result entry and cache it under the file token (NOT the
+  // raw logical key — see step 4 comment for why).
   const entry: ConversionResult = {
     markdown: response,
     metadata: {
@@ -169,7 +183,7 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
       converter: `${settings.provider}/${model}`,
     },
   };
-  await cache.set(cacheKey, entry);
+  await cache.set(fileToken, entry);
   return entry;
 }
 

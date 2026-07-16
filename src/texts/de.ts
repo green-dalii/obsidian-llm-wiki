@@ -444,12 +444,12 @@ export const DE_TEXTS = {
     sourceRejectedType: '⏭️ „{filename}" ist kein unterstützter Dateityp — übersprungen. Nur Textnotizen (z. B. .md, .txt) können eingelesen werden.',
     sourceRejectedDuplicate: '⏭️ „{filename}" übersprungen — der Inhalt ist bereits im Wiki vorhanden.',
     pdfReadingInProgress: 'PDF wird gelesen: {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ „{filename}" übersprungen — der aktuelle Provider oder das Modell unterstützt keine PDF-Eingabe. Wechseln Sie den Provider oder aktivieren Sie Force PDF Support unter Settings → LLM Configuration → Advanced.',
+    sourceRejectedPdfUnsupported: '⏭️ „{filename}" übersprungen — Ihr aktueller Provider oder das Modell akzeptiert keine PDF-Eingabe. Wechseln Sie den Provider oder aktivieren Sie „Force PDF support" unter Settings → LLM Configuration → Advanced und versuchen Sie es erneut.',
     clearPdfCacheCommand: 'PDF-Konvertierungs-Cache leeren',
     pdfCacheCleared: 'PDF-Cache geleert ({count} Einträge entfernt).',
     // v1.25.0 PR3: Advanced PDF settings
     forcePdfSupportName: 'PDF-Unterstützung erzwingen',
-    forcePdfSupportDesc: 'Standardmäßig aus. Betrifft nur benutzerdefinierte OpenAI-kompatible / Anthropic-kompatible Provider — deren PDF-Unterstützung variiert, daher auf eigene Gefahr (Konvertierung kann fehlschlagen). Native PDF-Provider (Anthropic / OpenAI / Bedrock) ignorieren dies.',
+    forcePdfSupportDesc: 'Standardmäßig aus. Schalten Sie dies ein, wenn Ihr Provider nicht in der nativen Liste steht, aber trotzdem PDFs verarbeiten kann. Bei aktiviertem Schalter wird das PDF an Ihren aktuellen Provider gesendet; wird es abgelehnt, sehen Sie einen Hinweis. Native PDF-Provider (Anthropic / OpenAI / Bedrock) benötigen diese Einstellung nicht.',
     writePdfMarkdownToVaultName: 'Konvertiertes Markdown in Vault schreiben',
     writePdfMarkdownToVaultDesc: 'Standardmäßig aus. Wenn aktiv, wird das Ergebnis jeder PDF-Konvertierung in eine „<basename>.pdf.md"-Datei neben dem Quell-PDF geschrieben. Wenn aus (nur-Cache-Architektur), bleiben Ergebnisse nur im Plugin-Cache und hinterlassen keine Artefakte in deinem Vault.',
 

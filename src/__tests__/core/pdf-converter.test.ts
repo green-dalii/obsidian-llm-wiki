@@ -7,7 +7,7 @@ import {
   type PdfConversionContext,
   type ConversionResult,
 } from '../../core/pdf-converter';
-import { sha256Bytes, PDF_CONVERTER_VERSION } from '../../core/pdf-cache';
+import { sha256Bytes, hashCacheKey, PDF_CONVERTER_VERSION } from '../../core/pdf-cache';
 
 // Inject the global SubtleCrypto mock from setup.ts so sha256Bytes has
 // a real implementation. The mock is deterministic (see setup.ts).
@@ -124,10 +124,13 @@ describe('convertPdfToMarkdown', () => {
       },
     };
     const hash = await sha256Bytes(SAMPLE_BYTES, testSubtle);
-    // Cache key is composite (sha256:model:converterVersion) so that switching
-// the ingest model or bumping the converter prompt does not silently return
-// a conversion produced by a different model/version.
-mockCacheStore.set(`${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`, cached);
+    // PR3 follow-up #2: on-disk cache token is sha256(logicalKey).slice(0,16)
+    // (Git short-hash style) — not the logical key itself. The converter
+    // computes logicalKey = sha256(content):model:converterVersion, then
+    // hashes it to a 16-char hex token before cache.get/set.
+    const logicalKey = `${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`;
+    const fileToken = await hashCacheKey(logicalKey, testSubtle);
+    mockCacheStore.set(fileToken, cached);
 
     const { ctx, mockCreateMessage } = makeContext();
     const result = await convertPdfToMarkdown(ctx);
@@ -220,7 +223,9 @@ mockCacheStore.set(`${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`, cached);
     };
     // Pre-populate cache as if user previously ingested via anthropic.
     const hash = await sha256Bytes(SAMPLE_BYTES, testSubtle);
-    mockCacheStore.set(`${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`, cached);
+    const logicalKey = `${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`;
+    const fileToken = await hashCacheKey(logicalKey, testSubtle);
+    mockCacheStore.set(fileToken, cached);
 
     const { ctx } = makeContext({
       settings: {

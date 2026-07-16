@@ -72,6 +72,26 @@ export interface CacheMaintenanceResult {
 type StatCapableAdapter = DataAdapter;
 
 /**
+ * Hashes a logical cache key into a short, filesystem-safe filename token
+ * (16 hex chars ≈ 64 bits of entropy — collision-safe up to ~10⁹ entries
+ * per the birthday bound; matches the Git short-hash convention).
+ *
+ * Why this exists (v1.25.0 PR3 follow-up #2, P0): the logical key carries
+ * `:` and may carry `/` (model names like `anthropic/claude-opus-4-8`),
+ * which Windows forbids in filenames and which on POSIX forms unintended
+ * subpaths. Hashing the logical key once gives a stable, cross-platform
+ * identifier for the on-disk file name. The full logical key is still
+ * preserved at the converter layer for cache-hit semantics.
+ */
+export async function hashCacheKey(key: string, subtle?: SubtleCrypto): Promise<string> {
+  if (!subtle) {
+    throw new Error('hashCacheKey: SubtleCrypto is required. Inject it via ctx.subtle (production) or a test mock.');
+  }
+  const digest = await subtle.digest('SHA-256', new TextEncoder().encode(key));
+  return bytesToHex(new Uint8Array(digest)).slice(0, 16);
+}
+
+/**
  * Returns the hex-encoded sha256 of the given bytes. The caller must
  * inject `SubtleCrypto` (from `activeWindow.crypto.subtle` in production).
  *
@@ -129,14 +149,17 @@ export class PdfConversionCache {
   }
 
   /**
-   * Returns the entry for `hash`, or null on miss / corrupt / expired.
+   * Returns the entry for `hashToken` (the SHA-256 short-hash of the
+   * logical cache key — produced by `hashCacheKey` at the caller).
+   *
+   * Returns null on miss / corrupt / expired.
    *
    * TTL check uses the entry's `convertedAt` (host-written at `set()` time
    * — not LLM-emitted). mtime-based sweep happens via `purgeExpired` from
    * housekeeping, so we don't add a per-hit `stat()` round-trip.
    */
-  async get(hash: string): Promise<PdfCacheEntry | null> {
-    const path = this.entryPath(hash);
+  async get(hashToken: string): Promise<PdfCacheEntry | null> {
+    const path = this.entryPath(hashToken);
     let raw: string;
     try {
       raw = await this.adapter.read(path);
@@ -164,33 +187,33 @@ export class PdfConversionCache {
   }
 
   /**
-   * Writes the entry to disk under `{cacheDir}/{hash}.json`.
+   * Writes the entry to disk under `{cacheDir}/{hashToken}.json`.
    *
    * Defense layer 1: rejects oversized single entries (>maxSingleEntryBytes)
    * so one giant PDF can't hog the entire cache. The caller still gets the
    * conversion result back via the return value of convertPdfToMarkdown —
    * cache write failure is performance-only, never correctness.
    */
-  async set(hash: string, entry: PdfCacheEntry): Promise<void> {
-    const path = this.entryPath(hash);
+  async set(hashToken: string, entry: PdfCacheEntry): Promise<void> {
+    const path = this.entryPath(hashToken);
     const data = JSON.stringify(entry);
     const size = new TextEncoder().encode(data).length;
 
     if (size > this.maxSingleEntryBytes) {
       console.warn(
-        `[pdf-cache] skipping cache write for ${hash}: ${size} bytes exceeds ` +
+        `[pdf-cache] skipping cache write for ${hashToken}: ${size} bytes exceeds ` +
         `maxSingleEntryBytes=${this.maxSingleEntryBytes}`
       );
       return;
     }
 
     // Remove old entry first to free its size before enforcing the new cap
-    await this.invalidate(hash).catch(() => undefined);
+    await this.invalidate(hashToken).catch(() => undefined);
 
     try {
       await this.adapter.write(path, data);
     } catch (error) {
-      console.warn(`[pdf-cache] write failed for ${hash}, continuing without cache:`, error);
+      console.warn(`[pdf-cache] write failed for ${hashToken}, continuing without cache:`, error);
       return;
     }
 
@@ -198,9 +221,9 @@ export class PdfConversionCache {
     await this.enforceSizeLimit();
   }
 
-  /** Removes the entry for `hash`. No-op if absent. */
-  async invalidate(hash: string): Promise<void> {
-    const path = this.entryPath(hash);
+  /** Removes the entry for `hashToken`. No-op if absent. */
+  async invalidate(hashToken: string): Promise<void> {
+    const path = this.entryPath(hashToken);
     try {
       await this.adapter.remove(path);
     } catch {
@@ -254,26 +277,45 @@ export class PdfConversionCache {
   }
 
   /**
-   * Defense layer 3: removes all entries whose `convertedAt` is older than TTL.
-   * Called from plugin onload + WikiEngine.prepareBatchIngest.
+   * Defense layer 3: removes all entries whose mtime is older than TTL.
+   * Cheap heuristic — avoids reading every entry to inspect `convertedAt`.
+   *
+   * Called from `plugin onload` (via `performPdfCacheHousekeeping`) AND from
+   * `WikiEngine.prepareBatchIngest` at the start of every batch ingest.
    */
   async purgeExpired(): Promise<CacheMaintenanceResult> {
     const stats = await this.listCacheEntriesWithStats();
     const now = Date.now();
-    const expired = stats.filter((s) => {
-      // Cheap heuristic: filename `<sha256:...:model:converterVersion>.json` —
-      // we still need to read the file to inspect convertedAt, so just stat
-      // by mtime as a fast path. If mtime > ttlMs old, the entry is stale
-      // and we delete it without reading (mtime updates on write, not on
-      // every cache miss; conservative against over-deletion).
-      return now - s.mtime > this.ttlMs;
-    });
+    const expired = stats.filter((s) => now - s.mtime > this.ttlMs);
 
     const totalFreed = expired.reduce((sum, s) => sum + s.size, 0);
     await Promise.all(
       expired.map((s) => this.adapter.remove(s.path).catch(() => undefined))
     );
     return { removed: expired.length, freedBytes: totalFreed };
+  }
+
+  /**
+   * Batch-start housekeeping: TTL purge + size cap enforcement in one call.
+   *
+   * Why this exists (v1.25.0 PR3 follow-up #2, P1): ROADMAP.md §118 promised
+   * a batch-start housekeeping call, but `runBatchIngest` only fired
+   * `purgeExpired` via plugin onload. A user who runs a fresh batch ingest
+   * for the first time after months of disuse would otherwise see every
+   * write trigger an LRU eviction of their oldest cached conversions — the
+   * housekeeping didn't run between the TTL expiry and the new write.
+   *
+   * `enforceSizeLimit` here is a belt-and-suspenders second pass — even if
+   * `set()` already enforced on the previous write, this catches entries
+   * that accumulated between the last write and this batch.
+   */
+  async prepareBatchIngest(): Promise<{
+    expired: CacheMaintenanceResult;
+    size: CacheMaintenanceResult;
+  }> {
+    const expired = await this.purgeExpired();
+    const size = await this.enforceSizeLimit();
+    return { expired, size };
   }
 
   /**
@@ -346,8 +388,8 @@ export class PdfConversionCache {
     }
   }
 
-  private entryPath(hash: string): string {
-    return `${this.cacheDir}/${hash}.json`;
+  private entryPath(hashToken: string): string {
+    return `${this.cacheDir}/${hashToken}.json`;
   }
 }
 

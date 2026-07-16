@@ -590,12 +590,12 @@ export const FR_TEXTS = {
     sourceRejectedType: '⏭️ « {filename} » n\'est pas un type de fichier pris en charge — ignoré. Seules les notes texte (.md, .txt, etc.) peuvent être ingérées.',
     sourceRejectedDuplicate: '⏭️ « {filename} » ignoré — son contenu est déjà dans le wiki.',
     pdfReadingInProgress: 'Lecture du PDF : {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ « {filename} » ignoré — le provider ou le modèle actuel ne prend pas en charge l\'entrée PDF. Changez de provider ou activez Force PDF Support dans Settings → LLM Configuration → Advanced.',
+    sourceRejectedPdfUnsupported: '⏭️ « {filename} » ignoré — votre provider ou modèle actuel n\'accepte pas les PDF. Changez de provider ou activez « Forcer le support PDF » dans Settings → LLM Configuration → Advanced, puis réessayez.',
     clearPdfCacheCommand: 'Vider le cache de conversion PDF',
     pdfCacheCleared: 'Cache PDF vidé ({count} entrées supprimées).',
     // v1.25.0 PR3: Advanced PDF settings
     forcePdfSupportName: 'Forcer le support PDF',
-    forcePdfSupportDesc: 'Désactivé par défaut. Ne concerne que les fournisseurs personnalisés compatibles OpenAI / Anthropic — leur support PDF varie, donc l’activation se fait à vos risques (la conversion peut échouer). Les fournisseurs PDF natifs (Anthropic / OpenAI / Bedrock) l’ignorent.',
+    forcePdfSupportDesc: 'Désactivé par défaut. Activez cette option si votre fournisseur ne figure pas dans la liste native mais peut quand même traiter les PDF. Lorsqu\'elle est activée, le PDF est envoyé à votre fournisseur actuel ; en cas de rejet, un message vous en informe. Les fournisseurs PDF natifs (Anthropic / OpenAI / Bedrock) n\'ont pas besoin de cette option.',
     writePdfMarkdownToVaultName: 'Écrire le Markdown converti dans le Vault',
     writePdfMarkdownToVaultDesc: 'Désactivé par défaut. Lorsqu’il est actif, le résultat de chaque conversion PDF est écrit dans un fichier « <basename>.pdf.md » à côté du PDF source. Lorsqu’il est désactivé (architecture cache seule), les résultats restent uniquement dans le cache du plugin et ne laissent aucun artefact dans votre Vault.',
 

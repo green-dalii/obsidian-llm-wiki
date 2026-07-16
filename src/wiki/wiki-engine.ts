@@ -509,6 +509,32 @@ export class WikiEngine {
   }
 
   /**
+   * v1.25.0 PR3 follow-up #2 (P1 #3): best-effort classifier for LLM
+   * errors that look like "this endpoint rejected the PDF binary".
+   *
+   * We don't try to be exhaustive (providers use different phrasings for
+   * "I don't support PDFs": 400, 415, "file part", "mediaType", etc.).
+   * The intent is to route the obvious cases — "rejected PDF", file part
+   * media-type errors, or "PDF input not supported" — to the localized
+   * `sourceRejectedPdfUnsupported` Notice, while transient network errors
+   * and generic 5xx still bubble up to the outer ingest error path.
+   */
+  private isPdfRelatedLlmError(message: string): boolean {
+    const lower = message.toLowerCase();
+    return (
+      lower.includes('pdf') ||
+      lower.includes('application/pdf') ||
+      lower.includes('file part') ||
+      lower.includes('file_part') ||
+      lower.includes('media type') ||
+      lower.includes('mediatype') ||
+      lower.includes('unsupported file') ||
+      lower.includes('does not support') ||
+      lower.includes('input not supported')
+    );
+  }
+
+  /**
    * v1.25.0 PR2 redo + PR3: PDF ingest branch.
    *
    * Converts the PDF binary to Markdown via the configured LLM provider's
@@ -563,8 +589,21 @@ export class WikiEngine {
         this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
         return;
       }
-      // LLM error: re-throw to the outer ingestSource's catch (preserves
-      // existing retry / log behavior for transient errors).
+      // v1.25.0 PR3 follow-up #2 (P1 #3): LLM errors during PDF conversion
+      // surface via the localized `sourceRejectedPdfUnsupported` Notice so the
+      // user sees actionable guidance ("toggle Force PDF Support or switch
+      // provider") rather than a generic ingest-error toast. The user opted
+      // into a PDF-capable flow; an LLM-side rejection of the PDF binary is
+      // a rejection of the source, not an unexpected runtime error.
+      //
+      // We still re-throw non-PDF-shaped errors (e.g. vault adapter IO
+      // failures, abort signals) so the outer ingestSource can apply its
+      // standard retry / log semantics.
+      const message = error instanceof Error ? error.message : String(error);
+      if (this.isPdfRelatedLlmError(message)) {
+        this.reportSkip(file, { reason: 'unsupported-pdf', detail: message }, opts);
+        return;
+      }
       throw error;
     }
 

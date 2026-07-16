@@ -453,12 +453,12 @@ export const IT_TEXTS = {
     sourceRejectedType: '⏭️ "{filename}" non è un tipo di file supportato — saltato. Possono essere acquisite solo note di testo (.md, .txt, ecc.).',
     sourceRejectedDuplicate: '⏭️ "{filename}" saltato — il suo contenuto è già nel wiki.',
     pdfReadingInProgress: 'Lettura PDF: {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ "{filename}" saltato — il provider o il modello corrente non supporta l\'input PDF. Cambia provider o abilita Force PDF Support in Settings → LLM Configuration → Advanced.',
+    sourceRejectedPdfUnsupported: '⏭️ «{filename}» saltato — il tuo provider o modello corrente non accetta file PDF. Cambia provider oppure attiva «Forza supporto PDF» in Settings → LLM Configuration → Advanced e riprova.',
     clearPdfCacheCommand: 'Svuota cache di conversione PDF',
     pdfCacheCleared: 'Cache PDF svuotata ({count} voci rimosse).',
     // v1.25.0 PR3: Advanced PDF settings
     forcePdfSupportName: 'Forza supporto PDF',
-    forcePdfSupportDesc: 'Disattivato per impostazione predefinita. Riguarda solo i provider personalizzati compatibili OpenAI / Anthropic — il loro supporto PDF varia, quindi l’attivazione è a tuo rischio (la conversione potrebbe fallire). I provider PDF nativi (Anthropic / OpenAI / Bedrock) lo ignorano.',
+    forcePdfSupportDesc: 'Disattivato per impostazione predefinita. Attiva questa opzione se il tuo provider non è nell\'elenco nativo ma può comunque gestire i PDF. Quando è attiva, il PDF viene inviato al provider corrente; se viene rifiutato, vedrai un messaggio di avviso. I provider PDF nativi (Anthropic / OpenAI / Bedrock) non hanno bisogno di questa opzione.',
     writePdfMarkdownToVaultName: 'Scrivi il Markdown convertito nel Vault',
     writePdfMarkdownToVaultDesc: 'Disattivato per impostazione predefinita. Quando attivo, il risultato di ogni conversione PDF viene scritto in un file « <basename>.pdf.md » accanto al PDF sorgente. Quando disattivato (architettura solo cache), i risultati vivono solo nella cache del plugin e non lasciano artefatti nel tuo Vault.',
 
