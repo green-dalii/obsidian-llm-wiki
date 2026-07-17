@@ -733,6 +733,22 @@ export class WikiEngine {
       console.debug('Content override length:', opts.contentOverride.length);
     }
 
+    // v1.25.0 PR3 follow-up #7 (Bug C, e2e 2026-07-17): cancellation setup +
+    // status bar entry MUST happen BEFORE the PDF early-return at :745 — the
+    // PDF branch (ingestPdfSource) is an early return that would skip every
+    // line below, including the AbortController + onIngestionStart that
+    // users need to (a) see which file is currently being converted and
+    // (b) cancel a long LLM call without killing Obsidian. Pre-fix, the
+    // status bar stayed on the initial "LLM wiki" placeholder forever and
+    // the click-to-cancel button was a no-op (isIngesting() returned false).
+    //
+    // `onIngestionStart` is idempotent at the main.ts callback level (it
+    // simply sets a single status bar text), so re-invoking it for the
+    // non-PDF path below is safe.
+    this.wasCancelled = false;
+    this.abortController = new AbortController();
+    this.onIngestionStart?.(file.basename);
+
     // v1.25.0 PR2 redo: PDF ingest path converts the PDF binary to markdown
     // via the configured LLM provider's native PDF support, caches by content
     // hash, then re-enters the standard ingest path with the markdown as
@@ -764,9 +780,12 @@ export class WikiEngine {
     const totalStartTime = Date.now();
 
     // Setup cancellation support
-    this.wasCancelled = false;
-    this.abortController = new AbortController();
-    this.onIngestionStart?.(file.basename);
+    // v1.25.0 PR3 follow-up #7 (Bug C): AbortController / onIngestionStart
+    // already initialized above (line ~700, before PDF dispatch) so the
+    // status bar is correct and cancellation is wired for both PDF and
+    // text flows. We intentionally do NOT re-create the AbortController
+    // here — it would create a race window where cancelIngestion() could
+    // abort the *previous* instance instead of the current one.
 
     // Long-source warning: large files trigger iterative batch extraction
     // (multiple LLM passes), which takes significantly longer than small files.

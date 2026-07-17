@@ -366,4 +366,81 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
       expect(last?.skipped).toBe(true);
     });
   });
+
+  // v1.25.0 PR3 follow-up #7 (Bug C, e2e 2026-07-17): the status bar never
+  // advanced during PDF ingest — it stayed on the initial "LLM wiki"
+  // placeholder forever, and the click-to-cancel button was a no-op
+  // (isIngesting() returned false because the PDF branch was an early
+  // return that bypassed cancel/status setup). Fix moved the
+  // AbortController + onIngestionStart setup block before the PDF
+  // dispatch so both flows share the same lifecycle.
+  describe('Bug C: status bar + cancel lifecycle during PDF ingest', () => {
+    it('PDF ingest fires onIngestionStart with filename', async () => {
+      // Pre-fix: the PDF branch returned early at line 745-746, skipping
+      // `onIngestionStart?.(file.basename)` at line 769. Status bar never
+      // updated. Post-fix: setup runs BEFORE dispatch.
+      mockedConvert.mockResolvedValueOnce({
+        markdown: '# PDF Body',
+        metadata: { convertedAt: '2026-07-17T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
+      });
+      const h = createWikiEngineHarness({
+        llmResponses: [
+          JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] }),
+        ],
+      });
+
+      await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+      expect(h.startedFilenames).toContain('paper');
+    });
+
+    it('PDF ingest emits onProgress messages for the conversion step', async () => {
+      // The wiki-engine.ingestPdfSource emits "Reading PDF:  ..." via
+      // onProgress so the status bar / Notice channels advance. Pre-fix
+      // only the Notice updated; status bar text was frozen.
+      mockedConvert.mockResolvedValueOnce({
+        markdown: '# PDF Body',
+        metadata: { convertedAt: '2026-07-17T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
+      });
+      const h = createWikiEngineHarness({
+        llmResponses: [
+          JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] }),
+        ],
+      });
+
+      await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+      // At least the "Reading PDF" message should have arrived.
+      const hadPdfProgress = h.progressMessages.some((m) => /Reading PDF/i.test(m));
+      expect(hadPdfProgress).toBe(true);
+    });
+
+    it('cancel during PDF conversion aborts isIngesting() → true', async () => {
+      // We construct a converter mock whose promise resolves only when
+      // the test calls the deferred resolver. Then we trigger cancel.
+      let releaseConvert!: () => void;
+      mockedConvert.mockImplementationOnce(
+        () => new Promise<ConversionResult>((resolve) => { releaseConvert = () => resolve({
+          markdown: '# Late Body',
+          metadata: { convertedAt: '2026-07-17T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
+        }); })
+      );
+
+      const h = createWikiEngineHarness();
+      const ingestPromise = h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+      // While the converter is awaiting: status bar should be visible AND
+      // isIngesting should report true so the click-to-cancel button does
+      // the right thing.
+      expect(h.engine.isIngesting()).toBe(true);
+      h.engine.cancelIngestion();
+      releaseConvert!();
+
+      // Swallow the resulting AbortError — our concern is that cancel
+      // fired successfully during the ingest window.
+      await ingestPromise.catch(() => undefined);
+      // After completion, isIngesting() flips back to false.
+      expect(h.engine.isIngesting()).toBe(false);
+    });
+  });
 });

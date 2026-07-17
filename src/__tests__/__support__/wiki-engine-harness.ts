@@ -24,6 +24,10 @@ export interface WikiEngineHarness {
   files: Map<string, string>;
   /** Mutable call stats. */
   stats: { llmCalls: number; vaultMarkdownScans: number };
+  /** Filenames delivered to `onIngestionStart` (status-bar text hooks). */
+  startedFilenames: string[];
+  /** Progress messages delivered to `onProgress` (PDF "Reading PDF: …"). */
+  progressMessages: string[];
 }
 
 export interface HarnessOptions {
@@ -106,17 +110,29 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
     getSchemaContext: async () => '',
   } as unknown as SchemaManager;
 
+  const startedFilenames: string[] = [];
+  const progressMessages: string[] = [];
   const engine = new WikiEngine(
     app,
     { ...DEFAULT_SETTINGS, ...opts.settings },
     () => client,
     schemaManager,
     (path: string) => { writtenPaths.push(path); }, // onFileWrite
-    undefined, // onProgress
+    // v1.25.0 PR3 follow-up #7 (Bug C): capture progress messages so tests
+    // can assert that the status bar / Notice channels advance during PDF
+    // conversion (pre-fix the status bar stayed frozen on the initial
+    // placeholder).
+    (msg: string) => { progressMessages.push(msg); },
     (report: IngestReport) => { reports.push(report); }, // onDone
+2);
+  // Wire ingestion callbacks (onIngestionStart / onIngestionEnd). Tests
+  // can read `startedFilenames` to assert the status bar text was set.
+  engine.setIngestionCallbacks(
+    (filename?: string) => { if (filename) startedFilenames.push(filename); },
+    () => { /* onEnd: nothing to capture */ },
   );
 
-  return { engine, writtenPaths, reports, files, stats };
+  return { engine, writtenPaths, reports, files, stats, startedFilenames, progressMessages };
 }
 
 /** True if any written path is a wiki entity/concept/source page (the #164 symptom). */

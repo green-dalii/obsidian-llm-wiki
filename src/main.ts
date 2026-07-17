@@ -117,7 +117,22 @@ export default class LLMWikiPlugin extends Plugin {
       // this callback (during file writes), autoMaintainManager is guaranteed
       // to exist. This is intentional — reordering the assignments would break it.
       (path: string) => this.autoMaintainManager.watchWrite(path),
-      (msg: string) => this.showProgressFor(ProgressScope.IngestAutoWatch, msg),
+      // v1.25.0 PR3 follow-up #7 (Bug C, e2e 2026-07-17): the wikiEngine
+      // calls `onProgress` for inline progress messages (e.g. PDF
+      // "Reading PDF: paper.pdf"). Previously this only updated the
+      // persistent Notice via showProgressFor, leaving the status bar
+      // frozen on the initial placeholder text. We now ALSO mirror the
+      // same text into the status bar so the user sees both surfaces
+      // advancing in lockstep, with the text itself acting as
+      // "current operation" cue. Status bar text is overwritten by the
+      // ingestion-start callback when a new file begins.
+      (msg: string) => {
+        if (this.ingestStatusBar) {
+          this.ingestStatusBar.setText(msg);
+          this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
+        }
+        this.showProgressFor(ProgressScope.IngestAutoWatch, msg);
+      },
       // v1.22.6 #204: Dispatch based on report.trigger so watch-mode
       // auto-ingest goes through onAutoIngestDone (Notice) while
       // manual ingest keeps the legacy IngestReportModal behavior.
