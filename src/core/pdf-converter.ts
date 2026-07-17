@@ -43,6 +43,7 @@ import {
   TOKENS_PDF_CONVERSION,
   NATIVE_PDF_PROVIDER_IDS,
 } from '../constants';
+import { PDF_PROMPTS } from '../wiki/prompts/pdf';
 import type { LLMClient } from '../types';
 
 // --- public types ---
@@ -160,10 +161,13 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
 
   // 7. Call LLM. abortSignal is threaded through so the status-bar cancel
   // button actually interrupts the LLM HTTP request via Vercel AI SDK v6.
+  // v1.25.0 PR3 follow-up #9 (prompt centralization): the verbatim
+  // system prompt lives in src/wiki/prompts/pdf.ts alongside every other
+  // LLM-call prompt in the project (barrel re-exported by src/prompts.ts).
   const response = await llmClient.createMessage({
     model,
     max_tokens: TOKENS_PDF_CONVERSION,
-    system: PDF_EXTRACTION_SYSTEM_PROMPT,
+    system: PDF_PROMPTS.systemPrompt,
     messages: [
       {
         role: 'user',
@@ -181,10 +185,20 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
     ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
   });
 
+  // v1.25.0 PR3 follow-up #9 (output cleanup): some local / small models
+  // (Qwen3.5-2B-MLX-4bit, Llama 3 8B Instruct, etc.) wrap their response
+  // in ```markdown ... ``` fences despite the system prompt forbidding
+  // them. The cleaner normalizes the response before we write it to
+  // cache — preventing fence contamination from leaking into the wiki
+  // summary generation downstream. The cleaner is conservative
+  // (returns input unchanged when no rule matches) so a model that
+  // emits clean Markdown passes through untouched.
+  const cleanedMarkdown = PDF_PROMPTS.unwrapFencedMarkdown(response);
+
   // 8. Build the result entry and cache it under the file token (NOT the
   // raw logical key — see step 4 comment for why).
   const entry: ConversionResult = {
-    markdown: response,
+    markdown: cleanedMarkdown,
     metadata: {
       title: info.title,
       author: info.author,
@@ -242,30 +256,6 @@ function bytesToBase64(bytes: Uint8Array): string {
   }
   return btoa(binary);
 }
-
-/**
- * Hoisted system prompt (was `buildSystemPrompt()`). The "preserve source
- * language; do NOT translate" rule is the most important instruction — it
- * locks the LLM into reading rather than rewriting the source.
- */
-const PDF_EXTRACTION_SYSTEM_PROMPT = [
-  'You convert PDFs into clean, well-structured Markdown.',
-  '',
-  'RULES:',
-  '- Preserve the source PDF language exactly. Do NOT translate.',
-  '- Preserve the document structure: headings, paragraphs, lists, tables, code blocks.',
-  '- Do NOT summarize, paraphrase, or add commentary.',
-  '- Do NOT add a preamble, postscript, or any text outside the converted content.',
-  '- Output the converted Markdown directly, with no surrounding markdown fences.',
-  '- If the PDF has a clear title and author on its first page, include them in a YAML frontmatter at the top of your output:',
-  '  ---',
-  '  title: "..."',
-  '  author: "..."',
-  '  ---',
-  '  (omit fields you cannot determine confidently).',
-  '',
-  'Begin conversion now.',
-].join('\n');
 
 function buildUserText(info: { title?: string; author?: string; pageCount?: number }): string {
   const parts: string[] = ['Convert the attached PDF to Markdown.'];

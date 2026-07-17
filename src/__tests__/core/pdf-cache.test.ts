@@ -7,8 +7,7 @@ import {
 
 // PDF_DIR is a test-only fake path; the hardcoded `.obsidian` here is
 // intentional and confined to the test sandbox.
-// eslint-disable-next-line obsidianmd/hardcoded-config-path
-const PDF_DIR = '/fake/.obsidian/plugins/karpathywiki/pdf-cache';
+const PDF_DIR = '/fake/.obsidian/plugins/karpathywiki/pdf-cache'; // eslint-disable-line obsidianmd/hardcoded-config-path
 const SAMPLE_HASH = 'abc123def456';
 
 // Use a runtime timestamp so TTL tests are deterministic regardless of when
@@ -220,8 +219,7 @@ describe('PdfConversionCache', () => {
       return {
         c: new PdfConversionCache({
           // Arbitrary cacheDir — this test does not exercise adapter path resolution.
-          // eslint-disable-next-line obsidianmd/hardcoded-config-path
-          cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache',
+          cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
           adapter,
         }),
         list,
@@ -270,16 +268,11 @@ describe('PdfConversionCache', () => {
   // segment-by-segment and mkdir's each piece before writing.
   describe('Bug E: cacheDir auto-creation on set()', () => {
     it('walks every missing segment of cacheDir before write', async () => {
-      // Adapter records each mkdir call. We mimic a fresh vault by
-      // throwing EEXIST from mkdir (which Obsidian's adapter does on
-      // most platforms when the segment already exists) — and tracking
-      // the call order to assert ensureCacheDir calls each segment
-      // sequentially from the root down.
-      const mkdirCalls: string[] = [];
-      const writeCalls: Array<{ path: string; data: string }> = [];
       // Adapter that succeeds only when called with mkdir for the leaf
       // segment (so the assertion would catch a "forgot to walk the
       // segments" bug).
+      const mkdirCalls: string[] = [];
+      const writeCalls: Array<{ path: string; data: string }> = [];
       const adapter = {
         read: vi.fn(async () => { throw new Error('ENOENT'); }),
         write: vi.fn(async (path: string, data: string) => {
@@ -289,16 +282,11 @@ describe('PdfConversionCache', () => {
         list: vi.fn(async () => []),
         mkdir: vi.fn(async (path: string) => {
           mkdirCalls.push(path);
-          // EEXIST iff segment already exists; we throw ENOENT from list
-          // so listCacheEntries will short-circuit and the only way
-          // write can succeed is if mkdir walked the segments. We don't
-          // need to throw here — accept all mkdir calls.
         }),
         stat: vi.fn(async () => null),
       } as unknown as ConstructorParameters<typeof PdfConversionCache>[0]['adapter'];
       const c = new PdfConversionCache({
-        // eslint-disable-next-line obsidianmd/hardcoded-config-path
-        cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache',
+        cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
         adapter,
       });
 
@@ -307,16 +295,19 @@ describe('PdfConversionCache', () => {
         metadata: { convertedAt: '2026-07-17T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
       });
 
-      // expect mkdir was called for every segment, in order, before write.
+      // Expected path segments below intentionally hardcode `.obsidian/`
+      // (Obsidian's default configDir) — this test pins the exact
+      // segment walk that ensureCacheDir must perform. The lint rule
+      // fires on string literals; we suppress it because the strings
+      // are intentionally the canonical Obsidian default.
       expect(mkdirCalls).toEqual([
-        '.obsidian',
-        '.obsidian/plugins',
-        '.obsidian/plugins/karpathywiki',
-        '.obsidian/plugins/karpathywiki/pdf-cache',
+        '.obsidian', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins/karpathywiki', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
       ]);
-      // And the write succeeded.
       expect(writeCalls.length).toBe(1);
-      expect(writeCalls[0].path).toBe('.obsidian/plugins/karpathywiki/pdf-cache/hash1.json');
+      expect(writeCalls[0].path).toBe('.obsidian/plugins/karpathywiki/pdf-cache/hash1.json'); // eslint-disable-line obsidianmd/hardcoded-config-path
     });
 
     it('does not double-mkdir segments that already exist (idempotency)', async () => {
@@ -341,8 +332,7 @@ describe('PdfConversionCache', () => {
         stat: vi.fn(async () => null),
       } as unknown as ConstructorParameters<typeof PdfConversionCache>[0]['adapter'];
       const c = new PdfConversionCache({
-        // eslint-disable-next-line obsidianmd/hardcoded-config-path
-        cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache',
+        cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
         adapter,
       });
 
@@ -354,12 +344,11 @@ describe('PdfConversionCache', () => {
         })
       ).resolves.toBeUndefined();
 
-      // All 4 segments tried in order; no error surfaced.
       expect(mkdirCalls).toEqual([
-        '.obsidian',
-        '.obsidian/plugins',
-        '.obsidian/plugins/karpathywiki',
-        '.obsidian/plugins/karpathywiki/pdf-cache',
+        '.obsidian', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins/karpathywiki', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
       ]);
     });
   });
