@@ -66,6 +66,14 @@ export interface PdfConversionContext {
    *  popout-window-aware `activeWindow.crypto.subtle` rather than the
    *  banned `window` global. */
   subtle?: SubtleCrypto;
+  /** v1.25.0 PR3 follow-up #8 (Bug D, e2e 2026-07-17): cancellation signal
+   *  for the LLM call. When the user clicks the status bar during PDF
+   *  conversion, this signal flips to aborted and Vercel AI SDK v6
+   *  propagates the cancellation to the underlying HTTP request,
+   *  returning early instead of letting the LLM call run to completion.
+   *  Legacy clients ignore unknown params and run as before — graceful
+   *  degradation, no behavior change for them. */
+  abortSignal?: AbortSignal;
 }
 
 /** What we return on success. */
@@ -150,7 +158,8 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
   // 6. Encode PDF as base64 for the LLM content part
   const base64 = bytesToBase64(bytes);
 
-  // 7. Call LLM
+  // 7. Call LLM. abortSignal is threaded through so the status-bar cancel
+  // button actually interrupts the LLM HTTP request via Vercel AI SDK v6.
   const response = await llmClient.createMessage({
     model,
     max_tokens: TOKENS_PDF_CONVERSION,
@@ -169,6 +178,7 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
         ],
       },
     ],
+    ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
   });
 
   // 8. Build the result entry and cache it under the file token (NOT the

@@ -483,6 +483,13 @@ export interface LLMClient {
     temperature?: number;       // Issue #128: per-request sampling temperature
     repetition_penalty?: number; // Issue #128 follow-up: llama.cpp extension
     chat_template_kwargs?: Record<string, unknown>; // Issue #99: template-based reasoning disable
+    // v1.25.0 PR3 follow-up #8 (Bug D, e2e 2026-07-17): cancellation
+    // signal for long-running calls. The PDF converter threads the
+    // engine's AbortSignal through so a status-bar click during PDF
+    // conversion actually aborts the LLM call rather than only
+    // finishing the post-conversion phase. AI SDK v6 accepts this
+    // natively; legacy clients ignore it.
+    abortSignal?: AbortSignal;
   }): Promise<string>;
 
   createMessageStream?(params: {

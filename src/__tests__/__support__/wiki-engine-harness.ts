@@ -124,7 +124,7 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
     // placeholder).
     (msg: string) => { progressMessages.push(msg); },
     (report: IngestReport) => { reports.push(report); }, // onDone
-2);
+  );
   // Wire ingestion callbacks (onIngestionStart / onIngestionEnd). Tests
   // can read `startedFilenames` to assert the status bar text was set.
   engine.setIngestionCallbacks(

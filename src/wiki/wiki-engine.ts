@@ -655,6 +655,14 @@ export class WikiEngine {
         resolveModelForTask: (settings, task) =>
           resolveModelForTask(this.settings, task as 'ingest' | 'lint' | 'query'),
         ...(this.subtle ? { subtle: this.subtle } : {}),
+        // v1.25.0 PR3 follow-up #8 (Bug D): thread the engine's
+        // AbortSignal through to the LLM call. When the user clicks
+        // the status bar during PDF conversion, cancelIngestion()
+        // flips this signal aborted; AI SDK v6 propagates it to the
+        // underlying HTTP request and returns early. Pre-fix the
+        // signal was ignored and the LLM call ran to completion even
+        // after the user clicked cancel.
+        ...(this.abortController ? { abortSignal: this.abortController.signal } : {}),
       });
     } catch (error) {
       if (error instanceof UnsupportedProviderError) {
@@ -733,21 +741,34 @@ export class WikiEngine {
       console.debug('Content override length:', opts.contentOverride.length);
     }
 
-    // v1.25.0 PR3 follow-up #7 (Bug C, e2e 2026-07-17): cancellation setup +
-    // status bar entry MUST happen BEFORE the PDF early-return at :745 — the
-    // PDF branch (ingestPdfSource) is an early return that would skip every
-    // line below, including the AbortController + onIngestionStart that
-    // users need to (a) see which file is currently being converted and
-    // (b) cancel a long LLM call without killing Obsidian. Pre-fix, the
-    // status bar stayed on the initial "LLM wiki" placeholder forever and
-    // the click-to-cancel button was a no-op (isIngesting() returned false).
+    // v1.25.0 PR3 follow-up #7 + #8 (Bug C + D, e2e 2026-07-17): cancellation
+    // setup + status bar entry MUST happen BEFORE the PDF early-return at
+    // :745 — the PDF branch (ingestPdfSource) is an early return that
+    // would skip every line below, including the AbortController +
+    // onIngestionStart that users need to (a) see which file is currently
+    // being converted and (b) cancel a long LLM call without killing
+    // Obsidian. Pre-fix, the status bar stayed on the initial "LLM wiki"
+    // placeholder forever and the click-to-cancel button was a no-op.
     //
+    // v1.25.0 PR3 follow-up #8 (Bug D, e2e 2026-07-17): once `convertPdfToMarkdown`
+    // finishes, `ingestPdfSource` re-enters `ingestSource` with `contentOverride`
+    // set (line 727) — so this setup block runs TWICE per PDF ingest. Without
+    // the guard below, the second invocation would overwrite `this.abortController`
+    // with a fresh controller whose `signal` is NOT aborted, even if the user
+    // clicked the status bar to cancel during PDF conversion. The fresh
+    // controller also overwrites any in-flight cancellation signal.
+    //
+    // Guard: only initialize the controller if none exists yet. This keeps
+    // the *original* abort signal live for both PDF and re-entered text
+    // flows, so a single cancel-click propagates through both stages.
     // `onIngestionStart` is idempotent at the main.ts callback level (it
-    // simply sets a single status bar text), so re-invoking it for the
-    // non-PDF path below is safe.
-    this.wasCancelled = false;
-    this.abortController = new AbortController();
-    this.onIngestionStart?.(file.basename);
+    // simply sets status bar text), so we still re-emit it for visual
+    // refresh — that doesn't grow any state.
+    if (this.abortController === null) {
+      this.wasCancelled = false;
+      this.abortController = new AbortController();
+      this.onIngestionStart?.(file.basename);
+    }
 
     // v1.25.0 PR2 redo: PDF ingest path converts the PDF binary to markdown
     // via the configured LLM provider's native PDF support, caches by content
