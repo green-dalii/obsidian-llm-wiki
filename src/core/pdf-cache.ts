@@ -210,6 +210,21 @@ export class PdfConversionCache {
    * so one giant PDF can't hog the entire cache. The caller still gets the
    * conversion result back via the return value of convertPdfToMarkdown —
    * cache write failure is performance-only, never correctness.
+   *
+   * v1.25.0 PR3 follow-up #9 (Bug E, e2e 2026-07-17): Obsidian's adapter
+   * does NOT auto-create parent directories on write — they have to exist
+   * beforehand. On a fresh vault, `cacheDir` (e.g. `.obsidian/plugins/
+   * karpathywiki/pdf-cache/`) doesn't exist yet, so the first `set()` would
+   * silently fail with ENOENT and lose the conversion result. We call
+   * `ensureCacheDir()` idempotently before writing — it walks the cacheDir
+   * segment-by-segment and `mkdir`s each missing piece. The walk handles
+   * nested paths because Obsidian's `adapter.mkdir` is single-level on most
+   * platforms (no auto-recursion).
+   *
+   * The subsequent `enforceSizeLimit()` is also wrapped in try/catch so a
+   * flaky eviction stat call does not propagate through `set()` →
+   * `convertPdfToMarkdown` and discard the conversion result the user
+   * already paid for.
    */
   async set(hashToken: string, entry: PdfCacheEntry): Promise<void> {
     const path = this.entryPath(hashToken);
@@ -224,6 +239,11 @@ export class PdfConversionCache {
       return;
     }
 
+    // Idempotent — creates any missing segments of `cacheDir`. Safe on
+    // every platform because we walk segments ourselves rather than
+    // relying on Obsidian's adapter to recurse.
+    await this.ensureCacheDir();
+
     // Remove old entry first to free its size before enforcing the new cap
     await this.invalidate(hashToken).catch(() => undefined);
 
@@ -234,8 +254,44 @@ export class PdfConversionCache {
       return;
     }
 
-    // Defense layer 2: enforce total cap after every write (LRU-by-mtime)
-    await this.enforceSizeLimit();
+    // Defense layer 2: enforce total cap after every write (LRU-by-mtime).
+    // Try/catch swallow so a flaky stat call in the eviction loop doesn't
+    // throw through `set()` → `convertPdfToMarkdown` and discard the
+    // already-paid conversion result.
+    try {
+      await this.enforceSizeLimit();
+    } catch (error) {
+      console.warn('[pdf-cache] enforceSizeLimit failed; cap may be temporarily exceeded:', error);
+    }
+  }
+
+  /**
+   * Walks the cacheDir path segment-by-segment, calling `adapter.mkdir` for
+   * each missing directory. Idempotent — re-invocation on an existing
+   * directory is a fast no-op whose ENOENT-class return value we already
+   * swallow. Errors are logged at the adapter's natural level but do not
+   * block the caller (`set()` already has its own try/catch around the
+   * write). Non-ENOENT errors (EACCES, EPERM, etc.) are surfaced so a
+   * genuinely-broken filesystem doesn't fail silently.
+   */
+  private async ensureCacheDir(): Promise<void> {
+    const dir = this.cacheDir.endsWith('/') ? this.cacheDir.slice(0, -1) : this.cacheDir;
+    const segments: string[] = [];
+    let cursor = '';
+    for (const seg of dir.split('/')) {
+      if (!seg) continue;
+      cursor = cursor ? `${cursor}/${seg}` : seg;
+      segments.push(cursor);
+    }
+    for (const path of segments) {
+      try {
+        await this.adapter.mkdir(path);
+      } catch (error) {
+        if (!isMissingDirError(error)) {
+          console.warn(`[pdf-cache] mkdir(${path}) returned non-ENOENT error:`, error);
+        }
+      }
+    }
   }
 
   /** Removes the entry for `hashToken`. No-op if absent. */

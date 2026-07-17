@@ -260,6 +260,109 @@ describe('PdfConversionCache', () => {
       await expect(c.purgeExpired()).rejects.toThrow(/permission denied/);
     });
   });
+
+  // v1.25.0 PR3 follow-up #9 (Bug E, e2e 2026-07-17): on a fresh vault
+  // the cacheDir (e.g. `.obsidian/plugins/karpathywiki/pdf-cache/`) does
+  // not yet exist. Obsidian's adapter does NOT auto-create parent
+  // directories on `write`/`mkdir`-single-segment only, so the first
+  // `set()` would silently fail with ENOENT and lose the conversion
+  // result. `set()` now calls `ensureCacheDir()` which walks the path
+  // segment-by-segment and mkdir's each piece before writing.
+  describe('Bug E: cacheDir auto-creation on set()', () => {
+    it('walks every missing segment of cacheDir before write', async () => {
+      // Adapter records each mkdir call. We mimic a fresh vault by
+      // throwing EEXIST from mkdir (which Obsidian's adapter does on
+      // most platforms when the segment already exists) — and tracking
+      // the call order to assert ensureCacheDir calls each segment
+      // sequentially from the root down.
+      const mkdirCalls: string[] = [];
+      const writeCalls: Array<{ path: string; data: string }> = [];
+      // Adapter that succeeds only when called with mkdir for the leaf
+      // segment (so the assertion would catch a "forgot to walk the
+      // segments" bug).
+      const adapter = {
+        read: vi.fn(async () => { throw new Error('ENOENT'); }),
+        write: vi.fn(async (path: string, data: string) => {
+          writeCalls.push({ path, data });
+        }),
+        remove: vi.fn(async () => undefined),
+        list: vi.fn(async () => []),
+        mkdir: vi.fn(async (path: string) => {
+          mkdirCalls.push(path);
+          // EEXIST iff segment already exists; we throw ENOENT from list
+          // so listCacheEntries will short-circuit and the only way
+          // write can succeed is if mkdir walked the segments. We don't
+          // need to throw here — accept all mkdir calls.
+        }),
+        stat: vi.fn(async () => null),
+      } as unknown as ConstructorParameters<typeof PdfConversionCache>[0]['adapter'];
+      const c = new PdfConversionCache({
+        // eslint-disable-next-line obsidianmd/hardcoded-config-path
+        cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache',
+        adapter,
+      });
+
+      await c.set('hash1', {
+        markdown: '# Body',
+        metadata: { convertedAt: '2026-07-17T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
+      });
+
+      // expect mkdir was called for every segment, in order, before write.
+      expect(mkdirCalls).toEqual([
+        '.obsidian',
+        '.obsidian/plugins',
+        '.obsidian/plugins/karpathywiki',
+        '.obsidian/plugins/karpathywiki/pdf-cache',
+      ]);
+      // And the write succeeded.
+      expect(writeCalls.length).toBe(1);
+      expect(writeCalls[0].path).toBe('.obsidian/plugins/karpathywiki/pdf-cache/hash1.json');
+    });
+
+    it('does not double-mkdir segments that already exist (idempotency)', async () => {
+      // If a segment already exists, mkdir throws EEXIST → not ENOENT.
+      // ensureCacheDir must swallow that, not propagate. Without
+      // idempotency every write would log a flurry of spurious warnings.
+      const mkdirCalls: string[] = [];
+      const adapter = {
+        read: vi.fn(async () => { throw new Error('ENOENT'); }),
+        write: vi.fn(async () => undefined),
+        remove: vi.fn(async () => undefined),
+        list: vi.fn(async () => []),
+        mkdir: vi.fn(async (path: string) => {
+          mkdirCalls.push(path);
+          // Mimic Obsidian adapter: throwing "folder already exists"
+          // with EEXIST code on already-existing segments. We throw it
+          // unconditionally to verify set() never propagates it.
+          const e = new Error('EEXIST: folder already exists') as Error & { code?: string };
+          e.code = 'EEXIST';
+          throw e;
+        }),
+        stat: vi.fn(async () => null),
+      } as unknown as ConstructorParameters<typeof PdfConversionCache>[0]['adapter'];
+      const c = new PdfConversionCache({
+        // eslint-disable-next-line obsidianmd/hardcoded-config-path
+        cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache',
+        adapter,
+      });
+
+      // Should NOT throw, despite every mkdir returning EEXIST.
+      await expect(
+        c.set('hash1', {
+          markdown: '# Body',
+          metadata: { convertedAt: '2026-07-17T00:00:00Z', converter: 'anthropic/claude-opus-4-8' },
+        })
+      ).resolves.toBeUndefined();
+
+      // All 4 segments tried in order; no error surfaced.
+      expect(mkdirCalls).toEqual([
+        '.obsidian',
+        '.obsidian/plugins',
+        '.obsidian/plugins/karpathywiki',
+        '.obsidian/plugins/karpathywiki/pdf-cache',
+      ]);
+    });
+  });
 });
 
 describe('sha256Bytes', () => {
