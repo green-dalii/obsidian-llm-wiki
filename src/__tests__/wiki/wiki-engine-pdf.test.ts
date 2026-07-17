@@ -280,4 +280,90 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
       expect(r.thrown).toBe(true);
     });
   });
+
+  // v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): AI SDK v6 wraps the
+  // actual provider-level rejection in `error.cause.message`. The classifier
+  // must walk the cause chain to surface the Rust-serde-style schema reject
+  // ("unknown variant `file`, expected `text`") and route it to the
+  // localized PDF Notice rather than a generic errorIngestFailed toast.
+  //
+  // These tests exercise:
+  //   - Plain Error (no cause) — return top-level message
+  //   - Error with .cause — return cause.message
+  //   - Deep chain (AI_APICallError → SDK error → ... ) — return deepest
+  //   - Cycle protection (cause pointing back) — terminal gracefully
+  describe('inspectCauseChain — Bug B (e2e 2026-07-17)', () => {
+    it('returns top-level message for plain Error', async () => {
+      const e = new Error('Bad Request');
+      expect((await import('../../wiki/wiki-engine')).inspectCauseChain(e)).toBe('Bad Request');
+    });
+
+    it('returns cause.message when present', async () => {
+      // We build the chain via Object.assign rather than `new Error(msg, { cause })`
+      // because the project's tsconfig targets ES6 (ErrorOptions / `cause` is ES2022).
+      // The production code reads `cause` via `as { cause?: unknown }` cast which is
+      // ES-target-agnostic; this test mirrors that shape.
+      const cause = new Error('unknown variant `file`, expected `text`');
+      const e = new Error('AI_APICallError: outer');
+      Object.assign(e, { cause });
+      const { inspectCauseChain } = await import('../../wiki/wiki-engine');
+      expect(inspectCauseChain(e)).toBe('unknown variant `file`, expected `text`');
+    });
+
+    it('walks deep AI-SDK-style chain (>=3 levels)', async () => {
+      const leaf = new Error('messages[1]: unknown variant `file`, expected `text`');
+      const mid = new Error('OpenAICompat rejected body');
+      Object.assign(mid, { cause: leaf });
+      const top = new Error('AI_APICallError: failed deserialization');
+      Object.assign(top, { cause: mid });
+      const { inspectCauseChain } = await import('../../wiki/wiki-engine');
+      expect(inspectCauseChain(top)).toBe('messages[1]: unknown variant `file`, expected `text`');
+    });
+
+    it('cycle-safe (cause pointing back to ancestor)', async () => {
+      const a: Error & { cause?: unknown } = new Error('a');
+      const b: Error & { cause?: unknown } = new Error('b');
+      a.cause = b;
+      b.cause = a; // cycle
+      const { inspectCauseChain } = await import('../../wiki/wiki-engine');
+      // Should not loop forever; returns one of the two messages.
+      expect(typeof inspectCauseChain(a)).toBe('string');
+    });
+
+    it('routes OpenAI-compat SDK Rust-serde schema reject → unsupported-pdf', async () => {
+      // Real e2e shape from the user's vault (2026-07-17): Ollama rejects
+      // multipart file content with a Rust-serde error wrapped in
+      // AI_APICallError.cause.
+      const err = new Error(
+        'AI_APICallError: Failed to deserialize the JSON body into the target type: ' +
+          'messages[1]: unknown variant `file`, expected `text`'
+      );
+      const inner = new Error('messages[1]: unknown variant `file`, expected `text`');
+      // Simulate Vercel AI SDK nesting by overriding message + cause.
+      Object.assign(err, { cause: inner });
+      const h = createWikiEngineHarness();
+      mockedConvert.mockRejectedValueOnce(err);
+      try {
+        await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+      } catch {
+        // outer rethrow is fine — classification decides whether to skip first
+      }
+      const last = h.reports.at(-1);
+      expect(last?.skipped).toBe(true);
+      expect(last?.rejectedFiles?.[0]?.reason).toBe('unsupported-pdf');
+    });
+
+    it('routes "unsupported content type: file" → unsupported-pdf', async () => {
+      const err = new Error('Unsupported content type: file. Only text is allowed.');
+      const h = createWikiEngineHarness();
+      mockedConvert.mockRejectedValueOnce(err);
+      try {
+        await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+      } catch {
+        // ignored
+      }
+      const last = h.reports.at(-1);
+      expect(last?.skipped).toBe(true);
+    });
+  });
 });

@@ -69,6 +69,53 @@ export function dedupPages(paths: string[]): string[] {
   return out;
 }
 
+/**
+ * Walk the `error.cause` chain to find the deepest meaningful message.
+ *
+ * v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): Vercel AI SDK v6 wraps
+ * provider rejections in `AI_APICallError`, whose top-level message reads
+ * `"AI_APICallError: Failed to deserialize the JSON body into the target
+ * type: messages[1]: unknown variant \`file\`, expected \`text\`"`. The
+ * actual provider-level rejection phrase (in this case `unknown variant
+ * \`file\`, expected \`text\``) lives in `error.cause.message`. Flattening
+ * to top-level loses it; inspecting only `error.message` causes the
+ * classifier to miss obvious PDF-shape errors and surface a raw
+ * `errorIngestFailed` toast instead of the localized PDF guidance.
+ *
+ * Returns the deepest provider-level message we can find, falling back to
+ * the top-level message when the chain is empty or generic. Hard cap on
+ * depth (4) prevents cycle-induced hangs.
+ */
+export function inspectCauseChain(error: unknown): string {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  let deepest = errorToString(current);
+  for (let i = 0; i < 4; i++) {
+    if (!(current instanceof Error)) break;
+    const next = (current as { cause?: unknown }).cause;
+    if (next === undefined || next === null || seen.has(next)) break;
+    seen.add(next);
+    const nextMessage = errorToString(next);
+    if (nextMessage) {
+      deepest = nextMessage;
+    }
+    current = next;
+  }
+  return deepest;
+}
+
+function errorToString(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  // Use the value's own primitive stringification (boolean / number),
+  // but avoid the default Object.toString "useful only for debugging" path
+  // for plain objects — ES2023 doesn't expose a clean gate here, so we
+  // gate on typeof and return an empty string otherwise (callers
+  // tolerate empty strings and will fall back to top-level message).
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+}
+
 /** True iff two sets contain exactly the same strings. */
 function setsEqual(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -527,19 +574,39 @@ export class WikiEngine {
     // null-derefs, and other PDF-adjacent strings as "provider doesn't
     // support PDF", misleading users into disabling `forcePdfSupport` for
     // non-PDF issues.
+    //
+    // v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): added `unknown` and
+    // `expected` to catch Rust-serde-style schema-reject messages from
+    // OpenAI-compatible runtimes ("unknown variant `file`, expected `text`"),
+    // which is the dominant shape when the LLM endpoint does not implement
+    // the multipart file content schema (Ollama, vLLM, GLM, etc.).
     const hasRejectionVerb =
       lower.includes('reject') ||
       lower.includes('not support') ||
       lower.includes('unsupported') ||
       lower.includes('invalid') ||
-      lower.includes('not allowed');
+      lower.includes('not allowed') ||
+      lower.includes('unknown') ||
+      lower.includes('expected');
+    // v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): `file_part`,
+    // `mediatype`, and the multi-word content-part phrases are still
+    // preferred when present, but a single-word `file` marker is also
+    // accepted as long as the rejection verb set fires. This covers the
+    // dominant OpenAI-compat-Rust serde schema reject:
+    //   "messages[1]: unknown variant `file`, expected `text`"
+    // which has neither "pdf" nor "mediatype" — it's pure schema-tier.
+    // The verb set (rejection token) is the primary gate; the marker just
+    // narrows the search.
     const hasPdfMarker =
       lower.includes('pdf') ||
       lower.includes('application/pdf') ||
       lower.includes('file part') ||
       lower.includes('file_part') ||
       lower.includes('media type') ||
-      lower.includes('mediatype');
+      lower.includes('mediatype') ||
+      lower.includes('variant') ||
+      lower.includes('schema') ||
+      /\bfile\b/.test(lower);
     return hasRejectionVerb && hasPdfMarker;
   }
 
@@ -608,7 +675,19 @@ export class WikiEngine {
       // We still re-throw non-PDF-shaped errors (e.g. vault adapter IO
       // failures, abort signals) so the outer ingestSource can apply its
       // standard retry / log semantics.
-      const message = error instanceof Error ? error.message : String(error);
+      //
+      // v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): Vercel AI SDK v6
+      // wraps provider rejections in `AI_APICallError` whose top-level
+      // message is `"AI_APICallError: Failed to deserialize the JSON body
+      // into the target type: messages[1]: unknown variant \`file\`,
+      // expected \`text\`"`. The actual provider-level rejection phrase is
+      // in `error.cause.message`. inspectCauseChain() walks the chain to
+      // find the deepest provider-level message; classifier then runs on
+      // that. The verb set is also extended with `unknown` to capture
+      // Rust-serde-style schema reject messages ("unknown variant X,
+      // expected Y") which are the dominant shape from OpenAI-compatible
+      // runtimes (Ollama, vLLM, etc.).
+      const message = inspectCauseChain(error);
       if (this.isPdfRelatedLlmError(message)) {
         this.reportSkip(file, { reason: 'unsupported-pdf', detail: message }, opts);
         return;

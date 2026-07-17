@@ -201,6 +201,65 @@ describe('PdfConversionCache', () => {
       expect(await cache.get('hash2')).toBeNull();
     });
   });
+
+  // v1.25.0 PR3 follow-up #6 (Bug A, e2e 2026-07-17): first-launch
+  // housekeeping previously printed "[pdf-cache] housekeeping failed:
+  // ENOENT" because the cache directory does not exist yet on a fresh
+  // vault. listCacheEntries now catches ENOENT-class errors and returns
+  // an empty list, so the housekeeping helpers are silent no-ops.
+  describe('ENOENT cache directory (first launch)', () => {
+    function makeCacheWithListError(listError: unknown): { c: PdfConversionCache; list: ReturnType<typeof vi.fn> } {
+      const list = vi.fn(async () => { throw listError; });
+      // Cast to DataAdapter — this test only exercises read/list paths.
+      const adapter = {
+        read: vi.fn(async () => { throw new Error('ENOENT'); }),
+        write: vi.fn(async () => undefined),
+        remove: vi.fn(async () => undefined),
+        list,
+      } as unknown as ConstructorParameters<typeof PdfConversionCache>[0]['adapter'];
+      return {
+        c: new PdfConversionCache({
+          // Arbitrary cacheDir — this test does not exercise adapter path resolution.
+          // eslint-disable-next-line obsidianmd/hardcoded-config-path
+          cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache',
+          adapter,
+        }),
+        list,
+      };
+    }
+
+    it('purgeExpired returns zero-removed result when dir is missing (ENONENT code)', async () => {
+      const { c } = makeCacheWithListError({ code: 'ENOENT', message: 'no such file or directory' });
+      const result = await c.purgeExpired();
+      expect(result).toEqual({ removed: 0, freedBytes: 0 });
+    });
+
+    it('enforceSizeLimit returns zero-removed result when dir is missing (Node DOMException)', async () => {
+      const { c } = makeCacheWithListError({ name: 'NotFoundError', message: 'dir not found' });
+      const result = await c.enforceSizeLimit();
+      expect(result).toEqual({ removed: 0, freedBytes: 0 });
+    });
+
+    it('prepareBatchIngest returns zero-zeros when dir is missing', async () => {
+      const { c } = makeCacheWithListError(new Error('ENOENT: no such file or directory, scandir ...'));
+      const result = await c.prepareBatchIngest();
+      expect(result.expired).toEqual({ removed: 0, freedBytes: 0 });
+      expect(result.size).toEqual({ removed: 0, freedBytes: 0 });
+    });
+
+    it('clear returns zero-removed result when dir is missing', async () => {
+      const { c } = makeCacheWithListError({ code: 'ENOENT' });
+      const result = await c.clear();
+      expect(result).toEqual({ removed: 0, freedBytes: 0 });
+    });
+
+    it('listCacheEntries DOES NOT swallow non-ENOENT IO errors (permission, etc.)', async () => {
+      // EACCES, EPERM, etc. are real bugs and must propagate so callers see
+      // the error in their existing try/catch wrappers.
+      const { c } = makeCacheWithListError({ code: 'EACCES', message: 'permission denied' });
+      await expect(c.purgeExpired()).rejects.toThrow(/permission denied/);
+    });
+  });
 });
 
 describe('sha256Bytes', () => {

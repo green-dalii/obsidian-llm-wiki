@@ -116,6 +116,23 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
+ * Detect "directory does not exist" errors across Obsidian's adapter shape,
+ * the JS DOMException `NotFoundError`, and raw Node ENOENT (when the adapter
+ * surfaces it).
+ */
+function isMissingDirError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { code?: string; name?: string; message?: string };
+  if (e.code === 'ENOENT') return true;
+  if (e.name === 'NotFoundError') return true;
+  // Obsidian platform sometimes wraps adapter errors as plain strings.
+  if (typeof e.message === 'string' && /no such file or directory/i.test(e.message)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Filesystem-backed cache for PDF→Markdown conversion results.
  *
  * Pure: takes a `DataAdapter` so it can be tested with an in-memory fake.
@@ -363,10 +380,28 @@ export class PdfConversionCache {
   /**
    * Returns the flat list of child entry names under `cacheDir`. Normalizes
    * the `ListedFiles` / `string[]` adapter shape variance to `string[]`.
+   *
+   * v1.25.0 PR3 follow-up #6 (Bug A, e2e 2026-07-17): first-launch
+   * housekeeping prints `[pdf-cache] housekeeping failed: ENOENT` when the
+   * vault has never seen a PDF — the cache directory does not exist yet,
+   * so `adapter.list()` throws. We catch ENOENT-class errors here and
+   * return an empty list so `purgeExpired` / `enforceSizeLimit` /
+   * `prepareBatchIngest` are naturally no-ops on a fresh vault. The
+   * directory is created lazily by the first `set()`.
    */
   private async listCacheEntries(): Promise<string[]> {
-    const raw = await this.adapter.list(this.cacheDir);
-    return Array.isArray(raw) ? raw : [...(raw as { files?: string[] }).files ?? []];
+    let raw: string[] | { files?: string[] };
+    try {
+      raw = await this.adapter.list(this.cacheDir);
+    } catch (error) {
+      // ENOENT on a missing directory is an expected state for first-run
+      // vaults; treat as empty cache. Anything else (permission, IO) is
+      // still surfaced to the caller — housekeeping helpers already
+      // swallow those per their own try/catch wrappers.
+      if (isMissingDirError(error)) return [];
+      throw error;
+    }
+    return Array.isArray(raw) ? raw : [...raw.files ?? []];
   }
 
   /**
