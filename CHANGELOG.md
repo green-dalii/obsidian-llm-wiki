@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.25.0] - 2026-07-18
+
+**Theme:** Cache-only PDF Ingest (Level 1) with provider gate + content-hash cache + bounded growth; prompt centralization for the PDF transcriber; status-bar cancellation via Vercel AI SDK v6 AbortSignal; local model guidance with Apple Silicon OCR path (oMLX + Markitdown + Baidu Unlimited-OCR). 2182 tests passing (165 files). Recommended upgrade for everyone on v1.24.x.
+
+### Added
+
+- **PDF Ingest (Level 1).** Pick a PDF from your vault — the plugin reads it through your LLM provider's native file input (anthropic / openai / bedrock-anthropic / bedrock-openai natively; any other OpenAI/Anthropic-compatible endpoint via **Force PDF Support** in Settings → LLM Configuration → Advanced), converts it to Markdown via an OCR-style verbatim transcriber prompt with `[illegible]` / `[figure: ...]` / `[equation: ...]` anti-hallucination markers, and re-enters the regular Markdown ingest pipeline. Every existing entity / concept / alias / `[[wiki-link]]` workflow applies unchanged. The result is **content-hash cached** in `.obsidian/plugins/karpathywiki/pdf-cache/`; the cache key embeds `converterVersion` so prompt upgrades invalidate stale entries automatically.
+- **Bounded cache growth.** Three-defense-layer cache housekeeping: single-entry cap (10 MB) pre-write, LRU-by-mtime eviction (100 MB total / 1000 entries) post-write, and `prepareBatchIngest()` (TTL purge + size enforce) wired into `runBatchIngest()` via `preparePdfCacheForBatchIngest()`. Cache only by default — your vault is not modified.
+- **Optional vault sidecar.** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** writes a `<basename>.pdf.md` sidecar next to the source PDF after conversion. Off by default (cache-only). This is the only user-visible opt-in that touches the vault.
+- **Universal Force PDF Support escape hatch.** Any non-native provider (custom, anthropic-compatible, ollama, lmstudio, deepseek, kimi, glm, etc.) can attempt PDF conversion when the toggle is on. The endpoint decides; failures surface as a localized `sourceRejectedPdfUnsupported` Notice guiding the user to disable the toggle or switch provider. The trust boundary is the user — your endpoint either accepts PDF or it doesn't; the toggle tells us to ask it. Switching the provider to a NATIVE one (anthropic / openai / bedrock-*) auto-resets the toggle to `false`.
+- **Local PDF OCR path on Apple Silicon.** Documented end-to-end recommended setup for fully-local PDF ingestion: [oMLX](https://github.com/jundot/omlx) + Markitdown backend + Baidu Unlimited-OCR (open-sourced 2026-06-22, 3B total / 0.5B active, end-to-end OCR that solves the "slower the longer it generates" failure mode of older OCR models on long documents). Provider: **Custom OpenAI-Compatible** pointing at oMLX's local server with Force PDF Support on. PDF never leaves the machine.
+- **Cancellable PDF ingest.** Clicking the status bar mid-conversion aborts the in-flight LLM call through Vercel AI SDK v6 AbortSignal in ~200 ms. Both `.catch` handlers (`selectSourceToIngest` and `ingestActiveFile`) now call `dismissProgress()` so the persistent "Ingesting: <basename>" Notice clears on throw.
+- **Local model recommendations.** Dedicated `### 🦙 Local Model Recommendations (Ollama / LM Studio)` H3 in the Model Selection Guide, covering Qwen3.5 (27B / 35B-A3B / 122B-A10B), Qwen3.6 (27B with 256K+ context / 35B-A3B), Gemma 4 (E2B / E4B / 26B-A4B / 31B), with parameter-vs-quality tradeoff guidance, MLX-vs-GGUF quantization notes, and a context-strategy block. **All 10 locales.**
+- **New Cloud Model Picks H3** in the Model Selection Guide, separating the cloud-vs-local sections explicitly. **All 10 locales.**
+- **PDF transcriber prompt centralized.** `src/wiki/prompts/pdf.ts` houses `PDF_CONVERSION_SYSTEM_PROMPT` (rewritten as OCR-style verbatim transcriber) plus `unwrapFencedMarkdown()` cleanup helper (strips ` ```markdown ` / ` ``` ` / `<output>` wrappers that small/local models still produce despite instructions). Re-exported via the existing `src/prompts.ts` barrel — PDF was the last LLM-call site to be folded into the project's prompt barrel.
+- **PDF error classifier (`isPdfRelatedLlmError`).** Routes obvious PDF-rejection errors (rejection verb + PDF/media marker) to a localized `sourceRejectedPdfUnsupported` Notice. Tightened after the initial implementation: requires BOTH a rejection verb (`reject` / `not support` / `unsupported` / `invalid` / `not allowed`) AND a PDF/media marker (`pdf` / `application/pdf` / `file part` / `mediatype`). Pre-fix classifier substring-matched on `'pdf'` alone, causing transient 413 size-limit errors and Rust-serde "unknown variant `file`" schema rejects (no `pdf` keyword) to be misreported.
+- **Three-defense-layer cache filename safety.** Physical filename on disk is `sha256(logicalKey).slice(0, 16)` (Git short-hash style); the logical key retains `sha256:model:converterVersion` semantics; the converter hashes via new `hashCacheKey()` helper before `cache.get/set`. Fixes Windows `ERROR_INVALID_NAME` + POSIX unintended subpath when model contains `/` or `:`.
+- **PDF cache directory auto-creation.** `PdfConversionCache.ensureCacheDir()` walks path segments before `mkdir`. Obsidian's adapter does NOT auto-create parent directories, which left cache writes silently failing in fresh vaults.
+
+### Changed
+
+- **Default behavior preserved.** No breaking changes since v1.0.0. Old `data.json` without the new settings fields defaults to `false`, preserving cache-only behavior. The previously-planned sidecar-by-default approach was withdrawn in favor of cache-only before v1.25.0 ships (architecture pivot documented in `project_v1.25.0_pdf_cache_only`).
+- **PDF dispatch lives in `wiki-engine.ts`.** The separate `pdf-ingest-orchestrator.ts` file was deleted; `ingestPdfSource` now feeds `convertPdfToMarkdown` result into `analyzeSource` via `IngestOptions.contentOverride`, reusing the existing Markdown ingest pipeline.
+- **5 dead i18n keys removed** across all 10 locales (old "PDF orchestrator" + sidecar-default language).
+- **`LLMClient.createMessage` gained `abortSignal?: AbortSignal`** as an optional parameter. Existing client implementations ignore unknown params (graceful degradation); the project ships a passing thread.
+
+### Fixed
+
+- **ENOENT cache dir (Bug A).** Obsidian adapter doesn't auto-create parent directories. `ensureCacheDir()` walks segments before mkdir.
+- **AI-SDK cause chain (Bug B).** Vercel AI SDK v6 wraps provider rejections inside `error.cause.message`. The pre-fix `isPdfRelatedLlmError` classifier inspected only `error.message` and missed the rejection phrase. `inspectCauseChain()` walks the cause chain up to 4 levels with cycle protection; classifiers consult both layers. Now also extended to detect Rust-serde schema rejects ("unknown variant `file`, expected `text`") which lack any `pdf` keyword.
+- **Stuck "Ingesting: <basename>" Notice (Bug H).** When an interactive single-file ingest threw (network / vault IO / unexpected error), the persistent progress Notice stayed on screen until the next ingest. Both `.catch` blocks (`selectSourceToIngest` line 645, `ingestActiveFile` line 671) now call `this.dismissProgress()` after showing the error Notice.
+- **Status bar didn't mirror Notice (Bug C).** Clicking the status bar during PDF conversion didn't update text — fixed via double-callback pattern (Notice channel + text mirror in `onProgress` closure).
+- **PDF mid-flow cancel ineffective (Bug D).** Two-layered bug: setup block re-initialized on re-entry overwrote AbortController, AND `convertPdfToMarkdown` didn't thread AbortSignal to the LLM call. Fixed with idempotency guard in `wiki-engine.ingestSource` (`if (this.abortController === null)`) + abortSignal threading through `PdfConversionContext`.
+- **pdf-cache never written (Bug E).** Same root cause as Bug A but in the cache write path. `ensureCacheDir()` fix covers both directions.
+- **Classifier false-positive guards (PR3 follow-up #3).** 6 new tests pin the contract — 2 happy-path (route to skip) + 4 false-positive guards (413 / 5xx / null-deref / generic-invalid → re-throw).
+- **Markdown wrapper contamination in PDF output.** Some local / small models (Qwen3.5-2B-MLX-4bit, Llama 3 8B Instruct, etc.) wrap their PDF-conversion response in ```markdown ... ``` fences despite the system prompt forbidding them. `unwrapFencedMarkdown()` heuristic cleaner strips BOM → outermost ` ```markdown ` → outermost ` ``` ` → `<output>` → leading "Here is the converted Markdown:" preamble. Internal ```python ... ``` blocks survive (regex is single-fence, outermost-only).
+
+### Tests
+
+- 2182 tests passing (165 files). +102 tests since v1.24.1.
+- New tests cover:
+  - 30+ PDF ingest end-to-end tests (provider gate, cache hit/miss, settings defaults, sidecar create/update, forcePdfSupport toggle, classifier, cause chain walking, status bar, cancel-mid-PDF)
+  - 20 prompt invariant + unwrap helper tests (`src/__tests__/wiki/prompts/pdf.test.ts`)
+  - 6 PDF error classifier regression tests (happy-path + 413/5xx/null-deref/generic-invalid guards)
+  - 3 Bug D lifecycle tests (idempotency guard, AbortSignal propagation, dismiss on throw)
+
 ## [1.24.1] - 2026-07-14
 
 **Theme:** 5-stage PPR seed-selection cascade, empty-response quiet path, cleaner entity pages, Bedrock Stage 1, LM Studio no-key ingest, page-factory split, non-lossy Mentions re-ingest. 2080 tests passing. Recommended upgrade for all v1.24.0 users.

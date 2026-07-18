@@ -20,6 +20,7 @@ import { slugify } from '../core/slug';
 import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
 import { setGenerationComplete } from '../core/incomplete-page-cleaner';
+import { convertPdfToMarkdown, UnsupportedProviderError, EncryptedPdfError } from '../core/pdf-converter';
 import { hashBody, checkContentRequirements } from '../core/source-requirements';
 import { resolveModelForTask } from '../core/model-resolver';
 import type { SourceRejection } from '../core/source-requirements';
@@ -66,6 +67,53 @@ export function dedupPages(paths: string[]): string[] {
     out.push(p);
   }
   return out;
+}
+
+/**
+ * Walk the `error.cause` chain to find the deepest meaningful message.
+ *
+ * v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): Vercel AI SDK v6 wraps
+ * provider rejections in `AI_APICallError`, whose top-level message reads
+ * `"AI_APICallError: Failed to deserialize the JSON body into the target
+ * type: messages[1]: unknown variant \`file\`, expected \`text\`"`. The
+ * actual provider-level rejection phrase (in this case `unknown variant
+ * \`file\`, expected \`text\``) lives in `error.cause.message`. Flattening
+ * to top-level loses it; inspecting only `error.message` causes the
+ * classifier to miss obvious PDF-shape errors and surface a raw
+ * `errorIngestFailed` toast instead of the localized PDF guidance.
+ *
+ * Returns the deepest provider-level message we can find, falling back to
+ * the top-level message when the chain is empty or generic. Hard cap on
+ * depth (4) prevents cycle-induced hangs.
+ */
+export function inspectCauseChain(error: unknown): string {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  let deepest = errorToString(current);
+  for (let i = 0; i < 4; i++) {
+    if (!(current instanceof Error)) break;
+    const next = (current as { cause?: unknown }).cause;
+    if (next === undefined || next === null || seen.has(next)) break;
+    seen.add(next);
+    const nextMessage = errorToString(next);
+    if (nextMessage) {
+      deepest = nextMessage;
+    }
+    current = next;
+  }
+  return deepest;
+}
+
+function errorToString(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  // Use the value's own primitive stringification (boolean / number),
+  // but avoid the default Object.toString "useful only for debugging" path
+  // for plain objects — ES2023 doesn't expose a clean gate here, so we
+  // gate on typeof and return an empty string otherwise (callers
+  // tolerate empty strings and will fall back to top-level message).
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
 }
 
 /** True iff two sets contain exactly the same strings. */
@@ -117,6 +165,8 @@ export class WikiEngine {
   private _cachedGraph: Graph | null = null;
   private _cachedGraphAllPaths: Set<string> | null = null;
   private ctx: EngineContext;
+  /** SubtleCrypto from `activeWindow.crypto.subtle`. Used by PDF cache. */
+  private subtle: SubtleCrypto | undefined;
 
   constructor(
     app: App,
@@ -125,7 +175,8 @@ export class WikiEngine {
     schemaManager: SchemaManager,
     onFileWrite?: (path: string) => void,
     onProgress?: (message: string) => void,
-    onDone?: (report: IngestReport) => void
+    onDone?: (report: IngestReport) => void,
+    subtle?: SubtleCrypto
   ) {
     this.app = app;
     this.settings = settings;
@@ -135,6 +186,7 @@ export class WikiEngine {
     this.onFileWrite = onFileWrite || null;
     this.onProgress = onProgress || null;
     this.onDone = onDone || null;
+    this.subtle = subtle;
 
     const ctx: EngineContext = {
       app: this.app,
@@ -149,6 +201,7 @@ export class WikiEngine {
       getExistingWikiPages: () =>
         getExistingWikiPages(this.app, this.settings.wikiFolder),
       getSchemaContext: t => this.schemaManager.getSchemaContext(t as SchemaTask),
+      ...(this.subtle ? { subtle: this.subtle } : {}),
       onFileWrite: path => this.onFileWrite?.(path),
       onProgress: msg => this.notifyProgress(msg),
       onDone: report => this.onDone?.(report),
@@ -458,10 +511,18 @@ export class WikiEngine {
     return null;
   }
 
-  /** Map a rejection reason to its localized Notice key. */
-  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' {
+  /**
+   * Map a rejection reason to its localized Notice key.
+   *
+   * v1.25.0 PR2 redo: PDF provider-unsupported rejections route through
+   * `sourceRejectedPdfUnsupported` (restored in 10 locales). Without this
+   * mapping, users would see the generic "empty content" Notice for a PDF
+   * their provider can't handle — the dedicated i18n key would be orphaned.
+   */
+  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' | 'sourceRejectedPdfUnsupported' {
     if (reason === 'incompatible-type') return 'sourceRejectedType';
     if (reason === 'duplicate') return 'sourceRejectedDuplicate';
+    if (reason === 'unsupported-pdf') return 'sourceRejectedPdfUnsupported';
     return 'sourceRejectedEmpty';
   }
 
@@ -494,14 +555,238 @@ export class WikiEngine {
     });
   }
 
+  /**
+   * v1.25.0 PR3 follow-up #2 (P1 #3): best-effort classifier for LLM
+   * errors that look like "this endpoint rejected the PDF binary".
+   *
+   * We don't try to be exhaustive (providers use different phrasings for
+   * "I don't support PDFs": 400, 415, "file part", "mediaType", etc.).
+   * The intent is to route the obvious cases — "rejected PDF", file part
+   * media-type errors, or "PDF input not supported" — to the localized
+   * `sourceRejectedPdfUnsupported` Notice, while transient network errors
+   * and generic 5xx still bubble up to the outer ingest error path.
+   */
+  private isPdfRelatedLlmError(message: string): boolean {
+    const lower = message.toLowerCase();
+    // v1.25.0 PR3 follow-up #3 (P2): tightened — require BOTH a rejection verb
+    // AND a PDF/media marker. Pre-fix version substring-matched on 'pdf' alone,
+    // which misclassified 413 size-limit errors, internal 'pdf_data'
+    // null-derefs, and other PDF-adjacent strings as "provider doesn't
+    // support PDF", misleading users into disabling `forcePdfSupport` for
+    // non-PDF issues.
+    //
+    // v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): added `unknown` and
+    // `expected` to catch Rust-serde-style schema-reject messages from
+    // OpenAI-compatible runtimes ("unknown variant `file`, expected `text`"),
+    // which is the dominant shape when the LLM endpoint does not implement
+    // the multipart file content schema (Ollama, vLLM, GLM, etc.).
+    const hasRejectionVerb =
+      lower.includes('reject') ||
+      lower.includes('not support') ||
+      lower.includes('unsupported') ||
+      lower.includes('invalid') ||
+      lower.includes('not allowed') ||
+      lower.includes('unknown') ||
+      lower.includes('expected');
+    // v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): `file_part`,
+    // `mediatype`, and the multi-word content-part phrases are still
+    // preferred when present, but a single-word `file` marker is also
+    // accepted as long as the rejection verb set fires. This covers the
+    // dominant OpenAI-compat-Rust serde schema reject:
+    //   "messages[1]: unknown variant `file`, expected `text`"
+    // which has neither "pdf" nor "mediatype" — it's pure schema-tier.
+    // The verb set (rejection token) is the primary gate; the marker just
+    // narrows the search.
+    const hasPdfMarker =
+      lower.includes('pdf') ||
+      lower.includes('application/pdf') ||
+      lower.includes('file part') ||
+      lower.includes('file_part') ||
+      lower.includes('media type') ||
+      lower.includes('mediatype') ||
+      lower.includes('variant') ||
+      lower.includes('schema') ||
+      /\bfile\b/.test(lower);
+    return hasRejectionVerb && hasPdfMarker;
+  }
+
+  /**
+   * v1.25.0 PR2 redo + PR3: PDF ingest branch.
+   *
+   * Converts the PDF binary to Markdown via the configured LLM provider's
+   * native PDF support (or `forcePdfSupport` for compatible providers), then
+   * re-enters `ingestSource` with the converted markdown threaded via
+   * `IngestOptions.contentOverride`.
+   *
+   * Artifact policy: the cache (`.obsidian/plugins/karpathywiki/pdf-cache/`) is
+   * always the source of truth. When the user opts in via `writePdfMarkdownToVault`,
+   * the converted markdown is also written to `<dir>/<basename>.pdf.md` next to
+   * the source PDF. Otherwise (default, cache-only) no sidecar is written — the
+   * vault contains no implementation artifacts from PDF ingestion.
+   *
+   * Errors are caught and surfaced via the standard `reportSkip` path so
+   * the user sees a localized Notice rather than an unhandled exception.
+   */
+  private async ingestPdfSource(file: TFile, opts?: IngestOptions): Promise<void> {
+    // Surface progress so the user knows the PDF is being read + converted.
+    // A single Notice is shown, and the progress callback is updated so batch
+    // ingest can reflect it in its progress bar. The main progress bar is
+    // reserved for stage updates from the inner ingestSource run.
+    const lang = this.settings.language;
+    const pdfMsg = getText(lang, 'pdfReadingInProgress').replace('{filename}', file.basename);
+    new Notice(pdfMsg, NOTICE_NORMAL);
+    this.onProgress?.(pdfMsg);
+
+    let conversionResult;
+    try {
+      conversionResult = await convertPdfToMarkdown({
+        app: this.app,
+        // Narrow to the converter's settings shape so the provider gate
+        // sees `forcePdfSupport` (typed, not `as never`).
+        settings: {
+          provider: this.settings.provider,
+          apiKey: this.settings.apiKey,
+          baseUrl: this.settings.baseUrl,
+          model: this.settings.model,
+          forcePdfSupport: this.settings.forcePdfSupport,
+        },
+        pdfFile: file,
+        llmClient: this.getLLMClient() as never,
+        resolveModelForTask: (settings, task) =>
+          resolveModelForTask(this.settings, task as 'ingest' | 'lint' | 'query'),
+        ...(this.subtle ? { subtle: this.subtle } : {}),
+        // v1.25.0 PR3 follow-up #8 (Bug D): thread the engine's
+        // AbortSignal through to the LLM call. When the user clicks
+        // the status bar during PDF conversion, cancelIngestion()
+        // flips this signal aborted; AI SDK v6 propagates it to the
+        // underlying HTTP request and returns early. Pre-fix the
+        // signal was ignored and the LLM call ran to completion even
+        // after the user clicked cancel.
+        ...(this.abortController ? { abortSignal: this.abortController.signal } : {}),
+      });
+    } catch (error) {
+      if (error instanceof UnsupportedProviderError) {
+        this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
+        return;
+      }
+      if (error instanceof EncryptedPdfError) {
+        this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
+        return;
+      }
+      // v1.25.0 PR3 follow-up #2 (P1 #3): LLM errors during PDF conversion
+      // surface via the localized `sourceRejectedPdfUnsupported` Notice so the
+      // user sees actionable guidance ("toggle Force PDF Support or switch
+      // provider") rather than a generic ingest-error toast. The user opted
+      // into a PDF-capable flow; an LLM-side rejection of the PDF binary is
+      // a rejection of the source, not an unexpected runtime error.
+      //
+      // We still re-throw non-PDF-shaped errors (e.g. vault adapter IO
+      // failures, abort signals) so the outer ingestSource can apply its
+      // standard retry / log semantics.
+      //
+      // v1.25.0 PR3 follow-up #6 (Bug B, e2e 2026-07-17): Vercel AI SDK v6
+      // wraps provider rejections in `AI_APICallError` whose top-level
+      // message is `"AI_APICallError: Failed to deserialize the JSON body
+      // into the target type: messages[1]: unknown variant \`file\`,
+      // expected \`text\`"`. The actual provider-level rejection phrase is
+      // in `error.cause.message`. inspectCauseChain() walks the chain to
+      // find the deepest provider-level message; classifier then runs on
+      // that. The verb set is also extended with `unknown` to capture
+      // Rust-serde-style schema reject messages ("unknown variant X,
+      // expected Y") which are the dominant shape from OpenAI-compatible
+      // runtimes (Ollama, vLLM, etc.).
+      const message = inspectCauseChain(error);
+      if (this.isPdfRelatedLlmError(message)) {
+        this.reportSkip(file, { reason: 'unsupported-pdf', detail: message }, opts);
+        return;
+      }
+      throw error;
+    }
+
+    // v1.25.0 PR3: optional sidecar write. When the user opts in via
+    // `writePdfMarkdownToVault`, persist the converted markdown next to the
+    // source PDF (`<dir>/<basename>.pdf.md`). Default off → cache-only; the
+    // `.obsidian` cache remains the only artifact. The write happens before
+    // re-entering the standard ingest path so the sidecar reflects the exact
+    // markdown fed to the analysis pipeline.
+    //
+    // We deliberately write via the vault adapter directly rather than
+    // `createOrUpdateFile` because: (a) the sidecar is a plain copy of
+    // LLM-converted markdown — no pollution detection needed; (b) writing
+    // through createOrUpdateFile would fire onFileWrite + invalidatePageCaches,
+    // which could trigger auto-ingest cascades if the source folder is watched.
+    if (this.settings.writePdfMarkdownToVault === true) {
+      const dir = file.parent?.path ?? '';
+      const rawPath = dir ? `${dir}/${file.basename}.pdf.md` : `${file.basename}.pdf.md`;
+      const sidecarPath = normalizePath(rawPath);
+      const existing = this.app.vault.getAbstractFileByPath(sidecarPath);
+      if (existing instanceof TFile) {
+        await this.app.vault.modify(existing, conversionResult.markdown);
+      } else {
+        await this.app.vault.create(sidecarPath, conversionResult.markdown);
+      }
+    }
+
+    // Re-enter the standard ingest path with the converted markdown as a
+    // virtual source body. The pipeline (analyzeSource → summary → entities
+    // → concepts → related → index) runs unchanged — contentOverride flows
+    // through IngestOptions into analyzeSource/createSummaryPage.
+    return this.ingestSource(file, { ...opts, contentOverride: conversionResult.markdown });
+  }
+
   async ingestSource(file: TFile, opts?: IngestOptions) {
     console.debug('=== Ingestion started ===');
     console.debug('Source file:', file.path);
+    if (opts?.contentOverride !== undefined) {
+      console.debug('Content override length:', opts.contentOverride.length);
+    }
+
+    // v1.25.0 PR3 follow-up #7 + #8 (Bug C + D, e2e 2026-07-17): cancellation
+    // setup + status bar entry MUST happen BEFORE the PDF early-return at
+    // :745 — the PDF branch (ingestPdfSource) is an early return that
+    // would skip every line below, including the AbortController +
+    // onIngestionStart that users need to (a) see which file is currently
+    // being converted and (b) cancel a long LLM call without killing
+    // Obsidian. Pre-fix, the status bar stayed on the initial "LLM wiki"
+    // placeholder forever and the click-to-cancel button was a no-op.
+    //
+    // v1.25.0 PR3 follow-up #8 (Bug D, e2e 2026-07-17): once `convertPdfToMarkdown`
+    // finishes, `ingestPdfSource` re-enters `ingestSource` with `contentOverride`
+    // set (line 727) — so this setup block runs TWICE per PDF ingest. Without
+    // the guard below, the second invocation would overwrite `this.abortController`
+    // with a fresh controller whose `signal` is NOT aborted, even if the user
+    // clicked the status bar to cancel during PDF conversion. The fresh
+    // controller also overwrites any in-flight cancellation signal.
+    //
+    // Guard: only initialize the controller if none exists yet. This keeps
+    // the *original* abort signal live for both PDF and re-entered text
+    // flows, so a single cancel-click propagates through both stages.
+    // `onIngestionStart` is idempotent at the main.ts callback level (it
+    // simply sets status bar text), so we still re-emit it for visual
+    // refresh — that doesn't grow any state.
+    if (this.abortController === null) {
+      this.wasCancelled = false;
+      this.abortController = new AbortController();
+      this.onIngestionStart?.(file.basename);
+    }
+
+    // v1.25.0 PR2 redo: PDF ingest path converts the PDF binary to markdown
+    // via the configured LLM provider's native PDF support, caches by content
+    // hash, then re-enters the standard ingest path with the markdown as
+    // a virtual body (contentOverride). No sidecar file is written to the
+    // vault; the cache in `.obsidian/` is the sole persistent artifact.
+    //
+    // Guard: only dispatch to the PDF branch when the caller has NOT
+    // already provided a converted body — otherwise this would recurse
+    // (ingestPdfSource re-enters ingestSource with contentOverride set).
+    if (file.extension.toLowerCase() === 'pdf' && !opts?.contentOverride) {
+      return this.ingestPdfSource(file, opts);
+    }
 
     // #164 pre-ingest requirements gate — runs BEFORE any cancellation/UI setup so
     // a rejected file returns cleanly with nothing to tear down. Empty/type are
     // hard skips; a duplicate auto-skips, except interactive ingest prompts first.
-    const fileContent = await this.app.vault.read(file);
+    const fileContent = opts?.contentOverride ?? await this.app.vault.read(file);
     const rejection = opts?.forceReingest ? null : await this.checkRequirements(file, fileContent, opts?.batchCtx);
     if (rejection) {
       const confirmed = rejection.reason === 'duplicate' && opts?.interactive && this.onConfirmReingest
@@ -516,9 +801,12 @@ export class WikiEngine {
     const totalStartTime = Date.now();
 
     // Setup cancellation support
-    this.wasCancelled = false;
-    this.abortController = new AbortController();
-    this.onIngestionStart?.(file.basename);
+    // v1.25.0 PR3 follow-up #7 (Bug C): AbortController / onIngestionStart
+    // already initialized above (line ~700, before PDF dispatch) so the
+    // status bar is correct and cancellation is wired for both PDF and
+    // text flows. We intentionally do NOT re-create the AbortController
+    // here — it would create a race window where cancelIngestion() could
+    // abort the *previous* instance instead of the current one.
 
     // Long-source warning: large files trigger iterative batch extraction
     // (multiple LLM passes), which takes significantly longer than small files.
@@ -545,9 +833,11 @@ export class WikiEngine {
     try {
       await this.ensureWikiStructure();
 
-      // Stage 1: Source Analysis
+      // Stage 1: Source Analysis (contentOverride flows via opts)
       const analysisStart = Date.now();
-      analysis = await this.sourceAnalyzer.analyzeSource(file);
+      analysis = await this.sourceAnalyzer.analyzeSource(file, {
+        ...(opts?.contentOverride !== undefined ? { contentOverride: opts.contentOverride } : {}),
+      });
       if (!analysis) {
         throw new Error(`Source analysis failed for "${file.basename}". Check the developer console (Ctrl+Shift+I) for network or API errors. If you see SSL/network errors, verify your provider URL and network connection.`);
       }
@@ -577,9 +867,9 @@ export class WikiEngine {
       // and related pages all reference the same canonical [[sources/<slug>]].
       const sourceSlug = resolveSourceSlug(file.path, { preserveCase });
 
-      // Stage 2: Summary Page Generation
+      // Stage 2: Summary Page Generation (contentOverride flows through opts)
       const summaryStart = Date.now();
-      const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths, sourceSlug);
+      const summaryPage = await this.createSummaryPage(file, analysis, plannedPaths, sourceSlug, opts?.contentOverride);
       const summaryTime = Date.now() - summaryStart;
       console.debug(`[Time] Summary page generation: ${summaryTime}ms`);
       analysis.created_pages.push(summaryPage);
@@ -952,11 +1242,13 @@ export class WikiEngine {
     await this.schemaManager.ensureSchemaExists();
   }
 
-  async createSummaryPage(file: TFile, analysis: SourceAnalysis, plannedPaths: string[] = [], sourceSlug?: string): Promise<string> {
+  async createSummaryPage(file: TFile, analysis: SourceAnalysis, plannedPaths: string[] = [], sourceSlug?: string, contentOverride?: string): Promise<string> {
     const preserveCase = this.settings.slugCase === 'preserve';
     const slug = sourceSlug ?? slugify(file.basename, preserveCase);
     const path = normalizePath(`${this.settings.wikiFolder}/sources/${slug}.md`);
-    const content = await this.app.vault.read(file);
+    // PDF branch: use the LLM-converted markdown instead of reading raw PDF
+    // bytes (which would be garbage text). Text branch: unchanged.
+    const content = contentOverride ?? await this.app.vault.read(file);
 
     // Issue #114: if the source page already exists with manually-set tags,
     // preserve them — re-ingesting a note must not overwrite corrections.

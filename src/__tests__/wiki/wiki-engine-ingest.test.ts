@@ -59,8 +59,10 @@ describe('WikiEngine.ingestSource — empty source (#164)', () => {
 
 describe('WikiEngine.ingestSource — requirements gate (#164)', () => {
   it('rejects an unsupported file type without creating pages', async () => {
-    const h = createWikiEngineHarness({ files: { 'sources/diagram.pdf': 'not real text' } });
-    await expect(h.engine.ingestSource(sourceFile('sources/diagram.pdf'))).resolves.toBeUndefined();
+    // v1.25.0: PDFs are now supported (their own branch in ingestSource).
+    // Use a still-unsupported binary type (PNG) to exercise the rejection path.
+    const h = createWikiEngineHarness({ files: { 'sources/diagram.png': 'fake png bytes' } });
+    await expect(h.engine.ingestSource(sourceFile('sources/diagram.png'))).resolves.toBeUndefined();
     expect(h.reports.at(-1)?.rejectedFiles?.[0]?.reason).toBe('incompatible-type');
     expect(wikiPagesWritten(h.writtenPaths)).toEqual([]);
     expect(h.stats.llmCalls).toBe(0);

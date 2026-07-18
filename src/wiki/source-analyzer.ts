@@ -153,11 +153,27 @@ function emptyBatch(): NormalizedBatch {
 export class SourceAnalyzer {
   constructor(private ctx: EngineContext) {}
 
-  async analyzeSource(file: TFile): Promise<SourceAnalysis | null> {
+  /**
+   * Analyze a source file and produce a `SourceAnalysis` describing its
+   * entities, concepts, and related pages.
+   *
+   * Options:
+   * - `contentOverride`: when set, skip `vault.read(file)` and use this
+   *   string as the source body. Used by the PDF branch to feed LLM-converted
+   *   markdown without writing a sidecar file. Path-based operations
+   *   (slug resolution, frontmatter inheritance) still use `file`.
+   *
+   * Returns null on blank content (defense-in-depth; the pre-ingest gate
+   * normally rejects blank sources first).
+   */
+  async analyzeSource(file: TFile, opts?: { contentOverride?: string }): Promise<SourceAnalysis | null> {
     console.debug('=== Source analysis started ===');
     console.debug('File:', file.path);
+    if (opts?.contentOverride !== undefined) {
+      console.debug('Using contentOverride (virtual body), length:', opts.contentOverride.length);
+    }
 
-    const content = await this.ctx.app.vault.read(file);
+    const content = opts?.contentOverride ?? await this.ctx.app.vault.read(file);
     console.debug('File content length:', content.length);
 
     // #164 defense-in-depth: a blank source (empty / whitespace / frontmatter-only)

@@ -7,6 +7,7 @@ import { MERGE_PROMPTS } from './wiki/prompts/merge';
 import { FIX_PROMPTS } from './wiki/prompts/fixes';
 import { LINT_PROMPTS } from './wiki/prompts/lint';
 import { CONVERSATION_PROMPTS } from './wiki/prompts/conversation';
+import { PDF_PROMPTS } from './wiki/prompts/pdf';
 
 export const PROMPTS = {
   ...INGESTION_PROMPTS,
@@ -15,4 +16,5 @@ export const PROMPTS = {
   ...FIX_PROMPTS,
   ...LINT_PROMPTS,
   ...CONVERSATION_PROMPTS,
+  ...PDF_PROMPTS,
 };

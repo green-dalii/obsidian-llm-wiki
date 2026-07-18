@@ -1,50 +1,43 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-18
+**Last Updated:** 2026-07-16
 
 ---
 
-## Current Phase: v1.25.0 RELEASED 2026-07-18 (cache-only PDF Ingest Level 1) — v1.25.1 PATCH next; PR4 (Kimi Files API) + AkaSakana's work on top of v1.25.0 next
+## Current Phase: v1.25.0 PR3 + PR3 follow-up #2 SHIPPED (2026-07-16) — cache-only PDF; awaiting e2e + release; v1.24.1 PATCH RELEASED 2026-07-14
 
 **v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
 
 Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basename>.pdf.md`) approach.
 
-- ✅ **PR2 redo (1-1.5 days)** — delete `pdf-ingest-orchestrator.ts`; refactor `wiki-engine.ingestPdfSource` to feed `convertPdfToMarkdown` result into `analyzeSource` via `contentOverride`; extend `PdfConversionCache` with `purgeExpired/enforceSizeLimit/prepareBatchIngest` (100MB / 1000-entry / 10MB-single caps + LRU-by-mtime eviction); add `converterVersion` to cache key; delete 5 dead i18n keys across 10 locales.
-- ✅ **PR3 (1 day)** — settings: `writePdfMarkdownToVault` + `forcePdfSupport` toggles; CHANGELOG; ROADMAP sync.
-  - Settings types + DEFAULT_SETTINGS + advanced-settings toggle UI
+- ✅ **PR2 redo (1-1.5 days)** — delete `pdf-ingest-orchestrator.ts`; refactor `wiki-engine.ingestPdfSource` to feed `convertPdfToMarkdown` result into `analyzeSource` via `contentOverride`; extend `PdfConversionCache` with `purgeExpired/enforceSizeLimit` (100MB / 1000-entry / 10MB-single caps + LRU-by-mtime eviction); add `converterVersion` to cache key; delete 5 dead i18n keys across 10 locales. **`prepareBatchIngest` deferred to PR3 follow-up #2.**
+- ✅ **PR3 (1 day)** — settings: `writePdfMarkdownToVault` toggle in Wiki Configuration (always visible, not Advanced-bound); `forcePdfSupport` toggle in Advanced for non-NATIVE providers only (universal escape hatch — user opted in → LLM call attempted → endpoint rejection surfaces via localized Notice); CHANGELOG; ROADMAP sync.
+  - Settings types + DEFAULT_SETTINGS
   - 4 i18n keys × 10 locales for both PDF toggles
   - sidecar write via direct vault.create/modify (no createOrUpdateFile cascade)
   - normalizePath for cross-platform sidecar paths
   - 3 new tests: default no-sidecar, write creates sidecar, write updates existing
-  - Code-review findings applied: simplified `ingestPdfSource` comment; normalizePath; avoided `createOrUpdateFile` for sidecar
-  - **PR3 follow-ups (2026-07-16)**:
-    - `forcePdfSupport` → **universal escape hatch** (any non-NATIVE provider); toggle only renders for non-NATIVE providers; provider switch to NATIVE auto-resets value; `FORCE_PDF_PROVIDER_IDS` constant deleted; LLM endpoint decides (errors surface via Notice)
-    - `writePdfMarkdownToVault` moved to **Wiki Configuration → Wiki Folder** (semantic: vault storage policy, not LLM config); always visible; not bound to Advanced mode
-    - `advancedSettingsMode` → default no longer resets `forcePdfSupport` (toggle lifecycle owned by its own UI)
-    - 3 new tests: ollama + forcePdfSupport=true attempts LLM; deepseek same; endpoint-rejects error propagates verbatim
-  - **PR3 follow-up #2 (2026-07-16)** — third-party model audit fixes:
-    - **P0 (cross-platform cache filename safety)**: physical filename = `sha256(logicalKey).slice(0, 16)` (Git short-hash style); logical key retains `sha256:model:converterVersion` semantics; converter hashes via new `hashCacheKey()` helper before `cache.get/set`. Fixes Windows `ERROR_INVALID_NAME` + POSIX unintended subpath when model contains `/` or `:`.
-    - **P1 (batch-start housekeeping)**: new `PdfConversionCache.prepareBatchIngest()` (TTL purge + size enforce) wired into `runBatchIngest()` via `preparePdfCacheForBatchIngest()`.
-    - **P1 (PDF-shaped LLM errors → localized Notice)**: `isPdfRelatedLlmError(message)` classifier routes obvious PDF-rejection errors to `reportSkip('unsupported-pdf')` instead of generic re-throw.
-    - **P1 (settings defaults test)**: new `src/__tests__/types/settings.test.ts` covers `forcePdfSupport=false` + `writePdfMarkdownToVault=false` defaults.
-    - **P2 (i18n user-perspective rewrite)**: `forcePdfSupportDesc` + `sourceRejectedPdfUnsupported` rewritten in 10 locales — drop developer jargon ("escape hatch", "endpoint", "LLM error"), speak user outcome (what they get when they flip the switch, what they see if it fails).
-  - **PR3 follow-up #3 (2026-07-16)** — third-party model audit fixes:
-    - **P2 (PDF error classifier tightened)**: `isPdfRelatedLlmError` now requires BOTH a rejection verb (`reject`/`not support`/`unsupported`/`invalid`/`not allowed`) AND a PDF/media marker (`pdf`/`application/pdf`/`file part`/`mediatype`) to route to `sourceRejectedPdfUnsupported`. Pre-fix classifier substring-matched on `'pdf'` alone, so transient 413 size-limit errors, internal `pdf_data` null-derefs, and other PDF-adjacent strings were misreported as "provider doesn't support PDF", misleading users into disabling `forcePdfSupport` for non-PDF issues.
-    - **P2 (classifier regression tests)**: 6 new tests in `src/__tests__/wiki/wiki-engine-pdf.test.ts` pin the contract — 2 happy-path (route to skip) + 4 false-positive guards (413/5xx/null-deref/generic-invalid → re-throw).
-  - **PR3 follow-up #5 (2026-07-17)** — user-reported UI bug:
-    - **Bug**: The persistent `Ingesting: <basename>` Notice (created by `main.ts:showProgressFor(... 'Ingesting: ...', 0)`) remained on screen until the next ingest whenever an interactive single-file ingest threw (network, vault IO, unexpected exception) — because the `.catch` block only showed a new error Notice and never hid the `progressNotice`. Affects `selectSourceToIngest` (file picker modal) and `ingestActiveFile` (ribbon icon).
-    - **Fix**: Both `.catch` blocks now call `this.dismissProgress()` after showing the error Notice. Successful / `reportSkip` paths already dismissed via `onIngestDoneDispatch` — only throw paths were missing.
-  - **Trust boundary**: the user is the authoritative source on what their endpoint supports. Pre-flight whitelist rejects violate user intent. The provider gate must attempt the call; LLM errors surface as localized Notices guiding the user to disable the toggle or check endpoint config.
-- ⏳ **PR4 (optional, by AkaSakana)** — Kimi Files API + other non-routine PDF providers (GLM, OpenRouter, etc.) — targets **v1.26.0 MINOR**. If AkaSakana ships as follow-up PR after v1.25.0 lands, we merge after review. If schedule slips, we port ourselves (1-day).
+  - Code-review findings applied: simplified `ingestPdfSource` comment; used `normalizePath`; avoided `createOrUpdateFile` for sidecar to prevent auto-watch cascades.
+- ✅ **PR3 follow-up (2026-07-16)** — universal escape hatch + UX moves
+  - `forcePdfSupport` toggle: any non-NATIVE provider allowed; toggle hidden for NATIVE providers; provider switch to NATIVE auto-resets value; `FORCE_PDF_PROVIDER_IDS` constant deleted
+  - `writePdfMarkdownToVault` moved to Wiki Configuration → Wiki Folder (semantic: vault storage policy, not LLM config); always visible
+  - `advancedSettingsMode` default no longer resets `forcePdfSupport`
+  - 3 new tests: ollama + forcePdfSupport=true attempts LLM; deepseek same; endpoint-rejects error propagates verbatim
+- ✅ **PR3 follow-up #2 (2026-07-16)** — third-party model audit fixes
+  - **P0 (cross-platform cache filename safety)**: physical filename = sha256(logicalKey).slice(0,16) (Git short-hash style); fixes Windows ERROR_INVALID_NAME + POSIX unintended subpath when model contains `:` or `/`
+  - **P1 (batch-start housekeeping)**: new PdfConversionCache.prepareBatchIngest() wired into runBatchIngest()
+  - **P1 (PDF-shaped LLM errors → localized Notice)**: isPdfRelatedLlmError(message) classifier routes obvious PDF-rejection errors to reportSkip('unsupported-pdf')
+  - **P1 (settings defaults test)**: new src/__tests__/types/settings.test.ts
+  - **P2 (i18n user-perspective rewrite)**: forcePdfSupportDesc + sourceRejectedPdfUnsupported rewritten in 10 locales — drop developer jargon, speak user outcome
+- ⏳ **PR4 (optional, by AkaSakana)** — Kimi Files API provider dispatch + error regex classifiers + transient-retry extension. If AkaSakana ships as follow-up PR after v1.25.0 lands, we merge after review. If schedule slips, we port ourselves (1-day).
 - ⏳ **Final** — `pnpm build:dev` + HARD STOP + user e2e + push decision.
 
 **AkaSakana PR #286 feedback adopted (2026-07-15):**
 - ✅ Cache key includes `converterVersion` so prompt upgrades invalidate stale entries.
-- ✅ `forcePdfSupport` kept for BOTH `custom` and `anthropic-compatible`, default `false` (manual opt-in, NOT opt-out — many compatible endpoints don't reliably support PDF). (2026-07-15 user correction.)
+- ✅ `forcePdfSupport` is now a **universal escape hatch** (any non-NATIVE provider); default `false` (manual opt-in, NOT opt-out — many compatible endpoints don't reliably support PDF). (2026-07-16 user correction.)
 - ⏳ Kimi Files API (PR4, optional contribution): upload → extract → delete, error regex classifiers, transient-retry extension. AkaSakana owns the contribution; we transfer responsibility to TA via PR #286 reply.
 
-Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
+**Trust boundary (v1.25.0 PR3 follow-up, 2026-07-16):** the user is the authoritative source on what their endpoint supports. Pre-flight whitelist rejects violate user intent. The provider gate must attempt the call; LLM errors surface as localized Notices guiding the user to disable the toggle or check endpoint config.
 
 **v1.24.1 PATCH release composition (2026-07-13/14 merge window):**
 - ✅ Phase 1 (#271): Fix #1 #268 Tier C forceRecreate bypass
@@ -61,32 +54,9 @@ Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 - #274 — Ollama Qwen3.5:9b no-key empty body (CLOSED via #282)
 - #275 — deepseek seed-selector empty body (CLOSED via `Closes #275` in v1.24.1 release commit; e2e PASSED on deepseek-v4-flash)
 
-**v1.25.0 release composition (shipped 2026-07-18):**
-
-- ✅ Cache-only PDF Ingest (Level 1) with provider gate + content-hash cache + bounded growth (100MB / 1000 entries / 10MB single-entry caps + LRU-by-mtime eviction + three-defense-layer housekeeping).
-- ✅ Settings: `forcePdfSupport` (universal escape hatch, default off) + `writePdfMarkdownToVault` (default off).
-- ✅ Bug fixes: ENOENT cache dir (Bug A), AI-SDK cause chain (Bug B), status bar mirror (Bug C), PDF mid-flow cancel (Bug D), pdf-cache never written (Bug E), stuck Notice on throw (Bug H).
-- ✅ Prompt centralization: `src/wiki/prompts/pdf.ts` (OCR-style verbatim, `[illegible]` / `[figure: ...]` / `[equation: ...]` anti-hallucination markers, `unwrapFencedMarkdown` cleanup helper).
-- ✅ Classifier tightening: requires BOTH rejection verb AND PDF/media marker (no more 413 false-positives).
-- ✅ Local PDF OCR path documented: oMLX + Markitdown + Baidu Unlimited-OCR (Apple Silicon only).
-- ✅ Local Model Recommendations + Cloud Model Picks H3 sections in all 10 locale READMEs.
-- ✅ 2182 tests passing (165 files, +102 since v1.24.1).
-- ✅ Six-Gate: lint 0 / tsc 0 / 2182 / clean / 0; no breaking changes; cache-only default; docs complete; release clean.
-
-**Issues closed in v1.25.0:**
-- (none — v1.25.0 is feature work, not bug fixes)
-
-**v1.25.1 PATCH open issues (next cycle):**
-
-See ROADMAP.md "v1.25.1 PATCH" section for the full backlog. Top items:
-- Generic `DiskCache<T>` extraction from `PdfConversionCache` (Altitude F3, HIGH)
-- `enforceSizeLimit` ledger optimization (Efficiency F1, HIGH)
-- Generic `provider-capabilities` registry replacing `forcePdfSupport` bool + ID constants (Altitude F4, MEDIUM)
-- Generic `HousekeepingTask` registry (Altitude F5, MEDIUM)
-- `PDF_CONVERTER_VERSION` move to `constants.ts` (Reuse F4, LOW)
-- `src/ui/settings.ts` split (1420 → ~200 LOC main + 5-6 section files) (User request, MEDIUM)
-- `unwrapFencedMarkdown` generic helper extraction (Reuse F5, LOW)
-- Generic `LlmProviderRejectionError` shape from `isPdfRelatedLlmError` (Altitude F6, LOW)
+**v1.24.2 PATCH open issues (next cycle):**
+- #255 follow-up — none
+- #275 streaming-mode port (`selectSeedsWithLLM` to streaming + parse first stop chunk) — Fix #0 candidate
 
 Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 
@@ -98,7 +68,7 @@ Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 
 ## 📁 Project Structure
 
-> This section has moved to **[CONTRIBUTING.md](./CONTRIBUTING.md#project-structure)** — it is a contributor-facing reference (your IDEs display the file tree natively) and keeping it in CLAUDE.md was creating a stale copy that drifted from reality. The CONTRIBUTING.md version is maintained alongside code changes.
+> This section has moved to **[CONTRIBUTING.md](./CONTRIBUTING.md#project-structure)** — it is a contributor-facing reference (your IDEs display the file tree natively) and keeping it in AGENTS.md was creating a stale copy that drifted from reality. The CONTRIBUTING.md version is maintained alongside code changes.
 
 ---
 
@@ -112,7 +82,7 @@ Every change must pass all six gates before being considered complete. Gates 1-4
 | **2. No side effects** | Call-site audit + data flow trace + state mutation check + error propagation check | Structured review | Developer |
 | **3. No breaking changes** | API/Schema/File format/Default behavior/Command IDs/Obsidian API all backward-compatible | Breaking-change matrix | Developer |
 | **4. No performance regression** | CPU/memory/IO/network/token usage — 5-dim walkthrough, written assessment table | simplify + code-review + Gate 4 table | Developer |
-| **5. Docs complete** | 10 READMEs (EN + 9 i18n) + ROADMAP + CLAUDE.md + CHANGELOG + memory all updated | pre-release-gate | Gate |
+| **5. Docs complete** | 10 READMEs (EN + 9 i18n) + ROADMAP + AGENTS.md + CHANGELOG + memory all updated | pre-release-gate | Gate |
 | **6. Release clean (superset of 1-5)** | Gate 1-5 all green, PLUS TOC anchors + localization + Release Notes + Contributors + git hygiene + **Gate 4 perf re-verification** | pre-release-gate | Gate |
 
 ### Gate 1: Five-Gate automated
@@ -364,7 +334,7 @@ Closes #94, #96, #99"
 
 ### Commit author identity + co-authorship
 
-The Claude Code sandbox uses a placeholder git identity (`Claude Code <claude@anthropic.com>`) that **must not** be the commit author on this project. Every commit attributed to "Claude Code" inflates the GitHub contributor graph with a non-human identity and obscures the actual maintainer trail.
+The Codex sandbox uses a placeholder git identity (`Codex <Codex@anthropic.com>`) that **must not** be the commit author on this project. Every commit attributed to "Codex" inflates the GitHub contributor graph with a non-human identity and obscures the actual maintainer trail.
 
 **Canonical maintainer identity (verified against GitHub user `green-dalii`):**
 
@@ -389,9 +359,9 @@ Some older commits on `main` were authored as `Greener-Dalii` (capitalized, used
 2. **Every commit MUST list the maintainer as `Co-authored-by`** (in addition to the AI model):
    ```
    Co-authored-by: green-dalii <654534332@qq.com>
-   Co-authored-by: Claude Code <noreply@anthropic.com>
+   Co-authored-by: Codex <noreply@anthropic.com>
    ```
-   **Format rule**: the AI `Co-authored-by` line MUST be exactly `Claude Code <noreply@anthropic.com>`. Do **NOT** include the specific model name (e.g. `Opus 4.8`), version number, or context-window size (e.g. `1M context`) — these are ad copy that pollutes git history and goes stale when the model is upgraded. (2026-07-15 rule.)
+   **Format rule**: the AI `Co-authored-by` line MUST be exactly `Codex <noreply@anthropic.com>`. Do **NOT** include the specific model name (e.g. `Opus 4.8`), version number, or context-window size (e.g. `1M context`) — these are ad copy that pollutes git history and goes stale when the model is upgraded. (2026-07-15 rule.)
 3. **NEVER** amend/squash a commit in a way that drops the `Co-authored-by: green-dalii` trailer — re-add it after every `git commit --amend`.
 4. The `Co-Authored-By` line must NOT be wrapped in a code block or in any way obfuscated — GitHub reads it as a literal trailer.
 5. When the session ends or you notice a missing co-author on any recent commit, **stop and fix it before continuing** — do not let the oversight propagate to the PR.
@@ -479,7 +449,7 @@ For any new function or behavior change: write a failing test first, then write 
 
 | File | Responsibility | What belongs | What does NOT belong |
 |------|---------------|--------------|---------------------|
-| **CLAUDE.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current state (v1.22.6 released + v1.23.0 in flight) | Old release histories, project structure tree, full version timeline |
+| **AGENTS.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current state (v1.22.6 released + v1.23.0 in flight) | Old release histories, project structure tree, full version timeline |
 | **ROADMAP.md** | Planning | Next Milestone / Version Timeline (condensed) / Deferred & Backlog | Per-version detail (use CHANGELOG) |
 | **CHANGELOG.md** | History (Keep a Changelog) | Per-version Added/Changed/Fixed/Removed — ancient versions are pre-aggregated, **do not re-merge** | Forward-looking plans, dev standards |
 | **CONTRIBUTING.md** | Contributor guide | Project structure tree, architecture, Mermaid, dev setup | User docs, design philosophy |

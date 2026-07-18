@@ -5,6 +5,10 @@
 // No behavior change — pure code movement.
 
 import { App, TFile, TFolder, FuzzySuggestModal } from 'obsidian';
+import { COMPATIBLE_SOURCE_EXTENSIONS } from '../../constants';
+
+const isCompatibleSource = (f: TFile): boolean =>
+  (COMPATIBLE_SOURCE_EXTENSIONS as readonly string[]).includes(f.extension.toLowerCase());
 
 export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   onSelect: (file: TFile) => void;
@@ -17,7 +21,11 @@ export class FileSuggestModal extends FuzzySuggestModal<TFile> {
   }
 
   getItems(): TFile[] {
-    return this.app.vault.getMarkdownFiles()
+    // v1.25.0 PR2: include PDFs in the source picker (PDFs are a first-class
+    // source format). Filter by compatible extension + exclude wiki/config
+    // directories, mirroring the legacy markdown-only behavior.
+    return this.app.vault.getFiles()
+      .filter(f => isCompatibleSource(f))
       .filter(f => !f.path.startsWith(this.wikiFolder) && !f.path.startsWith(this.app.vault.configDir));
   }
 

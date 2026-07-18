@@ -26,10 +26,10 @@ export const WIKI_SUBFOLDERS = {
 
 /**
  * File extensions (lowercase, no dot) accepted by the ingestion gate (#164).
- * Text-based notes the LLM can meaningfully read; everything else (binaries
- * like .pdf/.png) is rejected before any LLM call.
+ * Text sources are read directly; PDF sources are transcribed through the
+ * configured LLM provider's native document-input capability (v1.25.0 PR2).
  */
-export const COMPATIBLE_SOURCE_EXTENSIONS = ['md', 'markdown', 'txt', 'text'] as const;
+export const COMPATIBLE_SOURCE_EXTENSIONS = ['md', 'markdown', 'txt', 'text', 'pdf'] as const;
 
 // ============================================================================
 // Lint & Performance Thresholds
@@ -47,6 +47,40 @@ export const PAGES_CACHE_TTL_MS = 5000;
 
 /** Maximum custom entity/concept limit per type (settings UI cap). */
 export const CUSTOM_LIMIT_MAX = 500;
+
+// ============================================================================
+// PDF Source Ingestion (v1.25.0)
+// ============================================================================
+
+/** Max output tokens the LLM may emit when converting a PDF to Markdown.
+ *  Sized for typical research papers (5-30 pages) without truncation. */
+export const TOKENS_PDF_CONVERSION = 8000;
+
+/** Default TTL for cached PDF→Markdown conversion entries (30 days, ms). */
+export const PDF_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Cache growth hard caps (v1.25.0 PR2 redo — three-defense-layer design).
+ *
+ * - MAX_BYTES: total disk usage cap (100 MB ≈ 1000 typical papers).
+ * - MAX_ENTRIES: entry count cap. Lower bound on Obsidian startup scan time.
+ * - MAX_SINGLE_ENTRY_BYTES: rejects writes for oversized single entries so
+ *   one giant PDF (e.g. 500-page textbook → ~50 MB markdown) cannot hog
+ *   the cache. Cache is performance-only; caller still gets the conversion.
+ */
+export const PDF_CACHE_MAX_BYTES = 100 * 1024 * 1024;
+export const PDF_CACHE_MAX_ENTRIES = 1000;
+export const PDF_CACHE_MAX_SINGLE_ENTRY_BYTES = 10 * 1024 * 1024;
+
+/** Provider IDs whose built-in clients support PDF natively (v1.25.0 PR1).
+ *  Providers NOT in this list fall through to the `forcePdfSupport`
+ *  universal escape hatch (user opt-in) — see `core/pdf-converter.ts`. */
+export const NATIVE_PDF_PROVIDER_IDS = [
+  'anthropic',
+  'openai',
+  'bedrock-anthropic',
+  'bedrock-openai',
+] as const;
 
 /** Minimum custom entity/concept limit per type. */
 export const CUSTOM_LIMIT_MIN = 1;
