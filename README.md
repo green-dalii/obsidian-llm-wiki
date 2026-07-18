@@ -12,7 +12,9 @@
 
 **English** | [简体中文](docs/README_CN.md) | [繁體中文](docs/README_ZH-Hant.md) | [日本語](docs/README_JA.md) | [한국어](docs/README_KO.md) | [Deutsch](docs/README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md) | [Italiano](docs/README_IT.md)
 
-[Official Site](https://llmwiki.greenerai.top/) | [Obsidian Marketplace](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explore Repo with DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Official Site](https://llmwiki.greenerai.top/) | [Obsidian Marketplace](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+
+🚀 [Quick Start](#-quick-start) | ✨ [Features](#-features) | 🤖 [Model Selection Guide](#-model-selection-guide) | 🔒 [Transparency & Compliance](#-transparency--compliance) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← If this plugin has helped you, feel free to buy me a coffee♥️ or drop a star🌟↗
 
@@ -32,7 +34,7 @@
     - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
     - [🎮 Usage](#-usage)
     - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-  - [⚡ What's New in v1.24.0](#-whats-new-in-v1240)
+  - [⚡ What's New in v1.25.0](#-whats-new-in-v1250)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [📄 PDF Ingest (v1.25.0)](#-pdf-ingest-v1250)
@@ -191,19 +193,6 @@ Four themes: cache-only PDF ingest, local-model guidance, prompt centralization 
 - **🌐 i18n completeness** — 10 new keys per locale for the two new settings + PDF Ingest + Local PDF OCR Path (force-pdf-support toggle, write-pdf-markdown-to-vault toggle, source-rejected-pdf-unsupported Notice).
 
 **Settings to review:** Force PDF Support (Settings → LLM Configuration → Advanced, default off — only relevant for non-NATIVE providers), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, default off — opt-in sidecar).
-
-### v1.24.1 — 2026-07-14 (PATCH)
-
-Recommended upgrade for all v1.24.0 users.
-
-- **🔍 5-stage PPR seed-selection cascade.** Query Wiki now runs five complementary stages (lex fast path → LLM keywords → local substring scan → LLM KB fallback → PPR graph expansion) before generating an answer. Multi-hop questions get graph-aware context without opt-in embeddings.
-- **🤫 Empty-response quiet path.** `parseJsonResponse` no longer logs noisy errors for empty LLM bodies in Lint/Query paths, fixing console spam reported by some users (#255, #274). Seed selector also throws earlier on empty bodies for clearer recovery (#275).
-- **🧹 Cleaner entity pages.** The redundant `## Basic Information` / `## Basic Info` block is removed from entity-page generation prompts and schema; new entity pages go straight from frontmatter to H1 → description → related sections (#258).
-- **☁️ Bedrock Stage 1 providers.** Added `bedrock-anthropic` and `bedrock-openai` provider options routed through the AWS bedrock-mantle endpoint. Zero new npm dependencies, ~+3 KB bundle.
-- **🦙 LM Studio no-key ingest.** Ingest now works with LM Studio's empty API key, matching Test Connection behavior.
-- **🏗️ Internal cleanups.** `page-factory.ts` is split into 10 focused modules (+99 tests); non-lossy Mentions re-ingest preserves earlier source quotes on merge (#267).
-
-**Upgrade note:** If you had manually added `<!-- reviewed: keep -->` markers in v1.24.0, switch to frontmatter `reviewed: true` — it protects the whole page and survives Markdown linters.
 
 ## ✨ Features
 

@@ -12,7 +12,9 @@
 
 [English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README_ZH-Hant.md) | **日本語** | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | [Italiano](README_IT.md)
 
-[公式サイト](https://llmwiki.greenerai.top/) | [Obsidian マーケットプレース](https://community.obsidian.md/plugins/karpathywiki) | [ブログ](https://llmwiki.greenerai.top/blog/) | [フィードバック](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 DeepWiki でコードベースを探索](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[公式サイト](https://llmwiki.greenerai.top/) | [Obsidian マーケットプレース](https://community.obsidian.md/plugins/karpathywiki) | [ブログ](https://llmwiki.greenerai.top/blog/) | [フィードバック](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+
+🚀 [クイックスタート](#-クイックスタート) | ✨ [特徴](#-特徴) | 🤖 [モデル推奨](#-モデル推奨) | 🔒 [透明性とコンプライアンス](#-透明性とコンプライアンス) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← このプラグインが役に立ったら、コーヒー一杯♥️を奢ってくれたら嬉しいです、またはスター🌟を付けてね↗
 
@@ -31,7 +33,7 @@
     - [🔑 LLMプロバイダーの設定](#-llmプロバイダーの設定)
     - [🎮 使い方](#-使い方)
     - [⚠️ 旧バージョンからのアップグレード](#️-旧バージョンからのアップグレード)
-  - [⚡ v1.24.0 更新のポイント](#-v1240-更新のポイント)
+  - [⚡ v1.25.0 更新のポイント](#-v1250-更新のポイント)
   - [✨ 特徴](#-特徴)
     - [📊 ナレッジ品質](#-ナレッジ品質)
     - [📄 PDF 取り込み (v1.25.0)](#-pdf-取り込み-v1250)
@@ -184,19 +186,6 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 - **🌐 i18n 完全性** — 2 つの新しい設定、PDF 取り込み、ローカル PDF OCR パス用に各ロケールで 10 個の新しいキー（Force PDF Support トグル、Write PDF Markdown to Vault トグル、source-rejected-pdf-unsupported Notice）。
 
 **見直すべき設定：** Force PDF Support（Settings → LLM Configuration → Advanced、デフォルトオフ — 非 NATIVE プロバイダーのみ関連）、Write PDF Markdown to Vault（Settings → Wiki Configuration → Wiki Folder、デフォルトオフ — 任意のサイドカー）。
-
-### v1.24.1 — 2026-07-14（PATCH）
-
-v1.24.0 ユーザー全員にアップグレードを推奨します。
-
-- **🔍 5 段階 PPR シード選択カスケード。** Query Wiki は回答生成前に 5 つの補完段階（Lex 高速パス → LLM キーワード → ローカル部分文字列スキャン → LLM KB フォールバック → PPR グラフ拡張）を実行します。マルチホップ質問も、埋め込みのオプトインなしでグラフ認識コンテキストを得られます。
-- **🤫 空レスポンスの quiet path。** `parseJsonResponse` は Lint/Query パスで空の LLM ボディに対してノイズの多いエラーを出力しなくなり、一部ユーザーが報告したコンソールスパムを修正します（#255、#274）。シードセレクタも空ボディでより早く例外を投げ、復旧を明確にします（#275）。
-- **🧹 すっきりしたエンティティページ。** エンティティページ生成プロンプトとスキーマから冗長な `## Basic Information` / `## Basic Info` ブロックを削除。新しいエンティティページは frontmatter から H1 → 説明 → 関連セクションへ直接続きます（#258）。
-- **☁️ Bedrock Stage 1 プロバイダー。** AWS bedrock-mantle エンドポイント経由の `bedrock-anthropic` と `bedrock-openai` を追加。新規 npm 依存関係はゼロ、バンドル増量は約 +3 KB。
-- **🦙 LM Studio の API Key 不要でインジェスト。** 接続テストと同様に、LM Studio で API Key を空欄にしてもインジェストできるようになりました。
-- **🏗️ 内部整理。** `page-factory.ts` を 10 個の聚焦モジュールに分割（+99 テスト）。非破壊的な Mentions の再インジェストは、マージ時に過去のソース引用を保持します（#267）。
-
-**アップグレード注記：** v1.24.0 で手動で `<!-- reviewed: keep -->` マーカーを追加していた場合は、frontmatter の `reviewed: true` に切り替えてください — ページ全体を保護し、Markdown linter でも壊れません。
 
 ## ✨ 特徴
 

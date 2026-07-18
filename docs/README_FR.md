@@ -12,7 +12,9 @@
 
 [English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README_ZH-Hant.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | **Français** | [Español](README_ES.md) | [Português](README_PT.md) | [Italiano](README_IT.md)
 
-[Site officiel](https://llmwiki.greenerai.top/) | [Marketplace Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Retour d'expérience](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explorer le code avec DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Site officiel](https://llmwiki.greenerai.top/) | [Marketplace Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Retour d'expérience](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+
+🚀 [Démarrage rapide](#-démarrage-rapide) | ✨ [Fonctionnalités](#-fonctionnalités) | 🤖 [Guide de sélection de modèle](#-guide-de-sélection-de-modèle) | 🔒 [Transparence et conformité](#-transparence-et-conformité) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← Si ce plugin t'a aidé, offre-moi un café♥️ ou dépose une étoile🌟↗
 
@@ -32,7 +34,7 @@
     - [🔑 Configurer un fournisseur LLM](#-configurer-un-fournisseur-llm)
     - [🎮 Utilisation](#-utilisation)
     - [⚠️ Mise à niveau depuis une ancienne version ?](#️-mise-à-niveau-depuis-une-ancienne-version-)
-  - [⚡ Nouveautés de la v1.24.0](#-nouveautés-de-la-v1240)
+  - [⚡ Nouveautés de la v1.25.0](#-nouveautés-de-la-v1250)
   - [✨ Fonctionnalités](#-fonctionnalités)
     - [📊 Qualité des connaissances](#-qualité-des-connaissances)
     - [📄 Ingestion PDF (v1.25.0)](#-ingestion-pdf-v1250)
@@ -182,19 +184,6 @@ Quatre thèmes : ingestion PDF en cache uniquement, recommandations de modèles 
 - **🌐 Complétude i18n** — 10 nouvelles clés par locale pour les deux nouveaux paramètres, l'ingestion PDF, et la Voie OCR PDF locale (toggle Force PDF Support, toggle Write PDF Markdown to Vault, Notice source-rejected-pdf-unsupported).
 
 **Paramètres à vérifier :** Force PDF Support (Settings → LLM Configuration → Advanced, désactivé par défaut — uniquement pertinent pour les providers non-NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, désactivé par défaut — sidecar optionnel).
-
-### v1.24.1 — 2026-07-14 (PATCH)
-
-Mise à niveau recommandée pour tous les utilisateurs de v1.24.0.
-
-- **🔍 Cascade de sélection de graines PPR en 5 étapes.** Query Wiki exécute désormais cinq étapes complémentaires avant de générer une réponse (chemin rapide Lex → mots-clés LLM → scan local de sous-chaînes → fallback LLM KB → expansion de graphe PPR). Les questions multi-hop obtiennent un contexte conscient du graphe sans opt-in d'embedding.
-- **🤫 Chemin silencieux pour réponses vides.** `parseJsonResponse` ne journalise plus d'erreurs bruyantes pour les corps LLM vides dans les chemins Lint/Query, corrigeant le spam console signalé par certains utilisateurs (#255, #274). Le sélecteur de graines lève également une exception plus tôt sur les corps vides pour une récupération plus claire (#275).
-- **🧹 Pages d'entités plus propres.** Le bloc `## Basic Information` / `## Basic Info` redondant est supprimé des prompts et du schéma de génération des pages d'entités ; les nouvelles pages d'entités passent directement du frontmatter à H1 → description → sections liées (#258).
-- **☁️ Fournisseurs Bedrock Stage 1.** Ajout des options `bedrock-anthropic` et `bedrock-openai` routées via le point de terminaison AWS bedrock-mantle. Zéro nouvelle dépendance npm, bundle ~+3 KB.
-- **🦙 Ingestion LM Studio sans clé API.** L'ingestion fonctionne désormais avec une clé API vide pour LM Studio, comme le test de connexion.
-- **🏗️ Nettoyages internes.** `page-factory.ts` est divisé en 10 modules ciblés (+99 tests) ; la ré-ingestion non destructive des Mentions préserve les citations des sources antérieures lors de la fusion (#267).
-
-**Note de mise à niveau :** Si vous aviez ajouté manuellement des marqueurs `<!-- reviewed: keep -->` en v1.24.0, passez au frontmatter `reviewed: true` — il protège toute la page et survit aux linters Markdown.
 
 ## ✨ Fonctionnalités
 

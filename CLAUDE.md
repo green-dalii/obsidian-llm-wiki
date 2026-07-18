@@ -1,10 +1,33 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-18
+**Last Updated:** 2026-07-19 (post-Obsidian-audit alignment)
 
 ---
 
-## Current Phase: v1.25.0 RELEASED 2026-07-18 (cache-only PDF Ingest Level 1) — v1.25.1 PATCH next; PR4 (Kimi Files API) + AkaSakana's work on top of v1.25.0 next
+## Current Phase: v1.25.0 RELEASED 2026-07-18 — v1.25.1 Hotfix (8-phase plan) next; v1.25.2 PATCH + v1.26.0 MINOR following
+
+**Post-release audit (2026-07-19)** surfaced four categories of cleanup folded into v1.25.1 Hotfix:
+
+1. **Obsidian bot warnings** — `prefer-create-el` × 50 + `getSettingDefinitions` not implemented. Root cause: `eslint-plugin-obsidianmd` local 0.3.0 vs Obsidian bot 0.4.1 (version drift). **Fix**: Phase A — upgrade to 0.4.1, re-run lint, implement declarative settings API.
+2. **9 README stale TOC** — 10/10 locale READMEs' TOC line 35 still points to v1.24.0 anchor; heading body was correctly replaced in v1.25.0 release but TOC link string was missed. **Fix**: Phase B1 — per-file Edit on all 10 READMEs.
+3. **9 README flat nav** — User-requested 5-item flat quick-nav (Quick Start / Features / Model Selection Guide / Transparency & Compliance / FAQ) to be inserted **before line 17** (the `[![ko-fi]]` row). **Fix**: Phase B2 — per-file Edit on all 10 READMEs.
+4. **Build verification regression** — v1.25.0's URL rewrite (npmmirror → npmjs) was necessary but not sufficient. Real root causes: pnpm↔npm lockfile drift + main.js hash vs git tag alignment. **Fix**: Phase E — dual-direction lockfile regen + tag-alignment audit per `pre-release-gate` §2f.2.
+5. **Big-file splits** — `wiki-engine.ts` 1799 LOC + `settings.ts` 1439 LOC. 3rd-party audit 2026-07-19. **Fix**: Phase C — split graph-cache / index-generation / log-writer from `wiki-engine.ts`; split Section 3 first then full restructure of `settings.ts`.
+6. **Lint perf** — `controller.ts:151` + `:239` TODOs from v1.18.0+. 9 versions unaddressed. **Fix**: Phase F — parallel dedup + LLM health batches.
+7. **Triage fixes** — PR #288 (silent data loss, closes #287) + PR #272 (LM Studio empty-key). **Fix**: Phase D — merge after rebase onto main.
+
+**v1.25.1 Hotfix 8-phase plan (~12.5 working days, single PATCH):**
+
+- Phase A — Obsidian bot compliance (Days 1-2)
+- Phase B — 10 README rework: TOC anchors + flat nav + stale contributors audit (Days 2-3)
+- Phase C — Big-file splits: wiki-engine + settings Phase 1 + Phase 2 (Days 3-5)
+- Phase D — Triage fixes: PR #288 + PR #272 (Days 5-6)
+- Phase E — Build verification root-cause (Days 6-7)
+- Phase F — Lint perf + DiskCache<T> + ledger (Days 7-8)
+- Phase G — Doc sync (Day 9)
+- Phase H — Release 8-step (Days 10-11)
+
+Full plan: [ROADMAP.md](./ROADMAP.md#next-milestone-v1251-hotfix-target-10-11-working-days-single-patch) | Memory: [`project_v1.25.1_release.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.25.1_release.md)
 
 **v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
 
@@ -46,49 +69,7 @@ Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basen
 
 Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 
-**v1.24.1 PATCH release composition (2026-07-13/14 merge window):**
-- ✅ Phase 1 (#271): Fix #1 #268 Tier C forceRecreate bypass
-- ✅ Phase 2 (#276): page-factory.ts 1297-LOC god-class split (10 modules + 99 tests)
-- ✅ Phase 3 (#277/280): Bedrock Stage 1 via bedrock-mantle (~+3 KB, zero new npm deps)
-- ✅ Phase 4 (#269): #272 LM Studio no-key ingest fix
-- ✅ Phase 5 (#281): 5-stage PPR seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes. 1825 → 2060 tests.
-- ✅ Phase 5.5 (#282): parseJsonResponse empty-body quiet path (`silentOnEmpty` + `throwOnEmpty`). Closes #255 + #274. 2060 → 2073 tests (+13).
-- ✅ Phase 6 (#283): #258 entities-page redundant `## 基本信息` body block fix at the prompt + schema + lint layer. Closes #258. 2073 → 2080 tests (+7).
-
-**Issues closed in v1.24.1:**
-- #255 — Lint console errors (CLOSED via #282)
-- #258 — entities-page `## 基本信息` drift (CLOSED via #283)
-- #274 — Ollama Qwen3.5:9b no-key empty body (CLOSED via #282)
-- #275 — deepseek seed-selector empty body (CLOSED via `Closes #275` in v1.24.1 release commit; e2e PASSED on deepseek-v4-flash)
-
-**v1.25.0 release composition (shipped 2026-07-18):**
-
-- ✅ Cache-only PDF Ingest (Level 1) with provider gate + content-hash cache + bounded growth (100MB / 1000 entries / 10MB single-entry caps + LRU-by-mtime eviction + three-defense-layer housekeeping).
-- ✅ Settings: `forcePdfSupport` (universal escape hatch, default off) + `writePdfMarkdownToVault` (default off).
-- ✅ Bug fixes: ENOENT cache dir (Bug A), AI-SDK cause chain (Bug B), status bar mirror (Bug C), PDF mid-flow cancel (Bug D), pdf-cache never written (Bug E), stuck Notice on throw (Bug H).
-- ✅ Prompt centralization: `src/wiki/prompts/pdf.ts` (OCR-style verbatim, `[illegible]` / `[figure: ...]` / `[equation: ...]` anti-hallucination markers, `unwrapFencedMarkdown` cleanup helper).
-- ✅ Classifier tightening: requires BOTH rejection verb AND PDF/media marker (no more 413 false-positives).
-- ✅ Local PDF OCR path documented: oMLX + Markitdown + Baidu Unlimited-OCR (Apple Silicon only).
-- ✅ Local Model Recommendations + Cloud Model Picks H3 sections in all 10 locale READMEs.
-- ✅ 2182 tests passing (165 files, +102 since v1.24.1).
-- ✅ Six-Gate: lint 0 / tsc 0 / 2182 / clean / 0; no breaking changes; cache-only default; docs complete; release clean.
-
-**Issues closed in v1.25.0:**
-- (none — v1.25.0 is feature work, not bug fixes)
-
-**v1.25.1 PATCH open issues (next cycle):**
-
-See ROADMAP.md "v1.25.1 PATCH" section for the full backlog. Top items:
-- Generic `DiskCache<T>` extraction from `PdfConversionCache` (Altitude F3, HIGH)
-- `enforceSizeLimit` ledger optimization (Efficiency F1, HIGH)
-- Generic `provider-capabilities` registry replacing `forcePdfSupport` bool + ID constants (Altitude F4, MEDIUM)
-- Generic `HousekeepingTask` registry (Altitude F5, MEDIUM)
-- `PDF_CONVERTER_VERSION` move to `constants.ts` (Reuse F4, LOW)
-- `src/ui/settings.ts` split (1420 → ~200 LOC main + 5-6 section files) (User request, MEDIUM)
-- `unwrapFencedMarkdown` generic helper extraction (Reuse F5, LOW)
-- Generic `LlmProviderRejectionError` shape from `isPdfRelatedLlmError` (Altitude F6, LOW)
-
-Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
+> **Historical release compositions** (v1.24.1 / v1.25.0 closed work): see [CHANGELOG.md](./CHANGELOG.md). Keep a Changelog format is the canonical record; this file references forward-looking work only.
 
 ### Withdrawn / non-issues (kept for archaeology)
 
@@ -136,6 +117,24 @@ pnpm test           # Gate 1: Tests - all pass, 0 failures
 pnpm build          # Gate 1: Build - clean exit
 pnpm css-lint       # Gate 1: CSS - 0 !important declarations
 ```
+
+**Five-gate bot alignment note (2026-07-19, post-v1.25.0 audit)**: The Obsidian review bot runs a **newer** `eslint-plugin-obsidianmd` than the local lockfile pins (project 0.3.0 vs bot 0.4.1 as of 2026-07-19). Local `pnpm lint` passing does NOT guarantee bot will pass. **Mandatory before each release**:
+
+```bash
+LOCAL=$(node -p "require('./node_modules/eslint-plugin-obsidianmd/package.json').version")
+LATEST=$(npm view eslint-plugin-obsidianmd version)
+if [ "$LOCAL" != "$LATEST" ]; then
+  echo "WARNING: eslint-plugin-obsidianmd local=$LOCAL, latest=$LATEST"
+  echo "Obsidian bot will run $LATEST. Upgrade before release to surface all warnings pre-merge."
+  # Upgrade + regenerate lockfiles + re-run lint to surface new warnings
+  pnpm add -D "eslint-plugin-obsidianmd@$LATEST"
+  rm -f pnpm-lock.yaml && pnpm install
+  npm install --legacy-peer-deps --package-lock-only
+  pnpm lint  # expect new warnings; triage before commit
+fi
+```
+
+If `LOCAL != LATEST` at minor-bump (e.g. 0.3.x → 0.4.x), treat as Phase A pre-release task. See [`feedback_obsidianmd_plugin_version_drift.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/feedback_obsidianmd_plugin_version_drift.md).
 
 ### Gate 2: No Side Effects — structured review
 
