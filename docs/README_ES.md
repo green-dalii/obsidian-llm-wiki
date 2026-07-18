@@ -33,14 +33,17 @@
   - [⚡ Novedades de la v1.24.0](#-novedades-de-la-v1240)
   - [✨ Características](#-características)
     - [📊 Calidad del Conocimiento](#-calidad-del-conocimiento)
-    - [🛠️ Mantenimiento](#️-mantenimiento)
+    - [📄 Ingesta de PDF (v1.25.0)](#-ingesta-de-pdf-v1250)
     - [💬 Query \& Feedback](#-query--feedback)
+    - [🛠️ Mantenimiento](#️-mantenimiento)
     - [🌐 LLM \& Idioma](#-llm--idioma)
-  - [](#)
-- [🏗️ Arquitectura \& Rendimiento](#️-arquitectura--rendimiento)
+    - [🏗️ Arquitectura \& Rendimiento](#️-arquitectura--rendimiento)
     - [🔒 Privacidad y seguridad](#-privacidad-y-seguridad)
   - [📖 Ejemplo](#-ejemplo)
   - [🤖 Guía de Selección de Models](#-guía-de-selección-de-models)
+    - [☁️ Modelos en la nube](#️-modelos-en-la-nube)
+    - [🦙 Modelos locales (Ollama / LM Studio)](#-modelos-locales-ollama--lm-studio)
+    - [📄 Ruta OCR PDF local (v1.25.0+)](#-ruta-ocr-pdf-local-v1250)
   - [🏗️ Arquitectura](#️-arquitectura)
   - [❓ FAQ](#-faq)
   - [🔒 Transparencia y cumplimiento](#-transparencia-y-cumplimiento)
@@ -202,6 +205,17 @@ Actualización recomendada para todos los usuarios de v1.24.0.
 
 - **🎨 Vocabulario de etiquetas personalizable (v1.18.0).** Ajustes → Wiki → Modo de vocabulario de etiquetas → *Personalizado* te permite definir tus propias listas de etiquetas de tipo de entidad y concepto (por ejemplo, `Medical_Arzneimittel`, `法规`). El plugin respeta tu vocabulario en los prompts de extracción y en la validación de frontmatter; la auditoría de Lint (Issue #85 v7) reporta cualquier página cuyas etiquetas estén fuera del vocabulario activo.
 
+### 📄 Ingesta de PDF (v1.25.0)
+
+Elige un PDF de tu vault — el plugin lo lee a través de la entrada nativa de archivo de tu proveedor LLM, lo convierte a Markdown y vuelve a entrar en el pipeline estándar de ingesta Markdown. Todos los flujos existentes de entidad/concepto/alias/`[[wiki-link]]` se aplican sin cambios.
+
+- **🔌 Puerta de proveedor** — Anthropic, OpenAI, Bedrock Anthropic y Bedrock OpenAI manejan PDF de forma nativa. Para cualquier otro endpoint compatible con OpenAI/Anthropic, activa **Force PDF Support** en Settings → LLM Configuration → Advanced para que el plugin intente la llamada (tu endpoint decide; los fallos se muestran como un Notice localizado guiándote a desactivar el toggle). La configuración local recomendada está en [Ruta OCR PDF local](#-ruta-ocr-pdf-local-v1250).
+- **🗄️ Caché por hash de contenido** — un mismo PDF + mismo modelo + misma versión de convertidor devuelve el Markdown en caché sin llamar al LLM. La caché vive en `.obsidian/plugins/karpathywiki/pdf-cache/`; la clave lleva `converterVersion` para invalidar automáticamente las entradas obsoletas cuando se actualice el prompt.
+- **📏 Crecimiento acotado** — limpieza de caché en tres capas de defensa (100 MB total / 1000 entradas / 10 MB por entrada individual) con evicción LRU-by-mtime; las entradas antiguas se purgan al iniciar y al comenzar cada ingesta por lotes. Solo caché — tu vault no se modifica por defecto.
+- **📝 Sidecar opcional en el vault** — Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** escribe un `<basename>.pdf.md` junto al PDF fuente tras la conversión. Desactivado por defecto (solo caché).
+- **🛡️ Prompt transcripción literal** — el prompt de PDF→Markdown se reformula como conversión literal estilo OCR con marcadores anti-alucinación `[illegible]` / `[figure: ...]` / `[equation: ...]`; los modelos pequeños/locales que envuelven su salida en fences ```markdown se limpian automáticamente antes de escribir en caché.
+- **⏹ Cancelable** — al hacer clic en la barra de estado durante la conversión se interrumpe la llamada LLM en curso (vía Vercel AI SDK v6).
+
 ### 💬 Query & Feedback
 
 - **🔍 Cascada de selección de semillas PPR en 5 etapas (v1.24.1 PATCH).** Cuando formulas una pregunta multi-hop, Query Wiki compone la respuesta a través de cinco etapas complementarias antes de que arranque cualquier generación:
@@ -319,6 +333,8 @@ Este plugin sigue la filosofía de Karpathy: **alimentar al LLM con el contexto 
 
 **🌟 Recomendaciones principales:**
 
+### ☁️ Modelos en la nube
+
 | Tier | Model | Context Window | Por qué |
 |------|-------|---------------|---------|
 | **🌟 Valor** | **DeepSeek V4-Flash** | 1M tokens | Precio más bajo ($0.14/M), 284B MoE, ideal para ingestión batch |
@@ -331,7 +347,36 @@ Este plugin sigue la filosofía de Karpathy: **alimentar al LLM con el contexto 
 | **Flagship** | Claude Opus 4.7 | 1M tokens | Calidad máxima, costo alto — usar selectivamente |
 | **Flagship** | GPT-5.5 | 1M tokens | Razonamiento top, costo alto — usar selectivamente |
 
-Para models locales (Ollama): las ventanas de contexto son típicamente más pequeñas (8K–128K). Considera usar un provider en la nube para ingestion + model local para query.
+### 🦙 Modelos locales (Ollama / LM Studio)
+
+La inferencia local gana en soberanía de datos, uso sin conexión y cero coste de API. La contraprestación es una ventana de contexto menor (suelen estar entre 8K–128K; las familias open-weight recientes llegan a 262K) y un seguimiento de instrucciones más débil frente a los modelos cloud flagship. **Elige según tu presupuesto de hardware:** más parámetros = más conocimiento del mundo y mejor fidelidad a las instrucciones (mayor calidad de extracción, menos alucinaciones); menos parámetros = más velocidad y holgura de memoria, a costa de más alucinaciones y razonamiento de contexto largo más débil. El sweet spot en 24 GB Apple Silicon o una GPU de consumo única es la clase 27B–35B-A3B.
+
+| Model | Parámetros | Contexto | Por qué |
+|-------|------------|----------|---------|
+| **Qwen3.5 27B** | 27B dense | 262K | Mejor equilibrio calidad/tamaño para ingestión; MLX 4-bit cabe en 24 GB |
+| **Qwen3.5 35B-A3B** | 35B total / 3B activos MoE | 262K | Más rápido que 27B dense con calidad similar; ahorrador ideal de memoria |
+| **Qwen3.5 122B-A10B** | 122B / 10B MoE | 262K | Techo de calidad; requiere ≥48 GB VRAM o doble GPU |
+| **Qwen3.6 27B** | 27B dense | 256K+ | Refresh 2026-04 sobre Qwen3.5 27B — preferido si tu hardware lo soporta |
+| **Qwen3.6 35B-A3B** | 35B / 3B MoE | 262K | Misma disyuntiva que Qwen3.5 35B-A3B, con pesos más nuevos |
+| **Gemma 4 31B IT** | 31B dense | 262K | Fuerte seguimiento de instrucciones, salida Markdown limpia |
+| **Gemma 4 26B A4B IT** | 26B / 4B MoE | 262K | Menos memoria que 31B dense con calidad comparable |
+| **Gemma 4 E2B / E4B IT** | 2B / 4B | 131K | Ejecutable en CPU pura; solo para wikis pequeños o vistas previas rápidas |
+
+**Cuantización:** MLX 4-bit en Apple Silicon suele ser 1,5–2× más rápido que GGUF Q4_K_M a la misma tasa de bits efectiva. GGUF Q4_K_M es la opción por defecto multiplataforma; pasa a Q5/Q8 solo si tienes holgura de VRAM y notas regresión de calidad en Q4.
+
+**Estrategia de contexto:** Cuando tu Wiki crece por encima de ~500 páginas, un modelo local de 262K aún cubre la mayor parte del contexto que ensambla el motor de Query, pero la ingestión de un vault de 2000 páginas lo sobrepasará. Patrón habitual: cloud para ingestión + local para query. Para setups totalmente locales, la clase 27B/35B-A3B es el sweet spot.
+
+### 📄 Ruta OCR PDF local (v1.25.0+)
+
+La ingesta de PDF de v1.25.0 funciona con cualquier proveedor que acepte PDF como parte de archivo. Para un pipeline totalmente local en Apple Silicon (la única plataforma que oMLX soporta actualmente), esta es la configuración recomendada:
+
+1. Instala [oMLX](https://github.com/jundot/omlx) y activa su backend integrado **Markitdown** (conversión local PDF→Markdown).
+2. Carga **Baidu Unlimited-OCR** (open-source el 22/06/2026, 3B total / 0,5B activos, OCR de extremo a extremo que maneja documentos largos sin el modo de fallo "cuanto más genera, más lento va" de los modelos OCR antiguos) como modelo de visión en oMLX.
+3. En este plugin: elige el proveedor **Custom OpenAI-Compatible** (oMLX habla el protocolo compatible con OpenAI), apunta la Base URL al servidor local de oMLX, activa **Force PDF Support** en Settings → LLM Configuration → Advanced, y elige el modelo multimodal que sirve oMLX para el resumen de la ingestión.
+
+El PDF nunca sale de tu máquina — Markitdown hace la conversión estructural en local, Unlimited-OCR el reconocimiento visual en local, y el LLM local el resumen en local. La caché del plugin (`.obsidian/plugins/karpathywiki/pdf-cache/`) mantiene las re-ingestiones instantáneas.
+
+**Fallback:** si oMLX/Markitdown no está disponible (Linux/Windows o Macs antiguos), apunta **Force PDF Support** directamente a un LLM multimodal local que acepte partes de archivo PDF — la calidad es buena cuando el modelo es suficientemente grande, pero los requisitos de VRAM crecen de forma pronunciada con el número de páginas.
 
 **🔌 Anthropic Compatible (Coding Plan):** Si tu provider ofrece un endpoint de API compatible con Anthropic, selecciona "Anthropic Compatible" e ingresa el Base URL y API Key de tu provider.
 

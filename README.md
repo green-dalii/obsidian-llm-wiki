@@ -35,13 +35,17 @@
   - [⚡ What's New in v1.24.0](#-whats-new-in-v1240)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
-    - [🛠️ Maintenance](#️-maintenance)
+    - [📄 PDF Ingest (v1.25.0)](#-pdf-ingest-v1250)
     - [💬 Query \& Feedback](#-query--feedback)
+    - [🛠️ Maintenance](#️-maintenance)
     - [🌐 LLM \& Language](#-llm--language)
     - [🏗️ Architecture \& Performance](#️-architecture--performance)
     - [🔒 Privacy \& Security](#-privacy--security)
   - [📖 Example](#-example)
   - [🤖 Model Selection Guide](#-model-selection-guide)
+    - [☁️ Cloud Model Picks](#️-cloud-model-picks)
+    - [🦙 Local Model Recommendations (Ollama / LM Studio)](#-local-model-recommendations-ollama--lm-studio)
+    - [📄 Local PDF OCR Path (v1.25.0+)](#-local-pdf-ocr-path-v1250)
   - [🏗️ Architecture](#️-architecture)
   - [❓ FAQ](#-faq)
   - [🔒 Transparency \& Compliance](#-transparency--compliance)
@@ -214,6 +218,17 @@ Recommended upgrade for all v1.24.0 users.
 
 ![Custom tag vocabulary chip inputs](docs/assets/custom-tags.png)
 
+### 📄 PDF Ingest (v1.25.0)
+
+Pick a PDF from your vault — the plugin reads it through your LLM provider's native file input, converts it to Markdown, and re-enters the regular Markdown ingest pipeline. Every existing entity/concept/alias/`[[wiki-link]]` workflow applies unchanged.
+
+- **🔌 Provider gate** — Anthropic, OpenAI, Bedrock Anthropic, and Bedrock OpenAI handle PDF natively. For any other OpenAI/Anthropic-compatible endpoint, enable **Force PDF Support** in Settings → LLM Configuration → Advanced to let the plugin attempt the call (your endpoint decides; failures surface as a localized Notice guiding you to disable the toggle). See the [Local PDF OCR Path](#-local-pdf-ocr-path-v1250) below for the recommended local setup.
+- **🗄️ Content-hash cache** — identical PDF + model + converter version returns the cached Markdown with no LLM call. The cache lives in `.obsidian/plugins/karpathywiki/pdf-cache/`; cache key embeds a `converterVersion` so prompt upgrades invalidate stale entries automatically.
+- **📏 Bounded growth** — three-defense-layer cache housekeeping (100 MB total / 1000 entries / 10 MB single-entry caps) with LRU-by-mtime eviction; old entries are pruned on startup and at the start of every batch ingest. Cache only — your vault is not modified by default.
+- **📝 Optional vault sidecar** — Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** writes `<basename>.pdf.md` next to the source PDF after conversion. Off by default (cache-only).
+- **🛡️ Verbatim transcriber prompt** — the PDF→Markdown prompt is re-framed as OCR-style verbatim conversion with `[illegible]` / `[figure: ...]` / `[equation: ...]` anti-hallucination markers; small/local models that wrap output in ```markdown fences are auto-cleaned before cache write.
+- **⏹ Cancellable** — clicking the status bar mid-conversion aborts the in-flight LLM call through Vercel AI SDK v6.
+
 ### 💬 Query & Feedback
 
 - **🔍 5-stage PPR seed-selection cascade (v1.24.1 PATCH).** When you ask a multi-hop question, Query Wiki composes the answer through five complementary stages before any generation runs:
@@ -331,6 +346,8 @@ This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not
 
 **💰 Value-First Strategy:** You don't need flagship models. The following **cost-effective alternatives** deliver excellent results at lower prices:
 
+### ☁️ Cloud Model Picks
+
 | Tier | Model | Context | Why |
 |------|-------|---------|-----|
 | **🌟 Value Pick** | **DeepSeek V4-Flash** | 1M tokens | Lowest cost ($0.14/M), 284B MoE, ideal for batch ingestion |
@@ -343,7 +360,36 @@ This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not
 | **Flagship** | Claude Opus 4.7 | 1M tokens | Ultimate quality, higher cost — use selectively |
 | **Flagship** | GPT-5.5 | 1M tokens | Top reasoning, higher cost — use selectively |
 
-For local models (Ollama): context windows are typically smaller (8K–128K). Consider using a cloud provider for ingestion + local model for query.
+### 🦙 Local Model Recommendations (Ollama / LM Studio)
+
+Local inference wins on data sovereignty, offline use, and zero API cost. The trade-off is context window (most sit between 8K–128K; recent open-weight families reach 262K) and instruction following vs. flagship cloud models. **Pick by your hardware budget:** larger parameter counts buy world knowledge and instruction fidelity (better extraction quality, fewer hallucinations); smaller counts buy speed and memory headroom but pay for it in hallucinations and weaker long-context reasoning. The sweet spot on a 24 GB Apple Silicon or single consumer GPU is the 27B–35B-A3B class.
+
+| Model | Params | Context | Why |
+|-------|--------|---------|-----|
+| **Qwen3.5 27B** | 27B dense | 262K | Best quality/size trade-off for ingest; MLX 4-bit fits in 24 GB |
+| **Qwen3.5 35B-A3B** | 35B total / 3B active MoE | 262K | Faster than 27B dense at similar quality; ideal memory saver |
+| **Qwen3.5 122B-A10B** | 122B / 10B MoE | 262K | Quality ceiling; needs ≥48 GB VRAM or dual GPUs |
+| **Qwen3.6 27B** | 27B dense | 256K+ | 2026-04 refresh over Qwen3.5 27B — prefer this if your hardware can take it |
+| **Qwen3.6 35B-A3B** | 35B / 3B MoE | 262K | Same trade-off as Qwen3.5 35B-A3B, newer weights |
+| **Gemma 4 31B IT** | 31B dense | 262K | Strong instruction following, clean Markdown output |
+| **Gemma 4 26B A4B IT** | 26B / 4B MoE | 262K | Lower memory than 31B dense at comparable quality |
+| **Gemma 4 E2B / E4B IT** | 2B / 4B | 131K | CPU-runnable; use only for small wikis or quick previews |
+
+**Quantization:** MLX 4-bit on Apple Silicon is typically 1.5–2× faster than GGUF Q4_K_M at the same effective bitrate. GGUF Q4_K_M is the default cross-platform choice; reach for Q5/Q8 only if you have the VRAM headroom and notice quality regression at Q4.
+
+**Context strategy:** When your Wiki grows past ~500 pages, a 262K local model still sees most of the context the Query engine assembles, but ingest on a 2000-page vault will outrun it. Common pattern: cloud for ingest + local for query. For full local setups, the 27B/35B-A3B class is the sweet spot.
+
+### 📄 Local PDF OCR Path (v1.25.0+)
+
+v1.25.0's PDF ingest works with any provider that accepts PDF as a file part. For a fully local pipeline on Apple Silicon (the only platform oMLX currently supports), the recommended setup is:
+
+1. Install [oMLX](https://github.com/jundot/omlx) and enable its built-in **Markitdown** backend (local PDF→Markdown conversion).
+2. Load **Baidu Unlimited-OCR** (open-sourced 2026-06-22, 3B total / 0.5B active, end-to-end OCR that handles long documents without the "slower the longer it generates" failure mode of older OCR models) as the vision model in oMLX.
+3. In this plugin: set provider to **Custom OpenAI-Compatible** (oMLX speaks the OpenAI-compatible protocol), point the Base URL at oMLX's local server, turn on **Force PDF Support** in Settings → LLM Configuration → Advanced, and pick the multimodal model oMLX is serving for the ingest summarization.
+
+The PDF never leaves your machine — Markitdown does the structural conversion locally, Unlimited-OCR does the visual recognition locally, and the local LLM does the summarization locally. The plugin's cache (`.obsidian/plugins/karpathywiki/pdf-cache/`) then keeps re-ingests instant.
+
+**Fallback:** if oMLX/Markitdown is unavailable (Linux/Windows or older Macs), point **Force PDF Support** directly at a local multimodal LLM that accepts PDF file parts — quality is good when the model is large enough, but VRAM demands scale steeply with page count.
 
 **🔌 Anthropic Compatible (Coding Plan):** If your provider offers an Anthropic-compatible API endpoint, select "Anthropic Compatible" and enter your provider's Base URL and API Key.
 

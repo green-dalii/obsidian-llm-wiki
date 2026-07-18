@@ -35,13 +35,17 @@
   - [⚡ v1.24.0 업데이트 하이라이트](#-v1240-업데이트-하이라이트)
   - [✨ 주요 기능](#-주요-기능)
     - [📊 지식 품질](#-지식-품질)
-    - [🛠️ 유지 관리](#️-유지-관리)
+    - [📄 PDF 수집 (v1.25.0)](#-pdf-수집-v1250)
     - [💬 조회 및 피드백](#-조회-및-피드백)
+    - [🛠️ 유지 관리](#️-유지-관리)
     - [🌐 LLM 및 언어](#-llm-및-언어)
     - [🏗️ 아키텍처 및 성능](#️-아키텍처-및-성능)
     - [🔒 개인정보 보호 및 보안](#-개인정보-보호-및-보안)
   - [📖 예시](#-예시)
   - [🤖 모델 권장 사항](#-모델-권장-사항)
+    - [☁️ 클라우드 모델 추천](#️-클라우드-모델-추천)
+    - [🦙 로컬 모델 추천 (Ollama / LM Studio)](#-로컬-모델-추천-ollama--lm-studio)
+    - [📄 로컬 PDF OCR 경로 (v1.25.0+)](#-로컬-pdf-ocr-경로-v1250)
   - [🏗️ 아키텍처](#️-아키텍처)
   - [❓ FAQ](#-faq)
   - [🔒 투명성 및 규정 준수](#-투명성-및-규정-준수)
@@ -209,6 +213,17 @@ v1.24.0 모든 사용자에게 업그레이드를 권장합니다.
 
 - **🎨 사용자 정의 태그 어휘 (v1.18.0).** 설정 → Wiki → 태그 어휘 모드 → *사용자 정의*로 자체 엔티티 및 개념 타입 태그 목록을 정의할 수 있습니다 (예: `Medical_Arzneimittel`, `法规`). 플러그인은 추출 프롬프트와 frontmatter 검증에서 사용자 어휘를 존중합니다; 기존 Lint 감사(#85 v7)는 활성 어휘에서 벗어난 태그가 있는 페이지를 보고합니다.
 
+### 📄 PDF 수집 (v1.25.0)
+
+vault에서 PDF 하나를 고르면 — 플러그인이 LLM 프로바이더의 네이티브 파일 입력으로 읽어 Markdown으로 변환하고, 표준 Markdown 수집 파이프라인으로 다시 진입합니다. 기존 엔티티/개념/별칭/`[[wiki-link]]` 워크플로는 모두 그대로 적용됩니다.
+
+- **🔌 프로바이더 게이트** — Anthropic, OpenAI, Bedrock Anthropic, Bedrock OpenAI는 PDF를 네이티브로 처리합니다. 그 외의 OpenAI/Anthropic 호환 엔드포인트에서는 Settings → LLM Configuration → Advanced에서 **Force PDF Support**를 활성화하면 플러그인이 호출을 시도합니다(성공/실패의 판단은 엔드포인트 측에 달려 있으며, 실패 시 토글을 끄도록 안내하는 로컬라이즈된 Notice가 표시됩니다). 로컬 권장 구성은 [로컬 PDF OCR 경로](#-로컬-pdf-ocr-경로-v1250)를 참조하세요.
+- **🗄️ 콘텐츠 해시 캐시** — 동일한 PDF + 동일한 모델 + 동일한 converter version은 LLM 호출 없이 캐시된 Markdown을 반환합니다. 캐시는 `.obsidian/plugins/karpathywiki/pdf-cache/`에 저장되며, 키에 `converterVersion`이 내장되어 프롬프트 업그레이드 시 자동으로 무효화됩니다.
+- **📏 제한된 증가** — 3계층 방어의 캐시 관리(총 100MB / 1000개 / 단일 10MB 상한) + LRU-by-mtime 축출. 구 항목은 시작 시 및 배치 수집 시작 시 정리됩니다. 기본값은 캐시 전용이며 vault를 수정하지 않습니다.
+- **📝 선택적 vault 사이드카** — Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault**를 켜면 변환 후 소스 PDF 옆에 `<basename>.pdf.md`를 작성합니다(기본값은 꺼짐, 캐시 전용).
+- **🛡️ Verbatim 트랜스크립터 프롬프트** — PDF→Markdown 프롬프트는 OCR 스타일의 문자 단위 변환으로 재구성되었으며 `[illegible]` / `[figure: ...]` / `[equation: ...]` 반환 환각 마커를 포함합니다. 출력을 ```markdown 펜스로 감싸는 소형/로컬 모델은 캐시 쓰기 전에 자동으로 정리됩니다.
+- **⏹ 취소 가능** — 변환 중 상태 표시줄을 클릭하면 진행 중인 LLM 호출이 중단됩니다(Vercel AI SDK v6 경유).
+
 ### 💬 조회 및 피드백
 
 - **🔍 5단계 PPR 시드 선택 캐스케이드 (v1.24.1 PATCH)** — 멀티홉 질문을 던지면 Query Wiki는 생성을 시작하기 전에 5개의 보완적 단계를 거쳐 답변을 구성합니다:
@@ -321,6 +336,8 @@ Supervised learning(지도 학습)은 레이블이 있는 훈련 데이터에서
 
 **💰 가성비 우선 전략:** 플래그십 모델이 필요 없습니다. 다음 **경제적인 대안**으로 더 낮은 비용으로 훌륭한 결과를 얻을 수 있습니다:
 
+### ☁️ 클라우드 모델 추천
+
 | 등급 | 모델 | 컨텍스트 창 | 이유 |
 |------|------|-------------|------|
 | **🌟 가성비 최고** | **DeepSeek V4-Flash** | 1M tokens | 최저가($0.14/M), 284B MoE, 배치 처리에 최적 |
@@ -333,7 +350,36 @@ Supervised learning(지도 학습)은 레이블이 있는 훈련 데이터에서
 | **플래그십형** | Claude Opus 4.7 | 1M tokens | 최고 품질, 비용 높음 — 선택적으로 사용 |
 | **플래그십형** | GPT-5.5 | 1M tokens | 최고 수준 추론, 비용 높음 — 선택적으로 사용 |
 
-로컬 모델(Ollama): 컨텍스트 창이 일반적으로 작습니다(8K–128K). 수집에는 cloud provider를, 조회에는 로컬 모델을 사용하는 것을 권장합니다.
+### 🦙 로컬 모델 추천 (Ollama / LM Studio)
+
+로컬 추론의 최대 강점은 데이터 주권, 오프라인 사용, API 비용 제로입니다. 반면 컨텍스트 창이 작고(대부분 8K–128K, 최근 오픈웨이트는 262K까지 도달) 플래그십 클라우드 모델 대비 명령 수행력도 떨어집니다. **하드웨어 예산에 맞춰 선택하세요:** 파라미터 수가 클수록 세계 지식과 명령 수행이 강해지고(추출 품질이 올라가고 환각이 줄어듦), 작을수록 속도와 VRAM 여유는 늘어나는 대신 환각과 장문 컨텍스트 추론이 약해집니다. 24GB Apple Silicon 또는 단일 소비자 GPU의 스윗 스팟은 27B–35B-A3B 클래스입니다.
+
+| 모델 | 파라미터 | 컨텍스트 | 이유 |
+|------|----------|----------|------|
+| **Qwen3.5 27B** | 27B dense | 262K | 수집 용도에서 품질과 크기의 최优 균형; MLX 4-bit로 24GB에 수용 가능 |
+| **Qwen3.5 35B-A3B** | 35B 총 / 3B 활성 MoE | 262K | 27B dense보다 빠르면서 동등한 품질; VRAM 절약에 이상적 |
+| **Qwen3.5 122B-A10B** | 122B / 10B MoE | 262K | 품질 상한; ≥48GB VRAM 또는 듀얼 GPU 필요 |
+| **Qwen3.6 27B** | 27B dense | 256K+ | 2026-04 Qwen3.5 27B 리프레시, 하드웨어가 받쳐주면 우선 선택 |
+| **Qwen3.6 35B-A3B** | 35B / 3B MoE | 262K | Qwen3.5 35B-A3B와 동일한 트레이드오프, 더 새로운 가중치 |
+| **Gemma 4 31B IT** | 31B dense | 262K | 명령 수행 강하고 Markdown 출력이 깔끔 |
+| **Gemma 4 26B A4B IT** | 26B / 4B MoE | 262K | 31B dense 대비 VRAM 절약, 동등한 품질 |
+| **Gemma 4 E2B / E4B IT** | 2B / 4B | 131K | 순수 CPU 실행 가능; 소형 Wiki 또는 빠른 미리보기 전용 |
+
+**양자화 가이드:** Apple Silicon에서 MLX 4-bit는 동일 실효 비트레이트의 GGUF Q4_K_M 대비 보통 1.5–2배 빠릅니다. GGUF Q4_K_M은 크로스 플랫폼 기본 선택. VRAM 여유가 있고 Q4에서 품질 열화가 보일 때만 Q5/Q8을 고려하세요.
+
+**컨텍스트 전략:** Wiki가 약 500페이지를 넘으면 262K 로컬 모델도 Query 엔진이 구성하는 대부분의 컨텍스트를 커버할 수 있지만, 2000페이지 vault 수집에는 부족합니다. 일반적인 조합은 "수집은 클라우드, 조회는 로컬". 완전 로컬을 고수한다면 27B/35B-A3B 클래스가 스윗 스팟입니다.
+
+### 📄 로컬 PDF OCR 경로 (v1.25.0+)
+
+v1.25.0 PDF 수집은 PDF를 파일 파트로 받는 모든 프로바이더에서 동작합니다. Apple Silicon(oMLX가 현재 지원하는 유일한 플랫폼)에서 완전 로컬 파이프라인을 구성할 때의 권장 설정은 다음과 같습니다:
+
+1. [oMLX](https://github.com/jundot/omlx)를 설치하고 내장 **Markitdown** 백엔드(로컬 PDF→Markdown 변환)를 활성화합니다.
+2. **Baidu Unlimited-OCR**(2026-06-22 오픈소스, 3B 총 / 0.5B 활성, 엔드투엔드 OCR로 긴 문서에서 "생성할수록 느려지는" 구 모델의 문제를 해결)을 oMLX의 비전 모델로 로드합니다.
+3. 본 플러그인 측: 프로바이더를 **Custom OpenAI-Compatible**로 설정하고(oMLX는 OpenAI 호환 프로토콜 사용) Base URL을 oMLX 로컬 서버로 지정합니다. Settings → LLM Configuration → Advanced에서 **Force PDF Support**를 켜고, 수집 요약에는 oMLX가 제공하는 멀티모달 모델을 선택합니다.
+
+PDF는 사용자의 기기를 떠나지 않습니다 — Markitdown이 구조 변환을, Unlimited-OCR이 시각 인식을, 로컬 LLM이 요약을 담당합니다. 플러그인의 캐시(`.obsidian/plugins/karpathywiki/pdf-cache/`)가 재수집을 즉시 처리합니다.
+
+**대안:** oMLX/Markitdown을 사용할 수 없는 경우(Linux/Windows 또는 구형 Mac)에는 **Force PDF Support**를 PDF 파일 파트를 받는 로컬 멀티모달 LLM으로 직접 지정하세요. 모델이 충분히 크면 품질이 좋지만, VRAM 요구량이 페이지 수에 따라 급격히 증가합니다.
 
 **🔌 Anthropic Compatible(Coding Plan):** Provider가 Anthropic 호환 API 엔드포인트를 제공하는 경우, "Anthropic Compatible"을 선택하고 Provider의 Base URL과 API Key를 입력하세요.
 
