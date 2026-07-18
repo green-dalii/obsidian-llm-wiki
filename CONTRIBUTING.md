@@ -48,6 +48,8 @@ pnpm css-lint      # styles.css contains no !important declarations
 
 > **v1.23.0 + v1.23.1 note (2026-07-02):** `src/llm-client.ts` (1625 LOC, hand-rolled AnthropicClient / OpenAICompatibleClient / AnthropicCompatibleClient) and `src/core/sse-parser.ts` (85 LOC) have been **removed**. They are replaced by `src/llm-sdk/` (5 files, 1421 LOC) backed by Vercel AI-SDK v6 (`@ai-sdk/openai@3`, `@ai-sdk/anthropic@3`, `@ai-sdk/openai-compatible@2`, `ai@6`) and `src/core/obsidian-fetch-bridge.ts` (326 LOC). New Graph Engine modules added under `src/core/`: `monte-carlo-ppr.ts`, `ppr-cascade.ts`, `section-extractor.ts`, `hub-detection.ts`, `hub-retirement.ts`, `build-graph.ts`, `url-fallback.ts`, `build-folder-tree.ts`, `ingest-queue.ts`. v1.23.1 added `strictBindCallApply: true` to `tsconfig.json` for Obsidian review-bot alignment.
 
+> **v1.25.0 note (2026-07-18):** New `src/core/pdf-*.ts` trio (cache + converter + metadata) implements cache-only PDF Ingest (Level 1) — three-defense-layer bounded growth (100MB / 1000 / 10MB) + LRU-by-mtime eviction. The PDF→Markdown prompt is centralized in `src/wiki/prompts/pdf.ts` (was the last LLM-call site bypassing the existing prompts barrel). The pre-pivot `src/core/pdf-ingest-orchestrator.ts` was removed; PDF dispatch lives inside `wiki-engine.ingestPdfSource`.
+
 ## Project Structure
 
 ```
@@ -113,7 +115,10 @@ src/
 │   ├── ensure-welcome-note.ts  # First-run Welcome note orchestrator (v1.23.0)
 │   ├── smoke-test.ts           # LLM configuration verification wrapper (v1.23.0)
 │   ├── transient-retry.ts      # Project-wide withTransientRetry<T> helper (v1.24.0, 3× exp backoff)
-│   └── model-resolver.ts       # resolveModelForTask(settings, task) #208 per-task routing helper (v1.24.0)
+│   ├── model-resolver.ts       # resolveModelForTask(settings, task) #208 per-task routing helper (v1.24.0)
+│   ├── pdf-cache.ts            # Content-hash PDF conversion cache + LRU eviction (v1.25.0)
+│   ├── pdf-converter.ts        # PDF→Markdown via LLM FilePart + OCR-style prompt (v1.25.0)
+│   └── pdf-metadata.ts         # Pure-function PDF Info dict parser (title/author/pageCount, v1.25.0)
 ├── wiki/                # Wiki engine modules
 │   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log)
 │   ├── query-engine/    # Conversational query with streaming + thinking UI
@@ -162,14 +167,21 @@ src/
 │   │   └── phases/
 │   │       ├── preparation.ts    # Page read, link fix, sources normalize
 │   │       └── programmatic.ts   # Fast programmatic scanners
-│   └── prompts/         # LLM prompt templates by domain
+│   └── prompts/         # LLM prompt templates by domain (INGESTION / GENERATION / MERGE / FIX / LINT / CONVERSATION / PDF, v1.25.0)
+│       ├── ingestion.ts
+│       ├── generation.ts
+│       ├── merge.ts
+│       ├── fixes.ts
+│       ├── lint.ts
+│       ├── conversation.ts
+│       └── pdf.ts        # OCR-style verbatim transcriber + unwrapFencedMarkdown helper (v1.25.0)
 ├── schema/              # Schema co-evolution
 │   ├── schema-manager.ts # SchemaManager (read/write schema config)
 │   ├── auto-maintain.ts # File watcher, periodic lint, startup quick fixes
 │   └── analyze.ts       # Schema-analyze with cancel wiring
 ├── ui/                  # Settings + history-modal/ (14-file split, v1.24.0) + modals/ (7-file split, v1.24.0)
 ├── texts/               # i18n (10 languages: EN/ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT)
-└── __tests__/           # Unit tests (vitest, 2080 tests across 158 files)
+└── __tests__/           # Unit tests (vitest, 2182 tests across 165 files)
 ```
 
 ## Internationalization

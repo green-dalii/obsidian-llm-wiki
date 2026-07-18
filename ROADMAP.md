@@ -2,13 +2,59 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.24.1 (released 2026-07-14) → v1.25.0 next. | **Updated:** 2026-07-15
+**Version:** 1.25.0 (RELEASED 2026-07-18) → v1.25.1 next. | **Updated:** 2026-07-18
 
 ## Current Status
 
-**v1.24.0 — RELEASED 2026-07-10.** MINOR scope. (unchanged; see full text below)
+**v1.25.0 — RELEASED 2026-07-18.** MINOR scope. Cache-only PDF Ingest (Level 1). 2182 tests passing (165 files, +102 since v1.24.1).
 
-**v1.24.1 — RELEASED 2026-07-14.** PATCH scope. 7 merged PRs + post-e2e fixes. 2080 tests passing (+255 since v1.24.0).
+### v1.25.0 composition (18 commits, 50 files changed, +4841/-66)
+
+| # | Commit | Subject | Notes |
+|---|--------|---------|-------|
+| 1 | `914a81c` | `docs(roadmap): v1.25.0 PDF Level 1 plan (3 PRs, API-native, 0 new deps)` | |
+| 2 | `18e515d` | `feat(pdf): PDF Level 1 core — cache + metadata parser + LLM converter` | PR1 core (pre-pivot) |
+| 3 | `0abf2db` | `feat(pdf): PDF Level 1 ingest integration — orchestrator + 2 commands` | PR1 ingest integration (pre-pivot) |
+| 4 | `3e9eac0` | `docs: v1.25.0 plan — cache-only PDF architecture pivot` | user-confirmed 2026-07-15 |
+| 5 | `145d43b` | `feat(pdf): PR2 redo — cache-only PDF ingest (no sidecar)` | replaced orchestrator |
+| 6 | `7e11b7a` | `feat(pdf): PR3 — PDF Level 1 settings + opt-in sidecar write` | |
+| 7 | `cb16747` | `feat(pdf): PR3 follow-up — universal escape hatch + UX moves` | forcePdfSupport simplified to universal, writePdfMarkdownToVault moved to Wiki Configuration |
+| 8 | `fd4b401` | `feat(pdf): PR3 follow-up #2 — cache filename safety + batch housekeeping + PDF error Notice` | hashCacheKey + prepareBatchIngest |
+| 9 | `06e8724` | `docs(agents): sync AGENTS.md to post-PR3-follow-up-#2 state` | |
+| 10 | `550d704` | `fix(pdf): PR3 follow-up #6 — ENOENT cache + AI-SDK cause chain routing` | Bug A + B |
+| 11 | `63bb287` | `docs(changelog): bump test count to 2144` | |
+| 12 | `56422a0` | `fix(pdf): PR3 follow-up #3 — reapply classifier tightening` | |
+| 13 | `9fff9b7` | `fix(pdf): PR3 follow-up #5 — dismiss stuck "Ingesting:" Notice on ingest throw` | |
+| 14 | `ff140b2` | `fix(ux): PR3 follow-up #7 — status bar + cancel during PDF ingest` | Bug C |
+| 15 | `cf620e2` | `fix(pdf): PR3 follow-up #8 — PDF mid-flow cancel survives re-entry + abortSignal wired` | Bug D |
+| 16 | `dd6af7d` | `fix(pdf): PR3 follow-up #9 — auto-create pdf-cache directory on set()` | Bug E |
+| 17 | `cbf824d` | `refactor(prompts): PR3 follow-up #9 prompt-rewrite — centralize PDF prompt + unwrap helper` | src/wiki/prompts/pdf.ts |
+| 18 | `971581c` | `docs(readme): PR3 follow-up #10 — PDF ingest + local model sections across 10 locales` | |
+
+### Closed issues (v1.25.0 release)
+
+- (none — v1.25.0 is feature work, not bug fixes)
+
+### Six-Gate summary
+
+| Gate | Status |
+|---|---|
+| Code correct (lint/tsc/test/build/css-lint) | ✅ 0/0/2182/clean/0 |
+| No side effects | ✅ Cache-only default; settings opt-in to vault sidecar |
+| No breaking changes | ✅ Settings default false; old data.json safe |
+| No performance regression | ✅ Cache caps 100MB/1000/10MB; LRU; abortSignal threading ~200 ms |
+| Docs complete | ✅ 10 READMEs + CHANGELOG + ROADMAP + memory file |
+| Release clean | ✅ Trailer format (no model name/version), i18n parity |
+
+### AkaSakana PR #286 (still open, transfer responsibility to PR4)
+
+PR #286 — AkaSakana's `feat: native pdf support` branch — not merged as-is into v1.25.0. After v1.25.0 lands on main, invite AkaSakana to ship Kimi Files API + non-routine provider PDF dispatch + error regex classifiers as a follow-up PR on top of the v1.25.0 baseline. Target: **v1.26.0 MINOR**. Reply draft pending in Step 7.
+
+---
+
+## Next Milestone: v1.25.1 PATCH (target ~2-3 days)
+
+**Theme:** Tech-debt cleanup + simplify follow-ups from v1.25.0 release + Lint perf opening.
 
 ### v1.24.1 composition
 
@@ -47,9 +93,30 @@ Historical releases are summarized in [CHANGELOG](./CHANGELOG.md).
 
 See [CHANGELOG](./CHANGELOG.md#v1.23.2) for full details. **PATCH** scope. Five merged PRs (#234 + graph-cache + #221 + #219 + DocTpoint's #238 + #241). 1431 tests at ship. Post-release monolith splits (#248/#249/#250) added ~90 test cases — **1616 tests across 115 files in latest main**. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
 
-## Next Milestone: v1.25.0 MINOR (target TBD, ~3-4 days)
+## Next Milestone: v1.25.1 PATCH (target ~2-3 days)
 
-**Theme:** PDF source support (Level 1, cache-only architecture). Lint performance overhaul deferred to v1.25.x PATCH or v1.26.0. Source-revision awareness (#220) deferred to v1.26.0+.
+**Theme:** Tech-debt cleanup + simplify follow-ups from v1.25.0 release + Lint perf opening.
+
+| Item | Source | Scope estimate | Priority |
+|------|--------|---------------|----------|
+| **Generic `DiskCache<T>`** | Altitude F3 | Extract `PdfConversionCache` three-defense-layer + LRU-by-mtime + TTL + `isExpiredByMtime` into `core/disk-cache.ts`. `PdfConversionCache` becomes ~30 lines. Reusable by future Lint dedup cache (Issue #99 follow-up), image cache, etc. | HIGH |
+| **`enforceSizeLimit` ledger optimization** | Efficiency F1 | In-memory `bytesWritten`/`entryCount` ledger avoids full-stat scan on every `set()`. Only trigger `enforceSizeLimit` when ledger exceeds cap. 1000-entry cache set → 0 stat calls instead of 1000. | HIGH |
+| **Generic `provider-capabilities` registry** | Altitude F4 | `type Capability = 'pdf' \| 'streaming' \| 'structuredOutput' \| 'image' \| 'tools'` and `getCapability(provider, cap): 'native' \| 'opt-in' \| 'unsupported'`. Replaces `forcePdfSupport` bool + `NATIVE_PDF_PROVIDER_IDS` + `FORCE_PDF_PROVIDER_IDS` constants. | MEDIUM |
+| **Generic `HousekeepingTask` registry** | Altitude F5 | `interface HousekeepingTask { name: string; run(): Promise<...> }`. Plugin `onload` iterates registered tasks. Each cache registers itself, not `main.ts`. | MEDIUM |
+| **`PDF_CONVERTER_VERSION` move to `constants.ts`** | Reuse F4 | Move from `pdf-cache.ts` to `constants.ts` alongside `PDF_CACHE_*` constants. Single source of truth for version bumps. | LOW |
+| **`src/ui/settings.ts` split (1420 → ~200 LOC main + 5-6 section files)** | User 2026-07-16 request | Section 3 (LLM Provider, ~548 LOC) is 39% of the file. Restructure into `src/ui/settings/sections/` (language / status / llm-provider / llm-advanced / wiki-config / auto-maintenance) + extract existing helpers (`renderModelField`, `commitTempSettings`, cascade/prefill/markStale) into `src/ui/settings/helpers/`. Target: orchestrator class file ≤ 200 LOC; each section file ≤ 500 LOC; existing call sites (`main.ts`) unchanged because the exported class name stays the same. **Phase 1 (recommended)**: extract just Section 3 (LLM Provider) into `sections/llm-provider.ts` (~30 min, ~870 LOC main file). **Phase 2 (full restructure)**: split remaining sections + helpers, achievable in 4-5 hours. | MEDIUM |
+| **`unwrapFencedMarkdown` generic helper** | Reuse F5 | Promote `unwrapFencedMarkdown` from `src/wiki/prompts/pdf.ts` (PDF-specific) to `src/text/unwrap-markdown-fences.ts` (generic). Lint fix-runs and Query Wiki pre-process will eventually wrap user-provided content the same way to defend against mixed-quality LLMs. Document at the helper level: "conservative — returns input unchanged when no rule matches". | LOW |
+| **`isPdfRelatedLlmError` generic `LlmProviderRejectionError` shape** | Altitude F6 | Wrap the 4-step classifier (rejection verb + PDF marker + Rust-serde fallback + 413 size-limit guard) into a generic `LlmProviderRejectionError` detection interface so other providers can reuse the same routing logic without re-implementing. | LOW |
+
+**What about wiki-engine.ts split (3rd-party audit P1)?** Deferred to v1.26.0. The Lint performance work that originally justified the split is itself deferred. Splitting `wiki-engine.ts` without a feature driver is a "rewrite for taste" risk.
+
+**AkaSakana PR #286 reply draft:** Reply in Step 7 — thank for the design feedback adopted in v1.25.0 (converterVersion cache key, universal escape hatch, Kimi Files API deferred to PR4/v1.26.0). Invite AkaSakana to ship PR4 as a follow-up PR on top of v1.25.0.
+
+---
+
+## v1.26.0 MINOR (target TBD, ~2 weeks)
+
+**Theme:** Kimi Files API + non-routine PDF providers (PR4, owned by AkaSakana) + wiki-engine.ts decomposition (P1 audit finding) + Lint perf opening (#99 follow-up) + #220 source-revision awareness (Tier 0/1/2).
 
 **Scope decision (2026-07-15, post-review pivot):**
 - ✅ **PDF Level 1 first** — user priority; Issue #218 has an active contributor (AkaSakana, PR #286). 3 PRs (~3-4 days).

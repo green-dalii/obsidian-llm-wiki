@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-15
+**Last Updated:** 2026-07-18
 
 ---
 
-## Current Phase: v1.25.0 PLANNING (2026-07-15, post-pivot) — cache-only PDF; PR2 redo + PR3 + PR4 next; v1.24.1 PATCH RELEASED 2026-07-14
+## Current Phase: v1.25.0 RELEASED 2026-07-18 (cache-only PDF Ingest Level 1) — v1.25.1 PATCH next; PR4 (Kimi Files API) + AkaSakana's work on top of v1.25.0 next
 
 **v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
 
@@ -61,9 +61,32 @@ Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 - #274 — Ollama Qwen3.5:9b no-key empty body (CLOSED via #282)
 - #275 — deepseek seed-selector empty body (CLOSED via `Closes #275` in v1.24.1 release commit; e2e PASSED on deepseek-v4-flash)
 
-**v1.24.2 PATCH open issues (next cycle):**
-- #255 follow-up — none
-- #275 streaming-mode port (`selectSeedsWithLLM` to streaming + parse first stop chunk) — Fix #0 candidate
+**v1.25.0 release composition (shipped 2026-07-18):**
+
+- ✅ Cache-only PDF Ingest (Level 1) with provider gate + content-hash cache + bounded growth (100MB / 1000 entries / 10MB single-entry caps + LRU-by-mtime eviction + three-defense-layer housekeeping).
+- ✅ Settings: `forcePdfSupport` (universal escape hatch, default off) + `writePdfMarkdownToVault` (default off).
+- ✅ Bug fixes: ENOENT cache dir (Bug A), AI-SDK cause chain (Bug B), status bar mirror (Bug C), PDF mid-flow cancel (Bug D), pdf-cache never written (Bug E), stuck Notice on throw (Bug H).
+- ✅ Prompt centralization: `src/wiki/prompts/pdf.ts` (OCR-style verbatim, `[illegible]` / `[figure: ...]` / `[equation: ...]` anti-hallucination markers, `unwrapFencedMarkdown` cleanup helper).
+- ✅ Classifier tightening: requires BOTH rejection verb AND PDF/media marker (no more 413 false-positives).
+- ✅ Local PDF OCR path documented: oMLX + Markitdown + Baidu Unlimited-OCR (Apple Silicon only).
+- ✅ Local Model Recommendations + Cloud Model Picks H3 sections in all 10 locale READMEs.
+- ✅ 2182 tests passing (165 files, +102 since v1.24.1).
+- ✅ Six-Gate: lint 0 / tsc 0 / 2182 / clean / 0; no breaking changes; cache-only default; docs complete; release clean.
+
+**Issues closed in v1.25.0:**
+- (none — v1.25.0 is feature work, not bug fixes)
+
+**v1.25.1 PATCH open issues (next cycle):**
+
+See ROADMAP.md "v1.25.1 PATCH" section for the full backlog. Top items:
+- Generic `DiskCache<T>` extraction from `PdfConversionCache` (Altitude F3, HIGH)
+- `enforceSizeLimit` ledger optimization (Efficiency F1, HIGH)
+- Generic `provider-capabilities` registry replacing `forcePdfSupport` bool + ID constants (Altitude F4, MEDIUM)
+- Generic `HousekeepingTask` registry (Altitude F5, MEDIUM)
+- `PDF_CONVERTER_VERSION` move to `constants.ts` (Reuse F4, LOW)
+- `src/ui/settings.ts` split (1420 → ~200 LOC main + 5-6 section files) (User request, MEDIUM)
+- `unwrapFencedMarkdown` generic helper extraction (Reuse F5, LOW)
+- Generic `LlmProviderRejectionError` shape from `isPdfRelatedLlmError` (Altitude F6, LOW)
 
 Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 

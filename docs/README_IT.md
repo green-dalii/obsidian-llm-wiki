@@ -138,7 +138,7 @@ Questo progetto evolve rapidamente — nuove funzionalità, correzioni di bug e 
 
 | Metodo | Come |
 |--------|------|
-| **📥 Acquisisci singola fonte** | `Cmd+P` → "Ingest single source" — seleziona una nota per generare pagine Wiki con entità e concetti |
+| **📥 Acquisisci singola fonte** | `Cmd+P` → "Ingest single source" — seleziona una nota (Markdown o **PDF, v1.25.0+**) per generare pagine Wiki con entità e concetti |
 | **📂 Acquisisci da cartella** | `Cmd+P` → "Ingest from folder" — seleziona una cartella per generare Wiki in lote |
 | **📑 Acquisisci più file** | `Cmd+P` → "Ingest multiple files" — scegli note tramite albero cartelle + checkbox, acquisizione in lote (con coda live + annullamento per file) |
 | **🎯 Acquisisci file corrente** | Clicca l'icona `sticker` nella barra sinistra, o `Cmd+P` → "Ingest current file" |
@@ -157,6 +157,8 @@ La ri-acquisizione della stessa fonte fonde nuove informazioni in modo increment
 
 ### ⚠️ Aggiornamento da una versione precedente?
 
+> 🔧 **Aggiornamento da v1.24.x.** L'ingestione PDF (v1.25.0) scrive la sua cache in `.obsidian/plugins/karpathywiki/pdf-cache/` (fino a 100 MB / 1000 voci / 10 MB per singola voce; eviction LRU-by-mtime all'avvio e all'inizio di ogni ingestione in batch). Il tuo vault **non viene modificato per default** — attiva **Write PDF Markdown to Vault** (Settings → Wiki Configuration → Wiki Folder) solo se vuoi un sidecar `<basename>.pdf.md` accanto al PDF sorgente. Due nuove impostazioni — **Force PDF Support** (avanzato, disattivato per default) e **Write PDF Markdown to Vault** (disattivato per default) — sono completamente retrocompatibili: un vecchio `data.json` senza questi campi ripiegherà su `false`.
+
 > 🔧 **Aggiornamento da v1.24.0.** Il marcatore di commento interno `<!-- reviewed: keep -->` (v1.24.0, #244), che proteggeva solo la sezione *Mentions in Source* di una pagina, è stato rimosso. Per conservare una sezione Mentions curata manualmente, imposta `reviewed: true` nel frontmatter della pagina: protegge l'intera pagina (Mentions incluse) e, a differenza del commento nascosto, resta visibile nel pannello Proprietà e resiste ai linter Markdown.
 
 **Retrocompatibile.** Nessuna modifica che comprometta la compatibilità dalla v1.0.0 — le tue pagine Wiki, impostazioni e flussi di lavoro esistenti vengono preservati senza riconfigurazione.
@@ -170,7 +172,7 @@ Poi **Rigenera indice** per ricostruire `wiki/index.md` con voci alias.
 
 > 📖 Guide dettagliate per salti di versione specifici in [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions).
 
-**Impostazioni da verificare:** Lingua di output Wiki, Granularità di estrazione, Concorrenza (predefinito 3), Ritardo lotto (predefinito 300ms).
+**Impostazioni da verificare:** Force PDF Support (Settings → LLM Configuration → Advanced, disattivato per default — necessario solo per provider non NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, disattivato per default), Lingua di output Wiki, Granularità di estrazione, Concorrenza (predefinito 3), Ritardo lotto (predefinito 300ms).
 - **🏷️ Alias mancanti**: pagine senza alias (di qualsiasi versione, se non hai mai eseguito "Complete Aliases"). Clicca su **"Complete Aliases"** — l'LLM genera in blocco traduzioni, acronimi e nomi alternativi. Questo è fondamentale per il rilevamento dei duplicati.
 - **🔄 Pagine duplicate**: pagine con contenuti sovrapposti (es. "CoT" vs "思维链" create da versioni precedenti prive di deduplicazione consapevole degli alias). Clicca su **"Merge Duplicates"** per fonderle e preservare tutti gli alias.
 - **💀 Collegamenti interrotti / Pagine vuote / Pagine orfane**: problemi standard di manutenzione del wiki.
@@ -197,20 +199,19 @@ Impostazioni → **LLM Configuration**:
 > **🛡️ Sicurezza**: la generazione parallela usa `Promise.allSettled` — se una pagina fallisce, le altre proseguono. Le pagine fallite vengono ritentate individualmente con backoff esponenziale. Smart Batch Skip rileva automaticamente i file già acquisiti per risparmiare tempo e costi API.
 
 ---
-## ⚡ Novità nella v1.24.0
+## ⚡ Novità nella v1.25.0
 
-Cinque temi: modelli per attività, istruzioni di query personalizzate, quattro suddivisioni di monoliti, propagazione alias note sorgente, correzioni frontmatter segnalate dagli utenti. Aggiornamento raccomandato per tutti gli utenti v1.23.x.
+Quattro temi: ingestione PDF solo cache, raccomandazioni modelli locali, centralizzazione del prompt transcodificatore PDF e otto correzioni di bug e2e. Aggiornamento raccomandato per tutti gli utenti v1.24.x.
 
-- **🎛️ Modelli per attività (#208).** Scegli un modello diverso per **Acquisizione / Lint / Query**, o mantienili unificati. Impostazioni → Wiki → *Ambito modello* commuta con un clic. Il pulsante **Test connessione** ora sonda ogni modello configurato in sequenza con fail-fast — finché tutti i modelli per attività non superano il test, la connessione non è considerata sana.
-- **📝 Istruzioni di query personalizzate (#251, `jameses-cyber`).** Un pannello richiudibile dentro la vista Query Wiki ti permette di aggiungere istruzioni persistenti a ogni prompt di sistema — modalità ricerca, stile citazione, regole "niente fabbricazione", ecc. Limite difensivo di 5000 caratteri. Rigorosamente limitato alla chat Query Wiki; acquisizione / lint / generazione pagine non sono intenzionalmente toccati. Menu a tendina delle modalità pianificato per v1.25.0+.
-- **🧱 Quattro suddivisioni di monoliti (continuazione P0 della serie v1.23.0).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 file, 93 test), `query-engine.ts` (PR #250, 1373 → 15 file), `modals.ts` (PR #257, 1008 → 7 file) — ogni funzione-dio / classe-dio decomposta in moduli focalizzati. Il plugin è ora strutturalmente pronto per il prossimo ciclo di funzionalità.
-- **🏷️ Propagazione alias note sorgente (#185).** Gli `aliases:` del frontmatter delle note sorgente ora confluiscono nelle pagine `sources/<slug>` generate, così che il matching `[[wiki-link]]` a valle e la ricerca consapevole degli alias raggiungano ogni citazione. Riduce i mancati riscontri tipo "DSA ≠ DeepSeek-Sparse-Attention".
-- **🔀 Triage fusione Tier-1 + Tier-2 (#216, `DocTpoint`).** Decisione di bypass duplicati classifica-poi-instrada: salta direttamente i candidati Tier-1 spuri, esegui Tier-2 solo sui restanti. Riduce la dimensione del lotto di fusione Lint senza sacrificare le corrispondenze ad alta precisione.
-- **🐛 Riparazione scrittura frontmatter (4 bug segnalati dagli utenti).** `aliases:[]` non è più falsamente rilevato come alias-carente; gli alias duplicati sono compressi in fase di scrittura; il frontmatter a blocchi viene preservato (non appiattito in inline); i fallimenti sono ora registrati con il campo colpevole. Riguarda i percorsi Smart Fix e fusione.
-- **🚀 Riscaldamento PPR prima query in Query Wiki.** Cache grafo PPR a livello motore (invalidazione al cambio `wikiFolder` + svuotamento cache in `invalidatePageCaches`) — la prima query ora usa Personalized PageRank invece di ripiegare su lex-only all'avvio a freddo.
-- **🌐 Completezza i18n** — 7 nuove chiavi per locale per i selettori modello per attività, il menu a tendina Ambito modello, e le etichette di Test connessione.
+- **📄 Ingestione PDF (Livello 1).** Scegli un PDF dal tuo vault — il plugin lo legge tramite l'input file nativo del tuo provider LLM (anthropic / openai / bedrock-anthropic / bedrock-openai; qualsiasi altro endpoint compatibile con OpenAI/Anthropic richiede **Force PDF Support** in Settings → LLM Configuration → Advanced), lo converte in Markdown tramite trascrizione verbatim in stile OCR, e rientra nella normale pipeline di ingestione Markdown. Tutti i workflow esistenti entità/concetto/alias/`[[wiki-link]]` restano invariati. Il risultato viene **messo in cache per hash del contenuto** in `.obsidian/plugins/karpathywiki/pdf-cache/` (la chiave incorpora `converterVersion` per invalidare automaticamente le voci obsolete quando il prompt viene aggiornato). Vedi il [Percorso OCR PDF locale](#-percorso-ocr-pdf-locale-v1250) per la configurazione consigliata su Apple Silicon.
+- **🗄️ Crescita limitata della cache.** Housekeeping della cache a tre livelli di difesa (100 MB totali / 1000 voci / 10 MB per singola voce) con eviction LRU-by-mtime; le voci vecchie vengono rimosse all'avvio e all'inizio di ogni ingestione in batch. Solo cache — il tuo vault non viene modificato per default.
+- **📝 Sidecar opzionale nel vault (avanzato).** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** scrive un `<basename>.pdf.md` accanto al PDF sorgente dopo la conversione. Disattivato per default.
+- **🦙 Raccomandazioni modelli locali.** La sezione Guida alla scelta del modello è ora suddivisa in sezioni separate locale e cloud che coprono Qwen3.5 / Qwen3.6 / Gemma 4 (compromessi parametro vs qualità, quantizzazione MLX vs GGUF, strategia di contesto).
+- **🛡️ Prompt transcodificatore PDF verbatim.** Il prompt PDF→Markdown è riformulato come conversione verbatim in stile OCR con marcatori anti-allucinazione `[illegible]` / `[figure: ...]` / `[equation: ...]`; i modelli piccoli/locali che avvolgono l'output in fence ```markdown vengono puliti automaticamente prima della scrittura in cache. Prompt centralizzato in `src/wiki/prompts/pdf.ts` accanto agli altri prompt di chiamate LLM del progetto.
+- **⏹ Ingestione PDF cancellabile.** Cliccare sulla barra di stato durante la conversione interrompe la chiamata LLM in corso tramite AbortSignal di Vercel AI SDK v6 in circa 200 ms.
+- **🌐 Completezza i18n** — 10 nuove chiavi per locale per le due nuove impostazioni, l'ingestione PDF e il Percorso OCR PDF locale (toggle Force PDF Support, toggle Write PDF Markdown to Vault, Notice source-rejected-pdf-unsupported).
 
-**Impostazioni da rivedere:** Ambito modello (Unificato / Per attività, in Impostazioni → Wiki), campi modello per attività (visibili solo in modalità Per attività), pannello richiudibile ⚙ Istruzioni personalizzate Query Wiki (solo dentro la vista).
+**Impostazioni da rivedere:** Force PDF Support (Settings → LLM Configuration → Advanced, disattivato per default — rilevante solo per provider non NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, disattivato per default — sidecar opzionale).
 
 ### v1.24.1 — 2026-07-14 (PATCH)
 

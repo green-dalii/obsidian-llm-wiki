@@ -135,7 +135,7 @@ Dieses Projekt entwickelt sich rasch — neue Funktionen, Fehlerbehebungen und V
 
 | Methode | Anleitung |
 |---------|-----------|
-| **📥 Einzelne Quelle aufnehmen** | `Cmd+P` → "Ingest single source" — wähle eine Note, um Wiki-Seiten mit Entitäten/Konzepten zu generieren |
+| **📥 Einzelne Quelle aufnehmen** | `Cmd+P` → "Ingest single source" — wähle eine Note (Markdown oder **PDF, v1.25.0+**), um Wiki-Seiten mit Entitäten/Konzepten zu generieren |
 | **📂 Aus Ordner aufnehmen** | `Cmd+P` → "Ingest from folder" — wähle einen Ordner, um Wiki aus allen Notizen im Batch zu generieren |
 | **📑 Mehrere Dateien aufnehmen** | `Cmd+P` → "Ingest multiple files" — wähle Notizen über rekursiven Ordnerbaum + Kontrollkästchen, dann Batch-Aufnahme (mit Live-Queue + pro-Datei-Abbruch) |
 | **🎯 Aktuelle Datei aufnehmen** | Klicke auf das `sticker`-Symbol in der linken Ribbon, oder `Cmd+P` → "Ingest current file" |
@@ -155,6 +155,8 @@ Die erneute Aufnahme derselben Quelle führt zu inkrementellen Aktualisierungen 
 
 ### ⚠️ Upgrade von einer älteren Version?
 
+> 🔧 **Upgrade von v1.24.x.** Der PDF-Ingest (v1.25.0) schreibt seinen Cache nach `.obsidian/plugins/karpathywiki/pdf-cache/` (bis zu 100 MB / 1000 Einträge / 10 MB Einzel-Limit; LRU-by-mtime-Eviction beim Start und zu Beginn jedes Batch-Ingests). Ihr Vault wird **standardmäßig nicht verändert** — aktivieren Sie **Write PDF Markdown to Vault** (Settings → Wiki Configuration → Wiki Folder) nur, wenn Sie einen `<basename>.pdf.md`-Sidecar neben die Quell-PDF möchten. Zwei neue Einstellungen — **Force PDF Support** (Erweitert, Standard aus) und **Write PDF Markdown to Vault** (Standard aus) — sind vollständig rückwärtskompatibel: Alte `data.json` ohne diese Felder fallen auf `false` zurück.
+
 > 🔧 **Upgrade von v1.24.0.** Der interne Kommentar-Marker `<!-- reviewed: keep -->` (v1.24.0, #244), der nur den *Mentions-in-Source*-Abschnitt einer Seite schützte, wurde entfernt. Um einen kuratierten Mentions-Abschnitt zu erhalten, setze `reviewed: true` im Frontmatter der Seite — das schützt die gesamte Seite samt Mentions und bleibt, anders als der versteckte Kommentar, im Properties-Panel sichtbar und übersteht Markdown-Linter.
 
 **Rückwärtskompatibel.** Seit v1.0.0 keine Breaking Changes — bestehende Wiki-Seiten, Einstellungen und Workflows bleiben ohne Neukonfiguration erhalten.
@@ -168,22 +170,21 @@ Dann **Index neu generieren**, um `wiki/index.md` mit Alias-Einträgen neu aufzu
 
 > 📖 Detaillierte Upgrade-Anleitungen für spezifische Versionssprünge (v1.20.3 Slug-Fingerprint, v1.16.0 Doppel-Nesting) in [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions).
 
-**Zu prüfende Einstellungen:** Wiki-Ausgabesprache (unabhängig von UI), Extraktionsgranularität (Minimal–Fein + Benutzerdefiniert), Seiten-Generierungs-Parallelität (Standard 3), Batch-Verzögerung (Standard 300ms).
+**Zu prüfende Einstellungen:** Force PDF Support (Settings → LLM Configuration → Advanced, Standard aus — nur für Nicht-NATIVE-Provider nötig), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, Standard aus), Wiki-Ausgabesprache (unabhängig von UI), Extraktionsgranularität (Minimal–Fein + Benutzerdefiniert), Seiten-Generierungs-Parallelität (Standard 3), Batch-Verzögerung (Standard 300ms).
 
-## ⚡ Was ist neu in v1.24.0
+## ⚡ Was ist neu in v1.25.0
 
-Fünf Schwerpunkte: Aufgabenbezogene Modelle, benutzerdefinierte Query-Anweisungen, vier Monolith-Aufteilungen, Quellnotiz-Alias-Propagierung, benutzerberichtete Frontmatter-Korrekturen. Empfohlenes Upgrade für alle v1.23.x-Nutzer.
+Vier Schwerpunkte: Cache-only-PDF-Ingest, Lokalmodell-Empfehlungen, Prompt-Zentralisierung für den PDF-Transcriber und acht e2e-Fehlerbehebungen. Empfohlenes Upgrade für alle v1.24.x-Nutzer.
 
-- **🎛️ Aufgabenbezogene Modelle (#208).** Wählen Sie unterschiedliche Modelle für **Aufnahme / Lint / Abfrage**, oder vereinheitlichen Sie sie. Einstellungen → Wiki → *Modellumfang* wechseln Sie mit einem Klick. Die Schaltfläche **Verbindung testen** prüft nun jedes konfigurierte Modell sequentiell mit Fail-Fast — bis alle Aufgabenmodelle den Test bestehen, gilt die Verbindung als nicht erfolgreich.
-- **📝 Benutzerdefinierte Query-Anweisungen (#251, `jameses-cyber`).** Ein ausklappbares Panel innerhalb der Query-Wiki-Ansicht erlaubt es, dauerhafte Anweisungen an jeden System-Prompt anzuhängen (Forschungsmodus, Zitierstil, „Keine Fabrikation"-Regeln usw.). 5000-Zeichen-Sicherheitsgrenze. Strikt auf den Query-Wiki-Chat beschränkt; Aufnahme / Lint / Seitengenerierung sind absichtlich nicht betroffen. Modus-Dropdown ist für v1.25.0+ geplant.
-- **🧱 Vier Monolith-Aufteilungen (P0-Folge der v1.23.0-Serie).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 Dateien, 93 Tests), `query-engine.ts` (PR #250, 1373 → 15 Dateien), `modals.ts` (PR #257, 1008 → 7 Dateien) — jede God-Funktion / God-Klasse in fokussierte Module zerlegt. Das Plugin ist nun strukturell für die nächste Feature-Runde bereit.
-- **🏷️ Quellnotiz-Alias-Propagierung (#185).** Frontmatter-`aliases:` aus Quellnotizen fließen nun in die generierten `sources/<slug>`-Seiten, sodass nachgelagertes `[[wiki-link]]`-Matching und alias-bewusste Suche jedes Zitat erreichen. Reduziert Fehltreffer vom Typ „DSA ≠ DeepSeek-Sparse-Attention".
-- **🔀 Tier-1 + Tier-2 Merge-Triage (#216, `DocTpoint`).** Klassifizieren-dann-Routen-Entscheidung zur Duplikat-Umgehung: Schein-Tier-1-Kandidaten werden direkt übersprungen, Tier-2 läuft nur auf den übrigen. Verringert die Lint-Merge-Stapelgröße ohne Verlust hochpräziser Treffer.
-- **🐛 Frontmatter-Schreibreparatur (4 vom Nutzer gemeldete Fehler).** `aliases:[]` wird nicht mehr fälschlich als aliasarm erkannt; doppelte Aliase werden beim Schreiben automatisch zusammengeführt; Block-Frontmatter bleibt erhalten (nicht zu Inline abgeflacht); Fehler werden nun mit dem betreffenden Feld protokolliert. Betrifft Smart Fix und Merge-Pfade.
-- **🚀 Query-Wiki PPR-Aufwärmen für Erstabfrage.** PPR-Graph-Cache auf Engine-Ebene (Ungültigmachung bei `wikiFolder`-Änderung + Cache-Löschung bei `invalidatePageCaches`) — die erste Abfrage verwendet nun Personalized PageRank statt auf lex-only bei Kaltstart zurückzufallen.
-- **🌐 i18n-Vollständigkeit** — 7 neue Schlüssel pro Locale für die aufgabenbezogenen Model-Picker, das Modellumfang-Dropdown und die Verbindungstest-Beschriftungen.
+- **📄 PDF-Ingest (Level 1).** Wählen Sie eine PDF aus Ihrem Vault — das Plugin liest sie über den nativen Datei-Input Ihres LLM-Providers (anthropic / openai / bedrock-anthropic / bedrock-openai; jeder andere OpenAI/Anthropic-kompatible Endpunkt erfordert **Force PDF Support** in Settings → LLM Configuration → Advanced), konvertiert sie via OCR-artige Verbatim-Transkription zu Markdown und tritt wieder in die reguläre Markdown-Ingest-Pipeline ein. Alle bestehenden Entity/Concept/Alias/`[[wiki-link]]`-Workflows gelten unverändert. Das Ergebnis wird **per Content-Hash zwischengespeichert** in `.obsidian/plugins/karpathywiki/pdf-cache/` (Schlüssel enthält `converterVersion`, sodass Prompt-Upgrades alte Einträge automatisch ungültig machen). Siehe [Lokaler PDF-OCR-Pfad](#-lokaler-pdf-ocr-pfad-v1250) für die empfohlene lokale Apple-Silicon-Konfiguration.
+- **🗄️ Begrenztes Cache-Wachstum.** Drei-Schichten-Verteidigung mit Cache-Housekeeping (100 MB gesamt / 1000 Einträge / 10 MB Einzel-Limit) und LRU-by-mtime-Eviction. Alte Einträge werden beim Start und zu Beginn jedes Batch-Ingests aufgeräumt. Nur Cache — Ihr Vault wird standardmäßig nicht verändert.
+- **📝 Optionaler Vault-Sidecar (Erweitert).** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** schreibt nach der Konvertierung eine `<basename>.pdf.md` neben die Quell-PDF. Standard aus.
+- **🦙 Lokalmodell-Empfehlungen.** Der Modellempfehlungen-Bereich ist jetzt in getrennte Lokal- und Cloud-Abschnitte aufgeteilt, die Qwen3.5 / Qwen3.6 / Gemma 4 abdecken (Parameter-vs-Qualität-Abwägungen, MLX vs. GGUF-Quantisierung, Kontext-Strategie).
+- **🛡️ Verbatim-PDF-Transcriber-Prompt.** Der PDF→Markdown-Prompt wurde als OCR-artige Verbatim-Konvertierung mit `[illegible]` / `[figure: ...]` / `[equation: ...]` Anti-Halluzinations-Markern umformuliert; kleine/lokale Modelle, die ihre Ausgabe in ```markdown-Fences einschließen, werden vor dem Cache-Schreiben automatisch bereinigt. Prompt zentralisiert in `src/wiki/prompts/pdf.ts` neben allen anderen LLM-Aufruf-Prompts des Projekts.
+- **⏹ Abbruchbarer PDF-Ingest.** Klick auf die Statusleiste während der Konvertierung bricht den laufenden LLM-Aufruf über Vercel AI SDK v6 AbortSignal innerhalb von ~200 ms ab.
+- **🌐 i18n-Vollständigkeit** — 10 neue Schlüssel pro Locale für die zwei neuen Einstellungen, PDF-Ingest und Lokaler PDF-OCR-Pfad (Force-PDF-Support-Toggle, Write-PDF-Markdown-to-Vault-Toggle, source-rejected-pdf-unsupported Notice).
 
-**Zu prüfende Einstellungen:** Modellumfang (Einheitlich / Pro Aufgabe, Einstellungen → Wiki), Pro-Aufgabe-Modellfelder (nur im Pro-Aufgabe-Modus sichtbar), Query Wiki → ⚙ Benutzerdefinierte Anweisungen ausklappbares Panel (nur in der Ansicht).
+**Zu prüfende Einstellungen:** Force PDF Support (Settings → LLM Configuration → Advanced, Standard aus — nur für Nicht-NATIVE-Provider relevant), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, Standard aus — optionaler Sidecar).
 
 ### v1.24.1 — 2026-07-14 (PATCH)
 

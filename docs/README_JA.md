@@ -136,7 +136,7 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 
 | 方法 | 使い方 |
 |------|--------|
-| **📥 単一ソースの取り込み** | `Cmd+P` → "Ingest single source" — ノートを選択し、エンティティと概念を抽出 |
+| **📥 単一ソースの取り込み** | `Cmd+P` → "Ingest single source" — ノート（Markdown または **PDF、v1.25.0+**）を選択し、エンティティと概念を抽出 |
 | **📂 フォルダーからの取り込み** | `Cmd+P` → "Ingest from folder" — フォルダを選択し、Wikiを一括生成 |
 | **📑 複数ファイルの取り込み** | `Cmd+P` → "Ingest multiple files" — 再帰的フォルダツリー + ファイル別チェックボックスの2ペイン選択モーダルでノートを選び、ライブキュー付きで一括取り込み |
 | **🎯 現在のファイルを取り込み** | 左リボンの`sticker`アイコンをクリック、または `Cmd+P` → "Ingest current file" — 編集中のファイルを取り込み |
@@ -153,6 +153,8 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 
 ### ⚠️ 旧バージョンからのアップグレード
 
+> 🔧 **v1.24.x からのアップグレード。** PDF 取り込み（v1.25.0）はキャッシュを `.obsidian/plugins/karpathywiki/pdf-cache/` に書き込みます（上限 100 MB / 1000 件 / 単一 10 MB；起動時とバッチ取り込み開始時に LRU-by-mtime で退避）。Vault は **デフォルトでは変更されません** —— Settings → Wiki Configuration → Wiki Folder で **Write PDF Markdown to Vault** を有効にした場合にのみ、ソース PDF の隣に `<basename>.pdf.md` サイドカーを書き込みます。2 つの新しい設定 — **Force PDF Support**（上級、デフォルトオフ）と **Write PDF Markdown to Vault**（デフォルトオフ）— は完全な後方互換：古い `data.json` にこれらが無い場合は `false` にフォールバックします。
+
 > 🔧 **v1.24.0 からのアップグレード。** ページの *Mentions in Source* セクションのみを保護していた内部コメントマーカー `<!-- reviewed: keep -->`（v1.24.0、#244）は削除されました。整理済みの Mentions セクションを保持するには、ページの frontmatter に `reviewed: true` を設定してください。ページ全体（Mentions を含む）を保護し、隠れたコメントと異なりプロパティパネルに表示され、Markdown リンターでも壊れません。
 
 **後方互換性があります。** v1.0.0以降、破壊的変更はありません — 既存のWikiページ、設定、ワークフローは再設定なしで保持されます。
@@ -166,23 +168,22 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 
 > 📖 特定のバージョン間アップグレードの詳細な手順（v1.20.3 slug fingerprint、v1.16.0 二重ネストリンクなど）は [GitHub Discussions / Upgrading](https://github.com/green-dalii/obsidian-llm-wiki/discussions) で管理されています。
 
-**確認すべき設定:** Wiki Output Language（UIとは独立）、Extraction Granularity（Minimal–Fine、+ Custom）、Page Generation Concurrency（デフォルト3）、Batch Delay（デフォルト300ms）。
+**確認すべき設定:** Force PDF Support（Settings → LLM Configuration → Advanced、デフォルトオフ — 非 NATIVE プロバイダーのみ必要）、Write PDF Markdown to Vault（Settings → Wiki Configuration → Wiki Folder、デフォルトオフ）、Wiki Output Language（UIとは独立）、Extraction Granularity（Minimal–Fine、+ Custom）、Page Generation Concurrency（デフォルト3）、Batch Delay（デフォルト300ms）。
 
 ---
-## ⚡ v1.24.0 更新のポイント
+## ⚡ v1.25.0 更新のポイント
 
-5 つの主要テーマ：タスク別モデル選択、カスタムクエリ指示、4 つのモノリス分割、ソースノート別名伝播、ユーザー報告の frontmatter 修正。v1.23.x ユーザー全員にアップグレードを推奨します。
+4 つの主要テーマ：キャッシュのみの PDF 取り込み、ローカルモデルガイダンス、PDF トランスクライバプロンプトの一元化、8 件の e2e バグ修正。v1.24.x ユーザー全員にアップグレードを推奨します。
 
-- **🎛️ タスク別モデル (#208)。** **取り込み / 校正 / クエリ** で異なるモデルを選択、または統一を維持。設定 → Wiki → *モデルスコープ* をワンクリックで切り替え。**接続テスト** ボタンは設定された各モデルを順番にチェックし、ひとつでも失敗したら即停止——すべてのタスクモデルがテストを通過してはじめて接続成功とみなされます。
-- **📝 カスタムクエリ指示 (#251, `jameses-cyber`)。** Query Wiki パネル内に折りたたみ可能なパネルが追加され、すべてのシステムプロンプトに永続的な指示（リサーチモード、引用スタイル、「捏造禁止」ルールなど）を追加できます。5000 文字の防御的上限付き。Query Wiki チャットのみに厳密にスコープ；取り込み / 校正 / ページ生成は意図的に影響を受けません。モードドロップダウンは v1.25.0+ で計画中。
-- **🧱 4 つのモノリス分割（v1.23.0 シリーズ P0 フォローアップ）。** `controller.ts`（PR #248）、`history-modal.ts`（PR #249、1579 → 14 ファイル、93 テスト）、`query-engine.ts`（PR #250、1373 → 15 ファイル）、`modals.ts`（PR #257、1008 → 7 ファイル）——各 god 関数 / god クラスをフォーカスモジュールに分解。次期機能に向けた構造的準備が完了。
-- **🏷️ ソースノート別名伝播 (#185)。** ソースノートの frontmatter `aliases:` が生成される `sources/<slug>` ページに流れ込み、下流の `[[wiki-link]]` マッチと別名認識検索がすべての引用に届くようになります。"DSA ≠ DeepSeek-Sparse-Attention" のような取りこぼしを削減。
-- **🔀 Tier-1 + Tier-2 マージトリアージ (#216, `DocTpoint`)。** 分類してからルートを決める重複バイパス戦略：偽の Tier-1 候補を即座にスキップし、残りにだけ Tier-2 を実行。高精度マッチを犠牲にせず Lint マージバッチサイズを縮小。
-- **🐛 Frontmatter 書き込み修復（ユーザー報告 4 バグ）。** `aliases:[]` が誤って別名不足と判定されなくなる；書き込み時に重複別名を自動折りたたみ；ブロックスタイル frontmatter を保持（インライン化しない）；失敗時は問題フィールド付きでログ記録。Smart Fix とマージパスに影響。
-- **🚀 Query Wiki 初回クエリ PPR ウォームアップ。** エンジンレベル PPR グラフキャッシュ（`wikiFolder` 変更時に無効化 + `invalidatePageCaches` 時にクリア）——初回クエリがコールドスタートの lex-only フォールバックではなく Personalized PageRank を使用。
-- **🌐 i18n 完全性** — タスク別モデルピッカー、モデルスコープドロップダウン、接続テストラベル用に各ロケールで 7 つの新キー。
+- **📄 PDF 取り込み (Level 1)。** Vault から PDF を 1 つ選ぶと、プラグインはあなたの LLM プロバイダーのネイティブファイル入力（anthropic / openai / bedrock-anthropic / bedrock-openai；その他の OpenAI/Anthropic 互換エンドポイントでは Settings → LLM Configuration → Advanced で **Force PDF Support** を有効化）で読み取り、OCR スタイルの逐語変換で Markdown に変換し、通常の Markdown 取り込みパイプラインに合流します。既存のエンティティ/概念/エイリアス/`[[wiki-link]]` ワークフローはそのまま適用されます。結果は **コンテンツハッシュキャッシュ** として `.obsidian/plugins/karpathywiki/pdf-cache/` に保存されます（キャッシュキーに `converterVersion` が埋め込まれるためプロンプト更新時に自動的に無効化）。ローカルでの推奨構成は [ローカル PDF OCR パス](#-ローカル-pdf-ocr-パス-v1250) を参照。
+- **🗄️ 有界キャッシュ成長。** 3 層防御のキャッシュ管理（合計 100 MB / 1000 件 / 単一 10 MB 上限）+ LRU-by-mtime エビクション。古いエントリは起動時とバッチ取り込み開始時に整理されます。デフォルトはキャッシュのみ — vault には書き込みません。
+- **📝 任意の Vault サイドカー（上級）。** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** を有効にすると、変換後にソース PDF の隣に `<basename>.pdf.md` を書き出します。デフォルトはオフ。
+- **🦙 ローカルモデル推奨。** モデル推奨セクションが独立したローカルとクラウドのセクションに分割され、Qwen3.5 / Qwen3.6 / Gemma 4（パラメータ vs 品質のトレードオフ、MLX vs GGUF 量子化、コンテキスト戦略）をカバーします。
+- **🛡️ 逐語 PDF トランスクライバプロンプト。** PDF→Markdown プロンプトを OCR スタイルの逐語変換として再設計し、`[illegible]` / `[figure: ...]` / `[equation: ...]` の反ハルシネーションマーカーを追加。出力を ```markdown フェンスで囲ってしまう小型/ローカルモデルはキャッシュ書き込み前に自動クリーンアップされます。プロンプトは `src/wiki/prompts/pdf.ts` に一元化され、プロジェクト内の他の LLM 呼び出しプロンプトと並列に配置されます。
+- **⏹ キャンセル可能な PDF 取り込み。** 変換中にステータスバーをクリックすると、Vercel AI SDK v6 の AbortSignal 経由で進行中の LLM 呼び出しが約 200 ms 内で中断されます。
+- **🌐 i18n 完全性** — 2 つの新しい設定、PDF 取り込み、ローカル PDF OCR パス用に各ロケールで 10 個の新しいキー（Force PDF Support トグル、Write PDF Markdown to Vault トグル、source-rejected-pdf-unsupported Notice）。
 
-**見直すべき設定：** モデルスコープ（統一 / タスク別、設定 → Wiki）、タスク別モデルフィールド（タスク別モードでのみ表示）、Query Wiki → ⚙ カスタム指示折りたたみパネル（パネル内のみ）。
+**見直すべき設定：** Force PDF Support（Settings → LLM Configuration → Advanced、デフォルトオフ — 非 NATIVE プロバイダーのみ関連）、Write PDF Markdown to Vault（Settings → Wiki Configuration → Wiki Folder、デフォルトオフ — 任意のサイドカー）。
 
 ### v1.24.1 — 2026-07-14（PATCH）
 
