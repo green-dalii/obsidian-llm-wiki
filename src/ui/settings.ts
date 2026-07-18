@@ -5,7 +5,7 @@ import { App, PluginSettingTab, Setting, Notice, TFile, requestUrl, BaseComponen
 import LLMWikiPlugin from '../main';
 import { PREDEFINED_PROVIDERS, LLMWikiSettings, WIKI_LANGUAGES, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from '../types';
 import { TEXTS } from '../texts';
-import { BEDROCK_REGIONS, BEDROCK_DEFAULT_REGION } from '../constants';
+import { BEDROCK_REGIONS, BEDROCK_DEFAULT_REGION, NATIVE_PDF_PROVIDER_IDS } from '../constants';
 import { FolderSuggestModal } from './modals';
 import { HistoryModal } from './history-modal';
 import { classifyFetchError } from './settings-helpers';
@@ -529,6 +529,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           const config = PREDEFINED_PROVIDERS[value];
           if (config && value !== 'custom') this.tempSettings.baseUrl = config.baseUrl;
           if (value === 'openai-codex') applyCodexModelPolicy(this.tempSettings);
+          // Reset stale PDF escape-hatch state when switching to a native-PDF provider.
+          if ((NATIVE_PDF_PROVIDER_IDS as readonly string[]).includes(value)) {
+            this.tempSettings.forcePdfSupport = false;
+          }
           this.display();
         });
       });
@@ -899,6 +903,12 @@ export class LLMWikiSettingTab extends PluginSettingTab {
               this.tempSettings.extractionTemperature = undefined;
               this.tempSettings.chatTemperature = undefined;
               this.tempSettings.repetitionPenalty = undefined;
+              // v1.25.0 PR3: reset forcePdfSupport — it's rendered only inside
+              // the Advanced block, so hiding the block without resetting
+              // the value would leave users with a no-UI-affordance setting.
+              this.tempSettings.forcePdfSupport = false;
+              // writePdfMarkdownToVault lives in Wiki Configuration (always
+              // visible) and is NOT reset here.
             }
             this.display();
           });
@@ -990,6 +1000,25 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         text.inputEl.step = '0.05';
         text.inputEl.classList.add('llm-wiki-number-input');
       });
+
+    // v1.25.0 PR3: PDF force-support toggle — universal escape hatch.
+    // Gated by Advanced mode (default off; user must opt into Custom to see).
+    // Renders for ANY non-native provider (custom / anthropic-compatible /
+    // ollama / lmstudio / deepseek / glm / kimi / gemini / openrouter).
+    // When the user opts in, the converter attempts the LLM call; if the
+    // endpoint rejects PDF input, the error propagates as a localized
+    // `sourceRejectedPdfUnsupported` Notice guiding the user to disable
+    // the toggle or check their endpoint. Native-PDF providers
+    // (anthropic / openai / bedrock-*) hide this toggle since they
+    // already route through the native branch.
+    if (!(NATIVE_PDF_PROVIDER_IDS as readonly string[]).includes(this.tempSettings.provider)) {
+      new Setting(containerEl)
+        .setName(this.getText('forcePdfSupportName'))
+        .setDesc(this.getText('forcePdfSupportDesc'))
+        .addToggle(toggle => toggle
+          .setValue(this.tempSettings.forcePdfSupport === true)
+          .onChange((value) => { this.tempSettings.forcePdfSupport = value; }));
+    }
     }
 
     // Test Connection
@@ -1071,6 +1100,17 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .setPlaceholder(this.getText('wikiFolderPlaceholder'))
         .setValue(this.tempSettings.wikiFolder)
         .onChange((value) => { this.tempSettings.wikiFolder = value; }));
+
+    // v1.25.0 PR3: opt-in sidecar write. Lives under Wiki Configuration
+    // (alongside wikiFolder / slugCase) because it controls where converted
+    // PDF markdown lands on disk — a vault-storage decision, not an LLM
+    // configuration decision. Always visible (not gated by Advanced).
+    new Setting(containerEl)
+      .setName(this.getText('writePdfMarkdownToVaultName'))
+      .setDesc(this.getText('writePdfMarkdownToVaultDesc'))
+      .addToggle(toggle => toggle
+        .setValue(this.tempSettings.writePdfMarkdownToVault === true)
+        .onChange((value) => { this.tempSettings.writePdfMarkdownToVault = value; }));
 
     new Setting(containerEl)
       .setName(this.getText('slugCaseName'))

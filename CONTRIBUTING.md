@@ -46,7 +46,9 @@ pnpm css-lint      # styles.css contains no !important declarations
 - **llmReady guard**: New core features must call `requireLLMReady()` at entry points. The plugin requires a successful connection test before core features are available.
 - **i18n**: UI strings use the TEXTS system. English strings in `src/texts/en.ts` are the canonical source; all 9 other languages must be updated in lockstep.
 
-> **v1.23.0 + v1.23.1 note (2026-07-02):** `src/llm-client.ts` (1625 LOC, hand-rolled AnthropicClient / OpenAICompatibleClient / AnthropicCompatibleClient) and `src/core/sse-parser.ts` (85 LOC) have been **removed**. They are replaced by `src/llm-sdk/` (5 files, 1421 LOC) backed by Vercel AI-SDK v6 (`@ai-sdk/openai@3`, `@ai-sdk/anthropic@3`, `@ai-sdk/openai-compatible@2`, `ai@6`) and `src/core/obsidian-fetch-bridge.ts` (326 LOC). New Graph Engine modules added under `src/core/`: `monte-carlo-ppr.ts`, `ppr-cascade.ts`, `section-extractor.ts`, `hub-detection.ts`, `hub-retirement.ts`, `build-graph.ts`, `url-fallback.ts`, `build-folder-tree.ts`, `ingest-queue.ts`. v1.23.1 added `strictBindCallApply: true` to `tsconfig.json` for Obsidian review-bot alignment.
+> **v1.25.1 Hotfix note (2026-07-19, planned):** After Obsidian bot audit + 3rd-party audit, v1.25.1 Hotfix will (1) extract `wiki-engine/graph-cache.ts` + `wiki-engine/index-generation.ts` + `wiki-engine/log-writer.ts` from `wiki-engine.ts` (ingest orchestration stays put); (2) split `ui/settings.ts` 1439 LOC into `ui/settings/sections/{language,status,llm-provider,llm-advanced,wiki-config,auto-maintenance}.ts` + `ui/settings/helpers/{renderModelField,commitTempSettings,cascade}.ts`; (3) introduce `core/disk-cache.ts` generic abstraction reused by `pdf-cache.ts` and future lint dedup cache; (4) implement Obsidian 1.13.0+ `getSettingDefinitions()` declarative settings API for Settings search integration.
+
+> **Historical release notes** (v1.23.0+llm-client removal, v1.24.0 splits, v1.24.1 Bedrock + PPR + page-factory, v1.25.0 PDF Ingest): see [CHANGELOG.md](../CHANGELOG.md). Keep a Changelog format is the canonical record; this file documents the project structure as it stands.
 
 ## Project Structure
 
@@ -113,9 +115,15 @@ src/
 │   ├── ensure-welcome-note.ts  # First-run Welcome note orchestrator (v1.23.0)
 │   ├── smoke-test.ts           # LLM configuration verification wrapper (v1.23.0)
 │   ├── transient-retry.ts      # Project-wide withTransientRetry<T> helper (v1.24.0, 3× exp backoff)
-│   └── model-resolver.ts       # resolveModelForTask(settings, task) #208 per-task routing helper (v1.24.0)
+│   ├── model-resolver.ts       # resolveModelForTask(settings, task) #208 per-task routing helper (v1.24.0)
+│   ├── pdf-cache.ts            # Content-hash PDF conversion cache + LRU eviction (v1.25.0)
+│   ├── pdf-converter.ts        # PDF→Markdown via LLM FilePart + OCR-style prompt (v1.25.0)
+│   └── pdf-metadata.ts         # Pure-function PDF Info dict parser (title/author/pageCount, v1.25.0)
 ├── wiki/                # Wiki engine modules
-│   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log)
+│   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log) — v1.25.1: graph-cache / index-generation / log-writer will be extracted
+│   ├── graph-cache.ts   # (v1.25.1, planned) `_cachedGraph` + invalidate logic
+│   ├── index-generation.ts # (v1.25.1, planned) generateFlatIndex + helpers
+│   ├── log-writer.ts    # (v1.25.1, planned) updateLog + formatters
 │   ├── query-engine/    # Conversational query with streaming + thinking UI
 │   │   ├── index.ts                           # re-export shim
 │   │   ├── types.ts + state.ts                # type declarations + InternalView
@@ -162,14 +170,30 @@ src/
 │   │   └── phases/
 │   │       ├── preparation.ts    # Page read, link fix, sources normalize
 │   │       └── programmatic.ts   # Fast programmatic scanners
-│   └── prompts/         # LLM prompt templates by domain
+│   └── prompts/         # LLM prompt templates by domain (INGESTION / GENERATION / MERGE / FIX / LINT / CONVERSATION / PDF, v1.25.0)
+│       ├── ingestion.ts
+│       ├── generation.ts
+│       ├── merge.ts
+│       ├── fixes.ts
+│       ├── lint.ts
+│       ├── conversation.ts
+│       └── pdf.ts        # OCR-style verbatim transcriber + unwrapFencedMarkdown helper (v1.25.0)
 ├── schema/              # Schema co-evolution
 │   ├── schema-manager.ts # SchemaManager (read/write schema config)
 │   ├── auto-maintain.ts # File watcher, periodic lint, startup quick fixes
 │   └── analyze.ts       # Schema-analyze with cancel wiring
 ├── ui/                  # Settings + history-modal/ (14-file split, v1.24.0) + modals/ (7-file split, v1.24.0)
+│   ├── settings.ts      # LLMWikiSettingTab + tempSettings (v1.25.1 Hotfix: split into sections/ + helpers/)
+│   ├── settings-helpers.ts        # Pure helpers (commitTempSettings logic, classification, etc.)
+│   ├── settings-per-task-helpers.ts # Per-task model dropdown rendering (v1.24.0)
+│   ├── history-modal/  # 13 files (v1.24.0 split)
+│   │   ├── HistoryModal-class.ts
+│   │   └── renderers/  # 13 pure-function modules (entry, ingest-details, fix-details, etc.)
+│   ├── modals/          # 7+ files: MultiFileSuggestModal, FolderSuggest, etc.
+│   ├── tag-chip-input.ts
+│   └── schema-diff-modal.ts
 ├── texts/               # i18n (10 languages: EN/ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT)
-└── __tests__/           # Unit tests (vitest, 2080 tests across 158 files)
+└── __tests__/           # Unit tests (vitest, 2182 tests across 165 files; v1.25.1 target ~2250)
 ```
 
 ## Internationalization

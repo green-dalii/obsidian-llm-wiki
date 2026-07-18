@@ -607,6 +607,16 @@ export const JA_TEXTS = {
     sourceRejectedEmpty: '⏭️ 「{filename}」には取り込む内容がないためスキップしました。空のノートやフロントマターのみのノートはWikiページを生成しません。',
     sourceRejectedType: '⏭️ 「{filename}」はサポートされていないファイル形式のためスキップしました。取り込めるのはテキストノート（.md、.txt など）のみです。',
     sourceRejectedDuplicate: '⏭️ 「{filename}」をスキップしました — 内容はすでにWikiに存在します。',
+    pdfReadingInProgress: 'PDF を読み込み中: {filename}',
+    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」をスキップしました — 現在の provider またはモデルは PDF 入力に対応していません。Settings → LLM Configuration → Advanced で provider を切り替えるか、「PDF サポートを強制」をオンにして再試行してください。',
+    clearPdfCacheCommand: 'PDF 変換キャッシュをクリア',
+    pdfCacheCleared: 'PDF キャッシュをクリアしました（{count} 件のエントリを削除）。',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'PDF サポートを強制',
+    forcePdfSupportDesc: 'デフォルトはオフ。プロバイダーがネイティブ対応リストにないものの PDF を処理できる場合は、このスイッチをオンにして試すことができます。オンにすると PDF が現在のプロバイダーに送られ、拒否された場合は通知で案内されます。ネイティブ PDF プロバイダー（Anthropic / OpenAI / Bedrock）では不要です。',
+    writePdfMarkdownToVaultName: '変換後の Markdown を Vault に書き込む',
+    writePdfMarkdownToVaultDesc: 'デフォルトはオフ。オンの場合、各 PDF 変換結果は元の PDF の隣に「<basename>.pdf.md」ファイルとして書き込まれます。オフの場合（キャッシュ専用アーキテクチャ）、結果はプラグインのキャッシュ内のみに存在し、Vault に実装アーティファクトを残しません。',
+
     ingestRejectedSummary: '{count} 個のファイルをスキップしました（空・重複・非対応形式）。',
     reingestConfirmTitle: 'このファイルを再取り込みしますか？',
     reingestConfirmBody: '「{filename}」の内容はすでにWikiに存在します。それでも再取り込みしますか？',

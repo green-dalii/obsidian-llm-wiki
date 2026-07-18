@@ -157,6 +157,40 @@ vi.mock('obsidian', () => ({
 // eslint-disable-next-line obsidianmd/no-global-this
 (globalThis as Record<string, unknown>).activeDocument = globalThis.document;
 
+// Stub activeWindow for code that needs SubtleCrypto (PDF cache sha256).
+// Production uses Obsidian's popout-window-aware `activeWindow`. jsdom's
+// default `window` does not implement SubtleCrypto, so we attach a minimal
+// `crypto.subtle` mock here. Tests that need deterministic sha256 output
+// override this in their own beforeEach.
+// eslint-disable-next-line obsidianmd/no-global-this
+(globalThis as Record<string, unknown>).activeWindow = globalThis.window ?? globalThis;
+
+// crypto is a non-writable getter in jsdom ≥24 (per Web spec). Use
+// defineProperty so the test shim can install a minimal SubtleCrypto mock.
+// eslint-disable-next-line obsidianmd/no-global-this
+Object.defineProperty(globalThis, 'crypto', {
+  configurable: true,
+  writable: true,
+  value: {
+    subtle: {
+      digest: async (_algo: string, data: ArrayBuffer) => {
+        // Test-only SubtleCrypto.digest: produce a deterministic 32-byte
+        // digest from the input bytes. NOT cryptographically secure —
+        // only ensures the cache key is stable + unique for distinct inputs.
+        const view = new Uint8Array(data);
+        const out = new Uint8Array(32);
+        let h = 0;
+        for (let i = 0; i < view.length; i++) {
+          h = ((h << 5) - h + view[i]) | 0;
+          out[i % 32] = (out[i % 32] + view[i]) & 0xff;
+        }
+        out[31] = h & 0xff;
+        return out.buffer;
+      },
+    } as SubtleCrypto,
+  },
+});
+
 // Global test environment setup
 export function setup(): void {
   // Future: global test state initialization

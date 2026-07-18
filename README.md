@@ -12,7 +12,9 @@
 
 **English** | [简体中文](docs/README_CN.md) | [繁體中文](docs/README_ZH-Hant.md) | [日本語](docs/README_JA.md) | [한국어](docs/README_KO.md) | [Deutsch](docs/README_DE.md) | [Français](docs/README_FR.md) | [Español](docs/README_ES.md) | [Português](docs/README_PT.md) | [Italiano](docs/README_IT.md)
 
-[Official Site](https://llmwiki.greenerai.top/) | [Obsidian Marketplace](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explore Repo with DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Official Site](https://llmwiki.greenerai.top/) | [Obsidian Marketplace](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback & Discussion](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+
+🚀 [Quick Start](#-quick-start) | ✨ [Features](#-features) | 🤖 [Model Selection Guide](#-model-selection-guide) | 🔒 [Transparency & Compliance](#-transparency--compliance) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← If this plugin has helped you, feel free to buy me a coffee♥️ or drop a star🌟↗
 
@@ -32,16 +34,20 @@
     - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
     - [🎮 Usage](#-usage)
     - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-  - [⚡ What's New in v1.24.0](#-whats-new-in-v1240)
+  - [⚡ What's New in v1.25.0](#-whats-new-in-v1250)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
-    - [🛠️ Maintenance](#️-maintenance)
+    - [📄 PDF Ingest (v1.25.0)](#-pdf-ingest-v1250)
     - [💬 Query \& Feedback](#-query--feedback)
+    - [🛠️ Maintenance](#️-maintenance)
     - [🌐 LLM \& Language](#-llm--language)
     - [🏗️ Architecture \& Performance](#️-architecture--performance)
     - [🔒 Privacy \& Security](#-privacy--security)
   - [📖 Example](#-example)
   - [🤖 Model Selection Guide](#-model-selection-guide)
+    - [☁️ Cloud Model Picks](#️-cloud-model-picks)
+    - [🦙 Local Model Recommendations (Ollama / LM Studio)](#-local-model-recommendations-ollama--lm-studio)
+    - [📄 Local PDF OCR Path (v1.25.0+)](#-local-pdf-ocr-path-v1250)
   - [🏗️ Architecture](#️-architecture)
   - [❓ FAQ](#-faq)
   - [🔒 Transparency \& Compliance](#-transparency--compliance)
@@ -139,7 +145,7 @@ This project evolves rapidly — new features, bug fixes, and improvements are s
 
 | Method | How |
 |--------|------|
-| **📥 Ingest single source** | `Cmd+P` → "Ingest single source" — select a note to extract entities and concepts into Wiki pages |
+| **📥 Ingest single source** | `Cmd+P` → "Ingest single source" — select a note (Markdown or **PDF, v1.25.0+**) to extract entities and concepts into Wiki pages |
 | **📂 Ingest from folder** | `Cmd+P` → "Ingest from folder" — pick a folder, batch generate Wiki from all notes inside |
 | **📑 Ingest multiple files** | `Cmd+P` → "Ingest multiple files" — pick specific notes via two-pane modal (recursive folder tree + per-file checkboxes), then batch ingest the selection (with live queue + per-file cancel) |
 | **🎯 Ingest current file** | Click the `sticker` icon in the left ribbon, or `Cmd+P` → "Ingest current file" — ingest the file you're editing |
@@ -158,6 +164,8 @@ Re-ingesting the same source does incremental updates on entity/concept pages (n
 
 ### ⚠️ Upgrading from an Older Version?
 
+> 🔧 **Upgrading from v1.24.x.** PDF ingest (v1.25.0) writes its cache to `.obsidian/plugins/karpathywiki/pdf-cache/` (up to 100 MB / 1000 entries / 10 MB single-entry; LRU-by-mtime eviction on startup and at each batch ingest). Your vault is **not** modified by default — turn on **Write PDF Markdown to Vault** (Settings → Wiki Configuration → Wiki Folder) only if you want a `<basename>.pdf.md` sidecar next to the source PDF. Two new settings — **Force PDF Support** (advanced, default off) and **Write PDF Markdown to Vault** (default off) — are fully backward-compatible: old `data.json` without them defaults to `false`.
+
 > 🔧 **Upgrading from v1.24.0.** The internal `<!-- reviewed: keep -->` comment marker (v1.24.0, #244) that protected only a page's *Mentions in Source* section has been removed. To keep a curated Mentions section, set `reviewed: true` in the page frontmatter — it protects the whole page (Mentions included) and, unlike the hidden comment, stays visible in the Properties panel and survives Markdown linters.
 
 **Backward compatible.** No breaking changes since v1.0.0 — your existing wiki pages, settings, and workflows are preserved without reconfiguration.
@@ -172,35 +180,21 @@ alias-aware search (e.g., "DSA" finds "DeepSeek-Sparse-Attention").
 
 > 📖 **Detailed upgrade walkthroughs** for specific version jumps (v1.20.3 slug fingerprint, v1.16.0 double-nested links) are maintained in [GitHub Discussions / Upgrading](https://github.com/green-dalii/obsidian-llm-wiki/discussions).
 
-**Settings to review:** Wiki Output Language (independent from UI), Extraction Granularity (Minimal–Fine, + Custom), Page Generation Concurrency (default 3), Batch Delay (default 300ms).
+**Settings to review:** Force PDF Support (Settings → LLM Configuration → Advanced, off by default — only needed for non-NATIVE providers), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, off by default), Wiki Output Language (independent from UI), Extraction Granularity (Minimal–Fine, + Custom), Page Generation Concurrency (default 3), Batch Delay (default 300ms).
 
-## ⚡ What's New in v1.24.0
+## ⚡ What's New in v1.25.0
 
-Five themes: per-task models, custom query instructions, four monolith splits, source-note alias propagation, and user-reported frontmatter fix. Recommended upgrade for everyone on v1.23.x.
+Four themes: cache-only PDF ingest, local-model guidance, prompt centralization for PDF transcriber, and eight e2e bug fixes. Recommended upgrade for everyone on v1.24.x.
 
-- **🎛️ Per-task Models (#208).** Pick a different model for **Ingest** / **Lint** / **Query** — or keep them unified. Settings → Wiki → *Model Scope* lets you switch with one click. The **Test Connection** button now probes each configured model sequentially with fail-fast — until every per-task model passes, the connection is considered unhealthy.
-- **📝 Custom Query Instructions (#251, `jameses-cyber`).** A collapsible panel inside the Query Wiki view lets you append persistent instructions to every system prompt — research mode, citation style, "no fabrication" rules, etc. 5000-char defensive cap. Strictly scoped to Query Wiki chat; ingest / lint / page generation intentionally unaffected. Modes dropdown planned for v1.25.0+.
-- **🧱 Four monolith splits (P0 follow-up to v1.23.0 series).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 files, 93 tests), `query-engine.ts` (PR #250, 1373 → 15 files), and `modals.ts` (PR #257, 1008 → 7 files) — each god function / god class decomposed into focused modules. Plugin is now structurally ready for the next round of features.
-- **🏷️ Source-note aliases propagation (#185).** Frontmatter `aliases:` from source notes now flow into generated `sources/<slug>` pages, so downstream `[[wiki-link]]` matching and alias-aware search reach every quote. Reduces "DSA ≠ DeepSeek-Sparse-Attention" type misses.
-- **🔀 Tier-1 + Tier-2 merge triage (#216, `DocTpoint`).** Classify-then-route duplicate-bypass decision: skip spurious Tier-1 candidates outright, run Tier-2 only on the remainder. Reduces Lint merge batch size without sacrificing high-precision matches.
-- **🐛 Frontmatter write repair (4 user-reported bugs).** `aliases:[]` no longer falsely passes as alias-deficient; duplicate aliases collapsed on write; block-style frontmatter preserved (not flattened to inline); failures now logged with the offending field. Affects Smart Fix + merge paths.
-- **🚀 Query Wiki first-query PPR warmup.** Engine-level PPR graph cache (Key invalidation on `wikiFolder` change + cache-clear on `invalidatePageCaches`) — first query now uses Personalized PageRank instead of falling back to lex-only on cold start.
-- **🌐 i18n completeness** — 7 new keys per locale for the per-task model pickers + Model Scope dropdown + Test Connection labels.
+- **📄 PDF Ingest (Level 1).** Pick a PDF from your vault — the plugin reads it through your LLM provider's native file input (anthropic / openai / bedrock-anthropic / bedrock-openai; any other OpenAI/Anthropic-compatible endpoint with **Force PDF Support** enabled in Settings → LLM Configuration → Advanced), converts it to Markdown via OCR-style verbatim transcription, and re-enters the regular Markdown ingest pipeline. Every existing entity/concept/alias/`[[wiki-link]]` workflow applies unchanged. Result is **content-hash cached** in `.obsidian/plugins/karpathywiki/pdf-cache/` (key includes `converterVersion` so prompt upgrades invalidate stale entries). See the [Local PDF OCR Path](#-local-pdf-ocr-path-v1250) for the recommended local-Apple-Silicon setup.
+- **🗄️ Bounded cache growth.** Three-defense-layer cache housekeeping (100 MB total / 1000 entries / 10 MB single-entry caps) with LRU-by-mtime eviction. Old entries pruned on startup and at the start of every batch ingest. Cache-only by default — your vault is not modified.
+- **📝 Optional vault sidecar (advanced).** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** writes `<basename>.pdf.md` next to the source PDF after conversion. Off by default.
+- **🦙 Local model recommendations.** The Model Selection Guide now has dedicated Local and Cloud sections covering Qwen3.5 / Qwen3.6 / Gemma 4 (parameter-vs-quality tradeoffs, MLX vs GGUF quantization, context strategy).
+- **🛡️ Verbatim PDF transcriber prompt.** The PDF→Markdown prompt is re-framed as OCR-style verbatim conversion with `[illegible]` / `[figure: ...]` / `[equation: ...]` anti-hallucination markers; small/local models that wrap output in ```markdown fences are auto-cleaned before cache write. Prompt centralized into `src/wiki/prompts/pdf.ts` alongside every other LLM-call prompt in the project.
+- **⏹ Cancelable PDF ingest.** Clicking the status bar mid-conversion aborts the in-flight LLM call through Vercel AI SDK v6 AbortSignal within ~200 ms.
+- **🌐 i18n completeness** — 10 new keys per locale for the two new settings + PDF Ingest + Local PDF OCR Path (force-pdf-support toggle, write-pdf-markdown-to-vault toggle, source-rejected-pdf-unsupported Notice).
 
-**Settings to review:** Model Scope (Unified / Per-Task, in Settings → Wiki), per-task model fields (visible in Per-Task mode), Query Wiki → ⚙ Custom Instructions collapsible panel (in-view only).
-
-### v1.24.1 — 2026-07-14 (PATCH)
-
-Recommended upgrade for all v1.24.0 users.
-
-- **🔍 5-stage PPR seed-selection cascade.** Query Wiki now runs five complementary stages (lex fast path → LLM keywords → local substring scan → LLM KB fallback → PPR graph expansion) before generating an answer. Multi-hop questions get graph-aware context without opt-in embeddings.
-- **🤫 Empty-response quiet path.** `parseJsonResponse` no longer logs noisy errors for empty LLM bodies in Lint/Query paths, fixing console spam reported by some users (#255, #274). Seed selector also throws earlier on empty bodies for clearer recovery (#275).
-- **🧹 Cleaner entity pages.** The redundant `## Basic Information` / `## Basic Info` block is removed from entity-page generation prompts and schema; new entity pages go straight from frontmatter to H1 → description → related sections (#258).
-- **☁️ Bedrock Stage 1 providers.** Added `bedrock-anthropic` and `bedrock-openai` provider options routed through the AWS bedrock-mantle endpoint. Zero new npm dependencies, ~+3 KB bundle.
-- **🦙 LM Studio no-key ingest.** Ingest now works with LM Studio's empty API key, matching Test Connection behavior.
-- **🏗️ Internal cleanups.** `page-factory.ts` is split into 10 focused modules (+99 tests); non-lossy Mentions re-ingest preserves earlier source quotes on merge (#267).
-
-**Upgrade note:** If you had manually added `<!-- reviewed: keep -->` markers in v1.24.0, switch to frontmatter `reviewed: true` — it protects the whole page and survives Markdown linters.
+**Settings to review:** Force PDF Support (Settings → LLM Configuration → Advanced, default off — only relevant for non-NATIVE providers), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, default off — opt-in sidecar).
 
 ## ✨ Features
 
@@ -215,6 +209,17 @@ Recommended upgrade for all v1.24.0 users.
 - **🎨 Customizable tag vocabulary (v1.18.0).** Settings → Wiki → Tag Vocabulary Mode → *Custom* lets you define your own entity-type and concept-type tag lists (e.g. `Medical_Arzneimittel`, `法规`). The plugin respects your vocabulary in extraction prompts and frontmatter validation; the existing Lint audit (Issue #85 v7) reports any page whose tags fall outside the active vocabulary.
 
 ![Custom tag vocabulary chip inputs](docs/assets/custom-tags.png)
+
+### 📄 PDF Ingest (v1.25.0)
+
+Pick a PDF from your vault — the plugin reads it through your LLM provider's native file input, converts it to Markdown, and re-enters the regular Markdown ingest pipeline. Every existing entity/concept/alias/`[[wiki-link]]` workflow applies unchanged.
+
+- **🔌 Provider gate** — Anthropic, OpenAI, Bedrock Anthropic, and Bedrock OpenAI handle PDF natively. For any other OpenAI/Anthropic-compatible endpoint, enable **Force PDF Support** in Settings → LLM Configuration → Advanced to let the plugin attempt the call (your endpoint decides; failures surface as a localized Notice guiding you to disable the toggle). See the [Local PDF OCR Path](#-local-pdf-ocr-path-v1250) below for the recommended local setup.
+- **🗄️ Content-hash cache** — identical PDF + model + converter version returns the cached Markdown with no LLM call. The cache lives in `.obsidian/plugins/karpathywiki/pdf-cache/`; cache key embeds a `converterVersion` so prompt upgrades invalidate stale entries automatically.
+- **📏 Bounded growth** — three-defense-layer cache housekeeping (100 MB total / 1000 entries / 10 MB single-entry caps) with LRU-by-mtime eviction; old entries are pruned on startup and at the start of every batch ingest. Cache only — your vault is not modified by default.
+- **📝 Optional vault sidecar** — Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** writes `<basename>.pdf.md` next to the source PDF after conversion. Off by default (cache-only).
+- **🛡️ Verbatim transcriber prompt** — the PDF→Markdown prompt is re-framed as OCR-style verbatim conversion with `[illegible]` / `[figure: ...]` / `[equation: ...]` anti-hallucination markers; small/local models that wrap output in ```markdown fences are auto-cleaned before cache write.
+- **⏹ Cancellable** — clicking the status bar mid-conversion aborts the in-flight LLM call through Vercel AI SDK v6.
 
 ### 💬 Query & Feedback
 
@@ -333,6 +338,8 @@ This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not
 
 **💰 Value-First Strategy:** You don't need flagship models. The following **cost-effective alternatives** deliver excellent results at lower prices:
 
+### ☁️ Cloud Model Picks
+
 | Tier | Model | Context | Why |
 |------|-------|---------|-----|
 | **🌟 Value Pick** | **DeepSeek V4-Flash** | 1M tokens | Lowest cost ($0.14/M), 284B MoE, ideal for batch ingestion |
@@ -345,7 +352,36 @@ This plugin follows Karpathy's philosophy: **feed the LLM full Wiki context, not
 | **Flagship** | Claude Opus 4.7 | 1M tokens | Ultimate quality, higher cost — use selectively |
 | **Flagship** | GPT-5.5 | 1M tokens | Top reasoning, higher cost — use selectively |
 
-For local models (Ollama): context windows are typically smaller (8K–128K). Consider using a cloud provider for ingestion + local model for query.
+### 🦙 Local Model Recommendations (Ollama / LM Studio)
+
+Local inference wins on data sovereignty, offline use, and zero API cost. The trade-off is context window (most sit between 8K–128K; recent open-weight families reach 262K) and instruction following vs. flagship cloud models. **Pick by your hardware budget:** larger parameter counts buy world knowledge and instruction fidelity (better extraction quality, fewer hallucinations); smaller counts buy speed and memory headroom but pay for it in hallucinations and weaker long-context reasoning. The sweet spot on a 24 GB Apple Silicon or single consumer GPU is the 27B–35B-A3B class.
+
+| Model | Params | Context | Why |
+|-------|--------|---------|-----|
+| **Qwen3.5 27B** | 27B dense | 262K | Best quality/size trade-off for ingest; MLX 4-bit fits in 24 GB |
+| **Qwen3.5 35B-A3B** | 35B total / 3B active MoE | 262K | Faster than 27B dense at similar quality; ideal memory saver |
+| **Qwen3.5 122B-A10B** | 122B / 10B MoE | 262K | Quality ceiling; needs ≥48 GB VRAM or dual GPUs |
+| **Qwen3.6 27B** | 27B dense | 256K+ | 2026-04 refresh over Qwen3.5 27B — prefer this if your hardware can take it |
+| **Qwen3.6 35B-A3B** | 35B / 3B MoE | 262K | Same trade-off as Qwen3.5 35B-A3B, newer weights |
+| **Gemma 4 31B IT** | 31B dense | 262K | Strong instruction following, clean Markdown output |
+| **Gemma 4 26B A4B IT** | 26B / 4B MoE | 262K | Lower memory than 31B dense at comparable quality |
+| **Gemma 4 E2B / E4B IT** | 2B / 4B | 131K | CPU-runnable; use only for small wikis or quick previews |
+
+**Quantization:** MLX 4-bit on Apple Silicon is typically 1.5–2× faster than GGUF Q4_K_M at the same effective bitrate. GGUF Q4_K_M is the default cross-platform choice; reach for Q5/Q8 only if you have the VRAM headroom and notice quality regression at Q4.
+
+**Context strategy:** When your Wiki grows past ~500 pages, a 262K local model still sees most of the context the Query engine assembles, but ingest on a 2000-page vault will outrun it. Common pattern: cloud for ingest + local for query. For full local setups, the 27B/35B-A3B class is the sweet spot.
+
+### 📄 Local PDF OCR Path (v1.25.0+)
+
+v1.25.0's PDF ingest works with any provider that accepts PDF as a file part. For a fully local pipeline on Apple Silicon (the only platform oMLX currently supports), the recommended setup is:
+
+1. Install [oMLX](https://github.com/jundot/omlx) and enable its built-in **Markitdown** backend (local PDF→Markdown conversion).
+2. Load **Baidu Unlimited-OCR** (open-sourced 2026-06-22, 3B total / 0.5B active, end-to-end OCR that handles long documents without the "slower the longer it generates" failure mode of older OCR models) as the vision model in oMLX.
+3. In this plugin: set provider to **Custom OpenAI-Compatible** (oMLX speaks the OpenAI-compatible protocol), point the Base URL at oMLX's local server, turn on **Force PDF Support** in Settings → LLM Configuration → Advanced, and pick the multimodal model oMLX is serving for the ingest summarization.
+
+The PDF never leaves your machine — Markitdown does the structural conversion locally, Unlimited-OCR does the visual recognition locally, and the local LLM does the summarization locally. The plugin's cache (`.obsidian/plugins/karpathywiki/pdf-cache/`) then keeps re-ingests instant.
+
+**Fallback:** if oMLX/Markitdown is unavailable (Linux/Windows or older Macs), point **Force PDF Support** directly at a local multimodal LLM that accepts PDF file parts — quality is good when the model is large enough, but VRAM demands scale steeply with page count.
 
 **🔌 Anthropic Compatible (Coding Plan):** If your provider offers an Anthropic-compatible API endpoint, select "Anthropic Compatible" and enter your provider's Base URL and API Key.
 

@@ -264,6 +264,20 @@ export interface LLMWikiSettings {
   // apply. 'custom' exposes the explicit opt-in controls.
   advancedSettingsMode?: 'default' | 'custom';
 
+  /**
+   * v1.25.0 PR3: opt-in escape hatch for OpenAI-compatible and
+   * Anthropic-compatible providers that can accept PDF input even though
+   * they are not in the native-PDF provider list. Default false.
+   */
+  forcePdfSupport?: boolean;
+
+  /**
+   * v1.25.0 PR3: when true, write the LLM-converted Markdown of each PDF
+   * to a `<basename>.pdf.md` sidecar next to the source PDF. Default false
+   * (cache-only architecture; the cache in `.obsidian/` is the only artifact).
+   */
+  writePdfMarkdownToVault?: boolean;
+
   // Issue #128: per-task sampling temperature. Leave undefined to use the
   // provider's default. Low values (e.g. 0.15) improve fidelity for extraction
   // and verbatim quotes; higher values (e.g. 0.7) make chat answers more fluid.
@@ -446,16 +460,36 @@ export interface IngestOptions {
    * Optional — missing/legacy callers default to 'manual'.
    */
   trigger?: 'auto' | 'manual';
+  /**
+   * v1.25.0 PR2 redo: pre-converted source body (e.g. LLM-converted PDF
+   * markdown). When set, skips `vault.read(file)` and feeds this string
+   * into the analyzer and summary-page generator. Path-based operations
+   * (slug, frontmatter inheritance) still use `file`.
+   */
+  contentOverride?: string;
 }
 
 // LLM Client interface
+
+/**
+ * A content part within a chat message. Extends the legacy `string` content
+ * type with multi-modal support (file / image). String content is still
+ * supported for backward compatibility — see `messages[].content: string | MessageContentPart[]`.
+ *
+ * v1.25.0 PDF Level 1: `type: 'file'` with `mediaType: 'application/pdf'`
+ * is the wire format for PDF ingestion. The AI SDK v6 transparently maps
+ * this to provider-native PDF blocks (Anthropic `document`, OpenAI `input_file`).
+ */
+export type MessageContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'file'; data: string; mediaType: 'application/pdf'; filename?: string };
 
 export interface LLMClient {
   createMessage(params: {
     model: string;
     max_tokens: number;
     system?: string;
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPart[] }>;
     response_format?: { type: 'json_object' };
     cacheBreakpoint?: number;
     maxTokensPerCall?: number;  // Issue #75: cap for truncation retry
@@ -463,13 +497,20 @@ export interface LLMClient {
     temperature?: number;       // Issue #128: per-request sampling temperature
     repetition_penalty?: number; // Issue #128 follow-up: llama.cpp extension
     chat_template_kwargs?: Record<string, unknown>; // Issue #99: template-based reasoning disable
+    // v1.25.0 PR3 follow-up #8 (Bug D, e2e 2026-07-17): cancellation
+    // signal for long-running calls. The PDF converter threads the
+    // engine's AbortSignal through so a status-bar click during PDF
+    // conversion actually aborts the LLM call rather than only
+    // finishing the post-conversion phase. AI SDK v6 accepts this
+    // natively; legacy clients ignore it.
+    abortSignal?: AbortSignal;
   }): Promise<string>;
 
   createMessageStream?(params: {
     model: string;
     max_tokens: number;
     system?: string;
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPart[] }>;
     onChunk: (chunk: string) => void;
     enableThinking?: boolean;
     temperature?: number;
@@ -537,6 +578,13 @@ export interface EngineContext {
   getSectionLabels: () => Record<string, string>;
   getExistingWikiPages: () => Promise<Array<{ path: string; title: string; wikiLink: string; aliases?: string[] }>>;
   getSchemaContext: (task: string) => Promise<string | undefined>;
+  /**
+   * SubtleCrypto from Obsidian's popout-window-aware `activeWindow.crypto`.
+   * Used by the PDF cache to derive a content-addressed key without
+   * accessing the bare `window` global (CLAUDE.md `obsidianmd/no-global-this`).
+   * Undefined only in tests that don't stub SubtleCrypto.
+   */
+  subtle?: SubtleCrypto;
   onFileWrite?: (path: string) => void;
   onProgress?: (message: string) => void;
   onDone?: (report: IngestReport) => void;
@@ -799,6 +847,12 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   disableThinking: false,
   // Advanced settings mode — default hides the toggles, custom reveals them.
   advancedSettingsMode: 'default',
+  // v1.25.0 PR3: PDF force-support and sidecar write are opt-in advanced
+  // toggles. Default false keeps the cache-only architecture as the only
+  // artifact and prevents unsupported-compatible providers from attempting
+  // PDF conversion.
+  forcePdfSupport: false,
+  writePdfMarkdownToVault: false,
   // Issue #111: default to 'lower' for backwards compatibility.
   slugCase: 'lower',
   // v1.24.0 #251: persistent user-supplied instructions appended to the

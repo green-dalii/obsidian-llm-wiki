@@ -12,7 +12,9 @@
 
 [English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README_ZH-Hant.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | **Italiano**
 
-[Sito ufficiale](https://llmwiki.greenerai.top/) | [Marketplace Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback e discussioni](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Esplora il repository con DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Sito ufficiale](https://llmwiki.greenerai.top/) | [Marketplace Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback e discussioni](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+
+🚀 [Avvio rapido](#-avvio-rapido) | ✨ [Funzionalità](#-funzionalità) | 🤖 [Guida alla scelta del modello](#-guida-alla-scelta-del-modello) | 🔒 [Trasparenza e conformità](#-trasparenza-e-conformità) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← Se questo plugin ti è stato utile, offrimi un caffè♥️ o lascia una stella🌟↗
 
@@ -32,16 +34,20 @@
     - [🔑 Configurare un provider LLM](#-configurare-un-provider-llm)
     - [🎮 Utilizzo](#-utilizzo)
     - [⚠️ Aggiornamento da una versione precedente?](#️-aggiornamento-da-una-versione-precedente)
-  - [⚡ Novità nella v1.24.0](#-novità-nella-v1240)
+  - [⚡ Novità nella v1.25.0](#-novità-nella-v1250)
   - [✨ Funzionalità](#-funzionalità)
     - [📊 Qualità della conoscenza](#-qualità-della-conoscenza)
-    - [🛠️ Manutenzione](#️-manutenzione)
+    - [📄 Ingestione PDF (v1.25.0)](#-ingestione-pdf-v1250)
     - [💬 Query e feedback](#-query-e-feedback)
+    - [🛠️ Manutenzione](#️-manutenzione)
     - [🌐 LLM e lingua](#-llm-e-lingua)
     - [🏗️ Architettura e prestazioni](#️-architettura-e-prestazioni)
     - [🔒 Privacy e sicurezza](#-privacy-e-sicurezza)
   - [📖 Esempio](#-esempio)
   - [🤖 Guida alla scelta del modello](#-guida-alla-scelta-del-modello)
+    - [☁️ Modelli cloud](#️-modelli-cloud)
+    - [🦙 Modelli locali (Ollama / LM Studio)](#-modelli-locali-ollama--lm-studio)
+    - [📄 Percorso OCR PDF locale (v1.25.0+)](#-percorso-ocr-pdf-locale-v1250)
   - [🏗️ Architettura](#️-architettura)
   - [❓ FAQ](#-faq)
   - [🔒 Trasparenza e conformità](#-trasparenza-e-conformità)
@@ -136,7 +142,7 @@ Questo progetto evolve rapidamente — nuove funzionalità, correzioni di bug e 
 
 | Metodo | Come |
 |--------|------|
-| **📥 Acquisisci singola fonte** | `Cmd+P` → "Ingest single source" — seleziona una nota per generare pagine Wiki con entità e concetti |
+| **📥 Acquisisci singola fonte** | `Cmd+P` → "Ingest single source" — seleziona una nota (Markdown o **PDF, v1.25.0+**) per generare pagine Wiki con entità e concetti |
 | **📂 Acquisisci da cartella** | `Cmd+P` → "Ingest from folder" — seleziona una cartella per generare Wiki in lote |
 | **📑 Acquisisci più file** | `Cmd+P` → "Ingest multiple files" — scegli note tramite albero cartelle + checkbox, acquisizione in lote (con coda live + annullamento per file) |
 | **🎯 Acquisisci file corrente** | Clicca l'icona `sticker` nella barra sinistra, o `Cmd+P` → "Ingest current file" |
@@ -155,6 +161,8 @@ La ri-acquisizione della stessa fonte fonde nuove informazioni in modo increment
 
 ### ⚠️ Aggiornamento da una versione precedente?
 
+> 🔧 **Aggiornamento da v1.24.x.** L'ingestione PDF (v1.25.0) scrive la sua cache in `.obsidian/plugins/karpathywiki/pdf-cache/` (fino a 100 MB / 1000 voci / 10 MB per singola voce; eviction LRU-by-mtime all'avvio e all'inizio di ogni ingestione in batch). Il tuo vault **non viene modificato per default** — attiva **Write PDF Markdown to Vault** (Settings → Wiki Configuration → Wiki Folder) solo se vuoi un sidecar `<basename>.pdf.md` accanto al PDF sorgente. Due nuove impostazioni — **Force PDF Support** (avanzato, disattivato per default) e **Write PDF Markdown to Vault** (disattivato per default) — sono completamente retrocompatibili: un vecchio `data.json` senza questi campi ripiegherà su `false`.
+
 > 🔧 **Aggiornamento da v1.24.0.** Il marcatore di commento interno `<!-- reviewed: keep -->` (v1.24.0, #244), che proteggeva solo la sezione *Mentions in Source* di una pagina, è stato rimosso. Per conservare una sezione Mentions curata manualmente, imposta `reviewed: true` nel frontmatter della pagina: protegge l'intera pagina (Mentions incluse) e, a differenza del commento nascosto, resta visibile nel pannello Proprietà e resiste ai linter Markdown.
 
 **Retrocompatibile.** Nessuna modifica che comprometta la compatibilità dalla v1.0.0 — le tue pagine Wiki, impostazioni e flussi di lavoro esistenti vengono preservati senza riconfigurazione.
@@ -168,7 +176,7 @@ Poi **Rigenera indice** per ricostruire `wiki/index.md` con voci alias.
 
 > 📖 Guide dettagliate per salti di versione specifici in [GitHub Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions).
 
-**Impostazioni da verificare:** Lingua di output Wiki, Granularità di estrazione, Concorrenza (predefinito 3), Ritardo lotto (predefinito 300ms).
+**Impostazioni da verificare:** Force PDF Support (Settings → LLM Configuration → Advanced, disattivato per default — necessario solo per provider non NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, disattivato per default), Lingua di output Wiki, Granularità di estrazione, Concorrenza (predefinito 3), Ritardo lotto (predefinito 300ms).
 - **🏷️ Alias mancanti**: pagine senza alias (di qualsiasi versione, se non hai mai eseguito "Complete Aliases"). Clicca su **"Complete Aliases"** — l'LLM genera in blocco traduzioni, acronimi e nomi alternativi. Questo è fondamentale per il rilevamento dei duplicati.
 - **🔄 Pagine duplicate**: pagine con contenuti sovrapposti (es. "CoT" vs "思维链" create da versioni precedenti prive di deduplicazione consapevole degli alias). Clicca su **"Merge Duplicates"** per fonderle e preservare tutti gli alias.
 - **💀 Collegamenti interrotti / Pagine vuote / Pagine orfane**: problemi standard di manutenzione del wiki.
@@ -195,33 +203,19 @@ Impostazioni → **LLM Configuration**:
 > **🛡️ Sicurezza**: la generazione parallela usa `Promise.allSettled` — se una pagina fallisce, le altre proseguono. Le pagine fallite vengono ritentate individualmente con backoff esponenziale. Smart Batch Skip rileva automaticamente i file già acquisiti per risparmiare tempo e costi API.
 
 ---
-## ⚡ Novità nella v1.24.0
+## ⚡ Novità nella v1.25.0
 
-Cinque temi: modelli per attività, istruzioni di query personalizzate, quattro suddivisioni di monoliti, propagazione alias note sorgente, correzioni frontmatter segnalate dagli utenti. Aggiornamento raccomandato per tutti gli utenti v1.23.x.
+Quattro temi: ingestione PDF solo cache, raccomandazioni modelli locali, centralizzazione del prompt transcodificatore PDF e otto correzioni di bug e2e. Aggiornamento raccomandato per tutti gli utenti v1.24.x.
 
-- **🎛️ Modelli per attività (#208).** Scegli un modello diverso per **Acquisizione / Lint / Query**, o mantienili unificati. Impostazioni → Wiki → *Ambito modello* commuta con un clic. Il pulsante **Test connessione** ora sonda ogni modello configurato in sequenza con fail-fast — finché tutti i modelli per attività non superano il test, la connessione non è considerata sana.
-- **📝 Istruzioni di query personalizzate (#251, `jameses-cyber`).** Un pannello richiudibile dentro la vista Query Wiki ti permette di aggiungere istruzioni persistenti a ogni prompt di sistema — modalità ricerca, stile citazione, regole "niente fabbricazione", ecc. Limite difensivo di 5000 caratteri. Rigorosamente limitato alla chat Query Wiki; acquisizione / lint / generazione pagine non sono intenzionalmente toccati. Menu a tendina delle modalità pianificato per v1.25.0+.
-- **🧱 Quattro suddivisioni di monoliti (continuazione P0 della serie v1.23.0).** `controller.ts` (PR #248), `history-modal.ts` (PR #249, 1579 → 14 file, 93 test), `query-engine.ts` (PR #250, 1373 → 15 file), `modals.ts` (PR #257, 1008 → 7 file) — ogni funzione-dio / classe-dio decomposta in moduli focalizzati. Il plugin è ora strutturalmente pronto per il prossimo ciclo di funzionalità.
-- **🏷️ Propagazione alias note sorgente (#185).** Gli `aliases:` del frontmatter delle note sorgente ora confluiscono nelle pagine `sources/<slug>` generate, così che il matching `[[wiki-link]]` a valle e la ricerca consapevole degli alias raggiungano ogni citazione. Riduce i mancati riscontri tipo "DSA ≠ DeepSeek-Sparse-Attention".
-- **🔀 Triage fusione Tier-1 + Tier-2 (#216, `DocTpoint`).** Decisione di bypass duplicati classifica-poi-instrada: salta direttamente i candidati Tier-1 spuri, esegui Tier-2 solo sui restanti. Riduce la dimensione del lotto di fusione Lint senza sacrificare le corrispondenze ad alta precisione.
-- **🐛 Riparazione scrittura frontmatter (4 bug segnalati dagli utenti).** `aliases:[]` non è più falsamente rilevato come alias-carente; gli alias duplicati sono compressi in fase di scrittura; il frontmatter a blocchi viene preservato (non appiattito in inline); i fallimenti sono ora registrati con il campo colpevole. Riguarda i percorsi Smart Fix e fusione.
-- **🚀 Riscaldamento PPR prima query in Query Wiki.** Cache grafo PPR a livello motore (invalidazione al cambio `wikiFolder` + svuotamento cache in `invalidatePageCaches`) — la prima query ora usa Personalized PageRank invece di ripiegare su lex-only all'avvio a freddo.
-- **🌐 Completezza i18n** — 7 nuove chiavi per locale per i selettori modello per attività, il menu a tendina Ambito modello, e le etichette di Test connessione.
+- **📄 Ingestione PDF (Livello 1).** Scegli un PDF dal tuo vault — il plugin lo legge tramite l'input file nativo del tuo provider LLM (anthropic / openai / bedrock-anthropic / bedrock-openai; qualsiasi altro endpoint compatibile con OpenAI/Anthropic richiede **Force PDF Support** in Settings → LLM Configuration → Advanced), lo converte in Markdown tramite trascrizione verbatim in stile OCR, e rientra nella normale pipeline di ingestione Markdown. Tutti i workflow esistenti entità/concetto/alias/`[[wiki-link]]` restano invariati. Il risultato viene **messo in cache per hash del contenuto** in `.obsidian/plugins/karpathywiki/pdf-cache/` (la chiave incorpora `converterVersion` per invalidare automaticamente le voci obsolete quando il prompt viene aggiornato). Vedi il [Percorso OCR PDF locale](#-percorso-ocr-pdf-locale-v1250) per la configurazione consigliata su Apple Silicon.
+- **🗄️ Crescita limitata della cache.** Housekeeping della cache a tre livelli di difesa (100 MB totali / 1000 voci / 10 MB per singola voce) con eviction LRU-by-mtime; le voci vecchie vengono rimosse all'avvio e all'inizio di ogni ingestione in batch. Solo cache — il tuo vault non viene modificato per default.
+- **📝 Sidecar opzionale nel vault (avanzato).** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** scrive un `<basename>.pdf.md` accanto al PDF sorgente dopo la conversione. Disattivato per default.
+- **🦙 Raccomandazioni modelli locali.** La sezione Guida alla scelta del modello è ora suddivisa in sezioni separate locale e cloud che coprono Qwen3.5 / Qwen3.6 / Gemma 4 (compromessi parametro vs qualità, quantizzazione MLX vs GGUF, strategia di contesto).
+- **🛡️ Prompt transcodificatore PDF verbatim.** Il prompt PDF→Markdown è riformulato come conversione verbatim in stile OCR con marcatori anti-allucinazione `[illegible]` / `[figure: ...]` / `[equation: ...]`; i modelli piccoli/locali che avvolgono l'output in fence ```markdown vengono puliti automaticamente prima della scrittura in cache. Prompt centralizzato in `src/wiki/prompts/pdf.ts` accanto agli altri prompt di chiamate LLM del progetto.
+- **⏹ Ingestione PDF cancellabile.** Cliccare sulla barra di stato durante la conversione interrompe la chiamata LLM in corso tramite AbortSignal di Vercel AI SDK v6 in circa 200 ms.
+- **🌐 Completezza i18n** — 10 nuove chiavi per locale per le due nuove impostazioni, l'ingestione PDF e il Percorso OCR PDF locale (toggle Force PDF Support, toggle Write PDF Markdown to Vault, Notice source-rejected-pdf-unsupported).
 
-**Impostazioni da rivedere:** Ambito modello (Unificato / Per attività, in Impostazioni → Wiki), campi modello per attività (visibili solo in modalità Per attività), pannello richiudibile ⚙ Istruzioni personalizzate Query Wiki (solo dentro la vista).
-
-### v1.24.1 — 2026-07-14 (PATCH)
-
-Aggiornamento consigliato a tutti gli utenti della v1.24.0.
-
-- **🔍 Cascata di selezione semi PPR a 5 stadi.** Query Wiki esegue ora cinque fasi complementari prima di generare una risposta (percorso rapido Lex → parole chiave LLM → scansione locale di sottostringhe → fallback LLM KB → espansione del grafo PPR). Le domande multi-hop ottengono contesto consapevole del grafo senza opt-in degli embedding.
-- **🤫 Percorso silenzioso per risposte vuote.** `parseJsonResponse` non registra più errori rumorosi per corpi LLM vuoti nei percorsi Lint/Query, risolvendo lo spam della console segnalato da alcuni utenti (#255, #274). Il selettore di semi lancia anche prima con corpi vuoti per un recupero più chiaro (#275).
-- **🧹 Pagine entità più pulite.** Il blocco ridondante `## Basic Information` / `## Basic Info` è stato rimosso dai prompt e dallo schema di generazione delle pagine entità; le nuove pagine entità passano direttamente dal frontmatter a H1 → descrizione → sezioni correlate (#258).
-- **☁️ Provider Bedrock Stage 1.** Aggiunte le opzioni `bedrock-anthropic` e `bedrock-openai` instradate tramite l'endpoint AWS bedrock-mantle. Zero nuove dipendenze npm, bundle ~+3 KB.
-- **🦙 Ingestion LM Studio senza chiave API.** L'ingestion ora funziona con chiave API vuota su LM Studio, come il test di connessione.
-- **🏗️ Pulizie interne.** `page-factory.ts` diviso in 10 moduli focalizzati (+99 test); la re-ingestion non distruttiva delle Mentions preserva le citazioni delle fonti precedenti durante il merge (#267).
-
-**Nota di aggiornamento:** Se hai aggiunto manualmente marcatori `<!-- reviewed: keep -->` nella v1.24.0, passa al frontmatter `reviewed: true` — protegge l'intera pagina e sopravvive ai linter Markdown.
+**Impostazioni da rivedere:** Force PDF Support (Settings → LLM Configuration → Advanced, disattivato per default — rilevante solo per provider non NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, disattivato per default — sidecar opzionale).
 
 ## ✨ Funzionalità
 
@@ -235,6 +229,17 @@ Aggiornamento consigliato a tutti gli utenti della v1.24.0.
 - **📝 Conservazione delle citazioni originali** — le sezioni Menzioni nella sorgente conservano le citazioni nella lingua originale (traduzione opzionale) per la tracciabilità completa.
 
 - **🎨 Vocabolario tag personalizzabile (v1.18.0).** Impostazioni → Wiki → Modalità vocabolario tag → *Personalizzato* ti permette di definire le tue liste di tag per tipo di entità e concetto (es. `Medical_Arzneimittel`, `法规`). Il plugin rispetta il tuo vocabolario nei prompt di estrazione e nella validazione del frontmatter; l'audit Lint (Issue #85 v7) segnala qualsiasi pagina i cui tag cadano fuori dal vocabolario attivo.
+
+### 📄 Ingestione PDF (v1.25.0)
+
+Scegli un PDF dal tuo vault — il plugin lo legge tramite l'input file nativo del tuo provider LLM, lo converte in Markdown e rientra nella normale pipeline di ingestione Markdown. Tutti i workflow esistenti entità/concetto/alias/`[[wiki-link]]` restano invariati.
+
+- **🔌 Cancello provider** — Anthropic, OpenAI, Bedrock Anthropic e Bedrock OpenAI gestiscono i PDF nativamente. Per qualsiasi altro endpoint compatibile OpenAI/Anthropic, attiva **Force PDF Support** in Settings → LLM Configuration → Advanced per consentire al plugin di tentare la chiamata (il tuo endpoint decide; i fallimenti generano un Notice localizzato che guida a disattivare il toggle). La configurazione locale consigliata è in [Percorso OCR PDF locale](#-percorso-ocr-pdf-locale-v1250).
+- **🗄️ Cache per hash del contenuto** — PDF + modello + versione di convertitore identici restituiscono il Markdown in cache senza chiamata LLM. La cache vive in `.obsidian/plugins/karpathywiki/pdf-cache/`; la chiave incorpora `converterVersion` così gli upgrade di prompt invalidano automaticamente le voci obsolete.
+- **📏 Crescita limitata** — housekeeping della cache a tre livelli di difesa (100 MB totali / 1000 voci / 10 MB per singola voce) con eviction LRU-by-mtime; le voci vecchie vengono rimosse all'avvio e all'inizio di ogni ingestione in batch. Solo cache — il tuo vault non viene modificato per default.
+- **📝 Sidecar opzionale nel vault** — Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** scrive un `<basename>.pdf.md` accanto al PDF sorgente dopo la conversione. Disattivato per default (solo cache).
+- **🛡️ Prompt trascrittore verbatim** — il prompt PDF→Markdown è riformulato come conversione verbatim in stile OCR con marcatori anti-allucinazione `[illegible]` / `[figure: ...]` / `[equation: ...]`; i modelli piccoli/locali che avvolgono l'output in fence ```markdown vengono puliti automaticamente prima della scrittura in cache.
+- **⏹ Cancellabile** — cliccare sulla barra di stato durante la conversione interrompe la chiamata LLM in corso (tramite Vercel AI SDK v6).
 
 ### 💬 Query e feedback
 
@@ -350,6 +355,8 @@ Questo plugin segue la filosofia di Karpathy: **fornire all'LLM il contesto Wiki
 
 **💰 Strategia orientata al valore:** non hai bisogno dei modelli di punta. Le seguenti **alternative convenienti** offrono risultati eccellenti a prezzi più bassi:
 
+### ☁️ Modelli cloud
+
 | Livello | Modello | Contesto | Perché |
 |------|-------|---------|-----|
 | **🌟 Scelta di valore** | **DeepSeek V4-Flash** | 1M token | Costo più basso ($0.14/M), 284B MoE, ideale per l'acquisizione in batch |
@@ -362,7 +369,36 @@ Questo plugin segue la filosofia di Karpathy: **fornire all'LLM il contesto Wiki
 | **Di punta** | Claude Opus 4.7 | 1M token | Qualità massima, costo più elevato — usa in modo selettivo |
 | **Di punta** | GPT-5.5 | 1M token | Ragionamento al top, costo più elevato — usa in modo selettivo |
 
-Per i modelli locali (Ollama): le finestre di contesto sono in genere più piccole (8K–128K). Valuta di usare un provider cloud per l'acquisizione e un modello locale per le query.
+### 🦙 Modelli locali (Ollama / LM Studio)
+
+L'inferenza locale vince su sovranità dei dati, uso offline e costo API zero. Il compromesso è una finestra di contesto più piccola (spesso tra 8K–128K; le famiglie open-weight recenti arrivano a 262K) e un rispetto delle istruzioni più debole rispetto ai modelli cloud di punta. **Scegli in base al budget hardware:** più parametri = più conoscenza del mondo e migliore fedeltà alle istruzioni (estrazione di qualità superiore, meno allucinazioni); meno parametri = più velocità e margine di memoria, al prezzo di più allucinazioni e ragionamento a lungo contesto più debole. Lo sweet spot su Apple Silicon da 24 GB o su una singola GPU consumer è la classe 27B–35B-A3B.
+
+| Modello | Parametri | Contesto | Perché |
+|---------|-----------|----------|--------|
+| **Qwen3.5 27B** | 27B dense | 262K | Miglior equilibrio qualità/dimensioni per l'ingestione; MLX 4-bit entra in 24 GB |
+| **Qwen3.5 35B-A3B** | 35B totali / 3B attivi MoE | 262K | Più veloce di 27B dense a qualità simile; ideale per risparmiare memoria |
+| **Qwen3.5 122B-A10B** | 122B / 10B MoE | 262K | Soffitto di qualità; richiede ≥48 GB di VRAM o doppia GPU |
+| **Qwen3.6 27B** | 27B dense | 256K+ | Refresh 2026-04 rispetto a Qwen3.5 27B — preferiscilo se l'hardware lo regge |
+| **Qwen3.6 35B-A3B** | 35B / 3B MoE | 262K | Stesso compromesso di Qwen3.5 35B-A3B, con pesi più recenti |
+| **Gemma 4 31B IT** | 31B dense | 262K | Forte rispetto delle istruzioni, output Markdown pulito |
+| **Gemma 4 26B A4B IT** | 26B / 4B MoE | 262K | Meno memoria di 31B dense a qualità comparabile |
+| **Gemma 4 E2B / E4B IT** | 2B / 4B | 131K | Eseguibile in CPU pura; solo per wiki piccoli o anteprime rapide |
+
+**Quantizzazione:** MLX 4-bit su Apple Silicon è in genere 1,5–2× più veloce di GGUF Q4_K_M allo stesso bitrate effettivo. GGUF Q4_K_M è la scelta predefinita multipiattaforma; passa a Q5/Q8 solo se hai margine di VRAM e noti regressioni di qualità a Q4.
+
+**Strategia di contesto:** quando il tuo Wiki supera ~500 pagine, un modello locale da 262K copre ancora la maggior parte del contesto assemblato dal motore di Query, ma l'ingestione di un vault da 2000 pagine lo supera. Schema comune: cloud per l'ingestione + locale per le query. Per setup completamente locali, la classe 27B/35B-A3B è lo sweet spot.
+
+### 📄 Percorso OCR PDF locale (v1.25.0+)
+
+L'ingestione PDF di v1.25.0 funziona con qualsiasi provider che accetti PDF come parte di file. Per una pipeline completamente locale su Apple Silicon (l'unica piattaforma attualmente supportata da oMLX), ecco la configurazione consigliata:
+
+1. Installa [oMLX](https://github.com/jundot/omlx) e attiva il suo backend integrato **Markitdown** (conversione locale PDF→Markdown).
+2. Carica **Baidu Unlimited-OCR** (open-source il 22/06/2026, 3B totali / 0,5B attivi, OCR end-to-end che gestisce documenti lunghi senza la modalità di fallimento "più genera, più va lento" dei vecchi modelli OCR) come modello visivo in oMLX.
+3. In questo plugin: imposta il provider su **Custom OpenAI-Compatible** (oMLX parla il protocollo compatibile con OpenAI), punta la Base URL al server locale di oMLX, attiva **Force PDF Support** in Settings → LLM Configuration → Advanced, e scegli il modello multimodale servito da oMLX per il riepilogo dell'ingestione.
+
+Il PDF non lascia mai la tua macchina — Markitdown esegue la conversione strutturale in locale, Unlimited-OCR il riconoscimento visivo in locale, e l'LLM locale il riepilogo in locale. La cache del plugin (`.obsidian/plugins/karpathywiki/pdf-cache/`) mantiene le re-ingestioni istantanee.
+
+**Fallback:** se oMLX/Markitdown non è disponibile (Linux/Windows o Mac più vecchi), punta **Force PDF Support** direttamente a un LLM multimodale locale che accetti parti di file PDF — la qualità è buona quando il modello è abbastanza grande, ma i requisiti di VRAM crescono in modo ripido con il numero di pagine.
 
 **🔌 Anthropic Compatible (Coding Plan):** se il tuo provider offre un endpoint API compatibile con Anthropic, seleziona "Anthropic Compatible" e inserisci l'URL di base e la chiave API del tuo provider.
 

@@ -462,6 +462,16 @@ export const KO_TEXTS = {
     sourceRejectedEmpty: '⏭️ 「{filename}」에 가져올 내용이 없어 건너뛰었습니다. 비어 있거나 프론트매터만 있는 노트는 위키 페이지를 만들지 않습니다.',
     sourceRejectedType: '⏭️ 「{filename}」은(는) 지원되지 않는 파일 형식이라 건너뛰었습니다. 텍스트 노트(.md, .txt 등)만 가져올 수 있습니다.',
     sourceRejectedDuplicate: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 내용이 이미 위키에 있습니다.',
+    pdfReadingInProgress: 'PDF 읽는 중: {filename}',
+    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 현재 provider 또는 모델이 PDF 입력을 지원하지 않습니다. Settings → LLM Configuration → Advanced에서 provider를 변경하거나 「PDF 지원 강제」를 켜고 다시 시도하세요.',
+    clearPdfCacheCommand: 'PDF 변환 캐시 지우기',
+    pdfCacheCleared: 'PDF 캐시를 지웠습니다({count}개 항목 제거됨).',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'PDF 지원 강제',
+    forcePdfSupportDesc: '기본값은 꺼짐. provider가 네이티브 지원 목록에 없지만 PDF를 처리할 수 있다면, 이 스위치를 켜서 시도해 볼 수 있습니다. 켜면 PDF가 현재 provider로 전송되며, 거부되면 알림으로 안내됩니다. 네이티브 PDF provider(Anthropic / OpenAI / Bedrock)는 이 설정이 필요 없습니다.',
+    writePdfMarkdownToVaultName: '변환된 Markdown을 Vault에 기록',
+    writePdfMarkdownToVaultDesc: '기본값은 꺼짐. 켜면 각 PDF 변환 결과가 원본 PDF 옆에 「<basename>.pdf.md」 파일로 기록됩니다. 꺼져 있으면(캐시 전용 아키텍처) 결과는 플러그인 캐시에만 남고 Vault에는 구현 아티팩트를 남기지 않습니다.',
+
     ingestRejectedSummary: '{count}개 파일을 건너뛰었습니다(비어 있음, 중복 또는 미지원 형식).',
     reingestConfirmTitle: '이 파일을 다시 가져올까요?',
     reingestConfirmBody: '「{filename}」의 내용이 이미 위키에 있습니다. 그래도 다시 가져올까요?',

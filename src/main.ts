@@ -148,11 +148,29 @@ export default class LLMWikiPlugin extends Plugin {
       // this callback (during file writes), autoMaintainManager is guaranteed
       // to exist. This is intentional — reordering the assignments would break it.
       (path: string) => this.autoMaintainManager.watchWrite(path),
-      (msg: string) => this.showProgressFor(ProgressScope.IngestAutoWatch, msg),
+      // v1.25.0 PR3 follow-up #7 (Bug C, e2e 2026-07-17): the wikiEngine
+      // calls `onProgress` for inline progress messages (e.g. PDF
+      // "Reading PDF: paper.pdf"). Previously this only updated the
+      // persistent Notice via showProgressFor, leaving the status bar
+      // frozen on the initial placeholder text. We now ALSO mirror the
+      // same text into the status bar so the user sees both surfaces
+      // advancing in lockstep, with the text itself acting as
+      // "current operation" cue. Status bar text is overwritten by the
+      // ingestion-start callback when a new file begins.
+      (msg: string) => {
+        if (this.ingestStatusBar) {
+          this.ingestStatusBar.setText(msg);
+          this.ingestStatusBar.removeClass('llm-wiki-status-bar-hidden');
+        }
+        this.showProgressFor(ProgressScope.IngestAutoWatch, msg);
+      },
       // v1.22.6 #204: Dispatch based on report.trigger so watch-mode
       // auto-ingest goes through onAutoIngestDone (Notice) while
       // manual ingest keeps the legacy IngestReportModal behavior.
-      (report: IngestReport) => this.onIngestDoneDispatch(report)
+      (report: IngestReport) => this.onIngestDoneDispatch(report),
+      // v1.25.0 PR2: inject SubtleCrypto from Obsidian's popout-window-aware
+      // activeWindow so the PDF cache can hash without accessing bare `window`.
+      (typeof activeWindow !== 'undefined' ? activeWindow.crypto : undefined)?.subtle
     );
 
     // #164: when an interactive ingest hits a duplicate, ask the user whether to
@@ -177,6 +195,15 @@ export default class LLMWikiPlugin extends Plugin {
       // completion routes to Notice, not LintReportModal.
       () => this.lintWiki('auto')
     );
+
+    // v1.25.0 PR2 fix: fire-and-forget PDF cache housekeeping on startup.
+    // Without this hook, the three-defense-layer design collapses — set()
+    // only triggers defense layer 2 (size cap), but layers 1 (per-write
+    // cap) and 3 (purgeExpired) never run. Over months, the cache would
+    // grow until the cap, then evict the user's most-valuable oldest
+    // entries on every new PDF ingest (cache hit rate collapses).
+    // Errors are swallowed inside performPdfCacheHousekeeping — never blocks startup.
+    void this.performPdfCacheHousekeeping();
 
     if (this.settings.autoWatchSources) {
       this.autoMaintainManager.startWatching();
@@ -297,6 +324,19 @@ export default class LLMWikiPlugin extends Plugin {
       id: 'recreate-welcome-note',
       name: t.welcomeNoteRecreateCommand,
       callback: () => void this.autoMaintainManager.recreateWelcomeNote(),
+    });
+
+    // v1.25.0 PR2: explicit "Ingest PDF" command. Useful when the user has
+    // v1.25.0 PR2: clear the PDF conversion cache. Useful when switching
+    // models and wanting to force re-conversion without invalidating by
+    // deleting the source PDF. PR2 redo: the `ingest-pdf` command was a
+    // pure duplicate of `ingest-active-file` and is removed — PDFs are
+    // detected automatically by ingestSource when the active file is a PDF.
+    this.addCommand({
+      id: 'clear-pdf-cache',
+      name: getText(this.settings.language, 'clearPdfCacheCommand'),
+      icon: 'trash-2',
+      callback: () => void this.clearPdfCache(),
     });
 
     this.addRibbonIcon('sticker', t.cmdIngestActiveFile, () => {
@@ -723,6 +763,12 @@ export default class LLMWikiPlugin extends Plugin {
         console.error('Single ingest failed:', e);
         const errMsg = e instanceof Error ? e.message : String(e);
         new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
+        // v1.25.0 PR3 follow-up #5: dismiss the persistent "Ingesting:" Notice.
+        // For failures that bypass `reportSkip` (e.g. transient network errors,
+        // vault IO failures, unexpected exceptions thrown out of ingestSource),
+        // the progressNotice is the only persistent Notice tied to this call —
+        // without this hide() it would remain on screen until the next ingest.
+        this.dismissProgress();
       });
     }).open();
   }
@@ -742,13 +788,82 @@ export default class LLMWikiPlugin extends Plugin {
 
     // File-type validation is handled centrally by the ingest gate (#164),
     // which accepts the text allowlist (.md, .txt, …) and shows a localized
-    // notice for anything else.
+    // notice for anything else. v1.25.0 PR2: PDFs are now first-class sources
+    // — the PDF ingest branch in WikiEngine.ingestSource handles them.
     this.showProgressFor(ProgressScope.IngestManual, `Ingesting: ${activeFile.basename}`);
     this.wikiEngine.ingestSource(activeFile, { interactive: true }).catch(e => {
       console.error('Ingest active file failed:', e);
       const errMsg = e instanceof Error ? e.message : String(e);
       new Notice(TEXTS[this.settings.language].errorIngestFailed + errMsg, NOTICE_ERROR);
+      // v1.25.0 PR3 follow-up #5: see sibling comment in ingestSourceViaModal —
+      // dismiss the persistent "Ingesting:" Notice on failure paths that
+      // bypass reportSkip (network/IO/throw).
+      this.dismissProgress();
     });
+  }
+
+  /**
+   * v1.25.0 PR2: clear the PDF conversion cache. Useful when the user
+   * switches models and wants to force re-conversion without deleting the
+   * source PDF. Returns a localized count for the user-facing Notice.
+   */
+  async clearPdfCache(): Promise<void> {
+    const { createPdfCache } = await import('./core/pdf-cache');
+    const cache = createPdfCache(this.app);
+    const result = await cache.clear();
+    new Notice(
+      getText(this.settings.language, 'pdfCacheCleared').replace('{count}', String(result.removed)),
+      NOTICE_NORMAL
+    );
+  }
+
+  /**
+   * v1.25.0 PR2: PDF cache housekeeping on plugin load — purges expired
+   * entries and enforces hard size caps. Cheap on plugin startup; never
+   * blocks the user (errors are logged and swallowed).
+   *
+   * Called from onload() (fire-and-forget) so the three-defense-layer
+   * design doesn't collapse to just defense layer 2 (per-set cap).
+   */
+  /**
+   * v1.25.0 PR3 follow-up #2 (P1 #2): run TTL purge + size enforcement
+   * before a batch ingest starts. Cheaper than the per-write cap because
+   * `enforceSizeLimit` after each new write evicts in proportion to that
+   * single write — pre-running it evicts once for the whole batch, so the
+   * user's most-valuable oldest entries don't get kicked out one write
+   * at a time as the batch progresses.
+   */
+  async preparePdfCacheForBatchIngest(): Promise<void> {
+    try {
+      const { createPdfCache } = await import('./core/pdf-cache');
+      const cache = createPdfCache(this.app);
+      const { expired, size } = await cache.prepareBatchIngest();
+      if (expired.removed > 0 || size.removed > 0) {
+        console.debug(
+          `[pdf-cache] batch prep: purged ${expired.removed} expired, ` +
+          `evicted ${size.removed} oversized (${size.freedBytes} bytes freed)`
+        );
+      }
+    } catch (error) {
+      console.warn('[pdf-cache] batch prep failed:', error);
+    }
+  }
+
+  async performPdfCacheHousekeeping(): Promise<void> {
+    try {
+      const { createPdfCache } = await import('./core/pdf-cache');
+      const cache = createPdfCache(this.app);
+      const expired = await cache.purgeExpired();
+      const size = await cache.enforceSizeLimit();
+      if (expired.removed > 0 || size.removed > 0) {
+        console.debug(
+          `[pdf-cache] housekeeping: purged ${expired.removed} expired, ` +
+          `evicted ${size.removed} oversized (${size.freedBytes} bytes freed)`
+        );
+      }
+    } catch (error) {
+      console.warn('[pdf-cache] housekeeping failed:', error);
+    }
   }
 
   selectFolderToIngest() {
@@ -834,6 +949,10 @@ export default class LLMWikiPlugin extends Plugin {
    * workaround).
    */
   private async runBatchIngest(files: TFile[], jobIds: string[], sourceLabel: string): Promise<void> {
+    // v1.25.0 PR3 follow-up #2 (P1 #2): batch-start housekeeping.
+    // Fire-and-forget — never blocks ingest on cache maintenance.
+    void this.preparePdfCacheForBatchIngest();
+
     this.showProgressFor(ProgressScope.IngestManual, 'Checking for already-ingested files...');
     const alreadyIngestedFiles: TFile[] = [];
     const newFiles: TFile[] = [];

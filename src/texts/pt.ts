@@ -463,6 +463,16 @@ export const PT_TEXTS = {
     sourceRejectedEmpty: '⏭️ "{filename}" não tem conteúdo para ingerir — ignorado. Notas vazias ou apenas com frontmatter não criam páginas wiki.',
     sourceRejectedType: '⏭️ "{filename}" não é um tipo de arquivo compatível — ignorado. Apenas notas de texto (.md, .txt, etc.) podem ser ingeridas.',
     sourceRejectedDuplicate: '⏭️ "{filename}" ignorado — seu conteúdo já está no wiki.',
+    pdfReadingInProgress: 'Lendo PDF: {filename}',
+    sourceRejectedPdfUnsupported: '⏭️ «{filename}» ignorado — o seu provedor ou modelo atual não aceita PDF. Troque de provedor ou ative «Forçar suporte a PDF» em Settings → LLM Configuration → Advanced e tente novamente.',
+    clearPdfCacheCommand: 'Limpar cache de conversão PDF',
+    pdfCacheCleared: 'Cache de PDF limpo ({count} entradas removidas).',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'Forçar suporte a PDF',
+    forcePdfSupportDesc: 'Desativado por padrão. Ative esta opção se o seu provedor não está na lista nativa, mas mesmo assim consegue processar PDFs. Ao ativar, o PDF será enviado ao seu provedor atual; se for rejeitado, você verá um aviso. Provedores PDF nativos (Anthropic / OpenAI / Bedrock) não precisam desta opção.',
+    writePdfMarkdownToVaultName: 'Gravar o Markdown convertido no Vault',
+    writePdfMarkdownToVaultDesc: 'Desativado por padrão. Quando ativo, o resultado de cada conversão de PDF é gravado em um arquivo “<basename>.pdf.md” ao lado do PDF de origem. Quando desativado (arquitetura somente em cache), os resultados vivem apenas no cache do plugin e não deixam artefatos no seu Vault.',
+
     ingestRejectedSummary: '{count} arquivo(s) ignorado(s) (vazio, duplicado ou tipo não compatível).',
     reingestConfirmTitle: 'Reingerir este arquivo?',
     reingestConfirmBody: 'O conteúdo de "{filename}" já está no wiki. Reingerir mesmo assim?',

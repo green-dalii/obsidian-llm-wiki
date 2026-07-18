@@ -630,6 +630,16 @@ export const EN_TEXTS = {
     sourceRejectedEmpty: '⏭️ "{filename}" has no content to ingest — skipped. Empty or frontmatter-only notes don\'t create wiki pages.',
     sourceRejectedType: '⏭️ "{filename}" is not a supported file type — skipped. Only text notes (e.g. .md, .txt) can be ingested.',
     sourceRejectedDuplicate: '⏭️ "{filename}" skipped — its content is already in the wiki.',
+    // v1.25.0 PDF Level 1 (cache-only architecture)
+    pdfReadingInProgress: 'Reading PDF: {filename}',
+    sourceRejectedPdfUnsupported: '⏭️ "{filename}" skipped — your current provider or model doesn\'t accept PDF input. Switch provider, or open Settings → LLM Configuration → Advanced and turn on "Force PDF support" to try anyway.',
+    clearPdfCacheCommand: 'Clear PDF conversion cache',
+    pdfCacheCleared: 'PDF cache cleared ({count} entries removed).',
+    // v1.25.0 PR3: Advanced PDF settings
+    forcePdfSupportName: 'Force PDF support',
+    forcePdfSupportDesc: 'Off by default. Turn this on if your provider isn\'t listed as native but can still handle PDF files. When on, the PDF will be sent to your current provider — if it gets rejected, you\'ll see a clear notice. Native PDF providers (Anthropic / OpenAI / Bedrock) don\'t need this.',
+    writePdfMarkdownToVaultName: 'Write converted Markdown to Vault',
+    writePdfMarkdownToVaultDesc: 'Off by default. When on, each PDF conversion result is written to a "<basename>.pdf.md" file next to the source PDF. When off (cache-only architecture), results live only in the plugin cache and leave no artifacts in your Vault.',
     ingestRejectedSummary: '{count} file(s) skipped (empty, duplicate, or unsupported type).',
     reingestConfirmTitle: 'Re-ingest this file?',
     reingestConfirmBody: 'The content of "{filename}" is already in the wiki. Re-ingest it anyway?',
