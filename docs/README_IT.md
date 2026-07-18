@@ -12,7 +12,9 @@
 
 [English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README_ZH-Hant.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | [Español](README_ES.md) | [Português](README_PT.md) | **Italiano**
 
-[Sito ufficiale](https://llmwiki.greenerai.top/) | [Marketplace Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback e discussioni](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Esplora il repository con DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Sito ufficiale](https://llmwiki.greenerai.top/) | [Marketplace Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Feedback e discussioni](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+
+🚀 [Avvio rapido](#-avvio-rapido) | ✨ [Funzionalità](#-funzionalità) | 🤖 [Guida alla scelta del modello](#-guida-alla-scelta-del-modello) | 🔒 [Trasparenza e conformità](#-trasparenza-e-conformità) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← Se questo plugin ti è stato utile, offrimi un caffè♥️ o lascia una stella🌟↗
 
@@ -32,7 +34,7 @@
     - [🔑 Configurare un provider LLM](#-configurare-un-provider-llm)
     - [🎮 Utilizzo](#-utilizzo)
     - [⚠️ Aggiornamento da una versione precedente?](#️-aggiornamento-da-una-versione-precedente)
-  - [⚡ Novità nella v1.24.0](#-novità-nella-v1240)
+  - [⚡ Novità nella v1.25.0](#-novità-nella-v1250)
   - [✨ Funzionalità](#-funzionalità)
     - [📊 Qualità della conoscenza](#-qualità-della-conoscenza)
     - [📄 Ingestione PDF (v1.25.0)](#-ingestione-pdf-v1250)
@@ -212,19 +214,6 @@ Quattro temi: ingestione PDF solo cache, raccomandazioni modelli locali, central
 - **🌐 Completezza i18n** — 10 nuove chiavi per locale per le due nuove impostazioni, l'ingestione PDF e il Percorso OCR PDF locale (toggle Force PDF Support, toggle Write PDF Markdown to Vault, Notice source-rejected-pdf-unsupported).
 
 **Impostazioni da rivedere:** Force PDF Support (Settings → LLM Configuration → Advanced, disattivato per default — rilevante solo per provider non NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, disattivato per default — sidecar opzionale).
-
-### v1.24.1 — 2026-07-14 (PATCH)
-
-Aggiornamento consigliato a tutti gli utenti della v1.24.0.
-
-- **🔍 Cascata di selezione semi PPR a 5 stadi.** Query Wiki esegue ora cinque fasi complementari prima di generare una risposta (percorso rapido Lex → parole chiave LLM → scansione locale di sottostringhe → fallback LLM KB → espansione del grafo PPR). Le domande multi-hop ottengono contesto consapevole del grafo senza opt-in degli embedding.
-- **🤫 Percorso silenzioso per risposte vuote.** `parseJsonResponse` non registra più errori rumorosi per corpi LLM vuoti nei percorsi Lint/Query, risolvendo lo spam della console segnalato da alcuni utenti (#255, #274). Il selettore di semi lancia anche prima con corpi vuoti per un recupero più chiaro (#275).
-- **🧹 Pagine entità più pulite.** Il blocco ridondante `## Basic Information` / `## Basic Info` è stato rimosso dai prompt e dallo schema di generazione delle pagine entità; le nuove pagine entità passano direttamente dal frontmatter a H1 → descrizione → sezioni correlate (#258).
-- **☁️ Provider Bedrock Stage 1.** Aggiunte le opzioni `bedrock-anthropic` e `bedrock-openai` instradate tramite l'endpoint AWS bedrock-mantle. Zero nuove dipendenze npm, bundle ~+3 KB.
-- **🦙 Ingestion LM Studio senza chiave API.** L'ingestion ora funziona con chiave API vuota su LM Studio, come il test di connessione.
-- **🏗️ Pulizie interne.** `page-factory.ts` diviso in 10 moduli focalizzati (+99 test); la re-ingestion non distruttiva delle Mentions preserva le citazioni delle fonti precedenti durante il merge (#267).
-
-**Nota di aggiornamento:** Se hai aggiunto manualmente marcatori `<!-- reviewed: keep -->` nella v1.24.0, passa al frontmatter `reviewed: true` — protegge l'intera pagina e sopravvive ai linter Markdown.
 
 ## ✨ Funzionalità
 

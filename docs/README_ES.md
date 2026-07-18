@@ -12,7 +12,9 @@
 
 [English](../README.md) | [简体中文](README_CN.md) | [繁體中文](README_ZH-Hant.md) | [日本語](README_JA.md) | [한국어](README_KO.md) | [Deutsch](README_DE.md) | [Français](README_FR.md) | **Español** | [Português](README_PT.md) | [Italiano](README_IT.md)
 
-[Sitio oficial](https://llmwiki.greenerai.top/) | [Mercado de Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Comentarios y debate](https://github.com/green-dalii/obsidian-llm-wiki/discussions) | [🤖 Explorar código con DeepWiki](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
+[Sitio oficial](https://llmwiki.greenerai.top/) | [Mercado de Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Comentarios y debate](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
+
+🚀 [Inicio rápido](#-inicio-rápido) | ✨ [Características](#-características) | 🤖 [Guía de Selección de Models](#-guía-de-selección-de-models) | 🔒 [Transparencia y cumplimiento](#-transparencia-y-cumplimiento) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← Si este plugin te ha sido útil, invítame a un café♥️ o deja una estrella🌟↗
 
@@ -30,7 +32,7 @@
     - [🔑 Configurar un proveedor LLM](#-configurar-un-proveedor-llm)
     - [🎮 Uso](#-uso)
     - [⚠️ ¿Actualizar desde una versión anterior?](#️-actualizar-desde-una-versión-anterior)
-  - [⚡ Novedades de la v1.24.0](#-novedades-de-la-v1240)
+  - [⚡ Novedades de la v1.25.0](#-novedades-de-la-v1250)
   - [✨ Características](#-características)
     - [📊 Calidad del Conocimiento](#-calidad-del-conocimiento)
     - [📄 Ingesta de PDF (v1.25.0)](#-ingesta-de-pdf-v1250)
@@ -179,19 +181,6 @@ Cuatro temas: ingesta de PDF solo en caché, recomendaciones de modelos locales,
 - **🌐 Completitud i18n** — 10 nuevas claves por locale para los dos nuevos ajustes, ingesta de PDF y Ruta OCR PDF local (toggle Force PDF Support, toggle Write PDF Markdown to Vault, Notice source-rejected-pdf-unsupported).
 
 **Configuraciones a revisar:** Force PDF Support (Settings → LLM Configuration → Advanced, desactivado por defecto — solo relevante para proveedores no NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, desactivado por defecto — sidecar opcional).
-
-### v1.24.1 — 2026-07-14 (PATCH)
-
-Actualización recomendada para todos los usuarios de v1.24.0.
-
-- **🔍 Cascada de selección de semillas PPR en 5 etapas.** Query Wiki ahora ejecuta cinco etapas complementarias antes de generar una respuesta (camino rápido Lex → palabras clave LLM → escaneo local de subcadenas → fallback LLM KB → expansión de grafo PPR). Las preguntas multi-hop obtienen contexto consciente del grafo sin opt-in de embeddings.
-- **🤫 Ruta silenciosa para respuestas vacías.** `parseJsonResponse` ya no registra errores ruidosos para cuerpos LLM vacíos en rutas Lint/Query, corrigiendo el spam de consola reportado por algunos usuarios (#255, #274). El selector de semillas también lanza antes con cuerpos vacíos para una recuperación más clara (#275).
-- **🧹 Páginas de entidades más limpias.** Se eliminó el bloque redundante `## Basic Information` / `## Basic Info` de los prompts y el esquema de generación de páginas de entidades; las nuevas páginas de entidades van directamente de frontmatter a H1 → descripción → secciones relacionadas (#258).
-- **☁️ Proveedores Bedrock Stage 1.** Se añadieron las opciones `bedrock-anthropic` y `bedrock-openai` enrutadas a través del endpoint AWS bedrock-mantle. Cero nuevas dependencias npm, bundle ~+3 KB.
-- **🦙 Ingesta LM Studio sin clave API.** La ingesta ahora funciona con la clave API vacía de LM Studio, igual que el comportamiento del test de conexión.
-- **🏗️ Limpiezas internas.** `page-factory.ts` se dividió en 10 módulos enfocados (+99 tests); la re-ingesta no destructiva de Mentions preserva las citas de fuentes anteriores en la fusión (#267).
-
-**Nota de actualización:** Si añadiste manualmente marcadores `<!-- reviewed: keep -->` en v1.24.0, cambia al frontmatter `reviewed: true` — protege toda la página y sobrevive a los linters Markdown.
 
 ## ✨ Características
 
