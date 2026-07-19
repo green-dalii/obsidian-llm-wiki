@@ -14,7 +14,6 @@ import {
   EngineContext,
 } from '../types';
 import { PROMPTS } from '../prompts';
-import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
 import { slugify } from '../core/slug';
 import { resolveSourceSlug } from '../core/source-slug';
@@ -24,7 +23,8 @@ import { convertPdfToMarkdown, UnsupportedProviderError, EncryptedPdfError } fro
 import { hashBody, checkContentRequirements } from '../core/source-requirements';
 import { resolveModelForTask } from '../core/model-resolver';
 import type { SourceRejection } from '../core/source-requirements';
-import { detectRateLimitFailures, formatRateLimitNotice } from '../core/rate-limit';
+// v1.25.1 Phase C-PR1: detectRateLimitFailures is invoked exclusively by runBatchedWithRetry (engine-internals/page-batch-runner.ts).
+import { formatRateLimitNotice } from '../core/rate-limit';
 import { extractSourceTags } from '../core/arrays';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { SchemaManager, SchemaTask } from '../schema/schema-manager';
@@ -42,14 +42,18 @@ import { mergeDuplicatePages } from './lint/merge-duplicates';
 import { fixPollutedPage } from './lint/fix-polluted-page';
 import { ContradictionManager } from './contradictions';
 import { fixPollutedSources } from '../core/sources-normalizer';
-import { buildLogHeader } from '../core/log-header';
+// v1.25.1 Phase C-PR1: buildLogHeader moved into LogWriter.
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
 import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
-import { buildGraphFromContent } from '../core/build-graph';
 import type { Graph } from '../core/build-graph';
+import { runBatchedWithRetry } from './engine-internals/page-batch-runner';
+import { GraphCache, type GraphPageLoader } from './engine-internals/graph-cache';
+import { IndexGenerator } from './engine-internals/index-generator';
+import { LogWriter } from './engine-internals/log-writer';
+import { dedupPages } from './engine-internals/dedup-pages';
 
 /**
  * Issue #173 Symptom B: drop exact-string duplicates from a page-path list
@@ -57,17 +61,11 @@ import type { Graph } from '../core/build-graph';
  * before assembling the IngestReport so a duplicate surface-form (e.g. two
  * "intelligent-xtraction-and-processing" entries from one batch) does not
  * inflate the report count or the "Created" listing.
+ *
+ * v1.25.1 Phase C-PR1: re-exported from engine-internals/dedup-pages.ts.
+ * WikiEngine callers see no API change.
  */
-export function dedupPages(paths: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const p of paths) {
-    if (seen.has(p)) continue;
-    seen.add(p);
-    out.push(p);
-  }
-  return out;
-}
+export { dedupPages } from './engine-internals/dedup-pages';
 
 /**
  * Walk the `error.cause` chain to find the deepest meaningful message.
@@ -116,14 +114,9 @@ function errorToString(value: unknown): string {
   return '';
 }
 
-/** True iff two sets contain exactly the same strings. */
-function setsEqual(a: Set<string>, b: Set<string>): boolean {
-  if (a.size !== b.size) return false;
-  for (const v of a) {
-    if (!b.has(v)) return false;
-  }
-  return true;
-}
+// v1.25.1 Phase C-PR1: setsEqual moved to engine-internals/graph-cache.ts
+// (private to GraphCache). Removed from wiki-engine.ts to avoid duplicate export;
+// no external callers — see git grep before this change.
 
 export class WikiEngine {
   private app: App;
@@ -162,8 +155,13 @@ export class WikiEngine {
   private ingestedHashesCacheTime = 0;
   // v1.24.0 Bug A: shared graph cache for PPR — built lazily from loaded page
   // content, invalidated on every vault write via invalidatePageCaches.
-  private _cachedGraph: Graph | null = null;
-  private _cachedGraphAllPaths: Set<string> | null = null;
+  // v1.25.1 Phase C-PR1: extracted to engine-internals/graph-cache.ts;
+  // WikiEngine keeps a private holder + facade methods for backward compat.
+  private graphCache!: GraphCache;
+  // v1.25.1 Phase C-PR1: extracted to engine-internals/index-generator.ts.
+  private indexGenerator!: IndexGenerator;
+  // v1.25.1 Phase C-PR1: extracted to engine-internals/log-writer.ts.
+  private logWriter!: LogWriter;
   private ctx: EngineContext;
   /** SubtleCrypto from `activeWindow.crypto.subtle`. Used by PDF cache. */
   private subtle: SubtleCrypto | undefined;
@@ -220,6 +218,44 @@ export class WikiEngine {
       updateLog: (op, analysis) => this.updateLog(op, analysis),
     };
     this.conversationIngestor = new ConversationIngestor(ctx, this.pageFactory, orch);
+
+    // v1.25.1 Phase C-PR1: PPR graph cache (extracted from inline state in
+    // WikiEngine). Loader resolves path-keyed reads with vault normalization.
+    const graphLoader: GraphPageLoader = async (allPaths) => {
+      // v1.24.1 PATCH Phase 5.5.0 hotfix fix: `allPaths` is in wiki-index format
+      // (`entities/Foo`, `concepts/Bar`) — relative to the wiki folder, with NO
+      // `wiki/` prefix and NO `.md` suffix. `tryReadFile` expects full vault paths
+      // (`wiki/entities/Foo.md`), so normalize before reading.
+      const wikiPrefix = this.settings.wikiFolder + '/';
+      const readTasks = [...allPaths].map(async (path) => {
+        const vaultPath = path.startsWith(wikiPrefix)
+          ? path
+          : `${wikiPrefix}${path}`;
+        const fullPath = vaultPath.endsWith('.md') ? vaultPath : `${vaultPath}.md`;
+        const content = await this.tryReadFile(fullPath);
+        return { path, content: content ?? '' };
+      });
+      return Promise.all(readTasks);
+    };
+    this.graphCache = new GraphCache({ wikiFolder: this.settings.wikiFolder, loadPages: graphLoader });
+
+    // v1.25.1 Phase C-PR1: index generator (extracted from inline state in
+    // WikiEngine). Reads from app.vault via injected closures; never holds App.
+    this.indexGenerator = new IndexGenerator({
+      wikiFolder: this.settings.wikiFolder,
+      wikiLanguage: this.settings.wikiLanguage ?? '',
+      readFile: (file: TFile) => this.app.vault.read(file),
+      writeFile: (path: string, content: string) => this.createOrUpdateFile(path, content),
+    });
+
+    // v1.25.1 Phase C-PR1: log writer (extracted from inline state in WikiEngine).
+    // Reads/writes the wiki log.md via injected closures (tryReadFile/createOrUpdateFile).
+    this.logWriter = new LogWriter({
+      wikiFolder: this.settings.wikiFolder,
+      wikiLanguage: this.settings.wikiLanguage ?? '',
+      readFile: (path: string) => this.tryReadFile(path),
+      writeFile: (path: string, content: string) => this.createOrUpdateFile(path, content),
+    });
   }
 
   setFileWriteCallback(cb: (path: string) => void): void {
@@ -416,19 +452,18 @@ export class WikiEngine {
   private invalidatePageCaches(): void {
     this.pagesCache = null;
     this.ingestedHashesCache = null;
-    this._cachedGraph = null;
-    this._cachedGraphAllPaths = null;
+    this.graphCache.invalidate();
   }
 
   /**
    * v1.24.0 Bug A: public graph invalidation. Idempotent; drops the engine-level
    * PPR graph cache so the next query rebuilds it from current vault content.
    * Called by main.ts onIngestDoneDispatch across every open QueryView leaf.
+   *
+   * v1.25.1 Phase C-PR1: facade over GraphCache.invalidate().
    */
   invalidateGraph(): void {
-    this._cachedGraph = null;
-    this._cachedGraphAllPaths = null;
-    console.debug('[WikiEngine] graph cache invalidated');
+    this.graphCache.invalidate();
   }
 
   /**
@@ -446,45 +481,10 @@ export class WikiEngine {
    * the requested path set is unchanged, otherwise rebuilds by reading every
    * path in `allPaths` from the vault.
    *
-   * The cache is intentionally long-lived: it only invalidates when the vault
-   * is written to (via invalidatePageCaches) or when the caller explicitly
-   * calls invalidateGraph(). This makes the first query of a session as fast
-   * as subsequent ones because the graph is already available for the PPR
-   * cascade.
+   * v1.25.1 Phase C-PR1: facade over GraphCache.getOrBuild().
    */
   async getOrBuildGraph(allPaths: Set<string>): Promise<Graph> {
-    const pathsChanged = this._cachedGraphAllPaths === null || !setsEqual(this._cachedGraphAllPaths, allPaths);
-    if (this._cachedGraph !== null && !pathsChanged) {
-      console.debug('[WikiEngine] graph cache hit:', this._cachedGraph.nodes.length, 'nodes');
-      return this._cachedGraph;
-    }
-
-    console.debug('[WikiEngine] graph cache miss — building', allPaths.size, 'nodes');
-    // Read all pages in parallel; cap concurrency with allSettled so one
-    // unreadable file does not abort the whole graph build.
-    //
-    // v1.24.1 PATCH Phase 5.5.0 hotfix fix: `allPaths` is in
-    // wiki-index format (`entities/Foo`, `concepts/Bar`) — relative
-    // to the wiki folder, with NO `wiki/` prefix and NO `.md` suffix.
-    // `tryReadFile` expects full vault paths (`wiki/entities/Foo.md`),
-    // so all 2137 calls previously failed → graph built from empty
-    // content → PPR cascade silently fell back to lex-only arm
-    // (`arm: index` in logs). Normalize before reading.
-    const wikiPrefix = this.settings.wikiFolder + '/';
-    const readTasks = [...allPaths].map(async (path) => {
-      const vaultPath = path.startsWith(wikiPrefix)
-        ? path
-        : `${wikiPrefix}${path}`;
-      const fullPath = vaultPath.endsWith('.md') ? vaultPath : `${vaultPath}.md`;
-      const content = await this.tryReadFile(fullPath);
-      return { path, content: content ?? '' };
-    });
-    const loadedPages = await Promise.all(readTasks);
-
-    const graph = buildGraphFromContent(loadedPages, allPaths, this.settings.wikiFolder);
-    this._cachedGraph = graph;
-    this._cachedGraphAllPaths = new Set(allPaths);
-    return graph;
+    return this.graphCache.getOrBuild(allPaths);
   }
 
   /**
@@ -875,225 +875,176 @@ export class WikiEngine {
       analysis.created_pages.push(summaryPage);
 
       // Stage 3: Entity/Concept Page Generation
+      // v1.25.1 Phase C-PR1: retry + rate-limit template extracted to
+      // engine-internals/page-batch-runner.ts (eliminates ~60% duplication
+      // with Stage 4 and makes the retry path unit-testable).
       const pageGenStart = Date.now();
       let pageGenCount = 0;
 
-      // Phase 2: Parallel page generation with concurrency control
       const concurrency = this.settings.pageGenerationConcurrency ?? 1;
       const batchDelay = this.settings.batchDelayMs ?? 300;
 
-      // Log parallel mode info
       if (concurrency > 1) {
         console.debug(`[Parallel] concurrency: ${concurrency}, batch delay: ${batchDelay}ms, total tasks: ${analysis.entities.length + analysis.concepts.length}`);
       } else {
         console.debug(`[Serial] generating pages sequentially, total tasks: ${analysis.entities.length + analysis.concepts.length}`);
       }
 
-      // Prepare all page generation tasks
-      type PageGenTask = {
-        type: 'entity' | 'concept';
-        name: string;
-        index: number;
-      };
-
-      const tasks: PageGenTask[] = [
-        ...analysis.entities.map((e, i) => ({ type: 'entity' as const, name: e.name, index: i })),
-        ...analysis.concepts.map((c, i) => ({ type: 'concept' as const, name: c.name, index: i }))
+      const pageGenTasks = [
+        ...analysis.entities.map((e, i) => ({
+          id: `entity:${e.name}`,
+          payload: { type: 'entity' as const, name: e.name, index: i },
+        })),
+        ...analysis.concepts.map((c, i) => ({
+          id: `concept:${c.name}`,
+          payload: { type: 'concept' as const, name: c.name, index: i },
+        })),
       ];
 
-      // Process in batches based on concurrency setting
-      for (let i = 0; i < tasks.length; i += concurrency) {
-        this.checkCancelled();
-        const batch = tasks.slice(i, i + concurrency);
-
-        // Execute batch with Promise.allSettled for error isolation
-        const batchResults = await Promise.allSettled(
-          batch.map(async (task) => {
-            step++;
-            this.onProgress?.(`[${step}/${totalSteps}] ${task.type === 'entity' ? 'Entity' : 'Concept'}: ${task.name}`);
-
-            if (task.type === 'entity') {
-              const entity = analysis!.entities[task.index];
-              try {
-                const entityResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file, [], sourceSlug);
-                if (entityResult.path) {
-                  analysis!.created_pages.push(entityResult.path);
-                }
-                if (entityResult.collision) {
-                  collisions.push(entityResult.collision);
-                  console.debug(`Entity "${entity.name}" → collision with ${entityResult.collision.targetType}`);
-                }
-                return { success: true as const, name: entity.name, type: 'entity' as const, collision: entityResult.collision };
-              } catch (error) {
-                const reason = error instanceof Error ? error.message : String(error);
-                console.error(`Entity "${entity.name}" failed:`, reason);
-                failedItems.push({ type: 'entity', name: entity.name, reason });
-
-                // Retry once
-                try {
-                  await this.apiDelay(2000);
-                  const retryResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file, [], sourceSlug);
-                  if (retryResult.path) {
-                    analysis!.created_pages.push(retryResult.path);
-                    console.debug(`Entity "${entity.name}" recovered on retry`);
-                    failedItems.pop();
-                  }
-                  if (retryResult.collision) {
-                    collisions.push(retryResult.collision);
-                  }
-                } catch {
-                  console.error(`Entity "${entity.name}" retry also failed`);
-                }
-                return { success: false as const, name: entity.name, type: 'entity' as const, reason };
+      const pageGenResult = await runBatchedWithRetry<typeof pageGenTasks[number]['payload']>({
+        tasks: pageGenTasks,
+        concurrency,
+        batchDelayMs: batchDelay,
+        checkCancelled: () => this.checkCancelled(),
+        apiDelay: (ms: number) => this.apiDelay(ms),
+        onProgress: (_id) => {
+          step++;
+          const task = pageGenTasks[step - 1]?.payload;
+          if (task) {
+            this.onProgress?.(
+              `[${step}/${totalSteps}] ${task.type === 'entity' ? 'Entity' : 'Concept'}: ${task.name}`
+            );
+          }
+        },
+        execute: async (task) => {
+          if (task.type === 'entity') {
+            const entity = analysis!.entities[task.index];
+            try {
+              const entityResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file, [], sourceSlug);
+              if (entityResult.path) {
+                analysis!.created_pages.push(entityResult.path);
               }
-            } else {
-              const concept = analysis!.concepts[task.index];
-              try {
-                const conceptResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file, [], sourceSlug);
-                if (conceptResult.path) {
-                  analysis!.created_pages.push(conceptResult.path);
-                }
-                if (conceptResult.collision) {
-                  collisions.push(conceptResult.collision);
-                  console.debug(`Concept "${concept.name}" → collision with ${conceptResult.collision.targetType}`);
-                }
-                return { success: true as const, name: concept.name, type: 'concept' as const, collision: conceptResult.collision };
-              } catch (error) {
-                const reason = error instanceof Error ? error.message : String(error);
-                console.error(`Concept "${concept.name}" failed:`, reason);
-                failedItems.push({ type: 'concept', name: concept.name, reason });
-
-                // Retry once
-                try {
-                  await this.apiDelay(2000);
-                  const retryResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file, [], sourceSlug);
-                  if (retryResult.path) {
-                    analysis!.created_pages.push(retryResult.path);
-                    console.debug(`Concept "${concept.name}" recovered on retry`);
-                    failedItems.pop();
-                  }
-                  if (retryResult.collision) {
-                    collisions.push(retryResult.collision);
-                  }
-                } catch {
-                  console.error(`Concept "${concept.name}" retry also failed`);
-                }
-                return { success: false as const, name: concept.name, type: 'concept' as const, reason };
+              if (entityResult.collision) {
+                console.debug(`Entity "${entity.name}" → collision with ${entityResult.collision.targetType}`);
+                return {
+                  success: true as const,
+                  collision: entityResult.collision,
+                };
               }
+              return { success: true as const };
+            } catch (error) {
+              const reason = error instanceof Error ? error.message : String(error);
+              console.error(`Entity "${entity.name}" failed:`, reason);
+              return { success: false as const, failureReason: reason };
             }
-          })
+          }
+          const concept = analysis!.concepts[task.index];
+          try {
+            const conceptResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file, [], sourceSlug);
+            if (conceptResult.path) {
+              analysis!.created_pages.push(conceptResult.path);
+            }
+            if (conceptResult.collision) {
+              console.debug(`Concept "${concept.name}" → collision with ${conceptResult.collision.targetType}`);
+              return {
+                success: true as const,
+                collision: conceptResult.collision,
+              };
+            }
+            return { success: true as const };
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(`Concept "${concept.name}" failed:`, reason);
+            return { success: false as const, failureReason: reason };
+          }
+        },
+      });
+
+      // Sync state out of the runner result (runner doesn't own our analysis state).
+      pageGenCount = pageGenResult.succeeded + pageGenResult.failed.length;
+      for (const f of pageGenResult.failed) {
+        const isEntity = f.id.startsWith('entity:');
+        failedItems.push({
+          type: isEntity ? 'entity' : 'concept',
+          name: f.id.split(':')[1] ?? f.id,
+          reason: f.reason,
+        });
+      }
+      for (const c of pageGenResult.collisions) {
+        collisions.push(c);
+      }
+      if (pageGenResult.rateLimitInfo) {
+        console.warn(
+          `[Rate Limit] Page generation: ${pageGenResult.rateLimitInfo.count} item(s) failed with 429, ` +
+          `suggested concurrency=${pageGenResult.rateLimitInfo.suggestedConcurrency}, ` +
+          `delay=${pageGenResult.rateLimitInfo.suggestedDelay}ms`
         );
-
-        // Log batch summary
-        pageGenCount += batch.length;
-        const batchNum = Math.floor(i / concurrency) + 1;
-        const totalBatches = Math.ceil(tasks.length / concurrency);
-        const succeeded = batchResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
-        const mode = concurrency > 1 ? 'parallel' : 'serial';
-        const batchTime = Date.now() - pageGenStart;
-        console.debug(`[${mode}batch ${batchNum}/${totalBatches}] ${succeeded}/${batch.length}  pages succeeded (concurrency: ${concurrency}, cumulative: ${batchTime}ms)`);
-
-        // API rate limit protection: delay between batches if there are more tasks
-        if (i + concurrency < tasks.length) {
-          await this.apiDelay(batchDelay);
-        }
+        new Notice(
+          formatRateLimitNotice(pageGenResult.rateLimitInfo, this.settings.language),
+          NOTICE_RATE_LIMIT
+        );
       }
       const pageGenTime = Date.now() - pageGenStart;
-      console.debug(`[Time] Page generation phase complete: ${pageGenTime}ms (avg ${Math.round(pageGenTime / pageGenCount)}ms/page)`);
+      console.debug(`[Time] Page generation phase complete: ${pageGenTime}ms (avg ${pageGenCount > 0 ? Math.round(pageGenTime / pageGenCount) : 0}ms/page)`);
 
-      // Rate-limit detection: check if parallel failures are 429-related
-      const pageGenRateInfo = detectRateLimitFailures(
-        failedItems.filter(f => f.type === 'entity' || f.type === 'concept'),
-        concurrency, batchDelay
-      );
-      if (pageGenRateInfo) {
-        console.warn(`[Rate Limit] Page generation: ${pageGenRateInfo.count} item(s) failed with 429, ` +
-          `suggested concurrency=${pageGenRateInfo.suggestedConcurrency}, delay=${pageGenRateInfo.suggestedDelay}ms`);
-        new Notice(formatRateLimitNotice(pageGenRateInfo, this.settings.language), NOTICE_RATE_LIMIT);
-      }
-
-      // Stage 4: Related Pages Update
+      // Stage 4: Related Pages Update (same runner, different execute fn)
       const relatedStart = Date.now();
       const relatedConcurrency = this.settings.pageGenerationConcurrency ?? 1;
       const relatedDelay = this.settings.batchDelayMs ?? 300;
 
-      // Prepare related page tasks
       const relatedTasks = analysis.related_pages.map((name, idx) => ({
-        name,
-        index: idx,
-        stepNum: step + idx + 1  // compute per-task step number
+        id: `related:${name}`,
+        payload: { name, index: idx, stepNum: step + idx + 1 },
       }));
 
-      let relatedCount = 0;
-      const relatedTotal = relatedTasks.length;
-      const relatedFailures: Array<{ name: string; reason: string }> = [];
-
-      // Process in parallel batches
-      for (let i = 0; i < relatedTasks.length; i += relatedConcurrency) {
-        this.checkCancelled();
-        const batch = relatedTasks.slice(i, i + relatedConcurrency);
-
-        // Execute batch updates in parallel
-        const batchResults = await Promise.allSettled(
-          batch.map(async (task) => {
-            this.onProgress?.(`[${task.stepNum}/${totalSteps}] Updating: ${task.name}`);
-
-            try {
-              const updated = await this.pageFactory.updateRelatedPage(task.name, analysis!, file, sourceSlug);
-              return { success: updated, name: task.name };
-            } catch (error) {
-              const reason = error instanceof Error ? error.message : String(error);
-              console.error(`Related page "${task.name}" update failed:`, reason);
-
-              // Retry once (same pattern as page generation)
-              try {
-                await this.apiDelay(2000);
-                const updated = await this.pageFactory.updateRelatedPage(task.name, analysis!, file, sourceSlug);
-                console.debug(`Related page "${task.name}" recovered on retry`);
-                return { success: updated, name: task.name };
-              } catch {
-                console.error(`Related page "${task.name}" retry also failed`);
-                return { success: false as const, name: task.name, reason };
-              }
-            }
-          })
-        );
-
-        // Collect successful results
-        batchResults.forEach((r, idx) => {
-          if (r.status === 'fulfilled' && r.value.success) {
-            analysis!.updated_pages.push(batch[idx].name);
-            relatedCount++;
-          } else {
-            const reason = r.status === 'fulfilled' ? (r.value as { reason?: string }).reason || 'unknown' :
-              r.reason instanceof Error ? r.reason.message : String(r.reason || 'unknown');
-            const name = batch[idx].name;
-            relatedFailures.push({ name, reason });
-            console.error(`[Related Page] "${name}" failed: ${reason}`);
+      const relatedResult = await runBatchedWithRetry<typeof relatedTasks[number]['payload']>({
+        tasks: relatedTasks,
+        concurrency: relatedConcurrency,
+        batchDelayMs: relatedDelay,
+        checkCancelled: () => this.checkCancelled(),
+        apiDelay: (ms: number) => this.apiDelay(ms),
+        onProgress: (id) => {
+          const task = relatedTasks.find(t => t.id === id);
+          if (task) {
+            this.onProgress?.(`[${task.payload.stepNum}/${totalSteps}] Updating: ${task.payload.name}`);
           }
-        });
+        },
+        execute: async (task) => {
+          try {
+            const updated = await this.pageFactory.updateRelatedPage(task.name, analysis!, file, sourceSlug);
+            if (updated) {
+              analysis!.updated_pages.push(task.name);
+            }
+            return { success: true as const };
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(`Related page "${task.name}" update failed:`, reason);
+            return { success: false as const, failureReason: reason };
+          }
+        },
+      });
 
-        // Delay between batches (except last)
-        if (i + relatedConcurrency < relatedTasks.length) {
-          await this.apiDelay(relatedDelay);
-        }
-      }
-
+      const relatedCount = relatedResult.succeeded;
+      const relatedTotal = relatedTasks.length;
       const relatedTime = Date.now() - relatedStart;
       const relatedModeLabel = relatedConcurrency > 1 ? `parallel(concurrency:${relatedConcurrency})` : 'serial';
-      console.debug(`[Time] Related page update phase complete: ${relatedTime}ms (${relatedModeLabel}, ${relatedCount}/${relatedTotal}  pages succeeded)`);
+      console.debug(
+        `[Time] Related page update phase complete: ${relatedTime}ms ` +
+        `(${relatedModeLabel}, ${relatedCount}/${relatedTotal} pages succeeded)`
+      );
       step += relatedTotal;
 
-      // Rate-limit detection for related page updates
-      const relatedRateInfo = detectRateLimitFailures(
-        relatedFailures,
-        relatedConcurrency, relatedDelay
-      );
-      if (relatedRateInfo) {
-        console.warn(`[Rate Limit] Related pages update: ${relatedRateInfo.count} item(s) failed with 429, ` +
-          `suggested concurrency=${relatedRateInfo.suggestedConcurrency}, delay=${relatedRateInfo.suggestedDelay}ms`);
-        new Notice(formatRateLimitNotice(relatedRateInfo, this.settings.language), NOTICE_RATE_LIMIT);
-      }  // update step count for subsequent phase numbering
+      if (relatedResult.rateLimitInfo) {
+        console.warn(
+          `[Rate Limit] Related pages update: ${relatedResult.rateLimitInfo.count} item(s) failed with 429, ` +
+          `suggested concurrency=${relatedResult.rateLimitInfo.suggestedConcurrency}, ` +
+          `delay=${relatedResult.rateLimitInfo.suggestedDelay}ms`
+        );
+        new Notice(
+          formatRateLimitNotice(relatedResult.rateLimitInfo, this.settings.language),
+          NOTICE_RATE_LIMIT
+        );
+      }
 
       // Stage 5: Contradiction Recording
       const contradictionStart = Date.now();
@@ -1616,81 +1567,36 @@ export class WikiEngine {
   }
 
   // ---- Index generation ----
+  // v1.25.1 Phase C-PR1: extracted to engine-internals/index-generator.ts.
+  // WikiEngine keeps facade methods so existing callers (lint phases,
+  // conversation-ingest orchestrator, main.ts command) see no change.
 
   async generateIndexFromEngine() {
     await this.ensureWikiStructure();
 
-    const entities = this.app.vault.getMarkdownFiles()
-      .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/entities/`));
-    const concepts = this.app.vault.getMarkdownFiles()
-      .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/concepts/`));
-    const sources = this.app.vault.getMarkdownFiles()
-      .filter(f => f.path.startsWith(`${this.settings.wikiFolder}/sources/`));
+    // v1.25.1 Phase C-PR1.8 (Efficiency #2): one getMarkdownFiles() call
+    // + 3 prefix filters (was 3 separate calls — each rebuilds the vault
+    // file index). On a 5K-page vault this saves ~30-150ms per regen.
+    const prefix = `${this.settings.wikiFolder}/`;
+    const allWikiPages = this.app.vault.getMarkdownFiles().filter(f => f.path.startsWith(prefix));
+    const entities = allWikiPages.filter(f => f.path.startsWith(`${prefix}entities/`));
+    const concepts = allWikiPages.filter(f => f.path.startsWith(`${prefix}concepts/`));
+    const sources = allWikiPages.filter(f => f.path.startsWith(`${prefix}sources/`));
 
     const totalPages = entities.length + concepts.length + sources.length;
-
     if (totalPages === 0) {
-      const indexPath = normalizePath(`${this.settings.wikiFolder}/index.md`);
-      await this.createOrUpdateFile(indexPath, `# Wiki Index\n\n> No pages yet. Ingest sources to populate the Wiki.\n`);
+      await this.indexGenerator.generateEmptyIndex();
       return;
     }
-
-    await this.generateFlatIndex(entities, concepts, sources);
-  }
-
-  private async generateFlatIndex(
-    entities: TFile[],
-    concepts: TFile[],
-    sources: TFile[]
-  ): Promise<void> {
-    const lang = this.settings.wikiLanguage || 'en';
-    type LangKey = keyof typeof TEXTS.en.indexLabels;
-    const langKey: LangKey = (lang in TEXTS.en.indexLabels) ? lang as LangKey : 'en';
-    const labels = TEXTS.en.indexLabels[langKey];
-    let indexContent = `# Wiki Index\n\n`;
-    indexContent += `> ${labels.subtitle}\n\n`;
-    indexContent += `> Note: Text in backticks after page names shows aliases — alternative names, abbreviations, or translations.\n\n`;
-
-    indexContent += `## ${labels.entities}\n\n`;
-    for (const file of entities) {
-      const summary = await this.getPageSummary(file);
-      const aliases = await this.getPageAliases(file);
-      const aliasStr = aliases.length > 0 ? ` \`aliases: ${aliases.join(', ')}\`` : '';
-      indexContent += `- [[entities/${file.basename}|${file.basename}]]${aliasStr} - ${summary}\n`;
-    }
-
-    indexContent += `\n## ${labels.concepts}\n\n`;
-    for (const file of concepts) {
-      const summary = await this.getPageSummary(file);
-      const aliases = await this.getPageAliases(file);
-      const aliasStr = aliases.length > 0 ? ` \`aliases: ${aliases.join(', ')}\`` : '';
-      indexContent += `- [[concepts/${file.basename}|${file.basename}]]${aliasStr} - ${summary}\n`;
-    }
-
-    indexContent += `\n## ${labels.sources}\n\n`;
-    for (const file of sources) {
-      const aliases = await this.getPageAliases(file);
-      const aliasStr = aliases.length > 0 ? ` \`aliases: ${aliases.join(', ')}\`` : '';
-      indexContent += `- [[sources/${file.basename}|${file.basename}]]${aliasStr}\n`;
-    }
-
-    const indexPath = normalizePath(`${this.settings.wikiFolder}/index.md`);
-    await this.createOrUpdateFile(indexPath, indexContent);
+    await this.indexGenerator.generateFlatIndex(entities, concepts, sources);
   }
 
   async getPageSummary(file: TFile): Promise<string> {
-    const content = await this.app.vault.read(file);
-    const lines = content.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('---'));
-    return lines[0]?.substring(0, 100) || 'No summary';
+    return this.indexGenerator.getPageSummary(file);
   }
 
   async getPageAliases(file: TFile): Promise<string[]> {
-    const content = await this.app.vault.read(file);
-    const fm = parseFrontmatter(content);
-    if (fm?.aliases && Array.isArray(fm.aliases) && fm.aliases.length > 0) {
-      return fm.aliases.filter(a => typeof a === 'string' && a.trim().length > 0).map(a => a.trim());
-    }
-    return [];
+    return this.indexGenerator.getPageAliases(file);
   }
 
   async updateLog(
@@ -1698,102 +1604,16 @@ export class WikiEngine {
     analysis: SourceAnalysis,
     metrics?: { durationSec?: number; model?: string; sourceBytes?: number },
   ) {
-    const logPath = `${this.settings.wikiFolder}/log.md`;
-    const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().slice(0, 5); // HH:MM
-    const lang = this.settings.wikiLanguage || 'en';
-    type LogLangKey = keyof typeof TEXTS.en.logLabels;
-    const langKey: LogLangKey = (lang in TEXTS.en.logLabels) ? lang as LogLangKey : 'en';
-    const labels = TEXTS.en.logLabels[langKey];
-
-    // H2 line: ingest | source_title [HH:MM] · metrics
-    // Add HH:MM timestamp so multiple ingests in one day are distinguishable
-    // (matches the format maintenance entries already use).
-    const h2Suffix = metrics
-      ? this.formatIngestMetricsSuffix(metrics)
-      : '';
-    let entry = `\n\n## [${date} ${time}] ${operation} | ${analysis.source_title}${h2Suffix}\n\n`;
-    entry += `**${labels.createdPages}**：${dedupPages(analysis.created_pages).map(p => `[[${p.replace(this.settings.wikiFolder + '/', '')}]]`).join(', ')}\n\n`;
-    entry += `**${labels.updatedPages}**：${analysis.updated_pages.map(p => `[[${p}]]`).join(', ')}\n\n`;
-
-    if (analysis.contradictions.length > 0) {
-      entry += `**${labels.contradictionsFound}**：\n`;
-      for (const c of analysis.contradictions) {
-        entry += `- ${c.claim} vs ${c.source_page}\n`;
-      }
-    }
-
-    const existingLog = await this.tryReadFile(logPath) || buildLogHeader(lang);
-    await this.createOrUpdateFile(logPath, existingLog + entry);
+    return this.logWriter.appendIngest(operation, analysis, metrics);
   }
 
-  /** Format an ingest metrics suffix for the H2 line: ` · 28s · claude-sonnet-4 · 4.2KB`. */
-  private formatIngestMetricsSuffix(m: { durationSec?: number; model?: string; sourceBytes?: number }): string {
-    const parts: string[] = [];
-    if (typeof m.durationSec === 'number' && m.durationSec > 0) {
-      parts.push(`${m.durationSec}s`);
-    }
-    if (m.model) {
-      // Keep only the last segment of the model id ("claude-sonnet-4-5-20250929" → "claude-sonnet-4-5").
-      // Avoid leaking internal provider IDs into the user's log.
-      parts.push(m.model.replace(/-\d{8}$/, ''));
-    }
-    if (typeof m.sourceBytes === 'number' && m.sourceBytes > 0) {
-      parts.push(this.formatBytes(m.sourceBytes));
-    }
-    return parts.length > 0 ? ` · ${parts.join(' · ')}` : '';
-  }
-
-  /** Render byte count with KB / MB units. */
-  private formatBytes(n: number): string {
-    if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)}MB`;
-    if (n >= 1024) return `${(n / 1024).toFixed(1)}KB`;
-    return `${n}B`;
+  /** Append a lint-fix entry to the operation log. */
+  async logLintFix(operation: string, details: string): Promise<void> {
+    return this.logWriter.appendLintFix(operation, details);
   }
 
   /** Merge a duplicate source page into a target page. */
   async mergeDuplicatePages(targetPath: string, sourcePath: string): Promise<string> {
     return mergeDuplicatePages(this.ctx, targetPath, sourcePath);
-  }
-
-  /** Append a lint-fix entry to the operation log. */
-  async logLintFix(operation: string, details: string): Promise<void> {
-    const logPath = `${this.settings.wikiFolder}/log.md`;
-    // Use minute-precision timestamp so multiple entries on the same day are distinguishable.
-    const now = new Date();
-    const date = now.toISOString().split('T')[0];
-    const time = now.toTimeString().slice(0, 5); // HH:MM
-    const lang = this.settings.wikiLanguage || 'en';
-    const entry = `\n\n## [${date} ${time}] ${operation}\n\n${details}\n`;
-    try {
-      let existingLog = await this.tryReadFile(logPath);
-      if (!existingLog) {
-        existingLog = buildLogHeader(lang);
-      }
-      // Cap the existing log at a reasonable size to avoid Obsidian choking on
-      // a multi-megabyte file. If existingLog + entry would exceed MAX_LOG_BYTES,
-      // trim from the front while preserving the header.
-      const MAX_LOG_BYTES = 512 * 1024; // 512 KB
-      const projectedSize = (existingLog.length + entry.length) * 2; // UTF-16 estimate
-      if (projectedSize > MAX_LOG_BYTES) {
-        const headerEnd = existingLog.indexOf('\n\n');
-        const header = headerEnd > 0 ? existingLog.substring(0, headerEnd + 2) : '# Wiki Operation Log\n\n';
-        // Keep the most recent portion
-        const keepBytes = MAX_LOG_BYTES / 2;
-        const trimmed = existingLog.substring(existingLog.length - keepBytes);
-        // Find next H2 boundary so we don't cut mid-entry
-        const h2Idx = trimmed.indexOf('\n## ');
-        existingLog = header + (h2Idx > 0 ? trimmed.substring(h2Idx + 1) : trimmed);
-        console.warn(`[logLintFix] ${logPath} exceeded ${MAX_LOG_BYTES} bytes; trimmed oldest entries`);
-      }
-      await this.createOrUpdateFile(logPath, existingLog + entry);
-    } catch (e) {
-      // Issue: log persistence failures were silently swallowed before, leaving
-      // the user wondering why the modal showed but log.md didn't update.
-      // Now log the error AND the path so the user can diagnose from console.
-      console.error(`[logLintFix] failed to write ${logPath}:`, e);
-      throw e; // re-throw so callers (e.g. runLintWiki) can surface the failure
-    }
   }
 }
