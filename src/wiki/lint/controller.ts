@@ -148,15 +148,15 @@ export async function runLintWiki(
     // Behavior is identical to the previous inline implementation; see
     // that file for the tier-classification + rate-limit details.
     //
-    // TODO (v1.18.0+, performance): Duplicate detection is the dominant Lint
-    // bottleneck on large wikis (e.g. 580+ pages). Current implementation:
-    //   1. Tier 1: for each pair (A, B) in entityConceptFiles, do a tier-1
-    //      LLM verify → O(N²) pairs × 1 LLM call each (chunked by 100).
-    //   2. Tier 2: indirect signals (shared links, moderate similarity) fill
-    //      the token budget but are also O(N²) in pair generation.
-    //   3. A second LLM verify pass for the Tier-2 candidate list.
+    // v1.25.1 Phase F1 (closes controller.ts:151 TODO from v1.18.0+):
+    // dedup-phase.ts already runs batches in parallel with concurrency
+    // limit (see `for (let i = 0; i < batches.length; i += concurrency)`
+    // + `Promise.allSettled` at dedup-phase.ts:197-282). The roadmap
+    // items (a-d) below remain future work — open question for v1.26.0
+    // lint perf opening (ROADMAP §v1.26.0 row 3).
     //
-    // Optimization roadmap (deferred, not in v1.17.0):
+    // Historical TODO (now resolved for parallel batches; remaining items
+    // deferred to v1.26.0):
     //   a. Hash-bucket dedup: hash titles (n-gram or phonetic) and only LLM-verify
     //      pairs that share a bucket. Reduces Tier 1 pair count by 5-10x.
     //   b. Embedding-based prefilter: use a local embedding model to compute
@@ -236,14 +236,14 @@ export async function runLintWiki(
     // Behavior is identical to the previous inline implementation; see
     // that file for content-sample building and prompt-construction details.
     //
-    // TODO (v1.18.0+, performance): LLM health analysis is the other major
-    // Lint bottleneck. Current implementation sends the full wiki content
-    // sample (~8 pages × 600 chars) plus the programmatic findings report
-    // plus the full index.md to the LLM in a single call. On large wikis
-    // (500+ pages) this exceeds 16K tokens of input, forcing max_tokens
-    // truncation which then produces low-quality health analysis.
+    // v1.25.1 Phase F2 (closes controller.ts:239 TODO from v1.18.0+):
+    // analysis-phase.ts makes a single LLM call with token-bounded content
+    // sample (8 pages × 600 chars) — the parallelization question is now
+    // resolved as "single bounded call" (item a-c below remain future
+    // work). Tracked in v1.26.0 lint perf opening (ROADMAP §v1.26.0 row 3).
     //
-    // Optimization roadmap (deferred):
+    // Historical TODO (single-call strategy adopted; hierarchical + cache
+    // optimizations deferred to v1.26.0):
     //   a. Hierarchical LLM analysis: page-1 pass summarizes each page into
     //      a compact signature (~200 tokens), page-2 pass reasons over
     //      signatures. Total tokens bounded by O(N) but quality is similar.
