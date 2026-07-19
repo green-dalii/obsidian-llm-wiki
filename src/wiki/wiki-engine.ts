@@ -922,7 +922,8 @@ export class WikiEngine {
             try {
               const entityResult = await this.pageFactory.createOrUpdateEntityPage(entity, analysis!, file, [], sourceSlug);
               if (entityResult.path) {
-                analysis!.created_pages.push(entityResult.path);
+                (entityResult.created ? analysis!.created_pages : analysis!.updated_pages)
+                  .push(entityResult.path);
               }
               if (entityResult.collision) {
                 console.debug(`Entity "${entity.name}" → collision with ${entityResult.collision.targetType}`);
@@ -942,7 +943,8 @@ export class WikiEngine {
           try {
             const conceptResult = await this.pageFactory.createOrUpdateConceptPage(concept, analysis!, file, [], sourceSlug);
             if (conceptResult.path) {
-              analysis!.created_pages.push(conceptResult.path);
+              (conceptResult.created ? analysis!.created_pages : analysis!.updated_pages)
+                .push(conceptResult.path);
             }
             if (conceptResult.collision) {
               console.debug(`Concept "${concept.name}" → collision with ${conceptResult.collision.targetType}`);
