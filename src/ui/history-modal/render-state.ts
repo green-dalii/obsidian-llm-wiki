@@ -34,13 +34,10 @@ export function deltaChip(d: KpiDelta | undefined, t: HistoryTexts): string | un
 
 /**
  * Format a byte count as a short human-readable string (e.g. "1.2MB", "456KB",
- * "789B"). Pure function — used by renderIngestMetricCards.
+ * "789B"). Re-exported from the shared helper at `src/core/format.ts` so
+ * log-writer (engine-internals) and history-modal can share one implementation.
  */
-export function formatBytesShort(n: number): string {
-  if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)}MB`;
-  if (n >= 1024) return `${(n / 1024).toFixed(1)}KB`;
-  return `${n}B`;
-}
+export { formatBytes as formatBytesShort } from '../../core/format';
 
 // ── Insight computation (pure) ────────────────────────────────────
 

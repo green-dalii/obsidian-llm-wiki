@@ -1,3 +1,5 @@
+import { isLocalNoKeyProvider } from './local-no-key-provider';
+
 export const OPENAI_CODEX_PROVIDER_ID = 'openai-codex';
 
 export interface ProviderCredentialState {
@@ -7,10 +9,8 @@ export interface ProviderCredentialState {
   hasCodexCredential: boolean;
 }
 
-const KEYLESS_PROVIDERS = new Set(['ollama', 'lmstudio', OPENAI_CODEX_PROVIDER_ID]);
-
 export function providerRequiresApiKey(provider: string): boolean {
-  return !KEYLESS_PROVIDERS.has(provider);
+  return provider !== OPENAI_CODEX_PROVIDER_ID && !isLocalNoKeyProvider(provider);
 }
 
 export function providerSupportsOAuth(provider: string): boolean {
