@@ -179,6 +179,7 @@ export function makeFallbackNewInfoSection(
   failedGroups: string[],
   allItems: ComplementaryItem[],
   sourceBasename: string,
+  newInformationLabel: string,
 ): string {
   if (failedGroups.length === 0) return '';
   // Map ALL items — the `failedGroups` parameter tracks which target_section
@@ -189,7 +190,7 @@ export function makeFallbackNewInfoSection(
   const body = failedItems.length > 0
     ? failedItems.map(i => `- ${i.content}${i.reason ? ` (${i.reason})` : ''}`).join('\n')
     : `- New information from ${sourceBasename}`;
-  return `## New Information (${sourceBasename})\n${body}`;
+  return `## ${newInformationLabel} (${sourceBasename})\n${body}`;
 }
 
 /**
@@ -340,6 +341,7 @@ export async function applyComplementaryAppends(
       failedGroups,
       items,
       sourceFile.basename,
+      labels.new_information,
     );
     resultBody = `${resultBody}\n\n${newInfoSection}`;
   }
