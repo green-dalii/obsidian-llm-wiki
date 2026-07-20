@@ -532,6 +532,8 @@ export const ZH_HANT_TEXTS = {
     regenerateIndexCompleted: '索引已重建',
     operationFailed: '失敗：',
     lintFixAllComplete: '所有修復已完成。詳情見日誌。',
+    lintFixAllNoChanges: '未做任何修改 — 所有階段回報 0 修復。詳情見 wiki/log.md。',
+    lintFixPhasesLabel: '個階段已修改',
 
     // 维护报告弹窗
     lintModalActionsTitle: '修復建議（需消耗LLM Token）：',

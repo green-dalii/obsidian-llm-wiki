@@ -539,6 +539,8 @@ export const JA_TEXTS = {
     regenerateIndexCompleted: 'インデックス再構築済み',
     operationFailed: '失敗：',
     lintFixAllComplete: 'すべての修復が完了しました。詳細はログを確認してください。',
+    lintFixAllNoChanges: '変更はありません — すべてのフェーズで 0 件でした。詳細は wiki/log.md を確認してください。',
+    lintFixPhasesLabel: 'フェーズが変更',
 
     // Lint Report Modal
     lintModalActionsTitle: '修復提案（LLMトークンを消費）：',
