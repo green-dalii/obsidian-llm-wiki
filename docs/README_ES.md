@@ -182,6 +182,21 @@ Cuatro temas: ingesta de PDF solo en caché, recomendaciones de modelos locales,
 
 **Configuraciones a revisar:** Force PDF Support (Settings → LLM Configuration → Advanced, desactivado por defecto — solo relevante para proveedores no NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, desactivado por defecto — sidecar opcional).
 
+### v1.25.1 — 2026-07-20 (PATCH)
+
+Lanzamiento de hotfix sobre v1.25.0: ocho correcciones de pérdidas silenciosas en la salida de LLM y lint, tres divisiones de archivos grandes, y una causa raíz de verificación de compilación. Actualización recomendada para todos los usuarios de v1.25.0.
+
+- **🔕 Sin pérdida silenciosa de datos en la ruta Related.** Antes, cuando el LLM reescribía el cuerpo de una página Related sin reemitir la sección Mentions, el pipeline `canonicalize` / `correct` / `preserveExistingSections` se ejecutaba sobre la respuesta LLM en bruto — en lugar del cuerpo post-procesado — de modo que un re-ingest podía destruir silenciosamente el contenido de Mentions acumulado. La ruta Related ahora refleja la ruta merge: `canonicalize → correct → preserveExistingSections`. **Actualización muy recomendada** — todas las notas que dependen de Mentions acumuladas por fuente a lo largo de re-ingests se benefician.
+- **🛡️ Las secciones del esquema ya no se pierden en reescrituras.** El LLM solo se desvía del esquema en las partes que se le pide escribir; los bloques de sección canónicos ya presentes en la página se restauran literalmente, incluso cuando la reescritura del LLM los omite. Reunidos en un único helper `preserveExistingSections` compartido por las rutas merge + related.
+- **🔗 Las páginas Mentions antiguas pueden sanar.** Las mentions agrupadas previas a #244 ahora se reconocen al analizar, de modo que las páginas antiguas recuperan su forma estructurada en el siguiente ingest — y el LLM ya no alucina un bloque de Mentions duplicado (la inyección programática es la única fuente de verdad).
+- **🔌 Ingesta de LM Studio sin clave API.** LM Studio puramente local (`http://localhost:1234/v1`) ahora ingiere sin clave de marcador; los proveedores no-LM-Studio siguen exigiendo una clave API explícita (sin cambios).
+- **🐢 Menos hinchazón de `main.js`, lint más rápido.** Divisiones de archivos grandes: `wiki-engine.ts` 1799 → más pequeño (Phase C-PR1, 4 módulos internos), `settings.ts` 1439 → más pequeño (Phase C-PR2, 8 renderers de sección), `main.ts` 1304 → 300 LOC (Phase C-PR3, 6 módulos main-commands). `DiskCache<T>` extraído con crecimiento acotado (100 MB / 1000 entradas / 10 MB por entrada + evicción LRU-by-mtime).
+- **🛠 Causa raíz de la verificación de compilación.** La deriva entre `pnpm-lock.yaml` local y el `package-lock.json` de CI era la verdadera causa del cambio de registro npm de v1.25.0; ahora ambos lockfiles se regeneran a partir de una única instantánea de `node_modules`, garantizando que el build local y el build de CI de Obsidian sean idénticos.
+- **⚠ El aviso de progreso desaparece en caso de error.** La ingesta de un solo archivo (`ingestActiveFile`, `selectSourceToIngest`) ahora oculta el aviso persistente `Ingesting: <basename>` cuando se lanza una excepción, de modo que las ingestas fallidas no dejan el spinner en pantalla hasta el siguiente éxito.
+- **🧪 2274 pruebas superadas.** Subida desde 2182 en v1.25.0 gracias a los nuevos módulos `DiskCache<T>`, `lint-fix-all-completion`, `page-batch-runner`, `graph-cache`, `index-generator`, `log-writer`, `section-header-canonicalizer`.
+
+**Configuraciones a revisar:** ninguna — esta versión es solo corrección + refactor; sin nuevas configuraciones, sin nuevos comandos, sin nuevos locales.
+
 ## ✨ Características
 
 ### 📊 Calidad del Conocimiento

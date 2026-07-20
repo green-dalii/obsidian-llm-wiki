@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.25.1] - 2026-07-20
+
+**Theme:** Eight silent-loss bug fixes on the Related-page + Lint + ingest paths, three big-file splits (`wiki-engine.ts` 1799 → 620, `settings.ts` 1439 → 357, `main.ts` 1304 → 300), one build-verification root cause (lockfile drift), DiskCache<T> extraction with bounded growth. 2274 tests passing. Recommended upgrade for everyone on v1.25.0.
+
+### Added
+
+- **DiskCache<T> abstraction (`src/core/disk-cache.ts`).** Generic TTL + size-bounded file cache extracted from `PdfConversionCache` so future caches can reuse the eviction + housekeeping discipline (100 MB total / 1000 entries / 10 MB single-entry caps + LRU-by-mtime eviction + `prepareBatchIngest()` wired into `runBatchIngest()`). New test suite (`src/__tests__/core/disk-cache.test.ts`) covers TTL purge, size-cap eviction, batch prepare, and graceful IO failure handling.
+- **Section-header-canonicalizer module (`src/core/section-header-canonicalizer.ts`).** Houses `classifyHeader`, `preserveExistingSections`, `canonicalizeSectionHeaders`, and the Levenshtein-based `snapHeaderToCanonical` helpers. `preserveExistingSections` now takes a 4-arg signature `(existingBody, rewrite, canonicalLabels, mentionsLabel)` and strips the Mentions section from BOTH sides before the diff, so an LLM that hallucinates a Mentions block back into a rewrite no longer collides with programmatic injection. 3 new + 60 expanded tests.
+- **LM Studio ingest without API key (PR #272, closes the 5f993e6 commit).** Local-only LM Studio (`http://localhost:1234/v1`) now ingests without a placeholder key. Non-LM-Studio providers still require an explicit API key (unchanged).
+- **local-no-key-provider helper (`src/core/local-no-key-provider.ts`).** Centralizes the "endpoint is local → key may be omitted" decision so future local-only providers can opt in by config rather than code changes.
+
+### Changed
+
+- **Big-file splits (Phase C, ~PR #309 / #311 / #313).** Three of the project's largest files were broken into focused modules:
+  - `src/wiki/wiki-engine.ts` 1799 → 620 LOC, with `engine-internals/{graph-cache,index-generator,log-writer,page-batch-runner,dedup-pages}.ts` extracted as pure helpers + a `runBatchedWithRetry<T>` retry helper. Page-batch-runner extracted as a generic helper (4 new tests + 314 LOC of new tests covering dedup sequencing, retry-on-timeout, and progress notification).
+  - `src/ui/settings.ts` 1439 → 357 LOC, with 8 section renderers in `src/ui/settings-sections/{language,status,provider,model,advanced,test-connection,wiki-config,auto-maintain}-section.ts`. Settings tab now composes a renderer for each section.
+  - `src/main.ts` 1304 → 300 LOC, with 6 `main-commands/` modules (command-registry, connection-commands, ingest-commands, pdf-cache-commands, query-lint-commands, schema-commands) wired together via the existing `registerCommand` API. Mixin pattern (PR #313): `Object.assign(prototype)` + interface merge preserves the `plugin.method()` test surface; cross-mixin refs use `?:` + `!`; circular dep resolved via `core/create-plugin-llm-client.ts`.
+- **`related-page` no longer persists raw LLM output (PR #288, closes #287).** The Related-page path now mirrors the merge path through `canonicalizeSectionHeaders` → `correctRelatedLinkPrefixes` → `preserveExistingSections`. Pre-fix: only the canonicalizer ran, and the post-processed body was discarded — so re-ingest could silently destroy Mentions content if the LLM didn't re-emit it.
+- **AI-SDK runtime deps pinned (no caret).** `@ai-sdk/anthropic 3.0.98`, `@ai-sdk/openai 3.0.86`, `@ai-sdk/openai-compatible 2.0.62`, `ai 6.0.230` — all exact-pinned in `package.json` so future `pnpm install` doesn't float the resolved version. `pnpm-lock.yaml` and `package-lock.json` are now regenerated from a single `node_modules` snapshot to keep local build and Obsidian's CI build byte-identical.
+- **Node 24 + AI-SDK patches pinned via `.nvmrc` + `.npmrc` (PR #301).** Project declares Node 24 as the supported development runtime (matches Obsidian CI), keeps the AI-SDK patches via `pnpm.overrides` for `fast-uri` / `brace-expansion`, and centralizes registry / strict-peer-deps behavior in a project-local `.npmrc`.
+- **`DiskCache<T>` ledger optimization (`src/core/disk-cache.ts`).** Cache-key listing no longer walks the directory twice on the hot path (one `readdirSync` + sorted-mtime eviction).
+
+### Fixed
+
+- **Silent Mentions loss on Related re-ingest (PR #288, closes #287).** When a Related page was re-ingested, the post-canonicalize / post-link-correction body was discarded — only `cleanMarkdownResponse(updatedBody)` reached `preserveExistingSections`. If the LLM's rewrite didn't re-emit the Mentions section, accumulated per-source Mentions were silently destroyed. The fix threads the post-processed body all the way through, mirroring merge-page.
+- **Schema sections dropped by LLM rewrites (PR #302, closes #292).** Pre-fix, when the LLM rewrote a merge / related body and omitted a canonical section that already existed on the page (e.g. `## Related Entities` rewritten away), the section was lost from the on-disk file. `preserveExistingSections` now restores any canonical section that carried content before the rewrite and is wholly absent from it. Falls inside a single helper shared across merge + related paths. New tests cover the 3-section-strip / 1-section-strip / no-strip / already-present cases.
+- **Legacy Mentions pages unparseable on first re-ingest (PR #303, closes #289).** Pre-#244 grouped Mentions bodies (one group per source, with `<mention>...</mention>` wrapped quotes) were silently discarded by `parsed.mentions_in_source` — meaning any legacy page that had never been re-ingested post-#244 had its accumulated Mentions ignored until manual intervention. New `LEGACY_GROUP_RE` + `LEGACY_QUOTE_RE` + `BULLET_RE` detect the legacy shape and parse it into structured Mentions on first re-ingest. 3 new regression tests pin the contract.
+- **Stuck "Ingesting: <basename>" Notice on throw.** Both `selectSourceToIngest` and `ingestActiveFile` `.catch` blocks now call `this.dismissProgress()` after showing the error Notice. Pre-fix: a throw from network / vault IO / unexpected path left the progress Notice on screen until the next successful ingest.
+- **LM Studio failed ingest with placeholder key (PR #272).** LM Studio rejects any API key but the pre-fix gate required one. Local-no-key-provider gate now lists `lmstudio` (and a manual override for any user-declared `localOnly` provider) so the provider can come up without a key.
+- **"Other LLM client bugs"-class false positives in the PDF error classifier (`isPdfRelatedLlmError` follow-up #3).** The initial implementation substring-matched on `'pdf'` alone; transient 413 size-limit errors and Rust-serde schema rejects ("unknown variant `file`") were being misreported as "provider doesn't support PDF". Tightened to require BOTH a rejection verb AND a PDF/media marker. 6 new regression tests pin the contract — 2 happy-path + 4 false-positive guards.
+- **Build verification root cause (PR #301, follow-up to the v1.25.0 npm-registry swap).** The v1.25.0 swap from `npmmirror` → `npmjs` was necessary but not sufficient; the real cause of inconsistent `main.js` artifacts between local and Obsidian CI was `pnpm-lock.yaml` ↔ `package-lock.json` drift. Both lockfiles are now regenerated from a single `node_modules` snapshot (no isolated-dir `--package-lock-only` race).
+
+### Tests
+
+- 2274 tests passing (173 files). +92 tests since v1.25.0.
+- New tests cover:
+  - 30+ DiskCache<T> tests (TTL purge, size-cap eviction, batch prepare, IO failure handling)
+  - 60+ section-header-canonicalizer tests (preserveExistingSections 4-arg signature, Mentions strip on both sides, classifyHeader whitespace trim)
+  - 314 LOC of page-batch-runner tests (dedup sequencing, retry-on-timeout, progress notification)
+  - 6 PDF error classifier regression tests (happy-path + 413/5xx/null-deref/generic-invalid guards)
+  - 3 LM Studio ingest tests (with / without key, default behavior preserved for non-LM-Studio)
+  - 6 legacy Mentions parser tests (legacy grouped shape detected, structured shape preserved, mixed legacy+structured)
+
 ## [1.25.0] - 2026-07-18
 
 **Theme:** Cache-only PDF Ingest (Level 1) with provider gate + content-hash cache + bounded growth; prompt centralization for the PDF transcriber; status-bar cancellation via Vercel AI SDK v6 AbortSignal; local model guidance with Apple Silicon OCR path (oMLX + Markitdown + Baidu Unlimited-OCR). 2182 tests passing (165 files). Recommended upgrade for everyone on v1.24.x.

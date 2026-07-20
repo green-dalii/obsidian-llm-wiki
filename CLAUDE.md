@@ -1,33 +1,24 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-19 (post-Obsidian-audit alignment)
+**Last Updated:** 2026-07-20 (post-v1.25.1 PATCH)
 
 ---
 
-## Current Phase: v1.25.0 RELEASED 2026-07-18 — v1.25.1 Hotfix (8-phase plan) next; v1.25.2 PATCH + v1.26.0 MINOR following
+## Current Phase: v1.25.1 PATCH RELEASED 2026-07-20 — v1.25.2 PATCH (PR #304 rebase) next; v1.26.0 MINOR following
 
-**Post-release audit (2026-07-19)** surfaced four categories of cleanup folded into v1.25.1 Hotfix:
+**v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 
-1. **Obsidian bot warnings** — `prefer-create-el` × 50 + `getSettingDefinitions` not implemented. Root cause: `eslint-plugin-obsidianmd` local 0.3.0 vs Obsidian bot 0.4.1 (version drift). **Fix**: Phase A — upgrade to 0.4.1, re-run lint, implement declarative settings API.
-2. **9 README stale TOC** — 10/10 locale READMEs' TOC line 35 still points to v1.24.0 anchor; heading body was correctly replaced in v1.25.0 release but TOC link string was missed. **Fix**: Phase B1 — per-file Edit on all 10 READMEs.
-3. **9 README flat nav** — User-requested 5-item flat quick-nav (Quick Start / Features / Model Selection Guide / Transparency & Compliance / FAQ) to be inserted **before line 17** (the `[![ko-fi]]` row). **Fix**: Phase B2 — per-file Edit on all 10 READMEs.
-4. **Build verification regression** — v1.25.0's URL rewrite (npmmirror → npmjs) was necessary but not sufficient. Real root causes: pnpm↔npm lockfile drift + main.js hash vs git tag alignment. **Fix**: Phase E — dual-direction lockfile regen + tag-alignment audit per `pre-release-gate` §2f.2.
-5. **Big-file splits** — `wiki-engine.ts` 1799 LOC + `settings.ts` 1439 LOC. 3rd-party audit 2026-07-19. **Fix**: Phase C — split graph-cache / index-generation / log-writer from `wiki-engine.ts`; split Section 3 first then full restructure of `settings.ts`.
-6. **Lint perf** — `controller.ts:151` + `:239` TODOs from v1.18.0+. 9 versions unaddressed. **Fix**: Phase F — parallel dedup + LLM health batches.
-7. **Triage fixes** — PR #288 (silent data loss, closes #287) + PR #272 (LM Studio empty-key). **Fix**: Phase D — merge after rebase onto main.
+- Eight silent-loss bug fixes on the Related-page + Lint + ingest paths (#288 closes #287 silent Mentions, #302 closes #292 schema-section drop, #303 closes #289 legacy Mentions parse, #272 LM Studio no-key).
+- Three big-file splits: `wiki-engine.ts` 1799 → 620 (Phase C-PR1), `settings.ts` 1439 → 357 (Phase C-PR2), `main.ts` 1304 → 300 via mixin pattern (Phase C-PR3).
+- `DiskCache<T>` extracted from `PdfConversionCache` with bounded growth (100MB / 1000 / 10MB caps + LRU-by-mtime eviction + ledger optimization).
+- Node 24 + AI-SDK patches pinned via `.nvmrc` + `.npmrc`; dual-direction lockfile regen from single `node_modules` snapshot fixes Obsidian CI build-vs-`main.js` hash drift.
 
-**v1.25.1 Hotfix 8-phase plan (~12.5 working days, single PATCH):**
+**Post-v1.25.1 scope (P3, mostly deferred to v1.25.2/v1.26.0):**
 
-- Phase A — Obsidian bot compliance (Days 1-2)
-- Phase B — 10 README rework: TOC anchors + flat nav + stale contributors audit (Days 2-3)
-- Phase C — Big-file splits: wiki-engine + settings Phase 1 + Phase 2 (Days 3-5)
-- Phase D — Triage fixes: PR #288 + PR #272 (Days 5-6)
-- Phase E — Build verification root-cause (Days 6-7)
-- Phase F — Lint perf + DiskCache<T> + ledger (Days 7-8)
-- Phase G — Doc sync (Day 9)
-- Phase H — Release 8-step (Days 10-11)
-
-Full plan: [ROADMAP.md](./ROADMAP.md#next-milestone-v1251-hotfix-target-10-11-working-days-single-patch) | Memory: [`project_v1.25.1_release.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.25.1_release.md)
+1. **PR #304 rebase** (DocTpoint — `updatedPages` split). Deferred to **v1.25.2 PATCH** as its single core scope item. DocTpoint rebase onto Phase C-PR1 wiki-engine refactor's `runBatchedWithRetry<T>` closure (4 push sites in pre-C-PR1 code). Reply with conflict explanation + concrete ternary replacement posted on PR #304.
+2. **Phase A Obsidian bot compliance** — `prefer-create-el` × 50 + `getSettingDefinitions` not implemented. Root cause: `eslint-plugin-obsidianmd` local 0.3.0 vs Obsidian bot 0.4.1 (version drift). **Deferred to v1.26.x (Path C)** per `feedback_eslint_plugin_obsidianmd_0_4_skip`: full 0.4.1 upgrade conflicts with 68 `eslint-comments/no-restricted-disable` errors in test-environment disable patterns. Bot 0.4.1 warnings remain non-blocking per `obsidianmd/prefer-active-doc` precedent.
+3. **Lint perf** — `controller.ts:151` + `:239` TODOs from v1.18.0+ unaddressed. Phase F was rolled into DiskCache<T> extraction; the controller-level parallel dedup + LLM health batches remain v1.26.0 work.
+4. **DocTpoint PR #288 / #302 / #303 / #314 lessons** — squash-merge preserves DocTpoint author credit while compressing history; my simplify/fix PR (#314) walks the post-merge diff independently. Pattern reusable for v1.25.2 when DocTpoint rebases #304.
 
 **v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
 

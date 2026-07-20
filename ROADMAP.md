@@ -2,11 +2,67 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.0 (RELEASED 2026-07-18) → v1.25.1 Hotfix next. | **Updated:** 2026-07-19 (post-Obsidian-audit alignment)
+**Version:** 1.25.1 PATCH (RELEASED 2026-07-20) → v1.25.2 PATCH next (PR #304 rebase). | **Updated:** 2026-07-20 (post-v1.25.1 PATCH release)
 
 ## Current Status
 
-**v1.25.0 — RELEASED 2026-07-18.** MINOR scope. Cache-only PDF Ingest (Level 1). 2182 tests passing (165 files, +102 since v1.24.1).
+**v1.25.1 — RELEASED 2026-07-20.** PATCH scope. Eight silent-loss bug fixes on the Related-page + Lint + ingest paths, three big-file splits, one build-verification root cause (lockfile drift), DiskCache<T> extraction. 2274 tests passing (173 files, +92 since v1.25.0).
+
+### v1.25.1 composition (11 commits, ~80 files changed)
+
+| # | Commit | Subject | Notes |
+|---|--------|---------|-------|
+| 1 | `65b5d1b` | `fix(related-page): stop persisting raw LLM output on the related path (#288)` | closes #287 silent Mentions loss on re-ingest |
+| 2 | `5f993e6` | `fix: allow LM Studio ingest without API key (#272)` | local-no-key-provider gate |
+| 3 | `5e13ac5` | `chore(build): pin Node 24 + AI-SDK patches + project .npmrc (v1.25.1 Phase E) (#301)` | dual-direction lockfile regen + npmrc |
+| 4 | `039735c` | `perf(cache): extract DiskCache<T> from PdfConversionCache + ledger optimization (Phase F) (#300)` | 100MB / 1000 / 10MB caps + LRU |
+| 5 | `b23257e` | `refactor(wiki-engine): extract 4 internal modules (Phase C-PR1) (#309)` | wiki-engine.ts 1799 → 620 LOC |
+| 6 | `1806e29` | `refactor(settings): extract 8 section renderers (Phase C-PR2) (#311)` | settings.ts 1439 → 357 LOC |
+| 7 | `7f37905` | `refactor(main): split main.ts 1304→300 LOC into 6 main-commands modules (#313)` | mixin pattern (Object.assign(prototype)) |
+| 8 | `8852d0a` | `fix(mentions): parse the pre-#244 grouped Mentions shape so legacy pages can heal (#289) (#303)` | DocTpoint PR — LEGACY_GROUP_RE + LEGACY_QUOTE_RE + BULLET_RE |
+| 9 | `2b821d4` | `fix(ingest): preserve schema sections the LLM drops in body rewrites (#292) (#302)` | DocTpoint PR — preserveExistingSections 4-arg signature |
+| 10 | `4891f3d` | `refactor(simplify): v1.25.1 PATCH post-merge cleanup (#314)` | my simplify + correctness fixes (suffix trim, Mentions strip on rewrite, lift stripMentionsSection) |
+
+### Closed issues (v1.25.1 PATCH)
+
+- **#287** (silent Mentions loss on Related re-ingest) — closed by PR #288 (`65b5d1b`)
+- **#292** (LLM rewrite drops schema sections) — closed by PR #302 (`2b821d4`)
+- **#289** (legacy Mentions unparseable on first re-ingest post-#244) — closed by PR #303 (`8852d0a`)
+- **#272** (LM Studio empty-key ingest gate) — closed by commit `5f993e6`
+
+### Six-Gate summary
+
+| Gate | Status |
+|---|---|
+| Code correct (lint/tsc/test/build/css-lint) | ✅ 0/0/2274/clean/0 |
+| No side effects | ✅ Pure refactor + bug fix; 14 Phase A bot warnings deferred to v1.26.x per `feedback_eslint_plugin_obsidianmd_0_4_skip` |
+| No breaking changes | ✅ All new settings opt-in, all PRs additive |
+| No performance regression | ✅ DiskCache ledger optimization; page-batch-runner extracted; no new LLM calls |
+| Docs complete | ✅ 10 READMEs + CHANGELOG + ROADMAP + CLAUDE + CONTRIBUTING + memory |
+| Release clean | ✅ Co-Authored-By trailer (no model version), i18n parity, lockfile drift fixed |
+
+### v1.25.1 deferred items
+
+- **PR #304** (DocTpoint — `updatedPages` split: created vs updated). Deferred to v1.25.2 PATCH: needs DocTpoint rebase onto Phase C-PR1 wiki-engine refactor's `runBatchedWithRetry<T>` closure (4 push sites in pre-C-PR1 code). Reply with conflict explanation + concrete ternary replacement posted on PR #304.
+- **Phase A Obsidian bot compliance** (`prefer-create-el` × 50 + `getSettingDefinitions()`). 0.4.1 lint upgrade deferred to v1.26.x (Path C status quo per `feedback_eslint_plugin_obsidianmd_0_4_skip`); root cause is 68 `eslint-comments/no-restricted-disable` errors that conflict with test-environment disable patterns. Path A (15-min override) and Path B (6d multi-PR refactor) deferred.
+- **Lint perf** (`controller.ts:151` / `:239` TODOs from v1.18.0+). Phase F was rolled into DiskCache<T> extraction; the controller-level parallel dedup batches + LLM health analysis batches remain v1.26.0 work.
+
+---
+
+## Next Milestone: v1.25.2 PATCH (target ~3-5 working days, single PATCH)
+
+**Theme:** Fold the PR #304 DocTpoint `updatedPages` split (created vs updated logging) plus any post-v1.25.1 user-reported regression issues.
+
+### Scope
+
+| Item | Source | Notes |
+|------|--------|-------|
+| **PR #304 rebase** (DocTpoint — updatedPages split) | DocTpoint contribution | 4-line ternary inside `runBatchedWithRetry.execute` closure. Reply already posted on PR #304. 5 tests red verify create-vs-update split by content mutation. |
+| **Post-v1.25.1 triage** (issues filed after release) | TBD | Watch #287/#289/#292 for follow-ups; check Issue queue 2026-07-21 onwards |
+
+**Total effort**: ~3-5 working days.
+
+Full design rationale: [`project_v1.25.1_release.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.25.1_release.md).
 
 ### v1.25.0 composition (18 commits, 50 files changed, +4841/-66)
 
@@ -46,47 +102,6 @@
 | Docs complete | ✅ 10 READMEs + CHANGELOG + ROADMAP + memory file |
 | Release clean | ✅ Trailer format (no model name/version), i18n parity |
 
-### AkaSakana PR #286 (still open, transfer responsibility to PR4)
-
-PR #286 — AkaSakana's `feat: native pdf support` branch — not merged as-is into v1.25.0. After v1.25.0 lands on main, invite AkaSakana to ship Kimi Files API + non-routine provider PDF dispatch + error regex classifiers as a follow-up PR on top of the v1.25.0 baseline. Target: **v1.26.0 MINOR**. Reply draft pending in Step 7.
-
----
-
-## Next Milestone: v1.25.1 Hotfix (target ~10-11 working days, single PATCH)
-
-**Theme:** 2026-07-19 post-release audit cleanup folded into one comprehensive PATCH. Four audit sources:
-
-1. **Obsidian bot warnings** — `prefer-create-el` × 50 + `getSettingDefinitions` not implemented. Root cause: `eslint-plugin-obsidianmd` local 0.3.0 vs Obsidian bot 0.4.1 (version drift). **Fix**: Phase A.
-2. **10 README stale TOC anchor** — Heading body was replaced in v1.25.0 release but TOC anchor string `v1240` was missed. **Fix**: Phase B1.
-3. **10 README flat nav request (user)** — Add 5-item flat quick-nav (`🚀 Quick Start / ✨ Features / 🤖 Model Selection Guide / 🔒 Transparency & Compliance / ❓ FAQ`) before line 17 (ko-fi row). **Fix**: Phase B2.
-4. **Build verification regression** — v1.25.0's URL rewrite (npmmirror → npmjs) was necessary but not sufficient. Dual root causes: pnpm↔npm lockfile drift + main.js hash vs git tag alignment. **Fix**: Phase E.
-5. **Big-file splits (3rd-party audit, 2026-07-19)** — `wiki-engine.ts` 1799 LOC + `settings.ts` 1439 LOC. Both ROI-positive now that v1.25.0 features shipped. **Fix**: Phase C.
-6. **Lint perf (9-version TODO)** — `controller.ts:151` + `:239` TODOs from v1.18.0+ unaddressed. **Fix**: Phase F.
-7. **Triage fixes** — PR #288 (silent data loss, closes #287) + PR #272 (LM Studio empty-key). **Fix**: Phase D.
-
-### 8-Phase execution order
-
-| Phase | Scope | Days | Gate |
-|-------|-------|------|------|
-| **A** | Obsidian bot compliance — upgrade `eslint-plugin-obsidianmd` 0.3.0 → 0.4.1, resolve `prefer-create-el` × 50, implement `getSettingDefinitions()` declarative settings API for Obsidian 1.13.0+ Settings search | 1-2 | Gate 1 + 3 + 5 |
-| **B** | 10 README rework — TOC anchors v1.24.0 → v1.25.0 + flat 5-item quick-nav (before line 17) + stale contributors audit | 2-3 | Gate 5 |
-| **C** | Big-file splits — `wiki-engine.ts` 1799 → ≤1500 LOC (extract graph-cache + index-generation + log-writer, NOT ingest orchestration) + `settings.ts` 1439 → ~870 LOC (Phase 1: extract LLM Provider section) → ≤200 LOC orchestrator (Phase 2: full restructure into 5-6 sections + helpers) | 3-5 | Gate 1 + 2 + 3 |
-| **D** | Triage fixes — merge PR #288 (DocTpoint `updateRelatedPage` silent data loss) + PR #272 (rkuzmin LM Studio empty-key gate) after rebase onto main | 5-6 | Gate 1 + 6 |
-| **E** | Build verification root-cause — dual-direction lockfile regen per `pre-release-gate` §2f.2 v1.23.2 procedure + main.js hash ↔ git tag alignment audit | 6-7 | Gate 1 + 6 |
-| **F** | Lint perf + cache abstractions — close `controller.ts:151` (Duplicate detection bottleneck) + `:239` (LLM health analysis bottleneck) TODOs via parallel batches; extract generic `DiskCache<T>` from `PdfConversionCache`; `enforceSizeLimit` ledger optimization (in-memory bytesWritten/entryCount ledger, only trigger `enforceSizeLimit` when ledger exceeds cap) | 7-8 | Gate 1 + 4 |
-| **G** | Documentation sync — CHANGELOG v1.25.1 entry, ROADMAP "Implemented v1.25.1" section, CLAUDE.md `Last Updated` + `Current Phase` + plugin version drift rule, CONTRIBUTING.md project structure tree, memory file + MEMORY.md index | 9 | Gate 5 |
-| **H** | Release — full 8-step `obsidian-plugin-release` skill including Step 8 Discussion announcement (PATCH but scope is broader than bug-fix; user override allowed per skill decision tree) | 10-11 | Gate 6 |
-
-**Total effort**: ~12.5 working days. Test count trajectory: 2182 → ~2250.
-
-**Why one big PATCH (not split into 1.25.1 / 1.25.2)**: All findings are v1.25.0 audit cleanup. Splitting across multiple PATCH creates 2× release overhead for what's logically one release.
-
-**Per-version settings schema delta**: Zero new fields. `getSettingDefinitions()` is implementation-detail of existing settings. Backward-compat: existing `data.json` + `plugin.json` + `.obsidian` cache all valid. Tests: additive only.
-
-Full design rationale per phase: [`project_v1.25.1_release.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.25.1_release.md). Audit root-cause memory files: [`feedback_obsidianmd_plugin_version_drift.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/feedback_obsidianmd_plugin_version_drift.md) · [`feedback_build_verification_root_cause.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/feedback_build_verification_root_cause.md) · [`feedback_readme_wn_anchor_stale.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/feedback_readme_wn_anchor_stale.md).
-
-**AkaSakana PR #286 reply draft:** Reply in Step 7 — thank for the design feedback adopted in v1.25.0 (converterVersion cache key, universal escape hatch, Kimi Files API deferred to PR4/v1.26.0). Invite AkaSakana to ship PR4 as a follow-up PR on top of v1.25.0.
-
 ---
 
 ## v1.26.0 MINOR (target TBD, ~2 weeks)
@@ -114,8 +129,8 @@ Full design rationale per phase: [`project_v1.25.1_release.md`](~/.claude/projec
 ## Version Timeline
 | Version | Date | Headline |
 |---------|------|----------|
-| **1.25.0** | 2026-07-18 | MINOR: cache-only PDF Ingest (Level 1) — three-defense-layer bounded cache (100MB / 1000 / 10MB + LRU-by-mtime) + provider gate (anthropic/openai/bedrock-* native, others via `forcePdfSupport` universal escape hatch) + content-hash cache key with `converterVersion` + two new settings (`forcePdfSupport`, `writePdfMarkdownToVault`) + verbatim OCR-style PDF prompt. 2182 tests |
-| **1.25.1** | 2026-07-XX (planned) | Hotfix: Obsidian bot compliance (`eslint-plugin-obsidianmd` 0.3.0 → 0.4.1 + `prefer-create-el` × 50 + `getSettingDefinitions()` declarative settings API) + 10 README TOC anchor v1.24.0 → v1.25.0 + flat 5-item quick-nav + Build verification root-cause (dual-direction lockfile regen + main.js ↔ tag alignment) + `wiki-engine.ts` 1799 → ≤1500 LOC split + `settings.ts` 1439 → ≤200 LOC split + Lint perf (controller.ts:151/:239 parallel batches) + `DiskCache<T>` extraction + PR #288 (closes #287) + PR #272. Target ~2250 tests |
+| **1.25.1** | 2026-07-20 | PATCH: silent Mentions loss on Related re-ingest fixed (#288 closes #287) + LLM rewrite drops schema sections prevented (#302 closes #292) + legacy pre-#244 Mentions shape healed on parse (#303 closes #289) + LM Studio no-key ingest (#272). Big-file splits: `wiki-engine.ts` 1799→620 (Phase C-PR1, 4 internal modules), `settings.ts` 1439→357 (Phase C-PR2, 8 section renderers), `main.ts` 1304→300 (Phase C-PR3, 6 main-commands modules via mixin pattern). `DiskCache<T>` extracted with bounded growth + ledger optimization (Phase F). Node 24 + AI-SDK patches pinned via `.nvmrc` + `.npmrc` + dual-direction lockfile regen from single `node_modules` snapshot (Phase E). 11 commits, ~80 files, 2274 tests |
+| 1.25.0 | 2026-07-18 | MINOR: cache-only PDF Ingest (Level 1) — three-defense-layer bounded cache (100MB / 1000 / 10MB + LRU-by-mtime) + provider gate (anthropic/openai/bedrock-* native, others via `forcePdfSupport` universal escape hatch) + content-hash cache key with `converterVersion` + two new settings (`forcePdfSupport`, `writePdfMarkdownToVault`) + verbatim OCR-style PDF prompt. 2182 tests |
 | 1.24.1 | 2026-07-14 | PATCH: 5-stage PPR cascade (#281) + parseJsonResponse quiet path (#282, closes #255/#274) + redundant Basic Information removal (#283, closes #258) + Bedrock Stage 1 (#277) + LM Studio no-key (#269) + Tier C bypass (#271) + page-factory split (#276) + non-lossy Mentions re-ingest (#267). 2080 tests |
 | 1.24.0 | 2026-07-10 | MINOR: per-task models (#208) + Custom Query Instructions (#251) + 4 monolith splits (#248/#249/#250/#257) + source-note aliases (#185) + frontmatter write repair + merge triage (#216) + PPR graph warmup. 1825 tests |
 | 1.23.2 | 2026-07-05 | PATCH: #234/#221/#219 + DocTpoint #238/#241 + graph cache invalidation + Apache 2.0 + DCO. 1431 tests |
