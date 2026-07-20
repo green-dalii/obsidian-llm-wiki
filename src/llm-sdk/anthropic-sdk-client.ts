@@ -28,6 +28,7 @@ import {
   resolveBaseUrlWithFallback,
   isUrlError,
 } from '../core/url-fallback';
+import { reportFinish } from './finish-reason';
 
 // Re-export for callers that import from anthropic-sdk-client only.
 // Reuse the same error mapper as OpenAI — AI-SDK's APICallError shape is
@@ -104,7 +105,7 @@ export class AnthropicSdkClient implements LLMClient {
   }
 
   async createMessage(params: LLMClient['createMessage'] extends (p: infer P) => unknown ? P : never): Promise<string> {
-    const { model, max_tokens, system, messages, temperature, repetition_penalty, enableThinking } = params;
+    const { model, max_tokens, system, messages, temperature, repetition_penalty, enableThinking, onFinish } = params;
 
     try {
       const languageModel = this.getProvider(model, this.fetchImpl);
@@ -122,6 +123,7 @@ export class AnthropicSdkClient implements LLMClient {
         }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
         ...(temperature !== undefined ? { temperature } : {}),
       });
+      reportFinish(onFinish, result.finishReason);
       return result.text;
     } catch (err) {
       // v1.23.0 P1.5: URL fallback for custom baseURLs (Kimi / z.ai / GLM).
@@ -150,6 +152,7 @@ export class AnthropicSdkClient implements LLMClient {
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...(temperature !== undefined ? { temperature } : {}),
         });
+        reportFinish(onFinish, result.finishReason);
         return result.text;
       }
       throw mapAiSdkError(err);

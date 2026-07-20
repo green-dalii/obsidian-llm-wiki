@@ -28,6 +28,7 @@ import {
   ContradictionInfo,
   MentionWithProvenance,
   WIKI_LANGUAGES,
+  LLMFinishReason,
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../core/json';
@@ -217,6 +218,22 @@ export class SourceAnalyzer {
     let batchSizeHalved = false;
     let retryingBatch = false; // one retry on truncation: halve batch size
 
+    // Issue #305: the halving retry below used to live only in the catch
+    // block, so it required the provider call to *throw*. An
+    // OpenAI-compatible provider does not throw on truncation — it returns
+    // HTTP 200 with a body that stops mid-token — so the batch fell through
+    // to the parse-failure `break` and was dropped silently. Hoisted into a
+    // closure so the parse-failure path and the catch path share one
+    // implementation. Returns whether the caller should re-run this batch;
+    // the caller owns the loop control (`batchNum--; continue;`).
+    const halveBatchAndRetry = (batchLabel: string, cause: string): boolean => {
+      if (retryingBatch || currentBatchSize <= limits.minBatchSize) return false;
+      currentBatchSize = Math.max(limits.minBatchSize, Math.floor(currentBatchSize * 0.5));
+      console.warn(`${batchLabel} Truncation detected (${cause}), halving batch size to ${currentBatchSize} and retrying`);
+      retryingBatch = true;
+      return true;
+    };
+
     // Initialize batch accumulation using pure function (Phase 3)
     const accumulation = createEmptyAccumulation();
 
@@ -325,6 +342,11 @@ export class SourceAnalyzer {
         // per-task routing would be impossible from console alone.
         const resolvedModel = resolveModelForTask(this.ctx.settings, 'ingest');
         console.debug(`[Batch ${batchNum + 1}] Provider:`, this.ctx.settings.provider, '| Model:', resolvedModel, '| Prompt:', finalPrompt.length, 'chars', '| max_tokens:', batchMaxTokens);
+        // Issue #305: record why generation stopped. Clients that do not
+        // report it leave this at 'unknown', which keeps pre-#305 behavior.
+        // Held in an object rather than a bare `let` so control-flow analysis
+        // does not narrow it to its initializer across the callback.
+        const finish: { reason: LLMFinishReason } = { reason: 'unknown' };
         const response = await client.createMessage({
           model: resolvedModel,
           max_tokens: batchMaxTokens,
@@ -333,6 +355,7 @@ export class SourceAnalyzer {
           response_format: { type: 'json_object' },
           cacheBreakpoint: staticPrefix.length,
           maxTokensPerCall: retryCap,
+          onFinish: (meta) => { finish.reason = meta.finishReason; },
         });
 
         console.debug(`[Batch ${batchNum + 1}] Response length:`, response.length);
@@ -351,6 +374,19 @@ export class SourceAnalyzer {
         }, { silentOnEmpty: true }) as Partial<SourceAnalysis> | null;
 
         if (!analysisData) {
+          // Issue #305: a truncated response is not malformed JSON, it is
+          // *incomplete* JSON — the repair callback above cannot restore
+          // content that was never emitted, and it re-hits the same limit
+          // trying. When the provider tells us it ran out of tokens, halve
+          // the batch and re-run instead of dropping it. Applies to the
+          // first batch too: the alternative there is `return null`, i.e.
+          // the whole ingest fails, so one bounded retry is strictly
+          // better. `retryingBatch` and `minBatchSize` bound it to a single
+          // extra attempt.
+          if (finish.reason === 'length' && halveBatchAndRetry(`[Batch ${batchNum + 1}]`, 'finish_reason=length')) {
+            batchNum--;
+            continue;
+          }
           console.error(`[Batch ${batchNum + 1}] JSON parse failed, skipping batch`);
           if (isFirstBatch) return null;
           break;
@@ -474,10 +510,7 @@ export class SourceAnalyzer {
 
         const errMsg = error instanceof Error ? error.message : String(error);
         const isTruncation = errMsg.toLowerCase().includes('truncated') || errMsg.toLowerCase().includes('max_tokens');
-        if (!retryingBatch && isTruncation && currentBatchSize > limits.minBatchSize) {
-          currentBatchSize = Math.max(limits.minBatchSize, Math.floor(currentBatchSize * 0.5));
-          console.warn(`[Batch ${batchNum + 1}] Truncation detected, halving batch size to ${currentBatchSize} and retrying`);
-          retryingBatch = true;
+        if (isTruncation && halveBatchAndRetry(`[Batch ${batchNum + 1}]`, 'provider error')) {
           batchNum--;
           continue;
         }
