@@ -33,7 +33,7 @@
 import { Setting } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
 import { PREDEFINED_PROVIDERS } from '../../types';
-import { BEDROCK_REGIONS, BEDROCK_DEFAULT_REGION, NATIVE_PDF_PROVIDER_IDS } from '../../constants';
+import { BEDROCK_REGIONS, BEDROCK_DEFAULT_REGION, NATIVE_PDF_PROVIDER_IDS, MAX_BATCH_DELAY_MS } from '../../constants';
 import { renderRangeSlider } from '../settings-helpers';
 
 export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLElement): void {
@@ -156,7 +156,7 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
     desc: tab.getText('batchDelayDesc'),
     initialValue: tempSettings.batchDelayMs ?? 300,
     min: 100,
-    max: 2000,
+    max: MAX_BATCH_DELAY_MS,
     step: 50,
     formatDesc: (v) => tab.getText('batchDelayDesc').replace('{}', String(v)),
     onChange: (v) => { tempSettings.batchDelayMs = v; },

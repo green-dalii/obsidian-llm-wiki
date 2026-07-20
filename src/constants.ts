@@ -49,6 +49,13 @@ export const PAGES_CACHE_TTL_MS = 5000;
 export const CUSTOM_LIMIT_MAX = 500;
 
 // ============================================================================
+// Batch Processing Settings
+// ============================================================================
+
+/** Maximum batch delay in milliseconds for rate-limit backoff. */
+export const MAX_BATCH_DELAY_MS = 2000;
+
+// ============================================================================
 // PDF Source Ingestion (v1.25.0)
 // ============================================================================
 
