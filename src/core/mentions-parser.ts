@@ -96,6 +96,26 @@ function findSection(
 // match is treated as a hand-edit and flips `fullyParsed` to false.
 const BULLET_RE = /^-\s+"([\s\S]+)"(?:\s+\(([^)]*)\))?\s+—\s+\[\[([^\]|]+)\|[^\]]*\]\]\s*$/;
 
+// Issue #289 — the pre-#244 shape, grouped by source under a blockquote header:
+//   > **Source: [[sources/X|X]]**
+//   > - "quote"
+//   > - "quote" (translation)
+//
+// That block was written by the MODEL, not by the formatter (the prompt showed it
+// the shape and asked it to copy it), so it varies in ways a programmatic block
+// never would: the bold run may or may not wrap the link, the link may or may not
+// carry a display alias, and the "Source:" prefix came from an English prompt
+// literal regardless of vault language. The group header is therefore matched
+// structurally — a blockquote line carrying a wikilink and no quote — rather than
+// by that literal, so a localized or lightly hand-edited header still parses.
+const LEGACY_GROUP_RE = /^>\s*\**\s*[^"[]*\[\[([^\]]+)\]\]\s*\**\s*$/;
+const LEGACY_QUOTE_RE = /^>\s*-\s+"([\s\S]+)"(?:\s+\(([^)]*)\))?\s*$/;
+
+/** Recover the link target from a wikilink body, dropping any `|display` alias. */
+function linkTarget(inner: string): string {
+  return inner.split('|')[0].trim();
+}
+
 export interface ParsedMentionsSection {
   /** Whether a `## <sectionLabel>` block existed at all. */
   found: boolean;
@@ -114,6 +134,12 @@ export interface ParsedMentionsSection {
 /**
  * Parse an existing `## <sectionLabel>` block back into structured mentions.
  * Returns `found:false` (an empty, fully-parsed result) when no block exists.
+ *
+ * Accepts both the flat formatter-produced shape and the pre-#244 grouped
+ * blockquote shape (#289), in either order and mixed within one block. Parsing
+ * the legacy shape is what gives it a migration path: the caller unions the
+ * result and the formatter re-emits the whole section flat, so the page is
+ * upgraded the first time it merges again, with no user action.
  */
 export function parseMentionsSection(body: string, sectionLabel: string): ParsedMentionsSection {
   if (!sectionLabel || !sectionLabel.trim()) {
@@ -127,22 +153,51 @@ export function parseMentionsSection(body: string, sectionLabel: string): Parsed
 
   const mentions: MentionWithProvenance[] = [];
   let fullyParsed = true;
-  for (const rawLine of content.split('\n')) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const m = BULLET_RE.exec(line);
-    if (!m) {
-      fullyParsed = false;
-      continue;
-    }
-    const [, quote, translation, leftPath] = m;
+  // The source most recently named by a legacy group header. Quotes in the
+  // legacy shape carry no attribution of their own — they inherit it from the
+  // group they sit under.
+  let legacyGroupPath: string | null = null;
+
+  const push = (quote: string, translation: string | undefined, sourcePath: string) => {
     mentions.push({
       quote,
       ...(translation && translation.trim() ? { translation: translation.trim() } : {}),
-      source_path: leftPath,
+      source_path: sourcePath,
       source_slug: '',
       extracted_at: '',
     });
+  };
+
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const flat = BULLET_RE.exec(line);
+    if (flat) {
+      const [, quote, translation, leftPath] = flat;
+      push(quote, translation, leftPath);
+      continue;
+    }
+
+    // Issue #289 — legacy blockquote shape. Recognized so the block can be
+    // parsed and re-emitted flat by the formatter, which upgrades the page the
+    // first time it is merged again. Without this the block is unparseable, the
+    // #267 fail-safe fires, and the page never accumulates another quote.
+    const group = LEGACY_GROUP_RE.exec(line);
+    if (group) {
+      legacyGroupPath = linkTarget(group[1]).replace(/\.md$/, '');
+      continue;
+    }
+    const legacyQuote = LEGACY_QUOTE_RE.exec(line);
+    if (legacyQuote && legacyGroupPath) {
+      const [, quote, translation] = legacyQuote;
+      push(quote, translation, legacyGroupPath);
+      continue;
+    }
+
+    // A quote outside any group has no recoverable attribution, so it falls
+    // through to the fail-safe with everything else we cannot structure.
+    fullyParsed = false;
   }
   return { found: true, fullyParsed, mentions, raw };
 }
