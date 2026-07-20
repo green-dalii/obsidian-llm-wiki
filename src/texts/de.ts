@@ -355,7 +355,7 @@ export const DE_TEXTS = {
     concurrencyValueSingular: 'Aktuelle Parallelität: {} (seriell — am sichersten)',
     concurrencyValuePlural: 'Aktuelle Parallelität: {} (parallel)',
     batchDelayName: 'Batch-Verzögerung (ms)',
-    batchDelayDesc: 'Verzögerung zwischen parallelen Stapeln zur Vermeidung von API-Ratenbegrenzungen (100–2000 ms). Aktuell: {}ms. Erhöhen bei 429-Fehlern.',
+    batchDelayDesc: 'Verzögerung zwischen parallelen Stapeln zur Vermeidung von API-Ratenbegrenzungen (100–10000 ms). Aktuell: {}ms. Erhöhen bei 429-Fehlern.',
 
     // Auto Maintenance
     autoMaintainSection: 'Automatische Wartung',
@@ -577,7 +577,7 @@ export const DE_TEXTS = {
     lintFixIndexUpdated: 'Wiki-Index und Protokoll aktualisiert.',
     lintPollutedFixed: 'Beschädigte Seiten behoben: {fixed}/{total}. Index neu generiert.',
     regenerateIndexCompleted: 'Index neu generiert',
-    operationFailed: 'Fehlgeschlagen: ', 
+    operationFailed: 'Fehlgeschlagen: ',
     lintFixAllComplete: 'Alle Behebungen abgeschlossen. Details im Protokoll.',
     lintFixAllNoChanges: 'Keine Änderungen — alle Phasen meldeten 0 Behebungen. Details in wiki/log.md.',
     lintFixPhasesLabel: 'Phasen geändert',
@@ -587,7 +587,7 @@ export const DE_TEXTS = {
     lintLogReference: 'Vollständiger Bericht in log.md gespeichert',
     lintModalFixDeadLinks: 'Defekte Links beheben ({count})',
     lintModalExpandEmpty: 'Leere Seiten erweitern ({count})',
-    lintModalDeleteEmpty: 'Leere Stubs löschen ({count})',   
+    lintModalDeleteEmpty: 'Leere Stubs löschen ({count})',
     lintModalLinkOrphans: 'Verwaiste Seiten verlinken ({count})',
     lintModalAnalyzeSchema: 'Schema analysieren',
     lintModalMergeDuplicates: 'Duplikate zusammenführen ({count})',

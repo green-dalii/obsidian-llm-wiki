@@ -354,7 +354,7 @@ export const KO_TEXTS = {
     concurrencyValueSingular: '현재 동시성: {} (직렬 — 가장 안전)',
     concurrencyValuePlural: '현재 동시성: {} (병렬)',
     batchDelayName: '배치 지연 (ms)',
-    batchDelayDesc: 'API 속도 제한 방지를 위한 병렬 배치 간 지연 (100-2000ms). 현재값: {}ms. 429 오류가 발생하면 값을 높이세요.',
+    batchDelayDesc: 'API 속도 제한 방지를 위한 병렬 배치 간 지연 (100-10000ms). 현재값: {}ms. 429 오류가 발생하면 값을 높이세요.',
 
     // Auto Maintenance
     autoMaintainSection: '자동 유지보수',
@@ -576,7 +576,7 @@ export const KO_TEXTS = {
     lintFixIndexUpdated: '위키 인덱스 및 로그가 업데이트되었습니다.',
     lintPollutedFixed: '오염된 페이지 수정 완료: {fixed}/{total}. 인덱스 재생성됨.',
     regenerateIndexCompleted: '인덱스 재생성됨',
-    operationFailed: '실패: ', 
+    operationFailed: '실패: ',
     lintFixAllComplete: '모든 수정이 완료되었습니다. 자세한 내용은 로그를 확인하세요.',
     lintFixAllNoChanges: '변경 없음 — 모든 단계에서 0건이 보고되었습니다. 자세한 내용은 wiki/log.md를 확인하세요.',
     lintFixPhasesLabel: '단계가 수정됨',
@@ -586,7 +586,7 @@ export const KO_TEXTS = {
     lintLogReference: '전체 보고서가 log.md에 저장되었습니다',
     lintModalFixDeadLinks: '깨진 링크 수정 ({count})',
     lintModalExpandEmpty: '빈 페이지 확장 ({count})',
-    lintModalDeleteEmpty: '빈 스텁 삭제 ({count})',   
+    lintModalDeleteEmpty: '빈 스텁 삭제 ({count})',
     lintModalLinkOrphans: '고아 페이지 링크 ({count})',
     lintModalAnalyzeSchema: '스키마 분석',
     lintModalMergeDuplicates: '중복 병합 ({count})',

@@ -20,7 +20,7 @@
  */
 
 import { detectRateLimitFailures, type RateLimitInfo } from '../../core/rate-limit';
-import { MAX_BATCH_DELAY_MS } from '../../constants';
+import { DEFAULT_API_RETRY_DELAY_MS } from '../../constants';
 
 /**
  * Collision data attached to a successful task result. Carried through the
@@ -127,7 +127,7 @@ export interface BatchRunnerResult {
 export async function runBatchedWithRetry<T>(
   opts: BatchRunnerOptions<T>
 ): Promise<BatchRunnerResult> {
-  const apiDelayMs = opts.apiDelayMs ?? MAX_BATCH_DELAY_MS;
+  const apiDelayMs = opts.apiDelayMs ?? DEFAULT_API_RETRY_DELAY_MS;
   const startTime = Date.now();
   const succeeded: string[] = [];
   const failed: Array<{ id: string; reason: string }> = [];
