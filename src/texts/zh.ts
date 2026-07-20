@@ -334,7 +334,7 @@ export const ZH_TEXTS = {
     concurrencyValueSingular: '当前并发度：{}（串行 — 最安全）',
     concurrencyValuePlural: '当前并发度：{}（并行）',
     batchDelayName: '批次延迟 (ms)',
-    batchDelayDesc: '并行批次间的延迟，防止 API 限流（100-2000ms）。当前值：{}ms。如遇 429 错误请增大此值。',
+    batchDelayDesc: '并行批次间的延迟，防止 API 限流（100-10000ms）。当前值：{}ms。如遇 429 错误请增大此值。',
 
     // 自动维护
     autoMaintainSection: '自动维护',
@@ -542,7 +542,7 @@ export const ZH_TEXTS = {
     lintLogReference: '完整报告已保存至 log.md',
     lintModalFixDeadLinks: '修复断链（{count}）',
     lintModalExpandEmpty: '扩充空洞页面（{count}）',
-    lintModalDeleteEmpty: '删除空洞页面（{count}）',   
+    lintModalDeleteEmpty: '删除空洞页面（{count}）',
     lintModalLinkOrphans: '链接孤立页面（{count}）',
     lintModalAnalyzeSchema: '分析 Schema',
     lintModalMergeDuplicates: '合并重复页面（{count}）',

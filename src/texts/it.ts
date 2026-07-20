@@ -344,7 +344,7 @@ export const IT_TEXTS = {
     concurrencyValueSingular: 'Concorrenza attuale: {} (seriale — più sicura)',
     concurrencyValuePlural: 'Concorrenza attuale: {} (parallela)',
     batchDelayName: 'Ritardo batch (ms)',
-    batchDelayDesc: 'Ritardo tra batch paralleli per prevenire il rate limiting delle API (100-2000ms). Attuale: {}ms. Aumentalo se vedi errori 429.',
+    batchDelayDesc: 'Ritardo tra batch paralleli per prevenire il rate limiting delle API (100-10000ms). Attuale: {}ms. Aumentalo se vedi errori 429.',
 
     // Manutenzione Automatica
     autoMaintainSection: 'Manutenzione automatica',
