@@ -494,6 +494,25 @@ export type MessageContentPart =
   | { type: 'text'; text: string }
   | { type: 'file'; data: string; mediaType: 'application/pdf'; filename?: string };
 
+/**
+ * Why the provider stopped generating. Mirrors the AI SDK v6 `FinishReason`
+ * union, which normalizes the OpenAI `finish_reason` field and the Anthropic
+ * `stop_reason` field into one vocabulary.
+ *
+ * Issue #305: `'length'` is the only reliable truncation signal. An
+ * OpenAI-compatible provider does not throw on truncation — it returns HTTP
+ * 200 with a body that stops mid-token — so callers that only observe the
+ * response text cannot tell a truncated answer from a complete one.
+ */
+export type LLMFinishReason =
+  | 'stop'
+  | 'length'
+  | 'content-filter'
+  | 'tool-calls'
+  | 'error'
+  | 'other'
+  | 'unknown';
+
 export interface LLMClient {
   createMessage(params: {
     model: string;
@@ -514,6 +533,13 @@ export interface LLMClient {
     // finishing the post-conversion phase. AI SDK v6 accepts this
     // natively; legacy clients ignore it.
     abortSignal?: AbortSignal;
+    // Issue #305: optional out-channel for response metadata. The SDK-backed
+    // clients invoke this once, immediately before returning the text. It is
+    // additive on purpose — `createMessage` keeps returning `Promise<string>`,
+    // so every existing caller and every mock client is unaffected. Callers
+    // that need to distinguish "the model finished" from "the model ran out
+    // of tokens" opt in; callers that do not, see no change.
+    onFinish?: (meta: { finishReason: LLMFinishReason }) => void;
   }): Promise<string>;
 
   createMessageStream?(params: {
