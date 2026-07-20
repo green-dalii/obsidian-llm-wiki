@@ -557,6 +557,8 @@ export const EN_TEXTS = {
     lintFixNoAction: 'No action taken (no client)',
     lintFixIndexUpdated: 'Wiki index and log updated.',
     lintFixAllComplete: 'All fixes complete. See log for details.',
+    lintFixAllNoChanges: 'No changes were made — all phases reported 0 fixes. Check wiki/log.md for details.',
+    lintFixPhasesLabel: 'phases modified',
     lintPollutedFixed: 'Polluted pages fixed: {fixed}/{total}. Index regenerated.',
     regenerateIndexCompleted: 'Index regenerated',
     operationFailed: 'Failed: ',

@@ -559,6 +559,8 @@ export const DE_TEXTS = {
     regenerateIndexCompleted: 'Index neu generiert',
     operationFailed: 'Fehlgeschlagen: ', 
     lintFixAllComplete: 'Alle Behebungen abgeschlossen. Details im Protokoll.',
+    lintFixAllNoChanges: 'Keine Änderungen — alle Phasen meldeten 0 Behebungen. Details in wiki/log.md.',
+    lintFixPhasesLabel: 'Phasen geändert',
 
     // Lint Report Modal
     lintModalActionsTitle: 'Behebungsvorschläge (benötigt LLM-Tokens):',

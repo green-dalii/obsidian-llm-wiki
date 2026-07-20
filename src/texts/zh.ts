@@ -534,6 +534,8 @@ export const ZH_TEXTS = {
     regenerateIndexCompleted: '索引已重建',
     operationFailed: '失败：',
     lintFixAllComplete: '所有修复已完成。详情见日志。',
+    lintFixAllNoChanges: '未做任何修改 — 所有阶段报告 0 修复。详情见 wiki/log.md。',
+    lintFixPhasesLabel: '个阶段已修改',
 
     // 维护报告弹窗
     lintModalActionsTitle: '修复建议（需消耗LLM Token）：',

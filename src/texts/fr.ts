@@ -541,6 +541,8 @@ export const FR_TEXTS = {
     regenerateIndexCompleted: 'Index régénéré',
     operationFailed: 'Échec : ', 
     lintFixAllComplete: 'Toutes les réparations sont terminées. Consultez le journal pour les détails.',
+    lintFixAllNoChanges: 'Aucun changement — toutes les phases ont signalé 0 réparation. Détails dans wiki/log.md.',
+    lintFixPhasesLabel: 'phases modifiées',
 
     // Lint Report Modal
     lintModalActionsTitle: 'Suggestions de réparation (nécessite des tokens LLM) :',
