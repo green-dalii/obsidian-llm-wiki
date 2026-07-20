@@ -149,13 +149,12 @@ export async function updateRelatedPage(
 
   // Completeness is the schema's call, not the model's: restore any canonical
   // section that carried content before the rewrite and is wholly absent from
-  // it. `promptBody` is the mentions-stripped body the model actually saw, so
-  // the Mentions section is never a candidate here — assembleFinalContent
-  // re-attaches it below.
+  // it. The Mentions section is re-attached by assembleFinalContent below.
   const guardedBody = preserveExistingSections(
     promptBody,
     correctedBody,
     Object.values(labels),
+    labels.mentions_in_source,
   );
 
   // 2. Assemble: programmatic frontmatter + LLM body + Mentions section.

@@ -171,9 +171,11 @@ export function spliceAfterSection(
 }
 
 /**
- * Build a "## New Information ({{source}})" section for failed groups
- * whose section could not be resolved or the per-section LLM returned
- * NO_NEW_CONTENT. Collects all items from all failed groups.
+ * Build a "## {{newInformationLabel}} ({{sourceBasename}})" section for failed
+ * groups whose section could not be resolved or the per-section LLM returned
+ * NO_NEW_CONTENT. Collects all items from all failed groups. The label is the
+ * locale's localized `new_information` value, so non-English vaults emit a
+ * canonical header on first write.
  */
 export function makeFallbackNewInfoSection(
   failedGroups: string[],

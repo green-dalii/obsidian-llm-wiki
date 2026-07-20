@@ -98,6 +98,17 @@ describe('classifyHeader (canonical-or-foreign, tolerant of a parenthetical suff
   it('does not treat nested parentheses as a suffix', () => {
     expect(classifyHeader('Beschreibung (a (b))', DE)).toBeNull();
   });
+
+  it('[fix] treats whitespace inside the suffix as the same identity', () => {
+    // The page carries ' (Silent Inflammation)' but the model re-emits
+    // ' ( Silent Inflammation )' — both must collapse to one section,
+    // otherwise the rewrite is read as dropping the old block and a duplicate
+    // gets appended on the next merge.
+    const a = classifyHeader('Neue Informationen (Silent Inflammation)', DE);
+    const b = classifyHeader('Neue Informationen ( Silent Inflammation )', DE);
+    expect(a).toEqual(b);
+    expect(a?.suffix).toBe('Silent Inflammation');
+  });
 });
 
 describe('preserveExistingSections (re-assert schema sections the LLM dropped)', () => {
@@ -109,7 +120,7 @@ describe('preserveExistingSections (re-assert schema sections the LLM dropped)',
   it('restores a canonical section the rewrite dropped entirely', () => {
     const oldBody = '## Beschreibung\nalter Text\n\n## Verwandte Konzepte\n- [[concepts/X|X]]';
     const newBody = '## Verwandte Konzepte\n- [[concepts/X|X]]';
-    const out = preserveExistingSections(oldBody, newBody, DE);
+    const out = preserveExistingSections(oldBody, newBody, DE, 'Erwähnungen in der Quelle');
     expect(out).toContain('## Beschreibung');
     expect(out).toContain('alter Text');
   });
@@ -117,7 +128,7 @@ describe('preserveExistingSections (re-assert schema sections the LLM dropped)',
   it('leaves a section the model rewrote untouched — content is the model\'s call', () => {
     const oldBody = '## Beschreibung\nalter Text';
     const newBody = '## Beschreibung\nneuer, besserer Text';
-    const out = preserveExistingSections(oldBody, newBody, DE);
+    const out = preserveExistingSections(oldBody, newBody, DE, 'Erwähnungen in der Quelle');
     expect(out).toBe(newBody);
     expect(out).not.toContain('alter Text');
   });
@@ -137,7 +148,7 @@ describe('preserveExistingSections (re-assert schema sections the LLM dropped)',
       '## Beschreibung', 'Text',
       '', '## Neue Informationen (Quercetin)', '- neuer Befund',
     ].join('\n');
-    const out = preserveExistingSections(oldBody, newBody, DE);
+    const out = preserveExistingSections(oldBody, newBody, DE, 'Erwähnungen in der Quelle');
     expect(out).toContain('## Neue Informationen (Quercetin)');
     expect(out).toContain('## Neue Informationen (Silent Inflammation)');
     expect(out).toContain('- alter Befund');
@@ -145,19 +156,19 @@ describe('preserveExistingSections (re-assert schema sections the LLM dropped)',
 
   it('keeps an identical suffixed section exactly once', () => {
     const body = '## Neue Informationen (SIBO)\n- Befund';
-    expect(preserveExistingSections(body, body, DE)).toBe(body);
+    expect(preserveExistingSections(body, body, DE, 'Erwähnungen in der Quelle')).toBe(body);
   });
 
   it('does not restore a section that carried no content', () => {
     const oldBody = '## Beschreibung\n\n## Verwandte Konzepte\n- [[concepts/X|X]]';
     const newBody = '## Verwandte Konzepte\n- [[concepts/X|X]]';
-    expect(preserveExistingSections(oldBody, newBody, DE)).toBe(newBody);
+    expect(preserveExistingSections(oldBody, newBody, DE, 'Erwähnungen in der Quelle')).toBe(newBody);
   });
 
   it('never restores a foreign section — only the schema is re-asserted', () => {
     const oldBody = '## Active Tag Vocabulary\n- leak\n\n## Beschreibung\nText';
     const newBody = '## Beschreibung\nText';
-    const out = preserveExistingSections(oldBody, newBody, DE);
+    const out = preserveExistingSections(oldBody, newBody, DE, 'Erwähnungen in der Quelle');
     expect(out).toBe(newBody);
     expect(out).not.toContain('Active Tag Vocabulary');
   });
@@ -165,11 +176,44 @@ describe('preserveExistingSections (re-assert schema sections the LLM dropped)',
   it('ignores the lead paragraph and H1 — only `##` sections are candidates', () => {
     const oldBody = '# Titel\n\nEinleitung\n\n## Beschreibung\nText';
     const newBody = '## Beschreibung\nText';
-    expect(preserveExistingSections(oldBody, newBody, DE)).toBe(newBody);
+    expect(preserveExistingSections(oldBody, newBody, DE, 'Erwähnungen in der Quelle')).toBe(newBody);
   });
 
   it('is a no-op when the rewrite kept everything', () => {
     const body = '## Beschreibung\nText\n\n## Verwandte Konzepte\n- [[concepts/X|X]]';
-    expect(preserveExistingSections(body, body, DE)).toBe(body);
+    expect(preserveExistingSections(body, body, DE, 'Erwähnungen in der Quelle')).toBe(body);
+  });
+
+  it('strips the Mentions section from the existing body internally', () => {
+    // The Mentions label is passed in by the caller (so it lives in the locale
+    // files, not a hardcoded English literal) and the helper removes it before
+    // diffing. assembleFinalContent re-attaches it programmatically.
+    const oldBody = [
+      '## Beschreibung', 'Text',
+      '', '## Erwähnungen in der Quelle', '- quote 1', '- quote 2',
+      '', '## Verwandte Konzepte', '- [[concepts/X|X]]',
+    ].join('\n');
+    const newBody = '## Verwandte Konzepte\n- [[concepts/X|X]]';
+    const out = preserveExistingSections(oldBody, newBody, DE, 'Erwähnungen in der Quelle');
+    // Beschreibung restored, Mentions NOT (handled by assembleFinalContent).
+    expect(out).toContain('## Beschreibung');
+    expect(out).not.toContain('## Erwähnungen in der Quelle');
+    expect(out).not.toContain('- quote 1');
+  });
+
+  it('also strips a hallucinated Mentions section from the rewrite', () => {
+    // The LLM sometimes hallucinates a Mentions header back even though the
+    // prompt body was mentions-stripped. Without stripping the rewrite too,
+    // the section would collide with the programmatic injection below and the
+    // user would see TWO Mentions sections in the output.
+    const oldBody = '## Beschreibung\nText';
+    const newBody = [
+      '## Beschreibung', 'Text',
+      '', '## Erwähnungen in der Quelle', '- lost quote',
+    ].join('\n');
+    const out = preserveExistingSections(oldBody, newBody, DE, 'Erwähnungen in der Quelle');
+    // Hallucinated Mentions gone — assembleFinalContent will add the real one.
+    expect(out).not.toContain('## Erwähnungen in der Quelle');
+    expect(out).not.toContain('- lost quote');
   });
 });
