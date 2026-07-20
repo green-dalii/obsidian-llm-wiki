@@ -1,5 +1,6 @@
 // Section-header canonicalizer — deterministic repair of LLM-garbled section headers.
 // Pure, no LLM, O(lines × labels).
+import { stripMentionsSection } from './mentions-parser';
 //
 // The generation/merge prompts hand the model the exact section labels
 // (`## {{section_...}}` resolved via applySectionLabels) and it is expected to copy
@@ -113,12 +114,11 @@ export function classifyHeader(
   const m = /^(.*?)\s*\(([^()]*)\)\s*$/.exec(header);
   if (!m) return null;
   const base = snapHeaderToCanonical(m[1].trim(), canonicalLabels);
-  return base === null ? null : { label: base, suffix: m[2] };
-}
-
-/** Stable key for a section identity — canonical label plus suffix. */
-export function sectionIdentityKey(id: SectionIdentity): string {
-  return id.suffix === null ? id.label : `${id.label} (${id.suffix})`;
+  if (base === null) return null;
+  // Trim the suffix so whitespace inside the parens does not split what is
+  // logically one section: the model may emit " ( Silent Inflammation )" and
+  // the page may carry " (Silent Inflammation)" — same identity either way.
+  return { label: base, suffix: m[2].trim() };
 }
 
 export function canonicalizeSectionHeaders(content: string, canonicalLabels: string[]): string {
@@ -157,7 +157,7 @@ function canonicalSectionBlocks(
     if (m) {
       flush();
       const id = classifyHeader(m[1], canonicalLabels);
-      key = id ? sectionIdentityKey(id) : null;
+      key = id ? (id.suffix === null ? id.label : `${id.label} (${id.suffix})`) : null;
       lines = key ? [line] : [];
       continue;
     }
@@ -178,8 +178,8 @@ function canonicalSectionBlocks(
  * for good.
  *
  * The schema, not the model, decides which sections must exist, so restore any
- * canonical section that carried content in `oldBody` and is wholly absent from
- * `newBody`. Conservative by construction: it only ever APPENDS a dropped
+ * canonical section that carried content in `existingBody` and is wholly absent
+ * from `rewrite`. Conservative by construction: it only ever APPENDS a dropped
  * section back (at the end, in first-seen order) — it never edits or removes
  * what the model produced, so a section the model legitimately rewrote (its
  * identity still present, however much its content changed) is left untouched.
@@ -190,17 +190,22 @@ function canonicalSectionBlocks(
  * one section that repeats: emitting `## New Information (Source B)` must not
  * count as keeping `## New Information (Source A)`.
  *
- * `oldBody` must be mentions-stripped so the Mentions label is never a candidate
- * here — that section is re-attached separately by assembleFinalContent. Pure,
- * O(lines × labels).
+ * The Mentions section is stripped from BOTH sides before diffing: from the
+ * existing body so it is never a candidate here, and from the rewrite too,
+ * because the model occasionally hallucinates a Mentions header back even
+ * though the prompt body was mentions-stripped. assembleFinalContent re-attaches
+ * it programmatically below — once, at the right anchor. Pure, O(lines × labels).
  */
 export function preserveExistingSections(
-  oldBody: string,
-  newBody: string,
+  existingBody: string,
+  rewrite: string,
   canonicalLabels: string[],
+  mentionsLabel: string,
 ): string {
-  const oldBlocks = canonicalSectionBlocks(oldBody, canonicalLabels);
-  const newBlocks = canonicalSectionBlocks(newBody, canonicalLabels);
+  const strippedExisting = stripMentionsSection(existingBody, mentionsLabel);
+  const strippedRewrite = stripMentionsSection(rewrite, mentionsLabel);
+  const oldBlocks = canonicalSectionBlocks(strippedExisting, canonicalLabels);
+  const newBlocks = canonicalSectionBlocks(strippedRewrite, canonicalLabels);
 
   const restored: string[] = [];
   for (const [key, block] of oldBlocks) {
@@ -211,6 +216,6 @@ export function preserveExistingSections(
       restored.push(block.join('\n').replace(/\s+$/, ''));
     }
   }
-  if (restored.length === 0) return newBody;
-  return `${newBody.replace(/\s+$/, '')}\n\n${restored.join('\n\n')}\n`;
+  if (restored.length === 0) return strippedRewrite;
+  return `${strippedRewrite.replace(/\s+$/, '')}\n\n${restored.join('\n\n')}\n`;
 }

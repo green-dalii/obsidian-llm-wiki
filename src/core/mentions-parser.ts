@@ -158,16 +158,6 @@ export function parseMentionsSection(body: string, sectionLabel: string): Parsed
   // group they sit under.
   let legacyGroupPath: string | null = null;
 
-  const push = (quote: string, translation: string | undefined, sourcePath: string) => {
-    mentions.push({
-      quote,
-      ...(translation && translation.trim() ? { translation: translation.trim() } : {}),
-      source_path: sourcePath,
-      source_slug: '',
-      extracted_at: '',
-    });
-  };
-
   for (const rawLine of content.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
@@ -175,7 +165,13 @@ export function parseMentionsSection(body: string, sectionLabel: string): Parsed
     const flat = BULLET_RE.exec(line);
     if (flat) {
       const [, quote, translation, leftPath] = flat;
-      push(quote, translation, leftPath);
+      mentions.push({
+        quote,
+        ...(translation && translation.trim() ? { translation: translation.trim() } : {}),
+        source_path: leftPath,
+        source_slug: '',
+        extracted_at: '',
+      });
       continue;
     }
 
@@ -191,7 +187,13 @@ export function parseMentionsSection(body: string, sectionLabel: string): Parsed
     const legacyQuote = LEGACY_QUOTE_RE.exec(line);
     if (legacyQuote && legacyGroupPath) {
       const [, quote, translation] = legacyQuote;
-      push(quote, translation, legacyGroupPath);
+      mentions.push({
+        quote,
+        ...(translation && translation.trim() ? { translation: translation.trim() } : {}),
+        source_path: legacyGroupPath,
+        source_slug: '',
+        extracted_at: '',
+      });
       continue;
     }
 
