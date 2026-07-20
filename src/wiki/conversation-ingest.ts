@@ -176,6 +176,14 @@ CRITICAL RULES:
       throw new Error('Conversation analysis JSON parsing failed');
     }
 
+    // The page lists are bookkeeping we own, not content the model reports: the
+    // prompt asks for them as empty arrays and we push to them as pages are
+    // written. Assert them here rather than trusting the reply to have included
+    // them — a model that omits `updated_pages` must not turn into a TypeError
+    // several stages later, once pages have already been written to disk.
+    parsed.created_pages = parsed.created_pages ?? [];
+    parsed.updated_pages = parsed.updated_pages ?? [];
+
     console.debug('[LLM分析结果]', parsed);
     console.debug('[生成的标题]', parsed.source_title);
 
@@ -240,7 +248,8 @@ CRITICAL RULES:
       try {
         const entityResult = await this.pageFactory.createOrUpdateEntityPage(entity, parsed, { path: summaryPath, basename: semanticSlug }, convPlannedPaths);
         if (entityResult.path) {
-          parsed.created_pages.push(entityResult.path);
+          (entityResult.created ? parsed.created_pages : parsed.updated_pages)
+            .push(entityResult.path);
         }
         if (entityResult.collision) {
           collisions.push(entityResult.collision);
@@ -258,7 +267,8 @@ CRITICAL RULES:
       try {
         const conceptResult = await this.pageFactory.createOrUpdateConceptPage(concept, parsed, { path: summaryPath, basename: semanticSlug }, convPlannedPaths);
         if (conceptResult.path) {
-          parsed.created_pages.push(conceptResult.path);
+          (conceptResult.created ? parsed.created_pages : parsed.updated_pages)
+            .push(conceptResult.path);
         }
         if (conceptResult.collision) {
           collisions.push(conceptResult.collision);

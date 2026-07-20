@@ -212,3 +212,80 @@ describe('createNewPage — wraps errors with entity context', () => {
     ).rejects.toThrow(/Failed to create entity page "Karpathy"/);
   });
 });
+// ─── #290: the result reports create-vs-update ───────────────────────────
+//
+// The ingest log listed every written page under "Created pages", including
+// pages that already existed and were merged into. That hid the risky half of
+// an ingest: merges are where existing content can be lost, creations have
+// nothing to lose. The router already performs the pre-write existence check
+// that decides create-vs-merge, so it reports what actually happened rather
+// than what the caller intended.
+
+describe('#290 — PageCreationResult.created reflects the pre-write existence check', () => {
+  it('reports created:true when the page did not exist', async () => {
+    const ctx = makeCtx({ llmResponse: '## Description\nNew entity.' });
+    const result = await createOrUpdateEntityPage(
+      ctx,
+      createMockEntity({ name: 'NewEntity' }),
+      EMPTY_ANALYSIS,
+      { path: 'notes/article.md', basename: 'article.md' },
+    );
+    expect(result.created).toBe(true);
+  });
+
+  it('reports created:false when merging into a page that already existed', async () => {
+    const ctx = makeCtx({
+      files: { 'wiki/entities/X.md': EXISTING_FM },
+      llmResponse: '## Description\nMerged body.',
+    });
+    const result = await createOrUpdateEntityPage(
+      ctx,
+      createMockEntity({ name: 'X' }),
+      EMPTY_ANALYSIS,
+      { path: 'notes/article.md', basename: 'article.md' },
+    );
+    expect(result.path).toBe('wiki/entities/X.md');
+    expect(result.created).toBe(false);
+  });
+
+  it('reports created:false when appending to an existing reviewed page', async () => {
+    const reviewedContent = `---\ncreated: 2026-07-10\nupdated: 2026-07-10\nsources:\n  - "[[existing]]"\ntags: []\nreviewed: true\n---\n\n## Curated\nLocked.\n`;
+    const ctx = makeCtx({
+      files: { 'wiki/entities/X.md': reviewedContent },
+      llmResponse: '## New\nLLM body.',
+    });
+    const result = await createOrUpdateEntityPage(
+      ctx,
+      createMockEntity({ name: 'X' }),
+      EMPTY_ANALYSIS,
+      { path: 'notes/article.md', basename: 'article.md' },
+    );
+    expect(result.created).toBe(false);
+  });
+
+  it('reports created:false for the empty-name guard, which writes nothing', async () => {
+    const ctx = makeCtx({});
+    const result = await createOrUpdateEntityPage(
+      ctx,
+      createMockEntity({ name: '   ' }),
+      EMPTY_ANALYSIS,
+      { path: 'notes/article.md', basename: 'article.md' },
+    );
+    expect(result.path).toBeNull();
+    expect(result.created).toBe(false);
+  });
+
+  it('reports created:false for a concept merged into an existing page', async () => {
+    const ctx = makeCtx({
+      files: { 'wiki/concepts/Y.md': EXISTING_FM },
+      llmResponse: '## Description\nMerged concept.',
+    });
+    const result = await createOrUpdateConceptPage(
+      ctx,
+      createMockConcept({ name: 'Y' }),
+      EMPTY_ANALYSIS,
+      { path: 'notes/article.md', basename: 'article.md' },
+    );
+    expect(result.created).toBe(false);
+  });
+});
