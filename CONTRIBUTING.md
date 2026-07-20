@@ -46,7 +46,9 @@ pnpm css-lint      # styles.css contains no !important declarations
 - **llmReady guard**: New core features must call `requireLLMReady()` at entry points. The plugin requires a successful connection test before core features are available.
 - **i18n**: UI strings use the TEXTS system. English strings in `src/texts/en.ts` are the canonical source; all 9 other languages must be updated in lockstep.
 
-> **v1.25.1 Hotfix note (2026-07-19, planned):** After Obsidian bot audit + 3rd-party audit, v1.25.1 Hotfix will (1) extract `wiki-engine/graph-cache.ts` + `wiki-engine/index-generation.ts` + `wiki-engine/log-writer.ts` from `wiki-engine.ts` (ingest orchestration stays put); (2) split `ui/settings.ts` 1439 LOC into `ui/settings/sections/{language,status,llm-provider,llm-advanced,wiki-config,auto-maintenance}.ts` + `ui/settings/helpers/{renderModelField,commitTempSettings,cascade}.ts`; (3) introduce `core/disk-cache.ts` generic abstraction reused by `pdf-cache.ts` and future lint dedup cache; (4) implement Obsidian 1.13.0+ `getSettingDefinitions()` declarative settings API for Settings search integration.
+> **v1.25.1 PATCH release notes (2026-07-20):** Single PATCH shipped (8 audit findings + 3 triage fixes folded in). Phase A Obsidian bot 0.4.1 lint upgrade deferred to v1.26.x (Path C per `feedback_eslint_plugin_obsidianmd_0_4_skip`); controller-level parallel dedup + LLM health batches remain v1.26.0 work. PR #304 (DocTpoint updatedPages split) deferred to **v1.25.2 PATCH** — needs DocTpoint rebase onto Phase C-PR1 wiki-engine refactor's `runBatchedWithRetry<T>` closure.
+
+> **Shipped in v1.25.1 (2026-07-20):** (1) `wiki-engine.ts` 1799 → 620 LOC via `engine-internals/{graph-cache,index-generator,log-writer,page-batch-runner,dedup-pages}.ts`; (2) `ui/settings.ts` 1439 → 357 LOC via `ui/settings-sections/{language,status,provider,model,advanced,test-connection,wiki-config,auto-maintain}-section.ts`; (3) `main.ts` 1304 → 300 LOC via `main-commands/{command-registry,connection-commands,ingest-commands,pdf-cache-commands,query-lint-commands,schema-commands}.ts` (mixin pattern, PR #313); (4) `core/disk-cache.ts` 412 LOC generic abstraction (TTL + size cap + LRU-by-mtime eviction + ledger optimization); (5) `core/section-header-canonicalizer.ts` new module housing `classifyHeader` + `preserveExistingSections` (4-arg signature) + `canonicalizeSectionHeaders` + `snapHeaderToCanonical`; (6) bug fix #288 (silent Mentions loss on Related re-ingest) — Related path now mirrors merge path through canonicalize + correct + preserveExistingSections; (7) LM Studio no-key ingest (#272) via `core/local-no-key-provider.ts`.
 
 > **Historical release notes** (v1.23.0+llm-client removal, v1.24.0 splits, v1.24.1 Bedrock + PPR + page-factory, v1.25.0 PDF Ingest): see [CHANGELOG.md](../CHANGELOG.md). Keep a Changelog format is the canonical record; this file documents the project structure as it stands.
 
@@ -120,10 +122,10 @@ src/
 │   ├── pdf-converter.ts        # PDF→Markdown via LLM FilePart + OCR-style prompt (v1.25.0)
 │   └── pdf-metadata.ts         # Pure-function PDF Info dict parser (title/author/pageCount, v1.25.0)
 ├── wiki/                # Wiki engine modules
-│   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log) — v1.25.1: graph-cache / index-generation / log-writer will be extracted
-│   ├── graph-cache.ts   # (v1.25.1, planned) `_cachedGraph` + invalidate logic
-│   ├── index-generation.ts # (v1.25.1, planned) generateFlatIndex + helpers
-│   ├── log-writer.ts    # (v1.25.1, planned) updateLog + formatters
+│   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log) — v1.25.1: 4 internal modules extracted
+│   ├── graph-cache.ts   # (v1.25.1) `_cachedGraph` + invalidate logic
+│   ├── index-generation.ts # (v1.25.1) generateFlatIndex + helpers
+│   ├── log-writer.ts    # (v1.25.1) updateLog + formatters
 │   ├── query-engine/    # Conversational query with streaming + thinking UI
 │   │   ├── index.ts                           # re-export shim
 │   │   ├── types.ts + state.ts                # type declarations + InternalView
@@ -183,7 +185,7 @@ src/
 │   ├── auto-maintain.ts # File watcher, periodic lint, startup quick fixes
 │   └── analyze.ts       # Schema-analyze with cancel wiring
 ├── ui/                  # Settings + history-modal/ (14-file split, v1.24.0) + modals/ (7-file split, v1.24.0)
-│   ├── settings.ts      # LLMWikiSettingTab + tempSettings (v1.25.1 Hotfix: split into sections/ + helpers/)
+│   ├── settings.ts      # LLMWikiSettingTab + tempSettings (v1.25.1: split into 8 settings-sections/ + helpers)
 │   ├── settings-helpers.ts        # Pure helpers (commitTempSettings logic, classification, etc.)
 │   ├── settings-per-task-helpers.ts # Per-task model dropdown rendering (v1.24.0)
 │   ├── history-modal/  # 13 files (v1.24.0 split)
@@ -193,7 +195,7 @@ src/
 │   ├── tag-chip-input.ts
 │   └── schema-diff-modal.ts
 ├── texts/               # i18n (10 languages: EN/ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT)
-└── __tests__/           # Unit tests (vitest, 2182 tests across 165 files; v1.25.1 target ~2250)
+└── __tests__/           # Unit tests (vitest, 2274 tests across 173 files; v1.25.1 PATCH 2026-07-20, +92 from v1.25.0)
 ```
 
 ## Internationalization
