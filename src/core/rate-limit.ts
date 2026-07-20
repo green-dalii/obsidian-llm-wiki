@@ -1,4 +1,5 @@
 import { getText } from './i18n';
+import { MAX_BATCH_DELAY_MS } from '../constants';
 
 export interface RateLimitInfo {
   count: number;
@@ -24,7 +25,7 @@ export function detectRateLimitFailures(
     suggestedConcurrency: Math.max(1, currentConcurrency - 1),
     suggestedDelay: currentBatchDelay < 100
       ? 500
-      : Math.min(2000, Math.round(currentBatchDelay * 2))
+      : Math.min(MAX_BATCH_DELAY_MS, Math.round(currentBatchDelay * 2))
   };
 }
 
