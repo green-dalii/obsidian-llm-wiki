@@ -9,7 +9,7 @@
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 
 - Eight silent-loss bug fixes on the Related-page + Lint + ingest paths (#288 closes #287 silent Mentions, #302 closes #292 schema-section drop, #303 closes #289 legacy Mentions parse, #272 LM Studio no-key).
-- Three big-file splits: `wiki-engine.ts` 1799 → 620 (Phase C-PR1), `settings.ts` 1439 → 357 (Phase C-PR2), `main.ts` 1304 → 300 via mixin pattern (Phase C-PR3).
+- Three big-file splits: `wiki-engine.ts` 1799 → 1617 (Phase C-PR1, 657 LOC of helpers → `engine-internals/`), `settings.ts` 1439 → 357 (Phase C-PR2, 1183 LOC across 8 settings-sections), `main.ts` 1304 → 300 via mixin pattern (Phase C-PR3, 915 LOC across 6 main-commands).
 - `DiskCache<T>` extracted from `PdfConversionCache` with bounded growth (100MB / 1000 / 10MB caps + LRU-by-mtime eviction + ledger optimization).
 - Node 24 + AI-SDK patches pinned via `.nvmrc` + `.npmrc`; dual-direction lockfile regen from single `node_modules` snapshot fixes Obsidian CI build-vs-`main.js` hash drift.
 

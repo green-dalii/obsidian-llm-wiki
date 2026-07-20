@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.25.1] - 2026-07-20
 
-**Theme:** Eight silent-loss bug fixes on the Related-page + Lint + ingest paths, three big-file splits (`wiki-engine.ts` 1799 → 620, `settings.ts` 1439 → 357, `main.ts` 1304 → 300), one build-verification root cause (lockfile drift), DiskCache<T> extraction with bounded growth. 2274 tests passing. Recommended upgrade for everyone on v1.25.0.
+**Theme:** Eight silent-loss bug fixes on the Related-page + Lint + ingest paths, three big-file splits (`wiki-engine.ts` 1799 → 1619 with 657 LOC of pure helpers extracted into `engine-internals/`, `settings.ts` 1439 → 370 with 8 section modules totaling 1183 LOC, `main.ts` 1304 → 300 via mixin pattern), one build-verification root cause (lockfile drift), DiskCache<T> extraction with bounded growth. 2274 tests passing. Recommended upgrade for everyone on v1.25.0.
 
 ### Added
 
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Big-file splits (Phase C, ~PR #309 / #311 / #313).** Three of the project's largest files were broken into focused modules:
-  - `src/wiki/wiki-engine.ts` 1799 → 620 LOC, with `engine-internals/{graph-cache,index-generator,log-writer,page-batch-runner,dedup-pages}.ts` extracted as pure helpers + a `runBatchedWithRetry<T>` retry helper. Page-batch-runner extracted as a generic helper (4 new tests + 314 LOC of new tests covering dedup sequencing, retry-on-timeout, and progress notification).
+  - `src/wiki/wiki-engine.ts` 1799 → 1619 LOC (runBatchedWithRetry + 4 helpers extracted into `engine-internals/` totaling 657 LOC; the heavy `ingestSource` / `ingestPdfSource` orchestration stayed put). Page-batch-runner extracted as a generic helper (4 new tests + 314 LOC of new tests covering dedup sequencing, retry-on-timeout, and progress notification).
   - `src/ui/settings.ts` 1439 → 357 LOC, with 8 section renderers in `src/ui/settings-sections/{language,status,provider,model,advanced,test-connection,wiki-config,auto-maintain}-section.ts`. Settings tab now composes a renderer for each section.
   - `src/main.ts` 1304 → 300 LOC, with 6 `main-commands/` modules (command-registry, connection-commands, ingest-commands, pdf-cache-commands, query-lint-commands, schema-commands) wired together via the existing `registerCommand` API. Mixin pattern (PR #313): `Object.assign(prototype)` + interface merge preserves the `plugin.method()` test surface; cross-mixin refs use `?:` + `!`; circular dep resolved via `core/create-plugin-llm-client.ts`.
 - **`related-page` no longer persists raw LLM output (PR #288, closes #287).** The Related-page path now mirrors the merge path through `canonicalizeSectionHeaders` → `correctRelatedLinkPrefixes` → `preserveExistingSections`. Pre-fix: only the canonicalizer ran, and the post-processed body was discarded — so re-ingest could silently destroy Mentions content if the LLM didn't re-emit it.
