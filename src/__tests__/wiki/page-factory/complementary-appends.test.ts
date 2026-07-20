@@ -121,7 +121,7 @@ describe('spliceAfterSection — separator choice (#185 follow-up)', () => {
 
 describe('makeFallbackNewInfoSection', () => {
   it('returns empty string when no failed groups', () => {
-    expect(makeFallbackNewInfoSection([], [], 'article')).toBe('');
+    expect(makeFallbackNewInfoSection([], [], 'article', 'New Information')).toBe('');
   });
 
   it('emits a New Information section with only the failed items', () => {
@@ -130,7 +130,7 @@ describe('makeFallbackNewInfoSection', () => {
       { kind: 'complementary', content: 'b', target_section: 'B' },
       { kind: 'complementary', content: 'c', target_section: 'C' },
     ];
-    const out = makeFallbackNewInfoSection(['A', 'C'], items, 'article');
+    const out = makeFallbackNewInfoSection(['A', 'C'], items, 'article', 'New Information');
     expect(out).toContain('## New Information (article)');
     expect(out).toContain('- a');
     expect(out).toContain('- c');
@@ -138,7 +138,7 @@ describe('makeFallbackNewInfoSection', () => {
   });
 
   it('uses a placeholder body when allItems has no matching items', () => {
-    const out = makeFallbackNewInfoSection(['X'], [], 'article');
+    const out = makeFallbackNewInfoSection(['X'], [], 'article', 'New Information');
     expect(out).toContain('- New information from article');
   });
 });

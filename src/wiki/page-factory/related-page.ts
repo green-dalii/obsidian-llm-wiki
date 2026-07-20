@@ -21,7 +21,10 @@ import { resolveModelForTask } from '../../core/model-resolver';
 import { cleanMarkdownResponse } from '../../core/markdown';
 import { mergeFrontmatter, parseFrontmatter } from '../../core/frontmatter';
 import { stripMentionsSection } from '../../core/mentions-parser';
-import { canonicalizeSectionHeaders } from '../../core/section-header-canonicalizer';
+import {
+  canonicalizeSectionHeaders,
+  preserveExistingSections,
+} from '../../core/section-header-canonicalizer';
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { getSectionLabels } from '../system-prompts';
 import { getExistingWikiPages } from '../lint/get-existing-pages';
@@ -144,6 +147,17 @@ export async function updateRelatedPage(
     ctx.settings.slugCase === 'preserve',
   );
 
+  // Completeness is the schema's call, not the model's: restore any canonical
+  // section that carried content before the rewrite and is wholly absent from
+  // it. `promptBody` is the mentions-stripped body the model actually saw, so
+  // the Mentions section is never a candidate here — assembleFinalContent
+  // re-attaches it below.
+  const guardedBody = preserveExistingSections(
+    promptBody,
+    correctedBody,
+    Object.values(labels),
+  );
+
   // 2. Assemble: programmatic frontmatter + LLM body + Mentions section.
   // Issue #267 established a non-lossy re-ingest on the merge path, but this
   // path never had it: the Mentions section lives in the body handed to the LLM,
@@ -154,7 +168,7 @@ export async function updateRelatedPage(
   // the accumulated mentions are recovered from the unstripped page.
   await ctx.createOrUpdateFile(
     page.path,
-    await assembleFinalContent(ctx, frontmatter, correctedBody, newInfo, sourceFile, existingBody),
+    await assembleFinalContent(ctx, frontmatter, guardedBody, newInfo, sourceFile, existingBody),
   );
   return true;
 }
