@@ -189,6 +189,21 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 
 **見直すべき設定：** Force PDF Support（Settings → LLM Configuration → Advanced、デフォルトオフ — 非 NATIVE プロバイダーのみ関連）、Write PDF Markdown to Vault（Settings → Wiki Configuration → Wiki Folder、デフォルトオフ — 任意のサイドカー）。
 
+### v1.25.1 — 2026-07-20 (PATCH)
+
+v1.25.0 上のホットフィックス版：8 件の LLM 出力と lint のサイレント消失修正、3 件の大型ファイル分割、1 件のビルド検証根本原因。v1.25.0 ユーザー全員にアップグレードを推奨します。
+
+- **🔕 Related ページパスのサイレントデータ消失を解消。** これまで、LLM が Related ページの本文を書き換える際に Mentions セクションを再出力しなかった場合、canonicalizer / related-link corrector / preserveExistingSections パイプラインは LLM の生レスポンスに対して動作していました（処理済み本文に対してではなく）。このため、再取り込みで蓄積された Mentions 内容が静かに破壊される可能性がありました。Related パスは merge パスと一致するようになりました：canonicalize → correct → preserveExistingSections。**アップグレードを強く推奨** — ソースごとの Mentions 蓄積と再取り込みに依存するすべてのノートが恩恵を受けます。
+- **🛡️ Schema セクションは書き換えで失われない。** LLM が我々のスキーマとずれるのは、書き込みを要求された部分だけになりました。ページに既に存在していた canonical セクションブロックは、LLM の書き換えがそれらを省略しても verbatim で復元されます。merge + related パスで共有される単一の `preserveExistingSections` ヘルパーに集約されました。
+- **🔗 旧 Mentions ページが自己回復可能。** pre-#244 のグループ化 mentions がパース段階で認識されるようになり、次回の取り込み時に旧ページが構造化形式に戻るようになりました — LLM はもはや重複した Mentions ブロックをハルシネーションしなくなります（プログラム注入が単一の真実の源）。
+- **🔌 LM Studio を API キーなしで取り込み可能。** ローカルのみの LM Studio（`http://localhost:1234/v1`）はプレースホルダーキーなしで取り込み可能に；非 LM-Studio プロバイダーは引き続き明示的な API キーを要求します（変更なし）。
+- **🐢 main.js の肥大化を抑制、lint 高速化。** 大型ファイル分割：`wiki-engine.ts` 1799 → より小さく（Phase C-PR1、4 内部モジュール）、`settings.ts` 1439 → より小さく（Phase C-PR2、8 セクションレンダラー）、`main.ts` 1304 → 300 LOC（Phase C-PR3、6 main-commands モジュール）。`DiskCache<T>` を抽出、有界成長（合計 100 MB / 1000 件 / 単一 10 MB 上限 + LRU-by-mtime エビクション）。
+- **🛠 ビルド検証の根本原因。** v1.25.0 の npm-registry 切替の真の原因はローカル `pnpm-lock.yaml` と CI `package-lock.json` のドリフトでした；両 lockfile は単一の `node_modules` スナップショットから再生成され、ローカルビルドと Obsidian CI ビルドの同一性を保証します。
+- **⚠ 進捗通知がエラー時に消える。** 単一ファイル取り込み（`ingestActiveFile`、`selectSourceToIngest`）は例外発生時に持続的な `Ingesting: <basename>` Notice を非表示にするようになり、失敗した取り込みが次回成功するまでステータスを残したままになることを防ぎます。
+- **🧪 2274 テスト合格。** v1.25.0 の 2182 から増加。新規モジュール：`DiskCache<T>`、`lint-fix-all-completion`、`page-batch-runner`、`graph-cache`、`index-generator`、`log-writer`、`section-header-canonicalizer`。
+
+**見直すべき設定：** なし — 本リリースはバグ修正 + リファクタのみ；新設定、新コマンド、新ロケールはありません。
+
 ## ✨ 特徴
 
 ### 📊 ナレッジ品質
@@ -197,7 +212,7 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 - **🏷️ 必須ページエイリアス** — 生成される各ページに最低1つのエイリアス（翻訳、略語、別名）が含まれ、言語をまたいだ重複検出が有効になります。
 - **🔄 重複検出とマージ** — セマンティック階層化により真の重複（言語間の翻訳、略語、表記ゆれ）を発見。LLMによる知的なマージが内容を統合し、エイリアスを保持します。
 - **🧩 スマート知識融合** — 複数ソースからの更新で冗長性なく新情報をマージ。矛盾は出典を伴って保持され、`reviewed: true` ページは上書きから保護されます。
-- **📏 コンテンツ切り詰め保護** — 最大8000トークン、自動停止理由検出、全プロバイダで2倍トークン再試行。
+- **📏 コンテンツ切り詰め保護** — API キー型およびローカル Provider では 8000 max_tokens、自動 stop_reason 検出、2倍トークンでの再試行を使用します。実験的な ChatGPT Plan（Codex OAuth）経路は Codex バックエンドの出力ポリシーに従い、クライアント側の max_output_tokens 上限を受け付けません。
 - **📝 原文引用の保持** — 元の言語で引用を保持し、オプションの翻訳で完全なトレーサビリティを確保。
 
 - **🎨 カスタマイズ可能なタグ語彙 (v1.18.0)。** 設定 → Wiki → タグ語彙モード → *カスタム* で、エンティティタイプ・概念タイプのタグリストを独自に定義できます（例：`Medical_Arzneimittel`、`法规`）。プラグインは抽出プロンプトとフロントマター検証の両方であなたの語彙を尊重します；既存の Lint 監査 (#85 v7) はアクティブな語彙から外れたタグを持つページを報告します。

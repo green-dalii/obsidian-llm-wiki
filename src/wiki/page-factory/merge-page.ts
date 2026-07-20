@@ -35,7 +35,10 @@ import {
 import { PROMPTS } from '../../prompts';
 import { resolveModelForTask } from '../../core/model-resolver';
 import { cleanMarkdownResponse } from '../../core/markdown';
-import { canonicalizeSectionHeaders } from '../../core/section-header-canonicalizer';
+import {
+  canonicalizeSectionHeaders,
+  preserveExistingSections,
+} from '../../core/section-header-canonicalizer';
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { mergeFrontmatter } from '../../core/frontmatter';
 import { injectMentionsSection } from '../../core/mentions-injector';
@@ -175,9 +178,18 @@ export async function mergePage(
       labels.related_concepts,
       ctx.settings.slugCase === 'preserve',
     );
+    // Completeness is the schema's call, not the model's: restore any canonical
+    // section that carried content before the rewrite and is wholly absent from
+    // it. The Mentions section is re-attached by assembleFinalContent below.
+    const guardedBody = preserveExistingSections(
+      existingBody,
+      correctedBody,
+      Object.values(labels),
+      labels.mentions_in_source,
+    );
     await ctx.createOrUpdateFile(
       path,
-      await assembleFinalContent(ctx, frontmatter, correctedBody, info, sourceFile, existingBody),
+      await assembleFinalContent(ctx, frontmatter, guardedBody, info, sourceFile, existingBody),
     );
     return path;
   } catch (error) {

@@ -190,6 +190,21 @@ Vier Schwerpunkte: Cache-only-PDF-Ingest, Lokalmodell-Empfehlungen, Prompt-Zentr
 
 **Zu prüfende Einstellungen:** Force PDF Support (Settings → LLM Configuration → Advanced, Standard aus — nur für Nicht-NATIVE-Provider relevant), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, Standard aus — optionaler Sidecar).
 
+### v1.25.1 — 2026-07-20 (PATCH)
+
+Hotfix-Release über v1.25.0: acht Behebungen für stillen Datenverlust bei LLM-Ausgaben und Lint, drei große Datei-Splits sowie eine eigentliche Ursache für die Build-Verifikation. Empfohlenes Upgrade für alle v1.25.0-Nutzer.
+
+- **🔕 Kein stiller Datenverlust auf dem Related-Page-Pfad.** Wenn das LLM den Body einer Related-Seite umgeschrieben hat, ohne den Mentions-Abschnitt erneut auszugeben, liefen Canonicalizer / Related-Link-Corrector / `preserveExistingSections` bisher auf der rohen LLM-Antwort — nicht auf dem nachverarbeiteten Body — sodass beim Re-Ingest akkumulierte Mentions still zerstört werden konnten. Der Related-Pfad spiegelt nun den Merge-Pfad: `canonicalize → correct → preserveExistingSections`. **Upgrade stark empfohlen** — alle Notizen, die auf Quellen-akkumulierende Mentions beim Re-Ingest angewiesen sind, profitieren.
+- **🛡️ Schema-Abschnitte gehen bei Umschreibungen nicht verloren.** Das LLM weicht vom Schema nur in den Teilen ab, zu denen es aufgefordert wurde; kanonische Abschnittsblöcke, die auf der Seite bereits existierten, werden verbatim wiederhergestellt — auch wenn das LLM sie bei der Umschreibung weglässt. In einem einzigen `preserveExistingSections`-Helper zusammengefasst, der von Merge- und Related-Pfad gemeinsam genutzt wird.
+- **🔗 Legacy-Mentions-Seiten können heilen.** Vor-#244-gruppierte Mentions werden nun beim Parsen erkannt, sodass Legacy-Seiten beim nächsten Ingest in die strukturierte Form zurückfinden — und das LLM halluziniert keinen doppelten Mentions-Block mehr (programmatische Injektion ist die einzige Wahrheitsquelle).
+- **🔌 LM-Studio-Ingest ohne API-Key.** Reines lokales LM Studio (`http://localhost:1234/v1`) ingestet nun ohne Platzhalter-Key; Nicht-LM-Studio-Provider verlangen weiterhin einen expliziten API-Key (unverändert).
+- **🐢 Weniger `main.js`-Bloat, schnellerer Lint.** Große Dateien aufgeteilt: `wiki-engine.ts` 1799 → kleiner (Phase C-PR1, 4 interne Module), `settings.ts` 1439 → kleiner (Phase C-PR2, 8 Sektion-Renderer), `main.ts` 1304 → 300 LOC (Phase C-PR3, 6 Main-Commands-Module). `DiskCache<T>` extrahiert mit begrenztem Wachstum (100 MB / 1000 Einträge / 10 MB Einzel-Limit + LRU-by-mtime-Eviction).
+- **🛠 Eigentliche Ursache der Build-Verifikation.** Die wahre Ursache für v1.25.0s npm-Registry-Wechsel war Drift zwischen lokalem `pnpm-lock.yaml` und CI-`package-lock.json`; beide Lockfiles werden nun aus einem einzigen `node_modules`-Snapshot regeneriert, sodass lokaler Build und Obsidian-CI-Build identisch sind.
+- **⚠ Fortschritts-Notice wird bei Fehlern ausgeblendet.** Einzeldatei-Ingest (`ingestActiveFile`, `selectSourceToIngest`) blendet die persistente `Ingesting: <basename>`-Notice bei einer Exception aus, sodass fehlgeschlagene Ingests den Spinner nicht bis zum nächsten erfolgreichen Ingest sichtbar lassen.
+- **🧪 2274 Tests bestehen.** Gestiegen von 2182 in v1.25.0 dank der neuen Module `DiskCache<T>`, `lint-fix-all-completion`, `page-batch-runner`, `graph-cache`, `index-generator`, `log-writer`, `section-header-canonicalizer`.
+
+**Zu prüfende Einstellungen:** keine — diese Version ist nur Fehlerbehebung + Refactor; keine neuen Einstellungen, keine neuen Befehle, keine neuen Locales.
+
 ## ✨ Funktionen
 
 ### 📊 Knowledge Quality
@@ -198,7 +213,7 @@ Vier Schwerpunkte: Cache-only-PDF-Ingest, Lokalmodell-Empfehlungen, Prompt-Zentr
 - **🏷️ Mandatory Page Aliases** — Jede generierte Page enthält mindestens einen Alias (Übersetzung, Akronym, alternativer Name); ermöglicht Cross-Language Duplikat-Detection
 - **🔄 Duplicate Detection & Merge** — Semantic Tiering erfasst echte Duplikate (Cross-Language-Übersetzungen, Abkürzungen, Schreibvarianten); intelligentes LLM Merge fusioniert Content und bewahrt Aliases
 - **🧩 Smart Knowledge Fusion** — Multi-Source Updates mergen neue Info ohne Redundanz, Widersprüche werden mit Attribution bewahrt, `reviewed: true` Pages sind vor Überschreibung geschützt
-- **📏 Content Truncation Protection** — 8000 max_tokens mit automatischer stop_reason-Detection und Retry bei 2× tokens über alle Providers
+- **📏 Schutz vor Inhaltskürzung** — API-Key- und lokale Provider verwenden 8000 max_tokens mit automatischer stop_reason-Erkennung und einem Wiederholungsversuch mit 2× Tokens. Der experimentelle ChatGPT-Plan-Pfad (Codex OAuth) folgt der Ausgaberichtlinie des Codex-Backends, das kein clientseitiges max_output_tokens-Limit akzeptiert.
 - **📝 Verbatim Source Mentions** — Original-Language-Quotes mit optionaler Übersetzung für Nachvollziehbarkeit bewahren
 
 - **🎨 Anpassbares Tag-Vokabular (v1.18.0).** Einstellungen → Wiki → Tag-Vokabular-Modus → *Custom* erlaubt es, eigene Entity- und Concept-Tag-Listen zu definieren (z. B. `Medical_Arzneimittel`, `法规`). Das Plugin respektiert dein Vokabular in Extraction-Prompts und Frontmatter-Validierung; die bestehende Lint-Audit (Issue #85 v7) meldet jede Seite, deren Tags außerhalb des aktiven Vokabulars liegen.

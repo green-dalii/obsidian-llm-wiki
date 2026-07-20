@@ -92,4 +92,20 @@ describe('Codex settings section integration', () => {
     expect(tab.plugin.settings.llmReady).toBe(true);
     expect(persisted).toEqual([true]);
   });
+  it('preserves the active non-Codex model when a Codex connection test fails', async () => {
+    const tab = createTab();
+    tab.plugin.settings = { ...DEFAULT_SETTINGS, provider: 'openai', model: 'gpt-4.1', availableModels: ['gpt-4.1'] };
+    tab.plugin.initializeLLMClient = vi.fn();
+    tab.plugin.wikiEngine = { updateSettings: vi.fn() } as never;
+    tab.plugin.testLLMConnection = vi.fn(async () => {
+      tab.plugin.settings.model = 'codex-model';
+      tab.plugin.settings.openAICodexModels = [{ slug: 'codex-model', displayName: 'Codex Model', supportedReasoningLevels: [], additionalSpeedTiers: [], serviceTiers: [] }];
+      tab.plugin.settings.openAICodexModelsFetchedAt = 123;
+      return { success: false, message: 'failed' };
+    });
+    tab.plugin.saveSettings = vi.fn();
+    renderTestConnectionSection(tab, {} as HTMLElement);
+    await buttonClicks[0]();
+    expect(tab.plugin.settings).toMatchObject({ provider: 'openai', model: 'gpt-4.1', availableModels: ['gpt-4.1'], openAICodexModels: [{ slug: 'codex-model' }], openAICodexModelsFetchedAt: 123 });
+  });
 });

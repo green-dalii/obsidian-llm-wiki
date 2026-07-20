@@ -196,6 +196,21 @@ Four themes: cache-only PDF ingest, local-model guidance, prompt centralization 
 
 **Settings to review:** Force PDF Support (Settings → LLM Configuration → Advanced, default off — only relevant for non-NATIVE providers), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, default off — opt-in sidecar).
 
+### v1.25.1 — 2026-07-20 (PATCH)
+
+Hotfix release over v1.25.0: eight LLM-call-output and lint silent-loss fixes, three big-file splits, and one build-verification root cause. Recommended upgrade for everyone on v1.25.0.
+
+- **🔕 No silent data loss on the Related page path.** Previously, when the LLM rewrote a Related page's body without re-emitting the Mentions section, the canonicalizer / related-link corrector / preserveExistingSections pipeline ran on the raw LLM reply — instead of the post-processed body — so re-ingest could silently destroy accumulated Mentions content. The Related path now mirrors the merge path: canonicalize → correct → preserveExistingSections. **Upgrade strongly recommended** for anyone whose notes rely on per-source Mentions accumulating across re-ingest.
+- **🛡️ Schema sections never dropped by rewrites.** The LLM is now misaligned with our schema only on the bits it's asked to write; canonical section blocks that already existed on the page are restored verbatim even when the LLM's rewrite omits them. Falls inside a single `preserveExistingSections` helper shared across merge + related paths.
+- **🔗 Legacy Mentions pages can heal.** Pre-#244 grouped mentions are now recognized on parse, so legacy pages can be brought back to the structured form on next ingest — and the LLM no longer hallucinates a duplicate Mentions block (programmatic injection is the single source of truth).
+- **🔌 LM Studio ingest without API key.** Local-only LM Studio (`http://localhost:1234/v1`) now ingests without a placeholder key; non-LM-Studio providers still require an explicit API key (unchanged).
+- **🐢 Less main.js bloat, faster lint.** Big-file splits: `wiki-engine.ts` 1799 → smaller (Phase C-PR1, 4 internal modules), `settings.ts` 1439 → smaller (Phase C-PR2, 8 section renderers), `main.ts` 1304 → 300 LOC (Phase C-PR3, 6 main-commands modules). `DiskCache<T>` extracted with bounded growth (100 MB / 1000 entries / 10 MB single-entry caps + LRU-by-mtime eviction).
+- **🛠 Build verification root cause.** Local `pnpm-lock.yaml` ↔ CI `package-lock.json` drift was the real cause of v1.25.0's npm-registry swap; both lockfiles are now regenerated from a single `node_modules` snapshot to keep local build and Obsidian's CI build identical.
+- **⚠ Progress notice is dismissed on errors.** Single-file ingest (`ingestActiveFile`, `selectSourceToIngest`) now hides the persistent `Ingesting: <basename>` Notice when an exception fires, so failed ingests don't leave the spinner on screen until the next successful ingest.
+- **🧪 2274 tests pass.** Picked up from 2182 in v1.25.0 thanks to the new `DiskCache<T>`, lint-fix-all-completion, page-batch-runner, graph-cache, index-generator, log-writer, and section-header-canonicalizer modules.
+
+**Settings to review:** none — this release is bugfix + refactor only; no new settings, no new commands, no new locales.
+
 ## ✨ Features
 
 ### 📊 Knowledge Quality
@@ -204,7 +219,7 @@ Four themes: cache-only PDF ingest, local-model guidance, prompt centralization 
 - **🏷️ Mandatory page aliases** — every generated page includes at least 1 alias (translation, abbreviation, variant) for cross-language duplicate detection.
 - **🔄 Duplicate detection & merge** — semantic tiered detection catches true duplicates (cross-language translations, abbreviations, spelling variants); smart LLM fusion merges content while preserving aliases.
 - **🧩 Intelligent knowledge fusion** — multi-source updates merge new information without duplication; contradictions are preserved with source attribution; `reviewed: true` pages are protected from overwrite.
-- **📏 Content truncation guard** — 8000 max_tokens with automatic stop_reason detection and 2× token retry, covering all providers.
+- **📏 Content truncation guard** — 8000 max_tokens with automatic stop_reason detection and 2× token retry for API-key and local providers. The experimental ChatGPT Plan (Codex OAuth) path follows the Codex backend output policy, which does not accept a client-side max_output_tokens cap.
 - **📝 Original quote preservation** — Mentions-in-Source sections preserve quotes in their original language (optional translation) for full traceability.
 - **🎨 Customizable tag vocabulary (v1.18.0).** Settings → Wiki → Tag Vocabulary Mode → *Custom* lets you define your own entity-type and concept-type tag lists (e.g. `Medical_Arzneimittel`, `法规`). The plugin respects your vocabulary in extraction prompts and frontmatter validation; the existing Lint audit (Issue #85 v7) reports any page whose tags fall outside the active vocabulary.
 

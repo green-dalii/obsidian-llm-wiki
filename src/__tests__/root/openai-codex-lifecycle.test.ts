@@ -54,6 +54,11 @@ describe('OpenAI Codex plugin lifecycle', () => {
     await pending;
     expect(initialize).toHaveBeenCalledOnce();
   });
+  it('continues client initialization when SDK preloading fails', async () => {
+    const initialize = vi.fn();
+    await expect(initializeLLMClientAfterModules(Promise.reject(new Error('preload failed')), initialize)).resolves.toBeUndefined();
+    expect(initialize).toHaveBeenCalledOnce();
+  });
   it('initializes the shared client from a stored credential without an API key', () => {
     const manager = new CodexAuthManager({ store: memoryCredentialStore(freshCredential()) });
     const plugin = pluginWith(manager);
@@ -110,6 +115,23 @@ describe('OpenAI Codex plugin lifecycle', () => {
     const result = await plugin.testLLMConnection();
     expect(result.success).toBe(true);
     expect(createMessage).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-5.5' }));
+  });
+  it('stops after one fallback when Codex reports repeated missing models', async () => {
+    const manager = new CodexAuthManager({ store: memoryCredentialStore(freshCredential()) });
+    const missing = Object.assign(new Error('The requested model does not exist'), { statusCode: 404 });
+    const createMessage = vi.fn().mockRejectedValue(missing);
+    vi.mocked(createLLMClientFromSettingsSync).mockReturnValue({ createMessage, createMessageStream: vi.fn(), listModels: vi.fn() });
+    const plugin = pluginWith(manager);
+    plugin.settings.model = 'missing-a';
+    plugin.settings.openAICodexModels = [
+      { slug: 'missing-a', displayName: 'Missing A', supportedReasoningLevels: [], additionalSpeedTiers: [], serviceTiers: [] },
+      { slug: 'missing-b', displayName: 'Missing B', supportedReasoningLevels: [], additionalSpeedTiers: [], serviceTiers: [] },
+      { slug: 'missing-c', displayName: 'Missing C', supportedReasoningLevels: [], additionalSpeedTiers: [], serviceTiers: [] },
+    ];
+    plugin.settings.availableModels = ['missing-a', 'missing-b', 'missing-c'];
+    const result = await plugin.testLLMConnection();
+    expect(result.success).toBe(false);
+    expect(createMessage).toHaveBeenCalledTimes(2);
   });
   it('removes an account model that the Codex response endpoint reports as missing', async () => {
     const manager = new CodexAuthManager({ store: memoryCredentialStore(freshCredential()) });
@@ -206,6 +228,16 @@ describe('OpenAI Codex plugin lifecycle', () => {
     expect(plugin.settings.openAICodexModels?.[0]?.slug).toBe('cached-model');
     expect(plugin.settings.openAICodexModelsFetchedAt).toBe(100);
   });
+  it('keeps the active API provider model while refreshing the Codex catalog', async () => {
+    const manager = new CodexAuthManager({ store: memoryCredentialStore(freshCredential()) });
+    const plugin = pluginWith(manager, 'openai');
+    plugin.settings.model = 'gpt-4.1';
+    plugin.settings.availableModels = ['gpt-4.1'];
+    await plugin.refreshOpenAICodexModels(true);
+    expect(plugin.settings.model).toBe('gpt-4.1');
+    expect(plugin.settings.availableModels).toEqual(['gpt-4.1']);
+    expect(plugin.settings.openAICodexModels?.map((entry) => entry.slug)).toEqual(['remote-model']);
+  });
   it('clears the previous account catalog and warns when post-login refresh fails', async () => {
     const manager = new CodexAuthManager({ store: memoryCredentialStore(), browserLogin: async () => freshCredential('new-account') });
     const plugin = pluginWith(manager);
@@ -250,11 +282,15 @@ describe('OpenAI Codex plugin lifecycle', () => {
     const plugin = pluginWith(manager, provider);
     const activeClient = { createMessage: vi.fn(), createMessageStream: vi.fn(), listModels: vi.fn() };
     plugin.settings.llmReady = true;
+    plugin.settings.model = 'active-model';
+    plugin.settings.availableModels = ['active-model'];
     plugin.llmClient = activeClient;
     await plugin.signOutOpenAICodex();
     expect(store.hasCredential()).toBe(false);
     expect(plugin.settings.llmReady).toBe(true);
     expect(plugin.llmClient).toBe(activeClient);
+    expect(plugin.settings.model).toBe('active-model');
+    expect(plugin.settings.availableModels).toEqual(['active-model']);
   });
   it('cancels an active device flow on unload', async () => {
     let aborted = false;

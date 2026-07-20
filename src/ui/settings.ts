@@ -17,7 +17,8 @@ import { renderAdvancedSection } from './settings-sections/advanced-section';
 import { renderTestConnectionSection } from './settings-sections/test-connection-section';
 import { renderWikiConfigSection } from './settings-sections/wiki-config-section';
 import { renderAutoMaintainSection } from './settings-sections/auto-maintain-section';
-import { applyCodexModelPolicy, copyCodexDeviceCode, runCodexDeviceAuth, runCodexModelRefresh, runCodexSignOut } from './openai-codex-auth-controls';
+import { copyCodexDeviceCode, runCodexDeviceAuth, runCodexModelRefresh, runCodexSignOut } from './openai-codex-auth-controls';
+import { applyCodexModelPolicy } from '../core/openai-codex-model-policy';
 import type { CodexDevicePrompt } from './openai-codex-auth-controls';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 

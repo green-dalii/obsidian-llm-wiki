@@ -578,6 +578,8 @@ export const KO_TEXTS = {
     regenerateIndexCompleted: '인덱스 재생성됨',
     operationFailed: '실패: ', 
     lintFixAllComplete: '모든 수정이 완료되었습니다. 자세한 내용은 로그를 확인하세요.',
+    lintFixAllNoChanges: '변경 없음 — 모든 단계에서 0건이 보고되었습니다. 자세한 내용은 wiki/log.md를 확인하세요.',
+    lintFixPhasesLabel: '단계가 수정됨',
 
     // Lint Report Modal
     lintModalActionsTitle: '수정 제안 (LLM 토큰 필요):',

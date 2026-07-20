@@ -401,6 +401,16 @@ export interface SchemaSuggestion {
 // Result of page creation/update, with optional collision info
 export interface PageCreationResult {
   path: string | null;
+  /**
+   * Issue #290 — whether this write created the page or merged into one that
+   * already existed. Decided by the pre-write existence check the router
+   * already performs to choose between the create and merge paths, so it
+   * reports what actually happened rather than what the caller intended.
+   * The ingest log splits "Created pages" from "Updated pages" on it; merges
+   * are the half of an ingest where existing content can be lost, so they must
+   * not be reported as creations.
+   */
+  created: boolean;
   collision?: {
     name: string;
     sourceType: 'entity' | 'concept';

@@ -675,14 +675,19 @@ export async function runLintWiki(
               detail: `${emptyPagesFilled}/${emptyPages.length}`
             });
           }
-          // v1.22.2 #204: Auto Smart Fix — show Notice with hint to History Panel
-          // rather than blocking FixReportModal.
+          // v1.25.1: smarter completion summary.
+          // - phasesRun = phases the user kicked off (input lengths > 0).
+          // - phasesModified = phases that actually wrote changes.
+          // If phasesModified === 0, every phase failed silently — surface
+          // that distinctly so the user doesn't think Fix All did nothing.
+          // Also: NOTICE_NORMAL (5s) instead of NOTICE_ERROR (8s) to match
+          // the non-blocking convention of other fix callbacks.
           const historyHint = getText(ctx.settings.language, 'ingestionNoticeHistoryHint');
-          const phaseCount = allResults.filter(r => r !== 'skipped').length;
-          new Notice(
-            `${t.lintFixAllComplete}: ${phaseCount} phases. ${historyHint}`,
-            NOTICE_ERROR
-          );
+          const phasesModified = allResults.filter(r => r !== 'skipped').length;
+          const summary = phasesModified === 0
+            ? `${t.lintFixAllComplete}: ${t.lintFixAllNoChanges}`
+            : `${t.lintFixAllComplete}: ${phasesModified} ${t.lintFixPhasesLabel}. ${historyHint}`;
+          new Notice(summary, NOTICE_NORMAL);
           } finally {
             // Issue: status bar must persist throughout all 6 phases. Match the
             // startLintOperation call above so the user can click "cancel" at any point.

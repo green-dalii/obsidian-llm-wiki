@@ -217,6 +217,21 @@ Quattro temi: ingestione PDF solo cache, raccomandazioni modelli locali, central
 
 **Impostazioni da rivedere:** Force PDF Support (Settings → LLM Configuration → Advanced, disattivato per default — rilevante solo per provider non NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, disattivato per default — sidecar opzionale).
 
+### v1.25.1 — 2026-07-20 (PATCH)
+
+Release di hotfix su v1.25.0: otto correzioni di perdite silenti nell'output LLM e nel lint, tre suddivisioni di file di grandi dimensioni e una causa radice per la verifica di build. Aggiornamento raccomandato per tutti gli utenti v1.25.0.
+
+- **🔕 Nessuna perdita silente di dati sul percorso Related.** Prima, quando l'LLM riscriveva il corpo di una pagina Related senza riemettere la sezione Mentions, la pipeline `canonicalize` / `correct` / `preserveExistingSections` girava sulla risposta LLM grezza — non sul corpo post-elaborato — quindi un re-ingest poteva distruggere silenziosamente i contenuti Mentions accumulati. Il percorso Related ora rispecchia il percorso merge: `canonicalize → correct → preserveExistingSections`. **Aggiornamento fortemente raccomandato** — tutte le note che si basano sull'accumulo di Mentions per sorgente attraverso i re-ingest ne traggono beneficio.
+- **🛡️ Le sezioni dello schema non vengono più perse nelle riscritture.** L'LLM devia dallo schema solo sulle parti che gli si chiede di scrivere; i blocchi di sezione canonici già presenti nella pagina vengono ripristinati verbatim, anche quando la riscrittura dell'LLM li omette. Accorpati in un unico helper `preserveExistingSections` condiviso dai percorsi merge + related.
+- **🔗 Le pagine Mentions legacy possono guarire.** Le mentions raggruppate precedenti a #244 vengono ora riconosciute al parsing, così le pagine legacy tornano alla forma strutturata al prossimo ingest — e l'LLM non allucina più un blocco Mentions duplicato (l'iniezione programmatica è l'unica fonte di verità).
+- **🔌 Ingestione LM Studio senza chiave API.** LM Studio puramente locale (`http://localhost:1234/v1`) ora ingeste senza chiave segnaposto; i provider non-LM-Studio continuano a richiedere una chiave API esplicita (invariato).
+- **🐢 Meno gonfiore di `main.js`, lint più veloce.** Suddivisioni di file grandi: `wiki-engine.ts` 1799 → più piccolo (Phase C-PR1, 4 moduli interni), `settings.ts` 1439 → più piccolo (Phase C-PR2, 8 renderer di sezione), `main.ts` 1304 → 300 LOC (Phase C-PR3, 6 moduli main-commands). `DiskCache<T>` estratto con crescita limitata (100 MB / 1000 voci / 10 MB per singola voce + eviction LRU-by-mtime).
+- **🛠 Causa radice della verifica di build.** La vera causa del cambio di registry npm in v1.25.0 era la deriva tra `pnpm-lock.yaml` locale e `package-lock.json` CI; ora entrambi i lockfile sono rigenerati da un singolo snapshot di `node_modules`, garantendo che il build locale e il build CI di Obsidian siano identici.
+- **⚠ L'avviso di progresso scompare in caso di errore.** L'ingestione di un singolo file (`ingestActiveFile`, `selectSourceToIngest`) ora nasconde l'avviso persistente `Ingesting: <basename>` quando viene lanciata un'eccezione, così le ingestioni fallite non lasciano lo spinner sullo schermo fino al successo successivo.
+- **🧪 2274 test superati.** Salito da 2182 in v1.25.0 grazie ai nuovi moduli `DiskCache<T>`, `lint-fix-all-completion`, `page-batch-runner`, `graph-cache`, `index-generator`, `log-writer`, `section-header-canonicalizer`.
+
+**Impostazioni da rivedere:** nessuna — questa release è solo correzione + refactor; nessuna nuova impostazione, nessun nuovo comando, nessun nuovo locale.
+
 ## ✨ Funzionalità
 
 ### 📊 Qualità della conoscenza
@@ -225,7 +240,7 @@ Quattro temi: ingestione PDF solo cache, raccomandazioni modelli locali, central
 - **🏷️ Alias di pagina obbligatori** — ogni pagina generata include almeno 1 alias (traduzione, abbreviazione, variante) per il rilevamento dei duplicati tra lingue.
 - **🔄 Rilevamento e fusione dei duplicati** — rilevamento semantico a livelli cattura i veri duplicati (traduzioni, abbreviazioni, varianti ortografiche); la fusione intelligente tramite LLM unisce i contenuti preservando gli alias.
 - **🧩 Fusione intelligente della conoscenza** — gli aggiornamenti multi-fonte fondono le nuove informazioni senza duplicati; le contraddizioni vengono preservate con attribuzione della fonte; le pagine `reviewed: true` sono protette dalla sovrascrittura.
-- **📏 Guardia di troncamento del contenuto** — 8000 max_tokens con rilevamento automatico di stop_reason e retry con 2× token, su tutti i provider.
+- **📏 Protezione dal troncamento dei contenuti** — I provider con chiave API e quelli locali usano 8000 max_tokens, rilevano automaticamente stop_reason e riprovano con 2× token. Il percorso sperimentale ChatGPT Plan (Codex OAuth) segue la politica di output del backend Codex, che non accetta un limite max_output_tokens lato client.
 - **📝 Conservazione delle citazioni originali** — le sezioni Menzioni nella sorgente conservano le citazioni nella lingua originale (traduzione opzionale) per la tracciabilità completa.
 
 - **🎨 Vocabolario tag personalizzabile (v1.18.0).** Impostazioni → Wiki → Modalità vocabolario tag → *Personalizzato* ti permette di definire le tue liste di tag per tipo di entità e concetto (es. `Medical_Arzneimittel`, `法规`). Il plugin rispetta il tuo vocabolario nei prompt di estrazione e nella validazione del frontmatter; l'audit Lint (Issue #85 v7) segnala qualsiasi pagina i cui tag cadano fuori dal vocabolario attivo.

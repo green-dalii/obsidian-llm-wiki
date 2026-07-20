@@ -579,6 +579,8 @@ export const ES_TEXTS = {
     regenerateIndexCompleted: 'Índice regenerado',
     operationFailed: 'Error: ', 
     lintFixAllComplete: 'Todas las correcciones completadas. Consulta el registro para más detalles.',
+    lintFixAllNoChanges: 'Sin cambios — todas las fases reportaron 0 correcciones. Detalles en wiki/log.md.',
+    lintFixPhasesLabel: 'fases modificadas',
 
     // Lint Report Modal
     lintModalActionsTitle: 'Sugerencias de corrección (requiere tokens LLM):',

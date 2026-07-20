@@ -62,7 +62,7 @@ export async function createOrUpdatePage(
 ): Promise<PageCreationResult> {
   if (!info.name || info.name.trim().length === 0) {
     console.warn(`${pageType} name is empty, skipping creation`);
-    return { path: null };
+    return { path: null, created: false };
   }
 
   console.debug(`=== Creating/Updating ${pageType} page ===`);
@@ -89,7 +89,9 @@ export async function createOrUpdatePage(
         console.debug(`Cross-type collision: merged "${info.name}" content into ${targetType} page ${targetPath}`);
       }
     }
-    return result;
+    // Either nothing was written, or the content was merged into a page that
+    // already existed in the opposite folder — never a creation.
+    return { ...result, created: false };
   }
   console.debug('Resolved path:', result.path);
 
@@ -97,7 +99,7 @@ export async function createOrUpdatePage(
 
   if (!existingContent) {
     const createdPath = await createNewPage(ctx, info, pageType, sourceFile, extraPagePaths, result.path, sourceSlug);
-    return { path: createdPath };
+    return { path: createdPath, created: true };
   }
 
   const isReviewed = parseFrontmatter(existingContent)?.reviewed === true;
@@ -105,11 +107,11 @@ export async function createOrUpdatePage(
   if (isReviewed) {
     console.debug(`${pageType} page has reviewed: true, using minimal append mode:`, result.path);
     const updatedPath = await appendToReviewedPage(ctx, info, sourceFile, existingContent, result.path, sourceSlug);
-    return { path: updatedPath };
+    return { path: updatedPath, created: false };
   }
 
   const mergedPath = await mergePage(ctx, info, pageType, sourceFile, existingContent, extraPagePaths, result.path, sourceSlug);
-  return { path: mergedPath };
+  return { path: mergedPath, created: false };
 }
 
 /**

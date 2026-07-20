@@ -586,6 +586,8 @@ export const IT_TEXTS = {
     lintFixNoAction: 'Nessuna azione intrapresa (nessun client)',
     lintFixIndexUpdated: 'Indice e log della Wiki aggiornati.',
     lintFixAllComplete: 'Tutte le correzioni completate. Vedi il log per i dettagli.',
+    lintFixAllNoChanges: 'Nessuna modifica — tutte le fasi hanno riportato 0 correzioni. Dettagli in wiki/log.md.',
+    lintFixPhasesLabel: 'fasi modificate',
     lintPollutedFixed: 'Pagine inquinate corrette: {fixed}/{total}. Indice rigenerato.',
     regenerateIndexCompleted: 'Indice rigenerato',
     operationFailed: 'Fallito: ',

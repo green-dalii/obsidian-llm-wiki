@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CODEX_MODELS } from '../../llm-sdk/openai-codex/constants';
-import { applyCodexModelPolicy, copyCodexDeviceCode, getCodexAuthUiState, openCodexExternalUrl, preserveCodexRuntimeModelState, runCodexDeviceAuth, runCodexModelRefresh, runCodexSignOut } from '../../ui/openai-codex-auth-controls';
+import { copyCodexDeviceCode, getCodexAuthUiState, openCodexExternalUrl, runCodexDeviceAuth, runCodexModelRefresh, runCodexSignOut } from '../../ui/openai-codex-auth-controls';
+import { applyCodexModelPolicy, preserveCodexRuntimeModelState } from '../../core/openai-codex-model-policy';
 import type { CodexDevicePrompt } from '../../ui/openai-codex-auth-controls';
 
 function deferred<T>(): { promise: Promise<T>; resolve(value: T): void; reject(error: unknown): void } {
@@ -54,6 +55,11 @@ describe('Codex auth controls', () => {
     const restored = { model: 'bad-model', openAICodexModels: [{ slug: 'bad-model' }], openAICodexUnavailableModels: [] as string[] };
     preserveCodexRuntimeModelState(restored, { model: 'working-model', ingestModel: 'working-model', lintModel: '', queryModel: '', openAICodexModels: [{ slug: 'working-model' }], openAICodexModelsFetchedAt: 123, openAICodexUnavailableModels: ['bad-model'] });
     expect(restored).toMatchObject({ model: 'working-model', openAICodexModels: [{ slug: 'working-model' }], openAICodexModelsFetchedAt: 123, openAICodexUnavailableModels: ['bad-model'] });
+  });
+  it('preserves a non-Codex provider model while carrying runtime catalog metadata back', () => {
+    const restored = { provider: 'openai', model: 'gpt-4.1', availableModels: ['gpt-4.1'], openAICodexModels: [] as Array<{ slug: string }> };
+    preserveCodexRuntimeModelState(restored, { provider: 'openai-codex', model: 'codex-model', openAICodexModels: [{ slug: 'codex-model' }], openAICodexModelsFetchedAt: 123, openAICodexUnavailableModels: ['bad-model'] });
+    expect(restored).toMatchObject({ provider: 'openai', model: 'gpt-4.1', availableModels: ['gpt-4.1'], openAICodexModels: [{ slug: 'codex-model' }], openAICodexModelsFetchedAt: 123, openAICodexUnavailableModels: ['bad-model'] });
   });
   it('runs account model refresh with busy and success state', async () => {
     const events: string[] = [];

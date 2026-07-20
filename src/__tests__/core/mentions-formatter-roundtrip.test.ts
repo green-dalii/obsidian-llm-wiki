@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { formatMentionsSection } from '../../core/mentions-formatter';
-import { parseMentionsSection, stripMentionsSection } from '../../core/mentions-parser';
+import { parseMentionsSection, stripMentionsSection, computeReingestMentions } from '../../core/mentions-parser';
 import { injectMentionsSection } from '../../core/mentions-injector';
 import { dedupMentionsByProvenanceKey } from '../../core/batch-merger';
 import type { MentionWithProvenance } from '../../types';
@@ -184,5 +184,120 @@ describe('#267 — non-lossy re-ingest (parse ∪ new → inject)', () => {
     const parsed = parseMentionsSection(existingBody, LABEL);
     const unioned = dedupMentionsByProvenanceKey(parsed.mentions, sameAgain)!;
     expect(unioned).toHaveLength(1);
+  });
+});
+
+// ─── #289: pre-#244 legacy blockquote shape ──────────────────────────────
+//
+// Before #244 the Mentions section was written by the model, grouped by source
+// under a blockquote header. The flat-only parser could not structure it, so
+// `computeReingestMentions` returned `preserveRaw`, the #267 fail-safe fired,
+// and the page never accumulated another quote — silently, and on every
+// subsequent ingest. Parsing the shape is the migration path: the section is
+// re-emitted flat the first time the page merges again.
+
+describe('#289 — legacy grouped-blockquote Mentions sections', () => {
+  const legacy = [
+    `## ${LABEL}`,
+    '',
+    '> **Source: [[sources/Nephrologie|Nephrologie]]**',
+    '> - "Das Nephron ist die kleinste funktionelle Einheit."',
+    '> - "Der Glomerulus filtert das Blut." (The glomerulus filters the blood.)',
+    '> **Source: [[sources/Physiologie|Physiologie]]**',
+    '> - "Die Filtrationsrate ist altersabhängig."',
+  ].join('\n');
+
+  it('parses a legacy block fully, so the fail-safe does not fire', () => {
+    const r = parseMentionsSection(legacy, LABEL);
+    expect(r.found).toBe(true);
+    expect(r.fullyParsed).toBe(true);
+    expect(r.mentions).toHaveLength(3);
+  });
+
+  it('attributes each quote to the group it sits under', () => {
+    const r = parseMentionsSection(legacy, LABEL);
+    expect(r.mentions[0].source_path).toBe('sources/Nephrologie');
+    expect(r.mentions[1].source_path).toBe('sources/Nephrologie');
+    expect(r.mentions[2].source_path).toBe('sources/Physiologie');
+  });
+
+  it('recovers a parenthetical translation', () => {
+    const r = parseMentionsSection(legacy, LABEL);
+    expect(r.mentions[1].translation).toBe('The glomerulus filters the blood.');
+  });
+
+  it('accepts a group header without a display alias', () => {
+    const body = [`## ${LABEL}`, '', '> **Source: [[sources/X]]**', '> - "q"'].join('\n');
+    const r = parseMentionsSection(body, LABEL);
+    expect(r.fullyParsed).toBe(true);
+    expect(r.mentions[0].source_path).toBe('sources/X');
+  });
+
+  it('accepts a localized group header — the shape is matched, not the English literal', () => {
+    const body = [`## ${LABEL}`, '', '> **Quelle: [[sources/X|X]]**', '> - "q"'].join('\n');
+    const r = parseMentionsSection(body, LABEL);
+    expect(r.fullyParsed).toBe(true);
+    expect(r.mentions[0].source_path).toBe('sources/X');
+  });
+
+  it('parses a block that mixes the legacy and flat shapes', () => {
+    const body = [
+      `## ${LABEL}`,
+      '',
+      '> **Source: [[sources/Alt|Alt]]**',
+      '> - "alter Beleg"',
+      '- "neuer Beleg" — [[sources/Neu|Neu]]',
+    ].join('\n');
+    const r = parseMentionsSection(body, LABEL);
+    expect(r.fullyParsed).toBe(true);
+    expect(r.mentions.map(m => m.source_path)).toEqual(['sources/Alt', 'sources/Neu']);
+  });
+
+  it('still fails safe on a quote that has no group to inherit attribution from', () => {
+    const body = [`## ${LABEL}`, '', '> - "orphan quote"'].join('\n');
+    const r = parseMentionsSection(body, LABEL);
+    expect(r.fullyParsed).toBe(false);
+    expect(r.mentions).toHaveLength(0);
+  });
+
+  it('still fails safe on genuinely hand-edited prose', () => {
+    const body = [`## ${LABEL}`, '', 'Some note the user typed by hand.'].join('\n');
+    expect(parseMentionsSection(body, LABEL).fullyParsed).toBe(false);
+  });
+
+  // ─── invariance gate: legacy → flat re-emit loses nothing ───────────────
+
+  it('[invariance] re-emits every legacy quote in the flat shape, losing none', () => {
+    const parsed = parseMentionsSection(legacy, LABEL);
+    const reemitted = formatMentionsSection(parsed.mentions, '', LABEL);
+
+    // Every quote survives, in order.
+    const quotes = parsed.mentions.map(m => m.quote);
+    expect(quotes).toHaveLength(3);
+    for (const q of quotes) expect(reemitted).toContain(q);
+
+    // And the result is now in the shape the parser accepts natively — the
+    // page is upgraded, so the next ingest parses it without the legacy path.
+    const reparsed = parseMentionsSection(reemitted, LABEL);
+    expect(reparsed.fullyParsed).toBe(true);
+    expect(reparsed.mentions.map(m => m.quote)).toEqual(quotes);
+    expect(reparsed.mentions.map(m => m.source_path))
+      .toEqual(['sources/Nephrologie', 'sources/Nephrologie', 'sources/Physiologie']);
+    expect(reemitted).not.toContain('>');
+  });
+
+  it('[invariance] a legacy page merging a new source keeps its old quotes', () => {
+    const result = computeReingestMentions(
+      legacy,
+      [mention({ quote: 'brandneuer Beleg', source_path: 'sources/Neu' })],
+      LABEL,
+    );
+    expect(result.preserveRaw).toBeNull(); // fail-safe no longer fires
+    expect(result.mentions.map(m => m.quote)).toEqual([
+      'Das Nephron ist die kleinste funktionelle Einheit.',
+      'Der Glomerulus filtert das Blut.',
+      'Die Filtrationsrate ist altersabhängig.',
+      'brandneuer Beleg',
+    ]);
   });
 });
