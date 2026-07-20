@@ -333,7 +333,7 @@ export const JA_TEXTS = {
     concurrencyValueSingular: '現在の並列度：{}（直列 — 最も安全）',
     concurrencyValuePlural: '現在の並列度：{}（並列）',
     batchDelayName: 'バッチ遅延（ms）',
-    batchDelayDesc: '並列バッチ間の遅延によりAPIレートリミットを回避します（100〜2000ms）。現在値：{}ms。429エラーが発生する場合は値を大きくしてください。',
+    batchDelayDesc: '並列バッチ間の遅延によりAPIレートリミットを回避します（100〜10000ms）。現在値：{}ms。429エラーが発生する場合は値を大きくしてください。',
 
     // Auto Maintenance
     autoMaintainSection: '自動メンテナンス',
@@ -547,7 +547,7 @@ export const JA_TEXTS = {
     lintLogReference: '完全なレポートが log.md に保存されました',
     lintModalFixDeadLinks: 'リンク切れを修復（{count}件）',
     lintModalExpandEmpty: '空ページを拡充（{count}件）',
-    lintModalDeleteEmpty: '空のスタブを削除（{count}件）',   
+    lintModalDeleteEmpty: '空のスタブを削除（{count}件）',
     lintModalLinkOrphans: '孤立ページにリンク（{count}件）',
     lintModalAnalyzeSchema: 'スキーマを分析',
     lintModalMergeDuplicates: '重複をマージ（{count}件）',

@@ -332,7 +332,7 @@ export const ZH_HANT_TEXTS = {
     concurrencyValueSingular: '當前併發度：{}（序列 — 最安全）',
     concurrencyValuePlural: '當前併發度：{}（並行）',
     batchDelayName: '批次延遲 (ms)',
-    batchDelayDesc: '並行批次間的延遲，防止 API 限流（100-2000ms）。當前值：{}ms。如遇 429 錯誤請增大此值。',
+    batchDelayDesc: '並行批次間的延遲，防止 API 限流（100-10000ms）。當前值：{}ms。如遇 429 錯誤請增大此值。',
 
     // 自动维护
     autoMaintainSection: '自動維護',
@@ -540,7 +540,7 @@ export const ZH_HANT_TEXTS = {
     lintLogReference: '完整報告已儲存至 log.md',
     lintModalFixDeadLinks: '修復斷鏈（{count}）',
     lintModalExpandEmpty: '擴充空洞頁面（{count}）',
-    lintModalDeleteEmpty: '刪除空洞頁面（{count}）',   
+    lintModalDeleteEmpty: '刪除空洞頁面（{count}）',
     lintModalLinkOrphans: '連結孤立頁面（{count}）',
     lintModalAnalyzeSchema: '分析 Schema',
     lintModalMergeDuplicates: '合併重複頁面（{count}）',

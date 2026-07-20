@@ -53,7 +53,7 @@ export const CUSTOM_LIMIT_MAX = 500;
 // ============================================================================
 
 /** Maximum batch delay in milliseconds for rate-limit backoff. */
-export const MAX_BATCH_DELAY_MS = 2000;
+export const MAX_BATCH_DELAY_MS = 10000;
 
 // ============================================================================
 // PDF Source Ingestion (v1.25.0)
