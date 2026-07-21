@@ -97,4 +97,80 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
     const r = correctRelatedLinkPrefixes(c, [], ['Exekutive Funktionen'], ENT, CON, true);
     expect(r).toContain('[[concepts/Exekutive-Funktionen|Exekutive Funktionen]]');
   });
+
+  // --- #307: the matcher used to accept only already-correct prefixes, so the links
+  //     this function exists to repair never entered the rewrite. ---
+
+  describe('wrong-prefix links (#307)', () => {
+    it('rewrites singular entity/ to entities/', () => {
+      const c = '## Related Entities\n- [[entity/Hippocampus|Hippocampus]]';
+      const r = correctRelatedLinkPrefixes(c, ['Hippocampus'], [], ENT, CON, true);
+      expect(r).toContain('- [[entities/Hippocampus|Hippocampus]]');
+    });
+
+    it('rewrites singular concept/ to concepts/', () => {
+      const c = '## Related Concepts\n- [[concept/Abruf|Abruf]]';
+      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON, true);
+      expect(r).toContain('- [[concepts/Abruf|Abruf]]');
+    });
+
+    it('routes a type-wrong singular link by known type, not by prefix substitution', () => {
+      // [[concept/Kardiogener-Schock]] is an entity in this ingest. A plain
+      // concept/ → concepts/ substitution would produce a link that is well-formed
+      // and still wrong; folderBySlug knows the type and wins over both the written
+      // prefix and the section.
+      const c = '## Related Concepts\n- [[concept/Kardiogener-Schock|Kardiogener Schock]]';
+      const r = correctRelatedLinkPrefixes(c, ['Kardiogener Schock'], [], ENT, CON, true);
+      expect(r).toContain('- [[entities/Kardiogener-Schock|Kardiogener Schock]]');
+    });
+
+    it('falls back to the section folder when the name is in neither related list', () => {
+      const c = '## Related Entities\n- [[concept/Unbekannt|Unbekannt]]';
+      const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, true);
+      expect(r).toContain('- [[entities/Unbekannt|Unbekannt]]');
+    });
+
+    it('leaves tag-as-folder links untouched', () => {
+      // A vault-specific tag used as a folder. The function cannot know whether the
+      // user meant it, so it stays out of the matcher entirely.
+      const c = [
+        '## Related Entities',
+        '- [[Arzneimittel/Metformin|Metformin]]',
+        '- [[Laborwerte/CRP|CRP]]',
+        '## Related Concepts',
+        '- [[Biochemie/Glykolyse|Glykolyse]]',
+      ].join('\n');
+      const r = correctRelatedLinkPrefixes(
+        c, ['Metformin', 'CRP'], ['Glykolyse'], ENT, CON, true,
+      );
+      expect(r).toBe(c);
+    });
+
+    it('is a no-op on already-correct prefixes', () => {
+      const c = [
+        '## Related Entities',
+        '- [[entities/Hippocampus|Hippocampus]]',
+        '## Related Concepts',
+        '- [[concepts/Abruf|Abruf]]',
+        '## Mentions in Source',
+        '> **Source: [[sources/Gedächtnis|Gedächtnis]]**',
+      ].join('\n');
+      const r = correctRelatedLinkPrefixes(
+        c, ['Hippocampus'], ['Abruf'], ENT, CON, true,
+      );
+      expect(r).toBe(c);
+    });
+
+    it('does not rewrite a wrong-prefix link outside the Related sections', () => {
+      const c = '## Description\nProse about [[concept/Abruf|Abruf]].';
+      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON, true);
+      expect(r).toBe(c);
+    });
+
+    it('rewrites a bare singular link without a display alias', () => {
+      const c = '## Related Concepts\n- [[concept/Abruf]]';
+      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON, true);
+      expect(r).toContain('- [[concepts/Abruf]]');
+    });
+  });
 });
