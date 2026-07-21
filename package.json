@@ -1,5 +1,5 @@
 {
-  "name": "karpathywiki",
+  "name": "karpathywiki-mineru",
   "version": "1.25.11",
   "packageManager": "pnpm@10.14.0",
   "description": "Karpathy's LLM Wiki implementation - multi-page knowledge generation with conversational query",
@@ -58,6 +58,7 @@
     "@ai-sdk/openai": "3.0.86",
     "@ai-sdk/openai-compatible": "2.0.62",
     "ai": "6.0.230",
+    "fflate": "0.8.3",
     "zod": "^3.25.76"
   }
 }

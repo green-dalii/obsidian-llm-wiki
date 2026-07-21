@@ -7,7 +7,7 @@ import {
 
 // PDF_DIR is a test-only fake path; the hardcoded `.obsidian` here is
 // intentional and confined to the test sandbox.
-const PDF_DIR = '/fake/.obsidian/plugins/karpathywiki/pdf-cache'; // eslint-disable-line obsidianmd/hardcoded-config-path
+const PDF_DIR = '/fake/.obsidian/plugins/karpathywiki-mineru/pdf-cache'; // eslint-disable-line obsidianmd/hardcoded-config-path
 const SAMPLE_HASH = 'abc123def456';
 
 // Use a runtime timestamp so TTL tests are deterministic regardless of when
@@ -219,7 +219,7 @@ describe('PdfConversionCache', () => {
       return {
         c: new PdfConversionCache({
           // Arbitrary cacheDir — this test does not exercise adapter path resolution.
-          cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
+          cacheDir: '.obsidian/plugins/karpathywiki-mineru/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
           adapter,
         }),
         list,
@@ -260,7 +260,7 @@ describe('PdfConversionCache', () => {
   });
 
   // v1.25.0 PR3 follow-up #9 (Bug E, e2e 2026-07-17): on a fresh vault
-  // the cacheDir (e.g. `.obsidian/plugins/karpathywiki/pdf-cache/`) does
+  // the cacheDir (e.g. `.obsidian/plugins/karpathywiki-mineru/pdf-cache/`) does
   // not yet exist. Obsidian's adapter does NOT auto-create parent
   // directories on `write`/`mkdir`-single-segment only, so the first
   // `set()` would silently fail with ENOENT and lose the conversion
@@ -286,7 +286,7 @@ describe('PdfConversionCache', () => {
         stat: vi.fn(async () => null),
       } as unknown as ConstructorParameters<typeof PdfConversionCache>[0]['adapter'];
       const c = new PdfConversionCache({
-        cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
+        cacheDir: '.obsidian/plugins/karpathywiki-mineru/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
         adapter,
       });
 
@@ -303,11 +303,11 @@ describe('PdfConversionCache', () => {
       expect(mkdirCalls).toEqual([
         '.obsidian', // eslint-disable-line obsidianmd/hardcoded-config-path
         '.obsidian/plugins', // eslint-disable-line obsidianmd/hardcoded-config-path
-        '.obsidian/plugins/karpathywiki', // eslint-disable-line obsidianmd/hardcoded-config-path
-        '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins/karpathywiki-mineru', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins/karpathywiki-mineru/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
       ]);
       expect(writeCalls.length).toBe(1);
-      expect(writeCalls[0].path).toBe('.obsidian/plugins/karpathywiki/pdf-cache/hash1.json'); // eslint-disable-line obsidianmd/hardcoded-config-path
+      expect(writeCalls[0].path).toBe('.obsidian/plugins/karpathywiki-mineru/pdf-cache/hash1.json'); // eslint-disable-line obsidianmd/hardcoded-config-path
     });
 
     it('does not double-mkdir segments that already exist (idempotency)', async () => {
@@ -332,7 +332,7 @@ describe('PdfConversionCache', () => {
         stat: vi.fn(async () => null),
       } as unknown as ConstructorParameters<typeof PdfConversionCache>[0]['adapter'];
       const c = new PdfConversionCache({
-        cacheDir: '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
+        cacheDir: '.obsidian/plugins/karpathywiki-mineru/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
         adapter,
       });
 
@@ -347,8 +347,8 @@ describe('PdfConversionCache', () => {
       expect(mkdirCalls).toEqual([
         '.obsidian', // eslint-disable-line obsidianmd/hardcoded-config-path
         '.obsidian/plugins', // eslint-disable-line obsidianmd/hardcoded-config-path
-        '.obsidian/plugins/karpathywiki', // eslint-disable-line obsidianmd/hardcoded-config-path
-        '.obsidian/plugins/karpathywiki/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins/karpathywiki-mineru', // eslint-disable-line obsidianmd/hardcoded-config-path
+        '.obsidian/plugins/karpathywiki-mineru/pdf-cache', // eslint-disable-line obsidianmd/hardcoded-config-path
       ]);
     });
   });
