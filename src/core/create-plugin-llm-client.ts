@@ -13,13 +13,18 @@
 
 import { wrapWithAdvancedSettings } from '../llm-client-wrapper';
 import { createLLMClientFromSettingsSync } from '../llm-sdk/create-llm-client';
+import { getText } from './i18n';
+import type { CodexAuthManager } from '../llm-sdk/openai-codex/auth-manager';
 import type { LLMWikiSettings, LLMClient } from '../types';
 
-export function createLLMClient(settings: LLMWikiSettings): LLMClient {
+export function createLLMClient(settings: LLMWikiSettings, codexAuth?: CodexAuthManager, codexVersion?: string): LLMClient {
   const client: LLMClient = createLLMClientFromSettingsSync({
     provider: settings.provider,
     apiKey: settings.apiKey,
     baseUrl: settings.baseUrl,
+    codexAuth,
+    codexVersion,
+    codexQuotaMessage: getText(settings.language, 'codexAuthQuota'),
   });
 
   return wrapWithAdvancedSettings(client, {

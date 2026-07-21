@@ -16,8 +16,32 @@ import { SECTION_LABELS } from '../../wiki/system-prompts';
 
 const EN_KEYS = Object.keys(TEXTS.en).sort();
 const LOCALES = Object.keys(TEXTS) as Array<keyof typeof TEXTS>;
+const CODEX_AUTH_ENGLISH = {
+  codexAuthName: 'ChatGPT Plan sign-in',
+  codexAuthDesc: 'Experimental Codex OAuth access using your ChatGPT plan allowance. OpenAI Platform API billing remains separate.',
+  codexAuthSignedOut: 'Not signed in',
+  codexAuthSignedIn: 'Signed in',
+  codexAuthBrowserButton: 'Sign in with browser',
+  codexAuthDeviceButton: 'Use device code',
+  codexAuthDeviceInstructions: 'Enter this code on the OpenAI page: {}',
+  codexAuthSignOutButton: 'Sign out',
+  codexAuthBusy: 'Waiting for OpenAI authorization...',
+  codexAuthRequired: 'Sign in to ChatGPT Plan before testing the connection.',
+  codexAuthFailed: 'ChatGPT authorization failed: {}',
+  codexAuthQuota: 'ChatGPT Codex allowance reached. Wait for the displayed reset period and try again.',
+  codexAuthExperimental: 'Experimental: availability follows OpenAI Codex authentication and model policies.',
+} as const;
 
 describe('UI text parity across all locales', () => {
+  it('defines the canonical English Codex authentication copy', () => {
+    for (const [key, value] of Object.entries(CODEX_AUTH_ENGLISH)) expect(TEXTS.en[key as keyof typeof TEXTS.en]).toBe(value);
+  });
+
+  it.each(LOCALES)('locale "%s" defines every Codex authentication key', (locale) => {
+    const texts = TEXTS[locale] as unknown as Record<string, unknown>;
+    for (const key of Object.keys(CODEX_AUTH_ENGLISH)) expect(typeof texts[key], `missing ${key} in ${locale}`).toBe('string');
+  });
+
   // The contract getText() relies on: every locale must cover every EN key,
   // otherwise it silently falls back to English at runtime. (Extra keys are
   // harmless dead entries — some pre-existing locales carry orphan keys — so

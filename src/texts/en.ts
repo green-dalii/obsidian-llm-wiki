@@ -45,6 +45,25 @@ export const EN_TEXTS = {
     apiKeyName: 'API Key',
     apiKeyDesc: 'Enter your API key from provider',
     apiKeyPlaceholder: 'Enter API Key',
+    codexAuthName: 'ChatGPT Plan sign-in',
+    codexAuthDesc: 'Experimental Codex OAuth access using your ChatGPT plan allowance. OpenAI Platform API billing remains separate.',
+    codexAuthSignedOut: 'Not signed in',
+    codexAuthSignedIn: 'Signed in',
+    codexAuthBrowserButton: 'Sign in with browser',
+    codexAuthDeviceButton: 'Use device code',
+    codexAuthDeviceInstructions: 'Enter this code on the OpenAI page: {}',
+    codexAuthCopyCode: 'Copy code',
+    codexAuthSignOutButton: 'Sign out',
+    codexAuthBusy: 'Waiting for OpenAI authorization...',
+    codexAuthFailed: 'ChatGPT authorization failed: {}',
+    codexAuthQuota: 'ChatGPT Codex allowance reached. Wait for the displayed reset period and try again.',
+    codexAuthExperimental: 'Experimental: availability follows OpenAI Codex authentication and model policies.',
+    codexModelsRefreshName: 'Account models',
+    codexModelsRefreshDesc: 'Synchronize picker-visible models from your signed-in OpenAI Codex account.',
+    codexModelsRefreshButton: 'Refresh account models',
+    codexModelsRefreshing: 'Refreshing...',
+    codexModelsRefreshSuccess: 'Synchronized {} account models.',
+    codexModelsRefreshFailed: 'Could not refresh account models; using the available fallback list. {}',
 
     // Base URL
     baseUrlName: 'API Base URL',
@@ -136,6 +155,7 @@ export const EN_TEXTS = {
     testConnectionSuccessful: 'Connection successful',
     testConnectionFailed: 'Connection failed',
     testConnectionProvider: 'Provider: ',
+    codexAuthRequired: 'Sign in to ChatGPT Plan before testing the connection.',
     errorUnknown: 'Unknown error',
 
     // Issue #137: LLM fallback notices (shown when thinking-dialect

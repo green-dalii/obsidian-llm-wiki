@@ -6,7 +6,7 @@
 
 > **Note officielle Obsidian 95/100 | Support natif de 10 langues | Recherche par graphe sans embedding | Souveraineté totale des données | Compatible avec tout fournisseur LLM**
 
-![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.0%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
+![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.4%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-10-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
 ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) <br>
 ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -121,14 +121,16 @@ Ce projet évolue rapidement. Nous vous recommandons de rester à jour :
 ### 🔑 Configurer un fournisseur LLM
 
 1. Ouvrez Paramètres → Karpathy LLM Wiki
-2. Choisissez un fournisseur dans le menu déroulant
-3. Entrez votre clé API (non nécessaire pour Ollama)
-4. Cliquez sur **Fetch Models**, ou tapez un nom de modèle manuellement
+2. Choisissez un fournisseur dans le menu déroulant, notamment OpenAI ou ChatGPT Plan (Codex OAuth)
+3. Pour un fournisseur API, entrez sa clé (inutile pour Ollama, LM Studio ou ChatGPT Plan (Codex OAuth))
+4. Pour les fournisseurs autres que Codex, utilisez **Fetch Models** ou saisissez un modèle ; ChatGPT Plan (Codex OAuth) remplit automatiquement sa liste de modèles sélectionnés
 5. Cliquez sur **Test Connection**, puis **Enregistrer les paramètres**
 
 **🦙 Ollama (local) :** Installez [Ollama](https://ollama.com), téléchargez un modèle, sélectionnez « Ollama (Local) ».
 
 **🎛️ LM Studio (local) :** Installez [LM Studio](https://lmstudio.ai), démarrez le serveur local, sélectionnez « LM Studio (Local) ».
+
+**🔐 ChatGPT Plan (Codex OAuth) — expérimental :** Ce fournisseur est distinct d'**OpenAI**, qui utilise une clé API OpenAI Platform facturée séparément. Sélectionnez-le, puis utilisez **Se connecter avec le navigateur** sur ordinateur (rappel localhost) ou **Utiliser un code d’appareil** sur ordinateur/mobile et terminez l'autorisation sur la page OpenAI. Le plugin synchronise les modèles sélectionnables du compte Codex connecté et ne met en cache que des métadonnées nettoyées ; **Actualiser les modèles du compte** permet de les mettre à jour. En cas d'indisponibilité temporaire, le dernier cache ou une liste de secours minimale reste disponible. Testez ensuite la connexion et enregistrez. Les identifiants OAuth sont stockés uniquement dans Obsidian SecretStorage ; **Se déconnecter** les efface. La disponibilité suit les politiques d'authentification, de modèles et de quota d'OpenAI Codex. Il s'agit d'une compatibilité tierce, pas d'un partenariat OpenAI ni d'une API ChatGPT générale.
 
 ### 🎮 Utilisation
 
@@ -208,7 +210,7 @@ Correctif à chaud sur v1.25.0 : huit corrections de pertes silencieuses en sort
 - **🏷️ Mandatory Page Aliases** — Chaque page générée inclut au moins un alias (traduction, acronyme, nom alternatif), permettant la détection de doublons inter-langues
 - **🔄 Détection et fusion de doublons** — Le Semantic Tiering identifie les vrais doublons (traductions inter-langues, abréviations, variantes orthographiques) ; la fusion intelligente par LLM consolide le contenu et préserve les alias
 - **🧩 Smart Knowledge Fusion** — Les mises à jour multi-sources fusionnent les nouvelles informations sans redondance, préservent les contradictions avec attribution, et protègent les pages `reviewed: true` de l'écrasement
-- **📏 Content Truncation Protection** — 8000 max_tokens avec détection automatique de stop_reason et retry à 2× tokens pour tous les providers
+- **📏 Protection contre la troncature** — Les fournisseurs avec clé API et locaux utilisent 8000 max_tokens, détectent automatiquement stop_reason et réessaient avec 2× tokens. Le chemin expérimental ChatGPT Plan (Codex OAuth) suit la politique de sortie du backend Codex, qui n'accepte pas de limite max_output_tokens côté client.
 - **📝 Verbatim Source Mentions** — Préservation des citations en langue originale avec traduction optionnelle pour traçabilité
 
 - **🎨 Vocabulaire de tags personnalisable (v1.18.0).** Paramètres → Wiki → Mode de vocabulaire de tags → *Personnalisé* vous permet de définir vos propres listes de tags de type entité et concept (par ex. `Medical_Arzneimittel`, `法规`). Le plugin respecte votre vocabulaire dans les prompts d'extraction et la validation du frontmatter ; l'audit Lint (Issue #85 v7) signale toute page dont les tags sortent du vocabulaire actif.
@@ -392,7 +394,7 @@ Le PDF ne quitte jamais votre machine — Markitdown fait la conversion structur
 
 **🎛️ LM Studio (local, sans clé API) :** Installer [LM Studio](https://lmstudio.ai), démarrer son serveur local (par défaut `http://localhost:1234/v1`), sélectionner « LM Studio (Local) » dans le menu déroulant des providers. LM Studio exécute un serveur compatible OpenAI intégré — le champ de clé API est facultatif.
 
-> 💡 **Forfaits d'abonnement :** Les forfaits Coding Plan, OpenAI Pro ou Anthropic Pro sont d'excellentes options pour contrôler les coûts en cas d'utilisation fréquente. Ce plugin prend en charge ces services.
+> 💡 **Séparation de facturation OpenAI :** **OpenAI** utilise une clé Platform facturée séparément. **ChatGPT Plan (Codex OAuth)** est un fournisseur expérimental distinct qui utilise un quota Codex éligible après connexion par navigateur ou code d'appareil ; le nom du forfait ne garantit pas sa disponibilité.
 
 ---
 
@@ -451,7 +453,7 @@ Utilisez la granularité Grossière ou Minimale pour l'ingestion par lots (moins
 🌐 **10 langues** pour l'interface et la sortie Wiki : English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano. La langue de l'interface et celle du Wiki sont indépendantes.
 
 **Configuration minimale ?**
-Obsidian v1.11.0+ (bureau : Windows/macOS/Linux). Une clé API LLM (ou Ollama/LM Studio local, sans clé). Le verrou **llmReady** nécessite un test de connexion avant de débloquer les fonctionnalités principales.
+Obsidian v1.11.4+ (ordinateur ou mobile). Une clé API LLM, un modèle Ollama/LM Studio local ou des identifiants ChatGPT Plan (Codex OAuth) autorisés sont requis. Le verrou **llmReady** nécessite un test de connexion avant de débloquer les fonctionnalités principales.
 
 **Comment annuler une opération en cours ?**
 Cliquez sur le texte de la barre d'état ou `Cmd+P` → « Cancel current ingestion ». Arrêt propre à la prochaine limite de lot.

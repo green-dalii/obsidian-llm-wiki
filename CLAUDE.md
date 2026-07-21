@@ -20,7 +20,32 @@
 
 ### Withdrawn / non-issues
 
+### Withdrawn / non-issues
+
 - **Windows: `Connection test failed: TypeError: Failed to construct 'Headers'`** — withdrawn 2026-07-10 (user input error: non-ASCII chars in API key field). Not a plugin bug.
+
+**AkaSakana PR #286 feedback adopted (2026-07-15):**
+- ✅ Cache key includes `converterVersion` so prompt upgrades invalidate stale entries.
+- ✅ `forcePdfSupport` kept for BOTH `custom` and `anthropic-compatible`, default `false` (manual opt-in, NOT opt-out — many compatible endpoints don't reliably support PDF). (2026-07-15 user correction.)
+- ⏳ Kimi Files API (PR4, optional contribution): upload → extract → delete, error regex classifiers, transient-retry extension. AkaSakana owns the contribution; we transfer responsibility to TA via PR #286 reply.
+
+Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
+
+### Codex OAuth provider architecture (PR #273, merged 2026-07-21)
+
+- `openai` remains the OpenAI Platform API-key provider with separate usage billing.
+- `openai-codex` is displayed as **ChatGPT Plan (Codex OAuth)** and is experimental third-party compatibility, not an OpenAI partnership or a general ChatGPT API.
+- Desktop supports the OpenAI-hosted browser flow through a guarded loopback callback on `127.0.0.1:1455`; desktop and mobile support device-code login. Node `http` loading must stay behind the desktop platform guard.
+- OAuth credentials must remain in Obsidian SecretStorage only. Never put tokens in settings, `data.json`, logs, Notices, documentation, test fixtures, or copied examples. Sign-out overwrites the plugin-owned secret with an empty value and clears in-memory state.
+- The provider uses its dedicated Codex Responses client and synchronizes picker-visible models from the authenticated Codex `/models` catalog, with sanitized metadata caching and a minimal fallback. Do not merge it into the OpenAI API-key client, infer plan tier, promise model availability, depend on OpenCode/models.dev, or describe a fixed quota multiplier.
+- OAuth lifecycle commands belong in `main-commands/codex-auth-commands.ts`; shared model selection policy belongs in `core/openai-codex-model-policy.ts`. The Codex request adapter intentionally omits client-side `max_output_tokens` because the backend does not support that request field.
+- SecretStorage requires Obsidian 1.11.4, so `manifest.json`, badges, and user prerequisites must not advertise an older minimum. The plugin remains `isDesktopOnly: false` because device-code login is the mobile path.
+
+> **Historical release compositions** (v1.24.1 / v1.25.0 / v1.25.1): see [CHANGELOG.md](./CHANGELOG.md). Keep a Changelog is canonical; this file covers dev standards + current phase only.
+
+### Withdrawn / non-issues (kept for archaeology)
+
+- **Windows: `Connection test failed: TypeError: Failed to construct 'Headers'`** — withdrawn 2026-07-10 (user input error: non-ASCII chars in API key field; not a plugin/AI-SDK bug). AI-SDK 5.0.53 has a Windows guard but our `provider-utils@4.0.35` (bundled by `ai@^6.0.214`) does not include the fix; not worth patching given root cause is user-side.
 
 ---
 

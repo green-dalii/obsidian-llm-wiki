@@ -7,16 +7,30 @@ import {
 } from './types';
 import { NOTICE_NORMAL, NOTICE_ABORT } from './constants';
 import { preloadLLMClientModules } from './llm-sdk/create-llm-client';
-import { allowsEmptyApiKey } from './core/local-no-key-provider';
+import { isProviderConfigured } from './core/provider-auth';
 import { createLLMClient } from './core/create-plugin-llm-client';
+import { CodexAuthManager } from './llm-sdk/openai-codex/auth-manager';
+import { CodexCredentialStore } from './llm-sdk/openai-codex/credential-store';
+import { obsidianFetchBridge } from './core/obsidian-fetch-bridge';
+import type { FetchLike } from './llm-sdk/openai-codex/types';
 
 // v1.23.0 P1-7: AI-SDK migration. Eagerly preload SDK modules on plugin
 // load so sync `createLLMClient` works without blocking. Failure is
 // non-fatal: falls back to legacy llm-client at createLLMClient time.
-const aiSdkModulesLoaded: Promise<void> = preloadLLMClientModules();
-void aiSdkModulesLoaded.catch((err) => {
+const aiSdkModulesLoaded: Promise<void> = preloadLLMClientModules().catch((err) => {
   console.warn('[v1.23.0 LLM migration] Failed to preload AI-SDK modules:', err);
 });
+
+export async function initializeLLMClientAfterModules(modulesLoaded: Promise<void>, initialize: () => void): Promise<void> {
+  try {
+    await modulesLoaded;
+  } catch (error) {
+    console.warn('[v1.23.0 LLM migration] Failed to preload AI-SDK modules:', error);
+  }
+  initialize();
+}
+
+export { createLLMClient };
 import { TEXTS } from './texts';
 import { getText } from './core/i18n';
 import { applySettingsMigrations } from './core/settings-migrations';
@@ -43,6 +57,8 @@ import type { QueryLintMethods } from './main-commands/query-lint-commands';
 import { ingestCommands } from './main-commands/ingest-commands';
 import type { IngestMethods } from './main-commands/ingest-commands';
 import { registerWikiCommands } from './main-commands/command-registry';
+import { codexAuthCommands } from './main-commands/codex-auth-commands';
+import type { CodexAuthCommandsMethods } from './main-commands/codex-auth-commands';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- C-PR3: intentional interface+class merge for mixin pattern
 export class LLMWikiPlugin extends Plugin {
@@ -51,15 +67,23 @@ export class LLMWikiPlugin extends Plugin {
   wikiEngine: WikiEngine;
   schemaManager: SchemaManager;
   autoMaintainManager: AutoMaintainManager;
+  codexAuthManager: CodexAuthManager | null = null;
+  codexCredentialStore: CodexCredentialStore | null = null;
   ingestQueue: IngestQueue = new IngestQueue();
   progressNotice: Notice | null = null;
   ingestStatusBar: HTMLElement | null = null;
   batchProgress: BatchProgress | null = null;
-
   async onload() {
     await this.loadSettings();
+    this.codexCredentialStore = new CodexCredentialStore(this.app.secretStorage, this.settings.openAICodexSecretId);
+    this.codexAuthManager = new CodexAuthManager({
+      store: this.codexCredentialStore,
+      fetchFn: obsidianFetchBridge as unknown as FetchLike,
+      openExternal: (url) => this.openExternal(url),
+    });
+    await this.clearUnboundOpenAICodexModelCache();
     this.cleanupVocabularyTags();
-    this.initializeLLMClient();
+    await initializeLLMClientAfterModules(aiSdkModulesLoaded, () => this.initializeLLMClient());
 
     this.schemaManager = new SchemaManager(
       this.app,
@@ -140,6 +164,7 @@ export class LLMWikiPlugin extends Plugin {
   }
 
   onunload() {
+    this.codexAuthManager?.dispose();
     this.autoMaintainManager?.stop();
     console.debug('LLM Wiki Plugin unloaded');
   }
@@ -161,6 +186,7 @@ export class LLMWikiPlugin extends Plugin {
 
     if (applied.length > 0) {
       console.debug(`loadSettings: applied migrations: ${applied.join(', ')}`);
+      await this.saveData(this.settings);
     }
 
     console.debug(
@@ -169,10 +195,9 @@ export class LLMWikiPlugin extends Plugin {
     );
 
     if (savedData && !('llmReady' in savedData)) {
-      const hasConfig = savedData.provider
-        && allowsEmptyApiKey(savedData.provider, savedData.apiKey)
-        && savedData.model;
-      this.settings.llmReady = !!hasConfig;
+      const hasCodexCredential = new CodexCredentialStore(this.app.secretStorage, this.settings.openAICodexSecretId).hasCredential();
+      const hasConfig = isProviderConfigured({ provider: this.settings.provider, apiKey: this.settings.apiKey, model: this.settings.model, hasCodexCredential });
+      this.settings.llmReady = hasConfig;
       if (hasConfig) {
         console.debug('loadSettings: existing user with config detected, llmReady = true');
       }
@@ -219,13 +244,14 @@ export class LLMWikiPlugin extends Plugin {
     }
   }
 
-  initializeLLMClient() {
-    if (!allowsEmptyApiKey(this.settings.provider, this.settings.apiKey)) {
+  initializeLLMClient(): void {
+    const hasCodexCredential = this.codexAuthManager?.hasCredential() === true;
+    if (!isProviderConfigured({ provider: this.settings.provider, apiKey: this.settings.apiKey, model: this.settings.model, hasCodexCredential })) {
       this.llmClient = null;
       return;
     }
     try {
-      this.llmClient = createLLMClient(this.settings);
+      this.llmClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version);
       console.debug('LLM Client initialized:', this.settings.provider);
     } catch (error) {
       console.error('LLM Client initialization failed:', error);
@@ -290,11 +316,11 @@ export class LLMWikiPlugin extends Plugin {
 // method signatures on the LLMWikiPlugin instance type.
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- C-PR3 mixin pattern
 export interface LLMWikiPlugin extends PdfCacheMethods, ConnectionCommandsMethods,
-  SchemaCommandsMethods, QueryLintMethods, IngestMethods {}
+  SchemaCommandsMethods, QueryLintMethods, IngestMethods, CodexAuthCommandsMethods {}
 
 // v1.25.1 Phase C-PR3: prototype injection — copies runtime
 // implementations from each mixin module onto the class prototype.
 Object.assign(LLMWikiPlugin.prototype, pdfCacheCommands, connectionCommands,
-  schemaCommands, queryLintCommands, ingestCommands);
+  schemaCommands, queryLintCommands, ingestCommands, codexAuthCommands);
 
 export default LLMWikiPlugin;

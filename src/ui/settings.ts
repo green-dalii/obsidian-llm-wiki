@@ -1,6 +1,6 @@
 // Settings panel UI for LLM Wiki Plugin
 
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, Platform } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { LLMWikiSettings } from '../types';
 import { TEXTS } from '../texts';
@@ -17,10 +17,17 @@ import { renderAdvancedSection } from './settings-sections/advanced-section';
 import { renderTestConnectionSection } from './settings-sections/test-connection-section';
 import { renderWikiConfigSection } from './settings-sections/wiki-config-section';
 import { renderAutoMaintainSection } from './settings-sections/auto-maintain-section';
+import { copyCodexDeviceCode, runCodexDeviceAuth, runCodexModelRefresh, runCodexSignOut } from './openai-codex-auth-controls';
+import { applyCodexModelPolicy } from '../core/openai-codex-model-policy';
+import type { CodexDevicePrompt } from './openai-codex-auth-controls';
+import { NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 
 export class LLMWikiSettingTab extends PluginSettingTab {
   plugin: LLMWikiPlugin;
   tempSettings: LLMWikiSettings;
+  public codexAuthBusy = false;
+  public codexDevicePrompt: CodexDevicePrompt | null = null;
+  private codexModelRefreshAttemptedAt = 0;
 
   constructor(app: App, plugin: LLMWikiPlugin) {
     super(app, plugin);
@@ -122,6 +129,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       desc: string;
       dropdownSentinel: string;
       dropdownSentinelLabel: string;
+      allowCustom?: boolean;
     },
   ): void {
     const setting = new Setting(containerEl)
@@ -133,7 +141,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         (this.tempSettings.availableModels || []).forEach(model => {
           dropdown.addOption(model, model);
         });
-        dropdown.addOption(options.dropdownSentinel, options.dropdownSentinelLabel);
+        if (options.allowCustom !== false) dropdown.addOption(options.dropdownSentinel, options.dropdownSentinelLabel);
         const currentVal = this.getCurrentModelValue(field);
         // If the current value is empty OR not in the fetched list, default
         // the dropdown to the sentinel option. This covers two cases:
@@ -146,10 +154,10 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         //      the dropdown's visible options).
         const displayVal = currentVal.trim() && (this.tempSettings.availableModels || []).includes(currentVal.trim())
           ? currentVal.trim()
-          : options.dropdownSentinel;
+          : options.allowCustom === false ? this.tempSettings.availableModels?.[0] ?? '' : options.dropdownSentinel;
         dropdown.setValue(displayVal);
         dropdown.onChange((value) => {
-          if (value === options.dropdownSentinel) {
+          if (options.allowCustom !== false && value === options.dropdownSentinel) {
             // Unified picker: switch to text input (preserves field value).
             // Per-task picker: also switch to text input — same UX. The
             // "use unified model" semantic is expressed by *leaving the
@@ -182,7 +190,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
         .setPlaceholder(this.getText('modelInputPlaceholder'))
         .setValue(this.getCurrentModelValue(field))
         .onChange((value) => { this.setFieldValue(field, value); }));
-      if (hasFetched) {
+      if (hasFetched && options.allowCustom !== false) {
         setting.addExtraButton(button => button
           .setIcon('list')
           .setTooltip(this.getText('useDropdownButton'))
@@ -196,6 +204,52 @@ export class LLMWikiSettingTab extends PluginSettingTab {
           }));
       }
     }
+  }
+
+  private codexAuthError(error: unknown): string { return this.getText('codexAuthFailed').replace('{}', error instanceof Error ? error.message : String(error)); }
+
+  public syncCodexModelsFromPlugin(): void {
+    this.tempSettings.openAICodexModels = (this.plugin.settings.openAICodexModels ?? []).map((entry) => ({ ...entry, supportedReasoningLevels: [...entry.supportedReasoningLevels], additionalSpeedTiers: [...entry.additionalSpeedTiers], serviceTiers: entry.serviceTiers.map((tier) => ({ ...tier })) }));
+    this.tempSettings.openAICodexModelsFetchedAt = this.plugin.settings.openAICodexModelsFetchedAt ?? 0;
+    this.tempSettings.openAICodexUnavailableModels = [...(this.plugin.settings.openAICodexUnavailableModels ?? [])];
+    applyCodexModelPolicy(this.tempSettings);
+  }
+
+  public async refreshOpenAICodexModels(force: boolean, showSuccess: boolean): Promise<void> { await runCodexModelRefresh({ refresh: () => this.plugin.refreshOpenAICodexModels(force), sync: () => { this.syncCodexModelsFromPlugin(); }, showSuccess: (count) => { if (showSuccess) new Notice(this.getText('codexModelsRefreshSuccess').replace('{}', String(count)), NOTICE_NORMAL); }, showError: (error) => { new Notice(this.getText('codexModelsRefreshFailed').replace('{}', error instanceof Error ? error.message : String(error)), NOTICE_ERROR); }, setBusy: (value) => { this.codexAuthBusy = value; }, render: () => { this.display(); } }); }
+
+  public queueStaleCodexModelRefresh(): void {
+    const now = Date.now();
+    const lastSuccessful = this.plugin.settings.openAICodexModelsFetchedAt ?? 0;
+    if (this.codexAuthBusy || now - Math.max(lastSuccessful, this.codexModelRefreshAttemptedAt) < 5 * 60 * 1000) return;
+    this.codexModelRefreshAttemptedAt = now;
+    void this.refreshOpenAICodexModels(false, false);
+  }
+
+  public async loginOpenAICodexBrowser(): Promise<void> {
+    if (!Platform.isDesktopApp) return;
+    this.codexAuthBusy = true;
+    this.display();
+    try { await this.plugin.loginOpenAICodexBrowser(); this.syncCodexModelsFromPlugin(); this.tempSettings.llmReady = false; } catch (error) { new Notice(this.codexAuthError(error), NOTICE_ERROR); } finally { this.codexAuthBusy = false; this.display(); }
+  }
+
+  public async loginOpenAICodexDevice(): Promise<void> {
+    await runCodexDeviceAuth({ beginLogin: () => this.plugin.beginOpenAICodexDeviceLogin(), openExternal: (url) => this.plugin.openExternal(url), setPrompt: (prompt) => { this.codexDevicePrompt = prompt; }, showError: (error) => { new Notice(this.codexAuthError(error), NOTICE_ERROR); }, setBusy: (value) => { this.codexAuthBusy = value; }, setReady: (value) => { this.tempSettings.llmReady = value; }, render: () => { this.display(); } });
+    this.syncCodexModelsFromPlugin();
+  }
+
+  public async copyOpenAICodexDeviceCode(): Promise<void> {
+    if (!this.codexDevicePrompt) return;
+    try { await copyCodexDeviceCode(this.codexDevicePrompt.userCode, navigator.clipboard); } catch (error) { new Notice(this.codexAuthError(error), NOTICE_ERROR); }
+  }
+
+  private confirmOpenAICodexSignOut(): boolean {
+    // eslint-disable-next-line no-alert
+    return window.confirm(`${this.getText('codexAuthSignOutButton')}?`);
+  }
+
+  public async signOutOpenAICodex(): Promise<void> {
+    await runCodexSignOut({ isBusy: () => this.codexAuthBusy, isSignedIn: () => this.plugin.codexAuthManager?.hasCredential() === true, confirm: () => this.confirmOpenAICodexSignOut(), signOut: () => this.plugin.signOutOpenAICodex(), showError: (error) => { new Notice(this.codexAuthError(error), NOTICE_ERROR); }, setBusy: (value) => { this.codexAuthBusy = value; }, setReady: (value) => { this.tempSettings.llmReady = value; }, render: () => { this.display(); } });
+    this.syncCodexModelsFromPlugin();
   }
 
   /** Read the current model string for any of the 4 model fields. */
@@ -354,6 +408,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     //     users have muscle memory for.
     const { containerEl } = this;
     containerEl.empty();
+    if (this.tempSettings.provider === 'openai-codex') applyCodexModelPolicy(this.tempSettings);
 
     renderLanguageSection(this, containerEl);
     renderStatusSection(this, containerEl);

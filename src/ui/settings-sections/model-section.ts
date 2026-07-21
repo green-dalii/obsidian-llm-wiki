@@ -42,12 +42,13 @@ export function renderModelSection(tab: LLMWikiSettingTab, containerEl: HTMLElem
   const { tempSettings } = tab;
   const providerConfig = PREDEFINED_PROVIDERS[tempSettings.provider];
   const isOllama = tempSettings.provider === 'ollama';
+  const isCodex = tempSettings.provider === 'openai-codex';
 
   // Model section heading
   new Setting(containerEl).setName(tab.getText('modelSection')).setHeading();
 
   // Fetch Models button
-  new Setting(containerEl)
+  if (!isCodex) new Setting(containerEl)
     .setName(tab.getText('fetchModelsName'))
     .setDesc(tab.getText('fetchModelsDesc'))
     .addButton(button => button
@@ -171,6 +172,7 @@ export function renderModelSection(tab: LLMWikiSettingTab, containerEl: HTMLElem
       : tab.getText('selectModelDesc').replace('{}', String(tempSettings.availableModels?.length ?? 0)),
     dropdownSentinel: '__custom__',
     dropdownSentinelLabel: tab.getText('customInputOption'),
+    allowCustom: !isCodex,
   });
 
   // Lint + Query pickers (per-task only)
@@ -180,12 +182,14 @@ export function renderModelSection(tab: LLMWikiSettingTab, containerEl: HTMLElem
       desc: tab.getText('perTaskLintModelDesc'),
       dropdownSentinel: '__custom__',
       dropdownSentinelLabel: tab.getText('customInputOption'),
+      allowCustom: !isCodex,
     });
     tab.renderModelField(containerEl, 'queryModel', {
       name: tab.getText('perTaskQueryModelName'),
       desc: tab.getText('perTaskQueryModelDesc'),
       dropdownSentinel: '__custom__',
       dropdownSentinelLabel: tab.getText('customInputOption'),
+      allowCustom: !isCodex,
     });
   }
 
