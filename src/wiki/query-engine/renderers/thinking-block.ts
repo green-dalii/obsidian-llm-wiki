@@ -33,21 +33,27 @@ export function renderThinkingBlocksUI(
   // Test environment stubs activeDocument on globalThis (see setup.ts).
   const doc = activeDocument;
   if (!doc) return null;
-  const details = doc.createElement('details');
-  details.className = 'llm-wiki-query-thinking-block';
+  // Top-level <details> — no parent yet, so use createEl on the Document
+  // (declared in src/types/obsidian-dom.d.ts; set up at runtime by
+  // `installObsidianDomHelpers` in src/__tests__/__support__/dom-helpers.ts
+  // and by Obsidian itself in production).
+  const details = doc.createEl('details', {
+    cls: 'llm-wiki-query-thinking-block',
+  });
 
-  const summary = doc.createElement('summary');
   const count = thinkingBlocks.length;
-  summary.textContent = count > 1
+  const summaryText = count > 1
     ? `💭 ${summaryLabel} (${count} ${stepsLabel})`
     : `💭 ${summaryLabel}`;
-  details.appendChild(summary);
+  // createEl appends to its host, so we don't need to capture or append
+  // the summary / pre children separately — details.createEl does it.
+  details.createEl('summary', { text: summaryText });
 
   for (const block of thinkingBlocks) {
-    const pre = doc.createElement('pre');
-    pre.className = 'llm-wiki-query-thinking-content';
-    pre.textContent = block;
-    details.appendChild(pre);
+    details.createEl('pre', {
+      cls: 'llm-wiki-query-thinking-content',
+      text: block,
+    });
   }
 
   return details;

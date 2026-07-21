@@ -121,7 +121,7 @@ export class HistoryModal extends Modal {
     const customRangeContainer = controls.createDiv({
       cls: 'llm-wiki-custom-range',
     });
-    customRangeContainer.createEl('span', {
+    customRangeContainer.createSpan({
       text: t.historyCustomRangeFrom,
       attr: { style: 'font-size: 0.85em; color: var(--text-muted);' },
     });
@@ -129,7 +129,7 @@ export class HistoryModal extends Modal {
       type: 'date',
       cls: 'llm-wiki-date-input',
     });
-    customRangeContainer.createEl('span', {
+    customRangeContainer.createSpan({
       text: t.historyCustomRangeTo,
       attr: { style: 'font-size: 0.85em; color: var(--text-muted);' },
     });

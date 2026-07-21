@@ -39,15 +39,20 @@ export function buildTurnIndicator(
   const existing = historyContainer.querySelector(`.${INDICATOR_CLASS}`);
   if (existing) existing.remove();
 
-  const indicator = historyContainer.ownerDocument.createElement('div');
+  // v1.25.2 PATCH prefer-create-el: production code uses the Obsidian-style
+  // `historyContainer.createDiv()` helpers (declared in
+  // `src/types/obsidian-dom.d.ts`). Tests install the same helpers via
+  // `installObsidianDomHelpers`; Obsidian production runtime provides
+  // them natively.
+  const indicator = historyContainer.createDiv();
   indicator.className = INDICATOR_CLASS;
 
   const turns = findTurnElements(historyContainer);
   turns.forEach((_, idx) => {
-    const wrapper = historyContainer.ownerDocument.createElement('div');
+    const wrapper = historyContainer.createDiv();
     wrapper.className = 'llm-wiki-turn-dot-wrapper';
 
-    const dot = historyContainer.ownerDocument.createElement('div');
+    const dot = historyContainer.createDiv();
     dot.className = DOT_CLASS;
     if (idx === activeTurn) {
       dot.classList.add(ACTIVE_CLASS);
@@ -56,7 +61,7 @@ export function buildTurnIndicator(
     wrapper.appendChild(dot);
 
     const label = turnLabels[idx]?.trim();
-    const tip = historyContainer.ownerDocument.createElement('div');
+    const tip = historyContainer.createDiv();
     tip.className = 'llm-wiki-turn-dot-tooltip';
     tip.textContent = label || `Turn ${idx + 1}`;
     wrapper.appendChild(tip);

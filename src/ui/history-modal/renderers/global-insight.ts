@@ -35,7 +35,7 @@ export function renderGlobalInsight(
         `padding: 12px 14px; margin-bottom: 16px; border-radius: 6px; ` +
         `background: ${bg}; border-left: 4px solid ${borderColor}; font-size: 0.95em;`,
     },
-  }).createEl('div', {
+  }).createDiv({
     text: `${icon}  ${insight.primary}`,
   });
 }

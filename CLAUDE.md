@@ -259,6 +259,18 @@ Every change via `Read` + `Edit` — no sed/awk/python for code or document edit
 ## ⚠️ Git Safety Protocol
 
 - **NEVER commit or push without explicit user permission.** Non-negotiable.
+- **NEVER auto-merge PRs into main without explicit user approval.** This applies even when:
+  - The PR passed Gate 1 in CI
+  - The PR was already cherry-picked locally
+  - The fix looks "obviously correct"
+  - The user said "handle it" or "do it"
+- **Mandatory pre-merge workflow for every PR (added 2026-07-21):**
+  1. **User explicit "merge it" / "合并"** is required before any `gh pr merge`, cherry-pick to local main, or PR-creation action.
+  2. **simplify skill** must run on the PR diff (4 angles: Reuse / Simplification / Efficiency / Altitude).
+  3. **code-review skill** must run on the PR diff (8 angles, max effort).
+  4. Report findings as a list with `file:line + concrete issue + suggested fix`. Do NOT modify the PR — report only.
+  5. Wait for user to approve before any local merge / push / PR creation action.
+- **Anti-pattern (2026-07-21):** "The PR is small and looks correct, let me just cherry-pick to local main first while we discuss" → This violates the workflow. Even local cherry-pick is a destructive action that creates commits on main ahead of explicit user approval. The correct action is to **evaluate and report only**, then wait for "merge it" / "合并" / "push it" signal.
 
 ## 🔀 Git Branch Workflow (enforced since v1.20.2)
 

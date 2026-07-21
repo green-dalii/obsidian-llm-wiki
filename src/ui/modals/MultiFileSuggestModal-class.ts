@@ -124,7 +124,7 @@ export class MultiFileSuggestModal extends Modal {
     this.rightEl = panes.createDiv({ cls: 'llm-wiki-multi-file-right' });
 
     const actions = contentEl.createDiv({ cls: 'llm-wiki-multi-file-actions' });
-    this.counterEl = actions.createEl('span', { cls: 'llm-wiki-multi-file-count' });
+    this.counterEl = actions.createSpan({ cls: 'llm-wiki-multi-file-count' });
     // "Cancel all" sits next to the counter. Replaces the old
     // "Clear queue" button (which was a UX dead-end — it never
     // cancelled the background worker). One click removes every
@@ -286,9 +286,9 @@ export class MultiFileSuggestModal extends Modal {
     // the nesting depth). The full path lives on `data-path` for
     // debugging / future features.
     const folderLabel = node.path.split('/').pop() ?? node.path;
-    summary.createEl('span', { text: folderLabel, cls: 'llm-wiki-multi-file-folder-name' });
+    summary.createSpan({ text: folderLabel, cls: 'llm-wiki-multi-file-folder-name' });
     summary.setAttribute('data-path', node.path);
-    summary.createEl('span', {
+    summary.createSpan({
       text: getText(this.settings.language, 'multiFileFileCount', { count: String(visibleFiles.length) }),
       cls: 'llm-wiki-multi-file-folder-count',
     });
@@ -318,7 +318,7 @@ export class MultiFileSuggestModal extends Modal {
 
     // Direct-child files
     if (visibleFiles.length > 0) {
-      const list = details.createEl('div', { cls: 'llm-wiki-multi-file-folder-list' });
+      const list = details.createDiv({ cls: 'llm-wiki-multi-file-folder-list' });
       for (const file of visibleFiles) {
         this.renderFileRow(file, list);
       }
@@ -353,7 +353,7 @@ export class MultiFileSuggestModal extends Modal {
     // queue changes externally, e.g. the background worker
     // completes a job — handled by updateLeftPaneSelections).
     const basename = file.path.split('/').pop() ?? file.path;
-    row.createEl('span', { text: basename, cls: 'llm-wiki-multi-file-basename' });
+    row.createSpan({ text: basename, cls: 'llm-wiki-multi-file-basename' });
     // Whole row toggles the checkbox (skip the checkbox itself).
     row.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).tagName !== 'INPUT') {
@@ -451,9 +451,9 @@ export class MultiFileSuggestModal extends Modal {
         job.status === 'running' ? '🔵' :
         job.status === 'completed' ? '✅' :
         '❌';
-      row.createEl('span', { text: statusIcon, cls: 'llm-wiki-multi-file-status-icon' });
+      row.createSpan({ text: statusIcon, cls: 'llm-wiki-multi-file-status-icon' });
       const basename = job.file.path.split('/').pop() ?? job.file.path;
-      row.createEl('span', { text: basename, cls: 'llm-wiki-multi-file-basename' });
+      row.createSpan({ text: basename, cls: 'llm-wiki-multi-file-basename' });
       // Status text is i18n'd. The internal `job.status` enum
       // string stays English (data attribute on the row's class is
       // used for CSS styling — `llm-wiki-multi-file-row-pending`
@@ -464,9 +464,9 @@ export class MultiFileSuggestModal extends Modal {
         job.status === 'running' ? 'multiFileStatusRunning' :
         job.status === 'completed' ? 'multiFileStatusCompleted' :
         'multiFileStatusFailed';
-      row.createEl('span', { text: getText(this.settings.language, statusTextKey), cls: 'llm-wiki-multi-file-status' });
+      row.createSpan({ text: getText(this.settings.language, statusTextKey), cls: 'llm-wiki-multi-file-status' });
       if (job.error) {
-        row.createEl('span', { text: job.error, cls: 'llm-wiki-multi-file-error' });
+        row.createSpan({ text: job.error, cls: 'llm-wiki-multi-file-error' });
       }
       // Per-row cancel button. Disabled for terminal-state jobs
       // (completed / failed) — remove() would drop the error

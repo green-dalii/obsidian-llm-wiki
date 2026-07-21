@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { installObsidianDomHelpers } from '../../__support__/dom-helpers';
 import {
   renderCustomInstructionsPanel,
   type CustomInstructionsPanelOptions,
@@ -20,6 +21,13 @@ beforeEach(() => {
   (globalThis as Record<string, unknown>).activeDocument = doc;
   // eslint-disable-next-line obsidianmd/no-global-this
   globalThis.HTMLElement = dom.window.HTMLElement;
+  // v1.25.2 PATCH prefer-create-el: production renderer uses `parent.createEl`,
+  // which Obsidian provides natively. Tests mirror the helpers via
+  // `installObsidianDomHelpers` so per-test JSDOM carries the same surface.
+  installObsidianDomHelpers(
+    { HTMLElement: dom.window.HTMLElement, Document: dom.window.Document },
+    doc,
+  );
 });
 
 afterEach(() => {

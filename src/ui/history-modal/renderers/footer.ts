@@ -23,7 +23,7 @@ export function renderSectionTitle(
     : severity === 'medium' ? 'var(--text-warning)'
     : severity === 'low' ? 'var(--text-accent)'
     : 'var(--text-muted)';
-  body.createEl('div', {
+  body.createDiv({
     text: label,
     attr: {
       style:

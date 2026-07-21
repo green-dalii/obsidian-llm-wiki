@@ -54,7 +54,7 @@ export function renderLlmAnalysisSection(
     const header = groupEl.createDiv({
       attr: { style: 'display: flex; gap: 6px; align-items: center;' },
     });
-    header.createEl('span', {
+    header.createSpan({
       text: chipText,
       attr: {
         style:
@@ -62,7 +62,7 @@ export function renderLlmAnalysisSection(
           `border-radius: 10px; background: ${color}; color: var(--text-on-accent);`,
       },
     });
-    header.createEl('span', {
+    header.createSpan({
       text: String(items.length),
       attr: { style: 'font-size: 0.85em; color: var(--text-muted);' },
     });

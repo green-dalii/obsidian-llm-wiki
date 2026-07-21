@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { installObsidianDomHelpers } from '../__support__/dom-helpers';
 
 // We can't easily import QueryView without a lot of scaffolding, so we
 // test the helper logic directly and verify DOM mutations through a
@@ -24,6 +25,10 @@ beforeEach(() => {
   globalThis.document = dom.window.document;
   // eslint-disable-next-line obsidianmd/no-global-this
   (globalThis as Record<string, unknown>).activeDocument = dom.window.document;
+  installObsidianDomHelpers(
+    { HTMLElement: dom.window.HTMLElement, Document: dom.window.Document },
+    dom.window.document,
+  );
 });
 
 afterEach(() => {

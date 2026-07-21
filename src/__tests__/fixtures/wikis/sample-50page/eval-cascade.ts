@@ -11,8 +11,9 @@
  *   - cascade+seeds (pprCascade with explicit seeds from lex)
  */
 
-/* eslint-disable -- eval script, not in production bundle */
-/* tsc disable for .ts import extensions + node:fs/path/url usage */
+/* eslint-disable no-undef, import/no-nodejs-modules, no-console -- eval script, not in production bundle */
+// tsc disable for .ts import extensions + node:fs/path/url usage
+// @ts-nocheck
 // @ts-nocheck
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';

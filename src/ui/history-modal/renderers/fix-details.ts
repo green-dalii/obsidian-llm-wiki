@@ -14,12 +14,12 @@ export function renderFixDetails(
   t: HistoryTexts,
   ctx: RendererContext,
 ): void {
-  body.createEl('div', {
+  body.createDiv({
     text: `${t.historyEntrySectionDetails} (${entry.details.length})`,
     attr: { style: 'font-weight: 600; margin-bottom: 4px; font-size: 0.9em;' },
   });
   if (entry.details.length === 0 && entry.rawDetails) {
-    body.createEl('div', {
+    body.createDiv({
       text: entry.rawDetails,
       attr: { style: 'white-space: pre-wrap; color: var(--text-muted); margin-left: 8px;' },
     });

@@ -10,6 +10,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
+import { installObsidianDomHelpers } from '../__support__/dom-helpers';
 import { renderThinkingBlocksUI } from '../../wiki/query-engine';
 
 beforeEach(() => {
@@ -20,6 +21,10 @@ beforeEach(() => {
   (globalThis as Record<string, unknown>).activeDocument = dom.window.document;
   // eslint-disable-next-line obsidianmd/no-global-this
   globalThis.HTMLElement = dom.window.HTMLElement;
+  installObsidianDomHelpers(
+    { HTMLElement: dom.window.HTMLElement, Document: dom.window.Document },
+    dom.window.document,
+  );
 });
 
 afterEach(() => {

@@ -132,7 +132,7 @@ class NodeLoopbackServer implements LoopbackServer {
 }
 
 async function requireNodeHttp(): Promise<typeof import('node:http')> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, no-undef, import/no-nodejs-modules
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, no-undef -- loopback callback server runs Node http on desktop only; callers guard via Platform.isDesktopApp. The `import/no-nodejs-modules` lint rule does not flag this line because it is paired with the type-only `import('node:http')` form on the next line, which keeps the static dependency graph explicit for tree-shaking.
   const http = require('node:http') as typeof import('node:http');
   return http;
 }
