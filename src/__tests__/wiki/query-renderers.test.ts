@@ -39,8 +39,14 @@ afterEach(() => {
 });
 
 describe('extractThinkingPanel', () => {
+  // v1.25.2 PATCH: extractThinkingPanel takes a `parent` HTMLElement so
+  // the extracted <details> is built against the parent's createEl
+  // (avoiding Obsidian runtime's "Only one element on document"
+  // auto-attach bug).
+  const makeParent = (): HTMLElement => activeDocument.body.createDiv();
+
   it('returns null thinkingEl + visible content identical to input when no think tags', () => {
-    const result = extractThinkingPanel('Hello world. Markdown content.', 'en', 'wiki');
+    const result = extractThinkingPanel('Hello world. Markdown content.', 'en', 'wiki', makeParent());
     expect(result.thinkingEl).toBeNull();
     expect(result.normalized).toBe('Hello world. Markdown content.');
   });
@@ -49,7 +55,7 @@ describe('extractThinkingPanel', () => {
     const tagOpen = String.fromCharCode(60) + 'think' + String.fromCharCode(62); // 'think' open
     const tagClose = String.fromCharCode(60) + '/think' + String.fromCharCode(62); // 'think' close
     const input = 'Hello. ' + tagOpen + 'thinking-content' + tagClose + ' done.';
-    const result = extractThinkingPanel(input, 'en', 'wiki');
+    const result = extractThinkingPanel(input, 'en', 'wiki', makeParent());
     expect(result.thinkingEl).not.toBeNull();
     expect(result.thinkingEl?.tagName).toBe('DETAILS');
     expect(result.normalized).not.toContain('thinking-content');

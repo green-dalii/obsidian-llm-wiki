@@ -38,13 +38,19 @@ afterEach(() => {
 });
 
 describe('renderThinkingBlocksUI', () => {
+  // v1.25.2 PATCH: renderThinkingBlocksUI now takes a parent HTMLElement
+  // so the <details> can be built via parent.createEl (Obsidian runtime
+  // forbids `HTMLDocument.createEl` in nested scenarios — see
+  // src/wiki/query-engine/renderers/thinking-block.ts header comment).
+  const makeParent = (): HTMLElement => activeDocument.body.createDiv();
+
   it('returns null when no thinking blocks', () => {
-    const result = renderThinkingBlocksUI([], 'en');
+    const result = renderThinkingBlocksUI([], 'en', makeParent());
     expect(result).toBeNull();
   });
 
   it('renders a <details> element with a localized summary line', () => {
-    const el = renderThinkingBlocksUI(['Step 1 thinking.'], 'en') as HTMLElement;
+    const el = renderThinkingBlocksUI(['Step 1 thinking.'], 'en', makeParent()) as HTMLElement;
     expect(el.tagName).toBe('DETAILS');
 
     const summary = el.querySelector('summary');
@@ -55,7 +61,7 @@ describe('renderThinkingBlocksUI', () => {
   });
 
   it('renders each thinking block as a separate <pre> element', () => {
-    const el = renderThinkingBlocksUI(['Block 1 content.', 'Block 2 content.'], 'en') as HTMLElement;
+    const el = renderThinkingBlocksUI(['Block 1 content.', 'Block 2 content.'], 'en', makeParent()) as HTMLElement;
     const pres = el.querySelectorAll('pre');
     expect(pres.length).toBe(2);
     expect(pres[0].textContent).toBe('Block 1 content.');
@@ -63,31 +69,31 @@ describe('renderThinkingBlocksUI', () => {
   });
 
   it('marks the <details> as collapsed by default (no `open` attribute)', () => {
-    const el = renderThinkingBlocksUI(['Some thinking.'], 'en') as HTMLElement;
+    const el = renderThinkingBlocksUI(['Some thinking.'], 'en', makeParent()) as HTMLElement;
     expect(el.hasAttribute('open')).toBe(false);
   });
 
   it('uses Chinese summary when language is zh', () => {
-    const el = renderThinkingBlocksUI(['思考内容。'], 'zh') as HTMLElement;
+    const el = renderThinkingBlocksUI(['思考内容。'], 'zh', makeParent()) as HTMLElement;
     const summary = el.querySelector('summary');
     expect(summary?.textContent).toContain('思考');
   });
 
   it('uses German translation when available (no fallback to en)', () => {
-    const el = renderThinkingBlocksUI(['Thinking.'], 'de') as HTMLElement;
+    const el = renderThinkingBlocksUI(['Thinking.'], 'de', makeParent()) as HTMLElement;
     const summary = el.querySelector('summary');
     expect(summary?.textContent).toMatch(/[Dd]enk/);
   });
 
   it('does not escape HTML inside thinking blocks (preserves preformatted content)', () => {
-    const el = renderThinkingBlocksUI(['<tag>code</tag>'], 'en') as HTMLElement;
+    const el = renderThinkingBlocksUI(['<tag>code</tag>'], 'en', makeParent()) as HTMLElement;
     const pre = el.querySelector('pre');
     // The textContent should contain the literal <tag> — no HTML escape needed in textContent
     expect(pre?.textContent).toContain('<tag>code</tag>');
   });
 
   it('includes step count in summary when there are multiple blocks', () => {
-    const el = renderThinkingBlocksUI(['A', 'B', 'C'], 'en') as HTMLElement;
+    const el = renderThinkingBlocksUI(['A', 'B', 'C'], 'en', makeParent()) as HTMLElement;
     const summary = el.querySelector('summary');
     // Either "3 steps" or similar indicator
     expect(summary?.textContent).toMatch(/3/);

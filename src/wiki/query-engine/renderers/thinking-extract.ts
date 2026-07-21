@@ -30,11 +30,18 @@ export interface ThinkingPanelResult {
  *      user's CURRENT `wikiFolder` so the user sees a clickable Obsidian link.
  * `wikiFolder` is required — without it, both steps become no-ops and we
  * fall through with whatever the LLM emitted (caller is `QueryView.renderMarkdownContent`).
+ *
+ * v1.25.2 PATCH: takes a `parent` HTMLElement so `renderThinkingBlocksUI`
+ * can build against the parent's `createEl`. See the comment on
+ * `renderThinkingBlocksUI` for why `parent: HTMLElement` is required —
+ * Obsidian runtime's `HTMLDocument.createEl` auto-attaches to
+ * `document.body` and refuses subsequent nested attachments.
  */
 export function extractThinkingPanel(
   content: string,
   language: string,
   wikiFolder: string,
+  parent: HTMLElement,
 ): ThinkingPanelResult {
   const lower = content.toLowerCase();
   const hasThinkTags = lower.includes('<think');
@@ -47,7 +54,7 @@ export function extractThinkingPanel(
   const withPlaceholder = normalizeWikiLinkContent(visibleContent, wikiFolder);
   const normalized = substituteWikiFolderPlaceholder(withPlaceholder, wikiFolder);
   return {
-    thinkingEl: renderThinkingBlocksUI(thinkingBlocks, language),
+    thinkingEl: renderThinkingBlocksUI(thinkingBlocks, language, parent),
     normalized,
   };
 }

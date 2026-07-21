@@ -13,10 +13,21 @@ import { TEXTS } from '../../../texts';
  * panel, ChatGPT/Claude.ai style. The summary line is localized via the
  * TEXTS table (with English fallback). Returns null when there are no
  * blocks so the caller can skip the wrapper entirely.
+ *
+ * v1.25.2 PATCH: takes a `parent` HTMLElement so the <details> is built
+ * via the parent's `createEl` helper — Obsidian runtime's
+ * `HTMLDocument.createEl` auto-attaches to `document.body`, which
+ * collides with `renderMarkdownContent`'s later
+ * `container.appendChild(thinkingEl)` and trips the runtime check
+ * "Only one element on document allowed" the moment we try to
+ * append the first nested `details.createEl('summary')`. Building
+ * against a Node-typed parent sidesteps the issue entirely and
+ * restores the ChatGPT-style collapsible panel.
  */
 export function renderThinkingBlocksUI(
   thinkingBlocks: string[],
   language: string,
+  parent: HTMLElement,
 ): HTMLElement | null {
   if (!thinkingBlocks || thinkingBlocks.length === 0) return null;
 
@@ -29,15 +40,7 @@ export function renderThinkingBlocksUI(
   const stepsLabel = langTexts?.queryThinkingSteps
     ?? (language === 'zh' ? '步' : language === 'ja' ? 'ステップ' : 'steps');
 
-  // v1.20.0: use activeDocument for popout-window compatibility.
-  // Test environment stubs activeDocument on globalThis (see setup.ts).
-  const doc = activeDocument;
-  if (!doc) return null;
-  // Top-level <details> — no parent yet, so use createEl on the Document
-  // (declared in src/types/obsidian-dom.d.ts; set up at runtime by
-  // `installObsidianDomHelpers` in src/__tests__/__support__/dom-helpers.ts
-  // and by Obsidian itself in production).
-  const details = doc.createEl('details', {
+  const details = parent.createEl('details', {
     cls: 'llm-wiki-query-thinking-block',
   });
 
@@ -45,8 +48,6 @@ export function renderThinkingBlocksUI(
   const summaryText = count > 1
     ? `💭 ${summaryLabel} (${count} ${stepsLabel})`
     : `💭 ${summaryLabel}`;
-  // createEl appends to its host, so we don't need to capture or append
-  // the summary / pre children separately — details.createEl does it.
   details.createEl('summary', { text: summaryText });
 
   for (const block of thinkingBlocks) {
