@@ -23,7 +23,9 @@ import type { LLMTask } from '../core/model-resolver';
 import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
 import { createLLMClient } from '../core/create-plugin-llm-client';
-import { allowsEmptyApiKey } from '../core/local-no-key-provider';
+import { providerRequiresApiKey } from '../core/provider-auth';
+import type { CodexAuthManager } from '../llm-sdk/openai-codex/auth-manager';
+import { applyCodexModelPolicy } from '../core/openai-codex-model-policy';
 import { resolveModelForTask } from '../core/model-resolver';
 import { TOKENS_QUERY_MODEL_DETECT, NOTICE_ERROR } from '../constants';
 
@@ -37,6 +39,8 @@ export interface ConnectionCommandsHost {
   settings: LLMWikiSettings;
   llmClient: LLMClient | null;
   wikiEngine: import('../wiki/wiki-engine').WikiEngine;
+  codexAuthManager: CodexAuthManager | null;
+  manifest: { version: string };
   initializeLLMClient(): void;
   saveSettings(): Promise<void>;
   isWikiInitialized(): Promise<boolean>;
@@ -55,7 +59,10 @@ export const connectionCommands = {
   ): Promise<{ success: boolean; message: string }> {
     const t = TEXTS[this.settings.language] || TEXTS.en;
 
-    if (!allowsEmptyApiKey(this.settings.provider, this.settings.apiKey)) {
+    if (this.settings.provider === 'openai-codex' && this.codexAuthManager?.hasCredential() !== true) {
+      return { success: false, message: t.codexAuthRequired };
+    }
+    if (providerRequiresApiKey(this.settings.provider) && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
       return { success: false, message: t.errorNoApiKey || 'API Key is not configured' };
     }
 
@@ -69,17 +76,42 @@ export const connectionCommands = {
     console.debug('[testLLMConnection] probe plan:', probePlan.map(p => `${p.label}=${p.model}`).join(', '));
 
     try {
-      const testClient = createLLMClient(this.settings);
+      const testClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version);
 
       for (const probe of probePlan) {
-        await testClient.createMessage({
-          model: probe.model,
-          max_tokens: TOKENS_QUERY_MODEL_DETECT,
-          messages: [{
-            role: 'user',
-            content: 'Test connection. Please reply "Connection successful".'
-          }]
-        });
+        const attempted = new Set<string>();
+        let fallbackAttempted = false;
+        while (true) {
+          try {
+            await testClient.createMessage({
+              model: probe.model,
+              max_tokens: TOKENS_QUERY_MODEL_DETECT,
+              messages: [{
+                role: 'user',
+                content: 'Test connection. Please reply "Connection successful".'
+              }]
+            });
+            break;
+          } catch (error) {
+            const statusCode = typeof error === 'object' && error !== null && 'statusCode' in error
+              ? (error as { statusCode?: unknown }).statusCode
+              : null;
+            if (this.settings.provider !== 'openai-codex' || statusCode !== 404) throw error;
+            attempted.add(probe.model);
+            this.settings.openAICodexUnavailableModels = [...new Set([...(this.settings.openAICodexUnavailableModels ?? []), probe.model])];
+            this.settings.openAICodexModels = (this.settings.openAICodexModels ?? []).filter((entry) => entry.slug !== probe.model);
+            applyCodexModelPolicy(this.settings);
+            if (fallbackAttempted) throw error;
+            fallbackAttempted = true;
+            const nextModel = this.settings.availableModels?.find((model) => !attempted.has(model));
+            if (!nextModel) throw error;
+            if (probe.label === 'unified') this.settings.model = nextModel;
+            if (probe.label === 'ingest') this.settings.ingestModel = nextModel;
+            if (probe.label === 'lint') this.settings.lintModel = nextModel;
+            if (probe.label === 'query') this.settings.queryModel = nextModel;
+            probe.model = nextModel;
+          }
+        }
       }
 
       this.settings.llmReady = true;

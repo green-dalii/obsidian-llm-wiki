@@ -30,17 +30,19 @@
  *     the live value (UX nicety preserved).
  */
 
-import { Setting } from 'obsidian';
+import { Platform, Setting } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
 import { PREDEFINED_PROVIDERS } from '../../types';
 import { BEDROCK_REGIONS, BEDROCK_DEFAULT_REGION, NATIVE_PDF_PROVIDER_IDS } from '../../constants';
 import { renderRangeSlider } from '../settings-helpers';
+import { getCodexAuthUiState } from '../openai-codex-auth-controls';
 
 export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLElement): void {
   const { tempSettings } = tab;
   const providerConfig = PREDEFINED_PROVIDERS[tempSettings.provider];
   const isOllama = tempSettings.provider === 'ollama';
   const isLmStudio = tempSettings.provider === 'lmstudio';
+  const isCodex = tempSettings.provider === 'openai-codex';
   const isBedrock = tempSettings.provider === 'bedrock-anthropic'
     || tempSettings.provider === 'bedrock-openai';
 
@@ -81,7 +83,21 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
     });
 
   // API Key (or hint for ollama/lmstudio)
-  if (!isOllama && !isLmStudio) {
+  if (isCodex) {
+    const isSignedIn = tab.plugin.codexAuthManager?.hasCredential() === true;
+    const authState = getCodexAuthUiState({ isDesktop: !Platform.isMobile, isSignedIn, isBusy: tab.codexAuthBusy });
+    const status = tab.codexAuthBusy ? tab.getText('codexAuthBusy') : authState.showSignOut ? tab.getText('codexAuthSignedIn') : tab.getText('codexAuthSignedOut');
+    const authSetting = new Setting(containerEl).setName(tab.getText('codexAuthName')).setDesc(`${tab.getText('codexAuthDesc')} ${tab.getText('codexAuthExperimental')} ${status}`);
+    if (authState.showBrowser) authSetting.addButton(button => button.setButtonText(tab.getText('codexAuthBrowserButton')).onClick(() => { void tab.loginOpenAICodexBrowser(); }));
+    if (authState.showDevice) authSetting.addButton(button => button.setButtonText(tab.getText('codexAuthDeviceButton')).onClick(() => { void tab.loginOpenAICodexDevice(); }));
+    if (authState.showSignOut) authSetting.addButton(button => button.setButtonText(tab.getText('codexAuthSignOutButton')).setWarning().onClick(() => { void tab.signOutOpenAICodex(); }));
+    if (isSignedIn) new Setting(containerEl).setName(tab.getText('codexModelsRefreshName')).setDesc(tab.getText('codexModelsRefreshDesc')).addButton(button => button.setButtonText(tab.codexAuthBusy ? tab.getText('codexModelsRefreshing') : tab.getText('codexModelsRefreshButton')).setDisabled(tab.codexAuthBusy).onClick(() => { void tab.refreshOpenAICodexModels(true, true); }));
+    if (tab.codexDevicePrompt) {
+      const prompt = tab.codexDevicePrompt;
+      new Setting(containerEl).setName(tab.getText('codexAuthDeviceInstructions').replace('{}', prompt.userCode)).setDesc(prompt.verificationUrl).addButton(button => button.setButtonText(tab.getText('codexAuthCopyCode')).onClick(() => { void tab.copyOpenAICodexDeviceCode(); })).addButton(button => button.setButtonText(tab.getText('cancelButton')).setWarning().onClick(() => { prompt.cancel(); }));
+    }
+    if (isSignedIn) tab.queueStaleCodexModelRefresh();
+  } else if (!isOllama && !isLmStudio) {
     new Setting(containerEl)
       .setName(tab.getText('apiKeyName'))
       .setDesc(tab.getText('apiKeyDesc'))

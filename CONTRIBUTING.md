@@ -57,6 +57,7 @@ pnpm css-lint      # styles.css contains no !important declarations
 ```
 src/
 ├── main.ts              # Plugin entry point
+├── main-commands/       # Entry-point mixins, including Codex OAuth lifecycle commands
 ├── types.ts             # Shared types + EngineContext
 ├── constants.ts         # Centralized constants (token budgets, notice durations, WIKI_SUBFOLDERS)
 ├── texts.ts             # i18n texts (barrel, 10 languages)

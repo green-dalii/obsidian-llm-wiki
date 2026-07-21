@@ -60,7 +60,17 @@ Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basen
 
 Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 
-> **Historical release compositions** (v1.24.1 / v1.25.0 closed work): see [CHANGELOG.md](./CHANGELOG.md). Keep a Changelog format is the canonical record; this file references forward-looking work only.
+### Codex OAuth provider architecture
+
+- `openai` remains the OpenAI Platform API-key provider with separate usage billing.
+- `openai-codex` is displayed as **ChatGPT Plan (Codex OAuth)** and is experimental third-party compatibility, not an OpenAI partnership or a general ChatGPT API.
+- Desktop supports the OpenAI-hosted browser flow through a guarded loopback callback on `127.0.0.1:1455`; desktop and mobile support device-code login. Node `http` loading must stay behind the desktop platform guard.
+- OAuth credentials must remain in Obsidian SecretStorage only. Never put tokens in settings, `data.json`, logs, Notices, documentation, test fixtures, or copied examples. Sign-out overwrites the plugin-owned secret with an empty value and clears in-memory state.
+- The provider uses its dedicated Codex Responses client and synchronizes picker-visible models from the authenticated Codex `/models` catalog, with sanitized metadata caching and a minimal fallback. Do not merge it into the OpenAI API-key client, infer plan tier, promise model availability, depend on OpenCode/models.dev, or describe a fixed quota multiplier.
+- OAuth lifecycle commands belong in `main-commands/codex-auth-commands.ts`; shared model selection policy belongs in `core/openai-codex-model-policy.ts`. The Codex request adapter intentionally omits client-side `max_output_tokens` because the backend does not support that request field.
+- SecretStorage requires Obsidian 1.11.4, so `manifest.json`, badges, and user prerequisites must not advertise an older minimum. The plugin remains `isDesktopOnly: false` because device-code login is the mobile path.
+
+> **Historical release compositions** (v1.24.1 / v1.25.0 closed work): see [CHANGELOG.md](./CHANGELOG.md), which is the canonical historical record.
 
 ### Withdrawn / non-issues (kept for archaeology)
 

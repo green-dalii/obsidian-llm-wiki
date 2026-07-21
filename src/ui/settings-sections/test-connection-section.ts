@@ -24,6 +24,7 @@
 import { Setting, Notice } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
+import { preserveCodexRuntimeModelState } from '../../core/openai-codex-model-policy';
 
 export function renderTestConnectionSection(tab: LLMWikiSettingTab, containerEl: HTMLElement): void {
   // v1.25.1 Phase C-PR2 simplify pass: applySettings triad (assign
@@ -47,16 +48,27 @@ export function renderTestConnectionSection(tab: LLMWikiSettingTab, containerEl:
         const oldSettings = tab.plugin.settings;
         applySettings(testSettings);
         const result = await tab.plugin.testLLMConnection();
+        tab.tempSettings.llmReady = result.success;
         if (!result.success) {
           // Restore live settings on test failure - do not persist broken config.
+          if (testSettings.provider === 'openai-codex') {
+            preserveCodexRuntimeModelState(oldSettings, tab.plugin.settings);
+            preserveCodexRuntimeModelState(tab.tempSettings, tab.plugin.settings);
+          }
           applySettings(oldSettings);
           await tab.plugin.saveSettings();
         } else {
           tab.tempSettings.thinkingControlCache = tab.plugin.settings.thinkingControlCache;
+          if (tab.plugin.settings.provider === 'openai-codex') {
+            tab.syncCodexModelsFromPlugin();
+            tab.tempSettings.model = tab.plugin.settings.model;
+            tab.tempSettings.ingestModel = tab.plugin.settings.ingestModel;
+            tab.tempSettings.lintModel = tab.plugin.settings.lintModel;
+            tab.tempSettings.queryModel = tab.plugin.settings.queryModel;
+          }
           tab.commitTempSettings();
           await tab.plugin.saveSettings();
         }
-        tab.tempSettings.llmReady = result.success;
         button.setButtonText(tab.getText('testButton'));
         button.setDisabled(false);
         tab.display();

@@ -120,15 +120,29 @@ export interface ProviderConfig {
   apiKeyPlaceholderEn?: string; // English placeholder
   apiKeyPlaceholderZh?: string; // Chinese placeholder
   requiresBaseUrl: boolean;
+  authMode: 'api-key' | 'none' | 'codex-oauth';
 }
 
 // Plugin settings
 
 export type ExtractionGranularity = 'fine' | 'standard' | 'coarse' | 'minimal' | 'custom';
 
+export interface OpenAICodexModelCatalogEntry {
+  slug: string;
+  displayName: string;
+  supportedReasoningLevels: string[];
+  additionalSpeedTiers: string[];
+  serviceTiers: Array<{ id: string; name: string; description: string }>;
+  defaultServiceTier?: string;
+}
+
 export interface LLMWikiSettings {
   provider: string;
   apiKey: string;
+  openAICodexSecretId: string;
+  openAICodexModels?: OpenAICodexModelCatalogEntry[];
+  openAICodexModelsFetchedAt?: number;
+  openAICodexUnavailableModels?: string[];
   baseUrl: string;
   model: string;
   wikiFolder: string;
@@ -598,7 +612,20 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-...',
     apiKeyPlaceholderEn: 'sk-...',
     apiKeyPlaceholderZh: 'sk-...',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
+  },
+  'openai-codex': {
+    id: 'openai-codex',
+    name: 'ChatGPT Plan (Codex OAuth)',
+    nameEn: 'ChatGPT Plan (Codex OAuth)',
+    nameZh: 'ChatGPT Plan (Codex OAuth)',
+    baseUrl: '',
+    apiKeyPlaceholder: '',
+    apiKeyPlaceholderEn: '',
+    apiKeyPlaceholderZh: '',
+    requiresBaseUrl: false,
+    authMode: 'codex-oauth'
   },
   anthropic: {
     id: 'anthropic',
@@ -609,7 +636,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-ant-...',
     apiKeyPlaceholderEn: 'sk-ant-...',
     apiKeyPlaceholderZh: 'sk-ant-...',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   gemini: {
     id: 'gemini',
@@ -620,7 +648,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'AIza...',
     apiKeyPlaceholderEn: 'AIza...',
     apiKeyPlaceholderZh: 'AIza...',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   openrouter: {
     id: 'openrouter',
@@ -631,7 +660,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-or-...',
     apiKeyPlaceholderEn: 'sk-or-...',
     apiKeyPlaceholderZh: 'sk-or-...',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   deepseek: {
     id: 'deepseek',
@@ -642,7 +672,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-...',
     apiKeyPlaceholderEn: 'sk-...',
     apiKeyPlaceholderZh: 'sk-...',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   minimax: {
     id: 'minimax',
@@ -653,7 +684,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-cp-...',
     apiKeyPlaceholderEn: 'sk-cp-...',
     apiKeyPlaceholderZh: 'sk-cp-...',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   kimi: {
     id: 'kimi',
@@ -664,7 +696,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-...',
     apiKeyPlaceholderEn: 'sk-...',
     apiKeyPlaceholderZh: 'sk-...',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   glm: {
     id: 'glm',
@@ -675,7 +708,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: '...',
     apiKeyPlaceholderEn: '...',
     apiKeyPlaceholderZh: '...',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   // v1.24.1 PATCH Bedrock Stage 1 — reuses AnthropicSdkClient via the
   // bedrock-mantle endpoint (Bearer auth, no AWS SDK). baseUrl is filled
@@ -689,7 +723,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'ABSK... (Bedrock bearer key)',
     apiKeyPlaceholderEn: 'ABSK... (Bedrock bearer key)',
     apiKeyPlaceholderZh: 'ABSK...（Bedrock bearer key）',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   // v1.24.1 PATCH Bedrock Stage 1 — reuses OpenAICompatSdkClient via
   // bedrock-mantle /v1 chat-completions. Same bearer auth as Bedrock-
@@ -703,7 +738,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'ABSK... (Bedrock bearer key)',
     apiKeyPlaceholderEn: 'ABSK... (Bedrock bearer key)',
     apiKeyPlaceholderZh: 'ABSK...（Bedrock bearer key）',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'api-key'
   },
   ollama: {
     id: 'ollama',
@@ -714,7 +750,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'ollama (no Key required)',
     apiKeyPlaceholderEn: 'ollama (no Key required)',
     apiKeyPlaceholderZh: 'ollama (无需Key)',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'none'
   },
   lmstudio: {
     id: 'lmstudio',
@@ -725,7 +762,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'lmstudio',
     apiKeyPlaceholderEn: 'lmstudio (optional)',
     apiKeyPlaceholderZh: 'lmstudio（可选）',
-    requiresBaseUrl: false
+    requiresBaseUrl: false,
+    authMode: 'none'
   },
   custom: {
     id: 'custom',
@@ -736,7 +774,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'API Key',
     apiKeyPlaceholderEn: 'API Key',
     apiKeyPlaceholderZh: 'API Key',
-    requiresBaseUrl: true
+    requiresBaseUrl: true,
+    authMode: 'api-key'
   },
   'anthropic-compatible': {
     id: 'anthropic-compatible',
@@ -747,7 +786,8 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyPlaceholder: 'API Key',
     apiKeyPlaceholderEn: 'API Key',
     apiKeyPlaceholderZh: 'API Key',
-    requiresBaseUrl: true
+    requiresBaseUrl: true,
+    authMode: 'api-key'
   }
 };
 
@@ -756,6 +796,9 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
 export const DEFAULT_SETTINGS: LLMWikiSettings = {
   provider: 'anthropic',
   apiKey: '',
+  openAICodexSecretId: 'karpathywiki-openai-codex',
+  openAICodexModels: [],
+  openAICodexModelsFetchedAt: 0,
   baseUrl: '',
   model: '',  // No hardcoded default — user must fetch models or enter manually
   wikiFolder: 'wiki',

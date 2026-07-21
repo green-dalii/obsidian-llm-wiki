@@ -45,6 +45,25 @@ export const IT_TEXTS = {
     apiKeyName: 'Chiave API',
     apiKeyDesc: 'Inserisci la chiave API del tuo provider',
     apiKeyPlaceholder: 'Inserisci la chiave API',
+    codexAuthName: 'Accesso al piano ChatGPT',
+    codexAuthDesc: 'Accesso sperimentale a Codex tramite OAuth usando la disponibilità del tuo piano ChatGPT. La fatturazione dell’API OpenAI Platform rimane separata.',
+    codexAuthSignedOut: 'Accesso non effettuato',
+    codexAuthSignedIn: 'Accesso effettuato',
+    codexAuthBrowserButton: 'Accedi con il browser',
+    codexAuthDeviceButton: 'Usa codice dispositivo',
+    codexAuthDeviceInstructions: 'Inserisci questo codice nella pagina OpenAI: {}',
+    codexAuthCopyCode: 'Copia codice',
+    codexAuthSignOutButton: 'Esci',
+    codexAuthBusy: 'In attesa dell’autorizzazione OpenAI...',
+    codexAuthFailed: 'Autorizzazione ChatGPT non riuscita: {}',
+    codexAuthQuota: 'La disponibilità di ChatGPT Codex è esaurita. Attendi il periodo di ripristino indicato e riprova.',
+    codexAuthExperimental: 'Sperimentale: la disponibilità segue i criteri di autenticazione e dei modelli OpenAI Codex.',
+    codexModelsRefreshName: 'Modelli dell’account',
+    codexModelsRefreshDesc: 'Sincronizza i modelli selezionabili dall’account OpenAI Codex connesso.',
+    codexModelsRefreshButton: 'Aggiorna modelli account',
+    codexModelsRefreshing: 'Aggiornamento...',
+    codexModelsRefreshSuccess: 'Sincronizzati {} modelli dell’account.',
+    codexModelsRefreshFailed: 'Impossibile aggiornare i modelli dell’account; viene usato l’elenco alternativo disponibile. {}',
 
     // URL di base
     baseUrlName: 'URL di base API',
@@ -134,6 +153,7 @@ export const IT_TEXTS = {
     testConnectionSuccessful: 'Connessione riuscita',
     testConnectionFailed: 'Connessione fallita',
     testConnectionProvider: 'Provider: ',
+    codexAuthRequired: 'Accedi al piano ChatGPT prima di verificare la connessione.',
     errorUnknown: 'Errore sconosciuto',
 
     // Issue #137: avvisi di fallback LLM (mostrati quando avviene un
