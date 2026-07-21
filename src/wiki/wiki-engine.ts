@@ -682,14 +682,17 @@ export class WikiEngine {
     try {
       conversionResult = await convertPdfToMarkdown({
         app: this.app,
-        // Narrow to the converter's settings shape so the provider gate
-        // sees `forcePdfSupport` (typed, not `as never`).
+        // Narrow to the converter's settings shape while preserving the
+        // explicit PDF backend contract.
         settings: {
           provider: this.settings.provider,
           apiKey: this.settings.apiKey,
           baseUrl: this.settings.baseUrl,
           model: this.settings.model,
           forcePdfSupport: this.settings.forcePdfSupport,
+          pdfConversionBackend: this.settings.pdfConversionBackend,
+          mineruApiToken: this.settings.mineruApiToken,
+          mineruTaskTimeoutMinutes: this.settings.mineruTaskTimeoutMinutes,
         },
         pdfFile: file,
         llmClient: this.getLLMClient() as never,

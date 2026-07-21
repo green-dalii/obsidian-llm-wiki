@@ -27,9 +27,7 @@
  * the project's standard error shape. We do not add a translation layer.
  */
 
-import { App, TFile } from 'obsidian';
 import {
-  PdfCacheEntry,
   sha256Bytes,
   hashCacheKey,
   PDF_CONVERTER_VERSION,
@@ -44,41 +42,20 @@ import {
   NATIVE_PDF_PROVIDER_IDS,
 } from '../constants';
 import { PDF_PROMPTS } from '../wiki/prompts/pdf';
-import type { LLMClient } from '../types';
+import type {
+  PdfBackendContext,
+  PdfConversionBackend,
+  PdfConversionBackendId,
+  PdfConversionResult,
+} from './pdf-backends/types';
 
 // --- public types ---
 
 /** What the caller hands us. Kept narrow so test mocks stay simple. */
-export interface PdfConversionContext {
-  app: App;
-  settings: {
-    provider: string;
-    apiKey: string;
-    baseUrl?: string;
-    model: string;
-    forcePdfSupport?: boolean;
-    [k: string]: unknown;
-  };
-  pdfFile: TFile;
-  llmClient: LLMClient;
-  /** Returns the resolved model for the conversion task. */
-  resolveModelForTask: (settings: PdfConversionContext['settings'], task: string) => string;
-  /** SubtleCrypto implementation; injected so the gate runs against the
-   *  popout-window-aware `activeWindow.crypto.subtle` rather than the
-   *  banned `window` global. */
-  subtle?: SubtleCrypto;
-  /** v1.25.0 PR3 follow-up #8 (Bug D, e2e 2026-07-17): cancellation signal
-   *  for the LLM call. When the user clicks the status bar during PDF
-   *  conversion, this signal flips to aborted and Vercel AI SDK v6
-   *  propagates the cancellation to the underlying HTTP request,
-   *  returning early instead of letting the LLM call run to completion.
-   *  Legacy clients ignore unknown params and run as before — graceful
-   *  degradation, no behavior change for them. */
-  abortSignal?: AbortSignal;
-}
+export type PdfConversionContext = PdfBackendContext;
 
 /** What we return on success. */
-export type ConversionResult = PdfCacheEntry;
+export type ConversionResult = PdfConversionResult;
 
 // --- errors ---
 
@@ -115,7 +92,34 @@ export class EncryptedPdfError extends Error {
  * cannot handle PDF, EncryptedPdfError if the file is encrypted, and
  * propagates LLM errors verbatim.
  */
-export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<ConversionResult> {
+export function selectPdfBackend(
+  id: PdfConversionBackendId | undefined,
+  backends: Record<PdfConversionBackendId, PdfConversionBackend>,
+): PdfConversionBackend {
+  return id === 'mineru' ? backends.mineru : backends.native;
+}
+
+const PDF_BACKENDS: Record<PdfConversionBackendId, PdfConversionBackend> = {
+  native: { convert: convertPdfWithNativeBackend },
+  mineru: {
+    convert: () => Promise.reject(new Error('MinerU PDF conversion backend is not implemented yet.')),
+  },
+};
+
+export function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<ConversionResult> {
+  return convertPdfToMarkdownWithBackends(ctx, PDF_BACKENDS);
+}
+
+/** @internal Test seam for verifying complete routing and no-fallback behavior. */
+export function convertPdfToMarkdownWithBackends(
+  ctx: PdfConversionContext,
+  backends: Record<PdfConversionBackendId, PdfConversionBackend>,
+): Promise<ConversionResult> {
+  const backend = selectPdfBackend(ctx.settings.pdfConversionBackend ?? 'native', backends);
+  return backend.convert(ctx);
+}
+
+async function convertPdfWithNativeBackend(ctx: PdfBackendContext): Promise<PdfConversionResult> {
   const { app, settings, pdfFile, llmClient, resolveModelForTask, subtle } = ctx;
 
   // 1. Read PDF bytes. readBinary returns ArrayBuffer; wrap as Uint8Array so

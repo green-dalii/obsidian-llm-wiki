@@ -29,6 +29,10 @@ export function applySettingsMigrations(
 ): MigrationResult {
   const applied: string[] = [];
   const settings: LLMWikiSettings = Object.assign({}, DEFAULT_SETTINGS, savedData || {});
+  if (settings.pdfConversionBackend !== 'native' && settings.pdfConversionBackend !== 'mineru') {
+    settings.pdfConversionBackend = 'native';
+    applied.push('pdf-conversion-backend-invalid');
+  }
   const savedRecord = savedData;
   const hasLegacyCodexToken = savedRecord !== null && LEGACY_CODEX_TOKEN_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(savedRecord, field));
   const needsCodexSettingsMigration = savedRecord !== null && (typeof savedRecord.openAICodexSecretId !== 'string' || savedRecord.openAICodexSecretId.trim().length === 0 || hasLegacyCodexToken);

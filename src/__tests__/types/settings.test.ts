@@ -29,6 +29,11 @@ describe('v1.25.0 PR3 PDF settings — defaults', () => {
     expect(DEFAULT_SETTINGS).toHaveProperty('forcePdfSupport');
     expect(DEFAULT_SETTINGS).toHaveProperty('writePdfMarkdownToVault');
   });
+  it('defaults PDF conversion to the native backend', () => {
+    expect(DEFAULT_SETTINGS.pdfConversionBackend).toBe('native');
+    expect(DEFAULT_SETTINGS.mineruApiToken).toBe('');
+    expect(DEFAULT_SETTINGS.mineruTaskTimeoutMinutes).toBe(30);
+  });
 });
 
 // v1.26.0 (#382 item 2): dedup threshold overrides — three optional

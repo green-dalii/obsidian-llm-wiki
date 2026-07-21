@@ -30,6 +30,21 @@ describe('applySettingsMigrations — historical (#199 regression guard)', () =>
     expect(settings.apiKey).toBe('');                                  // cleared by phase 2
   });
 
+  it('defaults legacy settings to the native PDF conversion backend', () => {
+    const migrated = applySettingsMigrations({ provider: 'deepseek' });
+
+    expect(migrated.settings.pdfConversionBackend).toBe('native');
+    expect(migrated.settings.mineruApiToken).toBe('');
+    expect(migrated.settings.mineruTaskTimeoutMinutes).toBe(30);
+  });
+
+  it('normalizes an unknown persisted PDF backend to native', () => {
+    const migrated = applySettingsMigrations({ pdfConversionBackend: 'legacy-value' } as never);
+
+    expect(migrated.settings.pdfConversionBackend).toBe('native');
+    expect(migrated.applied).toContain('pdf-conversion-backend-invalid');
+  });
+
   it('repairs a blank legacy Codex secret ID', () => {
     const { settings, applied } = applySettingsMigrations({ openAICodexSecretId: '' });
     expect(settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');

@@ -95,6 +95,38 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
     expect(wikiPages.length).toBeGreaterThan(0);
   });
 
+  it('passes PDF backend settings to convertPdfToMarkdown', async () => {
+    mockedConvert.mockResolvedValueOnce({
+      markdown: '# Converted Paper',
+      metadata: { convertedAt: '2026-07-21T00:00:00Z', converter: 'mineru/test' },
+    });
+
+    const h = createWikiEngineHarness({
+      settings: {
+        pdfConversionBackend: 'mineru',
+        mineruApiToken: 'mineru-token',
+        mineruTaskTimeoutMinutes: 45,
+      },
+      llmResponses: [
+        JSON.stringify({ source_title: 'Paper', summary: '...', entities: [], concepts: [] }),
+      ],
+    });
+
+    await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+    type BackendSettingsCall = [ctx: {
+      settings?: {
+        pdfConversionBackend?: string;
+        mineruApiToken?: string;
+        mineruTaskTimeoutMinutes?: number;
+      };
+    }];
+    const firstCall = mockedConvert.mock.calls[0] as BackendSettingsCall | undefined;
+    expect(firstCall?.[0].settings?.pdfConversionBackend).toBe('mineru');
+    expect(firstCall?.[0].settings?.mineruApiToken).toBe('mineru-token');
+    expect(firstCall?.[0].settings?.mineruTaskTimeoutMinutes).toBe(45);
+  });
+
   it('skips with reason=unsupported-pdf when converter throws UnsupportedProviderError', async () => {
     mockedConvert.mockRejectedValueOnce(new UnsupportedProviderError('ollama'));
 

@@ -321,6 +321,15 @@ export interface LLMWikiSettings {
    */
   forcePdfSupport?: boolean;
 
+  /** PDF conversion implementation. Missing legacy values resolve to native. */
+  pdfConversionBackend?: 'native' | 'mineru';
+
+  /** MinerU API bearer token. Empty when MinerU is not configured. */
+  mineruApiToken?: string;
+
+  /** Maximum time to wait for a MinerU conversion task. */
+  mineruTaskTimeoutMinutes?: number;
+
   /**
    * v1.25.0 PR3: when true, write the LLM-converted Markdown of each PDF
    * to a `<basename>.pdf.md` sidecar next to the source PDF. Default false
@@ -1030,6 +1039,9 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // artifact and prevents unsupported-compatible providers from attempting
   // PDF conversion.
   forcePdfSupport: false,
+  pdfConversionBackend: 'native',
+  mineruApiToken: '',
+  mineruTaskTimeoutMinutes: 30,
   writePdfMarkdownToVault: false,
   // v1.26.0 (#382 item 2): dedup threshold overrides — undefined = use the
   // LINT_DEDUP_* constants in src/constants.ts. The UI renders them only
