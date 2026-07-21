@@ -2,15 +2,31 @@
 // Extracted from lint-fixes.ts::fixDeadLink()
 // Zero side effects, fully testable
 
+import { computeSlug } from './slug';
+
 export interface PageRef {
   path: string;
   title: string;
   aliases?: string[];
 }
 
+// #308: a link target is slugified ("Systemische-Inflammation"), titles and
+// aliases are not ("Systemische Inflammation"). toLowerCase() alone leaves the
+// hyphen different from the space, so the two forms of the same name never
+// compare equal. computeSlug is the pure variant of slugify (no console.warn on
+// the hot path) and already lowercases, which keeps this comparable regardless
+// of the user's slugCase setting.
+// Empty input is mapped to '' rather than to computeSlug's 'untitled'
+// placeholder, so a page with an empty alias cannot match a link to "untitled".
+function slugKey(text: string | undefined): string {
+  if (!text || text.trim().length === 0) return '';
+  return computeSlug(text);
+}
+
 /**
  * Find matching page for a dead link target.
- * Searches by title (case-insensitive) first, then by aliases.
+ * Searches by title (case-insensitive) first, then by aliases, then repeats
+ * both with slug normalization on either side (#308).
  *
  * @param pages - Available wiki pages from getExistingWikiPages
  * @param targetName - The dead link target (e.g., "思维链" or "CoT")
@@ -20,6 +36,7 @@ export interface PageRef {
  * const pages = [{ title: 'Chain of Thought', aliases: ['CoT', '思维链'] }];
  * findDeadLinkTarget(pages, '思维链') // => { title: 'Chain of Thought', ... }
  * findDeadLinkTarget(pages, 'cot') // => { title: 'Chain of Thought', ... }
+ * findDeadLinkTarget(pages, 'chain-of-thought') // => { title: 'Chain of Thought', ... }
  * findDeadLinkTarget(pages, 'nonexistent') // => undefined
  */
 export function findDeadLinkTarget(
@@ -38,6 +55,21 @@ export function findDeadLinkTarget(
   if (!match) {
     match = pages.find(p =>
       p.aliases?.some(a => a.toLowerCase() === lowerTarget)
+    );
+  }
+
+  // Third and fourth (#308): same two lookups over slug-normalized forms.
+  // Kept as separate tiers instead of one combined find() so that an exact
+  // title match still outranks a slug alias match on a different page.
+  const targetSlug = slugKey(targetBasename);
+
+  if (!match && targetSlug) {
+    match = pages.find(p => slugKey(p.title) === targetSlug);
+  }
+
+  if (!match && targetSlug) {
+    match = pages.find(p =>
+      p.aliases?.some(a => slugKey(a) === targetSlug)
     );
   }
 
