@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { convertPdfToMarkdownWithBackends } from '../../core/pdf-converter';
+import { nativeLlmPdfBackend } from '../../core/pdf-backends/native-llm-pdf-backend';
 import type {
   PdfBackendContext,
   PdfConversionBackend,
@@ -28,6 +29,10 @@ function makeContext(pdfConversionBackend: unknown): PdfBackendContext {
 }
 
 describe('convertPdfToMarkdownWithBackends', () => {
+  it('exposes the extracted native backend through the backend module boundary', () => {
+    expect(typeof nativeLlmPdfBackend.convert).toBe('function');
+  });
+
   it('routes an explicit native setting through the native backend', async () => {
     const { backends, nativeConvert, mineruConvert } = makeBackends();
     const ctx = makeContext('native');

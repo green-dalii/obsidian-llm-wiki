@@ -8,6 +8,8 @@ import {
   type ConversionResult,
 } from '../../core/pdf-converter';
 import { sha256Bytes, hashCacheKey, PDF_CONVERTER_VERSION } from '../../core/pdf-cache';
+import { TOKENS_PDF_CONVERSION } from '../../constants';
+import { PDF_PROMPTS } from '../../wiki/prompts/pdf';
 
 // Inject the global SubtleCrypto mock from setup.ts so sha256Bytes has
 // a real implementation. The mock is deterministic (see setup.ts).
@@ -17,11 +19,19 @@ const testSubtle = (globalThis as { crypto: { subtle: SubtleCrypto } }).crypto.s
 // Mock the cache class (only `get` and `set` are exercised by the converter;
 // `clear` / `invalidate` are also passthrough to the underlying mock).
 const mockCacheStore = new Map<string, ConversionResult>();
+const mockCacheGetKeys: string[] = [];
+const mockCacheSetCalls: Array<{ key: string; entry: ConversionResult }> = [];
 vi.mock('../../core/pdf-cache', async () => {
   const actual = await vi.importActual<typeof import('../../core/pdf-cache')>('../../core/pdf-cache');
   class MockPdfConversionCache {
-    async get(key: string) { return mockCacheStore.get(key) ?? null; }
-    async set(key: string, entry: ConversionResult) { mockCacheStore.set(key, entry); }
+    async get(key: string) {
+      mockCacheGetKeys.push(key);
+      return mockCacheStore.get(key) ?? null;
+    }
+    async set(key: string, entry: ConversionResult) {
+      mockCacheSetCalls.push({ key, entry });
+      mockCacheStore.set(key, entry);
+    }
     async invalidate(key: string) { mockCacheStore.delete(key); }
     async clear() { mockCacheStore.clear(); }
   }
@@ -110,6 +120,8 @@ const makeContext = (overrides: Partial<PdfConversionContext> = {}): TestContext
 describe('convertPdfToMarkdown', () => {
   beforeEach(() => {
     mockCacheStore.clear();
+    mockCacheGetKeys.length = 0;
+    mockCacheSetCalls.length = 0;
     vi.clearAllMocks();
   });
 
@@ -135,7 +147,9 @@ describe('convertPdfToMarkdown', () => {
     const { ctx, mockCreateMessage } = makeContext();
     const result = await convertPdfToMarkdown(ctx);
 
-    expect(result.markdown).toBe(cached.markdown);
+    expect(result).toBe(cached);
+    expect(mockCacheGetKeys).toEqual([fileToken]);
+    expect(mockCacheSetCalls).toHaveLength(0);
     expect(mockCreateMessage).not.toHaveBeenCalled();
   });
 
@@ -147,13 +161,27 @@ describe('convertPdfToMarkdown', () => {
 
     // PDF binary must be in messages as a file content part
     const callArgs = getCallArgs(mockCreateMessage);
+    expect(callArgs.model).toBe('claude-opus-4-8');
+    expect(callArgs.max_tokens).toBe(TOKENS_PDF_CONVERSION);
+    expect(callArgs.system).toBe(PDF_PROMPTS.systemPrompt);
     expect(callArgs.messages).toHaveLength(1);
     expect(callArgs.messages[0].role).toBe('user');
     const content = callArgs.messages[0].content;
     expect(Array.isArray(content)).toBe(true);
-    const filePart = (content as Array<{ type: string; mediaType?: string }>).find((p) => p.type === 'file');
+    const parts = content as Array<{
+      type: string;
+      text?: string;
+      data?: string;
+      mediaType?: string;
+      filename?: string;
+    }>;
+    const textPart = parts.find((part) => part.type === 'text');
+    const filePart = parts.find((part) => part.type === 'file');
+    expect(textPart?.text).toBe('Convert the attached PDF to Markdown.');
     expect(filePart).toBeDefined();
+    expect(filePart?.data).toBe('JVBERi0xLjQ=');
     expect(filePart?.mediaType).toBe('application/pdf');
+    expect(filePart?.filename).toBe('sample.pdf');
 
     // Result should be the LLM's response
     expect(result.markdown).toContain('Title');
@@ -161,6 +189,41 @@ describe('convertPdfToMarkdown', () => {
 
     // Result should be in cache now
     expect(mockCacheStore.size).toBe(1);
+    const hash = await sha256Bytes(SAMPLE_BYTES, testSubtle);
+    const logicalKey = `${hash}:claude-opus-4-8:${PDF_CONVERTER_VERSION}`;
+    const fileToken = await hashCacheKey(logicalKey, testSubtle);
+    expect(mockCacheGetKeys).toEqual([fileToken]);
+    expect(mockCacheSetCalls).toHaveLength(1);
+    expect(mockCacheSetCalls[0]?.key).toBe(fileToken);
+    expect(mockCacheSetCalls[0]?.entry.markdown).toBe(result.markdown);
+  });
+
+  it('extracts PDF metadata into explicit result fields and cache entry', async () => {
+    const metadataBytes = new TextEncoder().encode(
+      '%PDF-1.4\n<< /Title (Characterized Title) /Author (Ada Lovelace) >>\n' +
+        '<< /Type /Pages /Count 17 >>\n%%EOF\n'
+    );
+    const { ctx } = makeContext({ app: makeMockApp(metadataBytes) as never });
+
+    const result = await convertPdfToMarkdown(ctx);
+
+    expect(result.metadata.title).toBe('Characterized Title');
+    expect(result.metadata.author).toBe('Ada Lovelace');
+    expect(result.metadata.pageCount).toBe(17);
+    expect(result.metadata.converter).toBe('anthropic/claude-opus-4-8');
+    expect(Date.parse(result.metadata.convertedAt)).not.toBeNaN();
+    expect(mockCacheSetCalls[0]?.entry.metadata.title).toBe('Characterized Title');
+    expect(mockCacheSetCalls[0]?.entry.metadata.author).toBe('Ada Lovelace');
+    expect(mockCacheSetCalls[0]?.entry.metadata.pageCount).toBe(17);
+  });
+
+  it('threads abortSignal into the native LLM request', async () => {
+    const controller = new AbortController();
+    const { ctx, mockCreateMessage } = makeContext({ abortSignal: controller.signal });
+
+    await convertPdfToMarkdown(ctx);
+
+    expect(getCallArgs(mockCreateMessage).abortSignal).toBe(controller.signal);
   });
 
   it('system prompt instructs preserving source language and not translating', async () => {
