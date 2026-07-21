@@ -49,30 +49,6 @@ export const PAGES_CACHE_TTL_MS = 5000;
 export const CUSTOM_LIMIT_MAX = 500;
 
 // ============================================================================
-// Batch Processing Settings
-// ============================================================================
-
-/**
- * Maximum user-configurable inter-batch delay (ms) in the provider settings
- * slider. Caps both the settings UI input and the rate-limit detector's
- * suggested-delay growth.
- */
-export const MAX_BATCH_DELAY_MS = 10000;
-
-/**
- * Default retry backoff (ms) used by `runBatchedWithRetry` when a caller
- * does not pass an explicit `apiDelayMs`. Distinct from `MAX_BATCH_DELAY_MS`:
- * this is the one-shot sleep before the *single retry* of a transiently
- * failed batch task, not the inter-batch delay.
- *
- * Kept at 2s because most production callers (`wiki-engine.ts` page-gen +
- * related-page paths) omit `apiDelayMs` and rely on this fallback. Raising
- * it would silently delay every transiently-failing batch by 8 extra
- * seconds with no user-visible benefit on healthy providers.
- */
-export const DEFAULT_API_RETRY_DELAY_MS = 2000;
-
-// ============================================================================
 // PDF Source Ingestion (v1.25.0)
 // ============================================================================
 

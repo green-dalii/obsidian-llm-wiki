@@ -355,7 +355,7 @@ export const FR_TEXTS = {
     concurrencyValueSingular: 'Concurrence actuelle : {} (séquentiel — le plus sûr)',
     concurrencyValuePlural: 'Concurrence actuelle : {} (parallèle)',
     batchDelayName: 'Délai entre lots (ms)',
-    batchDelayDesc: 'Délai entre lots parallèles pour éviter la limitation de débit de l\'API (100-10000ms). Actuel : {}ms. Augmentez si vous voyez des erreurs 429.',
+    batchDelayDesc: 'Délai entre lots parallèles pour éviter la limitation de débit de l\'API (100-2000ms). Actuel : {}ms. Augmentez si vous voyez des erreurs 429.',
 
     // Auto Maintenance
     autoMaintainSection: 'Maintenance automatique',
@@ -559,7 +559,7 @@ export const FR_TEXTS = {
     lintFixIndexUpdated: "L'index et le journal wiki ont été mis à jour.",
     lintPollutedFixed: 'Pages polluées corrigées : {fixed}/{total}. Index régénéré.',
     regenerateIndexCompleted: 'Index régénéré',
-    operationFailed: 'Échec : ',
+    operationFailed: 'Échec : ', 
     lintFixAllComplete: 'Toutes les réparations sont terminées. Consultez le journal pour les détails.',
     lintFixAllNoChanges: 'Aucun changement — toutes les phases ont signalé 0 réparation. Détails dans wiki/log.md.',
     lintFixPhasesLabel: 'phases modifiées',
@@ -569,7 +569,7 @@ export const FR_TEXTS = {
     lintLogReference: 'Rapport complet enregistré dans log.md',
     lintModalFixDeadLinks: 'Réparer les liens cassés ({count})',
     lintModalExpandEmpty: 'Étendre les pages vides ({count})',
-    lintModalDeleteEmpty: 'Supprimer les stubs vides ({count})',
+    lintModalDeleteEmpty: 'Supprimer les stubs vides ({count})',   
     lintModalLinkOrphans: 'Lier les pages orphelines ({count})',
     lintModalAnalyzeSchema: 'Analyser le schéma',
     lintModalMergeDuplicates: 'Fusionner les doublons ({count})',

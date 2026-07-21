@@ -37,7 +37,6 @@ import {
   resolveBaseUrlWithFallback,
   isUrlError,
 } from '../core/url-fallback';
-import { reportFinish } from './finish-reason';
 
 export interface OpenAISdkClientOptions {
   apiKey: string;
@@ -124,7 +123,7 @@ export class OpenAISdkClient implements LLMClient {
 
   async createMessage(params: LLMClient['createMessage'] extends (p: infer P) => unknown ? P : never): Promise<string> {
     // Type-safe params destructure (LLMClient.createMessage signature).
-    const { model, max_tokens, system, messages, temperature, repetition_penalty, enableThinking, response_format, onFinish } = params;
+    const { model, max_tokens, system, messages, temperature, repetition_penalty, enableThinking, response_format } = params;
 
     try {
       const languageModel = this.getProvider(model, this.fetchImpl);
@@ -151,7 +150,6 @@ export class OpenAISdkClient implements LLMClient {
         ...(temperature !== undefined ? { temperature } : {}),
         // Top-level repetition_penalty is non-standard for OpenAI; pass via providerOptions.
       });
-      reportFinish(onFinish, result.finishReason);
       return result.text;
     } catch (err) {
       // v1.23.0 P1.5: URL fallback for custom baseURLs (Kimi / z.ai / GLM).
@@ -179,7 +177,6 @@ export class OpenAISdkClient implements LLMClient {
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...(temperature !== undefined ? { temperature } : {}),
         });
-        reportFinish(onFinish, result.finishReason);
         return result.text;
       }
       throw mapAiSdkError(err);

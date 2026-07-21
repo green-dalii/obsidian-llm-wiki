@@ -369,7 +369,7 @@ export const EN_TEXTS = {
     concurrencyValueSingular: 'Current concurrency: {} (serial — safest)',
     concurrencyValuePlural: 'Current concurrency: {} (parallel)',
     batchDelayName: 'Batch Delay (ms)',
-    batchDelayDesc: 'Delay between parallel batches to prevent API rate limiting (100-10000ms). Current: {}ms. Increase if you see 429 errors.',
+    batchDelayDesc: 'Delay between parallel batches to prevent API rate limiting (100-2000ms). Current: {}ms. Increase if you see 429 errors.',
 
     // Auto Maintenance
     autoMaintainSection: 'Auto Maintenance',
@@ -588,7 +588,7 @@ export const EN_TEXTS = {
     lintLogReference: 'Full report saved to log.md',
     lintModalFixDeadLinks: 'Fix dead links ({count})',
     lintModalExpandEmpty: 'Expand empty pages ({count})',
-    lintModalDeleteEmpty: 'Delete empty stubs ({count})',
+    lintModalDeleteEmpty: 'Delete empty stubs ({count})',   
     lintModalLinkOrphans: 'Link orphan pages ({count})',
     lintModalAnalyzeSchema: 'Analyze schema',
     lintModalMergeDuplicates: 'Merge duplicates ({count})',

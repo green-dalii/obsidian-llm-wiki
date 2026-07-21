@@ -355,7 +355,7 @@ export const PT_TEXTS = {
     concurrencyValueSingular: 'Concorrência atual: {} (serial — mais seguro)',
     concurrencyValuePlural: 'Concorrência atual: {} (paralelo)',
     batchDelayName: 'Atraso entre lotes (ms)',
-    batchDelayDesc: 'Atraso entre lotes paralelos para evitar limitação de taxa da API (100-10000 ms). Atual: {}ms. Aumente se observar erros 429.',
+    batchDelayDesc: 'Atraso entre lotes paralelos para evitar limitação de taxa da API (100-2000 ms). Atual: {}ms. Aumente se observar erros 429.',
 
     // Auto Maintenance
     autoMaintainSection: 'Manutenção automática',
@@ -577,7 +577,7 @@ export const PT_TEXTS = {
     lintFixIndexUpdated: 'Índice e log da Wiki atualizados.',
     lintPollutedFixed: 'Páginas poluídas corrigidas: {fixed}/{total}. Índice regenerado.',
     regenerateIndexCompleted: 'Índice regenerado',
-    operationFailed: 'Falha: ',
+    operationFailed: 'Falha: ', 
     lintFixAllComplete: 'Todas as correções concluídas. Consulte o log para detalhes.',
     lintFixAllNoChanges: 'Nenhuma alteração — todas as fases reportaram 0 correções. Detalhes em wiki/log.md.',
     lintFixPhasesLabel: 'fases modificadas',
@@ -587,7 +587,7 @@ export const PT_TEXTS = {
     lintLogReference: 'Relatório completo salvo em log.md',
     lintModalFixDeadLinks: 'Corrigir links quebrados ({count})',
     lintModalExpandEmpty: 'Expandir páginas vazias ({count})',
-    lintModalDeleteEmpty: 'Excluir stubs vazios ({count})',
+    lintModalDeleteEmpty: 'Excluir stubs vazios ({count})',   
     lintModalLinkOrphans: 'Linkar páginas órfãs ({count})',
     lintModalAnalyzeSchema: 'Analisar Schema',
     lintModalMergeDuplicates: 'Mesclar duplicatas ({count})',

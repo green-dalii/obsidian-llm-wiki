@@ -29,7 +29,6 @@ import {
   isUrlError,
 } from '../core/url-fallback';
 import { TokenKeyProber } from './token-key-probe';
-import { reportFinish } from './finish-reason';
 
 export interface OpenAICompatSdkClientOptions {
   apiKey: string;
@@ -139,7 +138,7 @@ export class OpenAICompatSdkClient implements LLMClient {
   }
 
   async createMessage(params: LLMClient['createMessage'] extends (p: infer P) => unknown ? P : never): Promise<string> {
-    const { model, max_tokens, system, messages, temperature, repetition_penalty, enableThinking, response_format, onFinish } = params;
+    const { model, max_tokens, system, messages, temperature, repetition_penalty, enableThinking, response_format } = params;
 
     try {
       const languageModel = this.getProvider(model, this.fetchImpl);
@@ -157,7 +156,6 @@ export class OpenAICompatSdkClient implements LLMClient {
         }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
         ...(temperature !== undefined ? { temperature } : {}),
       });
-      reportFinish(onFinish, result.finishReason);
       return result.text;
     } catch (err) {
       // v1.23.0 P1.5: URL fallback for custom baseURLs.
@@ -185,7 +183,6 @@ export class OpenAICompatSdkClient implements LLMClient {
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...(temperature !== undefined ? { temperature } : {}),
         });
-        reportFinish(onFinish, result.finishReason);
         return result.text;
       }
 
@@ -217,7 +214,6 @@ export class OpenAICompatSdkClient implements LLMClient {
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...(temperature !== undefined ? { temperature } : {}),
         });
-        reportFinish(onFinish, result.finishReason);
         return result.text;
       }
 
