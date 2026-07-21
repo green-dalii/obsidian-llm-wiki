@@ -2,11 +2,20 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.1 PATCH (RELEASED 2026-07-20) → v1.25.2 PATCH next (PR #304 rebase). | **Updated:** 2026-07-20 (post-v1.25.1 PATCH release)
+**Version:** 1.25.1 PATCH (RELEASED 2026-07-20) → v1.25.2 PATCH (in progress, commit `c9fd4ce`). | **Updated:** 2026-07-21 (eslint 0.4.1 Route A + Schema Phase 1 + release prep)
 
 ## Current Status
 
 **v1.25.1 — RELEASED 2026-07-20.** PATCH scope. Eight silent-loss bug fixes on the Related-page + Lint + ingest paths, three big-file splits, one build-verification root cause (lockfile drift), DiskCache<T> extraction. 2274 tests passing (173 files, +92 since v1.25.0).
+
+### v1.25.1 deferred → v1.25.2 PATCH resolved items
+
+- ✅ **PR #304** (DocTpoint — `updatedPages` split). **MERGED** 2026-07-20 (`3578a9d`). The 4-line ternary inside `runBatchedWithRetry` closure (Phase C-PR1 refactor) was correctly resolved.
+- ✅ **Phase A Obsidian bot compliance** (`prefer-create-el` × 50 + `getSettingDefinitions()`). **COMPLETED 2026-07-21** (`c9fd4ce`). eslint-plugin-obsidianmd 0.3.0→0.4.1 upgrade, flat config test override, `src/types/obsidian-dom.d.ts`, `src/__tests__/__support__/dom-helpers.ts`, 47 prefer-create-el production fixes, no-alert → ConfirmModal replacement. Production lint: 0 errors, 2 warnings (both pre-1.25.1 non-blocking).
+
+### v1.25.1 deferred — still on v1.26.0 MINOR
+
+- **Lint perf** (`controller.ts:151` / `:239` TODOs from v1.18.0+). Phase F was rolled into DiskCache<T> extraction; the controller-level parallel dedup batches + LLM health analysis batches remain v1.26.0 work.
 
 ### v1.25.1 composition (11 commits, ~80 files changed)
 
@@ -41,26 +50,40 @@
 | Docs complete | ✅ 10 READMEs + CHANGELOG + ROADMAP + CLAUDE + CONTRIBUTING + memory |
 | Release clean | ✅ Co-Authored-By trailer (no model version), i18n parity, lockfile drift fixed |
 
-### v1.25.1 deferred items
+### v1.25.3+ deferred
 
-- **PR #304** (DocTpoint — `updatedPages` split: created vs updated). Deferred to v1.25.2 PATCH: needs DocTpoint rebase onto Phase C-PR1 wiki-engine refactor's `runBatchedWithRetry<T>` closure (4 push sites in pre-C-PR1 code). Reply with conflict explanation + concrete ternary replacement posted on PR #304.
-- **Phase A Obsidian bot compliance** (`prefer-create-el` × 50 + `getSettingDefinitions()`). 0.4.1 lint upgrade deferred to v1.26.x (Path C status quo per `feedback_eslint_plugin_obsidianmd_0_4_skip`); root cause is 68 `eslint-comments/no-restricted-disable` errors that conflict with test-environment disable patterns. Path A (15-min override) and Path B (6d multi-PR refactor) deferred.
-- **Lint perf** (`controller.ts:151` / `:239` TODOs from v1.18.0+). Phase F was rolled into DiskCache<T> extraction; the controller-level parallel dedup batches + LLM health analysis batches remain v1.26.0 work.
+- **#182 SecretStorage API** (v1.25.3 PATCH) — needs v1.25.2 `minAppVersion` 1.11.4; implementation ~1-2d. [[project_123456789]](#)
 
 ---
 
-## Next Milestone: v1.25.2 PATCH (target ~3-5 working days, single PATCH)
+## Next Milestone: v1.25.2 PATCH (in progress, commit `c9fd4ce`)
 
-**Theme:** Fold the PR #304 DocTpoint `updatedPages` split (created vs updated logging) plus any post-v1.25.1 user-reported regression issues.
+**Theme:** eslint 0.4.1 Route A + Schema Phase 1 + PR #324 (#307) merge + version release
 
 ### Scope
 
-| Item | Source | Notes |
-|------|--------|-------|
-| **PR #304 rebase** (DocTpoint — updatedPages split) | DocTpoint contribution | 4-line ternary inside `runBatchedWithRetry.execute` closure. Reply already posted on PR #304. 5 tests red verify create-vs-update split by content mutation. |
-| **Post-v1.25.1 triage** (issues filed after release) | TBD | Watch #287/#289/#292 for follow-ups; check Issue queue 2026-07-21 onwards |
+| Item | Source | Status |
+|------|--------|--------|
+| ✅ **PR #319 / #318** — batch delay 2000→10000ms slider | joffroy59 contribution | **MERGED** (`5346ddf`) |
+| ✅ **PR #320 / #305** — truncated response halving retry | DocTpoint contribution | **MERGED** (`34a358a`) |
+| ✅ **PR #273** — ChatGPT Codex OAuth | CCRRAY-DESIGN contribution | **MERGED** (`54bc128`, squash) |
+| ✅ **PR #304** — updatedPages split (created vs updated) | DocTpoint contribution | **MERGED** (`3578a9d`) |
+| ✅ **PR #322 / #308** — dead-link slug-normalized match | DocTpoint contribution | **MERGED** (`292300b`) |
+| ✅ **eslint 0.4.1 Route A** | 2026-07-21 | **COMMITTED** (`c9fd4ce`) |
+| 🚧 **PR #324 / #307** — related-link corrector prefix scope | DocTpoint contribution | Open, 87 lines, MERGEABLE; needs simplify + code-review |
+| 🔲 Schema Phase 1 | Design in memory | Template + Programmatic Injection (~30 LOC net) |
+| 🔲 #273 UX fix | ChatGPT OAuth test failure silent | ~4h |
+| 🔲 **v1.25.2 version release** | bump + 10 READMEs + CHANGELOG + versions.json | ~2h |
 
-**Total effort**: ~3-5 working days.
+**Total effort**: ~3-4 working days remaining after Route A.
+
+### v1.25.2 version bump notes
+
+- `manifest.json` already at `1.11.4` (set by PR #273).
+- `versions.json` needs `"1.25.2": "1.11.4"` entry.
+- v1.25.1's `minAppVersion` was `1.11.4` (set by #273), but `versions.json` still had `"1.25.1": "1.11.0"` — v1.25.2 must add the correct entry.`
+
+Full design rationale: [[feedback-eslint-0-4-1-upgrade]] + `project_v1.25.1_release.md`.
 
 Full design rationale: [`project_v1.25.1_release.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.25.1_release.md).
 
