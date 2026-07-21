@@ -1,57 +1,28 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-20 (post-v1.25.1 PATCH)
+**Last Updated:** 2026-07-20 (post-v1.25.1 PATCH + PR #304 merged + v1.25.2 PATCH scope locked)
 
 ---
 
-## Current Phase: v1.25.1 PATCH RELEASED 2026-07-20 — v1.25.2 PATCH (PR #304 rebase) next; v1.26.0 MINOR following
+## Current Phase: v1.25.1 PATCH RELEASED 2026-07-20 — v1.25.2 PATCH (6 DocTpoint bug fixes) next; v1.26.0 MINOR following
 
-**v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
+**v1.25.1 PATCH (2026-07-20):** shipped (11 commits, ~80 files, 2274 tests). Eight silent-loss bug fixes (#272/#287/#289/#292) + three big-file splits (wiki-engine/settings/main) + DiskCache<T> + build-verification lockfile fix. See [CHANGELOG.md](./CHANGELOG.md) for the shipped list and [ROADMAP.md §Version Timeline](./ROADMAP.md#version-timeline) for the headline.
 
-- Eight silent-loss bug fixes on the Related-page + Lint + ingest paths (#288 closes #287 silent Mentions, #302 closes #292 schema-section drop, #303 closes #289 legacy Mentions parse, #272 LM Studio no-key).
-- Three big-file splits: `wiki-engine.ts` 1799 → 1617 (Phase C-PR1, 657 LOC of helpers → `engine-internals/`), `settings.ts` 1439 → 357 (Phase C-PR2, 1183 LOC across 8 settings-sections), `main.ts` 1304 → 300 via mixin pattern (Phase C-PR3, 915 LOC across 6 main-commands).
-- `DiskCache<T>` extracted from `PdfConversionCache` with bounded growth (100MB / 1000 / 10MB caps + LRU-by-mtime eviction + ledger optimization).
-- Node 24 + AI-SDK patches pinned via `.nvmrc` + `.npmrc`; dual-direction lockfile regen from single `node_modules` snapshot fixes Obsidian CI build-vs-`main.js` hash drift.
+**v1.25.2 PATCH (locked 2026-07-20, ~5-6 working days):** six DocTpoint bug reports (#305/#308/#310/#307/#312) + already-merged PR #304. **#168 granularity re-classified to v1.26.0 MINOR** (user-visible new feature, not a PATCH bug fix). Full scope, effort estimates, and deferred items: [ROADMAP.md §Next Milestone](./ROADMAP.md#next-milestone-v1252-patch-target-5-6-working-days-single-patch).
 
-**Post-v1.25.1 scope (P3, mostly deferred to v1.25.2/v1.26.0):**
+**v1.26.0 MINOR (design-track):** Kimi Files API (PR4) + Lint perf + source-revision (#220) + RAG-style top-K (#306) + Obsidian Bases (#184) + scheduled ingest (#295) + multi-wiki (#142) + granularity (#168) + PR #273 Codex OAuth resolution. Full forward-looking scope: [ROADMAP.md §v1.26.0 MINOR](./ROADMAP.md#v1260-minor-target-tbd-2-weeks).
 
-1. **PR #304 rebase** (DocTpoint — `updatedPages` split). Deferred to **v1.25.2 PATCH** as its single core scope item. DocTpoint rebase onto Phase C-PR1 wiki-engine refactor's `runBatchedWithRetry<T>` closure (4 push sites in pre-C-PR1 code). Reply with conflict explanation + concrete ternary replacement posted on PR #304.
-2. **Phase A Obsidian bot compliance** — `prefer-create-el` × 50 + `getSettingDefinitions` not implemented. Root cause: `eslint-plugin-obsidianmd` local 0.3.0 vs Obsidian bot 0.4.1 (version drift). **Deferred to v1.26.x (Path C)** per `feedback_eslint_plugin_obsidianmd_0_4_skip`: full 0.4.1 upgrade conflicts with 68 `eslint-comments/no-restricted-disable` errors in test-environment disable patterns. Bot 0.4.1 warnings remain non-blocking per `obsidianmd/prefer-active-doc` precedent.
-3. **Lint perf** — `controller.ts:151` + `:239` TODOs from v1.18.0+ unaddressed. Phase F was rolled into DiskCache<T> extraction; the controller-level parallel dedup + LLM health batches remain v1.26.0 work.
-4. **DocTpoint PR #288 / #302 / #303 / #314 lessons** — squash-merge preserves DocTpoint author credit while compressing history; my simplify/fix PR (#314) walks the post-merge diff independently. Pattern reusable for v1.25.2 when DocTpoint rebases #304.
+**DocTpoint workflow lesson (current):** squash-merge each contributor PR, then apply maintainer simplify/fix as a separate PR on top. Details live in [`feedback_c_pr1_deferred_findings.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/feedback_c_pr1_deferred_findings.md) + [`project_triage_2026_07_20_v1252_scope.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_triage_2026_07_20_v1252_scope.md).
 
-**v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
+**PDF cache-only architecture pivot (v1.25.0, 2026-07-15):** cache-only replaces the earlier sidecar plan; implementation history + PR2/PR3 follow-ups (forcePdfSupport, writePdfMarkdownToVault, cache caps, error classifiers) are in [`memory/project_v1.25.0_pdf_cache_only.md`](~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_v1.25.0_pdf_cache_only.md) and [CHANGELOG.md](./CHANGELOG.md).
 
-Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basename>.pdf.md`) approach.
+> **Historical release compositions** (v1.24.1 / v1.25.0 / v1.25.1): see [CHANGELOG.md](./CHANGELOG.md). Keep a Changelog is canonical; this file covers dev standards + current phase only.
 
-- ✅ **PR2 redo (1-1.5 days)** — delete `pdf-ingest-orchestrator.ts`; refactor `wiki-engine.ingestPdfSource` to feed `convertPdfToMarkdown` result into `analyzeSource` via `contentOverride`; extend `PdfConversionCache` with `purgeExpired/enforceSizeLimit/prepareBatchIngest` (100MB / 1000-entry / 10MB-single caps + LRU-by-mtime eviction); add `converterVersion` to cache key; delete 5 dead i18n keys across 10 locales.
-- ✅ **PR3 (1 day)** — settings: `writePdfMarkdownToVault` + `forcePdfSupport` toggles; CHANGELOG; ROADMAP sync.
-  - Settings types + DEFAULT_SETTINGS + advanced-settings toggle UI
-  - 4 i18n keys × 10 locales for both PDF toggles
-  - sidecar write via direct vault.create/modify (no createOrUpdateFile cascade)
-  - normalizePath for cross-platform sidecar paths
-  - 3 new tests: default no-sidecar, write creates sidecar, write updates existing
-  - Code-review findings applied: simplified `ingestPdfSource` comment; normalizePath; avoided `createOrUpdateFile` for sidecar
-  - **PR3 follow-ups (2026-07-16)**:
-    - `forcePdfSupport` → **universal escape hatch** (any non-NATIVE provider); toggle only renders for non-NATIVE providers; provider switch to NATIVE auto-resets value; `FORCE_PDF_PROVIDER_IDS` constant deleted; LLM endpoint decides (errors surface via Notice)
-    - `writePdfMarkdownToVault` moved to **Wiki Configuration → Wiki Folder** (semantic: vault storage policy, not LLM config); always visible; not bound to Advanced mode
-    - `advancedSettingsMode` → default no longer resets `forcePdfSupport` (toggle lifecycle owned by its own UI)
-    - 3 new tests: ollama + forcePdfSupport=true attempts LLM; deepseek same; endpoint-rejects error propagates verbatim
-  - **PR3 follow-up #2 (2026-07-16)** — third-party model audit fixes:
-    - **P0 (cross-platform cache filename safety)**: physical filename = `sha256(logicalKey).slice(0, 16)` (Git short-hash style); logical key retains `sha256:model:converterVersion` semantics; converter hashes via new `hashCacheKey()` helper before `cache.get/set`. Fixes Windows `ERROR_INVALID_NAME` + POSIX unintended subpath when model contains `/` or `:`.
-    - **P1 (batch-start housekeeping)**: new `PdfConversionCache.prepareBatchIngest()` (TTL purge + size enforce) wired into `runBatchIngest()` via `preparePdfCacheForBatchIngest()`.
-    - **P1 (PDF-shaped LLM errors → localized Notice)**: `isPdfRelatedLlmError(message)` classifier routes obvious PDF-rejection errors to `reportSkip('unsupported-pdf')` instead of generic re-throw.
-    - **P1 (settings defaults test)**: new `src/__tests__/types/settings.test.ts` covers `forcePdfSupport=false` + `writePdfMarkdownToVault=false` defaults.
-    - **P2 (i18n user-perspective rewrite)**: `forcePdfSupportDesc` + `sourceRejectedPdfUnsupported` rewritten in 10 locales — drop developer jargon ("escape hatch", "endpoint", "LLM error"), speak user outcome (what they get when they flip the switch, what they see if it fails).
-  - **PR3 follow-up #3 (2026-07-16)** — third-party model audit fixes:
-    - **P2 (PDF error classifier tightened)**: `isPdfRelatedLlmError` now requires BOTH a rejection verb (`reject`/`not support`/`unsupported`/`invalid`/`not allowed`) AND a PDF/media marker (`pdf`/`application/pdf`/`file part`/`mediatype`) to route to `sourceRejectedPdfUnsupported`. Pre-fix classifier substring-matched on `'pdf'` alone, so transient 413 size-limit errors, internal `pdf_data` null-derefs, and other PDF-adjacent strings were misreported as "provider doesn't support PDF", misleading users into disabling `forcePdfSupport` for non-PDF issues.
-    - **P2 (classifier regression tests)**: 6 new tests in `src/__tests__/wiki/wiki-engine-pdf.test.ts` pin the contract — 2 happy-path (route to skip) + 4 false-positive guards (413/5xx/null-deref/generic-invalid → re-throw).
-  - **PR3 follow-up #5 (2026-07-17)** — user-reported UI bug:
-    - **Bug**: The persistent `Ingesting: <basename>` Notice (created by `main.ts:showProgressFor(... 'Ingesting: ...', 0)`) remained on screen until the next ingest whenever an interactive single-file ingest threw (network, vault IO, unexpected exception) — because the `.catch` block only showed a new error Notice and never hid the `progressNotice`. Affects `selectSourceToIngest` (file picker modal) and `ingestActiveFile` (ribbon icon).
-    - **Fix**: Both `.catch` blocks now call `this.dismissProgress()` after showing the error Notice. Successful / `reportSkip` paths already dismissed via `onIngestDoneDispatch` — only throw paths were missing.
-  - **Trust boundary**: the user is the authoritative source on what their endpoint supports. Pre-flight whitelist rejects violate user intent. The provider gate must attempt the call; LLM errors surface as localized Notices guiding the user to disable the toggle or check endpoint config.
-- ⏳ **PR4 (optional, by AkaSakana)** — Kimi Files API + other non-routine PDF providers (GLM, OpenRouter, etc.) — targets **v1.26.0 MINOR**. If AkaSakana ships as follow-up PR after v1.25.0 lands, we merge after review. If schedule slips, we port ourselves (1-day).
-- ⏳ **Final** — `pnpm build:dev` + HARD STOP + user e2e + push decision.
+### Withdrawn / non-issues
+
+### Withdrawn / non-issues
+
+- **Windows: `Connection test failed: TypeError: Failed to construct 'Headers'`** — withdrawn 2026-07-10 (user input error: non-ASCII chars in API key field). Not a plugin bug.
 
 **AkaSakana PR #286 feedback adopted (2026-07-15):**
 - ✅ Cache key includes `converterVersion` so prompt upgrades invalidate stale entries.
@@ -60,7 +31,7 @@ Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basen
 
 Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 
-### Codex OAuth provider architecture
+### Codex OAuth provider architecture (PR #273, merged 2026-07-21)
 
 - `openai` remains the OpenAI Platform API-key provider with separate usage billing.
 - `openai-codex` is displayed as **ChatGPT Plan (Codex OAuth)** and is experimental third-party compatibility, not an OpenAI partnership or a general ChatGPT API.
@@ -70,7 +41,7 @@ Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
 - OAuth lifecycle commands belong in `main-commands/codex-auth-commands.ts`; shared model selection policy belongs in `core/openai-codex-model-policy.ts`. The Codex request adapter intentionally omits client-side `max_output_tokens` because the backend does not support that request field.
 - SecretStorage requires Obsidian 1.11.4, so `manifest.json`, badges, and user prerequisites must not advertise an older minimum. The plugin remains `isDesktopOnly: false` because device-code login is the mobile path.
 
-> **Historical release compositions** (v1.24.1 / v1.25.0 closed work): see [CHANGELOG.md](./CHANGELOG.md), which is the canonical historical record.
+> **Historical release compositions** (v1.24.1 / v1.25.0 / v1.25.1): see [CHANGELOG.md](./CHANGELOG.md). Keep a Changelog is canonical; this file covers dev standards + current phase only.
 
 ### Withdrawn / non-issues (kept for archaeology)
 
@@ -107,16 +78,6 @@ npx tsc --noEmit    # TypeScript: 0 errors (ESLint does NOT check type safety)
 pnpm test           # Vitest: all pass, 0 failures
 pnpm build          # esbuild: clean exit
 pnpm css-lint       # CSS: 0 !important declarations in styles.css
-```
-
-**Five-gate critical note**: ESLint checks code style, TypeScript checks type safety, css-lint checks Obsidian review compliance — three complementary checks. Single tool passing is insufficient.
-
-```bash
-pnpm lint           # Gate 1: ESLint - 0 errors, 0 warnings
-npx tsc --noEmit    # Gate 1: TypeScript - 0 errors, 0 warnings
-pnpm test           # Gate 1: Tests - all pass, 0 failures
-pnpm build          # Gate 1: Build - clean exit
-pnpm css-lint       # Gate 1: CSS - 0 !important declarations
 ```
 
 **Five-gate bot alignment note (2026-07-19, post-v1.25.0 audit)**: The Obsidian review bot runs a **newer** `eslint-plugin-obsidianmd` than the local lockfile pins (project 0.3.0 vs bot 0.4.1 as of 2026-07-19). Local `pnpm lint` passing does NOT guarantee bot will pass. **Mandatory before each release**:
@@ -479,7 +440,7 @@ For any new function or behavior change: write a failing test first, then write 
 
 | File | Responsibility | What belongs | What does NOT belong |
 |------|---------------|--------------|---------------------|
-| **CLAUDE.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current state (v1.22.6 released + v1.23.0 in flight) | Old release histories, project structure tree, full version timeline |
+| **CLAUDE.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current state (v1.25.1 PATCH released, v1.25.2 PATCH next) | Old release histories, project structure tree, full version timeline |
 | **ROADMAP.md** | Planning | Next Milestone / Version Timeline (condensed) / Deferred & Backlog | Per-version detail (use CHANGELOG) |
 | **CHANGELOG.md** | History (Keep a Changelog) | Per-version Added/Changed/Fixed/Removed — ancient versions are pre-aggregated, **do not re-merge** | Forward-looking plans, dev standards |
 | **CONTRIBUTING.md** | Contributor guide | Project structure tree, architecture, Mermaid, dev setup | User docs, design philosophy |
