@@ -96,6 +96,18 @@ export const PDF_CACHE_MAX_BYTES = 100 * 1024 * 1024;
 export const PDF_CACHE_MAX_ENTRIES = 1000;
 export const PDF_CACHE_MAX_SINGLE_ENTRY_BYTES = 10 * 1024 * 1024;
 
+/** Official MinerU Precision API root. Signed upload/download URLs are opaque. */
+export const MINERU_API_BASE_URL = 'https://mineru.net/api/v4';
+
+/** Maximum retries per MinerU HTTP stage, excluding the initial request. */
+export const MINERU_MAX_RETRIES = 3;
+
+/** Base delay for MinerU exponential retry backoff. */
+export const MINERU_RETRY_BASE_DELAY_MS = 1000;
+
+/** Delay between MinerU extraction status polls. */
+export const MINERU_POLL_INTERVAL_MS = 2000;
+
 /** Provider IDs whose built-in clients support PDF natively (v1.25.0 PR1).
  *  Providers NOT in this list fall through to the `forcePdfSupport`
  *  universal escape hatch (user opt-in) — see `core/pdf-converter.ts`. */

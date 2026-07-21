@@ -15,6 +15,8 @@ export type PdfBackendProgress =
   | { stage: 'validating' }
   | { stage: 'saving' };
 
+export type PdfBackendProgressFn = (progress: PdfBackendProgress) => void;
+
 interface PdfBackendSettings {
   provider: string;
   apiKey: string;
@@ -35,7 +37,7 @@ export interface PdfBackendContext {
   resolveModelForTask: (settings: PdfBackendSettings, task: string) => string;
   subtle?: SubtleCrypto;
   abortSignal?: AbortSignal;
-  onProgress?: (progress: PdfBackendProgress) => void;
+  onProgress?: PdfBackendProgressFn;
 }
 
 export type PdfConversionResult = PdfCacheEntry;
