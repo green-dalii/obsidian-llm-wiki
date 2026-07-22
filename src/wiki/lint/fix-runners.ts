@@ -12,7 +12,7 @@ import { resolveModelForTask } from '../../core/model-resolver';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from '../../core/tag-vocab';
 import { mergeFrontmatterArrayField, replaceFrontmatterArrayField, parseFrontmatter } from '../../core/frontmatter';
 import { TOKENS_LINT_ALIAS_BATCH, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
-import { buildWikiLanguageDirective, appendTagVocabularyToPrompt } from '../system-prompts';
+import { buildWikiLanguageDirective } from '../system-prompts';
 import { TagViolation } from './scanners';
 
 // Issue #94: Status bar "click to cancel" already exists, but the fix-runner
@@ -348,10 +348,13 @@ export async function runDuplicateMerges(
  * Body is never touched — only the `tags:` line in the frontmatter
  * is rewritten via enforceFrontmatterConstraints.
  *
- * The LLM call uses appendTagVocabularyToPrompt() to inject the
- * active vocabulary section (so the LLM knows what values are
- * allowed), and the system prompt is the existing wiki language
- * directive (no new schema task needed — retag is small-scope).
+ * The LLM call goes through the shared `ctx.buildSystemPrompt('lint')`
+ * composer (when available) so the system layer carries the language
+ * directive + Active Tag Vocabulary section, matching every other
+ * lint LLM call site. Pre-#328-Phase-1-follow-up the helper
+ * `appendTagVocabularyToPrompt()` injected the section into the user
+ * prompt here; #328 Phase 1 follow-up (PRX-A2) deduplicated the
+ * injection by moving it to the system layer.
  *
  * Per-page loop (not batched). Each retag is a small, independent
  * LLM call. Issue #94 cancel propagation: the runner checks
@@ -438,12 +441,13 @@ export async function runRetagViolations(
             ? getActiveConceptTags(ctx.settings)
             : getActiveSourceTags(ctx.settings);
 
-        // Build the prompt: introduce the page, list current tags,
-        // list allowed vocabulary, ask for new tags.
-        // Note: no LLM-side schema task is added — the retag is
-        // self-contained and does not need the full wiki schema.
-        const prompt = appendTagVocabularyToPrompt(
-          `You are retagging a wiki page whose current tags fall outside the active vocabulary.
+        // #328 Phase 1 follow-up: the active tag vocabulary section is now
+        // injected exactly once per LLM call at the system layer (by the
+        // shared buildSystemPrompt composer) — mirroring every other
+        // lint LLM call. The previous user-layer `appendTagVocabularyToPrompt`
+        // produced a double-inject with the system layer (see PR #332),
+        // and was the helper's last remaining caller.
+        const prompt = `You are retagging a wiki page whose current tags fall outside the active vocabulary.
 
 Page name: ${v.title}
 Page type: ${v.pageType}
@@ -454,17 +458,17 @@ Page summary (first 400 chars of body):
 ${bodyPreview}
 
 Task: Return a JSON object with a single field "tags" that is an array of strings.
-- Each value MUST be one of the allowed values listed in the Active Tag Vocabulary section below.
+- Each value MUST be one of the allowed values listed in the Active Tag Vocabulary section of the system prompt.
 - The values should be the closest valid matches for what this page is actually about.
 - Do NOT include any other fields. Do NOT include any explanatory text.
 - If the page is genuinely about nothing in the vocabulary, return an empty array.
-`,
-          ctx.settings
-        );
+`;
 
+        const systemPrompt = ctx.buildSystemPrompt ? await ctx.buildSystemPrompt('lint') : undefined;
         const response = await ctx.llmClient.createMessage({
           model: resolveModelForTask(ctx.settings, 'lint'),
           max_tokens: 256,
+          ...(systemPrompt ? { system: systemPrompt } : {}),
           messages: [{ role: 'user', content: prompt }],
         });
         if (signal?.aborted) {

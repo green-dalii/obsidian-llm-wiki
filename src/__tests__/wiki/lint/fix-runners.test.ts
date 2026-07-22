@@ -302,6 +302,7 @@ describe('runRetagViolations (Issue #85 v7)', () => {
   function makeRetagCtx(opts: {
     fileContent?: string | null;
     llmResponse?: string;
+    buildSystemPrompt?: (task: string) => Promise<string | undefined>;
   }): LintContext {
     const content = opts.fileContent !== undefined
       ? opts.fileContent
@@ -342,6 +343,11 @@ describe('runRetagViolations (Issue #85 v7)', () => {
         },
       } as unknown as LintContext['app'],
       llmClient: { createMessage: vi.fn().mockResolvedValue(opts.llmResponse ?? '{"tags":["person","organization"]}') } as unknown as LintContext['llmClient'],
+      // #328 Phase 1 follow-up: retag now uses buildSystemPrompt('lint')
+      // for the system layer injection (PRX-A2). The default leaves the
+      // field undefined so existing tests exercise the back-compat path
+      // (no system field) — only the new tests below override it.
+      buildSystemPrompt: opts.buildSystemPrompt,
     });
   }
 
@@ -460,5 +466,59 @@ describe('runRetagViolations (Issue #85 v7)', () => {
     // The second arg is the Error object itself.
     expect(firstCallArgs[1]).toBeInstanceOf(Error);
     errSpy.mockRestore();
+  });
+
+  // === #328 Phase 1 follow-up — retag uses system layer for tag-vocab ===
+  //
+  // Pre-#328-Phase-1-follow-up (PRX-A2), retag appended the Active Tag
+  // Vocabulary section to the user prompt via `appendTagVocabularyToPrompt`,
+  // because the LLM call did not go through `buildSystemPrompt`. The
+  // helper was the only remaining user-layer caller.
+  //
+  // PRX-A2 deduplicated by calling `ctx.buildSystemPrompt('lint')` here,
+  // matching every other lint LLM call site. Two tests pin the contract:
+  describe('retag dedup — system layer injects Active Tag Vocabulary (#328 Phase 1 follow-up)', () => {
+    const fakeSystemPrompt = '## Active Tag Vocabulary (runtime)\n\n**Entity types** (entity_type field — one of):\n- person\n\n';
+
+    async function captureCreateMessageCall(ctx: LintContext) {
+      const ctrl = new AbortController();
+      const spy = vi.spyOn(ctx.llmClient!, 'createMessage');
+      await runRetagViolations(ctx, ctrl.signal, [baseViolation]);
+      return spy.mock.calls[0][0] as {
+        system?: string;
+        messages: Array<{ role: string; content: string }>;
+      };
+    }
+
+    it('passes buildSystemPrompt output as the LLM system field', async () => {
+      const ctx = makeRetagCtx({
+        buildSystemPrompt: vi.fn(async () => fakeSystemPrompt),
+      });
+      const call = await captureCreateMessageCall(ctx);
+      expect(call.system).toBe(fakeSystemPrompt);
+    });
+
+    it('user prompt does NOT embed the Active Tag Vocabulary section', async () => {
+      // pin the dedup: even though buildSystemPrompt returns a section,
+      // the user layer must not duplicate it. This is the contract
+      // PRX (dedup) established and retag is now part of it.
+      const ctx = makeRetagCtx({
+        buildSystemPrompt: vi.fn(async () => fakeSystemPrompt),
+      });
+      const call = await captureCreateMessageCall(ctx);
+      expect(call.messages[0].content).not.toContain('## Active Tag Vocabulary');
+      expect(call.messages[0].content).not.toContain('Entity types');
+    });
+
+    it('falls back to no-system-prompt when buildSystemPrompt is undefined (back-compat)', async () => {
+      // Pre-Phase-1 callers (e.g. older test fixtures) don't supply
+      // buildSystemPrompt on LintContext. Retag must preserve the
+      // pre-Phase-1 prompt shape on that path: only user prompt, no
+      // 'system' field. Pins the optional-chain so future contributors
+      // cannot quietly drop it.
+      const ctx = makeRetagCtx({});  // buildSystemPrompt: undefined
+      const call = await captureCreateMessageCall(ctx);
+      expect('system' in call).toBe(false);
+    });
   });
 });
