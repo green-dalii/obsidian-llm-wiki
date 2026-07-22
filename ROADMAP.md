@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.1 PATCH (RELEASED 2026-07-20) → v1.25.2 PATCH (in progress, commits `c9fd4ce` + `d2d401e`). | **Updated:** 2026-07-21 (eslint 0.4.1 Route A + E2E thinking-block fix + Schema Phase 1 + release prep)
+**Version:** 1.25.1 PATCH (RELEASED 2026-07-20) → v1.25.2 PATCH (in progress, commits `c9fd4ce` + `d2d401e` + `#327` + `#329`). | **Updated:** 2026-07-22 (PR #324 #307 + PR #329 #310 merged; Schema Phase 1 Option A approved + 3 decisions resolved; NOTICE update deferred to v1.25.2 release commit; remaining: Schema Phase 1 implementation + version release + NOTICE sync)
 
 ## Current Status
 
@@ -71,12 +71,52 @@
 | ✅ **PR #322 / #308** — dead-link slug-normalized match | DocTpoint contribution | **MERGED** (`292300b`) |
 | ✅ **eslint 0.4.1 Route A** | 2026-07-21 | **COMMITTED** (`c9fd4ce`) |
 | ✅ **E2E fix: thinking-block HierarchyRequestError** | 2026-07-21 — `activeDocument.createEl` auto-attached to document.body broke saved-history load | **COMMITTED** (`d2d401e`) — refactored `renderThinkingBlocksUI(parent)`, caller (`QueryView.renderMarkdownContent`) threads `container` |
-| 🚧 **PR #324 / #307** — related-link corrector prefix scope | DocTpoint contribution | Open, 87 lines, MERGEABLE; needs simplify + code-review |
-| 🔲 Schema Phase 1 | Design in memory | Template + Programmatic Injection (~30 LOC net) |
-| 🔲 #273 UX fix | ChatGPT OAuth test failure silent | ~4h |
+| ✅ **PR #324 / #307** — related-link corrector prefix scope | DocTpoint contribution | **MERGED** (`762bb3c`, squash); follow-up A (`2524bc3`) added case-sensitivity test + comment clarity |
+| ✅ **PR #329 / #310** — bare `---` template trailer stripping | DocTpoint contribution | **MERGED** (`9b0ecad`, squash); removes closing rule from 5 page templates + `stripTrailingSeparators()` net at end of `cleanMarkdownResponse()` |
+| 🚧 **Schema Phase 1 (Option A)** | Issue #328 — user-approved 2026-07-22 (override of "wait 2 weeks for community feedback" public commitment — override justified by Option A being bug-fix nature, not design track) | Eliminate dual-source problem: tag lists move from `buildDefaultSchemaBody()` to runtime injection layer; `schemaHasTagVocab` defensive check removed. (Folder layout stays Phase 2 — alongside per-type registration.) **Test LOC is net ↓** — 5 retired Phase 2 tests deleted, new contract lives in `runtime-injection.test.ts`. Backwards-compat: existing user schemas **not rewritten** — `loadSchema()` sanitizes legacy baked enum in-memory at LLM-facing view; on-disk file untouched. Phase 2/3 of #328 remain in v1.26.0 MINOR / v1.26.0+. |
+| 🔲 #273 UX silent-error fix | ChatGPT OAuth test failure | **WITHDRAWN** 2026-07-21 (user e2e test confirmed actual Notice path works; no real silent bug) |
+| 🔲 NOTICE update (DocTpoint description refresh + 4 new v1.25.0+ contributors) | Carry-over | Uncommitted in working tree, **deferred to v1.25.2 release commit** per Phase 1 commit scope discipline (NOT mixed with code commit) |
 | 🔲 **v1.25.2 version release** | bump + 10 READMEs + CHANGELOG + versions.json | ~2h |
 
-**Total effort**: ~3-4 working days remaining after Route A.
+**Total effort**: ~3-4 working days remaining after Schema Phase 1 (~3-4h) + version release (~2h).
+
+**Schema Phase 1 (Issue #328) — Option A user-approved 2026-07-22:**
+
+The original #328 body proposed waiting 2 weeks for community feedback before phasing. User override approved Option A (immediate implementation in v1.25.2 PATCH) on three grounds: (a) Phase 1 is bug-fix nature — eliminating the dual-source problem (schema body baking stale tag list + runtime defensive injection of fresh tag list — LLM sees both → drift), not a design-track feature; (b) Phase 1 is orthogonal to Phase 2 (per-type registration, future Settings-driven `WIKI_SUBFOLDERS` derived list) and Phase 3 (multi-wiki + user-defined placeholders + dynamic scanners) — no future re-work predicted; (c) ~3-4h effort fits PATCH scope.
+
+Implementation order (TDD, revised 2026-07-22):
+
+1. RED: `src/__tests__/schema/runtime-injection.test.ts` (NEW file) — "buildDefaultSchemaBody never contains any baked tag enum regardless of settings" + "Classification Rules section explicitly references runtime injection"
+2. RED: `src/__tests__/wiki/system-prompts-tag-vocab.test.ts` — **REVERSE** the existing duplicate-detection test (count==1 → count>=1): runtime is now authoritative, always appends
+3. RED: `src/__tests__/schema/default-schema.test.ts` — **DELETE** the 5-test "v1.22.0 Phase 2 dynamic tag injection" describe block (`L78-154`) + REWRITE the "preserves entity and concept subtype valid lists" assertion (`L70-75`) to assert NOT-baked. Phase 2 contract is permanently reversed (hard rule in CLAUDE.md), not paused — keeping old tests would re-anchor a retired contract
+4. CONFIRM all REDs fail for the right reason (`pnpm test`)
+5. GREEN: Edit `src/schema/schema-manager.ts:33-153` — `buildDefaultSchemaBody()` drops the 5 `${entityList}/${conceptList}` interpolations (`L50/51/63/80/135/136`); rephrase Wiki Structure / Entity Page Template / Concept Page Template / Classification Rules to defer to the runtime "Active Tag Vocabulary" injection. **Keep `settings` parameter** with JSDoc note that it is unused since Phase 1 (avoid signature churn — `ensureSchemaExists` / `regenerateDefaultSchema` call sites stay byte-identical)
+6. GREEN: Edit `src/wiki/system-prompts.ts:213-235` + `:255` — drop the `schemaHasTagVocab` defensive branch (always append runtime section); rename injected heading "(Issue #85 — user-controlled)" → "(runtime)"
+7. REFACTOR: clean up the obsolete "// v1.22.0 #97 ... in lockstep" comment in `schema-manager.ts:34-40` (no longer applicable since runtime is authoritative — no lockstep needed)
+8. Gate 1: `pnpm lint && npx tsc --noEmit && pnpm test && pnpm build && pnpm css-lint`
+
+**Three implementation decisions resolved 2026-07-22 (recorded for the commit body):**
+
+1. **5 Phase 2 tests in `default-schema.test.ts:78-154`**: DELETED, with the new contract living in the new file `runtime-injection.test.ts`. The runtime-vs-baked split is a permanent design reversal (CLAUDE.md "Schema 三层分离" hard rule), not a temporary contract change — keeping old tests would re-anchor a retired contract and mislead future contributors reading the file
+2. **`buildDefaultSchemaBody(settings)` signature**: KEPT, with JSDoc marking settings as unused since Phase 1. `ensureSchemaExists()` / `regenerateDefaultSchema()` call sites byte-identical. Phase 2 may legitimately need settings again. Signature churn deferred to that PR
+3. **NOTICE update timing**: DEFERRED to v1.25.2 release doc sync (NOT mixed into the Phase 1 commit). The 9-contributor attribution is release-scope; mixing into a code commit is range creep and obscures the Phase 1 git history. The remembered uncommitted NOTICE change from the PR #329 cycle will be re-applied with the v1.25.2 release commit
+
+**Why Option A is safe for backwards compat:**
+
+- Existing users' schema files (with baked-in tag lists) are NOT rewritten — only `ensureSchemaExists()` and explicit `regenerateDefaultSchema()` produce the new clean template
+- Existing users get immediate runtime improvement (no more dual-source — runtime injection is always authoritative)
+- All call sites of `getSchemaContext()` are unchanged — same SchemaTask contract
+- The Title-text change of injected section ("user-controlled" → "runtime") is a minor visual change but functionally identical
+- No prompt-text changes that break existing test fixtures (verified by grep `pnpm test` after each step)
+
+**Why Option A does NOT block Phase 2/3:**
+
+- `buildDefaultSchemaBody()` modification only touches *content* of one specific section (Wiki Structure + Classification Rules); it does NOT change the section *structure* that Phase 2 relies on (`## <Type> Page Template` discovery via `parseSections()` / `selectSections()`)
+- The runtime injection point in `system-prompts.ts:213` is exactly where Phase 2 will add `buildActiveFolderLayoutSection()` — symmetric extension, no refactor
+- `WIKI_SUBFOLDERS` constant remains untouched; Phase 2 will replace it with derived-from-settings without conflicting with Phase 1
+- Phase 3 (multi-wiki, placeholders, scanners) requires no schema-body changes at all — orthogonal
+
+Full decision rationale: [[feedback-schema-phase1-option-a-decision]].
 
 ### v1.25.2 version bump notes
 
