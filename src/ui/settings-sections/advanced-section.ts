@@ -96,9 +96,10 @@ export function renderAdvancedSection(tab: LLMWikiSettingTab, containerEl: HTMLE
   renderNumberInput(tab, containerEl, 'chatTemperatureName', 'chatTemperatureDesc', 'chatTemperature');
   renderNumberInput(tab, containerEl, 'repetitionPenaltyName', 'repetitionPenaltyDesc', 'repetitionPenalty');
 
-  // v1.25.0 PR3: PDF force-support toggle (universal escape hatch).
-  // Renders for ANY non-native provider.
-  if (!(NATIVE_PDF_PROVIDER_IDS as readonly string[]).includes(tempSettings.provider)) {
+  // The force-support escape hatch only applies to the native backend
+  // when its selected provider is not known to accept PDFs.
+  if (tempSettings.pdfConversionBackend !== 'mineru'
+      && !(NATIVE_PDF_PROVIDER_IDS as readonly string[]).includes(tempSettings.provider)) {
     new Setting(containerEl)
       .setName(tab.getText('forcePdfSupportName'))
       .setDesc(tab.getText('forcePdfSupportDesc'))

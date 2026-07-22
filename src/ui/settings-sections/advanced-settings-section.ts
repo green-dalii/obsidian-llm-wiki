@@ -96,12 +96,14 @@ export function renderAdvancedSettingsSection(tab: LLMWikiSettingTab, containerE
 
   // v1.25.0 PR3: opt-in sidecar write (PDF → Markdown). Moved here from
   // Wiki Configuration in v1.26.0 — a power-user storage policy choice.
-  new Setting(containerEl)
-    .setName(tab.getText('writePdfMarkdownToVaultName'))
-    .setDesc(tab.getText('writePdfMarkdownToVaultDesc'))
-    .addToggle(toggle => toggle
-      .setValue(tempSettings.writePdfMarkdownToVault === true)
-      .onChange((value) => { tempSettings.writePdfMarkdownToVault = value; }));
+  if (tempSettings.pdfConversionBackend !== 'mineru') {
+    new Setting(containerEl)
+      .setName(tab.getText('writePdfMarkdownToVaultName'))
+      .setDesc(tab.getText('writePdfMarkdownToVaultDesc'))
+      .addToggle(toggle => toggle
+        .setValue(tempSettings.writePdfMarkdownToVault === true)
+        .onChange((value) => { tempSettings.writePdfMarkdownToVault = value; }));
+  }
 
   // Slug Case (filename casing for generated wiki pages). Moved here from
   // Wiki Configuration in v1.26.0 — a one-time naming-policy choice.

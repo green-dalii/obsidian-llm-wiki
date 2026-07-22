@@ -6,6 +6,7 @@
  *
  *   - "Wiki Configuration" H2 heading
  *   - Wiki Folder text input
+ *   - PDF conversion backend and backend-specific settings
  *   - Extraction Granularity dropdown + custom entity/concept limits
  *   - Tag Vocabulary mode + custom entity/concept chip inputs
  *   - Max Conversation History dropdown
@@ -30,7 +31,7 @@
  * that defeats the purpose of extraction.
  */
 
-import { Setting, Notice, TFile, BaseComponent } from 'obsidian';
+import { Setting, Notice, TFile, BaseComponent, Platform } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
 import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from '../../types';
 import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIMIT_MIN } from '../../constants';
@@ -53,6 +54,70 @@ export function renderWikiConfigSection(tab: LLMWikiSettingTab, containerEl: HTM
       .setValue(tempSettings.wikiFolder)
       .onChange((value) => { tempSettings.wikiFolder = value; }));
 
+  new Setting(containerEl).setName(tab.getText('pdfConversionSection')).setHeading();
+
+  const pdfBackend = tempSettings.pdfConversionBackend ?? 'native';
+  const backendDesc = Platform.isDesktopApp
+    ? tab.getText('pdfConversionBackendDesc')
+    : `${tab.getText('pdfConversionBackendDesc')} ${tab.getText('mineruDesktopOnlySettingDesc')}`;
+  new Setting(containerEl)
+    .setName(tab.getText('pdfConversionBackendName'))
+    .setDesc(backendDesc)
+    .addDropdown(dropdown => {
+      dropdown
+        .addOption('native', tab.getText('pdfConversionBackendNative'))
+        .addOption('mineru', tab.getText('pdfConversionBackendMineru'))
+        .setValue(pdfBackend)
+        .onChange((value: string) => {
+          if (value === 'mineru' && !Platform.isDesktopApp) {
+            tab.display();
+            return;
+          }
+          tempSettings.pdfConversionBackend = value as 'native' | 'mineru';
+          tab.display();
+        });
+      if (!Platform.isDesktopApp) {
+        const mineruOption = dropdown.selectEl.querySelector<HTMLOptionElement>('option[value="mineru"]');
+        if (mineruOption) mineruOption.disabled = true;
+      }
+    });
+
+  if (pdfBackend === 'mineru') {
+    new Setting(containerEl)
+      .setName(tab.getText('mineruApiTokenName'))
+      .setDesc(tab.getText('mineruApiTokenDesc'))
+      .addText(text => {
+        text
+          .setPlaceholder(tab.getText('mineruApiTokenPlaceholder'))
+          .setValue(tempSettings.mineruApiToken ?? '')
+          .onChange((value) => { tempSettings.mineruApiToken = value; });
+        text.inputEl.type = 'password';
+      });
+
+    new Setting(containerEl)
+      .setName(tab.getText('mineruTaskTimeoutName'))
+      .setDesc(tab.getText('mineruTaskTimeoutDesc'))
+      .addText(text => {
+        text
+          .setValue(String(tempSettings.mineruTaskTimeoutMinutes ?? 30))
+          .onChange((value) => {
+            const trimmed = value.trim();
+            if (!trimmed) return;
+            const parsed = Number(trimmed);
+            if (!Number.isFinite(parsed)) return;
+            const clamped = Math.min(120, Math.max(5, parsed));
+            tempSettings.mineruTaskTimeoutMinutes = clamped;
+            if (clamped !== parsed) text.setValue(String(clamped));
+          });
+        text.inputEl.type = 'number';
+        text.inputEl.min = '5';
+        text.inputEl.max = '120';
+        text.inputEl.step = 'any';
+        text.inputEl.classList.add('llm-wiki-number-input');
+      });
+
+    new Setting(containerEl).setDesc(tab.getText('mineruUploadDisclosure'));
+  }
   // Granularity + custom limits
   let customEntitySetting: Setting | null = null;
   let customConceptSetting: Setting | null = null;
