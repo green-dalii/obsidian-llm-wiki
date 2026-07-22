@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cleanMarkdownResponse } from '../../core/markdown';
+import { cleanMarkdownResponse, stripTrailingSeparators } from '../../core/markdown';
 describe('cleanMarkdownResponse', () => {
   it('strips markdown code fence (```json...```)', () => {
     // Code only recognizes markdown/md language tags; json tag text remains
@@ -151,6 +151,48 @@ Body`;
 
   it('handles very short input without structural markers (regression)', () => {
     expect(cleanMarkdownResponse('short')).toBe('short');
+  });
+
+  it('drops the trailing rule the page templates used to end on (#310)', () => {
+    const input = '---\ntype: entity\n---\n\n# Rutosid\n\n## Description\nText.\n\n---';
+    expect(cleanMarkdownResponse(input)).toBe(
+      '---\ntype: entity\n---\n\n# Rutosid\n\n## Description\nText.',
+    );
+  });
+});
+
+describe('stripTrailingSeparators (#310)', () => {
+  it('removes a trailing horizontal rule from a generated page', () => {
+    const input = '---\ntype: entity\n---\n\n# Page\n\n## Description\nText.\n\n---';
+    expect(stripTrailingSeparators(input)).toBe(
+      '---\ntype: entity\n---\n\n# Page\n\n## Description\nText.',
+    );
+  });
+
+  it('removes several rules separated by blank lines', () => {
+    const input = '# Page\n\nText.\n\n---\n\n---\n\n';
+    expect(stripTrailingSeparators(input)).toBe('# Page\n\nText.');
+  });
+
+  it('keeps the frontmatter terminator of a frontmatter-only document', () => {
+    const input = '---\ntype: entity\naliases: ["X"]\n---';
+    expect(stripTrailingSeparators(input)).toBe(input);
+  });
+
+  it('keeps a setext H2 underline, which is a heading and not a rule', () => {
+    const input = '# Page\n\nSection title\n---';
+    expect(stripTrailingSeparators(input)).toBe(input);
+  });
+
+  it('keeps a rule inside the body', () => {
+    const input = '# Page\n\n---\n\n## Description\nText.';
+    expect(stripTrailingSeparators(input)).toBe(input);
+  });
+
+  it('returns content unchanged when there is nothing to strip', () => {
+    const input = '# Page\n\n## Description\nText.';
+    expect(stripTrailingSeparators(input)).toBe(input);
+    expect(stripTrailingSeparators('')).toBe('');
   });
 });
 
