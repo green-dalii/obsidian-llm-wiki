@@ -45,3 +45,58 @@ export type PdfConversionResult = PdfCacheEntry;
 export interface PdfConversionBackend {
   convert(ctx: PdfBackendContext): Promise<PdfConversionResult>;
 }
+
+export interface MineruArtifactManifestImage {
+  path: string;
+  bytes: number;
+}
+
+export interface MineruArtifactManifest {
+  schemaVersion: 1;
+  sourcePath: string;
+  sourceSha256: string;
+  backend: 'mineru';
+  modelVersion: 'vlm';
+  converterVersion: 'mineru-v1';
+  convertedAt: string;
+  taskId: string;
+  traceId?: string;
+  markdownPath: 'document.md';
+  markdownSha256: string;
+  images: MineruArtifactManifestImage[];
+}
+
+export type ArtifactInspection =
+  | { kind: 'missing' }
+  | { kind: 'valid'; manifest: MineruArtifactManifest; markdown: string }
+  | { kind: 'managed-invalid'; reason: string }
+  | { kind: 'unowned-conflict' };
+
+export interface MineruArtifactImageInput {
+  path: string;
+  bytes: Uint8Array;
+}
+
+export interface MineruArtifactPublishInput {
+  sourcePath: string;
+  sourceSha256: string;
+  taskId: string;
+  traceId?: string;
+  convertedAt: string;
+  markdown: string;
+  images: MineruArtifactImageInput[];
+}
+
+export interface MineruArtifactAdapter {
+  /**
+   * Returns a stable, globally scoped identity for the physical path.
+   * Filesystem aliases must share an identity; distinct destinations must not.
+   */
+  getPathIdentity(path: string): Promise<string>;
+  exists(path: string): Promise<boolean>;
+  readBinary(path: string): Promise<ArrayBuffer>;
+  mkdir(path: string): Promise<void>;
+  writeBinary(path: string, bytes: ArrayBuffer): Promise<void>;
+  rename(from: string, to: string): Promise<void>;
+  removeDirectory(path: string): Promise<void>;
+}
