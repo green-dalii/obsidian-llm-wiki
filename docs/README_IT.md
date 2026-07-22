@@ -34,7 +34,7 @@
     - [🔑 Configurare un provider LLM](#-configurare-un-provider-llm)
     - [🎮 Utilizzo](#-utilizzo)
     - [⚠️ Aggiornamento da una versione precedente?](#️-aggiornamento-da-una-versione-precedente)
-  - [⚡ Novità nella v1.25.0](#-novità-nella-v1250)
+  - [⚡ Novità in v1.25.x](#-novità-in-v125x)
   - [✨ Funzionalità](#-funzionalità)
     - [📊 Qualità della conoscenza](#-qualità-della-conoscenza)
     - [📄 Ingestione PDF (v1.25.0)](#-ingestione-pdf-v1250)
@@ -203,34 +203,13 @@ Impostazioni → **LLM Configuration**:
 > **🛡️ Sicurezza**: la generazione parallela usa `Promise.allSettled` — se una pagina fallisce, le altre proseguono. Le pagine fallite vengono ritentate individualmente con backoff esponenziale. Smart Batch Skip rileva automaticamente i file già acquisiti per risparmiare tempo e costi API.
 
 ---
-## ⚡ Novità nella v1.25.0
+## ⚡ Novità in v1.25.x
 
-Quattro temi: ingestione PDF solo cache, raccomandazioni modelli locali, centralizzazione del prompt transcodificatore PDF e otto correzioni di bug e2e. Aggiornamento raccomandato per tutti gli utenti v1.24.x.
+- **v1.25.2 (2026-07-22).** Vocabolario tag Fase 1（doppia fonte eliminata）、Codex OAuth（ChatGPT Plan）、correzione prefisso cartella nei collegamenti correlati、termine `---` del modello di pagina corretto、ESLint 0.4.1 Route A. 2515 test superati.
+- **v1.25.1 (2026-07-20).** Otto correzioni di perdita silenziosa（pagina correlata、sezioni schema、Menzioni legacy）、3 suddivisioni di file grandi、DiskCache<T>、LM Studio senza chiave API、causa principale verifica build. 2274 test superati.
+- **v1.25.0 (2026-07-18).** Ingest PDF solo cache（Livello 1）、crescita cache limitata、sidecar vault opzionale、portale universale Force PDF、prompt trascrizione testuale、ingest annullabile、guida modelli locali、completezza i18n. 2182 test superati.
 
-- **📄 Ingestione PDF (Livello 1).** Scegli un PDF dal tuo vault — il plugin lo legge tramite l'input file nativo del tuo provider LLM (anthropic / openai / bedrock-anthropic / bedrock-openai; qualsiasi altro endpoint compatibile con OpenAI/Anthropic richiede **Force PDF Support** in Settings → LLM Configuration → Advanced), lo converte in Markdown tramite trascrizione verbatim in stile OCR, e rientra nella normale pipeline di ingestione Markdown. Tutti i workflow esistenti entità/concetto/alias/`[[wiki-link]]` restano invariati. Il risultato viene **messo in cache per hash del contenuto** in `.obsidian/plugins/karpathywiki/pdf-cache/` (la chiave incorpora `converterVersion` per invalidare automaticamente le voci obsolete quando il prompt viene aggiornato). Vedi il [Percorso OCR PDF locale](#-percorso-ocr-pdf-locale-v1250) per la configurazione consigliata su Apple Silicon.
-- **🗄️ Crescita limitata della cache.** Housekeeping della cache a tre livelli di difesa (100 MB totali / 1000 voci / 10 MB per singola voce) con eviction LRU-by-mtime; le voci vecchie vengono rimosse all'avvio e all'inizio di ogni ingestione in batch. Solo cache — il tuo vault non viene modificato per default.
-- **📝 Sidecar opzionale nel vault (avanzato).** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** scrive un `<basename>.pdf.md` accanto al PDF sorgente dopo la conversione. Disattivato per default.
-- **🦙 Raccomandazioni modelli locali.** La sezione Guida alla scelta del modello è ora suddivisa in sezioni separate locale e cloud che coprono Qwen3.5 / Qwen3.6 / Gemma 4 (compromessi parametro vs qualità, quantizzazione MLX vs GGUF, strategia di contesto).
-- **🛡️ Prompt transcodificatore PDF verbatim.** Il prompt PDF→Markdown è riformulato come conversione verbatim in stile OCR con marcatori anti-allucinazione `[illegible]` / `[figure: ...]` / `[equation: ...]`; i modelli piccoli/locali che avvolgono l'output in fence ```markdown vengono puliti automaticamente prima della scrittura in cache. Prompt centralizzato in `src/wiki/prompts/pdf.ts` accanto agli altri prompt di chiamate LLM del progetto.
-- **⏹ Ingestione PDF cancellabile.** Cliccare sulla barra di stato durante la conversione interrompe la chiamata LLM in corso tramite AbortSignal di Vercel AI SDK v6 in circa 200 ms.
-- **🌐 Completezza i18n** — 10 nuove chiavi per locale per le due nuove impostazioni, l'ingestione PDF e il Percorso OCR PDF locale (toggle Force PDF Support, toggle Write PDF Markdown to Vault, Notice source-rejected-pdf-unsupported).
-
-**Impostazioni da rivedere:** Force PDF Support (Settings → LLM Configuration → Advanced, disattivato per default — rilevante solo per provider non NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, disattivato per default — sidecar opzionale).
-
-### v1.25.1 — 2026-07-20 (PATCH)
-
-Release di hotfix su v1.25.0: otto correzioni di perdite silenti nell'output LLM e nel lint, tre suddivisioni di file di grandi dimensioni e una causa radice per la verifica di build. Aggiornamento raccomandato per tutti gli utenti v1.25.0.
-
-- **🔕 Nessuna perdita silente di dati sul percorso Related.** Prima, quando l'LLM riscriveva il corpo di una pagina Related senza riemettere la sezione Mentions, la pipeline `canonicalize` / `correct` / `preserveExistingSections` girava sulla risposta LLM grezza — non sul corpo post-elaborato — quindi un re-ingest poteva distruggere silenziosamente i contenuti Mentions accumulati. Il percorso Related ora rispecchia il percorso merge: `canonicalize → correct → preserveExistingSections`. **Aggiornamento fortemente raccomandato** — tutte le note che si basano sull'accumulo di Mentions per sorgente attraverso i re-ingest ne traggono beneficio.
-- **🛡️ Le sezioni dello schema non vengono più perse nelle riscritture.** L'LLM devia dallo schema solo sulle parti che gli si chiede di scrivere; i blocchi di sezione canonici già presenti nella pagina vengono ripristinati verbatim, anche quando la riscrittura dell'LLM li omette. Accorpati in un unico helper `preserveExistingSections` condiviso dai percorsi merge + related.
-- **🔗 Le pagine Mentions legacy possono guarire.** Le mentions raggruppate precedenti a #244 vengono ora riconosciute al parsing, così le pagine legacy tornano alla forma strutturata al prossimo ingest — e l'LLM non allucina più un blocco Mentions duplicato (l'iniezione programmatica è l'unica fonte di verità).
-- **🔌 Ingestione LM Studio senza chiave API.** LM Studio puramente locale (`http://localhost:1234/v1`) ora ingeste senza chiave segnaposto; i provider non-LM-Studio continuano a richiedere una chiave API esplicita (invariato).
-- **🐢 Meno gonfiore di `main.js`, lint più veloce.** Suddivisioni di file grandi: `wiki-engine.ts` 1799 → più piccolo (Phase C-PR1, 4 moduli interni), `settings.ts` 1439 → più piccolo (Phase C-PR2, 8 renderer di sezione), `main.ts` 1304 → 300 LOC (Phase C-PR3, 6 moduli main-commands). `DiskCache<T>` estratto con crescita limitata (100 MB / 1000 voci / 10 MB per singola voce + eviction LRU-by-mtime).
-- **🛠 Causa radice della verifica di build.** La vera causa del cambio di registry npm in v1.25.0 era la deriva tra `pnpm-lock.yaml` locale e `package-lock.json` CI; ora entrambi i lockfile sono rigenerati da un singolo snapshot di `node_modules`, garantendo che il build locale e il build CI di Obsidian siano identici.
-- **⚠ L'avviso di progresso scompare in caso di errore.** L'ingestione di un singolo file (`ingestActiveFile`, `selectSourceToIngest`) ora nasconde l'avviso persistente `Ingesting: <basename>` quando viene lanciata un'eccezione, così le ingestioni fallite non lasciano lo spinner sullo schermo fino al successo successivo.
-- **🧪 2274 test superati.** Salito da 2182 in v1.25.0 grazie ai nuovi moduli `DiskCache<T>`, `lint-fix-all-completion`, `page-batch-runner`, `graph-cache`, `index-generator`, `log-writer`, `section-header-canonicalizer`.
-
-**Impostazioni da rivedere:** nessuna — questa release è solo correzione + refactor; nessuna nuova impostazione, nessun nuovo comando, nessun nuovo locale.
+📋 [Cronologia versioni completa → CHANGELOG.md](../CHANGELOG.md)
 
 ## ✨ Funzionalità
 

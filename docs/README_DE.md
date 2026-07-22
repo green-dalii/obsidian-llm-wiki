@@ -34,7 +34,7 @@
     - [🔑 LLM-Provider konfigurieren](#-llm-provider-konfigurieren)
     - [🎮 Verwendung](#-verwendung)
     - [⚠️ Upgrade von einer älteren Version?](#️-upgrade-von-einer-älteren-version)
-  - [⚡ Was ist neu in v1.25.0](#-was-ist-neu-in-v1250)
+  - [⚡ Neuerungen in v1.25.x](#-neuerungen-in-v125x)
   - [✨ Funktionen](#-funktionen)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [📄 PDF Ingest (v1.25.0)](#-pdf-ingest-v1250)
@@ -176,35 +176,13 @@ Dann **Index neu generieren**, um `wiki/index.md` mit Alias-Einträgen neu aufzu
 
 **Zu prüfende Einstellungen:** Force PDF Support (Settings → LLM Configuration → Advanced, Standard aus — nur für Nicht-NATIVE-Provider nötig), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, Standard aus), Wiki-Ausgabesprache (unabhängig von UI), Extraktionsgranularität (Minimal–Fein + Benutzerdefiniert), Seiten-Generierungs-Parallelität (Standard 3), Batch-Verzögerung (Standard 300ms).
 
-## ⚡ Was ist neu in v1.25.0
+## ⚡ Neuerungen in v1.25.x
 
-Vier Schwerpunkte: Cache-only-PDF-Ingest, Lokalmodell-Empfehlungen, Prompt-Zentralisierung für den PDF-Transcriber und acht e2e-Fehlerbehebungen. Empfohlenes Upgrade für alle v1.24.x-Nutzer.
+- **v1.25.2 (2026-07-22).** Tag-Vokabular Phase 1（doppelte Quelle entfernt）、Codex OAuth（ChatGPT Plan）、Ordner-Präfix-Korrektur für Related Links、Seitenvorlage `---`-Abschluss behoben、ESLint 0.4.1 Route A。2515 Tests bestanden.
+- **v1.25.1 (2026-07-20).** Acht Silent-Loss-Korrekturen（Related-Seite、Schema-Bereiche、Legacy Mentions）、3 große Dateiaufteilungen、DiskCache<T>、LM Studio ohne API-Schlüssel、Build-Überprüfung。2274 Tests bestanden.
+- **v1.25.0 (2026-07-18).** Cache-only PDF-Ingest（Level 1）、beschränktes Cache-Wachstum、optionaler Vault-Sidecar、Force PDF Universal-Gate、wörtliches Transkriptions-Prompt、abbrechbarer Ingest、lokale Modell-Empfehlungen、i18n Vollständigkeit。2182 Tests bestanden.
 
-- **📄 PDF-Ingest (Level 1).** Wählen Sie eine PDF aus Ihrem Vault — das Plugin liest sie über den nativen Datei-Input Ihres LLM-Providers (anthropic / openai / bedrock-anthropic / bedrock-openai; jeder andere OpenAI/Anthropic-kompatible Endpunkt erfordert **Force PDF Support** in Settings → LLM Configuration → Advanced), konvertiert sie via OCR-artige Verbatim-Transkription zu Markdown und tritt wieder in die reguläre Markdown-Ingest-Pipeline ein. Alle bestehenden Entity/Concept/Alias/`[[wiki-link]]`-Workflows gelten unverändert. Das Ergebnis wird **per Content-Hash zwischengespeichert** in `.obsidian/plugins/karpathywiki/pdf-cache/` (Schlüssel enthält `converterVersion`, sodass Prompt-Upgrades alte Einträge automatisch ungültig machen). Siehe [Lokaler PDF-OCR-Pfad](#-lokaler-pdf-ocr-pfad-v1250) für die empfohlene lokale Apple-Silicon-Konfiguration.
-- **🗄️ Begrenztes Cache-Wachstum.** Drei-Schichten-Verteidigung mit Cache-Housekeeping (100 MB gesamt / 1000 Einträge / 10 MB Einzel-Limit) und LRU-by-mtime-Eviction. Alte Einträge werden beim Start und zu Beginn jedes Batch-Ingests aufgeräumt. Nur Cache — Ihr Vault wird standardmäßig nicht verändert.
-- **📝 Optionaler Vault-Sidecar (Erweitert).** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** schreibt nach der Konvertierung eine `<basename>.pdf.md` neben die Quell-PDF. Standard aus.
-- **🦙 Lokalmodell-Empfehlungen.** Der Modellempfehlungen-Bereich ist jetzt in getrennte Lokal- und Cloud-Abschnitte aufgeteilt, die Qwen3.5 / Qwen3.6 / Gemma 4 abdecken (Parameter-vs-Qualität-Abwägungen, MLX vs. GGUF-Quantisierung, Kontext-Strategie).
-- **🛡️ Verbatim-PDF-Transcriber-Prompt.** Der PDF→Markdown-Prompt wurde als OCR-artige Verbatim-Konvertierung mit `[illegible]` / `[figure: ...]` / `[equation: ...]` Anti-Halluzinations-Markern umformuliert; kleine/lokale Modelle, die ihre Ausgabe in ```markdown-Fences einschließen, werden vor dem Cache-Schreiben automatisch bereinigt. Prompt zentralisiert in `src/wiki/prompts/pdf.ts` neben allen anderen LLM-Aufruf-Prompts des Projekts.
-- **⏹ Abbruchbarer PDF-Ingest.** Klick auf die Statusleiste während der Konvertierung bricht den laufenden LLM-Aufruf über Vercel AI SDK v6 AbortSignal innerhalb von ~200 ms ab.
-- **🌐 i18n-Vollständigkeit** — 10 neue Schlüssel pro Locale für die zwei neuen Einstellungen, PDF-Ingest und Lokaler PDF-OCR-Pfad (Force-PDF-Support-Toggle, Write-PDF-Markdown-to-Vault-Toggle, source-rejected-pdf-unsupported Notice).
-
-**Zu prüfende Einstellungen:** Force PDF Support (Settings → LLM Configuration → Advanced, Standard aus — nur für Nicht-NATIVE-Provider relevant), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, Standard aus — optionaler Sidecar).
-
-### v1.25.1 — 2026-07-20 (PATCH)
-
-Hotfix-Release über v1.25.0: acht Behebungen für stillen Datenverlust bei LLM-Ausgaben und Lint, drei große Datei-Splits sowie eine eigentliche Ursache für die Build-Verifikation. Empfohlenes Upgrade für alle v1.25.0-Nutzer.
-
-- **🔕 Kein stiller Datenverlust auf dem Related-Page-Pfad.** Wenn das LLM den Body einer Related-Seite umgeschrieben hat, ohne den Mentions-Abschnitt erneut auszugeben, liefen Canonicalizer / Related-Link-Corrector / `preserveExistingSections` bisher auf der rohen LLM-Antwort — nicht auf dem nachverarbeiteten Body — sodass beim Re-Ingest akkumulierte Mentions still zerstört werden konnten. Der Related-Pfad spiegelt nun den Merge-Pfad: `canonicalize → correct → preserveExistingSections`. **Upgrade stark empfohlen** — alle Notizen, die auf Quellen-akkumulierende Mentions beim Re-Ingest angewiesen sind, profitieren.
-- **🛡️ Schema-Abschnitte gehen bei Umschreibungen nicht verloren.** Das LLM weicht vom Schema nur in den Teilen ab, zu denen es aufgefordert wurde; kanonische Abschnittsblöcke, die auf der Seite bereits existierten, werden verbatim wiederhergestellt — auch wenn das LLM sie bei der Umschreibung weglässt. In einem einzigen `preserveExistingSections`-Helper zusammengefasst, der von Merge- und Related-Pfad gemeinsam genutzt wird.
-- **🔗 Legacy-Mentions-Seiten können heilen.** Vor-#244-gruppierte Mentions werden nun beim Parsen erkannt, sodass Legacy-Seiten beim nächsten Ingest in die strukturierte Form zurückfinden — und das LLM halluziniert keinen doppelten Mentions-Block mehr (programmatische Injektion ist die einzige Wahrheitsquelle).
-- **🔌 LM-Studio-Ingest ohne API-Key.** Reines lokales LM Studio (`http://localhost:1234/v1`) ingestet nun ohne Platzhalter-Key; Nicht-LM-Studio-Provider verlangen weiterhin einen expliziten API-Key (unverändert).
-- **🐢 Weniger `main.js`-Bloat, schnellerer Lint.** Große Dateien aufgeteilt: `wiki-engine.ts` 1799 → kleiner (Phase C-PR1, 4 interne Module), `settings.ts` 1439 → kleiner (Phase C-PR2, 8 Sektion-Renderer), `main.ts` 1304 → 300 LOC (Phase C-PR3, 6 Main-Commands-Module). `DiskCache<T>` extrahiert mit begrenztem Wachstum (100 MB / 1000 Einträge / 10 MB Einzel-Limit + LRU-by-mtime-Eviction).
-- **🛠 Eigentliche Ursache der Build-Verifikation.** Die wahre Ursache für v1.25.0s npm-Registry-Wechsel war Drift zwischen lokalem `pnpm-lock.yaml` und CI-`package-lock.json`; beide Lockfiles werden nun aus einem einzigen `node_modules`-Snapshot regeneriert, sodass lokaler Build und Obsidian-CI-Build identisch sind.
-- **⚠ Fortschritts-Notice wird bei Fehlern ausgeblendet.** Einzeldatei-Ingest (`ingestActiveFile`, `selectSourceToIngest`) blendet die persistente `Ingesting: <basename>`-Notice bei einer Exception aus, sodass fehlgeschlagene Ingests den Spinner nicht bis zum nächsten erfolgreichen Ingest sichtbar lassen.
-- **🧪 2274 Tests bestehen.** Gestiegen von 2182 in v1.25.0 dank der neuen Module `DiskCache<T>`, `lint-fix-all-completion`, `page-batch-runner`, `graph-cache`, `index-generator`, `log-writer`, `section-header-canonicalizer`.
-
-**Zu prüfende Einstellungen:** keine — diese Version ist nur Fehlerbehebung + Refactor; keine neuen Einstellungen, keine neuen Befehle, keine neuen Locales.
-
+📋 [Vollständiger Versionsverlauf → CHANGELOG.md](../CHANGELOG.md)
 ## ✨ Funktionen
 
 ### 📊 Knowledge Quality

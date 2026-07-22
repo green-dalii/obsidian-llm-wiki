@@ -33,7 +33,7 @@
     - [🔑 LLMプロバイダーの設定](#-llmプロバイダーの設定)
     - [🎮 使い方](#-使い方)
     - [⚠️ 旧バージョンからのアップグレード](#️-旧バージョンからのアップグレード)
-  - [⚡ v1.25.0 更新のポイント](#-v1250-更新のポイント)
+  - [⚡ 最新情報 v1.25.x](#-最新情報-v125x)
   - [✨ 特徴](#-特徴)
     - [📊 ナレッジ品質](#-ナレッジ品質)
     - [📄 PDF 取り込み (v1.25.0)](#-pdf-取り込み-v1250)
@@ -175,35 +175,16 @@ LLM-Wikiはその構造を反転させます。あなたが手作業でグラフ
 **確認すべき設定:** Force PDF Support（Settings → LLM Configuration → Advanced、デフォルトオフ — 非 NATIVE プロバイダーのみ必要）、Write PDF Markdown to Vault（Settings → Wiki Configuration → Wiki Folder、デフォルトオフ）、Wiki Output Language（UIとは独立）、Extraction Granularity（Minimal–Fine、+ Custom）、Page Generation Concurrency（デフォルト3）、Batch Delay（デフォルト300ms）。
 
 ---
-## ⚡ v1.25.0 更新のポイント
+## ⚡ 最新情報 v1.25.x
 
-4 つの主要テーマ：キャッシュのみの PDF 取り込み、ローカルモデルガイダンス、PDF トランスクライバプロンプトの一元化、8 件の e2e バグ修正。v1.24.x ユーザー全員にアップグレードを推奨します。
+- **v1.25.2（2026-07-22）.**
+  タグ語彙 Phase 1（二重ソース解消）、Codex OAuth（ChatGPT Plan）、関連リンクフォルダ接頭辞修正、ページテンプレート裸 `---` 修正、ESLint 0.4.1 路線 A。2515 テスト合格。
+- **v1.25.1（2026-07-20）.**
+  8 件のサイレント消失修正（関連ページ、スキーマセクション、レガシー Mentions）、3 つの大ファイル分割、DiskCache&lt;T&gt;、LM Studio の API キー不要取込、ビルド検証根本原因。2274 テスト合格。
+- **v1.25.0（2026-07-18）.**
+  キャッシュのみの PDF 取込（Level 1）、制限付きキャッシュ成長、オプションの Vault sidecar、Force PDF ユニバーサルゲート、忠実文字起こしプロンプト、キャンセル可能な取込、ローカルモデルガイダンス、i18n 完全対応。2182 テスト合格。
 
-- **📄 PDF 取り込み (Level 1)。** Vault から PDF を 1 つ選ぶと、プラグインはあなたの LLM プロバイダーのネイティブファイル入力（anthropic / openai / bedrock-anthropic / bedrock-openai；その他の OpenAI/Anthropic 互換エンドポイントでは Settings → LLM Configuration → Advanced で **Force PDF Support** を有効化）で読み取り、OCR スタイルの逐語変換で Markdown に変換し、通常の Markdown 取り込みパイプラインに合流します。既存のエンティティ/概念/エイリアス/`[[wiki-link]]` ワークフローはそのまま適用されます。結果は **コンテンツハッシュキャッシュ** として `.obsidian/plugins/karpathywiki/pdf-cache/` に保存されます（キャッシュキーに `converterVersion` が埋め込まれるためプロンプト更新時に自動的に無効化）。ローカルでの推奨構成は [ローカル PDF OCR パス](#-ローカル-pdf-ocr-パス-v1250) を参照。
-- **🗄️ 有界キャッシュ成長。** 3 層防御のキャッシュ管理（合計 100 MB / 1000 件 / 単一 10 MB 上限）+ LRU-by-mtime エビクション。古いエントリは起動時とバッチ取り込み開始時に整理されます。デフォルトはキャッシュのみ — vault には書き込みません。
-- **📝 任意の Vault サイドカー（上級）。** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** を有効にすると、変換後にソース PDF の隣に `<basename>.pdf.md` を書き出します。デフォルトはオフ。
-- **🦙 ローカルモデル推奨。** モデル推奨セクションが独立したローカルとクラウドのセクションに分割され、Qwen3.5 / Qwen3.6 / Gemma 4（パラメータ vs 品質のトレードオフ、MLX vs GGUF 量子化、コンテキスト戦略）をカバーします。
-- **🛡️ 逐語 PDF トランスクライバプロンプト。** PDF→Markdown プロンプトを OCR スタイルの逐語変換として再設計し、`[illegible]` / `[figure: ...]` / `[equation: ...]` の反ハルシネーションマーカーを追加。出力を ```markdown フェンスで囲ってしまう小型/ローカルモデルはキャッシュ書き込み前に自動クリーンアップされます。プロンプトは `src/wiki/prompts/pdf.ts` に一元化され、プロジェクト内の他の LLM 呼び出しプロンプトと並列に配置されます。
-- **⏹ キャンセル可能な PDF 取り込み。** 変換中にステータスバーをクリックすると、Vercel AI SDK v6 の AbortSignal 経由で進行中の LLM 呼び出しが約 200 ms 内で中断されます。
-- **🌐 i18n 完全性** — 2 つの新しい設定、PDF 取り込み、ローカル PDF OCR パス用に各ロケールで 10 個の新しいキー（Force PDF Support トグル、Write PDF Markdown to Vault トグル、source-rejected-pdf-unsupported Notice）。
-
-**見直すべき設定：** Force PDF Support（Settings → LLM Configuration → Advanced、デフォルトオフ — 非 NATIVE プロバイダーのみ関連）、Write PDF Markdown to Vault（Settings → Wiki Configuration → Wiki Folder、デフォルトオフ — 任意のサイドカー）。
-
-### v1.25.1 — 2026-07-20 (PATCH)
-
-v1.25.0 上のホットフィックス版：8 件の LLM 出力と lint のサイレント消失修正、3 件の大型ファイル分割、1 件のビルド検証根本原因。v1.25.0 ユーザー全員にアップグレードを推奨します。
-
-- **🔕 Related ページパスのサイレントデータ消失を解消。** これまで、LLM が Related ページの本文を書き換える際に Mentions セクションを再出力しなかった場合、canonicalizer / related-link corrector / preserveExistingSections パイプラインは LLM の生レスポンスに対して動作していました（処理済み本文に対してではなく）。このため、再取り込みで蓄積された Mentions 内容が静かに破壊される可能性がありました。Related パスは merge パスと一致するようになりました：canonicalize → correct → preserveExistingSections。**アップグレードを強く推奨** — ソースごとの Mentions 蓄積と再取り込みに依存するすべてのノートが恩恵を受けます。
-- **🛡️ Schema セクションは書き換えで失われない。** LLM が我々のスキーマとずれるのは、書き込みを要求された部分だけになりました。ページに既に存在していた canonical セクションブロックは、LLM の書き換えがそれらを省略しても verbatim で復元されます。merge + related パスで共有される単一の `preserveExistingSections` ヘルパーに集約されました。
-- **🔗 旧 Mentions ページが自己回復可能。** pre-#244 のグループ化 mentions がパース段階で認識されるようになり、次回の取り込み時に旧ページが構造化形式に戻るようになりました — LLM はもはや重複した Mentions ブロックをハルシネーションしなくなります（プログラム注入が単一の真実の源）。
-- **🔌 LM Studio を API キーなしで取り込み可能。** ローカルのみの LM Studio（`http://localhost:1234/v1`）はプレースホルダーキーなしで取り込み可能に；非 LM-Studio プロバイダーは引き続き明示的な API キーを要求します（変更なし）。
-- **🐢 main.js の肥大化を抑制、lint 高速化。** 大型ファイル分割：`wiki-engine.ts` 1799 → より小さく（Phase C-PR1、4 内部モジュール）、`settings.ts` 1439 → より小さく（Phase C-PR2、8 セクションレンダラー）、`main.ts` 1304 → 300 LOC（Phase C-PR3、6 main-commands モジュール）。`DiskCache<T>` を抽出、有界成長（合計 100 MB / 1000 件 / 単一 10 MB 上限 + LRU-by-mtime エビクション）。
-- **🛠 ビルド検証の根本原因。** v1.25.0 の npm-registry 切替の真の原因はローカル `pnpm-lock.yaml` と CI `package-lock.json` のドリフトでした；両 lockfile は単一の `node_modules` スナップショットから再生成され、ローカルビルドと Obsidian CI ビルドの同一性を保証します。
-- **⚠ 進捗通知がエラー時に消える。** 単一ファイル取り込み（`ingestActiveFile`、`selectSourceToIngest`）は例外発生時に持続的な `Ingesting: <basename>` Notice を非表示にするようになり、失敗した取り込みが次回成功するまでステータスを残したままになることを防ぎます。
-- **🧪 2274 テスト合格。** v1.25.0 の 2182 から増加。新規モジュール：`DiskCache<T>`、`lint-fix-all-completion`、`page-batch-runner`、`graph-cache`、`index-generator`、`log-writer`、`section-header-canonicalizer`。
-
-**見直すべき設定：** なし — 本リリースはバグ修正 + リファクタのみ；新設定、新コマンド、新ロケールはありません。
-
+📋 [完全なバージョン履歴 → CHANGELOG.md](../CHANGELOG.md)
 ## ✨ 特徴
 
 ### 📊 ナレッジ品質
