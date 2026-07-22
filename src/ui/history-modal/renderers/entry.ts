@@ -37,22 +37,22 @@ export function renderEntry(
   const row1 = entryEl.createDiv({
     attr: { style: 'display: flex; gap: 8px; align-items: baseline; margin-bottom: 2px;' },
   });
-  row1.createEl('span', {
+  row1.createSpan({
     text: entry.badge,
     attr: { style: 'font-size: 1em;' },
   });
-  row1.createEl('span', {
+  row1.createSpan({
     text: entry.kindLabel,
     attr: { style: 'font-size: 0.75em; color: var(--text-muted); font-weight: 500;' },
   });
   if (entry.time) {
-    row1.createEl('span', {
+    row1.createSpan({
       text: entry.time,
       attr: { style: 'color: var(--text-muted); font-size: 0.8em;' },
     });
   }
   if (entry.kind === 'ingest' && entry.sourceTitle) {
-    row1.createEl('span', {
+    row1.createSpan({
       text: entry.sourceTitle,
       attr: { style: 'font-weight: 500;' },
     });
@@ -63,7 +63,7 @@ export function renderEntry(
     entry.insight.severity === 'high' ? 'var(--text-warning)'
     : entry.insight.severity === 'medium' ? 'var(--text-normal)'
     : 'var(--text-muted)';
-  entryEl.createEl('div', {
+  entryEl.createDiv({
     text: entry.insight.primary,
     attr: {
       style:
@@ -74,7 +74,7 @@ export function renderEntry(
 
   // Row 3 (optional): delta vs previous
   if (entry.insight.delta) {
-    entryEl.createEl('div', {
+    entryEl.createDiv({
       text: entry.insight.delta,
       attr: { style: 'font-size: 0.8em; color: var(--text-faint); margin-top: 2px;' },
     });
@@ -100,7 +100,7 @@ export function renderEntry(
     renderFixDetails(detailsBody, entry, t, ctx);
   } else {
     // other — raw text
-    detailsBody.createEl('div', {
+    detailsBody.createDiv({
       text: entry.rawDetails || entry.operation,
       attr: { style: 'white-space: pre-wrap; color: var(--text-muted); margin-left: 8px;' },
     });

@@ -46,11 +46,11 @@ function el<K extends keyof HTMLElementTagNameMap>(
   cls: string,
   opts: { text?: string; attrs?: Record<string, string> } = {},
 ): HTMLElementTagNameMap[K] {
-  const node = parent.ownerDocument.createElement(tag);
-  node.className = cls;
-  if (opts.attrs) for (const [k, v] of Object.entries(opts.attrs)) node.setAttribute(k, v);
-  if (opts.text !== undefined) node.textContent = opts.text;
-  parent.appendChild(node);
+  const node = parent.createEl(tag, {
+    cls,
+    ...(opts.attrs ? { attr: opts.attrs } : {}),
+    ...(opts.text !== undefined ? { text: opts.text } : {}),
+  });
   return node;
 }
 

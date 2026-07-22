@@ -323,15 +323,15 @@ export class SchemaDiffModal extends Modal {
     const rowClass = 'llm-wiki-schema-diff-row' + (highlighted ? sideClass : '');
     const contentClass = 'llm-wiki-schema-diff-content' + (highlighted ? ' llm-wiki-schema-diff-content-highlight' : '');
 
-    const cell = activeDocument.createElement('div');
+    const cell = activeDocument.createDiv();
     cell.className = rowClass;
 
-    const gutter = activeDocument.createElement('span');
+    const gutter = activeDocument.createSpan();
     gutter.className = 'llm-wiki-schema-diff-gutter';
     gutter.textContent = lineNo == null ? '' : String(lineNo);
     cell.appendChild(gutter);
 
-    const content = activeDocument.createElement('span');
+    const content = activeDocument.createSpan();
     content.className = contentClass;
     content.textContent = text;
     cell.appendChild(content);

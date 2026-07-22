@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-20 (post-v1.25.1 PATCH)
+**Last Updated:** 2026-07-21 (v1.25.2 PATCH Route A committed `c9fd4ce`)
 
 ---
 
-## Current Phase: v1.25.1 PATCH RELEASED 2026-07-20 — v1.25.2 PATCH (PR #304 rebase) next; v1.26.0 MINOR following
+## Current Phase: v1.25.2 PATCH in progress — eslint 0.4.1 Route A committed (`c9fd4ce`); E2E thinking-block regression fixed (`d2d401e`); Schema Phase 1 + PR #324 + release next; v1.26.0 MINOR following
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 
@@ -13,12 +13,12 @@
 - `DiskCache<T>` extracted from `PdfConversionCache` with bounded growth (100MB / 1000 / 10MB caps + LRU-by-mtime eviction + ledger optimization).
 - Node 24 + AI-SDK patches pinned via `.nvmrc` + `.npmrc`; dual-direction lockfile regen from single `node_modules` snapshot fixes Obsidian CI build-vs-`main.js` hash drift.
 
-**Post-v1.25.1 scope (P3, mostly deferred to v1.25.2/v1.26.0):**
+**Post-v1.25.1 scope completed in v1.25.2:**
 
-1. **PR #304 rebase** (DocTpoint — `updatedPages` split). Deferred to **v1.25.2 PATCH** as its single core scope item. DocTpoint rebase onto Phase C-PR1 wiki-engine refactor's `runBatchedWithRetry<T>` closure (4 push sites in pre-C-PR1 code). Reply with conflict explanation + concrete ternary replacement posted on PR #304.
-2. **Phase A Obsidian bot compliance** — `prefer-create-el` × 50 + `getSettingDefinitions` not implemented. Root cause: `eslint-plugin-obsidianmd` local 0.3.0 vs Obsidian bot 0.4.1 (version drift). **Deferred to v1.26.x (Path C)** per `feedback_eslint_plugin_obsidianmd_0_4_skip`: full 0.4.1 upgrade conflicts with 68 `eslint-comments/no-restricted-disable` errors in test-environment disable patterns. Bot 0.4.1 warnings remain non-blocking per `obsidianmd/prefer-active-doc` precedent.
-3. **Lint perf** — `controller.ts:151` + `:239` TODOs from v1.18.0+ unaddressed. Phase F was rolled into DiskCache<T> extraction; the controller-level parallel dedup + LLM health batches remain v1.26.0 work.
-4. **DocTpoint PR #288 / #302 / #303 / #314 lessons** — squash-merge preserves DocTpoint author credit while compressing history; my simplify/fix PR (#314) walks the post-merge diff independently. Pattern reusable for v1.25.2 when DocTpoint rebases #304.
+1. ~~PR #304 rebase (DocTpoint — `updatedPages` split).~~ **MERGED 2026-07-20 (`3578a9d`).**
+2. ~~Phase A Obsidian bot compliance — `prefer-create-el` × 50 + `getSettingDefinitions` not implemented.~~ **COMPLETED 2026-07-21 (`c9fd4ce`).** eslint-plugin-obsidianmd 0.3.0→0.4.1 upgrade, flat config test override, `src/types/obsidian-dom.d.ts`, `src/__tests__/__support__/dom-helpers.ts`, 47 prefer-create-el production fixes, no-alert → ConfirmModal replacement.
+3. **DOCS: still pending** — 10 READMEs + CHANGELOG + versions.json v1.25.2 entry.
+4. **Lint perf** — `controller.ts:151` + `:239` TODOs from v1.18.0+ unaddressed. Remains v1.26.0 work.
 
 **v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
 
@@ -259,6 +259,18 @@ Every change via `Read` + `Edit` — no sed/awk/python for code or document edit
 ## ⚠️ Git Safety Protocol
 
 - **NEVER commit or push without explicit user permission.** Non-negotiable.
+- **NEVER auto-merge PRs into main without explicit user approval.** This applies even when:
+  - The PR passed Gate 1 in CI
+  - The PR was already cherry-picked locally
+  - The fix looks "obviously correct"
+  - The user said "handle it" or "do it"
+- **Mandatory pre-merge workflow for every PR (added 2026-07-21):**
+  1. **User explicit "merge it" / "合并"** is required before any `gh pr merge`, cherry-pick to local main, or PR-creation action.
+  2. **simplify skill** must run on the PR diff (4 angles: Reuse / Simplification / Efficiency / Altitude).
+  3. **code-review skill** must run on the PR diff (8 angles, max effort).
+  4. Report findings as a list with `file:line + concrete issue + suggested fix`. Do NOT modify the PR — report only.
+  5. Wait for user to approve before any local merge / push / PR creation action.
+- **Anti-pattern (2026-07-21):** "The PR is small and looks correct, let me just cherry-pick to local main first while we discuss" → This violates the workflow. Even local cherry-pick is a destructive action that creates commits on main ahead of explicit user approval. The correct action is to **evaluate and report only**, then wait for "merge it" / "合并" / "push it" signal.
 
 ## 🔀 Git Branch Workflow (enforced since v1.20.2)
 

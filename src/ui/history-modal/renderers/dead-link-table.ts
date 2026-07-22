@@ -19,7 +19,7 @@ export function renderDeadLinkSection(
   const label = t.historySectionDeadLinks.replace('{count}', String(section.items.length));
   renderSectionTitle(body, label, 'high');
   if (section.items.length === 0) {
-    body.createEl('div', {
+    body.createDiv({
       text: '✓',
       attr: { style: 'color: var(--text-success); margin-left: 12px;' },
     });

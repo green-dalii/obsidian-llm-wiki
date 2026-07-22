@@ -3,6 +3,7 @@
 import { App, PluginSettingTab, Setting, Notice, Platform } from 'obsidian';
 import LLMWikiPlugin from '../main';
 import { LLMWikiSettings } from '../types';
+import { ConfirmModal } from './modals/ConfirmModal-class';
 import { TEXTS } from '../texts';
 import {
   resolveDisplayedModelForTask,
@@ -242,9 +243,19 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     try { await copyCodexDeviceCode(this.codexDevicePrompt.userCode, navigator.clipboard); } catch (error) { new Notice(this.codexAuthError(error), NOTICE_ERROR); }
   }
 
-  private confirmOpenAICodexSignOut(): boolean {
-    // eslint-disable-next-line no-alert
-    return window.confirm(`${this.getText('codexAuthSignOutButton')}?`);
+  private confirmOpenAICodexSignOut(): Promise<boolean> {
+    // v1.25.2 PATCH: replaced `window.confirm` with Obsidian `ConfirmModal`
+    // so we don't trip the 0.4.1 `no-alert` rule. Returns a Promise that
+    // resolves to the user's choice (true on confirm, false on cancel/Escape).
+    return new Promise<boolean>((resolve) => {
+      new ConfirmModal(this.app, {
+        title: this.getText('codexAuthSignOutButton'),
+        body: `${this.getText('codexAuthSignOutButton')}?`,
+        confirmText: this.getText('codexAuthSignOutButton'),
+        cancelText: this.getText('cancelButton'),
+        onChoice: (confirmed) => resolve(confirmed),
+      }).open();
+    });
   }
 
   public async signOutOpenAICodex(): Promise<void> {

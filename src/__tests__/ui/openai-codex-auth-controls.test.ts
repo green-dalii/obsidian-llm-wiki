@@ -120,7 +120,7 @@ describe('Codex auth controls', () => {
   });
   it('confirms sign-out once, prevents repeated clicks, and clears readiness after success', async () => {
     const completion = deferred<void>();
-    const confirm = vi.fn(() => true);
+    const confirm = vi.fn(async () => true);
     let signedIn = true;
     const signOut = vi.fn(async () => { await completion.promise; signedIn = false; });
     const state = { busy: false, ready: true };
@@ -138,13 +138,13 @@ describe('Codex auth controls', () => {
   });
   it('leaves readiness unchanged when confirmation is declined or sign-out fails', async () => {
     const declinedReady = vi.fn();
-    await runCodexSignOut({ isBusy: () => false, isSignedIn: () => true, confirm: () => false, signOut: vi.fn(), showError: vi.fn(), setBusy: vi.fn(), setReady: declinedReady, render: vi.fn() });
+    await runCodexSignOut({ isBusy: () => false, isSignedIn: () => true, confirm: async () => false, signOut: vi.fn(), showError: vi.fn(), setBusy: vi.fn(), setReady: declinedReady, render: vi.fn() });
     expect(declinedReady).not.toHaveBeenCalled();
     const failure = new Error('secret storage failed');
     const showError = vi.fn();
     const busy: boolean[] = [];
     const setReady = vi.fn();
-    await runCodexSignOut({ isBusy: () => false, isSignedIn: () => true, confirm: () => true, signOut: async () => { throw failure; }, showError, setBusy: (value) => { busy.push(value); }, setReady, render: vi.fn() });
+    await runCodexSignOut({ isBusy: () => false, isSignedIn: () => true, confirm: async () => true, signOut: async () => { throw failure; }, showError, setBusy: (value) => { busy.push(value); }, setReady, render: vi.fn() });
     expect(showError).toHaveBeenCalledWith(failure);
     expect(setReady).not.toHaveBeenCalled();
     expect(busy).toEqual([true, false]);
@@ -154,7 +154,7 @@ describe('Codex auth controls', () => {
     const state = { busy: false, ready: true };
     const failure = new Error('persistence failed');
     const showError = vi.fn();
-    await runCodexSignOut({ isBusy: () => state.busy, isSignedIn: () => signedIn, confirm: () => true, signOut: async () => { signedIn = false; throw failure; }, showError, setBusy: (value) => { state.busy = value; }, setReady: (value) => { state.ready = value; }, render: vi.fn() });
+    await runCodexSignOut({ isBusy: () => state.busy, isSignedIn: () => signedIn, confirm: async () => true, signOut: async () => { signedIn = false; throw failure; }, showError, setBusy: (value) => { state.busy = value; }, setReady: (value) => { state.ready = value; }, render: vi.fn() });
     expect(showError).toHaveBeenCalledWith(failure);
     expect(state).toEqual({ busy: false, ready: false });
   });

@@ -2,6 +2,7 @@
 // Centralizes obsidian mock to eliminate per-file eslint-disable
 
 import { vi } from 'vitest';
+import { installObsidianDomHelpers } from './dom-helpers';
 
 // Polyfill window for code that uses window.setTimeout (e.g. withRetry)
 // @ts-expect-error — node test environment, window is not native
@@ -190,6 +191,25 @@ Object.defineProperty(globalThis, 'crypto', {
     } as SubtleCrypto,
   },
 });
+
+// Mirror Obsidian's HTMLElement extensions on whatever DOM implementation
+// is in use. Obsidian production runtime adds `createEl` / `createDiv` /
+// `createSpan` / `setText` / `addClass` to HTMLElement.prototype and
+// Document.prototype. jsdom does not ship these, so production code
+// calling e.g. `parent.createEl('div', {...})` would throw
+// `TypeError: parent.createEl is not a function` under the test runner.
+//
+// Install the same shape Obsidian documents (see `src/types/obsidian-dom.d.ts`)
+// onto `HTMLElement.prototype` and `Document.prototype` if either is
+// available. Skip silently on pure-node test files where neither exists.
+// eslint-disable-next-line obsidianmd/no-global-this
+if (typeof HTMLElement !== 'undefined' && typeof Document !== 'undefined'
+    && typeof HTMLElement.prototype === 'object') {
+  installObsidianDomHelpers(
+    { HTMLElement, Document },
+    activeDocument,
+  );
+}
 
 // Global test environment setup
 export function setup(): void {

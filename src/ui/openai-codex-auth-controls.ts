@@ -46,7 +46,7 @@ export interface CodexClipboard {
 export interface CodexSignOutInput extends CodexAsyncControlInput {
   isBusy(): boolean;
   isSignedIn(): boolean;
-  confirm(): boolean;
+  confirm(): Promise<boolean>;
   signOut(): Promise<void>;
 }
 
@@ -110,9 +110,28 @@ export async function runCodexDeviceAuth(input: CodexDeviceAuthInput): Promise<v
 }
 
 export async function runCodexSignOut(input: CodexSignOutInput): Promise<void> {
-  if (input.isBusy() || !input.confirm()) return;
+  if (input.isBusy()) return;
+  // v1.25.2 PATCH: confirm() now returns a Promise — Obsidian `ConfirmModal`
+  // is intrinsically async, so we await it before deciding to sign out.
+  // Lock busy immediately so a second click during the modal wait does
+  // not call `confirm` a second time. The first click drives the action;
+  // the second click is dropped.
   input.setBusy(true);
   input.render();
+  let confirmed = false;
+  try {
+    confirmed = await input.confirm();
+  } catch (error) {
+    input.setBusy(false);
+    input.render();
+    input.showError(error);
+    return;
+  }
+  if (!confirmed) {
+    input.setBusy(false);
+    input.render();
+    return;
+  }
   try {
     await input.signOut();
   } catch (error) {

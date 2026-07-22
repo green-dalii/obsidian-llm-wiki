@@ -47,26 +47,15 @@ export interface TagChipInputOptions {
 
 const DUPLICATE_FLASH_MS = 800;
 
-/**
- * Obsidian's `activeDocument` wrapper for popout-window awareness.
- * Tests stub `activeDocument` in setup.ts so this works under jsdom too.
- */
-function doc(): Document {
-  return activeDocument;
-}
-
 function createChild<K extends keyof HTMLElementTagNameMap>(
   parent: HTMLElement,
   tag: K,
   opts: { cls?: string; text?: string; attr?: Record<string, string> } = {}
 ): HTMLElementTagNameMap[K] {
-  const el = doc().createElement(tag);
-  if (opts.cls) el.className = opts.cls;
-  if (opts.text !== undefined) el.textContent = opts.text;
-  if (opts.attr) {
-    for (const [k, v] of Object.entries(opts.attr)) el.setAttribute(k, v);
-  }
-  parent.appendChild(el);
+  const el = parent.createEl(tag, opts);
+  // Obsidian createEl applies cls/text/attr automatically; the caller still
+  // expects to receive the appended element (matches renderers.test.ts
+  // expectation that createEl appends + returns).
   return el;
 }
 

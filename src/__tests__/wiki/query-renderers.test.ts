@@ -12,59 +12,7 @@ import { extractThinkingPanel } from '../../wiki/query-engine/renderers/thinking
 import { bindWikiLinkClicks } from '../../wiki/query-engine/renderers/wiki-link-clicks';
 import { renderRetrievalLabel } from '../../wiki/query-engine/renderers/retrieval-label';
 import type { RetrievalLabelData } from '../../wiki/query-engine/types';
-
-// Install Obsidian DOM helpers on every HTMLElement prototype (jsdom context).
-// createDiv / createEl / createSpan / setText / addClass are pure functions
-// that return DOM elements — declared outside the test file to avoid the
-// `noImplicitThis` lint rule and ensure clean type narrowing.
-function installObsidianDomHelpers(doc: Document): void {
-  const elementProto = doc.createElement('div').constructor.prototype as Record<string, unknown>;
-  const styleObj: Record<string, unknown> = {};
-  elementProto.createDiv = function (
-    this: HTMLElement,
-    opts: { text?: string; cls?: string; attr?: { style?: string } } = {},
-  ): HTMLElement {
-    const el = doc.createElement('div');
-    if (opts.cls) el.className = opts.cls;
-    if (opts.attr?.style) el.setAttribute('style', opts.attr.style);
-    if (opts.text) el.textContent = opts.text;
-    this.appendChild(el);
-    Object.assign(el, styleObj);
-    return el;
-  };
-  elementProto.createEl = function (
-    this: HTMLElement,
-    tag: string,
-    opts: { text?: string; cls?: string; attr?: { [k: string]: string } } = {},
-  ): HTMLElement {
-    const el = doc.createElement(tag);
-    if (opts.cls) el.className = opts.cls;
-    if (opts.attr) for (const [k, v] of Object.entries(opts.attr)) el.setAttribute(k, v);
-    if (opts.text) el.textContent = opts.text;
-    this.appendChild(el);
-    Object.assign(el, styleObj);
-    return el;
-  };
-  elementProto.createSpan = function (
-    this: HTMLElement,
-    opts: { text?: string; cls?: string } = {},
-  ): HTMLElement {
-    const el = doc.createElement('span');
-    if (opts.cls) el.className = opts.cls;
-    if (opts.text) el.textContent = opts.text;
-    this.appendChild(el);
-    Object.assign(el, styleObj);
-    return el;
-  };
-  elementProto.setText = function (this: HTMLElement, text: string): HTMLElement {
-    this.textContent = text;
-    return this;
-  };
-  elementProto.addClass = function (this: HTMLElement, cls: string): HTMLElement {
-    this.classList.add(cls);
-    return this;
-  };
-}
+import { installObsidianDomHelpers } from '../__support__/dom-helpers';
 
 beforeEach(() => {
   const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -75,7 +23,10 @@ beforeEach(() => {
   (globalThis as Record<string, unknown>).activeDocument = doc;
   // eslint-disable-next-line obsidianmd/no-global-this
   globalThis.HTMLElement = dom.window.HTMLElement;
-  installObsidianDomHelpers(doc);
+  installObsidianDomHelpers(
+    { HTMLElement: dom.window.HTMLElement, Document: dom.window.Document },
+    doc,
+  );
 });
 
 afterEach(() => {
@@ -88,8 +39,14 @@ afterEach(() => {
 });
 
 describe('extractThinkingPanel', () => {
+  // v1.25.2 PATCH: extractThinkingPanel takes a `parent` HTMLElement so
+  // the extracted <details> is built against the parent's createEl
+  // (avoiding Obsidian runtime's "Only one element on document"
+  // auto-attach bug).
+  const makeParent = (): HTMLElement => activeDocument.body.createDiv();
+
   it('returns null thinkingEl + visible content identical to input when no think tags', () => {
-    const result = extractThinkingPanel('Hello world. Markdown content.', 'en', 'wiki');
+    const result = extractThinkingPanel('Hello world. Markdown content.', 'en', 'wiki', makeParent());
     expect(result.thinkingEl).toBeNull();
     expect(result.normalized).toBe('Hello world. Markdown content.');
   });
@@ -98,7 +55,7 @@ describe('extractThinkingPanel', () => {
     const tagOpen = String.fromCharCode(60) + 'think' + String.fromCharCode(62); // 'think' open
     const tagClose = String.fromCharCode(60) + '/think' + String.fromCharCode(62); // 'think' close
     const input = 'Hello. ' + tagOpen + 'thinking-content' + tagClose + ' done.';
-    const result = extractThinkingPanel(input, 'en', 'wiki');
+    const result = extractThinkingPanel(input, 'en', 'wiki', makeParent());
     expect(result.thinkingEl).not.toBeNull();
     expect(result.thinkingEl?.tagName).toBe('DETAILS');
     expect(result.normalized).not.toContain('thinking-content');

@@ -32,7 +32,7 @@ export function renderMaintenanceDetails(
   }
   // Per-section rich rendering
   if (entry.sections.length > 0) {
-    body.createEl('div', {
+    body.createDiv({
       text: t.historyEntrySectionReport,
       attr: {
         style:
@@ -46,7 +46,7 @@ export function renderMaintenanceDetails(
   }
   // Raw fallback
   if (!entry.kpi && entry.sections.length === 0 && entry.rawDetails) {
-    body.createEl('div', {
+    body.createDiv({
       text: entry.rawDetails,
       attr: { style: 'white-space: pre-wrap; color: var(--text-muted); margin-left: 8px;' },
     });
@@ -168,19 +168,19 @@ export function renderCriticalKpiCards(
           'position: relative;',
       },
     });
-    cardEl.createEl('div', {
+    cardEl.createDiv({
       text: String(card.value),
       attr: {
         style:
           `font-size: 1.3em; font-weight: 700; line-height: 1.2; color: ${valueColor};`,
       },
     });
-    cardEl.createEl('div', {
+    cardEl.createDiv({
       text: card.label,
       attr: { style: 'font-size: 0.7em; color: var(--text-muted); margin-top: 2px;' },
     });
     if (card.deltaChip) {
-      cardEl.createEl('div', {
+      cardEl.createDiv({
         text: card.deltaChip,
         attr: {
           style:

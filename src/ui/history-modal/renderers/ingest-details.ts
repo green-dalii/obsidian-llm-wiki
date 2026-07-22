@@ -25,18 +25,18 @@ export function renderIngestDetails(
   }
   // 2) Time + source heading (so the user knows when + which file)
   if (entry.time) {
-    body.createEl('div', {
+    body.createDiv({
       text: `${t.historyIngestLatestTime}: ${entry.date} ${entry.time}`,
       attr: { style: 'color: var(--text-muted); font-size: 0.8em; margin: 6px 0 4px 0;' },
     });
   } else {
-    body.createEl('div', {
+    body.createDiv({
       text: `${t.historyIngestLatestTime}: ${entry.date} · ${t.historyIngestNoTimestamp}`,
       attr: { style: 'color: var(--text-faint); font-size: 0.8em; margin: 6px 0 4px 0;' },
     });
   }
   if (entry.sourceTitle) {
-    body.createEl('div', {
+    body.createDiv({
       text: `${t.historyIngestSource}: ${entry.sourceTitle}`,
       attr: { style: 'color: var(--text-muted); font-size: 0.85em; margin-bottom: 6px;' },
     });
@@ -49,7 +49,7 @@ export function renderIngestDetails(
     renderPageTypeGroup(body, entry.updatedPages, t.historyEntrySectionUpdated, t, ctx);
   }
   if (entry.createdPages.length === 0 && entry.updatedPages.length === 0) {
-    body.createEl('div', {
+    body.createDiv({
       text: t.historyEntryNoChanges,
       attr: { style: 'color: var(--text-faint); margin-left: 8px;' },
     });
@@ -90,13 +90,13 @@ export function renderIngestMetricCards(
           'border: 1px solid var(--background-modifier-border);',
       },
     });
-    card.createEl('div', {
+    card.createDiv({
       text: c.value,
       attr: {
         style: 'font-size: 1em; font-weight: 600; line-height: 1.2; color: var(--text-normal); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
       },
     });
-    card.createEl('div', {
+    card.createDiv({
       text: c.label,
       attr: { style: 'font-size: 0.7em; color: var(--text-muted); margin-top: 2px;' },
     });
@@ -110,7 +110,7 @@ export function renderPageTypeGroup(
   t: HistoryTexts,
   ctx: RendererContext,
 ): void {
-  body.createEl('div', {
+  body.createDiv({
     text: `${sectionLabel} (${pages.length})`,
     attr: {
       style: 'font-weight: 600; margin-top: 8px; margin-bottom: 4px; font-size: 0.9em;',
@@ -138,7 +138,7 @@ export function renderPageTypeGroup(
     const row = body.createDiv({
       attr: { style: 'margin: 4px 0; display: flex; gap: 6px; align-items: flex-start;' },
     });
-    row.createEl('span', {
+    row.createSpan({
       text: `${labelText} ×${list.length}`,
       attr: {
         style:

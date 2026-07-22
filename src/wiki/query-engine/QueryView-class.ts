@@ -750,10 +750,16 @@ export class QueryView extends ItemView {
     // PR #3 split: delegated to renderers/thinking-extract.ts. The wiki-link
     // normalization reuses the real `wikiFolder` so user configs with non-default
     // folders get the correct [[{folder}/path|display]] prefix substitution.
+    // v1.25.2 PATCH: pass `container` to `extractThinkingPanel` so the
+    // <details> collapsible panel is built against the parent's createEl
+    // rather than `HTMLDocument.createEl`, which would auto-attach to
+    // document.body and trip the runtime "Only one element on document
+    // allowed" check the moment we tried to nest `details.createEl('summary')`.
     const { thinkingEl, normalized: normalizedContent } = extractThinkingPanel(
       content,
       this.plugin.settings.language,
       this.plugin.settings.wikiFolder,
+      container,
     );
 
     // If reasoning is present, render the collapsible panel first so it
