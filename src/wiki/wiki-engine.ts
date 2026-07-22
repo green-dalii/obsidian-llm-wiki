@@ -25,6 +25,25 @@ import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
 import { setGenerationComplete } from '../core/incomplete-page-cleaner';
 import { convertPdfToMarkdown, UnsupportedProviderError, EncryptedPdfError } from '../core/pdf-converter';
+import {
+  MineruAuthenticationError,
+  MineruCancelledError,
+  MineruInvalidResponseError,
+  MineruQuotaError,
+  MineruRateLimitError,
+  MineruStageError,
+  MineruTaskFailedError,
+  MineruTaskTimeoutError,
+} from '../core/pdf-backends/mineru-client';
+import { MineruInvalidResultError } from '../core/pdf-backends/mineru-archive';
+import {
+  MineruArtifactConflictError,
+  MineruArtifactWriteError,
+} from '../core/pdf-backends/mineru-artifacts';
+import {
+  MineruConfigurationError,
+  type PdfBackendProgress,
+} from '../core/pdf-backends/types';
 import { hashBody, checkContentRequirements } from '../core/source-requirements';
 import { resolveModelForTask } from '../core/model-resolver';
 import type { SourceRejection } from '../core/source-requirements';
@@ -118,6 +137,26 @@ function errorToString(value: unknown): string {
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   return '';
 }
+
+type MineruErrorTextKey =
+  | 'mineruMissingToken'
+  | 'mineruDesktopOnly'
+  | 'mineruAuthenticationFailed'
+  | 'mineruQuotaExceeded'
+  | 'mineruUploadFailed'
+  | 'mineruTaskFailed'
+  | 'mineruTaskTimedOut'
+  | 'mineruDownloadFailed'
+  | 'mineruInvalidResult'
+  | 'mineruArtifactConflict'
+  | 'mineruArtifactWriteFailed'
+  | 'mineruCancelled';
+
+type IngestNoticeTextKey = MineruErrorTextKey
+  | 'sourceRejectedEmpty'
+  | 'sourceRejectedType'
+  | 'sourceRejectedDuplicate'
+  | 'sourceRejectedPdfUnsupported';
 
 // v1.25.1 Phase C-PR1: setsEqual moved to engine-internals/graph-cache.ts
 // (private to GraphCache). Removed from wiki-engine.ts to avoid duplicate export;
@@ -545,13 +584,19 @@ export class WikiEngine {
   }
 
   /** Log + (interactive only) notify + report a gate skip without creating any pages. */
-  private reportSkip(file: TFile, rejection: SourceRejection, opts?: IngestOptions): void {
+  private reportSkip(
+    file: TFile,
+    rejection: SourceRejection,
+    opts?: IngestOptions,
+    noticeKey: IngestNoticeTextKey = this.rejectionNoticeKey(rejection.reason),
+    cancelled = false
+  ): void {
     console.warn(`[Ingest skipped] ${file.path}: ${rejection.reason}${rejection.detail ? ` — ${rejection.detail}` : ''}`);
     // Interactive (single-file) ingest shows a Notice; folder/watcher stay quiet
     // (the batch summary / console covers them) to avoid Notice spam.
     if (opts?.interactive) {
       new Notice(
-        getText(this.settings.language, this.rejectionNoticeKey(rejection.reason)).replace('{filename}', file.basename),
+        getText(this.settings.language, noticeKey).replace('{filename}', file.basename),
         NOTICE_NORMAL
       );
     }
@@ -564,13 +609,84 @@ export class WikiEngine {
       failedItems: [],
       collisions: [],
       contradictionsFound: 0,
-      success: true,
+      success: !cancelled,
       skipped: true,
+      ...(cancelled ? { cancelled: true } : {}),
       rejectedFiles: [{ path: file.path, reason: rejection.reason, detail: rejection.detail }],
       elapsedSeconds: 0,
       // v1.22.6 #204: Propagate trigger so completion can route UI.
       trigger: opts?.trigger,
     });
+  }
+
+  private mineruProgressMessage(progress: PdfBackendProgress): string {
+    const language = this.settings.language;
+    switch (progress.stage) {
+      case 'preparing': return getText(language, 'pdfBackendPreparing');
+      case 'requesting-upload': return getText(language, 'mineruRequestingUpload');
+      case 'uploading': return getText(language, 'mineruUploading');
+      case 'waiting': return getText(language, 'mineruWaiting');
+      case 'parsing':
+        return progress.completedPages !== undefined && progress.totalPages !== undefined
+          ? getText(language, 'mineruParsingPages', {
+              completed: String(progress.completedPages),
+              total: String(progress.totalPages),
+            })
+          : getText(language, 'mineruParsing');
+      case 'converting': return getText(language, 'mineruConverting');
+      case 'downloading': return getText(language, 'mineruDownloading');
+      case 'validating': return getText(language, 'mineruValidating');
+      case 'saving': return getText(language, 'mineruSaving');
+    }
+  }
+
+  private mineruErrorKey(error: unknown): MineruErrorTextKey | null {
+    if (error instanceof DOMException && error.name === 'AbortError') return 'mineruCancelled';
+    if (error instanceof MineruConfigurationError) {
+      return error.reason === 'desktop-only' ? 'mineruDesktopOnly' : 'mineruMissingToken';
+    }
+    if (error instanceof MineruAuthenticationError) return 'mineruAuthenticationFailed';
+    if (error instanceof MineruQuotaError || error instanceof MineruRateLimitError) return 'mineruQuotaExceeded';
+    if (error instanceof MineruTaskTimeoutError) return 'mineruTaskTimedOut';
+    if (error instanceof MineruTaskFailedError) return 'mineruTaskFailed';
+    if (error instanceof MineruCancelledError) return 'mineruCancelled';
+    if (error instanceof MineruInvalidResponseError || error instanceof MineruStageError) {
+      if (error.stage === 'download') return 'mineruDownloadFailed';
+      if (error.stage === 'poll') return 'mineruTaskFailed';
+      return 'mineruUploadFailed';
+    }
+    if (error instanceof MineruInvalidResultError) return 'mineruInvalidResult';
+    if (error instanceof MineruArtifactConflictError) return 'mineruArtifactConflict';
+    if (error instanceof MineruArtifactWriteError) return 'mineruArtifactWriteFailed';
+    return null;
+  }
+
+  private reportMineruFailure(
+    file: TFile,
+    error: unknown,
+    opts?: IngestOptions
+  ): boolean {
+    const key = this.mineruErrorKey(error);
+    if (!key) return false;
+
+    const detail = getText(this.settings.language, key, { filename: file.basename });
+    console.warn(`[MinerU PDF ingest skipped] ${file.path}: ${key}`);
+    const cancelled = error instanceof MineruCancelledError
+      || (error instanceof DOMException && error.name === 'AbortError');
+    this.reportSkip(
+      file,
+      { reason: 'unsupported-pdf', detail },
+      opts,
+      key,
+      cancelled
+    );
+    return true;
+  }
+
+  private finishIngestionEarlyExit(): void {
+    if (this.abortController === null) return;
+    this.abortController = null;
+    this.onIngestionEnd?.();
   }
 
   /**
@@ -658,7 +774,6 @@ export class WikiEngine {
     // informative instead of generic.
     const lang = this.settings.language;
     const pdfMsg = getText(lang, 'pdfReadingInProgress').replace('{filename}', file.basename);
-    new Notice(pdfMsg, NOTICE_NORMAL);
     this.onProgress?.(pdfMsg);
     // v1.25.11 PATCH #169: the 3 PDF stages (reading / converting /
     // sidecar) all share the same status-bar composition — filename +
@@ -682,23 +797,12 @@ export class WikiEngine {
     try {
       conversionResult = await convertPdfToMarkdown({
         app: this.app,
-        // Narrow to the converter's settings shape while preserving the
-        // explicit PDF backend contract.
-        settings: {
-          provider: this.settings.provider,
-          apiKey: this.settings.apiKey,
-          baseUrl: this.settings.baseUrl,
-          model: this.settings.model,
-          forcePdfSupport: this.settings.forcePdfSupport,
-          pdfConversionBackend: this.settings.pdfConversionBackend,
-          mineruApiToken: this.settings.mineruApiToken,
-          mineruTaskTimeoutMinutes: this.settings.mineruTaskTimeoutMinutes,
-        },
+        settings: { ...this.settings },
         pdfFile: file,
         llmClient: this.getLLMClient() as never,
         resolveModelForTask: (settings, task) =>
           resolveModelForTask(this.settings, task as 'ingest' | 'lint' | 'query'),
-        ...(this.subtle ? { subtle: this.subtle } : {}),
+        subtle: this.subtle ?? activeWindow.crypto.subtle,
         // v1.25.0 PR3 follow-up #8 (Bug D): thread the engine's
         // AbortSignal through to the LLM call. When the user clicks
         // the status bar during PDF conversion, cancelIngestion()
@@ -707,14 +811,21 @@ export class WikiEngine {
         // signal was ignored and the LLM call ran to completion even
         // after the user clicked cancel.
         ...(this.abortController ? { abortSignal: this.abortController.signal } : {}),
+        onProgress: progress => this.onProgress?.(this.mineruProgressMessage(progress)),
       });
     } catch (error) {
       if (error instanceof UnsupportedProviderError) {
         this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
+        this.finishIngestionEarlyExit();
         return;
       }
       if (error instanceof EncryptedPdfError) {
         this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
+        this.finishIngestionEarlyExit();
+        return;
+      }
+      if (this.settings.pdfConversionBackend === 'mineru' && this.reportMineruFailure(file, error, opts)) {
+        this.finishIngestionEarlyExit();
         return;
       }
       // v1.25.0 PR3 follow-up #2 (P1 #3): LLM errors during PDF conversion
@@ -741,9 +852,14 @@ export class WikiEngine {
       // runtimes (Ollama, vLLM, etc.).
       const message = inspectCauseChain(error);
       if (this.isPdfRelatedLlmError(message)) {
-        this.reportSkip(file, { reason: 'unsupported-pdf', detail: message }, opts);
+        const detail = getText(this.settings.language, 'sourceRejectedPdfUnsupported', {
+          filename: file.basename,
+        });
+        this.reportSkip(file, { reason: 'unsupported-pdf', detail }, opts);
+        this.finishIngestionEarlyExit();
         return;
       }
+      this.finishIngestionEarlyExit();
       throw error;
     }
 
@@ -767,18 +883,23 @@ export class WikiEngine {
     // through createOrUpdateFile would fire onFileWrite + invalidatePageCaches,
     // which could trigger auto-ingest cascades if the source folder is watched.
     if (this.settings.writePdfMarkdownToVault === true) {
-      const dir = file.parent?.path ?? '';
-      const rawPath = dir ? `${dir}/${file.basename}.pdf.md` : `${file.basename}.pdf.md`;
-      const sidecarPath = normalizePath(rawPath);
-      const existing = this.app.vault.getAbstractFileByPath(sidecarPath);
       // v1.25.11 PATCH #169: sidecar-write stage mirror. Fires only when
       // the user has opted in via writePdfMarkdownToVault. ADD-only
       // emission — the vault write itself is unchanged.
       setPdfStage('pdfStageSidecar');
-      if (existing instanceof TFile) {
-        await this.app.vault.modify(existing, conversionResult.markdown);
-      } else {
-        await this.app.vault.create(sidecarPath, conversionResult.markdown);
+      try {
+        const dir = file.parent?.path ?? '';
+        const rawPath = dir ? `${dir}/${file.basename}.pdf.md` : `${file.basename}.pdf.md`;
+        const sidecarPath = normalizePath(rawPath);
+        const existing = this.app.vault.getAbstractFileByPath(sidecarPath);
+        if (existing instanceof TFile) {
+          await this.app.vault.modify(existing, conversionResult.markdown);
+        } else {
+          await this.app.vault.create(sidecarPath, conversionResult.markdown);
+        }
+      } catch (error) {
+        this.finishIngestionEarlyExit();
+        throw error;
       }
     }
 
@@ -849,6 +970,7 @@ export class WikiEngine {
         : false;
       if (!confirmed) {
         this.reportSkip(file, rejection, opts);
+        this.finishIngestionEarlyExit();
         return;
       }
     }

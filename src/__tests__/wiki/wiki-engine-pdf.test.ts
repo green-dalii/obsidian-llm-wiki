@@ -15,10 +15,31 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { TFile, TFolder } from 'obsidian';
+import { Notice, TFile, TFolder } from 'obsidian';
 import { createWikiEngineHarness, wikiPagesWritten } from '../__support__/wiki-engine-harness';
 import * as pdfConverter from '../../core/pdf-converter';
 import { convertPdfToMarkdown } from '../../core/pdf-converter';
+import {
+  MineruConfigurationError,
+  type PdfBackendProgress,
+} from '../../core/pdf-backends/types';
+import {
+  MineruAuthenticationError,
+  MineruCancelledError,
+  MineruInvalidResponseError,
+  MineruQuotaError,
+  MineruRateLimitError,
+  MineruStageError,
+  MineruTaskFailedError,
+  MineruTaskTimeoutError,
+} from '../../core/pdf-backends/mineru-client';
+import { MineruInvalidResultError } from '../../core/pdf-backends/mineru-archive';
+import {
+  MineruArtifactConflictError,
+  MineruArtifactWriteError,
+} from '../../core/pdf-backends/mineru-artifacts';
+import type { LLMClient } from '../../types';
+import { TEXTS } from '../../texts';
 
 // Mock pdf-converter so we don't need real PDF bytes / SubtleCrypto / LLM call.
 // Tests assert on WikiEngine's integration with the converter's return value.
@@ -36,6 +57,35 @@ const mockedConvert = vi.mocked(convertPdfToMarkdown);
 
 // Also expose the error classes from the (still-real) module.
 const { UnsupportedProviderError, EncryptedPdfError } = pdfConverter;
+
+const NoticeMock = Notice as unknown as {
+  instances: Array<{ message: string; hidden: boolean }>;
+};
+
+const MINERU_TEXT_KEYS = [
+  'pdfBackendPreparing',
+  'mineruRequestingUpload',
+  'mineruUploading',
+  'mineruWaiting',
+  'mineruParsing',
+  'mineruParsingPages',
+  'mineruConverting',
+  'mineruDownloading',
+  'mineruValidating',
+  'mineruSaving',
+  'mineruMissingToken',
+  'mineruDesktopOnly',
+  'mineruAuthenticationFailed',
+  'mineruQuotaExceeded',
+  'mineruUploadFailed',
+  'mineruTaskFailed',
+  'mineruTaskTimedOut',
+  'mineruDownloadFailed',
+  'mineruInvalidResult',
+  'mineruArtifactConflict',
+  'mineruArtifactWriteFailed',
+  'mineruCancelled',
+] as const;
 
 function pdfFile(path = 'sources/paper.pdf'): TFile {
   const name = path.split('/').pop() ?? 'paper.pdf';
@@ -56,9 +106,29 @@ function pdfFile(path = 'sources/paper.pdf'): TFile {
   return file;
 }
 
+function markdownFile(path = 'notes/empty.md'): TFile {
+  const name = path.split('/').pop() ?? 'empty.md';
+  return Object.assign(new TFile(), {
+    path,
+    name,
+    basename: name.replace(/\.md$/i, ''),
+    extension: 'md',
+  });
+}
+
 describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => {
   beforeEach(() => {
     mockedConvert.mockReset();
+    NoticeMock.instances.length = 0;
+  });
+
+  it('keeps MinerU locale placeholders identical across all ten locales', () => {
+    for (const key of MINERU_TEXT_KEYS) {
+      const expected = (TEXTS.en[key].match(/\{[^}]+\}/g) ?? []).sort();
+      for (const texts of Object.values(TEXTS)) {
+        expect((texts[key].match(/\{[^}]+\}/g) ?? []).sort(), key).toEqual(expected);
+      }
+    }
   });
 
   it('feeds LLM-converted markdown as virtual source body and creates wiki pages', async () => {
@@ -125,6 +195,162 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
     expect(firstCall?.[0].settings?.pdfConversionBackend).toBe('mineru');
     expect(firstCall?.[0].settings?.mineruApiToken).toBe('mineru-token');
     expect(firstCall?.[0].settings?.mineruTaskTimeoutMinutes).toBe(45);
+  });
+
+  it('passes the complete settings, SubtleCrypto, AbortSignal, and progress callback', async () => {
+    const progress: PdfBackendProgress[] = [
+      { stage: 'preparing' },
+      { stage: 'requesting-upload' },
+      { stage: 'uploading' },
+      { stage: 'waiting' },
+      { stage: 'parsing' },
+      { stage: 'parsing', completedPages: 2, totalPages: 7 },
+      { stage: 'converting' },
+      { stage: 'downloading' },
+      { stage: 'validating' },
+      { stage: 'saving' },
+    ];
+    mockedConvert.mockImplementationOnce(async (ctx) => {
+      progress.forEach(event => ctx.onProgress?.(event));
+      return {
+        markdown: '# Converted Paper',
+        metadata: { convertedAt: '2026-07-22T00:00:00Z', converter: 'mineru/vlm' },
+      };
+    });
+
+    const h = createWikiEngineHarness({
+      settings: {
+        pdfConversionBackend: 'mineru',
+        mineruApiToken: 'secret-token',
+        mineruTaskTimeoutMinutes: 45,
+        wikiFolder: 'Custom Wiki',
+      },
+      llmResponses: [
+        JSON.stringify({ source_title: 'Paper', summary: '...', entities: [], concepts: [] }),
+      ],
+    });
+
+    await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+    const context = mockedConvert.mock.calls[0]?.[0];
+    expect(context?.settings.wikiFolder).toBe('Custom Wiki');
+    expect(context?.subtle).toBe(activeWindow.crypto.subtle);
+    expect(context?.abortSignal).toBeInstanceOf(AbortSignal);
+    expect(context?.onProgress).toEqual(expect.any(Function));
+    expect(h.progressMessages.slice(1, 11)).toEqual([
+      'Preparing PDF conversion…',
+      'Preparing the MinerU upload…',
+      'Uploading PDF to MinerU…',
+      'Waiting for MinerU…',
+      'MinerU is parsing the PDF…',
+      'MinerU is parsing page 2 of 7…',
+      'Converting the MinerU result…',
+      'Downloading the MinerU result…',
+      'Checking the MinerU result…',
+      'Saving converted Markdown and images…',
+    ]);
+  });
+
+  it('feeds MinerU Markdown into the text-only downstream pipeline', async () => {
+    mockedConvert.mockResolvedValueOnce({
+      markdown: '# MinerU Markdown\n\nText only.',
+      metadata: { convertedAt: '2026-07-22T00:00:00Z', converter: 'mineru/vlm' },
+    });
+    const h = createWikiEngineHarness({
+      settings: { pdfConversionBackend: 'mineru', mineruApiToken: 'token' },
+      llmResponses: [
+        JSON.stringify({ source_title: 'Paper', summary: '...', entities: [], concepts: [] }),
+      ],
+    });
+    const client = (h.engine as unknown as { getLLMClient: () => LLMClient | null }).getLLMClient();
+    const createMessage = vi.spyOn(client as LLMClient, 'createMessage');
+
+    await h.engine.ingestSource(pdfFile());
+
+    expect(h.stats.llmCalls).toBeGreaterThan(0);
+    expect(createMessage.mock.calls.every(([request]) =>
+      request.messages.every(message => typeof message.content === 'string')
+    )).toBe(true);
+    expect(JSON.stringify(createMessage.mock.calls)).not.toContain('application/pdf');
+    expect(wikiPagesWritten(h.writtenPaths).length).toBeGreaterThan(0);
+  });
+
+  it('tears down exactly once when ordinary precheck rejects before ingestion', async () => {
+    const h = createWikiEngineHarness({ files: { 'notes/empty.md': '' } });
+    const onEnd = vi.fn();
+    h.engine.setIngestionCallbacks(null, onEnd);
+
+    await h.engine.ingestSource(markdownFile());
+
+    expect(h.engine.isIngesting()).toBe(false);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['missing token', new MineruConfigurationError('missing-token'), '"paper": Add your MinerU API Token in Settings, then try again.'],
+    ['desktop only', new MineruConfigurationError('desktop-only'), '"paper": MinerU PDF conversion is available only in the desktop app.'],
+    ['authentication', new MineruAuthenticationError('request-upload', { apiToken: 'secret-token' }), '"paper": MinerU could not authenticate. Check your API Token, then try again.'],
+    ['quota', new MineruQuotaError('request-upload', { apiToken: 'secret-token' }), '"paper": Your MinerU quota is unavailable or exhausted. Check your MinerU account, then try again.'],
+    ['rate limit', new MineruRateLimitError('poll', { apiToken: 'secret-token' }), '"paper": Your MinerU quota is unavailable or exhausted. Check your MinerU account, then try again.'],
+    ['upload request', new MineruInvalidResponseError('request-upload', { apiToken: 'secret-token' }), '"paper": MinerU could not accept the PDF upload. Check the file and your connection, then try again.'],
+    ['upload', new MineruStageError('upload', 'signed https://example.test/result?token=secret-token', { apiToken: 'secret-token' }), '"paper": MinerU could not accept the PDF upload. Check the file and your connection, then try again.'],
+    ['task', new MineruTaskFailedError('response body secret-token', 'task-1', 'trace-1', 'secret-token'), '"paper": MinerU could not process this PDF. Check the PDF and try again.'],
+    ['poll response', new MineruInvalidResponseError('poll', { apiToken: 'secret-token' }), '"paper": MinerU could not process this PDF. Check the PDF and try again.'],
+    ['timeout', new MineruTaskTimeoutError('task-1', 'trace-1', 'secret-token'), '"paper": MinerU did not finish before the configured timeout. Increase the timeout or try again later.'],
+    ['download', new MineruStageError('download', 'signed https://example.test/result?token=secret-token', { apiToken: 'secret-token' }), '"paper": The MinerU result could not be downloaded. Check your connection, then try again.'],
+    ['invalid result', new MineruInvalidResultError('unsafe response body secret-token'), '"paper": MinerU returned a result that could not be safely used. Try the PDF again.'],
+    ['artifact conflict', new MineruArtifactConflictError('secret path'), '"paper": The MinerU output folder contains files not created by this plugin. Move or rename that folder, then try again.'],
+    ['artifact write', new MineruArtifactWriteError('secret path'), '"paper": The MinerU result could not be saved to your Vault. Check file permissions and free space, then try again.'],
+    ['cancelled', new MineruCancelledError('download', { apiToken: 'secret-token' }), '"paper": MinerU PDF conversion was cancelled.'],
+  ])('maps typed MinerU %s errors to one safe interactive Notice', async (_case, error, expected) => {
+    mockedConvert.mockRejectedValueOnce(error);
+    const h = createWikiEngineHarness({
+      settings: { pdfConversionBackend: 'mineru', mineruApiToken: 'secret-token' },
+    });
+
+    await h.engine.ingestSource(pdfFile(), { interactive: true });
+
+    expect(NoticeMock.instances.map(notice => notice.message)).toEqual([expected]);
+    expect(h.reports.at(-1)?.rejectedFiles?.[0]?.detail).toBe(expected);
+    expect(JSON.stringify(h.reports)).not.toContain('secret-token');
+    expect(JSON.stringify(NoticeMock.instances)).not.toContain('secret-token');
+    expect(h.stats.llmCalls).toBe(0);
+  });
+
+  it('keeps batch and watcher MinerU failures quiet while recording safe detail', async () => {
+    mockedConvert.mockRejectedValueOnce(
+      new MineruStageError('download', 'https://signed.test/result?token=secret-token', {
+        apiToken: 'secret-token',
+      })
+    );
+    const h = createWikiEngineHarness({
+      settings: { pdfConversionBackend: 'mineru', mineruApiToken: 'secret-token' },
+    });
+
+    await h.engine.ingestSource(pdfFile(), { interactive: false, trigger: 'auto' });
+
+    expect(NoticeMock.instances).toEqual([]);
+    expect(h.reports.at(-1)?.rejectedFiles?.[0]?.detail).toBe(
+      '"paper": The MinerU result could not be downloaded. Check your connection, then try again.'
+    );
+  });
+
+  it.each([
+    ['upload', new MineruCancelledError('upload')],
+    ['polling', new MineruCancelledError('poll')],
+    ['download', new MineruCancelledError('download')],
+    ['artifact publication', new DOMException('Aborted', 'AbortError')],
+  ])('does not re-enter downstream ingest after cancellation during %s', async (_stage, error) => {
+    mockedConvert.mockRejectedValueOnce(error);
+    const h = createWikiEngineHarness({
+      settings: { pdfConversionBackend: 'mineru', mineruApiToken: 'token' },
+    });
+
+    await h.engine.ingestSource(pdfFile(), { interactive: true });
+
+    expect(h.stats.llmCalls).toBe(0);
+    expect(wikiPagesWritten(h.writtenPaths)).toEqual([]);
+    expect(h.engine.isIngesting()).toBe(false);
   });
 
   it('skips with reason=unsupported-pdf when converter throws UnsupportedProviderError', async () => {
@@ -226,6 +452,37 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
     expect(h.files.get('sources/paper.pdf.md')).toBe(MARKDOWN);
   });
 
+  it.each([
+    ['create', false],
+    ['modify', true],
+  ])('tears down exactly once when sidecar %s fails and rethrows unchanged', async (_operation, existing) => {
+    const sidecarPath = 'sources/paper.pdf.md';
+    mockedConvert.mockResolvedValueOnce({
+      markdown: '# Converted content',
+      metadata: { convertedAt: '2026-07-22T00:00:00Z', converter: 'mineru/vlm' },
+    });
+    const h = createWikiEngineHarness({
+      files: existing ? { [sidecarPath]: 'old content' } : {},
+      settings: { writePdfMarkdownToVault: true },
+    });
+    const onEnd = vi.fn();
+    h.engine.setIngestionCallbacks(null, onEnd);
+    const vault = (h.engine as unknown as {
+      app: { vault: { create: (path: string, content: string) => Promise<void>; modify: (file: unknown, content: string) => Promise<void> } };
+    }).app.vault;
+    const sidecarError = new Error('sidecar write failed');
+    if (existing) {
+      vault.modify = vi.fn().mockRejectedValueOnce(sidecarError);
+    } else {
+      vault.create = vi.fn().mockRejectedValueOnce(sidecarError);
+    }
+
+    await expect(h.engine.ingestSource(pdfFile())).rejects.toBe(sidecarError);
+
+    expect(h.engine.isIngesting()).toBe(false);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
   // v1.25.0 PR3 follow-up #3 (P2): isPdfRelatedLlmError tightening + regression tests.
   //
   // Contract:
@@ -270,6 +527,25 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
       );
       expect(r.skipped).toBe(true);
       expect(r.thrown).toBe(false);
+    });
+
+    it('uses only the fixed localized detail and never leaks the raw cause', async () => {
+      const raw = 'application/pdf rejected: signed https://example.test/result?token=secret-token; response body: secret response body';
+      const providerError = new Error('400 file part rejected');
+      Object.assign(providerError, { cause: new Error(raw) });
+      mockedConvert.mockRejectedValueOnce(providerError);
+      const h = createWikiEngineHarness();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      await h.engine.ingestSource(pdfFile(), { interactive: true });
+
+      const expected = '⏭️ "paper" skipped — your current provider or model doesn\'t accept PDF input. Switch provider, or open Settings → LLM Configuration → Advanced and turn on "Force PDF support" to try anyway.';
+      expect(h.reports.at(-1)?.rejectedFiles?.[0]?.detail).toBe(expected);
+      expect(NoticeMock.instances.map(notice => notice.message)).toEqual([expected]);
+      expect(JSON.stringify(h.reports)).not.toContain(raw);
+      expect(JSON.stringify(NoticeMock.instances)).not.toContain(raw);
+      expect(warn.mock.calls.flat().join('\n')).not.toContain(raw);
+      warn.mockRestore();
     });
 
     // Pre-fix bug: 'pdf' substring alone routed this to unsupported-pdf → user
