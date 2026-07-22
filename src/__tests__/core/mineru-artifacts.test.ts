@@ -346,6 +346,12 @@ async function flushAsync(): Promise<void> {
   for (let index = 0; index < 6; index += 1) await Promise.resolve();
 }
 
+function expectNoTransactionPaths(adapter: MemoryArtifactAdapter): void {
+  expect([...adapter.directories, ...adapter.files.keys()].filter(
+    (path) => path.includes('.mineru.tmp-')
+  )).toEqual([]);
+}
+
 async function settleWithin<T>(promise: Promise<T>, milliseconds = 250): Promise<T> {
   let timeoutId: number | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -529,21 +535,76 @@ describe('MineruArtifactStore.publish', () => {
     expect(adapter.mutationOperations()).toEqual([]);
   });
 
-  it('refuses managed-invalid and unowned final directories without overwriting them', async () => {
-    for (const kind of ['managed-invalid', 'unowned'] as const) {
-      const adapter = new MemoryArtifactAdapter();
-      if (kind === 'managed-invalid') {
-        await seedManagedArtifact(adapter, OLD_PDF_PATH, { converterVersion: 'stale' as 'mineru-v1' });
-      } else {
-        adapter.seedFile(`${OLD_DIR}/user.txt`, encoder.encode('keep me'));
-      }
-      const before = adapter.snapshotDirectory(OLD_DIR);
+  it('replaces a managed-invalid final directory transactionally', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    await seedManagedArtifact(adapter, OLD_PDF_PATH, {
+      converterVersion: 'stale' as 'mineru-v1',
+    });
 
-      await expect(makeStore(adapter).publish(makePublishInput()))
-        .rejects.toBeInstanceOf(MineruArtifactConflictError);
-      expect(adapter.snapshotDirectory(OLD_DIR)).toEqual(before);
-      expect(adapter.mutationOperations()).toEqual([]);
+    await makeStore(adapter, ['repair']).publish(makePublishInput());
+
+    expect((await makeStore(adapter).inspect(OLD_PDF_PATH)).kind).toBe('valid');
+    expect(decoder.decode(adapter.files.get(`${OLD_DIR}/document.md`)))
+      .toBe(makePublishInput().markdown);
+  });
+
+  it('refuses an unowned final directory without overwriting it', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    adapter.seedFile(`${OLD_DIR}/user.txt`, encoder.encode('keep me'));
+    const before = adapter.snapshotDirectory(OLD_DIR);
+
+    await expect(makeStore(adapter).publish(makePublishInput()))
+      .rejects.toBeInstanceOf(MineruArtifactConflictError);
+    expect(adapter.snapshotDirectory(OLD_DIR)).toEqual(before);
+    expect(adapter.mutationOperations()).toEqual([]);
+  });
+
+  it.each(['temp-write', 'backup-rename'] as const)(
+    'rolls back the old tree when aborted at the %s boundary',
+    async (boundary) => {
+      const adapter = new MemoryArtifactAdapter();
+      await seedManagedArtifact(adapter);
+      const oldTree = adapter.snapshotTree(OLD_DIR);
+      const operationId = `cancel-${boundary}`;
+      const temp = getMineruTempDir(OLD_PDF_PATH, operationId);
+      const backup = getMineruTempDir(OLD_PDF_PATH, `${operationId}-backup`);
+      const operation = boundary === 'temp-write'
+        ? `writeBinary:${temp}/document.md`
+        : `rename:${OLD_DIR}->${backup}`;
+      const pause = adapter.pauseAt(operation);
+      const controller = new AbortController();
+      const publication = makeStore(adapter, [operationId])
+        .publish(makePublishInput(), controller.signal);
+      await pause.reached;
+
+      controller.abort();
+      pause.release();
+
+      await expect(publication).rejects.toMatchObject({ name: 'AbortError' });
+      expect(adapter.snapshotTree(OLD_DIR)).toEqual(oldTree);
+      expectNoTransactionPaths(adapter);
     }
+  );
+
+  it('treats temp-to-final rename as the cancellation commit point', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    await seedManagedArtifact(adapter);
+    const operationId = 'cancel-at-commit';
+    const temp = getMineruTempDir(OLD_PDF_PATH, operationId);
+    const pause = adapter.pauseAt(`rename:${temp}->${OLD_DIR}`);
+    const controller = new AbortController();
+    const publication = makeStore(adapter, [operationId])
+      .publish(makePublishInput({ markdown: '# Committed' }), controller.signal);
+    await pause.reached;
+
+    controller.abort();
+    pause.release();
+
+    await expect(publication).resolves.toBeUndefined();
+    const inspection = await makeStore(adapter).inspect(OLD_PDF_PATH);
+    expect(inspection.kind).toBe('valid');
+    if (inspection.kind === 'valid') expect(inspection.markdown).toBe('# Committed');
+    expectNoTransactionPaths(adapter);
   });
 
   it('preserves the old tree before the commit point and the new tree after it', async () => {
@@ -996,9 +1057,9 @@ describe('MineruArtifactStore path locks', () => {
     pause.release();
     await rename;
     const waiterResult = await waiter;
-    expect(waiterResult.status).toBe('rejected');
-    if (waiterResult.status === 'rejected') {
-      expect(waiterResult.error).toBeInstanceOf(MineruArtifactConflictError);
-    }
+    expect(waiterResult.status).toBe('fulfilled');
+    const inspection = await makeStore(adapter).inspect('papers/ORIGINAL.pdf');
+    expect(inspection.kind).toBe('valid');
+    if (inspection.kind === 'valid') expect(inspection.markdown).toBe('# Alias waiter');
   });
 });

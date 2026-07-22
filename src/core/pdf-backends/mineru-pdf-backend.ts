@@ -1,0 +1,277 @@
+import { normalizePath, Platform, type DataAdapter } from 'obsidian';
+import { obsidianFetchBridge } from '../obsidian-fetch-bridge';
+import {
+  buildMineruCacheKey,
+  createPdfCache,
+  hashCacheKey,
+  sha256Bytes,
+  type PdfConversionCache,
+} from '../pdf-cache';
+import { isEncryptedPdfText } from '../pdf-metadata';
+import { EncryptedPdfError } from './native-llm-pdf-backend';
+import { extractMineruArchive, type MineruArchiveResult } from './mineru-archive';
+import { MineruArtifactConflictError, MineruArtifactStore } from './mineru-artifacts';
+import { MineruCancelledError, MineruClient } from './mineru-client';
+import type {
+  ArtifactInspection,
+  MineruArtifactAdapter,
+  PdfBackendContext,
+  PdfBackendProgress,
+  PdfConversionBackend,
+  PdfConversionResult,
+} from './types';
+import { MineruConfigurationError } from './types';
+
+const DEFAULT_TIMEOUT_MINUTES = 30;
+const MIN_TIMEOUT_MINUTES = 5;
+const MAX_TIMEOUT_MINUTES = 120;
+
+interface MineruClientFactoryOptions {
+  apiToken: string;
+  timeoutMs: number;
+}
+
+export interface MineruPdfBackendDependencies {
+  isMobile: () => boolean;
+  createCache: (ctx: PdfBackendContext) => Pick<PdfConversionCache, 'get' | 'set'>;
+  createArtifactStore: (
+    ctx: PdfBackendContext,
+  ) => Pick<MineruArtifactStore, 'inspect' | 'publish'>;
+  createClient: (options: MineruClientFactoryOptions) => Pick<
+    MineruClient,
+    'requestUpload' | 'uploadPdf' | 'waitForResult' | 'downloadResult'
+  >;
+  extractArchive: (bytes: Uint8Array) => MineruArchiveResult;
+  now: () => Date;
+}
+
+export { MineruConfigurationError } from './types';
+
+export function createMineruPdfBackend(
+  deps: MineruPdfBackendDependencies,
+): PdfConversionBackend {
+  return {
+    convert: (ctx) => convertPdfWithMineru(ctx, deps),
+  };
+}
+
+async function convertPdfWithMineru(
+  ctx: PdfBackendContext,
+  deps: MineruPdfBackendDependencies,
+): Promise<PdfConversionResult> {
+  if (deps.isMobile()) throw new MineruConfigurationError('desktop-only');
+  const apiToken = ctx.settings.mineruApiToken?.trim() ?? '';
+  if (!apiToken) throw new MineruConfigurationError('missing-token');
+
+  const emit = createProgressEmitter(ctx);
+  if (ctx.abortSignal?.aborted) throw new MineruCancelledError('request-upload');
+  emit({ stage: 'preparing' });
+
+  const artifactStore = deps.createArtifactStore(ctx);
+  const inspection = await artifactStore.inspect(ctx.pdfFile.path);
+  if (inspection.kind === 'unowned-conflict') {
+    throw new MineruArtifactConflictError(
+      `Refusing to replace MinerU artifacts for ${ctx.pdfFile.path}: the target directory is not managed by this plugin.`
+    );
+  }
+
+  const bytes = new Uint8Array(await ctx.app.vault.adapter.readBinary(ctx.pdfFile.path));
+  const pdfText = new TextDecoder('latin1').decode(bytes);
+  if (isEncryptedPdfText(pdfText)) throw new EncryptedPdfError();
+
+  const sourceSha256 = await sha256Bytes(bytes, ctx.subtle);
+  const cacheToken = await hashCacheKey(buildMineruCacheKey(sourceSha256), ctx.subtle);
+  const cache = deps.createCache(ctx);
+  const cached = await cache.get(cacheToken);
+  const currentArtifact = inspection.kind === 'valid'
+    && inspection.manifest.sourceSha256 === sourceSha256
+    ? inspection
+    : undefined;
+
+  if (currentArtifact && cached) return cached;
+  if (currentArtifact) {
+    if (ctx.abortSignal?.aborted) throw new MineruCancelledError('request-upload');
+    const rebuilt = entryFromArtifact(currentArtifact);
+    await cache.set(cacheToken, rebuilt);
+    return rebuilt;
+  }
+
+  const client = deps.createClient({
+    apiToken,
+    timeoutMs: normalizeTimeoutMinutes(ctx.settings.mineruTaskTimeoutMinutes) * 60_000,
+  });
+
+  if (ctx.abortSignal?.aborted) throw new MineruCancelledError('request-upload');
+  emit({ stage: 'requesting-upload' });
+  const lease = await client.requestUpload(ctx.pdfFile.name, ctx.abortSignal);
+
+  emit({ stage: 'uploading' });
+  await client.uploadPdf(lease, bytes, ctx.abortSignal);
+
+  emit({ stage: 'waiting' });
+  const task = await client.waitForResult(lease.taskId, ctx.abortSignal, emit);
+
+  emit({ stage: 'downloading' });
+  const archiveBytes = await client.downloadResult(task.zipUrl, ctx.abortSignal);
+
+  if (ctx.abortSignal?.aborted) throw new MineruCancelledError('download');
+  emit({ stage: 'validating' });
+  const extracted = deps.extractArchive(archiveBytes);
+
+  if (ctx.abortSignal?.aborted) throw new MineruCancelledError('download');
+  emit({ stage: 'saving' });
+  const convertedAt = deps.now().toISOString();
+  await artifactStore.publish({
+    sourcePath: ctx.pdfFile.path,
+    sourceSha256,
+    taskId: task.taskId,
+    ...(task.traceId ? { traceId: task.traceId } : {}),
+    convertedAt,
+    markdown: extracted.markdown,
+    images: extracted.images,
+  }, ctx.abortSignal);
+
+  const result: PdfConversionResult = {
+    markdown: extracted.markdown,
+    metadata: {
+      convertedAt,
+      converter: 'mineru/vlm',
+    },
+  };
+  await cache.set(cacheToken, result);
+  return result;
+}
+
+function entryFromArtifact(
+  inspection: Extract<ArtifactInspection, { kind: 'valid' }>,
+): PdfConversionResult {
+  return {
+    markdown: inspection.markdown,
+    metadata: {
+      convertedAt: inspection.manifest.convertedAt,
+      converter: 'mineru/vlm',
+    },
+  };
+}
+
+function normalizeTimeoutMinutes(value: number | undefined): number {
+  if (value === undefined || !Number.isFinite(value)) return DEFAULT_TIMEOUT_MINUTES;
+  return Math.min(MAX_TIMEOUT_MINUTES, Math.max(MIN_TIMEOUT_MINUTES, value));
+}
+
+function createProgressEmitter(ctx: PdfBackendContext): (progress: PdfBackendProgress) => void {
+  let previous: PdfBackendProgress | undefined;
+  return (progress) => {
+    if (previous?.stage === progress.stage) {
+      if (progress.stage !== 'parsing' || previous.stage !== 'parsing') return;
+      if (
+        previous.completedPages === progress.completedPages
+        && previous.totalPages === progress.totalPages
+      ) return;
+    }
+    previous = progress;
+    ctx.onProgress?.(progress);
+  };
+}
+
+const adapterIdentities = new WeakMap<DataAdapter, number>();
+let nextAdapterIdentity = 1;
+
+export function createMineruArtifactAdapter(adapter: DataAdapter): MineruArtifactAdapter {
+  let adapterIdentity = adapterIdentities.get(adapter);
+  if (adapterIdentity === undefined) {
+    adapterIdentity = nextAdapterIdentity;
+    nextAdapterIdentity += 1;
+    adapterIdentities.set(adapter, adapterIdentity);
+  }
+  const identity = adapterIdentity;
+  const desktopAdapter = adapter as DataAdapter & { getFullPath?: (path: string) => string };
+  return {
+    getPathIdentity: async (path) => {
+      const storedPath = await resolveStoredPathCasing(adapter, normalizePath(path));
+      const physicalPath = typeof desktopAdapter.getFullPath === 'function'
+        ? desktopAdapter.getFullPath(storedPath)
+        : storedPath;
+      return `${identity}:${physicalPath}`;
+    },
+    exists: (path) => adapter.exists(normalizePath(path)),
+    readBinary: (path) => adapter.readBinary(normalizePath(path)),
+    mkdir: (path) => adapter.mkdir(normalizePath(path)),
+    writeBinary: (path, bytes) => adapter.writeBinary(normalizePath(path), bytes),
+    rename: (from, to) => adapter.rename(normalizePath(from), normalizePath(to)),
+    removeDirectory: (path) => adapter.rmdir(normalizePath(path), true),
+  };
+}
+
+async function resolveStoredPathCasing(adapter: DataAdapter, path: string): Promise<string> {
+  if (await adapter.exists(path, true)) return path;
+
+  const resolved: string[] = [];
+  const segments = path.split('/');
+  for (const segment of segments) {
+    const candidate = [...resolved, segment].join('/');
+    if (await adapter.exists(candidate, true)) {
+      resolved.push(segment);
+      continue;
+    }
+
+    const parent = resolved.join('/');
+    try {
+      const listed = await adapter.list(parent);
+      const matches = [...listed.files, ...listed.folders]
+        .map((entry) => normalizePath(entry).split('/').pop() as string)
+        .filter((entry) => entry.toLowerCase() === segment.toLowerCase());
+      resolved.push(matches.length === 1 ? matches[0] : segment);
+    } catch (error) {
+      throw new Error(
+        `Failed to resolve stored casing for "${path}" under "${parent || '<vault root>'}": ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+  return resolved.join('/');
+}
+
+function waitForDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const onAbort = (): void => {
+      window.clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+const defaultDependencies: MineruPdfBackendDependencies = {
+  isMobile: () => Platform.isMobile,
+  createCache: (ctx) => createPdfCache(ctx.app),
+  createArtifactStore: (ctx) => new MineruArtifactStore(
+    createMineruArtifactAdapter(ctx.app.vault.adapter),
+    { subtle: requireSubtle(ctx.subtle) },
+  ),
+  createClient: ({ apiToken, timeoutMs }) => new MineruClient({
+    apiToken,
+    timeoutMs,
+    fetchFn: obsidianFetchBridge as unknown as typeof fetch,
+    sleep: waitForDelay,
+    now: () => Date.now(),
+  }),
+  extractArchive: extractMineruArchive,
+  now: () => new Date(),
+};
+
+function requireSubtle(subtle: SubtleCrypto | undefined): SubtleCrypto {
+  if (!subtle) throw new Error('MinerU PDF conversion requires SubtleCrypto.');
+  return subtle;
+}
+
+export const mineruPdfBackend = createMineruPdfBackend(defaultDependencies);

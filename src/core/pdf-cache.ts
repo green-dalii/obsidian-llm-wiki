@@ -82,6 +82,11 @@ export async function hashCacheKey(key: string, subtle?: SubtleCrypto): Promise<
   return bytesToHex(new Uint8Array(digest)).slice(0, 16);
 }
 
+/** Stable logical identity for MinerU's fixed v1 conversion contract. */
+export function buildMineruCacheKey(sourceSha256: string): string {
+  return `${sourceSha256}:mineru:vlm:mineru-v1:formula=true:table=true`;
+}
+
 /**
  * Returns the hex-encoded sha256 of the given bytes. The caller must
  * inject `SubtleCrypto` (from `activeWindow.crypto.subtle` in production).

@@ -1,6 +1,7 @@
 /** PDF conversion public entry point and backend router. */
 
 import { nativeLlmPdfBackend } from './pdf-backends/native-llm-pdf-backend';
+import { mineruPdfBackend } from './pdf-backends/mineru-pdf-backend';
 import type {
   PdfBackendContext,
   PdfConversionBackend,
@@ -42,9 +43,7 @@ export function selectPdfBackend(
 
 const PDF_BACKENDS: Record<PdfConversionBackendId, PdfConversionBackend> = {
   native: nativeLlmPdfBackend,
-  mineru: {
-    convert: () => Promise.reject(new Error('MinerU PDF conversion backend is not implemented yet.')),
-  },
+  mineru: mineruPdfBackend,
 };
 
 export function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<ConversionResult> {

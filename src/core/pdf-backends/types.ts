@@ -46,6 +46,17 @@ export interface PdfConversionBackend {
   convert(ctx: PdfBackendContext): Promise<PdfConversionResult>;
 }
 
+export type MineruConfigurationReason = 'missing-token' | 'desktop-only';
+
+export class MineruConfigurationError extends Error {
+  constructor(public readonly reason: MineruConfigurationReason) {
+    super(reason === 'desktop-only'
+      ? 'MinerU PDF conversion is available only on desktop.'
+      : 'A MinerU API Token is required.');
+    this.name = 'MineruConfigurationError';
+  }
+}
+
 export interface MineruArtifactManifestImage {
   path: string;
   bytes: number;

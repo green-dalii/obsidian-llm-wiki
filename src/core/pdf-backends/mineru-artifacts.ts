@@ -92,7 +92,7 @@ export class MineruArtifactStore {
     return this.inspectDirectory(getMineruArtifactDir(normalizedSourcePath), normalizedSourcePath);
   }
 
-  async publish(input: MineruArtifactPublishInput): Promise<void> {
+  async publish(input: MineruArtifactPublishInput, signal?: AbortSignal): Promise<void> {
     let prepared: PreparedArtifact;
     try {
       prepared = await this.preparePublish(input);
@@ -106,8 +106,9 @@ export class MineruArtifactStore {
     const finalDirectory = getMineruArtifactDir(prepared.sourcePath);
     const finalIdentity = await this.adapter.getPathIdentity(finalDirectory);
     await withArtifactPathLocks([finalIdentity], async () => {
+      throwIfAborted(signal);
       const existing = await this.inspect(prepared.sourcePath);
-      if (existing.kind === 'managed-invalid' || existing.kind === 'unowned-conflict') {
+      if (existing.kind === 'unowned-conflict') {
         throw new MineruArtifactConflictError(
           `Refusing to replace ${finalDirectory}: existing content is not a valid managed artifact.`
         );
@@ -117,12 +118,12 @@ export class MineruArtifactStore {
       const paths: TransactionPaths = {
         finalDirectory,
         tempDirectory: getMineruTempDir(prepared.sourcePath, operationId),
-        backupDirectory: existing.kind === 'valid'
+        backupDirectory: existing.kind !== 'missing'
           ? getMineruTempDir(prepared.sourcePath, `${operationId}-backup`)
           : undefined,
       };
       await this.assertTransactionPathsFree(paths);
-      await this.commitPreparedArtifact(prepared, paths);
+      await this.commitPreparedArtifact(prepared, paths, signal);
     });
   }
 
@@ -170,7 +171,7 @@ export class MineruArtifactStore {
         backupDirectory: getMineruTempDir(oldSourcePath, `${operationId}-backup`),
       };
       await this.assertTransactionPathsFree(paths);
-      await this.commitPreparedArtifact(prepared, paths, oldDirectory);
+      await this.commitPreparedArtifact(prepared, paths, undefined, oldDirectory);
     });
   }
 
@@ -259,20 +260,25 @@ export class MineruArtifactStore {
   private async commitPreparedArtifact(
     prepared: PreparedArtifact,
     paths: TransactionPaths,
-    sourceDirectory = paths.finalDirectory
+    signal?: AbortSignal,
+    sourceDirectory = paths.finalDirectory,
   ): Promise<void> {
     let sourceBackedUp = false;
     try {
+      throwIfAborted(signal);
       await this.writePreparedDirectory(paths.tempDirectory, prepared);
+      throwIfAborted(signal);
       const staged = await this.inspectDirectory(paths.tempDirectory, prepared.sourcePath);
       if (staged.kind !== 'valid') {
         const reason = staged.kind === 'managed-invalid' ? staged.reason : staged.kind;
         throw new Error(`Staged MinerU artifact failed validation: ${reason}`);
       }
+      throwIfAborted(signal);
       if (paths.backupDirectory) {
         await this.adapter.rename(sourceDirectory, paths.backupDirectory);
         sourceBackedUp = true;
       }
+      throwIfAborted(signal);
       await this.adapter.rename(paths.tempDirectory, paths.finalDirectory);
     } catch (error) {
       const cleanupErrors: string[] = [];
@@ -297,6 +303,7 @@ export class MineruArtifactStore {
           cleanupErrors.push(errorMessage(removeError));
         }
       }
+      if (cleanupErrors.length === 0 && isAbortError(error)) throw error;
       throw new MineruArtifactWriteError(
         `Failed to publish MinerU artifacts: ${errorMessage(error)}`,
         { cause: error, cleanupErrors }
@@ -340,6 +347,15 @@ export class MineruArtifactStore {
       toArrayBuffer(manifestBytes)
     );
   }
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+    || error instanceof Error && error.name === 'AbortError';
 }
 
 function parseManifest(json: string, expectedSourcePath: string): MineruArtifactManifest {

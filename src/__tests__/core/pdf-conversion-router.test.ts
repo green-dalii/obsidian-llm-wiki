@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { convertPdfToMarkdownWithBackends } from '../../core/pdf-converter';
+import {
+  convertPdfToMarkdown,
+  convertPdfToMarkdownWithBackends,
+} from '../../core/pdf-converter';
 import { nativeLlmPdfBackend } from '../../core/pdf-backends/native-llm-pdf-backend';
+import { MineruConfigurationError } from '../../core/pdf-backends/mineru-pdf-backend';
 import type {
   PdfBackendContext,
   PdfConversionBackend,
@@ -31,6 +35,11 @@ function makeContext(pdfConversionBackend: unknown): PdfBackendContext {
 describe('convertPdfToMarkdownWithBackends', () => {
   it('exposes the extracted native backend through the backend module boundary', () => {
     expect(typeof nativeLlmPdfBackend.convert).toBe('function');
+  });
+
+  it('registers the concrete MinerU backend in the public router', async () => {
+    await expect(convertPdfToMarkdown(makeContext('mineru')))
+      .rejects.toBeInstanceOf(MineruConfigurationError);
   });
 
   it('routes an explicit native setting through the native backend', async () => {
