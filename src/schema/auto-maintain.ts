@@ -1,7 +1,7 @@
 import { NOTICE_SHORT, NOTICE_WATCHER } from '../constants';
 // Auto Maintain Manager - File watcher, periodic lint, startup quick fixes
 
-import { App, TAbstractFile, TFile, Notice, Plugin } from 'obsidian';
+import { App, TAbstractFile, TFile, TFolder, Notice, Plugin } from 'obsidian';
 import { LLMWikiSettings } from '../types';
 import { WikiEngine } from '../wiki/wiki-engine';
 import { TEXTS } from '../texts';
@@ -14,6 +14,8 @@ import { resolveModelForTask } from '../core/model-resolver';
 import { isLocalNoKeyProvider } from '../core/local-no-key-provider';
 import { resolveProviderApiKey } from '../llm-sdk/provider-api-key-resolver';
 import type { LLMClient } from '../types';
+import { isMineruArtifactPath } from '../core/pdf-backends/mineru-paths';
+import { MineruArtifactConflictError } from '../core/pdf-backends/mineru-artifacts';
 
 export class AutoMaintainManager {
   private app: App;
@@ -35,6 +37,7 @@ export class AutoMaintainManager {
 
   // Whether watchers are currently active
   private watching = false;
+  private lifecycleRegistered = false;
   private lintScheduled = false;
 
   constructor(
@@ -42,7 +45,8 @@ export class AutoMaintainManager {
     settings: LLMWikiSettings,
     wikiEngine: WikiEngine,
     plugin: Plugin,
-    lintCallback?: () => Promise<void>
+    lintCallback?: () => Promise<void>,
+    private readonly moveForPdfRename?: (oldPath: string, newPath: string) => Promise<void>,
   ) {
     this.app = app;
     this.settings = settings;
@@ -61,9 +65,17 @@ export class AutoMaintainManager {
   // workspace.onLayoutReady prevents startup noise from existing files.
   startWatching(): void {
     if (this.watching) return;
+    this.watching = true;
+
+    if (this.lifecycleRegistered) {
+      if (this.settings.autoWatchSources) {
+        new Notice(TEXTS[this.settings.language].watcherActiveNotice, NOTICE_WATCHER);
+      }
+      return;
+    }
 
     this.app.workspace.onLayoutReady(() => {
-      if (this.watching) return;
+      if (this.lifecycleRegistered) return;
 
       this.plugin.registerEvent(
         this.app.vault.on('create', (file: TAbstractFile) => {
@@ -71,8 +83,8 @@ export class AutoMaintainManager {
         })
       );
       this.plugin.registerEvent(
-        this.app.vault.on('rename', (file: TAbstractFile, _oldPath: string) => {
-          this.onFileChanged(file);
+        this.app.vault.on('rename', (file: TAbstractFile, oldPath: string) => {
+          void this.onFileRenamed(file, oldPath);
         })
       );
       this.plugin.registerEvent(
@@ -86,10 +98,12 @@ export class AutoMaintainManager {
         }) as unknown as () => void)
       );
 
-      this.watching = true;
+      this.lifecycleRegistered = true;
       console.debug('AutoMaintain: File watcher started (create+rename+modify+resolved)');
-      const texts = TEXTS[this.settings.language];
-      new Notice(texts.watcherActiveNotice, NOTICE_WATCHER);
+      if (this.settings.autoWatchSources) {
+        const texts = TEXTS[this.settings.language];
+        new Notice(texts.watcherActiveNotice, NOTICE_WATCHER);
+      }
     });
   }
 
@@ -121,6 +135,8 @@ export class AutoMaintainManager {
     console.debug(`[AutoMaintain] event: ${file.path}, TFile: ${file instanceof TFile}`);
 
     if (!(file instanceof TFile)) return;
+    if (!this.watching || !this.settings.autoWatchSources) return;
+    if (isMineruArtifactPath(file.path)) return;
     if (!file.path.endsWith('.md')) return;
 
     if (!this.isWatched(file.path)) {
@@ -176,6 +192,52 @@ export class AutoMaintainManager {
     }
   }
 
+  private async onFileRenamed(file: TAbstractFile, oldPath: string): Promise<void> {
+    if (file instanceof TFolder) {
+      const newPrefix = `${file.path}/`;
+      for (const pdf of this.collectPdfChildren(file)) {
+        if (!pdf.path.startsWith(newPrefix)) continue;
+        const relativePath = pdf.path.slice(newPrefix.length);
+        await this.movePdfArtifact(`${oldPath}/${relativePath}`, pdf);
+      }
+    } else if (file instanceof TFile) {
+      await this.movePdfArtifact(oldPath, file);
+    }
+    this.onFileChanged(file);
+  }
+
+  private collectPdfChildren(folder: TFolder): TFile[] {
+    const pdfs: TFile[] = [];
+    for (const child of folder.children) {
+      if (child instanceof TFolder) {
+        pdfs.push(...this.collectPdfChildren(child));
+      } else if (child instanceof TFile && child.extension.toLowerCase() === 'pdf') {
+        pdfs.push(child);
+      }
+    }
+    return pdfs;
+  }
+
+  private async movePdfArtifact(oldPath: string, file: TFile): Promise<void> {
+    if (
+      file.extension.toLowerCase() !== 'pdf'
+      || !oldPath.toLowerCase().endsWith('.pdf')
+      || !this.moveForPdfRename
+    ) return;
+    try {
+      await this.moveForPdfRename(oldPath, file.path);
+    } catch (error) {
+      if (error instanceof MineruArtifactConflictError) {
+        new Notice(
+          TEXTS[this.settings.language].mineruArtifactConflict
+            .replace('{filename}', file.name),
+        );
+      } else {
+        console.error(`Failed to move MinerU artifacts for ${oldPath} → ${file.path}:`, error);
+      }
+    }
+  }
+
   markRecentWrite(path: string): void {
     this.recentWrites.add(path);
     // Auto-expire after 120 seconds (covers slow LLM responses)
@@ -199,9 +261,10 @@ export class AutoMaintainManager {
     const files = Array.from(this.pendingFiles.values());
     this.pendingFiles.clear();
 
+    if (!this.settings.autoWatchSources) return;
     if (files.length === 0) return;
 
-    const sourceFiles = files.filter(f => this.isWatched(f.path));
+    const sourceFiles = files.filter(f => this.isWatched(f.path) && !isMineruArtifactPath(f.path));
     if (sourceFiles.length === 0) return;
 
     const texts = TEXTS[this.settings.language];

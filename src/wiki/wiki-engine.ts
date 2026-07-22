@@ -40,6 +40,7 @@ import {
   MineruArtifactConflictError,
   MineruArtifactWriteError,
 } from '../core/pdf-backends/mineru-artifacts';
+import { isMineruArtifactPath } from '../core/pdf-backends/mineru-paths';
 import {
   MineruConfigurationError,
   type PdfBackendProgress,
@@ -156,7 +157,8 @@ type IngestNoticeTextKey = MineruErrorTextKey
   | 'sourceRejectedEmpty'
   | 'sourceRejectedType'
   | 'sourceRejectedDuplicate'
-  | 'sourceRejectedPdfUnsupported';
+  | 'sourceRejectedPdfUnsupported'
+  | 'sourceRejectedManagedArtifact';
 
 // v1.25.1 Phase C-PR1: setsEqual moved to engine-internals/graph-cache.ts
 // (private to GraphCache). Removed from wiki-engine.ts to avoid duplicate export;
@@ -576,10 +578,11 @@ export class WikiEngine {
    * mapping, users would see the generic "empty content" Notice for a PDF
    * their provider can't handle — the dedicated i18n key would be orphaned.
    */
-  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' | 'sourceRejectedPdfUnsupported' {
+  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' | 'sourceRejectedPdfUnsupported' | 'sourceRejectedManagedArtifact' {
     if (reason === 'incompatible-type') return 'sourceRejectedType';
     if (reason === 'duplicate') return 'sourceRejectedDuplicate';
     if (reason === 'unsupported-pdf') return 'sourceRejectedPdfUnsupported';
+    if (reason === 'managed-artifact') return 'sourceRejectedManagedArtifact';
     return 'sourceRejectedEmpty';
   }
 
@@ -915,6 +918,11 @@ export class WikiEngine {
     console.debug('Source file:', file.path);
     if (opts?.contentOverride !== undefined) {
       console.debug('Content override length:', opts.contentOverride.length);
+    }
+
+    if (isMineruArtifactPath(file.path)) {
+      this.reportSkip(file, { reason: 'managed-artifact' }, opts);
+      return;
     }
 
     // v1.25.0 PR3 follow-up #7 + #8 (Bug C + D, e2e 2026-07-17): cancellation

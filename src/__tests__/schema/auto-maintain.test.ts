@@ -23,6 +23,7 @@ function watchedFile(path: string): TFile {
 function makeManager(ingestSource: IngestFn, createBatchContext: BatchCtxFn) {
   const settings = {
     language: 'en',
+    autoWatchSources: true,
     autoWatchMode: 'auto',
     autoWatchDebounceMs: 0,
     watchedFolders: ['inbox'],
@@ -36,6 +37,20 @@ function makeManager(ingestSource: IngestFn, createBatchContext: BatchCtxFn) {
 }
 
 describe('AutoMaintainManager.processBatch — watcher batch context (#164 review)', () => {
+  it('removes managed MinerU paths from a pre-seeded watched-folder scan', async () => {
+    const createBatchContext = vi.fn<BatchCtxFn>(() => ({ seen: new Set(), ingested: new Set() }));
+    const ingestSource = vi.fn<IngestFn>(async () => undefined);
+    const mgr = makeManager(ingestSource, createBatchContext);
+    const priv = mgr as unknown as PrivateManager;
+    priv.pendingFiles.set('inbox/paper.mineru/document.md', watchedFile('inbox/paper.mineru/document.md'));
+    priv.pendingFiles.set('inbox/ordinary.md', watchedFile('inbox/ordinary.md'));
+
+    await priv.processBatch();
+
+    expect(ingestSource).toHaveBeenCalledOnce();
+    expect(ingestSource.mock.calls[0][0].path).toBe('inbox/ordinary.md');
+  });
+
   it('creates ONE shared batch context and passes it to every ingestSource call', async () => {
     // The bug: the watcher loop called ingestSource(file) with no batch context,
     // so within-batch dedup never ran and buildIngestedHashes re-walked the vault

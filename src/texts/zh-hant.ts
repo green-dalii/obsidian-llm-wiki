@@ -664,6 +664,7 @@ export const ZH_HANT_TEXTS = {
     mineruArtifactWriteFailed: '「{filename}」：無法將 MinerU 結果儲存至 Vault。請檢查檔案權限與剩餘空間，然後重試。',
     mineruCancelled: '「{filename}」：MinerU PDF 轉換已取消。',
     sourceRejectedPdfUnsupported: '⏭️ 「{filename}」已跳過——目前的 provider 或模型不支援 PDF 輸入。可在 Settings → LLM Configuration → Advanced 切換 provider，或開啟「強制啟用 PDF 支援」再試一次。',
+    sourceRejectedManagedArtifact: '「{filename}」位於由 MinerU 管理的輸出資料夾中，無法直接匯入。請改為選擇原始 PDF。',
     clearPdfCacheCommand: '清除 PDF 轉換快取',
     pdfCacheCleared: 'PDF 快取已清除（{count} 個條目已移除）。',
     pdfConversionSection: 'PDF 轉換',

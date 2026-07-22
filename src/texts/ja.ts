@@ -664,6 +664,7 @@ export const JA_TEXTS = {
     mineruArtifactWriteFailed: '「{filename}」: MinerU の結果を Vault に保存できませんでした。ファイル権限と空き容量を確認して、もう一度お試しください。',
     mineruCancelled: '「{filename}」: MinerU の PDF 変換をキャンセルしました。',
     sourceRejectedPdfUnsupported: '⏭️ 「{filename}」をスキップしました — 現在の provider またはモデルは PDF 入力に対応していません。Settings → LLM Configuration → Advanced で provider を切り替えるか、「PDF サポートを強制」をオンにして再試行してください。',
+    sourceRejectedManagedArtifact: '「{filename}」は MinerU が管理する出力フォルダー内にあるため、直接取り込めません。元の PDF を選択してください。',
     clearPdfCacheCommand: 'PDF 変換キャッシュをクリア',
     pdfCacheCleared: 'PDF キャッシュをクリアしました（{count} 件のエントリを削除）。',
     pdfConversionSection: 'PDF 変換',

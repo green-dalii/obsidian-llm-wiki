@@ -1,4 +1,4 @@
-import { normalizePath, Platform, type DataAdapter } from 'obsidian';
+import { normalizePath, Platform, type App, type DataAdapter } from 'obsidian';
 import { obsidianFetchBridge } from '../obsidian-fetch-bridge';
 import {
   buildMineruCacheKey,
@@ -203,6 +203,16 @@ export function createMineruArtifactAdapter(adapter: DataAdapter): MineruArtifac
   };
 }
 
+export function createMineruArtifactStore(
+  app: App,
+  subtle: SubtleCrypto | undefined,
+): MineruArtifactStore {
+  return new MineruArtifactStore(
+    createMineruArtifactAdapter(app.vault.adapter),
+    { subtle: requireSubtle(subtle) },
+  );
+}
+
 async function resolveStoredPathCasing(adapter: DataAdapter, path: string): Promise<string> {
   if (await adapter.exists(path, true)) return path;
 
@@ -254,10 +264,7 @@ function waitForDelay(ms: number, signal?: AbortSignal): Promise<void> {
 const defaultDependencies: MineruPdfBackendDependencies = {
   isMobile: () => Platform.isMobile,
   createCache: (ctx) => createPdfCache(ctx.app),
-  createArtifactStore: (ctx) => new MineruArtifactStore(
-    createMineruArtifactAdapter(ctx.app.vault.adapter),
-    { subtle: requireSubtle(ctx.subtle) },
-  ),
+  createArtifactStore: (ctx) => createMineruArtifactStore(ctx.app, ctx.subtle),
   createClient: ({ apiToken, timeoutMs }) => new MineruClient({
     apiToken,
     timeoutMs,

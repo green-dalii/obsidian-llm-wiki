@@ -24,6 +24,7 @@ import { buildFolderTree, type TreeNode } from '../../core/build-folder-tree';
 import type { IngestQueue } from '../../core/ingest-queue';
 import { COMPATIBLE_SOURCE_EXTENSIONS } from '../../constants';
 import { isExcludedFromSourcePicker } from '../../core/folder-scope';
+import { isMineruArtifactPath } from '../../core/pdf-backends/mineru-paths';
 
 export class MultiFileSuggestModal extends Modal {
   /** The shared ingest queue. Modal reads + subscribes; never owns
@@ -101,6 +102,7 @@ export class MultiFileSuggestModal extends Modal {
     const available = this.app.vault.getFiles()
       .filter(f => !isExcludedFromSourcePicker(f.path, this.wikiFolder, this.app.vault.configDir))
       .filter(f => compatibleExts.includes(f.extension.toLowerCase()))
+      .filter(f => !isMineruArtifactPath(f.path))
       .sort((a, b) => a.path.localeCompare(b.path));
     this.treeRoots = buildFolderTree(available);
 
@@ -150,20 +152,7 @@ export class MultiFileSuggestModal extends Modal {
       cls: 'mod-cta',
     });
     this.confirmBtn.addEventListener('click', () => {
-      // Collect every checked file and enqueue them. enqueue is
-      // idempotent against in-flight jobs, so re-clicking the
-      // button is harmless.
-      const checkedFiles = this.collectCheckedFiles();
-      if (checkedFiles.length === 0) return;
-      const newIds = this.ingestQueue.enqueue(checkedFiles);
-      if (newIds.length > 0 && this.onStartIngest) {
-        // Pass both the newly-issued ids and the corresponding
-        // files. The worker uses the ids to publish start/
-        // complete transitions on each job — without ids, it
-        // would have no way to update the queue (enqueue is
-        // idempotent and the second call would return no ids).
-        this.onStartIngest(newIds, checkedFiles);
-      }
+      this.enqueueCheckedFiles();
       // The modal stays open — the user can watch the right pane
       // for live progress, or close it (the ingest continues in
       // the background).
@@ -506,6 +495,15 @@ export class MultiFileSuggestModal extends Modal {
   }
 
   // ── "Add to queue" button support ───────────────────────────
+
+  private enqueueCheckedFiles(): void {
+    const newJobs = this.ingestQueue.enqueueJobs(this.collectCheckedFiles());
+    if (newJobs.length === 0 || !this.onStartIngest) return;
+    this.onStartIngest(
+      newJobs.map(job => job.id),
+      newJobs.map(job => job.file),
+    );
+  }
 
   /**
    * Collect every file whose left-pane checkbox is currently

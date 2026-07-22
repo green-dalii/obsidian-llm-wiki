@@ -8,6 +8,7 @@
 import { App, TFile, TFolder, FuzzySuggestModal } from 'obsidian';
 import { COMPATIBLE_SOURCE_EXTENSIONS } from '../../constants';
 import { isExcludedFromSourcePicker } from '../../core/folder-scope';
+import { isMineruArtifactPath } from '../../core/pdf-backends/mineru-paths';
 
 const isCompatibleSource = (f: TFile): boolean =>
   (COMPATIBLE_SOURCE_EXTENSIONS as readonly string[]).includes(f.extension.toLowerCase());
@@ -31,6 +32,7 @@ export class FileSuggestModal extends FuzzySuggestModal<TFile> {
     // shape are all hidden together.
     return this.app.vault.getFiles()
       .filter(f => isCompatibleSource(f))
+      .filter(f => !isMineruArtifactPath(f.path))
       .filter(f => !isExcludedFromSourcePicker(f.path, this.wikiFolder, this.app.vault.configDir));
   }
 

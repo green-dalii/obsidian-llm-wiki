@@ -672,6 +672,7 @@ export const ZH_TEXTS = {
     mineruArtifactWriteFailed: '「{filename}」：无法将 MinerU 结果保存到 Vault。请检查文件权限和剩余空间，然后重试。',
     mineruCancelled: '「{filename}」：MinerU PDF 转换已取消。',
     sourceRejectedPdfUnsupported: '⏭️ 「{filename}」已跳过——当前 provider 或模型不支持 PDF 输入。可在 Settings → LLM Configuration → Advanced 中切换 provider，或打开「强制启用 PDF 支持」再试一次。',
+    sourceRejectedManagedArtifact: '「{filename}」位于由 MinerU 管理的输出文件夹中，不能直接导入。请选择原始 PDF。',
     clearPdfCacheCommand: '清除 PDF 转换缓存',
     pdfCacheCleared: 'PDF 缓存已清除（{count} 个条目已移除）。',
     pdfConversionSection: 'PDF 转换',

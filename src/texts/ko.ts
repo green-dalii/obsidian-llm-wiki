@@ -491,6 +491,7 @@ export const KO_TEXTS = {
     mineruArtifactWriteFailed: '「{filename}」: MinerU 결과를 Vault에 저장하지 못했습니다. 파일 권한과 여유 공간을 확인한 뒤 다시 시도하세요.',
     mineruCancelled: '「{filename}」: MinerU PDF 변환이 취소되었습니다.',
     sourceRejectedPdfUnsupported: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 현재 provider 또는 모델이 PDF 입력을 지원하지 않습니다. Settings → LLM Configuration → Advanced에서 provider를 변경하거나 「PDF 지원 강제」를 켜고 다시 시도하세요.',
+    sourceRejectedManagedArtifact: '「{filename}」은(는) MinerU가 관리하는 출력 폴더 안에 있어 직접 수집할 수 없습니다. 원본 PDF를 선택하세요.',
     clearPdfCacheCommand: 'PDF 변환 캐시 지우기',
     pdfCacheCleared: 'PDF 캐시를 지웠습니다({count}개 항목 제거됨).',
     pdfConversionSection: 'PDF 변환',

@@ -138,25 +138,36 @@ export class MineruArtifactStore {
     ]);
     const samePhysicalDirectory = oldIdentity === newIdentity;
     await withArtifactPathLocks([oldIdentity, newIdentity], async () => {
-      const existing = await this.inspect(oldSourcePath);
-      if (existing.kind === 'missing') return;
+      let existing = await this.inspect(oldSourcePath);
+      let sourceDirectory = oldDirectory;
+      let backupSourcePath = oldSourcePath;
+      if (existing.kind === 'missing') {
+        existing = await this.inspectDirectory(newDirectory, oldSourcePath);
+        if (existing.kind === 'missing') return;
+        sourceDirectory = newDirectory;
+        backupSourcePath = newSourcePath;
+      }
       if (existing.kind !== 'valid') {
         throw new MineruArtifactConflictError(
-          `Refusing to move ${oldDirectory}: source is not a valid managed artifact.`
+          `Refusing to move ${sourceDirectory}: source is not a valid managed artifact.`
         );
       }
-      if (!samePhysicalDirectory && await this.adapter.exists(newDirectory)) {
+      if (
+        sourceDirectory !== newDirectory
+        && !samePhysicalDirectory
+        && await this.adapter.exists(newDirectory)
+      ) {
         throw new MineruArtifactConflictError(
           `Refusing to move MinerU artifacts: destination ${newDirectory} already exists.`
         );
       }
 
       const markdownBytes = new Uint8Array(await this.adapter.readBinary(
-        `${oldDirectory}/${MARKDOWN_FILENAME}`
+        `${sourceDirectory}/${MARKDOWN_FILENAME}`
       ));
       const images = await Promise.all(existing.manifest.images.map(async (image) => ({
         path: image.path,
-        bytes: new Uint8Array(await this.adapter.readBinary(`${oldDirectory}/${image.path}`)),
+        bytes: new Uint8Array(await this.adapter.readBinary(`${sourceDirectory}/${image.path}`)),
       })));
       const prepared: PreparedArtifact = {
         sourcePath: newSourcePath,
@@ -168,10 +179,10 @@ export class MineruArtifactStore {
       const paths: TransactionPaths = {
         finalDirectory: newDirectory,
         tempDirectory: getMineruTempDir(newSourcePath, operationId),
-        backupDirectory: getMineruTempDir(oldSourcePath, `${operationId}-backup`),
+        backupDirectory: getMineruTempDir(backupSourcePath, `${operationId}-backup`),
       };
       await this.assertTransactionPathsFree(paths);
-      await this.commitPreparedArtifact(prepared, paths, undefined, oldDirectory);
+      await this.commitPreparedArtifact(prepared, paths, undefined, sourceDirectory);
     });
   }
 

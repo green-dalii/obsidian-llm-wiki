@@ -28,6 +28,7 @@
 // complete without coordinating with the UI layer.
 
 import type { TFile } from 'obsidian';
+import { isMineruArtifactPath } from './pdf-backends/mineru-paths';
 
 export type IngestJobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
@@ -122,7 +123,12 @@ export class IngestQueue {
    * Notifies subscribers iff at least one new job was created.
    */
   enqueue(files: TFile[]): string[] {
-    const newIds: string[] = [];
+    return this.enqueueJobs(files).map(job => job.id);
+  }
+
+  /** Add files and return the exact jobs that were accepted. */
+  enqueueJobs(files: TFile[]): IngestJob[] {
+    const newJobs: IngestJob[] = [];
     const inflightPaths = new Set(
       this.jobs
         .filter(j => j.status === 'pending' || j.status === 'running')
@@ -131,21 +137,23 @@ export class IngestQueue {
     const seenInThisCall = new Set<string>();
     const now = Date.now();
     for (const file of files) {
+      if (isMineruArtifactPath(file.path)) continue;
       if (seenInThisCall.has(file.path)) continue;
       seenInThisCall.add(file.path);
       if (inflightPaths.has(file.path)) continue;
       const id = this.mintId();
-      this.jobs.push({
+      const job: IngestJob = {
         id,
         file,
         status: 'pending',
         addedAt: now,
         abortController: new AbortController(),
-      });
-      newIds.push(id);
+      };
+      this.jobs.push(job);
+      newJobs.push(job);
     }
-    if (newIds.length > 0) this.notify();
-    return newIds;
+    if (newJobs.length > 0) this.notify();
+    return newJobs.map(job => ({ ...job }));
   }
 
   /**

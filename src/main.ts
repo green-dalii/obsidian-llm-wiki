@@ -62,6 +62,7 @@ import { codexAuthCommands } from './main-commands/codex-auth-commands';
 import type { CodexAuthCommandsMethods } from './main-commands/codex-auth-commands';
 import { secretStorageCommands } from './main-commands/secret-storage-commands';
 import type { SecretStorageCommandsMethods } from './main-commands/secret-storage-commands';
+import { createMineruArtifactStore } from './core/pdf-backends/mineru-pdf-backend';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- C-PR3: intentional interface+class merge for mixin pattern
 export class LLMWikiPlugin extends Plugin {
@@ -94,6 +95,7 @@ export class LLMWikiPlugin extends Plugin {
       () => this.llmClient
     );
 
+    const subtle = (typeof activeWindow !== 'undefined' ? activeWindow.crypto : undefined)?.subtle;
     this.wikiEngine = new WikiEngine(
       this.app,
       this.settings,
@@ -112,7 +114,7 @@ export class LLMWikiPlugin extends Plugin {
         this.showProgressFor(ProgressScope.IngestAutoWatch, msg);
       },
       (report: IngestReport) => this.onIngestDoneDispatch(report),
-      (typeof activeWindow !== 'undefined' ? activeWindow.crypto : undefined)?.subtle
+      subtle
     );
 
     // #164: when an interactive ingest hits a duplicate, ask the user whether to
@@ -128,19 +130,22 @@ export class LLMWikiPlugin extends Plugin {
       }).open();
     });
 
+    let mineruArtifactStore: ReturnType<typeof createMineruArtifactStore> | undefined;
     this.autoMaintainManager = new AutoMaintainManager(
       this.app,
       this.settings,
       this.wikiEngine,
       this,
-      () => this.lintWiki('auto')
+      () => this.lintWiki('auto'),
+      (oldPath, newPath) => {
+        mineruArtifactStore ??= createMineruArtifactStore(this.app, subtle);
+        return mineruArtifactStore.moveForPdfRename(oldPath, newPath);
+      },
     );
 
     void this.performPdfCacheHousekeeping();
 
-    if (this.settings.autoWatchSources) {
-      this.autoMaintainManager.startWatching();
-    }
+    this.autoMaintainManager.startWatching();
     this.autoMaintainManager.schedulePeriodicLint();
     void this.autoMaintainManager.runStartupCheck();
 

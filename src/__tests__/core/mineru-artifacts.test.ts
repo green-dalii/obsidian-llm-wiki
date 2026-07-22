@@ -20,6 +20,8 @@ const OLD_PDF_PATH = 'papers/original.pdf';
 const OLD_DIR = 'papers/original.mineru';
 const NEW_PDF_PATH = 'papers/renamed.pdf';
 const NEW_DIR = 'papers/renamed.mineru';
+const MOVED_PARENT_PDF_PATH = 'archive/original.pdf';
+const MOVED_PARENT_DIR = 'archive/original.mineru';
 const SAME_DIR_NEW_PDF_PATH = 'papers/original.docx';
 const CASE_ONLY_NEW_PDF_PATH = 'papers/Original.pdf';
 const CASE_ONLY_NEW_DIR = 'papers/Original.mineru';
@@ -743,6 +745,68 @@ describe('MineruArtifactStore.publish', () => {
 });
 
 describe('MineruArtifactStore.moveForPdfRename', () => {
+  it('rewrites the manifest when a parent-folder rename already moved the artifact directory', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    const oldManifest = await seedManagedArtifact(adapter);
+    const oldTree = adapter.snapshotTree(OLD_DIR);
+    await adapter.rename('papers', 'archive');
+    adapter.operations.length = 0;
+
+    await makeStore(adapter, ['moved-parent'])
+      .moveForPdfRename(OLD_PDF_PATH, MOVED_PARENT_PDF_PATH);
+
+    const moved = await makeStore(adapter).inspect(MOVED_PARENT_PDF_PATH);
+    expect(moved.kind).toBe('valid');
+    if (moved.kind !== 'valid') throw new Error('expected moved parent artifact to be valid');
+    expect(moved.manifest).toEqual({ ...oldManifest, sourcePath: MOVED_PARENT_PDF_PATH });
+    expect(adapter.snapshotTree(MOVED_PARENT_DIR).files['document.md'])
+      .toEqual(oldTree.files['document.md']);
+    expect(adapter.snapshotTree(MOVED_PARENT_DIR).files['images/old.png'])
+      .toEqual(oldTree.files['images/old.png']);
+    expect(adapter.snapshotTree(OLD_DIR)).toEqual({ directories: [], files: {} });
+  });
+
+  it.each(['independent-managed', 'unowned'] as const)(
+    'refuses a moved-parent %s destination instead of overwriting it',
+    async (kind) => {
+      const adapter = new MemoryArtifactAdapter();
+      if (kind === 'independent-managed') {
+        await seedManagedArtifact(adapter, MOVED_PARENT_PDF_PATH);
+      } else {
+        adapter.seedFile(`${MOVED_PARENT_DIR}/user.txt`, encoder.encode('user-owned'));
+      }
+      const before = adapter.snapshotTree(MOVED_PARENT_DIR);
+
+      await expect(makeStore(adapter).moveForPdfRename(OLD_PDF_PATH, MOVED_PARENT_PDF_PATH))
+        .rejects.toBeInstanceOf(MineruArtifactConflictError);
+
+      expect(adapter.snapshotTree(MOVED_PARENT_DIR)).toEqual(before);
+      expect(adapter.mutationOperations()).toEqual([]);
+    },
+  );
+
+  it('keeps the already-moved artifact unchanged when its manifest rewrite fails', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    await seedManagedArtifact(adapter);
+    await adapter.rename('papers', 'archive');
+    const before = adapter.snapshotTree(MOVED_PARENT_DIR);
+    const temp = getMineruTempDir(MOVED_PARENT_PDF_PATH, 'moved-parent-failure');
+    adapter.operations.length = 0;
+    adapter.setFailureRules({
+      operation: `writeBinary:${temp}/${MANIFEST_NAME}`,
+      message: 'moved parent manifest failure',
+    });
+
+    const error = await captureWriteError(
+      makeStore(adapter, ['moved-parent-failure'])
+        .moveForPdfRename(OLD_PDF_PATH, MOVED_PARENT_PDF_PATH),
+    );
+
+    expect(error.message).toContain('moved parent manifest failure');
+    expect(adapter.snapshotTree(MOVED_PARENT_DIR)).toEqual(before);
+    expectNoTransactionPaths(adapter);
+  });
+
   it('treats a missing source artifact as a no-op', async () => {
     const adapter = new MemoryArtifactAdapter();
 

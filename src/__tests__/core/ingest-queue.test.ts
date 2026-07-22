@@ -42,6 +42,60 @@ describe('IngestQueue — initial state', () => {
 });
 
 describe('IngestQueue — enqueue', () => {
+  it('enqueueJobs returns only the exact newly-created jobs in input order', () => {
+    const q = new IngestQueue();
+    const pending = mkFile('pending.md');
+    q.enqueue([pending]);
+
+    const jobs = q.enqueueJobs([
+      mkFile('paper.mineru/document.md'),
+      mkFile('a.md'),
+      mkFile('a.md'),
+      pending,
+      mkFile('b.md'),
+    ]);
+
+    expect(jobs.map(job => job.file.path)).toEqual(['a.md', 'b.md']);
+    expect(jobs.map(job => job.id)).toEqual(
+      q.getSnapshot().slice(-2).map(job => job.id),
+    );
+  });
+
+  it('enqueueJobs returns an empty list when every candidate is filtered', () => {
+    const q = new IngestQueue();
+    const pending = mkFile('pending.md');
+    q.enqueue([pending]);
+
+    expect(q.enqueueJobs([
+      mkFile('paper.mineru/document.md'),
+      pending,
+      pending,
+    ])).toEqual([]);
+  });
+
+  it('enqueue remains backward-compatible by returning enqueueJobs ids', () => {
+    const q = new IngestQueue();
+    const jobs = q.enqueueJobs([mkFile('a.md'), mkFile('b.md')]);
+    const ids = q.enqueue([mkFile('c.md'), mkFile('d.md')]);
+
+    expect(jobs.map(job => job.file.path)).toEqual(['a.md', 'b.md']);
+    expect(ids).toEqual(q.getSnapshot().slice(-2).map(job => job.id));
+  });
+
+  it('rejects managed MinerU artifact paths but accepts lookalike names', () => {
+    const q = new IngestQueue();
+
+    q.enqueue([
+      mkFile('paper.mineru/document.md'),
+      mkFile('paper.mineru.tmp-op/images/a.png'),
+      mkFile('paper.mineru-not/document.md'),
+    ]);
+
+    expect(q.getSnapshot().map(job => job.file.path)).toEqual([
+      'paper.mineru-not/document.md',
+    ]);
+  });
+
   it('adds a pending job for each file and returns the new ids in order', () => {
     const q = new IngestQueue();
     const ids = q.enqueue([mkFile('a.md'), mkFile('b.md')]);

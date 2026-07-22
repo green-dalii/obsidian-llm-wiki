@@ -703,6 +703,7 @@ export const EN_TEXTS = {
     mineruArtifactWriteFailed: '"{filename}": The MinerU result could not be saved to your Vault. Check file permissions and free space, then try again.',
     mineruCancelled: '"{filename}": MinerU PDF conversion was cancelled.',
     sourceRejectedPdfUnsupported: '⏭️ "{filename}" skipped — your current provider or model doesn\'t accept PDF input. Switch provider, or open Settings → LLM Configuration → Advanced and turn on "Force PDF support" to try anyway.',
+    sourceRejectedManagedArtifact: '"{filename}" is inside a managed MinerU output folder and cannot be ingested directly. Select the original PDF instead.',
     clearPdfCacheCommand: 'Clear PDF conversion cache',
     pdfCacheCleared: 'PDF cache cleared ({count} entries removed).',
     pdfConversionSection: 'PDF Conversion',

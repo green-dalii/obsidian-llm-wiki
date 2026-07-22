@@ -29,6 +29,17 @@ import { isInFolderScope } from '../core/folder-scope';
 import { COMPATIBLE_SOURCE_EXTENSIONS, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 import { FileSuggestModal, FolderSuggestModal, MultiFileSuggestModal, IngestReportModal } from '../ui/modals';
 import { ProgressScope } from '../core/progress-notification';
+import { isMineruArtifactPath } from '../core/pdf-backends/mineru-paths';
+
+function rejectManagedArtifact(file: TFile, settings: LLMWikiSettings): boolean {
+  if (!isMineruArtifactPath(file.path)) return false;
+  new Notice(
+    getText(settings.language, 'sourceRejectedManagedArtifact')
+      .replace('{filename}', file.name),
+    NOTICE_NORMAL,
+  );
+  return true;
+}
 
 export interface IngestHost {
   app: App;
@@ -92,6 +103,7 @@ export const ingestCommands = {
     }
 
     new FileSuggestModal(this.app, this.settings.wikiFolder, (file: TFile) => {
+      if (rejectManagedArtifact(file, this.settings)) return;
       this.showProgressFor(ProgressScope.IngestManual, `Ingesting: ${file.basename}`);
       this.wikiEngine.ingestSource(file, { interactive: true }).catch(e => {
         console.error('Single ingest failed:', e);
@@ -114,6 +126,7 @@ export const ingestCommands = {
       new Notice(getText(this.settings.language, 'noActiveFile'), NOTICE_NORMAL);
       return;
     }
+    if (rejectManagedArtifact(activeFile, this.settings)) return;
 
     this.showProgressFor(ProgressScope.IngestManual, `Ingesting: ${activeFile.basename}`);
     this.wikiEngine.ingestSource(activeFile, { interactive: true }).catch(e => {
@@ -141,7 +154,8 @@ export const ingestCommands = {
       // file-sitting-beside-the-folder, the folder itself).
       const files = this.app.vault.getFiles()
         .filter(f => allowedExts.includes(f.extension.toLowerCase()))
-        .filter(f => isInFolderScope(f.path, folder.path, folder.isRoot()));
+        .filter(f => isInFolderScope(f.path, folder.path, folder.isRoot()))
+        .filter(f => !isMineruArtifactPath(f.path));
 
       if (files.length === 0) {
         const msg = TEXTS[this.settings.language].selectFolderNoMdFiles.replace('{path}', folder.path);
@@ -174,14 +188,37 @@ export const ingestCommands = {
   async runBatchIngest(this: IngestHost, files: TFile[], jobIds: string[], sourceLabel: string): Promise<void> {
     void this.preparePdfCacheForBatchIngest();
 
-    this.showProgressFor(ProgressScope.IngestManual, 'Checking for already-ingested files...');
+    const eligibleFiles: TFile[] = [];
+    const eligibleJobIds: string[] = [];
+    const preissuedJobs = jobIds.length > 0
+      ? new Map(this.ingestQueue.getSnapshot().map(job => [job.id, job]))
+      : undefined;
+    const acceptedJobIds = new Set<string>();
+    for (let i = 0; i < files.length; i++) {
+      if (isMineruArtifactPath(files[i].path)) continue;
+      const jobId = jobIds[i] ?? '';
+      if (preissuedJobs) {
+        const job = preissuedJobs.get(jobId);
+        if (
+          !jobId
+          || acceptedJobIds.has(jobId)
+          || job?.status !== 'pending'
+          || job.file.path !== files[i].path
+        ) continue;
+        acceptedJobIds.add(jobId);
+      }
+      eligibleFiles.push(files[i]);
+      eligibleJobIds.push(jobId);
+    }
+    if (eligibleFiles.length === 0) return;
+
     const alreadyIngestedFiles: TFile[] = [];
     const newFiles: TFile[] = [];
     const alignedJobIds: string[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const jobId = jobIds[i] ?? '';
+    for (let i = 0; i < eligibleFiles.length; i++) {
+      const file = eligibleFiles[i];
+      const jobId = eligibleJobIds[i];
       if (await this.isAlreadyIngested!(file)) {
         alreadyIngestedFiles.push(file);
       } else {
@@ -190,9 +227,28 @@ export const ingestCommands = {
       }
     }
 
-    const totalFiles = files.length;
+    const totalFiles = eligibleFiles.length;
     const skippedCount = alreadyIngestedFiles.length;
-    const ingestCount = newFiles.length;
+
+    if (newFiles.length === 0) {
+      const texts = TEXTS[this.settings.language];
+      new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), NOTICE_NORMAL);
+      return;
+    }
+
+    let executionFiles: TFile[];
+    let resolvedJobIds: string[];
+    if (preissuedJobs) {
+      executionFiles = newFiles;
+      resolvedJobIds = alignedJobIds;
+    } else {
+      const jobs = this.ingestQueue.enqueueJobs(newFiles);
+      if (jobs.length === 0) return;
+      executionFiles = jobs.map(job => job.file);
+      resolvedJobIds = jobs.map(job => job.id);
+    }
+
+    const ingestCount = executionFiles.length;
 
     if (skippedCount > 0) {
       const texts = TEXTS[this.settings.language];
@@ -203,12 +259,6 @@ export const ingestCommands = {
           .replace('{new}', String(ingestCount)),
         6000
       );
-    }
-
-    if (ingestCount === 0) {
-      const texts = TEXTS[this.settings.language];
-      new Notice(texts.batchIngestAllIngested.replace('{total}', String(totalFiles)), NOTICE_NORMAL);
-      return;
     }
 
     const reports: IngestReport[] = [];
@@ -224,15 +274,8 @@ export const ingestCommands = {
 
     const batchCtx = this.wikiEngine.createBatchContext();
 
-    let resolvedJobIds: string[];
-    if (jobIds.length > 0) {
-      resolvedJobIds = alignedJobIds;
-    } else {
-      resolvedJobIds = this.ingestQueue.enqueue(newFiles);
-    }
-
-    for (let i = 0; i < newFiles.length; i++) {
-      const file = newFiles[i];
+    for (let i = 0; i < executionFiles.length; i++) {
+      const file = executionFiles[i];
       const jobId = resolvedJobIds[i];
 
       try {

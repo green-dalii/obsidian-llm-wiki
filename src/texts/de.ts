@@ -491,6 +491,7 @@ export const DE_TEXTS = {
     mineruArtifactWriteFailed: '„{filename}": Das MinerU-Ergebnis konnte nicht in Ihrem Vault gespeichert werden. Prüfen Sie Dateiberechtigungen und freien Speicherplatz und versuchen Sie es erneut.',
     mineruCancelled: '„{filename}": Die MinerU-PDF-Konvertierung wurde abgebrochen.',
     sourceRejectedPdfUnsupported: '⏭️ „{filename}" übersprungen — Ihr aktueller Provider oder das Modell akzeptiert keine PDF-Eingabe. Wechseln Sie den Provider oder aktivieren Sie „Force PDF support" unter Settings → LLM Configuration → Advanced und versuchen Sie es erneut.',
+    sourceRejectedManagedArtifact: '„{filename}" befindet sich in einem verwalteten MinerU-Ausgabeordner und kann nicht direkt eingelesen werden. Wählen Sie stattdessen das ursprüngliche PDF aus.',
     clearPdfCacheCommand: 'PDF-Konvertierungs-Cache leeren',
     pdfCacheCleared: 'PDF-Cache geleert ({count} Einträge entfernt).',
     pdfConversionSection: 'PDF-Konvertierung',

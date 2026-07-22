@@ -58,6 +58,17 @@ describe('WikiEngine.ingestSource — empty source (#164)', () => {
 });
 
 describe('WikiEngine.ingestSource — requirements gate (#164)', () => {
+  it('rejects managed MinerU output before reading it as a source', async () => {
+    const path = 'sources/paper.mineru/document.md';
+    const h = createWikiEngineHarness({ files: { [path]: 'managed output' } });
+
+    await h.engine.ingestSource(sourceFile(path));
+
+    expect(h.reports.at(-1)?.rejectedFiles?.[0]?.reason).toBe('managed-artifact');
+    expect(h.stats.llmCalls).toBe(0);
+    expect(wikiPagesWritten(h.writtenPaths)).toEqual([]);
+  });
+
   it('rejects an unsupported file type without creating pages', async () => {
     // v1.25.0: PDFs are now supported (their own branch in ingestSource).
     // Use a still-unsupported binary type (PNG) to exercise the rejection path.
