@@ -28,7 +28,7 @@ import { canonicalizeSectionHeaders } from '../../core/section-header-canonicali
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { parseFrontmatter, enforceFrontmatterConstraints } from '../../core/frontmatter';
 import { injectMentionsSection } from '../../core/mentions-injector';
-import { applySectionLabels, appendTagVocabularyToPrompt, getSectionLabels } from '../system-prompts';
+import { applySectionLabels, getSectionLabels } from '../system-prompts';
 import { resolvePagePath, buildPagesListForPrompt, type PathResolutionContext } from './path-resolution';
 import { mergePage } from './merge-page';
 import { appendToReviewedPage } from './merge-page';
@@ -190,10 +190,8 @@ export async function createNewPage(
       // through unchanged.
       .replace(/\{\{source_file\}\}/g, sourceSlug ? `sources/${sourceSlug}` : sourceFile.path);
 
-    const finalPrompt = appendTagVocabularyToPrompt(
-      applySectionLabels(prompt, ctx.settings),
-      ctx.settings,
-    );
+    // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
+    const finalPrompt = applySectionLabels(prompt, ctx.settings);
 
     const pageContent = await client.createMessage({
       model: resolveModelForTask(ctx.settings, 'ingest'),

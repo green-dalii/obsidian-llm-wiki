@@ -21,8 +21,7 @@ import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
 import { TOKENS_MERGE_TRIAGE } from '../../constants';
 import { resolveModelForTask } from '../../core/model-resolver';
-import { getSectionLabels } from '../system-prompts';
-import { applySectionLabels, appendTagVocabularyToPrompt } from '../system-prompts';
+import { getSectionLabels, applySectionLabels } from '../system-prompts';
 import { firstQuotesForPrompt } from './contextualize';
 
 /** Strategy selected by the LLM for handling new information vs. an existing page. */
@@ -92,10 +91,9 @@ export async function classifyMergeNeed(
     .replace('{{new_info}}', buildNewInfoSummary(info, sourceFile))
     .replace('{{section_labels}}', `- ${sectionLabelsList}`);
 
-  const finalPrompt = appendTagVocabularyToPrompt(
-    applySectionLabels(triagePrompt, ctx.settings),
-    ctx.settings,
-  );
+  // Issue #328 Phase 1 follow-up: removed appendTagVocabularyToPrompt wrapper
+  // because the system layer now always injects the same section once.
+  const finalPrompt = applySectionLabels(triagePrompt, ctx.settings);
 
   const response = await client.createMessage({
     model: resolveModelForTask(ctx.settings, 'ingest'),

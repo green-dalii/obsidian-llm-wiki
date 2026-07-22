@@ -42,7 +42,7 @@ import {
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { mergeFrontmatter } from '../../core/frontmatter';
 import { injectMentionsSection } from '../../core/mentions-injector';
-import { applySectionLabels, appendTagVocabularyToPrompt, getSectionLabels } from '../system-prompts';
+import { applySectionLabels, getSectionLabels } from '../system-prompts';
 import { UNIVERSAL_LINK_CONSTRAINTS } from '../prompts/constraints';
 import { buildPagesListForPrompt } from './path-resolution';
 import { classifyMergeNeed } from './merge-triage';
@@ -150,7 +150,8 @@ export async function mergePage(
       .replace('{{key_details}}', firstQuotesForPrompt(info))
       .replace('{{existing_pages}}', await buildPagesListForPrompt(ctx, extraPagePaths));
 
-    const finalPrompt = appendTagVocabularyToPrompt(applySectionLabels(prompt, ctx.settings), ctx.settings);
+    // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
+    const finalPrompt = applySectionLabels(prompt, ctx.settings);
 
     const mergedBody = await client.createMessage({
       model: resolveModelForTask(ctx.settings, 'ingest'),
@@ -229,7 +230,8 @@ export async function appendToReviewedPage(
       .replace('{{key_details}}', firstQuotesForPrompt(info))
       .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
 
-    const finalPrompt = appendTagVocabularyToPrompt(applySectionLabels(prompt, ctx.settings), ctx.settings);
+    // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
+    const finalPrompt = applySectionLabels(prompt, ctx.settings);
 
     const newContent = await client.createMessage({
       model: resolveModelForTask(ctx.settings, 'ingest'),
