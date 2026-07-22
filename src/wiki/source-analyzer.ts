@@ -37,7 +37,7 @@ import { coerceToArray } from '../core/arrays';
 import { isBlankSource } from '../core/frontmatter';
 import { MAX_TOKENS_BATCH, TOKENS_PER_ITEM_BUDGET, SOURCE_ANALYZER_RETRY_MULTIPLIER } from '../constants';
 import { getExistingWikiPages } from './lint/get-existing-pages';
-import { getGranularityInstruction, buildActiveTagVocabularySection } from './system-prompts';
+import { getGranularityInstruction } from './system-prompts';
 import { resolveModelForTask } from '../core/model-resolver';
 import { calculateBatchLimits, adjustBatchSizeForResponse, getCustomTypeCaps } from '../core/batch-limits';
 import { detectConvergence, checkCumulativeLimits, checkEmptyBatch, formatConvergenceStatus } from '../core/convergence-detector';
@@ -243,12 +243,9 @@ export class SourceAnalyzer {
     // Build granularity instruction from shared definitions
     const granularityInstruction = getGranularityInstruction(this.ctx.settings)
 
-    // Issue #85 v6: inject the active tag vocabulary so the LLM knows
-    // exactly which entity/concept types are accepted by the frontmatter
-    // validator. Without this, the LLM invents its own types that get
-    // silently dropped at write time.
-    const tagVocabularySection = buildActiveTagVocabularySection(this.ctx.settings)
-
+    // Issue #85 v6 / #328 Phase 1 follow-up: user-layer tag-vocab removed
+    // (system layer append once, see comments at the injection site below).
+    //
     // Issue #116: inject a compact slug-only list of existing wiki pages so
     // the LLM uses exact paths when generating [[links]]. The verbose index
     // is capped at 40K chars and causes dead-link slug mismatches; a slug-only
@@ -318,11 +315,8 @@ export class SourceAnalyzer {
       const translationHint = wikiLang !== 'en'
         ? `\n\nTRANSLATION (cross-language wikis): For each entry in mentions_with_provenance, ALSO add a 'translation' field containing a ${wikiLangName} translation of the quote text. The 'quote' field MUST stay verbatim in the source's original language; the translation goes in a separate 'translation' field. Example: {"quote": "Machine learning is fun", "translation": "机器学习很有趣", "source_path": "...", ...}`
         : '';
-      // Issue #85 v6: inject the active tag vocabulary so the LLM emits
-      // type values that match the user's custom vocabulary (or the
-      // hardcoded defaults). Without this, the LLM invents its own types
-      // and the frontmatter validator silently drops them.
-      const finalPrompt = prompt + langHint + translationHint + '\n\n' + tagVocabularySection;
+      // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer (buildSystemPrompt) always injects once.
+      const finalPrompt = prompt + langHint + translationHint;
 
       console.debug(`[Batch ${batchNum + 1}/${limits.maxBatches}] LLM call started (batch_size=${currentBatchSize})...`);
       console.debug(`[Batch ${batchNum + 1}] Prompt length:`, prompt.length);

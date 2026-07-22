@@ -15,7 +15,7 @@
 import { getText } from '../../../core/i18n';
 import { TEXTS } from '../../../texts';
 import { cleanMarkdownResponse } from '../../../core/markdown';
-import { appendGranularityToPrompt, appendTagVocabularyToPrompt } from '../../system-prompts';
+import { appendGranularityToPrompt } from '../../system-prompts';
 import { TOKENS_LINT_DEDUP_LLM } from '../../../constants';
 import { resolveModelForTask } from '../../../core/model-resolver';
 import type { LintPhaseContext, ScannerPage } from '../types';
@@ -78,10 +78,8 @@ export function buildAnalysisPrompt(
     .replace('{contentSample}', contentSample)
     .replace('{progReport}', progReport || emptySentinel);
 
-  return appendTagVocabularyToPrompt(
-    appendGranularityToPrompt(withPlaceholders, settings),
-    settings,
-  );
+  // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
+  return appendGranularityToPrompt(withPlaceholders, settings);
 }
 
 /**

@@ -204,3 +204,26 @@ describe('buildCompactSlugList (#116)', () => {
     expect(prompt).toContain('**Existing Wiki pages — use ONLY these exact paths when creating [[links]]:**');
   });
 });
+
+// === Token dedup — #328 Phase 1 follow-up ===
+// source-analyzer user-layer no longer appends Active Tag Vocabulary section
+// (system layer injects once via buildSystemPrompt).
+describe('SourceAnalyzer — user-layer tag-vocab dedup (#328 Phase 1 follow-up)', () => {
+  it('does NOT append the Active Tag Vocabulary section in the user prompt', async () => {
+    const { ctx } = createMockContext({
+      vaultFiles: { 'sources/dedup.md': '# Dedup\nSome content.' },
+      llmResponses: [JSON.stringify({
+        source_title: 'Dedup',
+        summary: 'A test summary.',
+        entities: [{ name: 'Foo', type: 'other', summary: 'bar', mentions_in_source: [] }],
+        concepts: [],
+      })],
+    });
+    const spy = vi.spyOn(ctx.getClient()!, 'createMessage');
+    const analyzer = new SourceAnalyzer(ctx);
+    // eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast
+    await analyzer.analyzeSource(createMockFile('sources/dedup.md') as unknown as TFile);
+    expect(spy).toHaveBeenCalled();
+    expect(spy.mock.calls[0][0].messages[0].content).not.toContain('## Active Tag Vocabulary');
+  });
+});
