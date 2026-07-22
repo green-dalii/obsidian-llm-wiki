@@ -45,17 +45,29 @@ describe('buildSystemPrompt — tag vocabulary injection (Phase 1.3)', () => {
     expect(prompt).toContain('Medizin');
   });
 
-  it('does NOT include duplicate tag vocab section when already present', async () => {
-    // Defensive: if caller already prepended the section, don't double up.
+  it('runtime injection always appends the tag vocab section, even when schema context already contains the literal (#328 Phase 1)', async () => {
+    // Issue #328 Phase 1 reverses the v1.21.0 contract. The defensive
+    // `schemaHasTagVocab` branch in buildSystemPrompt used to GUARD against
+    // a duplicate by string-matching "Active Tag Vocabulary" in the schema
+    // context. Phase 1 makes the runtime layer the SOLE source of truth —
+    // the schema body no longer contains that literal (verified in
+    // src/__tests__/schema/runtime-injection.test.ts), and the runtime
+    // injection layer always appends regardless of what schema content
+    // happens to contain.
+    //
+    // Test: feed a schema context that DOES contain the literal string
+    // (artificial, but the defensive branch would have suppressed runtime
+    // here). Phase 1 expects the runtime section to still be appended.
     const settings = makeSettings();
     const prompt = await buildSystemPrompt(
       settings,
-      async () => 'PREVIOUS TAG VOCAB SECTION',
+      async () => 'some prior content -- ## Active Tag Vocabulary (fake) -- more content',
       'entity'
     );
-    // Count occurrences of "Active Tag Vocabulary"
     const matches = (prompt ?? '').match(/Active Tag Vocabulary/g);
-    expect(matches?.length).toBe(1);
+    // The runtime section is always appended, so we expect >= 2
+    // (1 from the fake schema context + 1 from runtime injection).
+    expect(matches?.length).toBeGreaterThanOrEqual(2);
   });
 
   it('returns prompt even when schemaContext is undefined', async () => {
