@@ -344,8 +344,9 @@ describe('runRetagViolations (Issue #85 v7)', () => {
       } as unknown as LintContext['app'],
       llmClient: { createMessage: vi.fn().mockResolvedValue(opts.llmResponse ?? '{"tags":["person","organization"]}') } as unknown as LintContext['llmClient'],
       // #328 Phase 1 follow-up: retag now uses buildSystemPrompt('lint')
-      // for the system layer injection (PRX-A2). Default mock returns the
-      // runtime-injected section; tests may override.
+      // for the system layer injection (PRX-A2). The default leaves the
+      // field undefined so existing tests exercise the back-compat path
+      // (no system field) — only the new tests below override it.
       buildSystemPrompt: opts.buildSystemPrompt,
     });
   }
@@ -507,6 +508,17 @@ describe('runRetagViolations (Issue #85 v7)', () => {
       const call = await captureCreateMessageCall(ctx);
       expect(call.messages[0].content).not.toContain('## Active Tag Vocabulary');
       expect(call.messages[0].content).not.toContain('Entity types');
+    });
+
+    it('falls back to no-system-prompt when buildSystemPrompt is undefined (back-compat)', async () => {
+      // Pre-Phase-1 callers (e.g. older test fixtures) don't supply
+      // buildSystemPrompt on LintContext. Retag must preserve the
+      // pre-Phase-1 prompt shape on that path: only user prompt, no
+      // 'system' field. Pins the optional-chain so future contributors
+      // cannot quietly drop it.
+      const ctx = makeRetagCtx({});  // buildSystemPrompt: undefined
+      const call = await captureCreateMessageCall(ctx);
+      expect('system' in call).toBe(false);
     });
   });
 });

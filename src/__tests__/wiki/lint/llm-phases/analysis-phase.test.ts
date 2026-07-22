@@ -91,14 +91,13 @@ describe('buildContentSample', () => {
 // ── Pure helper: buildAnalysisPrompt ────────────────────────────
 
 describe('buildAnalysisPrompt', () => {
-  // Settings must include the fields appendGranularityToPrompt /
-  // appendTagVocabularyToPrompt read off settings, otherwise they fall
-  // back to safe defaults. Using an empty object causes the helpers to
-  // emit the default 'standard' granularity instruction and the default
-  // tag vocabulary — which is exactly what controller.ts:runLintWiki does
-  // in production. We assert the placeholders are replaced; the
-  // granularity/vocab suffix is tested separately in the integration
-  // runAnalysisPhase tests below.
+  // Settings must include the fields appendGranularityToPrompt reads off
+  // settings, otherwise it falls back to 'standard'. Using an empty
+  // object causes the helper to emit the default granularity instruction
+  // (and the buildSystemPrompt composer emits the active tag vocabulary
+  // at the system layer; this helper no longer touches it). We assert
+  // the placeholders are replaced; the granularity suffix is tested
+  // below.
   const settings = {} as unknown as LintPhaseContext['settings'];
 
   it('replaces all 5 placeholders', () => {
