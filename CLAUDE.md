@@ -4,7 +4,7 @@
 
 ---
 
-## Current Phase: v1.25.2 PATCH in progress — eslint 0.4.1 Route A committed (`c9fd4ce`); Schema Phase 1 + PR #324 + release next; v1.26.0 MINOR following
+## Current Phase: v1.25.2 PATCH in progress — eslint 0.4.1 Route A committed (`c9fd4ce`); E2E thinking-block regression fixed (`d2d401e`); Schema Phase 1 + PR #324 + release next; v1.26.0 MINOR following
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 

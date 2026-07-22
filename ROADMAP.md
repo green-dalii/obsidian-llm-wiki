@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.1 PATCH (RELEASED 2026-07-20) → v1.25.2 PATCH (in progress, commit `c9fd4ce`). | **Updated:** 2026-07-21 (eslint 0.4.1 Route A + Schema Phase 1 + release prep)
+**Version:** 1.25.1 PATCH (RELEASED 2026-07-20) → v1.25.2 PATCH (in progress, commits `c9fd4ce` + `d2d401e`). | **Updated:** 2026-07-21 (eslint 0.4.1 Route A + E2E thinking-block fix + Schema Phase 1 + release prep)
 
 ## Current Status
 
@@ -70,6 +70,7 @@
 | ✅ **PR #304** — updatedPages split (created vs updated) | DocTpoint contribution | **MERGED** (`3578a9d`) |
 | ✅ **PR #322 / #308** — dead-link slug-normalized match | DocTpoint contribution | **MERGED** (`292300b`) |
 | ✅ **eslint 0.4.1 Route A** | 2026-07-21 | **COMMITTED** (`c9fd4ce`) |
+| ✅ **E2E fix: thinking-block HierarchyRequestError** | 2026-07-21 — `activeDocument.createEl` auto-attached to document.body broke saved-history load | **COMMITTED** (`d2d401e`) — refactored `renderThinkingBlocksUI(parent)`, caller (`QueryView.renderMarkdownContent`) threads `container` |
 | 🚧 **PR #324 / #307** — related-link corrector prefix scope | DocTpoint contribution | Open, 87 lines, MERGEABLE; needs simplify + code-review |
 | 🔲 Schema Phase 1 | Design in memory | Template + Programmatic Injection (~30 LOC net) |
 | 🔲 #273 UX fix | ChatGPT OAuth test failure silent | ~4h |
