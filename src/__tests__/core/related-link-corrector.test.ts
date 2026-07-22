@@ -172,5 +172,18 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
       const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON, true);
       expect(r).toContain('- [[concepts/Abruf]]');
     });
+
+    // --- Case sensitivity is intentional (v1.25.2 follow-up to #324) ---
+    //
+    // WIKI_SUBFOLDERS is hardcoded lowercase (entities|concepts|sources). The regex
+    // is therefore case-sensitive on purpose: a capitalized `[[Entity/X]]` is left
+    // untouched so a vault-defined tag-folder `Entity/` is not shadowed by the
+    // rewrite. If the LLM ever emits a capitalized prefix, this test fails first
+    // and forces a deliberate decision (broaden the regex OR fix the prompt).
+    it('is case-sensitive on the folder prefix (a capitalized "Entity/" is NOT rewritten)', () => {
+      const c = '## Related Entities\n- [[Entity/Hippocampus|Hippocampus]]';
+      const r = correctRelatedLinkPrefixes(c, ['Hippocampus'], [], ENT, CON, true);
+      expect(r).toBe(c);
+    });
   });
 });
