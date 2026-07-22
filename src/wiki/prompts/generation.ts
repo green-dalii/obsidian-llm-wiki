@@ -60,8 +60,7 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 
 ## {{section_related_concepts}}
 [Reference related concepts using full paths from the list above]
-
----`,
+`,
 
   generateConceptPage: `You are a Wiki knowledge base maintainer. Create a Wiki page for the following concept.
 
@@ -129,8 +128,7 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 
 ## {{section_related_entities}}
 [Reference related entities using full paths from the list above]
-
----`,
+`,
 
   generateSummaryPage: `You are a Wiki knowledge base maintainer. Create a summary page for the following source file.
 
@@ -184,8 +182,7 @@ aliases: ["Alternative title or translation"]  # REQUIRED: at least 1 alias, mus
 ## {{section_main_points}}
 - Point 1
 - Point 2
-
----`,
+`,
 
   // Variant used when the existing page has `reviewed: true` in frontmatter.
   preserveReviewedEntityPage: `You are a Wiki knowledge base maintainer. The following entity page has been manually reviewed by the user (reviewed: true).
@@ -225,8 +222,7 @@ reviewed: true
 
 ## {{section_new_information}} ({{date}})
 [Only add non-duplicate new information; write "No new information" if none]
-
----`,
+`,
 
   // Variant used when the existing concept page has `reviewed: true` in frontmatter.
   preserveReviewedConceptPage: `You are a Wiki knowledge base maintainer. The following concept page has been manually reviewed by the user (reviewed: true).
@@ -267,8 +263,7 @@ reviewed: true
 
 ## {{section_new_information}} ({{date}})
 [Only add non-duplicate new information; write "No new information" if none]
-
----`,
+`,
 
   suggestSchemaUpdate: `You are a Wiki Schema advisor. Review the current schema and the latest ingestion analysis.
 

@@ -64,7 +64,52 @@ export function cleanMarkdownResponse(response: string): string {
     }
   }
 
-  return cleaned.trim();
+  return stripTrailingSeparators(cleaned.trim());
+}
+
+/**
+ * Remove horizontal rules left at the very end of generated content (#310).
+ *
+ * The page templates in `src/wiki/prompts/generation.ts` used to close their
+ * output example with a bare `---`. Models copied that closing rule into the
+ * page body, where the schema has no use for it. Removing it from the templates
+ * fixes the cause; this pass is the net for whatever a model still emits.
+ *
+ * Two things are deliberately out of scope, because both would destroy meaning
+ * the function cannot recover:
+ *  - the frontmatter terminator. On a frontmatter-only document it *is* the
+ *    last `---` in the file, so anything at or before it is off limits.
+ *  - a setext heading. `Title\n---` is an H2, not a rule, so a `---` is only
+ *    removed when a blank line separates it from the preceding content.
+ *
+ * A rule in the middle of a body is left alone: at the point where generated
+ * content is cleaned, the trailing position is the one the templates produced.
+ */
+export function stripTrailingSeparators(content: string): string {
+  const lines = content.split('\n');
+
+  let frontmatterEnd = -1;
+  if (lines[0]?.trim() === '---') {
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].trim() === '---') {
+        frontmatterEnd = i;
+        break;
+      }
+    }
+  }
+
+  let end = lines.length;
+  for (;;) {
+    while (end > 0 && lines[end - 1].trim() === '') end--;
+    const last = end - 1;
+    if (last <= frontmatterEnd) break;
+    if (lines[last]?.trim() !== '---') break;
+    const previous = lines[last - 1];
+    if (previous !== undefined && previous.trim() !== '') break;
+    end = last;
+  }
+
+  return end === lines.length ? content : lines.slice(0, end).join('\n').trimEnd();
 }
 
 /**
