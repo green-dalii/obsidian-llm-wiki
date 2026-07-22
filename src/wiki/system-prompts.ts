@@ -200,16 +200,6 @@ export function applySectionLabels(prompt: string, settings: LLMWikiSettings): s
   return result;
 }
 
-/**
- * Issue #85 v6: Append the active tag vocabulary section to a prompt
- * (page-generation / lint-analyze). Centralizes the call so callers
- * don't all duplicate the `${prompt}\n\n${section}` template.
- */
-export function appendTagVocabularyToPrompt(prompt: string, settings: LLMWikiSettings): string {
-  const section = buildActiveTagVocabularySection(settings);
-  return `${prompt}\n\n${section}`;
-}
-
 export async function buildSystemPrompt(
   settings: LLMWikiSettings,
   getSchemaContext: (task: string) => Promise<string | undefined>,

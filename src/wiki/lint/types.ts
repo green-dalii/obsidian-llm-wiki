@@ -19,6 +19,15 @@ export interface LintContext {
   llmClient: LLMClient | null;
   wikiEngine: WikiEngine;
   onAnalyzeSchema: (context?: string) => void;
+  /**
+   * #328 Phase 1 follow-up: shared composer used by fix-runners to
+   * build the `system` field of their LLM calls. Returns undefined when
+   * there is nothing to inject. Pre-Phase-1 only the `LintPhaseContext`
+   * carried this getter; it was lifted to `LintContext` when retag
+   * (the one remaining user-layer tag-vocab injection path) was
+   * migrated to the system layer.
+   */
+  buildSystemPrompt?: (task: string) => Promise<string | undefined>;
 }
 
 export interface LintPhaseContext {

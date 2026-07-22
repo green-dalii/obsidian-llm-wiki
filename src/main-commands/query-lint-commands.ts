@@ -18,6 +18,7 @@ import { Notice } from 'obsidian';
 import type { App } from 'obsidian';
 import type { LLMWikiSettings, LLMClient } from '../types';
 import type { WikiEngine } from '../wiki/wiki-engine';
+import type { SchemaTask } from '../schema/schema-manager';
 import { TEXTS } from '../texts';
 import { runLintWiki } from '../wiki/lint/controller';
 import { QueryView, VIEW_TYPE_QUERY } from '../wiki/query-engine';
@@ -82,6 +83,10 @@ export const queryLintCommands = {
         settings: this.settings,
         llmClient: this.llmClient,
         wikiEngine: this.wikiEngine,
+        // #328 Phase 1 follow-up: wire the shared system-prompt composer
+        // so fix-runners can mirror the Phase 1 "system layer is the
+        // sole tag-vocab injection point" pattern (e.g. retag).
+        buildSystemPrompt: (task) => this.wikiEngine.buildSystemPrompt(task as SchemaTask),
         onAnalyzeSchema: (context?: string) => { void this.suggestSchemaUpdate(context); },
       }, signal, trigger);
     } finally {
