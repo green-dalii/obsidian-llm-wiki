@@ -2,11 +2,13 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.1 PATCH (RELEASED 2026-07-20) → v1.25.2 PATCH (in progress, commits `c9fd4ce` + `d2d401e` + `#327` + `#329`). | **Updated:** 2026-07-22 (PR #324 #307 + PR #329 #310 merged; Schema Phase 1 Option A approved + 3 decisions resolved; NOTICE update deferred to v1.25.2 release commit; remaining: Schema Phase 1 implementation + version release + NOTICE sync)
+**Version:** 1.25.2 PATCH (RELEASED 2026-07-22). | **Updated:** 2026-07-22
 
 ## Current Status
 
-**v1.25.1 — RELEASED 2026-07-20.** PATCH scope. Eight silent-loss bug fixes on the Related-page + Lint + ingest paths, three big-file splits, one build-verification root cause (lockfile drift), DiskCache<T> extraction. 2274 tests passing (173 files, +92 since v1.25.0).
+**v1.25.2 — RELEASED 2026-07-22.** PATCH scope. Tag vocabulary Phase 1 (dual-source eliminated), Codex OAuth (ChatGPT Plan), related-link folder-prefix fix, page-template trailing `---` fix, ESLint 0.4.1 Route A. 2515 tests passing (186 files, +241 since v1.25.1).
+
+### v1.25.2 composition (7 commits, PRs #329 #324 #331 #332 #333 #334)
 
 ### v1.25.1 deferred → v1.25.2 PATCH resolved items
 

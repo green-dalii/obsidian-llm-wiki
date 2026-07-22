@@ -34,7 +34,7 @@
     - [🔑 Configure an LLM Provider](#-configure-an-llm-provider)
     - [🎮 Usage](#-usage)
     - [⚠️ Upgrading from an Older Version?](#️-upgrading-from-an-older-version)
-  - [⚡ What's New in v1.25.0](#-whats-new-in-v1250)
+  - [⚡ What's New in v1.25.x](#-whats-new-in-v125x)
   - [✨ Features](#-features)
     - [📊 Knowledge Quality](#-knowledge-quality)
     - [📄 PDF Ingest (v1.25.0)](#-pdf-ingest-v1250)
@@ -182,34 +182,13 @@ alias-aware search (e.g., "DSA" finds "DeepSeek-Sparse-Attention").
 
 **Settings to review:** Force PDF Support (Settings → LLM Configuration → Advanced, off by default — only needed for non-NATIVE providers), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, off by default), Wiki Output Language (independent from UI), Extraction Granularity (Minimal–Fine, + Custom), Page Generation Concurrency (default 3), Batch Delay (default 300ms).
 
-## ⚡ What's New in v1.25.0
+## ⚡ What's New in v1.25.x
 
-Four themes: cache-only PDF ingest, local-model guidance, prompt centralization for PDF transcriber, and eight e2e bug fixes. Recommended upgrade for everyone on v1.24.x.
+- **v1.25.2 (2026-07-22).** Tag vocabulary Phase 1 (dual-source eliminated), Codex OAuth (ChatGPT Plan), related-link folder-prefix fix, page-template trailing `---` fix, ESLint 0.4.1 Route A. 2515 tests.
+- **v1.25.1 (2026-07-20).** Eight silent-loss fixes (Related page, schema sections, Legacy Mentions), 3 big-file splits, DiskCache<T>, LM Studio no-key ingest, build-verification root cause. 2274 tests.
+- **v1.25.0 (2026-07-18).** Cache-only PDF Ingest (Level 1), bounded growth cache, optional vault sidecar, force-PDF universal gate, verbatim prompt, cancelable ingest, local-model guidance, i18n completeness. 2182 tests.
 
-- **📄 PDF Ingest (Level 1).** Pick a PDF from your vault — the plugin reads it through your LLM provider's native file input (anthropic / openai / bedrock-anthropic / bedrock-openai; any other OpenAI/Anthropic-compatible endpoint with **Force PDF Support** enabled in Settings → LLM Configuration → Advanced), converts it to Markdown via OCR-style verbatim transcription, and re-enters the regular Markdown ingest pipeline. Every existing entity/concept/alias/`[[wiki-link]]` workflow applies unchanged. Result is **content-hash cached** in `.obsidian/plugins/karpathywiki/pdf-cache/` (key includes `converterVersion` so prompt upgrades invalidate stale entries). See the [Local PDF OCR Path](#-local-pdf-ocr-path-v1250) for the recommended local-Apple-Silicon setup.
-- **🗄️ Bounded cache growth.** Three-defense-layer cache housekeeping (100 MB total / 1000 entries / 10 MB single-entry caps) with LRU-by-mtime eviction. Old entries pruned on startup and at the start of every batch ingest. Cache-only by default — your vault is not modified.
-- **📝 Optional vault sidecar (advanced).** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** writes `<basename>.pdf.md` next to the source PDF after conversion. Off by default.
-- **🦙 Local model recommendations.** The Model Selection Guide now has dedicated Local and Cloud sections covering Qwen3.5 / Qwen3.6 / Gemma 4 (parameter-vs-quality tradeoffs, MLX vs GGUF quantization, context strategy).
-- **🛡️ Verbatim PDF transcriber prompt.** The PDF→Markdown prompt is re-framed as OCR-style verbatim conversion with `[illegible]` / `[figure: ...]` / `[equation: ...]` anti-hallucination markers; small/local models that wrap output in ```markdown fences are auto-cleaned before cache write. Prompt centralized into `src/wiki/prompts/pdf.ts` alongside every other LLM-call prompt in the project.
-- **⏹ Cancelable PDF ingest.** Clicking the status bar mid-conversion aborts the in-flight LLM call through Vercel AI SDK v6 AbortSignal within ~200 ms.
-- **🌐 i18n completeness** — 10 new keys per locale for the two new settings + PDF Ingest + Local PDF OCR Path (force-pdf-support toggle, write-pdf-markdown-to-vault toggle, source-rejected-pdf-unsupported Notice).
-
-**Settings to review:** Force PDF Support (Settings → LLM Configuration → Advanced, default off — only relevant for non-NATIVE providers), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, default off — opt-in sidecar).
-
-### v1.25.1 — 2026-07-20 (PATCH)
-
-Hotfix release over v1.25.0: eight LLM-call-output and lint silent-loss fixes, three big-file splits, and one build-verification root cause. Recommended upgrade for everyone on v1.25.0.
-
-- **🔕 No silent data loss on the Related page path.** Previously, when the LLM rewrote a Related page's body without re-emitting the Mentions section, the canonicalizer / related-link corrector / preserveExistingSections pipeline ran on the raw LLM reply — instead of the post-processed body — so re-ingest could silently destroy accumulated Mentions content. The Related path now mirrors the merge path: canonicalize → correct → preserveExistingSections. **Upgrade strongly recommended** for anyone whose notes rely on per-source Mentions accumulating across re-ingest.
-- **🛡️ Schema sections never dropped by rewrites.** The LLM is now misaligned with our schema only on the bits it's asked to write; canonical section blocks that already existed on the page are restored verbatim even when the LLM's rewrite omits them. Falls inside a single `preserveExistingSections` helper shared across merge + related paths.
-- **🔗 Legacy Mentions pages can heal.** Pre-#244 grouped mentions are now recognized on parse, so legacy pages can be brought back to the structured form on next ingest — and the LLM no longer hallucinates a duplicate Mentions block (programmatic injection is the single source of truth).
-- **🔌 LM Studio ingest without API key.** Local-only LM Studio (`http://localhost:1234/v1`) now ingests without a placeholder key; non-LM-Studio providers still require an explicit API key (unchanged).
-- **🐢 Less main.js bloat, faster lint.** Big-file splits: `wiki-engine.ts` 1799 → smaller (Phase C-PR1, 4 internal modules), `settings.ts` 1439 → smaller (Phase C-PR2, 8 section renderers), `main.ts` 1304 → 300 LOC (Phase C-PR3, 6 main-commands modules). `DiskCache<T>` extracted with bounded growth (100 MB / 1000 entries / 10 MB single-entry caps + LRU-by-mtime eviction).
-- **🛠 Build verification root cause.** Local `pnpm-lock.yaml` ↔ CI `package-lock.json` drift was the real cause of v1.25.0's npm-registry swap; both lockfiles are now regenerated from a single `node_modules` snapshot to keep local build and Obsidian's CI build identical.
-- **⚠ Progress notice is dismissed on errors.** Single-file ingest (`ingestActiveFile`, `selectSourceToIngest`) now hides the persistent `Ingesting: <basename>` Notice when an exception fires, so failed ingests don't leave the spinner on screen until the next successful ingest.
-- **🧪 2274 tests pass.** Picked up from 2182 in v1.25.0 thanks to the new `DiskCache<T>`, lint-fix-all-completion, page-batch-runner, graph-cache, index-generator, log-writer, and section-header-canonicalizer modules.
-
-**Settings to review:** none — this release is bugfix + refactor only; no new settings, no new commands, no new locales.
+📋 [Full version history → CHANGELOG.md](./CHANGELOG.md)
 
 ## ✨ Features
 

@@ -196,7 +196,7 @@ src/
 │   ├── tag-chip-input.ts
 │   └── schema-diff-modal.ts
 ├── texts/               # i18n (10 languages: EN/ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT)
-└── __tests__/           # Unit tests (vitest, 2274 tests across 173 files; v1.25.1 PATCH 2026-07-20, +92 from v1.25.0)
+└── __tests__/           # Unit tests (vitest, 2515 tests across 186 files; v1.25.2 PATCH 2026-07-22, +241 from v1.25.1)
 ```
 
 ## Internationalization

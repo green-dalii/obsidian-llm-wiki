@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-21 (v1.25.2 PATCH Route A committed `c9fd4ce`)
+**Last Updated:** 2026-07-22 (v1.25.2 RELEASED)
 
 ---
 
-## Current Phase: v1.25.2 PATCH in progress — eslint 0.4.1 Route A committed (`c9fd4ce`); E2E thinking-block regression fixed (`d2d401e`); PR #324 (#307 related-link corrector) merged (`762bb3c` + follow-up A on `2524bc3`); PR #329 (#310 template trailing `---` stripper) merged (`9b0ecad`); NOTICE update pending commit; Schema Phase 1 Option A user-approved 2026-07-22 → implementation next, then v1.25.2 version release; v1.26.0 MINOR following
+## Current Phase: v1.25.2 PATCH RELEASED 2026-07-22. Schema Phase 1 chain completed (PRs #331-#334). Version 1.25.2 shipped: tag vocab Phase 1, Codex OAuth, related-link prefix fix, page-template `---` fix, ESLint 0.4.1 Route A, dead-code cleanup. v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 

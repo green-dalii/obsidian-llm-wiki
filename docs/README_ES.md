@@ -32,7 +32,7 @@
     - [🔑 Configurar un proveedor LLM](#-configurar-un-proveedor-llm)
     - [🎮 Uso](#-uso)
     - [⚠️ ¿Actualizar desde una versión anterior?](#️-actualizar-desde-una-versión-anterior)
-  - [⚡ Novedades de la v1.25.0](#-novedades-de-la-v1250)
+  - [⚡ Novedades en v1.25.x](#-novedades-en-v125x)
   - [✨ Características](#-características)
     - [📊 Calidad del Conocimiento](#-calidad-del-conocimiento)
     - [📄 Ingesta de PDF (v1.25.0)](#-ingesta-de-pdf-v1250)
@@ -170,35 +170,13 @@ Luego **Regenerar índice** para reconstruir `wiki/index.md` con entradas de ali
 
 **Ajustes a revisar:** Force PDF Support (Settings → LLM Configuration → Advanced, desactivado por defecto — sólo relevante para proveedores no NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, desactivado por defecto), Idioma de salida del Wiki (independiente de la UI), Granularidad de extracción, Concurrencia (predet. 3), Retraso de lote (predet. 300ms).
 
-## ⚡ Novedades de la v1.25.0
+## ⚡ Novedades en v1.25.x
 
-Cuatro temas: ingesta de PDF solo en caché, recomendaciones de modelos locales, centralización del prompt transcodificador de PDF, y ocho correcciones de errores e2e. Actualización recomendada para todos los usuarios de v1.24.x.
+- **v1.25.2 (2026-07-22).** Vocabulario de etiquetas Fase 1（fuente doble eliminada）、Codex OAuth（ChatGPT Plan）、corrección de prefijo de carpeta en enlaces relacionados、plantilla de página `---` final corregida、ESLint 0.4.1 Route A. 2515 pruebas superadas.
+- **v1.25.1 (2026-07-20).** Ocho correcciones de pérdida silenciosa（página relacionada、secciones de esquema、Menciones heredadas）、3 divisiones de archivos grandes、DiskCache<T>、LM Studio sin clave API、causa raíz de verificación de compilación. 2274 pruebas superadas.
+- **v1.25.0 (2026-07-18).** Ingesta PDF solo en caché（Nivel 1）、crecimiento de caché limitado、sidecar de bóveda opcional、puerta universal Force PDF、mensaje de transcripción textual、ingesta cancelable、guía de modelos locales、integridad i18n. 2182 pruebas superadas.
 
-- **📄 Ingesta de PDF (Nivel 1).** Elige un PDF de tu vault — el plugin lo lee a través de la entrada nativa de archivo de tu proveedor LLM (anthropic / openai / bedrock-anthropic / bedrock-openai; cualquier otro endpoint compatible con OpenAI/Anthropic requiere **Force PDF Support** en Settings → LLM Configuration → Advanced), lo convierte a Markdown mediante transcripción literal estilo OCR, y vuelve a entrar en el pipeline estándar de ingesta Markdown. Todos los flujos existentes de entidad/concepto/alias/`[[wiki-link]]` se aplican sin cambios. El resultado se **almacena en caché por hash de contenido** en `.obsidian/plugins/karpathywiki/pdf-cache/` (la clave lleva `converterVersion` para invalidar automáticamente las entradas obsoletas cuando se actualice el prompt). Consulta la [Ruta OCR PDF local](#-ruta-ocr-pdf-local-v1250) para la configuración recomendada en Apple Silicon.
-- **🗄️ Crecimiento acotado del caché.** Housekeeping de caché en tres capas de defensa (100 MB total / 1000 entradas / 10 MB por entrada individual) con evicción LRU-by-mtime; las entradas antiguas se purgan al iniciar y al comenzar cada ingesta por lotes. Solo caché — tu vault no se modifica por defecto.
-- **📝 Sidecar opcional en el vault (avanzado).** Settings → Wiki Configuration → Wiki Folder → **Write PDF Markdown to Vault** escribe un `<basename>.pdf.md` junto al PDF fuente tras la conversión. Desactivado por defecto.
-- **🦙 Recomendaciones de modelos locales.** La sección Guía de Selección de Modelo se ha dividido en secciones separadas de local y nube que cubren Qwen3.5 / Qwen3.6 / Gemma 4 (compromisos parámetro vs calidad, cuantización MLX vs GGUF, estrategia de contexto).
-- **🛡️ Prompt transcodificador de PDF literal.** El prompt PDF→Markdown se reformula como conversión literal estilo OCR con marcadores anti-alucinación `[illegible]` / `[figure: ...]` / `[equation: ...]`; los modelos pequeños/locales que envuelven su salida en fences ```markdown se limpian automáticamente antes de escribir en caché. Prompt centralizado en `src/wiki/prompts/pdf.ts` junto al resto de prompts de llamadas LLM del proyecto.
-- **⏹ Ingesta de PDF cancelable.** Hacer clic en la barra de estado durante la conversión interrumpe la llamada LLM en curso a través de AbortSignal de Vercel AI SDK v6 en unos 200 ms.
-- **🌐 Completitud i18n** — 10 nuevas claves por locale para los dos nuevos ajustes, ingesta de PDF y Ruta OCR PDF local (toggle Force PDF Support, toggle Write PDF Markdown to Vault, Notice source-rejected-pdf-unsupported).
-
-**Configuraciones a revisar:** Force PDF Support (Settings → LLM Configuration → Advanced, desactivado por defecto — solo relevante para proveedores no NATIVE), Write PDF Markdown to Vault (Settings → Wiki Configuration → Wiki Folder, desactivado por defecto — sidecar opcional).
-
-### v1.25.1 — 2026-07-20 (PATCH)
-
-Lanzamiento de hotfix sobre v1.25.0: ocho correcciones de pérdidas silenciosas en la salida de LLM y lint, tres divisiones de archivos grandes, y una causa raíz de verificación de compilación. Actualización recomendada para todos los usuarios de v1.25.0.
-
-- **🔕 Sin pérdida silenciosa de datos en la ruta Related.** Antes, cuando el LLM reescribía el cuerpo de una página Related sin reemitir la sección Mentions, el pipeline `canonicalize` / `correct` / `preserveExistingSections` se ejecutaba sobre la respuesta LLM en bruto — en lugar del cuerpo post-procesado — de modo que un re-ingest podía destruir silenciosamente el contenido de Mentions acumulado. La ruta Related ahora refleja la ruta merge: `canonicalize → correct → preserveExistingSections`. **Actualización muy recomendada** — todas las notas que dependen de Mentions acumuladas por fuente a lo largo de re-ingests se benefician.
-- **🛡️ Las secciones del esquema ya no se pierden en reescrituras.** El LLM solo se desvía del esquema en las partes que se le pide escribir; los bloques de sección canónicos ya presentes en la página se restauran literalmente, incluso cuando la reescritura del LLM los omite. Reunidos en un único helper `preserveExistingSections` compartido por las rutas merge + related.
-- **🔗 Las páginas Mentions antiguas pueden sanar.** Las mentions agrupadas previas a #244 ahora se reconocen al analizar, de modo que las páginas antiguas recuperan su forma estructurada en el siguiente ingest — y el LLM ya no alucina un bloque de Mentions duplicado (la inyección programática es la única fuente de verdad).
-- **🔌 Ingesta de LM Studio sin clave API.** LM Studio puramente local (`http://localhost:1234/v1`) ahora ingiere sin clave de marcador; los proveedores no-LM-Studio siguen exigiendo una clave API explícita (sin cambios).
-- **🐢 Menos hinchazón de `main.js`, lint más rápido.** Divisiones de archivos grandes: `wiki-engine.ts` 1799 → más pequeño (Phase C-PR1, 4 módulos internos), `settings.ts` 1439 → más pequeño (Phase C-PR2, 8 renderers de sección), `main.ts` 1304 → 300 LOC (Phase C-PR3, 6 módulos main-commands). `DiskCache<T>` extraído con crecimiento acotado (100 MB / 1000 entradas / 10 MB por entrada + evicción LRU-by-mtime).
-- **🛠 Causa raíz de la verificación de compilación.** La deriva entre `pnpm-lock.yaml` local y el `package-lock.json` de CI era la verdadera causa del cambio de registro npm de v1.25.0; ahora ambos lockfiles se regeneran a partir de una única instantánea de `node_modules`, garantizando que el build local y el build de CI de Obsidian sean idénticos.
-- **⚠ El aviso de progreso desaparece en caso de error.** La ingesta de un solo archivo (`ingestActiveFile`, `selectSourceToIngest`) ahora oculta el aviso persistente `Ingesting: <basename>` cuando se lanza una excepción, de modo que las ingestas fallidas no dejan el spinner en pantalla hasta el siguiente éxito.
-- **🧪 2274 pruebas superadas.** Subida desde 2182 en v1.25.0 gracias a los nuevos módulos `DiskCache<T>`, `lint-fix-all-completion`, `page-batch-runner`, `graph-cache`, `index-generator`, `log-writer`, `section-header-canonicalizer`.
-
-**Configuraciones a revisar:** ninguna — esta versión es solo corrección + refactor; sin nuevas configuraciones, sin nuevos comandos, sin nuevos locales.
-
+📋 [Historial completo de versiones → CHANGELOG.md](../CHANGELOG.md)
 ## ✨ Características
 
 ### 📊 Calidad del Conocimiento
