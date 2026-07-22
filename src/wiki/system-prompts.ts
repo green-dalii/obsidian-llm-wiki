@@ -221,15 +221,13 @@ export async function buildSystemPrompt(
   const schemaContext = await getSchemaContext(task);
   if (schemaContext) parts.push(schemaContext);
 
-  // v1.21.0 Phase 1.3: Inject active tag vocabulary so user-defined Custom
-  // tags are respected by ALL ingestion paths (not just lint). Skip if the
-  // schema context already contains the section (defensive — caller might
-  // have prepended it).
-  const schemaHasTagVocab = schemaContext?.includes('Active Tag Vocabulary') ?? false;
-  if (!schemaHasTagVocab) {
-    const tagVocab = buildActiveTagVocabularySection(settings);
-    if (tagVocab) parts.push(tagVocab);
-  }
+  // Issue #328 Phase 1: the runtime-injection layer is the SOLE source of
+  // truth for the active tag vocabulary. Always append. Any dedup is the
+  // caller's responsibility — schema bodies produced by
+  // buildDefaultSchemaBody() no longer contain a baked enum to duplicate
+  // against.
+  const tagVocab = buildActiveTagVocabularySection(settings);
+  if (tagVocab) parts.push(tagVocab);
 
   return parts.length > 0 ? parts.join('\n\n') : undefined;
 }
@@ -252,7 +250,7 @@ export function buildActiveTagVocabularySection(
   const entities = getActiveEntityTags(settings);
   const concepts = getActiveConceptTags(settings);
   const lines: string[] = [];
-  lines.push('## Active Tag Vocabulary (Issue #85 — user-controlled)');
+  lines.push('## Active Tag Vocabulary (runtime)');
   lines.push('');
   lines.push(
     'When assigning `type` to an entity or concept, you MUST use one of the following allowed values. Do NOT invent new types.'

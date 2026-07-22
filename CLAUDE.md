@@ -4,7 +4,7 @@
 
 ---
 
-## Current Phase: v1.25.2 PATCH in progress — eslint 0.4.1 Route A committed (`c9fd4ce`); E2E thinking-block regression fixed (`d2d401e`); Schema Phase 1 + PR #324 + release next; v1.26.0 MINOR following
+## Current Phase: v1.25.2 PATCH in progress — eslint 0.4.1 Route A committed (`c9fd4ce`); E2E thinking-block regression fixed (`d2d401e`); PR #324 (#307 related-link corrector) merged (`762bb3c` + follow-up A on `2524bc3`); PR #329 (#310 template trailing `---` stripper) merged (`9b0ecad`); NOTICE update pending commit; Schema Phase 1 Option A user-approved 2026-07-22 → implementation next, then v1.25.2 version release; v1.26.0 MINOR following
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 
@@ -17,8 +17,9 @@
 
 1. ~~PR #304 rebase (DocTpoint — `updatedPages` split).~~ **MERGED 2026-07-20 (`3578a9d`).**
 2. ~~Phase A Obsidian bot compliance — `prefer-create-el` × 50 + `getSettingDefinitions` not implemented.~~ **COMPLETED 2026-07-21 (`c9fd4ce`).** eslint-plugin-obsidianmd 0.3.0→0.4.1 upgrade, flat config test override, `src/types/obsidian-dom.d.ts`, `src/__tests__/__support__/dom-helpers.ts`, 47 prefer-create-el production fixes, no-alert → ConfirmModal replacement.
-3. **DOCS: still pending** — 10 READMEs + CHANGELOG + versions.json v1.25.2 entry.
-4. **Lint perf** — `controller.ts:151` + `:239` TODOs from v1.18.0+ unaddressed. Remains v1.26.0 work.
+3. ✅ **Schema Phase 1 (Option A user-approved 2026-07-22)** — Eliminate the dual-source problem: tag lists move from `buildDefaultSchemaBody()` to runtime injection layer; `schemaHasTagVocab` defensive check removed. (Folder layout will move in Phase 2 alongside the per-type registration work — see Issue #328.) See [[feedback-schema-phase1-option-a-decision]] for full decision rationale + orthogonality proof against Phase 2/3. Owner override of the "wait 2 weeks for community feedback" public commitment (Issue #328) justified by (a) bug-fix nature, (b) ~3-4h PATCH-scope effort, (c) Phase 2/3 orthogonality. Implementation order (TDD): RED test → GREEN edit → refactor → Gate 1 → in-memory sanitize for legacy vaults. Backwards-compat: existing user schemas **not rewritten**; runtime improvement immediate.
+4. **DOCS: still pending** — 10 READMEs + CHANGELOG + versions.json v1.25.2 entry.
+5. **Lint perf** — `controller.ts:151` + `:239` TODOs from v1.18.0+ unaddressed. Remains v1.26.0 work.
 
 **v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
 
@@ -346,6 +347,16 @@ For full release workflow (commit + push + tag + release notes), use the `obsidi
 - **`Promise.allSettled` error isolation**: One failure doesn't crash the batch
 - **Pollution defense at write gate**: Centralized regex catches ALL sources
 - **LLM semantic page selection**: Meaning-based matching, not keyword
+- **Schema 三层分离 (Issue #328, Phase 1 active 2026-07-22 — Option A)**: As knowledge-conservation principle (anti-drift), each layer owns its half, **never overlap, can never conflict**:
+  | Layer | Owned by | What it is |
+  |---|---|---|
+  | **User domain knowledge** | You | `schema/config.md` — page templates, content rules, naming conventions, merge policies |
+  | **Runtime parameters** | Plugin (Settings) | Tag vocabulary, folder layout, output language, page-type registration — **never written into schema file**, always injected at call time via `getSchemaContext()` |
+  | **Engine facts** | Code | Model name, API key, thinking mode, `WIKI_SUBFOLDERS` — shipped with the plugin |
+
+  **Hard rule for future contributors:** the schema file MUST NOT bake runtime parameters (tag lists, folder paths, language). It MUST remain pure user domain knowledge. Adding/expanding the runtime injection layer (`buildActiveTagVocabularySection` and future `buildActiveFolderLayoutSection`) is the only legitimate home for things the Settings panel controls. Violating this rule reintroduces the dual-source problem (Phase 1 was approved specifically to eliminate this drift class).
+
+  Full rationale: [[feedback-schema-phase1-option-a-decision]] + Issue #328 + [[feedback-schema-template-programmatic-injection]].
 
 ---
 

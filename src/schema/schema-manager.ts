@@ -4,7 +4,6 @@ import { App, TFile } from 'obsidian';
 import { LLMWikiSettings, WikiSchema, SchemaSuggestion, VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, DEFAULT_ENTITY_TAG, DEFAULT_CONCEPT_TAG, LLMClient, WIKI_LANGUAGES } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseSchemaSuggestion } from './parse-suggestion';
-import { getActiveEntityTags, getActiveConceptTags } from '../core/tag-vocab';
 import { capMaxTokens } from '../core/token-cap';
 import { resolveModelForTask } from '../core/model-resolver';
 import { TOKENS_SCHEMA_SUGGESTION } from '../constants';
@@ -13,6 +12,89 @@ const SCHEMA_FILENAME = 'schema/config.md';
 const SUGGESTIONS_FILENAME = 'schema/suggestions.md';
 
 export type SchemaTask = 'analyze' | 'summary' | 'entity' | 'concept' | 'related' | 'conversation' | 'index' | 'lint' | 'merge' | 'full';
+
+/**
+ * Issue #328 Phase 1: sanitize a legacy schema body that may still carry
+ * baked tag enums in 6 places (Wiki Structure × 2, Entity Page Template × 1,
+ * Concept Page Template × 1, Classification Rules × 2). The on-disk file
+ * is the user's data — we do not rewrite it. Instead, the LLM-facing view
+ * produced by `loadSchema()` is sanitized here so the runtime injection is
+ * the SOLE tag vocabulary the model encounters.
+ *
+ * The sanitization is **line-fingerprint, section-agnostic** — a unique
+ * structural prefix on each legacy line anchors the regex, and content
+ * after the colon is dropped wholesale. We do NOT match `${entityList}`
+ * generically, so a user-added heading or sentence that happens to mention
+ * the same words (e.g. "Entity subtypes are documented below.") is left
+ * alone. Idempotent — re-running sanitize on an already-clean body is a
+ * no-op (the fresh production body never matches these patterns).
+ *
+ * If a user hand-edited Classification Rules into a wrapped multi-line
+ * sub-list (header line + child indented bullets), only the header is
+ * stripped; the child bullets remain. Power-user edge case — accept the
+ * partial strip, document the limitation.
+ *
+ * Exported for unit testing.
+ */
+export function stripLegacyBakedTagEnum(body: string): string {
+  // Six-line fingerprint set, each anchored at the unique structural
+  // prefix that produced it in v1.22.0-v1.25.1. We do NOT match
+  // `${entityList}` generically — we match the literal suffix the
+  // interpolations produced, so a user-added heading or sentence that
+  // happens to mention the same words is left alone.
+  const legacyPatterns: Array<{ pattern: RegExp; replacement: string }> = [
+    // Wiki Structure (entity)
+    {
+      pattern: /^- Entity pages: `entities\/` \([^)]*\)$/m,
+      replacement: '- Entity pages: `entities/` — entity subtype tags are runtime-injected (see Settings → Tag Vocabulary); this file holds no list',
+    },
+    // Wiki Structure (concept)
+    {
+      pattern: /^- Concept pages: `concepts\/` \([^)]*\)$/m,
+      replacement: '- Concept pages: `concepts/` — concept subtype tags are runtime-injected (see Settings → Tag Vocabulary); this file holds no list',
+    },
+    // Entity Page Template — `tags:` field
+    {
+      pattern: /^- `tags:` — entity subtype, MUST be one of: .*$/m,
+      replacement: '- `tags:` — entity subtype; the valid values are runtime-injected by the **Active Tag Vocabulary** section of every system prompt (driven by Settings). MUST be one of those values.',
+    },
+    // Concept Page Template — `tags:` field
+    {
+      pattern: /^- `tags:` — concept subtype, MUST be one of: .*$/m,
+      replacement: '- `tags:` — concept subtype; the valid values are runtime-injected by the **Active Tag Vocabulary** section of every system prompt (driven by Settings). MUST be one of those values.',
+    },
+    // Classification Rules (entity)
+    {
+      pattern: /^- Entity subtypes \(valid tags for type=entity\): .*$/m,
+      replacement: '- Entity subtypes: see the **Active Tag Vocabulary** section injected into every system prompt (driven by Settings).',
+    },
+    // Classification Rules (concept)
+    {
+      pattern: /^- Concept subtypes \(valid tags for type=concept\): .*$/m,
+      replacement: '- Concept subtypes: see the **Active Tag Vocabulary** section injected into every system prompt (driven by Settings).',
+    },
+  ];
+
+  // Fast path: if NONE of the six fingerprints is present, return the
+  // body untouched so we don't pay the replace cost on every call
+  // (this is the steady state for new-format bodies and the hot path).
+  let hasAnyFingerprint = false;
+  for (const { pattern } of legacyPatterns) {
+    if (pattern.test(body)) {
+      hasAnyFingerprint = true;
+      break;
+    }
+  }
+  if (!hasAnyFingerprint) return body;
+
+  // Apply replacements in order. Each pattern is anchored at a unique
+  // structural prefix so they cannot cross-interact.
+  let sanitized = body;
+  for (const { pattern, replacement } of legacyPatterns) {
+    sanitized = sanitized.replace(pattern, replacement);
+  }
+  return sanitized;
+}
 
 // Re-export tag constants from types.ts for convenience
 export { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, DEFAULT_ENTITY_TAG, DEFAULT_CONCEPT_TAG };
@@ -30,25 +112,20 @@ const TASK_SECTIONS: Record<SchemaTask, string[]> = {
   full: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules', 'Maintenance Policies'],
 };
 
-export function buildDefaultSchemaBody(settings?: LLMWikiSettings): string {
-  // v1.22.0 Phase 2: dynamic tag vocabulary. When settings are provided and
-  // tagVocabularyMode === 'custom', the active tag list comes from
-  // getActiveEntityTags / getActiveConceptTags — keeping the schema body
-  // and the prompt's Active Tag Vocabulary section in lockstep, so the LLM
-  // never sees two conflicting tag lists. When settings are undefined
-  // (first-ever load, before any settings are persisted), we fall back to
-  // the hardcoded defaults — preserving the original public-API behavior.
-  const entityTags = settings ? getActiveEntityTags(settings) : [...VALID_ENTITY_TAGS];
-  const conceptTags = settings ? getActiveConceptTags(settings) : [...VALID_CONCEPT_TAGS];
-  const entityList = entityTags.join(', ');
-  const conceptList = conceptTags.join(', ');
+export function buildDefaultSchemaBody(_settings?: LLMWikiSettings): string {
+  // Issue #328 Phase 1: tag vocabulary is Settings-driven and is injected
+  // at runtime via buildActiveTagVocabularySection() — see
+  // src/wiki/system-prompts.ts. The schema body intentionally holds no
+  // baked enum. The `settings` parameter is kept so ensureSchemaExists()
+  // and regenerateDefaultSchema() callers stay byte-identical; it is no
+  // longer read here. Phase 2 may legitimately need it again.
   return `# Wiki Schema Configuration
 
 This file governs how the LLM builds and maintains your Wiki. Edit it freely.
 
 ## Wiki Structure
-- Entity pages: \`entities/\` (${entityList})
-- Concept pages: \`concepts/\` (${conceptList})
+- Entity pages: \`entities/\` — entity subtype tags are runtime-injected (see Settings → Tag Vocabulary); this file holds no list
+- Concept pages: \`concepts/\` — concept subtype tags are runtime-injected (see Settings → Tag Vocabulary); this file holds no list
 - Source pages: \`sources/\`
 - Index: \`index.md\`
 - Log: \`log.md\`
@@ -60,7 +137,7 @@ Pages in \`entities/\` MUST follow this structure:
 - \`type: entity\` — page category (MUST be exactly "entity")
 - \`created:\` — ISO date of first creation
 - \`sources:\` — array of source file wiki-links
-- \`tags:\` — entity subtype, MUST be one of: ${entityList}
+- \`tags:\` — entity subtype; the valid values are runtime-injected by the **Active Tag Vocabulary** section of every system prompt (driven by Settings). MUST be one of those values.
 - \`aliases:\` (optional) — alternative names (translations, abbreviations)
 - \`reviewed:\` (optional) — if true, page is human-verified and protected
 
@@ -77,7 +154,7 @@ Pages in \`concepts/\` MUST follow this structure:
 - \`type: concept\` — page category (MUST be exactly "concept")
 - \`created:\` — ISO date of first creation
 - \`sources:\` — array of source file wiki-links
-- \`tags:\` — concept subtype, MUST be one of: ${conceptList}
+- \`tags:\` — concept subtype; the valid values are runtime-injected by the **Active Tag Vocabulary** section of every system prompt (driven by Settings). MUST be one of those values.
 - \`aliases:\` (optional) — alternative names (translations, abbreviations)
 - \`reviewed:\` (optional) — if true, page is human-verified and protected
 
@@ -132,10 +209,9 @@ Rules:
 ## Classification Rules
 - **type field:** entity | concept | source — the page category
 - **tags field:** stores the subtype (entity_type or concept_type)
-- Entity subtypes (valid tags for type=entity): ${entityList}
-- Concept subtypes (valid tags for type=concept): ${conceptList}
+- Entity subtypes / Concept subtypes: see the **Active Tag Vocabulary** section injected into every system prompt (driven by Settings). The valid values are NOT listed here — relying on a baked list in this file would drift from your Settings whenever you change the vocabulary.
 - Source types: document, conversation, note
-- **Rule:** tags MUST only contain values from the corresponding subtype list above. A tag not in the valid list will be removed by the system.
+- **Rule:** tags MUST only contain values from the Active Tag Vocabulary in the system prompt. A tag not in that list will be removed by the system.
 
 ## Multi-Source Merge Rules
 - Sources array: Append new sources, never overwrite
@@ -258,11 +334,18 @@ ${selectedBody}
     try {
       const content = await this.app.vault.read(file);
       const parsed = this.parseConfigFile(content);
-
-      this.cachedBody = parsed.body;
+      // Issue #328 Phase 1: vault-resident schema files created under
+      // v1.22.0-v1.25.1 may still carry a baked tag enum at 6 sites
+      // (Wiki Structure × 2, Entity Page Template × 1, Concept Page
+      // Template × 1, Classification Rules × 2). The on-disk file is the
+      // user's data — we never rewrite it. Instead we sanitize the body
+      // that the LLM sees in this cache layer so the runtime injection is
+      // the SOLE tag vocabulary the model encounters.
+      const sanitizedBody = stripLegacyBakedTagEnum(parsed.body);
+      this.cachedBody = sanitizedBody;
       this.cacheValid = true;
 
-      return parsed;
+      return { ...parsed, body: sanitizedBody };
     } catch {
       console.warn('Failed to read schema file, ignoring');
       return null;
