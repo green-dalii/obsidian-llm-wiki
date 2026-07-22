@@ -52,7 +52,17 @@ export function correctRelatedLinkPrefixes(
   for (const h of [relatedEntitiesLabel.trim(), 'Related Entities']) sectionFolder.set(h, 'entities');
   for (const h of [relatedConceptsLabel.trim(), 'Related Concepts']) sectionFolder.set(h, 'concepts');
 
-  const linkRe = /\[\[(entities|concepts|sources)\/([^\]|]+)(\|[^\]]*)?\]\]/g;
+  // #307: the pattern used to accept only the three correct folder names, so a link
+  // whose prefix was wrong — the very thing this function repairs — never entered the
+  // rewrite at all. The singular forms are added because the model emits them despite
+  // the plural in the prompt; they exist nowhere in the project's path generation
+  // (`WIKI_SUBFOLDERS` is hardcoded plural), so accepting them cannot shadow a real
+  // folder. Plural alternatives come first so `concepts/` matches without backtracking
+  // through `concept`.
+  // Any other prefix stays out on purpose: a link like `[[Arzneimittel/X]]` uses a
+  // vault-specific tag as a folder, and rewriting it would overwrite a user intent this
+  // function cannot read.
+  const linkRe = /\[\[(entities|entity|concepts|concept|sources)\/([^\]|]+)(\|[^\]]*)?\]\]/g;
   let current: 'entities' | 'concepts' | undefined;
   return content.split('\n').map(line => {
     const header = /^#{1,6}\s+(.*?)\s*$/.exec(line);
