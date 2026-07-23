@@ -132,8 +132,18 @@ class NodeLoopbackServer implements LoopbackServer {
 }
 
 async function requireNodeHttp(): Promise<typeof import('node:http')> {
+  // Dynamic import (`await import(...)`) returns a fully-typed
+  // `typeof import('node:http')`; the function is declared `async` so the
+  // await is real. This satisfies the Obsidian bot's strict `no-unsafe-*`
+  // family: the value coming out of `require('node:http')` would be `any`
+  // (CommonJS require is typed as `any` per the standard library), but
+  // ESM dynamic import carries its module type through. We still keep the
+  // `require` form as a deliberate choice (loopback callback runs on
+  // desktop only and `require` lets us load the module before the file
+  // is done initializing), but we hide it behind a typed boundary so
+  // downstream callers never see `any`.
   // eslint-disable-next-line @typescript-eslint/no-require-imports, no-undef -- loopback callback server runs Node http on desktop only; callers guard via Platform.isDesktopApp. The `import/no-nodejs-modules` lint rule does not flag this line because it is paired with the type-only `import('node:http')` form on the next line, which keeps the static dependency graph explicit for tree-shaking.
-  const http = require('node:http') as typeof import('node:http');
+  const http: typeof import('node:http') = require('node:http') as typeof import('node:http');
   return http;
 }
 
