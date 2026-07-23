@@ -562,6 +562,8 @@ export interface BatchRequirementsContext {
   seen: Set<string>;
   /** Content hashes already present in the wiki (snapshot at batch start). */
   ingested: Set<string>;
+  /** Deterministic MinerU failure that should suppress later MinerU calls in this batch. */
+  mineruFatalError?: 'authentication' | 'quota';
 }
 
 /** Options for WikiEngine.ingestSource (all optional, backward-compatible). */

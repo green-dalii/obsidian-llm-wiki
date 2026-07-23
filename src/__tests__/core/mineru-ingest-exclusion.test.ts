@@ -6,7 +6,7 @@ import { ingestCommands, type IngestHost } from '../../main-commands/ingest-comm
 import { AutoMaintainManager } from '../../schema/auto-maintain';
 import { MultiFileSuggestModal } from '../../ui/modals';
 import { createWikiEngineHarness } from '../__support__/wiki-engine-harness';
-import type { LLMWikiSettings } from '../../types';
+import type { IngestReport, LLMWikiSettings } from '../../types';
 import type { WikiEngine } from '../../wiki/wiki-engine';
 
 type VaultEvent = 'create' | 'modify' | 'rename' | 'delete';
@@ -249,6 +249,109 @@ describe('managed MinerU artifact ingestion exclusion', () => {
     expect(ingestSource).toHaveBeenCalledTimes(1);
     expect(ingestSource).toHaveBeenCalledWith(accepted, expect.any(Object));
     expect(queue.getSnapshot().map(job => job.file.path)).toEqual([accepted.path]);
+  });
+
+  it('awaits batch PDF cache housekeeping exactly once before checking files', async () => {
+    let finishHousekeeping: (() => void) | undefined;
+    const preparePdfCacheForBatchIngest = vi.fn(() => new Promise<void>((resolve) => {
+      finishHousekeeping = resolve;
+    }));
+    const isAlreadyIngested = vi.fn(async () => false);
+    const ingestSource = vi.fn<(source: TFile) => Promise<void>>(async () => undefined);
+    const host = {
+      app: { vault: { getAbstractFileByPath: () => null } },
+      settings: { language: 'en', wikiFolder: 'wiki', slugCase: 'kebab-case' },
+      wikiEngine: {
+        setDoneCallback: vi.fn(),
+        createBatchContext: () => ({ seen: new Set(), ingested: new Set() }),
+        ingestSource,
+        wasCancelled: false,
+      },
+      ingestQueue: new IngestQueue(),
+      preparePdfCacheForBatchIngest,
+      showProgressFor: vi.fn(),
+      dismissProgress: vi.fn(),
+      isAlreadyIngested,
+    } as unknown as IngestHost;
+
+    const batch = ingestCommands.runBatchIngest.call(
+      host,
+      [file('inbox/first.pdf'), file('inbox/second.pdf')],
+      [],
+      'two PDFs',
+    );
+    await Promise.resolve();
+
+    expect(preparePdfCacheForBatchIngest).toHaveBeenCalledOnce();
+    expect(isAlreadyIngested).not.toHaveBeenCalled();
+    expect(ingestSource).not.toHaveBeenCalled();
+
+    finishHousekeeping?.();
+    await batch;
+
+    expect(preparePdfCacheForBatchIngest).toHaveBeenCalledOnce();
+    expect(ingestSource).toHaveBeenCalledTimes(2);
+  });
+
+  it('marks a reported PDF conversion failure as failed while continuing later jobs', async () => {
+    const queue = new IngestQueue();
+    const first = file('inbox/first.pdf');
+    const second = file('inbox/second.pdf');
+    let onDone: ((report: IngestReport) => void) | undefined;
+    const ingestSource = vi.fn(async (source: TFile) => {
+      onDone?.(source.path === first.path
+        ? {
+            sourceFile: source.path,
+            createdPages: [],
+            updatedPages: [],
+            entitiesCreated: 0,
+            conceptsCreated: 0,
+            failedItems: [],
+            collisions: [],
+            contradictionsFound: 0,
+            success: true,
+            skipped: true,
+            rejectedFiles: [{
+              path: source.path,
+              reason: 'unsupported-pdf',
+              detail: 'Safe MinerU upload failure',
+            }],
+          }
+        : {
+            sourceFile: source.path,
+            createdPages: ['wiki/sources/second.md'],
+            updatedPages: [],
+            entitiesCreated: 0,
+            conceptsCreated: 0,
+            failedItems: [],
+            collisions: [],
+            contradictionsFound: 0,
+            success: true,
+          });
+    });
+    const host = {
+      app: { vault: { getAbstractFileByPath: () => null } },
+      settings: { language: 'en', wikiFolder: 'wiki', slugCase: 'kebab-case' },
+      wikiEngine: {
+        setDoneCallback: (callback: (report: IngestReport) => void) => { onDone = callback; },
+        createBatchContext: () => ({ seen: new Set(), ingested: new Set() }),
+        ingestSource,
+        wasCancelled: false,
+      },
+      ingestQueue: queue,
+      preparePdfCacheForBatchIngest: vi.fn(async () => undefined),
+      showProgressFor: vi.fn(),
+      dismissProgress: vi.fn(),
+      isAlreadyIngested: vi.fn(async () => false),
+    } as unknown as IngestHost;
+
+    await ingestCommands.runBatchIngest.call(host, [first, second], [], 'queue status');
+
+    expect(ingestSource).toHaveBeenCalledTimes(2);
+    expect(queue.getSnapshot().map(job => [job.file.path, job.status, job.error])).toEqual([
+      [first.path, 'failed', 'Safe MinerU upload failure'],
+      [second.path, 'completed', undefined],
+    ]);
   });
 
   it('runBatchIngest ignores a file whose pre-issued job id is empty', async () => {

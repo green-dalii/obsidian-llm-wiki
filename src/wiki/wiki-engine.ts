@@ -672,6 +672,12 @@ export class WikiEngine {
     const key = this.mineruErrorKey(error);
     if (!key) return false;
 
+    if (opts?.batchCtx && error instanceof MineruAuthenticationError) {
+      opts.batchCtx.mineruFatalError = 'authentication';
+    } else if (opts?.batchCtx && error instanceof MineruQuotaError) {
+      opts.batchCtx.mineruFatalError = 'quota';
+    }
+
     const detail = getText(this.settings.language, key, { filename: file.basename });
     console.warn(`[MinerU PDF ingest skipped] ${file.path}: ${key}`);
     const cancelled = error instanceof MineruCancelledError
@@ -795,6 +801,20 @@ export class WikiEngine {
         ),
       );
     setPdfStage('pdfStageReading');
+
+    const mineruFatalError = this.settings.pdfConversionBackend === 'mineru'
+      ? opts?.batchCtx?.mineruFatalError
+      : undefined;
+    if (mineruFatalError) {
+      const key = mineruFatalError === 'authentication'
+        ? 'mineruAuthenticationFailed'
+        : 'mineruQuotaExceeded';
+      const detail = getText(lang, key, { filename: file.basename });
+      console.warn(`[MinerU PDF ingest skipped] ${file.path}: ${key}`);
+      this.reportSkip(file, { reason: 'unsupported-pdf', detail }, opts, key);
+      this.finishIngestionEarlyExit();
+      return;
+    }
 
     let conversionResult;
     try {

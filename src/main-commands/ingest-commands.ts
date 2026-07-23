@@ -186,7 +186,7 @@ export const ingestCommands = {
   },
 
   async runBatchIngest(this: IngestHost, files: TFile[], jobIds: string[], sourceLabel: string): Promise<void> {
-    void this.preparePdfCacheForBatchIngest();
+    await this.preparePdfCacheForBatchIngest();
 
     const eligibleFiles: TFile[] = [];
     const eligibleJobIds: string[] = [];
@@ -279,6 +279,7 @@ export const ingestCommands = {
       const jobId = resolvedJobIds[i];
 
       try {
+        const reportStart = reports.length;
         if (jobId) {
           this.ingestQueue.start(jobId);
         }
@@ -292,7 +293,18 @@ export const ingestCommands = {
           break;
         }
         if (jobId) {
-          this.ingestQueue.complete(jobId, true);
+          const fileReport = reports
+            .slice(reportStart)
+            .reverse()
+            .find(report => report.sourceFile === file.path);
+          const pdfFailure = fileReport?.rejectedFiles?.find(
+            rejection => rejection.reason === 'unsupported-pdf'
+          );
+          this.ingestQueue.complete(
+            jobId,
+            pdfFailure === undefined,
+            pdfFailure?.detail,
+          );
         }
       } catch (error) {
         console.error(`(${i + 1}/${ingestCount}) ingestion failed: ${file.path}`, error);

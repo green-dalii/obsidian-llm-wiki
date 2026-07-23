@@ -336,6 +336,75 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
   });
 
   it.each([
+    ['authentication', new MineruAuthenticationError('request-upload', { apiToken: 'secret-token' })],
+    ['quota', new MineruQuotaError('request-upload', { apiToken: 'secret-token' })],
+  ] as const)('fast-fails later MinerU PDFs after a batch %s failure', async (reason, error) => {
+    mockedConvert
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce({
+        markdown: '# Must not be used',
+        metadata: { convertedAt: '2026-07-22T00:00:00Z', converter: 'mineru/vlm' },
+      });
+    const h = createWikiEngineHarness({
+      settings: { pdfConversionBackend: 'mineru', mineruApiToken: 'secret-token' },
+    });
+    const batchCtx = h.engine.createBatchContext();
+
+    await h.engine.ingestSource(pdfFile('sources/first.pdf'), { batchCtx });
+    await h.engine.ingestSource(pdfFile('sources/second.pdf'), { batchCtx });
+
+    expect(batchCtx.mineruFatalError).toBe(reason);
+    expect(mockedConvert).toHaveBeenCalledOnce();
+    expect(h.reports).toHaveLength(2);
+    expect(h.reports.every(report => report.skipped === true)).toBe(true);
+    expect(JSON.stringify(h.reports)).not.toContain('secret-token');
+  });
+
+  it.each([
+    ['rate limit', new MineruRateLimitError('poll', { apiToken: 'secret-token' })],
+    ['upload', new MineruStageError('upload', 'secret response', { apiToken: 'secret-token' })],
+    ['task', new MineruTaskFailedError('secret response', 'task-1', 'trace-1', 'secret-token')],
+    ['download', new MineruStageError('download', 'secret response', { apiToken: 'secret-token' })],
+    ['result', new MineruInvalidResultError('secret response')],
+    ['artifact', new MineruArtifactWriteError('secret path')],
+  ] as const)('keeps a MinerU %s failure file-local within a batch', async (_case, error) => {
+    mockedConvert
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce({
+        markdown: '# Second PDF\n\nIndependent conversion.',
+        metadata: { convertedAt: '2026-07-22T00:00:00Z', converter: 'mineru/vlm' },
+      });
+    const h = createWikiEngineHarness({
+      settings: { pdfConversionBackend: 'mineru', mineruApiToken: 'secret-token' },
+    });
+    const batchCtx = h.engine.createBatchContext();
+
+    await h.engine.ingestSource(pdfFile('sources/first.pdf'), { batchCtx });
+    await h.engine.ingestSource(pdfFile('sources/second.pdf'), { batchCtx });
+
+    expect(batchCtx.mineruFatalError).toBeUndefined();
+    expect(mockedConvert).toHaveBeenCalledTimes(2);
+    expect(h.reports[0]?.skipped).toBe(true);
+    expect(h.reports[1]?.skipped).not.toBe(true);
+    expect(JSON.stringify(h.reports)).not.toContain('secret-token');
+  });
+
+  it('does not apply a MinerU batch fatal marker to the native PDF backend', async () => {
+    mockedConvert.mockResolvedValueOnce({
+      markdown: '# Native PDF\n\nConverted by the native backend.',
+      metadata: { convertedAt: '2026-07-22T00:00:00Z', converter: 'anthropic/native' },
+    });
+    const h = createWikiEngineHarness({ settings: { pdfConversionBackend: 'native' } });
+    const batchCtx = h.engine.createBatchContext();
+    batchCtx.mineruFatalError = 'authentication';
+
+    await h.engine.ingestSource(pdfFile('sources/native.pdf'), { batchCtx });
+
+    expect(mockedConvert).toHaveBeenCalledOnce();
+    expect(h.reports.at(-1)?.skipped).not.toBe(true);
+  });
+
+  it.each([
     ['upload', new MineruCancelledError('upload')],
     ['polling', new MineruCancelledError('poll')],
     ['download', new MineruCancelledError('download')],
