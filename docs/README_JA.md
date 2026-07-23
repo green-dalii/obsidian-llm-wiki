@@ -90,24 +90,36 @@
 
 1. **インストール。** Obsidian → 設定 → コミュニティプラグイン → ブラウズ → 「Karpathy LLM Wiki」を検索 → インストール → 有効化。または[コミュニティプラグインページ](https://community.obsidian.md/plugins/karpathywiki)にアクセスして「Add to Obsidian」をクリック。
 2. **プロバイダーを設定。** 設定 → Karpathy LLM Wiki → プロバイダーを選択（OpenAI、Anthropic、Ollama、ChatGPT Plan（Codex OAuth）など）→ APIキーを入力（ローカルは不要）→ **Test Connection** → 保存。
-3. **ノートを取り込む。** `Cmd+P/Ctrl+P` → 「Ingest single source」 → Markdown（またはPDF、v1.25.0+）ファイルを選択。数秒で最初のWikiページが`wiki/sources/`、`wiki/entities/`、`wiki/concepts/`に生成されます。
+3. **ノートを取り込む。** 2つの方法：
+   - **⌨️ キーボード：** `Cmd+P/Ctrl+P` → 「Ingest single source」 → Markdown（またはPDF、v1.25.0+）ファイルを選択。
+   - **🖱️ ツールバーアイコン：** Obsidian の左側リボンにある **ステッカーアイコン**をクリックすれば、現在開いているノートを即座に取り込めます — メニューを探す必要なし。
+   
+   数秒で最初のWikiページが`wiki/sources/`、`wiki/entities/`、`wiki/concepts/`に生成されます。
+4. **Wikiに問い合わせる。** 2つの方法：
+   - **⌨️ キーボード：** `Cmd+P/Ctrl+P` → 「Query wiki」。
+   - **🖱️ ツールバーアイコン：** Obsidian の左側リボンにある **メッセージ円形アイコン**をクリック。
+   
+   Copilot スタイルの右側ドッキングサイドパネルが開き、そこで Wiki とチャットできます。回答にはナレッジグラフへ戻る `[[wiki-links]]` が含まれます。
 
-以上です。元のノートは一切変更されません — `wiki/`フォルダ以下に新しいページを作成するだけです。Wikiとチャットするには：`Cmd+P/Ctrl+P` → 「Query wiki」。（Macは`Cmd`、Windows/Linuxは`Ctrl`。）
+![Query side panel](/docs/assets/query-side-panel.png)
+
+以上です。元のノートは一切変更されません — `wiki/`フォルダ以下に新しいページを作成するだけです。**ノート取り込み** と **Wikiに問い合わせる** はどちらも左側リボンに固定されており、いつでもワンクリックでアクセスできます。（Macは`Cmd`、Windows/Linuxは`Ctrl`。）
 
 ### 基本コマンド
 
 | コマンド | 内容 |
 |---------|------|
-| **📥 Ingest single source** | `Cmd+P/Ctrl+P` → 「Ingest single source」 — Markdownまたは**PDF（v1.25.0+）**ファイルを選択し、エンティティ・概念ページを生成 |
+| **📥 Ingest single source** | `Cmd+P/Ctrl+P` → 「Ingest single source」 — Markdownまたは**PDF（v1.25.0+）**ファイルを選択し、エンティティ・概念ページを生成。*または：🖱️ 現在のノートで左側リボンのステッカーアイコンをクリック。* |
 | **📂 Ingest from folder** | `Cmd+P/Ctrl+P` → 「Ingest from folder」 — フォルダ内の全ノートを一括取り込み（スマートバッチスキップ対応） |
 | **📑 Ingest multiple files** | `Cmd+P/Ctrl+P` → 「Ingest multiple files」 — 2ペインファイルツリーでサブセットを選択（ライブキュー＋ファイル単位キャンセル） |
-| **🔍 Query wiki** | `Cmd+P/Ctrl+P` → 「Query wiki」 — 右側サイドパネルでWikiとチャット、回答に`[[wiki-links]]`付き |
+| **🔍 Query wiki** | `Cmd+P/Ctrl+P` → 「Query wiki」 — 右側サイドパネルでWikiとチャット、回答に`[[wiki-links]]`付き。*または：🖱️ 左側リボンのメッセージ円形アイコンをクリック。* |
 | **🛠️ Lint wiki** | `Cmd+P/Ctrl+P` → 「Lint wiki」 — 重複・リンク切れ・空ページ・孤立ページ・欠落エイリアス・矛盾をフルスキャン |
 | **⚡ Smart Fix All** | Lintモーダル内 — ワンクリック因果順修復（フェーズごとにレポート表示） |
 | **📋 Regenerate index** | `Cmd+P/Ctrl+P` → 「Regenerate index」 — `wiki/index.md`を現在のページとエイリアスで再構築 |
 | **⏹ Cancel** | `Cmd+P/Ctrl+P` → 「Cancel current ingestion」またはステータスバーをクリック — 次のバッチ境界でクリーンに停止 |
 | **📊 Ingestion history** | `Cmd+P/Ctrl+P` → 「View Ingestion History」 — 過去の取り込み・Lintレポート・メンテナンス実行を検索可能なUIで表示 |
 
+![Command panel — all LLM Wiki commands live in Obsidian's command palette](/docs/assets/command-panel.png)
 | Before | After |
 |--------|-------|
 | `notes/machine-learning.md`（フラットなファイル） | `wiki/concepts/supervised-learning.md` — `[[双方向リンク]]`、エイリアス、ソース帰属、`wiki/index.md`のエントリ付き |

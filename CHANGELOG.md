@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.25.3] - 2026-07-23
+
+### Security
+
+- **Provider API key moved to Obsidian SecretStorage (Issue #182).** API keys no longer live in plain text in `data.json` — the OS keychain (macOS Keychain / Windows Credential Manager / Linux Secret Service) is now the authoritative store. Backward-compatible: existing keys are auto-migrated on first v1.25.3 load; migration failure (locked keychain) retries on restart without data loss.
+
+### Maintenance
+
+- **SecretStorage-backed `ProviderSecretStore` (`src/llm-sdk/provider-secret-store.ts`).** Mirrors the Codex OAuth `CodexCredentialStore` interface; single `secretId` (`karpathywiki-provider-api-key`) shared across all API-key providers. One-time migration marker (`_migrated_v1_25_3_secret_storage`) ensures idempotency.
+- **`resolveProviderApiKey` helper (`src/llm-sdk/provider-api-key-resolver.ts`).** Reads SecretStorage first, falls back to `settings.apiKey` for legacy data; try/catch guards against locked keychain at load time. Wired into 7+ call sites (loadSettings, initializeLLMClient, testLLMConnection, fetchModels, provider-section UI, etc.) without drift.
+- **Quick Start README updated (EN + 9 i18n).** Steps 3 (Ingest) and 4 (Query wiki) now document both ⌨️ keyboard shortcuts and 🖱️ ribbon toolbar icons, matching the desktop UX. Core commands table and command-palette image added.
+
+### Tests
+
+- 2529 tests passing (188 files). +14 tests since v1.25.2.
+- New tests cover: `ProviderSecretStore` load/save/clear/hasKey (78 lines), `resolveProviderApiKey` fallback chain (54 lines), migration idempotency and failure scenarios.
+
+## [1.25.2] - 2026-07-23
 
 ### Fixed
 

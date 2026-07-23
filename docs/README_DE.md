@@ -92,24 +92,36 @@ Du schreibst Notizen. Sie liegen in Ordnern. Zusammenhänge zu finden bedeutet, 
 
 1. **Installieren.** Obsidian → Einstellungen → Community-Plugins → Durchsuchen → „Karpathy LLM Wiki" suchen → Installieren → Aktivieren. Oder besuche die [Community-Plugin-Seite](https://community.obsidian.md/plugins/karpathywiki) und klicke auf **Zu Obsidian hinzufügen**.
 2. **Provider konfigurieren.** Einstellungen → Karpathy LLM Wiki → Provider wählen (OpenAI, Anthropic, Ollama, ChatGPT Plan (Codex OAuth) usw.) → API-Key eingeben (nicht nötig bei lokalen Anbietern) → **Test Connection** klicken → Speichern.
-3. **Eine Notiz ingestieren.** `Cmd+P/Ctrl+P` → „Ingest single source" → eine beliebige Markdown- (oder PDF-, v1.25.0+) Datei wählen. Deine ersten Wiki-Seiten erscheinen innerhalb von Sekunden in `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`.
+3. **Eine Notiz ingestieren.** Zwei Wege:
+   - **⌨️ Tastatur:** `Cmd+P/Ctrl+P` → „Ingest single source" → eine beliebige Markdown- (oder PDF-, v1.25.0+) Datei wählen.
+   - **🖱️ Toolbar-Symbol:** Klicke auf das **Sticker-Symbol** im linken Ribbon von Obsidian, um die aktuell geöffnete Notiz sofort aufzunehmen — kein Menü-Suchen.
+   
+   Deine ersten Wiki-Seiten erscheinen innerhalb von Sekunden in `wiki/sources/`, `wiki/entities/`, `wiki/concepts/`.
+4. **Wiki abfragen.** Zwei Wege:
+   - **⌨️ Tastatur:** `Cmd+P/Ctrl+P` → „Query wiki".
+   - **🖱️ Toolbar-Symbol:** Klicke auf das **Sprechblasen-Symbol** im linken Ribbon von Obsidian.
+   
+   Ein rechts angedocktes Seitenpanel im Copilot-Stil öffnet sich, in dem du mit deinem Wiki chatten kannst. Antworten enthalten `[[wiki-links]]`, die zurück in deinen Wissensgraphen führen.
 
-Das war's. Das Plugin ändert nichts an deinen ursprünglichen Notizen — es erstellt nur neue Seiten unter `wiki/`. Um mit deinem Wiki zu chatten: `Cmd+P/Ctrl+P` → „Query wiki". (`Cmd` auf macOS, `Ctrl` auf Windows/Linux.)
+![Query side panel](/docs/assets/query-side-panel.png)
+
+Das war's. Das Plugin ändert nichts an deinen ursprünglichen Notizen — es erstellt nur neue Seiten unter `wiki/`. Sowohl **Ingest** als auch **Wiki abfragen** sind im linken Ribbon fixiert, jederzeit mit einem Klick erreichbar. (`Cmd` auf macOS, `Ctrl` auf Windows/Linux.)
 
 ### Kernbefehle
 
 | Befehl | Beschreibung |
 |---------|--------------|
-| **📥 Einzelne Quelle aufnehmen** | `Cmd+P/Ctrl+P` → „Ingest single source" — wähle eine Markdown- oder **PDF (v1.25.0+)**-Datei, erhalte Entity-/Concept-/Wiki-Seiten |
+| **📥 Einzelne Quelle aufnehmen** | `Cmd+P/Ctrl+P` → „Ingest single source" — wähle eine Markdown- oder **PDF (v1.25.0+)**-Datei, erhalte Entity-/Concept-/Wiki-Seiten. *Oder: 🖱️ Sticker-Symbol im linken Ribbon auf der aktiven Notiz anklicken.* |
 | **📂 Aus Ordner aufnehmen** | `Cmd+P/Ctrl+P` → „Ingest from folder" — Batch-Aufnahme aller Notizen in einem Ordner, mit intelligentem Batch-Überspringen |
 | **📑 Mehrere Dateien aufnehmen** | `Cmd+P/Ctrl+P` → „Ingest multiple files" — wähle eine Teilmenge über eine zweigeteilte Dateibaumansicht (mit Live-Queue + pro-Datei-Abbruch) |
-| **🔍 Wiki abfragen** | `Cmd+P/Ctrl+P` → „Query wiki" — chatte mit deinem Wiki in einem rechts angedockten Seitenpanel; Antworten enthalten `[[wiki-links]]` |
+| **🔍 Wiki abfragen** | `Cmd+P/Ctrl+P` → „Query wiki" — chatte mit deinem Wiki in einem rechts angedockten Seitenpanel; Antworten enthalten `[[wiki-links]]`. *Oder: 🖱️ Sprechblasen-Symbol im linken Ribbon anklicken.* |
 | **🛠️ Wiki linten** | `Cmd+P/Ctrl+P` → „Lint wiki" — vollständiger Gesundheitsscan: Duplikate, tote Links, leere Seiten, verwaiste Seiten, fehlende Aliase, Widersprüche |
 | **⚡ Smart Fix All** | innerhalb des Lint-Modals — One-Click-Reparatur in kausaler Reihenfolge mit Phasenbericht |
 | **📋 Index neu generieren** | `Cmd+P/Ctrl+P` → „Regenerate index" — baue `wiki/index.md` mit aktuellen Seiten und Aliasen neu auf |
 | **⏹ Abbrechen** | `Cmd+P/Ctrl+P` → „Cancel current ingestion" oder auf die Statusleiste klicken — stoppt sauber an der nächsten Batch-Grenze |
 | **📊 Aufnahmeverlauf** | `Cmd+P/Ctrl+P` → „View Ingestion History" — durchsuchbare UI für vergangene Aufnahmen, Lint-Berichte und Wartungsläufe |
 
+![Command panel — all LLM Wiki commands live in Obsidian's command palette](/docs/assets/command-panel.png)
 | Vorher | Nachher |
 |--------|-------|
 | `notes/machine-learning.md` (eine flache Datei) | `wiki/concepts/supervised-learning.md` mit `[[bidirektionalen Links]]`, Aliasen, Quellenangabe und einem Eintrag in `wiki/index.md` |

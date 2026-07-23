@@ -93,23 +93,36 @@
 
 1. **安装。** Obsidian → 设置 → 第三方插件 → 社区插件 → 浏览 → 搜索 "Karpathy LLM Wiki" → 安装 → 启用。或访问 [社区插件页面](https://community.obsidian.md/plugins/karpathywiki) 点击 **Add to Obsidian**。
 2. **配置 Provider。** 打开 设置 → Karpathy LLM Wiki → 选择 Provider（OpenAI、Anthropic、Ollama、ChatGPT Plan (Codex OAuth) 等）→ 输入 API Key（本地模型不需要）→ 点击 **测试连接** → 保存。
-3. **摄入一篇笔记。** `Cmd+P/Ctrl+P` → "摄入单个源文件" → 选择任意 Markdown（或 PDF，v1.25.0+）文件。几秒内你的首批 Wiki 页面就出现在 `wiki/sources/`、`wiki/entities/`、`wiki/concepts/` 中。
+3. **摄入一篇笔记。** 两种方式：
+   - **⌨️ 键盘：** `Cmd+P/Ctrl+P` → 「摄入单个源文件」 → 选择任意 Markdown（或 PDF，v1.25.0+）文件。
+   - **🖱️ 工具栏图标：** 点击 Obsidian 左侧 ribbon 中的 **贴纸图标**，即可一键摄入当前打开的笔记——无需翻菜单。
+   
+   几秒内你的首批 Wiki 页面就出现在 `wiki/sources/`、`wiki/entities/`、`wiki/concepts/` 中。
+4. **查询你的 Wiki。** 两种方式：
+   - **⌨️ 键盘：** `Cmd+P/Ctrl+P` → 「查询 Wiki」。
+   - **🖱️ 工具栏图标：** 点击 Obsidian 左侧 ribbon 中的 **消息圆形图标**。
+   
+   一个右侧停靠的侧边面板（类 Copilot 风格）会打开，你可以在其中与 Wiki 对话。答案带 `[[wiki-links]]` 回链到你的知识图谱。
 
-仅此而已。插件不会修改你的原始笔记——只在 `wiki/` 下创建新页面。要与你的 Wiki 对话：`Cmd+P/Ctrl+P` → "查询 Wiki"。（`Cmd` 在 macOS 上，`Ctrl` 在 Windows/Linux 上。）
+![查询侧边面板](/docs/assets/query-side-panel.png)
+
+仅此而已。插件不会修改你的原始笔记——只在 `wiki/` 下创建新页面。**摄入** 和 **查询 Wiki** 都已固定在左侧 ribbon 上，可随时一键访问。（macOS 上使用 `Cmd`，Windows/Linux 上使用 `Ctrl`。）
 
 ### 核心命令
 
 | 命令 | 功能 |
 |------|------|
-| **📥 摄入单个源文件** | `Cmd+P/Ctrl+P` → "摄入单个源文件" — 选择 Markdown 或 **PDF (v1.25.0+)** 文件，生成实体/概念/Wiki 页面 |
+| **📥 摄入单个源文件** | `Cmd+P/Ctrl+P` → "摄入单个源文件" — 选择 Markdown 或 **PDF (v1.25.0+)** 文件，生成实体/概念/Wiki 页面。*也可：🖱️ 在当前笔记上点击左侧 ribbon 贴纸图标。* |
 | **📂 从文件夹摄入** | `Cmd+P/Ctrl+P` → "从文件夹摄入" — 批量处理文件夹中所有笔记，含智能批量跳过 |
 | **📑 多选文件摄入** | `Cmd+P/Ctrl+P` → "多选文件摄入" — 通过双栏文件树选择子集（带实时队列 + 按文件取消）|
-| **🔍 查询 Wiki** | `Cmd+P/Ctrl+P` → "查询 Wiki" — 在右侧停靠面板中与 Wiki 对话；答案带有 `[[wiki-links]]` |
+| **🔍 查询 Wiki** | `Cmd+P/Ctrl+P` → "查询 Wiki" — 在右侧停靠面板中与 Wiki 对话；答案带有 `[[wiki-links]]`。*也可：🖱️ 点击左侧 ribbon 消息圆形图标。* |
 | **🛠️ Lint Wiki** | `Cmd+P/Ctrl+P` → "Lint Wiki" — 全面健康扫描：重复页、断链、空洞页、孤立页、缺失别名、矛盾 |
 | **⚡ 一键智能修复** | 在 Lint 弹窗内 — 按因果关系顺序修复，含各阶段执行报告 |
 | **📋 重新生成索引** | `Cmd+P/Ctrl+P` → "重新生成索引" — 用当前页面和别名重建 `wiki/index.md` |
 | **⏹ 取消** | `Cmd+P/Ctrl+P` → "取消当前摄入" 或点击状态栏 — 在下一个批次边界干净停止 |
 | **📊 摄入历史** | `Cmd+P/Ctrl+P` → "查看摄入历史" — 可搜索的 UI，浏览历史摄入、Lint 报告和维护运行 |
+
+![命令面板 — 所有 LLM Wiki 命令都在 Obsidian 的命令面板中](/docs/assets/command-panel.png)
 
 **从一篇笔记到互联 Wiki：**
 
