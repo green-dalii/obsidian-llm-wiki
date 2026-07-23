@@ -43,7 +43,7 @@ export const DE_TEXTS = {
 
     // API Key
     apiKeyName: 'API-Schlüssel',
-    apiKeyDesc: 'API-Schlüssel vom Anbieter eingeben',
+    apiKeyDesc: 'API-Schlüssel. Wird im OS-Schlüsselbund gespeichert, nicht in data.json.',
     apiKeyPlaceholder: 'API-Schlüssel eingeben',
     codexAuthName: 'Bei ChatGPT Plan anmelden',
     codexAuthDesc: 'Experimenteller Codex-OAuth-Zugriff über das Kontingent Ihres ChatGPT-Plans. Die Abrechnung der OpenAI Platform API erfolgt weiterhin separat.',

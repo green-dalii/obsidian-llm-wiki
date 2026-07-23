@@ -91,5 +91,32 @@ export function applySettingsMigrations(
     applied.push('v1.23.0-startup-notice');
   }
 
+  // v1.25.3 #182 migration: move the legacy plaintext `apiKey` out of
+  // data.json into Obsidian SecretStorage. Pure-function side: detect,
+  // stash the plaintext on a transient field, clear the plaintext in
+  // `settings`, mark the migration done. The actual SecretStorage
+  // write happens in `main.ts loadSettings` after this helper returns
+  // — applySettingsMigrations must stay pure (no IO).
+  //
+  // Idempotency: `_migrated_v1_25_3_secret_storage` is set on the
+  // returned settings object, then persisted to data.json via
+  // saveData(). On the next load, the flag suppresses re-runs even
+  // if the SecretStorage write failed (failed-write → empty secretId
+  // slot, user re-prompts; the helper still treats this as "done"
+  // because the data.json side is settled).
+  if (savedData && !savedData._migrated_v1_25_3_secret_storage) {
+    const legacy = typeof savedData.apiKey === 'string' ? savedData.apiKey.trim() : '';
+    if (legacy.length > 0) {
+      // Stash for main.ts to read. NOT a settings field — main.ts is
+      // expected to delete this after the SecretStorage write succeeds.
+      (settings as unknown as { _legacyApiKeyForSecretStorage?: string })._legacyApiKeyForSecretStorage = legacy;
+      settings.apiKey = '';
+      applied.push('v1.25.3-secret-storage');
+    }
+    // Mark even when no plaintext exists, so the helper's behavior is
+    // deterministic across all v1.25.3+ loads.
+    settings._migrated_v1_25_3_secret_storage = true;
+  }
+
   return { settings, applied };
 }

@@ -12,6 +12,7 @@ import { ensureWelcomeNote, type EnsureResult, type VaultAdapter } from '../core
 import { getWelcomeFileName } from '../core/i18n';
 import { resolveModelForTask } from '../core/model-resolver';
 import { isLocalNoKeyProvider } from '../core/local-no-key-provider';
+import { resolveProviderApiKey } from '../llm-sdk/provider-api-key-resolver';
 import type { LLMClient } from '../types';
 
 export class AutoMaintainManager {
@@ -735,7 +736,10 @@ export class AutoMaintainManager {
       return { ok: false, error: 'LLM client not configured. Open Settings → LLM Provider.' };
     }
     // ollama / lmstudio accept empty API key (same gate as initializeLLMClient)
-    if (!this.settings.apiKey && !isLocalNoKeyProvider(this.settings.provider)) {
+    if (!resolveProviderApiKey(
+      { apiKey: this.settings.apiKey, providerApiKeySecretId: this.settings.providerApiKeySecretId },
+      this.app.secretStorage,
+    ) && !isLocalNoKeyProvider(this.settings.provider)) {
       return { ok: false, error: 'API key not configured.' };
     }
     if (!this.settings.model) {

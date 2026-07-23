@@ -43,7 +43,7 @@ export const ZH_TEXTS = {
 
     // API Key
     apiKeyName: 'API Key',
-    apiKeyDesc: '输入提供商的 API Key',
+    apiKeyDesc: 'API 密钥。存储在操作系统凭据管理器中，不写入 data.json。',
     apiKeyPlaceholder: '输入 API Key',
     codexAuthName: '登录 ChatGPT 套餐',
     codexAuthDesc: '通过实验性的 Codex OAuth 使用 ChatGPT 套餐额度。OpenAI Platform API 仍单独计费。',

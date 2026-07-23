@@ -36,6 +36,7 @@ import { PREDEFINED_PROVIDERS } from '../../types';
 import { BEDROCK_REGIONS, BEDROCK_DEFAULT_REGION, NATIVE_PDF_PROVIDER_IDS, MAX_BATCH_DELAY_MS } from '../../constants';
 import { renderRangeSlider } from '../settings-helpers';
 import { getCodexAuthUiState } from '../openai-codex-auth-controls';
+import { ProviderSecretStore } from '../../llm-sdk/provider-secret-store';
 
 export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLElement): void {
   const { tempSettings } = tab;
@@ -98,13 +99,27 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
     }
     if (isSignedIn) tab.queueStaleCodexModelRefresh();
   } else if (!isOllama && !isLmStudio) {
+    // v1.25.3 #182: read the key through the tested ProviderSecretStore
+    // helper (matches Codex's codexAuthManager UX). The text component
+    // is an in-memory buffer; the actual SecretStorage write happens
+    // once on settings-tab close (in LLMWikiSettingTab.hide → flushApiKey),
+    // so a user typing 30 characters does NOT trigger 30 OS keychain
+    // writes — only the final value is persisted. This preserves the
+    // pre-PR2 in-memory-edit-then-flush-on-save UX.
     new Setting(containerEl)
       .setName(tab.getText('apiKeyName'))
       .setDesc(tab.getText('apiKeyDesc'))
       .addText(text => {
+        const initial = (new ProviderSecretStore(tab.plugin.app.secretStorage, tempSettings.providerApiKeySecretId).load() ?? tempSettings.apiKey).trim();
         text.setPlaceholder(tab.getText('apiKeyPlaceholder'))
-          .setValue(tempSettings.apiKey)
-          .onChange((value) => { tempSettings.apiKey = value; tempSettings.llmReady = false; });
+          .setValue(initial)
+          .onChange((value) => {
+            // In-memory only — the actual setSecret happens on tab close.
+            // tempSettings.apiKey carries the pending value until the
+            // tab's hide() runs flushApiKey() against ProviderSecretStore.
+            tempSettings.apiKey = value;
+            tempSettings.llmReady = false;
+          });
         text.inputEl.type = 'password';
       });
   } else if (isLmStudio) {

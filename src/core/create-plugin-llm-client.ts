@@ -15,12 +15,24 @@ import { wrapWithAdvancedSettings } from '../llm-client-wrapper';
 import { createLLMClientFromSettingsSync } from '../llm-sdk/create-llm-client';
 import { getText } from './i18n';
 import type { CodexAuthManager } from '../llm-sdk/openai-codex/auth-manager';
+import type { ProviderSecretStorage } from '../llm-sdk/provider-secret-store';
 import type { LLMWikiSettings, LLMClient } from '../types';
 
-export function createLLMClient(settings: LLMWikiSettings, codexAuth?: CodexAuthManager, codexVersion?: string): LLMClient {
+export function createLLMClient(
+  settings: LLMWikiSettings,
+  codexAuth?: CodexAuthManager,
+  codexVersion?: string,
+  // v1.25.3 #182: when provided, the SDK factory prefers the live key
+  // from Obsidian SecretStorage over the (now-empty) settings.apiKey.
+  // Pass `plugin.app.secretStorage` from production code; tests that
+  // don't have one can omit it (resolver falls back to settings.apiKey).
+  secretStorage?: ProviderSecretStorage | null,
+): LLMClient {
   const client: LLMClient = createLLMClientFromSettingsSync({
     provider: settings.provider,
     apiKey: settings.apiKey,
+    providerApiKeySecretId: settings.providerApiKeySecretId,
+    secretStorage: secretStorage ?? null,
     baseUrl: settings.baseUrl,
     codexAuth,
     codexVersion,

@@ -43,7 +43,7 @@ export const PT_TEXTS = {
 
     // API Key
     apiKeyName: 'API Key',
-    apiKeyDesc: 'Insira sua API Key do provedor',
+    apiKeyDesc: 'Chave de API. Guardada no gerenciador de credenciais do sistema, não em data.json.',
     apiKeyPlaceholder: 'Insira a API Key',
     codexAuthName: 'Início de sessão no plano ChatGPT',
     codexAuthDesc: 'Acesso experimental ao Codex por OAuth usando a franquia do seu plano ChatGPT. A cobrança da API da OpenAI Platform permanece separada.',

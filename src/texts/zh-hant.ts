@@ -43,7 +43,7 @@ export const ZH_HANT_TEXTS = {
 
     // API Key
     apiKeyName: 'API Key',
-    apiKeyDesc: '輸入提供商的 API Key',
+    apiKeyDesc: 'API 金鑰。儲存在作業系統憑證管理員中,不寫入 data.json。',
     apiKeyPlaceholder: '輸入 API Key',
     codexAuthName: '登入 ChatGPT 方案',
     codexAuthDesc: '透過實驗性的 Codex OAuth 使用 ChatGPT 方案額度。OpenAI Platform API 仍會另外計費。',

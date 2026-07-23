@@ -43,7 +43,7 @@ export const JA_TEXTS = {
 
     // API Key
     apiKeyName: 'API Key',
-    apiKeyDesc: 'プロバイダーから発行されたAPI Keyを入力してください',
+    apiKeyDesc: 'APIキー。OSの資格情報マネージャーに保存され、data.jsonには書き込まれません。',
     apiKeyPlaceholder: 'API Keyを入力',
     codexAuthName: 'ChatGPTプランにサインイン',
     codexAuthDesc: 'ChatGPTプランの利用枠を使う実験的なCodex OAuthアクセスです。OpenAI Platform APIの課金は別途行われます。',

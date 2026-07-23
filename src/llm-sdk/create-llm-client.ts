@@ -26,10 +26,25 @@ import {
   BEDROCK_DEFAULT_REGION,
   type BedrockRegion,
 } from '../constants';
+import { resolveProviderApiKey } from './provider-api-key-resolver';
+import type { ProviderSecretStorage } from './provider-secret-store';
 
 export interface ProviderSettings {
   provider: string;
   apiKey: string;
+  /**
+   * v1.25.3 #182: stable ID for the provider API key in Obsidian
+   * SecretStorage. When the migration has run, the live key lives in
+   * SecretStorage under this ID; `apiKey` is the empty-string fallback
+   * for tests and un-migrated installs.
+   */
+  providerApiKeySecretId: string;
+  /**
+   * v1.25.3 #182: optional SecretStorage surface. When provided, the
+   * factory reads the live key from it; when null, falls back to the
+   * legacy `apiKey` field.
+   */
+  secretStorage?: ProviderSecretStorage | null;
   baseUrl?: string;
   /**
    * v1.24.1 PATCH Bedrock Stage 1 — AWS region used by the two
@@ -99,7 +114,13 @@ export async function createLLMClientFromSettings(settings: ProviderSettings): P
   const { OpenAICodexSdkClient } = await import('./openai-codex-sdk-client');
 
   const provider = settings.provider;
-  const apiKey = settings.apiKey.trim();
+  // v1.25.3 #182: read the key through the resolver so SecretStorage is
+  // preferred over the (now-empty) settings.apiKey. Falls back to the
+  // legacy plaintext for un-migrated installs and tests.
+  const apiKey = resolveProviderApiKey(
+    { apiKey: settings.apiKey, providerApiKeySecretId: settings.providerApiKeySecretId },
+    settings.secretStorage ?? null,
+  );
   const baseUrl = settings.baseUrl?.trim() || undefined;
 
   if (provider === 'openai-codex') {
@@ -203,7 +224,13 @@ export function createLLMClientFromSettingsSync(settings: ProviderSettings): LLM
   const { OpenAISdkClient, AnthropicSdkClient, OpenAICompatSdkClient, OpenAICodexSdkClient } = preloadedModules;
 
   const provider = settings.provider;
-  const apiKey = settings.apiKey.trim();
+  // v1.25.3 #182: read the key through the resolver so SecretStorage is
+  // preferred over the (now-empty) settings.apiKey. Falls back to the
+  // legacy plaintext for un-migrated installs and tests.
+  const apiKey = resolveProviderApiKey(
+    { apiKey: settings.apiKey, providerApiKeySecretId: settings.providerApiKeySecretId },
+    settings.secretStorage ?? null,
+  );
   const baseUrl = settings.baseUrl?.trim() || undefined;
 
   if (provider === 'openai-codex') {
