@@ -43,7 +43,7 @@ export const KO_TEXTS = {
 
     // API Key
     apiKeyName: 'API 키',
-    apiKeyDesc: 'Provider의 API 키를 입력하세요',
+    apiKeyDesc: 'API 키. OS 자격 증명 관리자에 저장되며 data.json에는 기록되지 않습니다.',
     apiKeyPlaceholder: 'API 키 입력',
     codexAuthName: 'ChatGPT 플랜 로그인',
     codexAuthDesc: 'ChatGPT 플랜 사용량을 이용하는 실험적 Codex OAuth 액세스입니다. OpenAI Platform API 요금은 별도로 청구됩니다.',

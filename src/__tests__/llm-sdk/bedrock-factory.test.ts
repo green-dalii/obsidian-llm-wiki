@@ -41,6 +41,7 @@ describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
       const client = await createLLMClientFromSettings({
         provider: 'bedrock-anthropic',
         apiKey: 'ABSK-test',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
         bedrockRegion: 'us-east-1',
       });
       expect(client).toBeInstanceOf(AnthropicSdkClient);
@@ -51,6 +52,7 @@ describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
       const client = await createLLMClientFromSettings({
         provider: 'bedrock-openai',
         apiKey: 'ABSK-test',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
         bedrockRegion: 'eu-central-1',
       });
       expect(client).toBeInstanceOf(OpenAICompatSdkClient);
@@ -63,6 +65,7 @@ describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
       const client = createLLMClientFromSettingsSync({
         provider: 'bedrock-anthropic',
         apiKey: 'ABSK-test',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
       });
       expect(client).toBeInstanceOf(AnthropicSdkClient);
       // Default region is us-east-1 (broadest Bedrock model coverage).
@@ -73,6 +76,7 @@ describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
       const client = createLLMClientFromSettingsSync({
         provider: 'bedrock-openai',
         apiKey: 'ABSK-test',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
         bedrockRegion: 'ap-northeast-2',
       });
       expect(client).toBeInstanceOf(OpenAICompatSdkClient);
@@ -85,6 +89,7 @@ describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
       const client = await createLLMClientFromSettings({
         provider: 'anthropic',
         apiKey: 'sk-ant-test',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
       });
       expect(client).toBeInstanceOf(AnthropicSdkClient);
       // Official endpoint: no baseURL override needed — should be undefined.
@@ -95,6 +100,7 @@ describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
       const client = await createLLMClientFromSettings({
         provider: 'openai',
         apiKey: 'sk-test',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
       });
       // provider === 'openai' routes to OpenAISdkClient (official); the
       // bedrock-* branches must NOT be reached. bedrock-openai is

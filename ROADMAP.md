@@ -2,11 +2,17 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.2 PATCH (RELEASED 2026-07-22). | **Updated:** 2026-07-22
+**Version:** 1.25.3 PATCH (RELEASED 2026-07-23). | **Updated:** 2026-07-23
 
 ## Current Status
 
-**v1.25.2 — RELEASED 2026-07-22.** PATCH scope. Tag vocabulary Phase 1 (dual-source eliminated), Codex OAuth (ChatGPT Plan), related-link folder-prefix fix, page-template trailing `---` fix, ESLint 0.4.1 Route A. 2515 tests passing (186 files, +241 since v1.25.1).
+**v1.25.3 — RELEASED 2026-07-23.** PATCH scope. Provider API key moved to Obsidian SecretStorage (Issue #182). Backward-compatible auto-migration; migration failure retries on restart. Quick Start README updated across 10 languages (ribbon icon + Query wiki step). 2529 tests passing (188 files, +14 since v1.25.2).
+
+### v1.25.3 composition (1 commit, secret-storage + README sync)
+
+| # | Commit | Subject | Notes |
+|---|--------|---------|-------|
+| 1 | `d7faef1` | `feat(security): move provider API key to Obsidian SecretStorage (#182)` | `ProviderSecretStore` + `resolveProviderApiKey` + migration. Closes #182 |
 
 ### v1.25.2 composition (7 commits, PRs #329 #324 #331 #332 #333 #334)
 
@@ -54,13 +60,13 @@
 
 ### v1.25.3+ deferred
 
-- **#182 SecretStorage API** (v1.25.3 PATCH) — needs v1.25.2 `minAppVersion` 1.11.4; implementation ~1-2d. [[project_123456789]](#)
+- **(v1.25.3 items all resolved — see above.)**
 
 ---
 
-## Next Milestone: v1.25.2 PATCH (in progress, commit `c9fd4ce`)
+## Next Milestone: v1.26.0 MINOR (target TBD, ~2 weeks)
 
-**Theme:** eslint 0.4.1 Route A + Schema Phase 1 + PR #324 (#307) merge + version release
+**Theme:** Kimi Files API + non-routine PDF providers (PR4, AkaSakana) + wiki-engine.ts decomposition + Lint perf opening + #220 source-revision awareness
 
 ### Scope
 

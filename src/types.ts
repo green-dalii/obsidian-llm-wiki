@@ -140,6 +140,13 @@ export interface LLMWikiSettings {
   provider: string;
   apiKey: string;
   openAICodexSecretId: string;
+  /**
+   * v1.25.3 #182: stable ID for the provider API key in Obsidian
+   * SecretStorage (OS keychain). Mirrors `openAICodexSecretId`.
+   * All API-key-using providers share one slot (only the active
+   * provider's key needs to persist between restarts).
+   */
+  providerApiKeySecretId: string;
   openAICodexModels?: OpenAICodexModelCatalogEntry[];
   openAICodexModelsFetchedAt?: number;
   openAICodexUnavailableModels?: string[];
@@ -216,6 +223,11 @@ export interface LLMWikiSettings {
   // v1.23.0: pins the startupCheck=true invariant and routes
   // previously-explicit startupCheck=false users to startupCheckNoticeLevel='silent'.
   _migrated_v1_23_0_startup_notice?: boolean;
+  // v1.25.3 #182: one-time migration that moves legacy plaintext
+  // `apiKey` from data.json into Obsidian SecretStorage, then clears
+  // the plaintext field. Idempotent — set true after the migration
+  // runs so the second load is a no-op.
+  _migrated_v1_25_3_secret_storage?: boolean;
 
   // Query dedup
   lastOfferedQueryHash?: string;
@@ -823,6 +835,11 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   provider: 'anthropic',
   apiKey: '',
   openAICodexSecretId: 'karpathywiki-openai-codex',
+  // v1.25.3 #182: stable secretId for the provider API key in
+  // Obsidian SecretStorage. Plugin namespace + semantic role makes
+  // the slot easy to find in the OS credential manager and avoids
+  // collision with the Codex OAuth slot above.
+  providerApiKeySecretId: 'karpathywiki-provider-api-key',
   openAICodexModels: [],
   openAICodexModelsFetchedAt: 0,
   baseUrl: '',

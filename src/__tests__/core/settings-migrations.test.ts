@@ -6,11 +6,22 @@ describe('applySettingsMigrations — historical (#199 regression guard)', () =>
     expect(applySettingsMigrations(null).settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
   });
 
-  it('preserves an old provider and API key while adding the Codex secret ID', () => {
-    const settings = applySettingsMigrations({ provider: 'openai', apiKey: 'existing-key' }).settings;
+  it('preserves the old provider while clearing the legacy plaintext API key (v1.25.3 #182 migration)', () => {
+    // v1.25.3 #182: legacy plaintext apiKey in data.json is moved into
+    // Obsidian SecretStorage (the actual write happens in main.ts; this
+    // helper just clears the plaintext and stashes the legacy value on a
+    // transient field). After the migration the in-memory apiKey is
+    // empty, the marker is set, and the legacy value is available for
+    // main.ts to forward to SecretStorage.
+    const { settings, applied } = applySettingsMigrations({ provider: 'openai', apiKey: 'existing-key' });
     expect(settings.provider).toBe('openai');
-    expect(settings.apiKey).toBe('existing-key');
+    expect(settings.apiKey).toBe('');                                  // cleared
     expect(settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
+    expect(settings._migrated_v1_25_3_secret_storage).toBe(true);     // marker set
+    expect(applied).toContain('v1.25.3-secret-storage');
+    // Legacy value stashed for main.ts to consume (NOT a real settings field).
+    const stashed = (settings as unknown as { _legacyApiKeyForSecretStorage?: string })._legacyApiKeyForSecretStorage;
+    expect(stashed).toBe('existing-key');
   });
 
   it('repairs a blank legacy Codex secret ID', () => {

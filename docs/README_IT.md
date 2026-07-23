@@ -90,24 +90,36 @@ Prendi appunti. Loro restano in cartelle. Trovare cosa è collegato a cosa signi
 
 1. **Installa.** Obsidian → Impostazioni → Plugin della community → Sfoglia → cerca "Karpathy LLM Wiki" → Installa → Abilita. Oppure visita la [pagina del plugin della community](https://community.obsidian.md/plugins/karpathywiki) e clicca su **Add to Obsidian**.
 2. **Configura un provider.** Apri Impostazioni → Karpathy LLM Wiki → scegli un provider (OpenAI, Anthropic, Ollama, ChatGPT Plan (Codex OAuth), ecc.) → inserisci la chiave API (non necessaria per provider locali) → clicca su **Test Connection** → Salva.
-3. **Ingerisci una nota.** `Cmd+P/Ctrl+P` → "Ingest single source" → scegli un file Markdown (o PDF, v1.25.0+). Le tue prime pagine wiki appaiono in `wiki/sources/`, `wiki/entities/`, `wiki/concepts/` in pochi secondi.
+3. **Ingerisci una nota.** Due modalità:
+   - **⌨️ Tastiera:** `Cmd+P/Ctrl+P` → "Ingest single source" → scegli un file Markdown (o PDF, v1.25.0+).
+   - **🖱️ Icona della barra degli strumenti:** Clicca sull'**icona sticker** nella barra sinistra di Obsidian per ingerire istantaneamente la nota attualmente aperta — niente menu da cercare.
+   
+   Le tue prime pagine wiki appaiono in `wiki/sources/`, `wiki/entities/`, `wiki/concepts/` in pochi secondi.
+4. **Interroga il tuo wiki.** Due modalità:
+   - **⌨️ Tastiera:** `Cmd+P/Ctrl+P` → "Query wiki".
+   - **🖱️ Icona della barra degli strumenti:** Clicca sull'**icona fumetto** nella barra sinistra di Obsidian.
+   
+   Si apre un pannello laterale destro in stile Copilot in cui puoi chattare con il tuo wiki. Le risposte portano `[[wiki-link]]` che tornano al tuo grafo di conoscenza.
 
-Questo è tutto. Il plugin non modifica nulla nelle tue note originali — crea solo nuove pagine in `wiki/`. Per chattare con il tuo wiki: `Cmd+P/Ctrl+P` → "Query wiki". (`Cmd` su macOS, `Ctrl` su Windows/Linux.)
+![Query side panel](/docs/assets/query-side-panel.png)
+
+Questo è tutto. Il plugin non modifica nulla nelle tue note originali — crea solo nuove pagine in `wiki/`. Sia **Ingest** che **Query wiki** sono fissati alla barra sinistra per un accesso con un clic in qualsiasi momento. (`Cmd` su macOS, `Ctrl` su Windows/Linux.)
 
 ### Comandi principali
 
 | Comando | Cosa fa |
 |---------|---------|
-| **📥 Ingest singola fonte** | `Cmd+P/Ctrl+P` → "Ingest single source" — scegli un file Markdown o **PDF (v1.25.0+)** , ottieni pagine entità/concetto/wiki |
+| **📥 Ingest singola fonte** | `Cmd+P/Ctrl+P` → "Ingest single source" — scegli un file Markdown o **PDF (v1.25.0+)** , ottieni pagine entità/concetto/wiki. *Oppure: 🖱️ clicca sull'icona sticker nella barra sinistra sulla nota attiva.* |
 | **📂 Ingest da cartella** | `Cmd+P/Ctrl+P` → "Ingest from folder" — ingest in batch di ogni nota in una cartella, con salto intelligente dei già elaborati |
 | **📑 Ingest file multipli** | `Cmd+P/Ctrl+P` → "Ingest multiple files" — seleziona un sottoinsieme tramite albero cartelle a due pannelli (con coda live + annullamento per file) |
-| **🔍 Query wiki** | `Cmd+P/Ctrl+P` → "Query wiki" — chatta con il tuo wiki in un pannello laterale ancorato a destra; le risposte portano `[[wiki-link]]` |
+| **🔍 Query wiki** | `Cmd+P/Ctrl+P` → "Query wiki" — chatta con il tuo wiki in un pannello laterale ancorato a destra; le risposte portano `[[wiki-link]]`. *Oppure: 🖱️ clicca sull'icona fumetto nella barra sinistra.* |
 | **🛠️ Lint wiki** | `Cmd+P/Ctrl+P` → "Lint wiki" — scansione salute completa: duplicati, link morti, pagine vuote, orfani, alias mancanti, contraddizioni |
 | **⚡ Smart Fix All** | dentro il modale Lint — riparazione in ordine causale con un clic e report per fase |
 | **📋 Rigenera indice** | `Cmd+P/Ctrl+P` → "Regenerate index" — ricostruisce `wiki/index.md` con pagine e alias correnti |
 | **⏹ Annulla** | `Cmd+P/Ctrl+P` → "Cancel current ingestion" o clicca sulla barra di stato — si ferma pulitamente al prossimo limite di lotto |
 | **📊 Cronologia ingestioni** | `Cmd+P/Ctrl+P` → "View Ingestion History" — interfaccia ricercabile per ingestioni passate, report lint ed esecuzioni di manutenzione |
 
+![Command panel — all LLM Wiki commands live in Obsidian's command palette](/docs/assets/command-panel.png)
 | Prima | Dopo |
 |-------|------|
 | `notes/machine-learning.md` (un file piatto) | `wiki/concepts/supervised-learning.md` con `[[collegamenti bidirezionali]]`, alias, attribuzione della fonte e una voce in `wiki/index.md` |

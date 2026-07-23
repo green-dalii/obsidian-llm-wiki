@@ -24,6 +24,7 @@ import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
 import { createLLMClient } from '../core/create-plugin-llm-client';
 import { providerRequiresApiKey } from '../core/provider-auth';
+import { resolveProviderApiKey } from '../llm-sdk/provider-api-key-resolver';
 import type { CodexAuthManager } from '../llm-sdk/openai-codex/auth-manager';
 import { applyCodexModelPolicy } from '../core/openai-codex-model-policy';
 import { resolveModelForTask } from '../core/model-resolver';
@@ -62,7 +63,10 @@ export const connectionCommands = {
     if (this.settings.provider === 'openai-codex' && this.codexAuthManager?.hasCredential() !== true) {
       return { success: false, message: t.codexAuthRequired };
     }
-    if (providerRequiresApiKey(this.settings.provider) && (!this.settings.apiKey || this.settings.apiKey.trim() === '')) {
+    if (providerRequiresApiKey(this.settings.provider) && !resolveProviderApiKey(
+      { apiKey: this.settings.apiKey, providerApiKeySecretId: this.settings.providerApiKeySecretId },
+      this.app.secretStorage,
+    )) {
       return { success: false, message: t.errorNoApiKey || 'API Key is not configured' };
     }
 
@@ -76,7 +80,7 @@ export const connectionCommands = {
     console.debug('[testLLMConnection] probe plan:', probePlan.map(p => `${p.label}=${p.model}`).join(', '));
 
     try {
-      const testClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version);
+      const testClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version, this.app.secretStorage);
 
       for (const probe of probePlan) {
         const attempted = new Set<string>();

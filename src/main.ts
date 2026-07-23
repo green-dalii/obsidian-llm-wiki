@@ -8,6 +8,7 @@ import {
 import { NOTICE_NORMAL, NOTICE_ABORT } from './constants';
 import { preloadLLMClientModules } from './llm-sdk/create-llm-client';
 import { isProviderConfigured } from './core/provider-auth';
+import { resolveProviderApiKey } from './llm-sdk/provider-api-key-resolver';
 import { createLLMClient } from './core/create-plugin-llm-client';
 import { CodexAuthManager } from './llm-sdk/openai-codex/auth-manager';
 import { CodexCredentialStore } from './llm-sdk/openai-codex/credential-store';
@@ -172,6 +173,48 @@ export class LLMWikiPlugin extends Plugin {
   async loadSettings() {
     const savedData = await this.loadData() as Partial<LLMWikiSettings> | null;
     const { settings, applied } = applySettingsMigrations(savedData);
+
+    // v1.25.3 #182: forward the legacy plaintext API key (if any) into
+    // Obsidian SecretStorage. applySettingsMigrations is pure and cannot
+    // touch IO, so it stashes the legacy value on a transient field;
+    // main.ts owns the actual SecretStorage write and the cleanup.
+    let migrationWriteFailed = false;
+    if (applied.includes('v1.25.3-secret-storage')) {
+      const legacy = (settings as unknown as { _legacyApiKeyForSecretStorage?: string })._legacyApiKeyForSecretStorage;
+      if (typeof legacy === 'string' && legacy.length > 0) {
+        try {
+          this.app.secretStorage.setSecret(settings.providerApiKeySecretId, legacy);
+          console.debug('[main.loadSettings] Legacy apiKey migrated to SecretStorage');
+        } catch (error) {
+          // Don't crash loadSettings on SecretStorage failure (locked
+          // keychain, denied permission). The marker is still set, so
+          // the plaintext is gone from data.json — the user will need
+          // to re-enter the key through the settings UI on next save.
+          // BUT: do NOT delete the transient field yet — retry on next
+          // load by clearing the migration marker so the migration
+          // helper re-processes the saved data on restart.
+          console.error('[main.loadSettings] Failed to migrate apiKey into SecretStorage:', error);
+          migrationWriteFailed = true;
+        }
+      }
+      // Delete the transient field; it must never be persisted to
+      // data.json. On write failure the migration marker was also
+      // NOT set (see above), so the migration will re-run on the
+      // next load and re-create this field.
+      delete (settings as unknown as { _legacyApiKeyForSecretStorage?: string })._legacyApiKeyForSecretStorage;
+      // On SecretStorage failure, unset the migration marker so the
+      // next load re-runs the migration (the plaintext did not
+      // survive in data.json because computeSettings cleared it, but
+      // the saveData() call below would persist the marker and block
+      // any future recovery). With no marker, the next load reads the
+      // original savedData (which still has the legacy plaintext on
+      // disk from before this update), re-detects it, and retries.
+      if (migrationWriteFailed && settings._migrated_v1_25_3_secret_storage) {
+        (settings as unknown as Record<string, unknown>)._migrated_v1_25_3_secret_storage = false;
+        console.debug('[main.loadSettings] Cleared migration marker so next load retries');
+      }
+    }
+
     this.settings = settings;
 
     if (savedData && !savedData.wikiLanguage) {
@@ -196,7 +239,14 @@ export class LLMWikiPlugin extends Plugin {
 
     if (savedData && !('llmReady' in savedData)) {
       const hasCodexCredential = new CodexCredentialStore(this.app.secretStorage, this.settings.openAICodexSecretId).hasCredential();
-      const hasConfig = isProviderConfigured({ provider: this.settings.provider, apiKey: this.settings.apiKey, model: this.settings.model, hasCodexCredential });
+      // v1.25.3 #182: resolve the live key from SecretStorage so the
+      // gate correctly considers a key that lives in OS keychain rather
+      // than the (now-empty) settings.apiKey.
+      const resolvedKey = resolveProviderApiKey(
+        { apiKey: this.settings.apiKey, providerApiKeySecretId: this.settings.providerApiKeySecretId },
+        this.app.secretStorage,
+      );
+      const hasConfig = isProviderConfigured({ provider: this.settings.provider, apiKey: resolvedKey, model: this.settings.model, hasCodexCredential });
       this.settings.llmReady = hasConfig;
       if (hasConfig) {
         console.debug('loadSettings: existing user with config detected, llmReady = true');
@@ -246,12 +296,21 @@ export class LLMWikiPlugin extends Plugin {
 
   initializeLLMClient(): void {
     const hasCodexCredential = this.codexAuthManager?.hasCredential() === true;
-    if (!isProviderConfigured({ provider: this.settings.provider, apiKey: this.settings.apiKey, model: this.settings.model, hasCodexCredential })) {
+    // v1.25.3 #182: resolve from SecretStorage so the gate sees the
+    // live key (post-migration `settings.apiKey` is normally '').
+    const resolvedKey = resolveProviderApiKey(
+      { apiKey: this.settings.apiKey, providerApiKeySecretId: this.settings.providerApiKeySecretId },
+      this.app.secretStorage,
+    );
+    if (!isProviderConfigured({ provider: this.settings.provider, apiKey: resolvedKey, model: this.settings.model, hasCodexCredential })) {
       this.llmClient = null;
       return;
     }
     try {
-      this.llmClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version);
+      // v1.25.3 #182: pass `app.secretStorage` so the SDK factory reads
+      // the live key from OS keychain rather than the empty
+      // settings.apiKey (post-migration).
+      this.llmClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version, this.app.secretStorage);
       console.debug('LLM Client initialized:', this.settings.provider);
     } catch (error) {
       console.error('LLM Client initialization failed:', error);

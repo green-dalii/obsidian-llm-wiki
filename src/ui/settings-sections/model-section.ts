@@ -35,6 +35,7 @@ import type { LLMWikiSettingTab } from '../settings';
 import { PREDEFINED_PROVIDERS } from '../../types';
 import { resolveModelTaskUiMode } from '../settings-per-task-helpers';
 import { fetchModelsWithFallback } from '../../core/url-fallback';
+import { resolveProviderApiKey } from '../../llm-sdk/provider-api-key-resolver';
 import { classifyFetchError } from '../settings-helpers';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
 
@@ -57,7 +58,14 @@ export function renderModelSection(tab: LLMWikiSettingTab, containerEl: HTMLElem
         button.setButtonText(tab.getText('fetchingModels'));
         button.setDisabled(true);
         try {
-          const apiKey = isOllama ? 'ollama' : tempSettings.apiKey.trim();
+          // v1.25.3 #182: resolve the effective API key from SecretStorage
+          // so Fetch Models works post-migration (tempSettings.apiKey is
+          // normally '' — the plaintext was moved to OS keychain).
+          const effectiveApiKey = resolveProviderApiKey(
+            { apiKey: tempSettings.apiKey, providerApiKeySecretId: tempSettings.providerApiKeySecretId },
+            tab.plugin.app.secretStorage,
+          );
+          const apiKey = isOllama ? 'ollama' : effectiveApiKey;
           const baseUrl = tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
 
           // Smart filter based on provider: OpenRouter allows '/', Ollama allows ':'

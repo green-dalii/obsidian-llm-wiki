@@ -76,6 +76,23 @@ export interface RangeSliderOptions {
  * reference (via `Setting.then(s => ...)`) eliminates 30 LOC of
  * copy-paste and prevents future drift.
  */
+/**
+ * Build the full desc text for a range slider:
+ *   - If `opts.desc` contains `{}`, replace it with the live value
+ *     (batchDelayDesc pattern: "... {}ms ...").
+ *   - Otherwise, append `formatDesc` as a suffix
+ *     (concurrencyValueSingular/Plural pattern).
+ * This prevents double-rendering when the desc itself carries the `{}`
+ * placeholder AND the caller also passes a formatDesc that re-reads
+ * the same i18n key (v1.25.1 regression, v1.25.3 fix).
+ */
+function buildRangeSliderDesc(opts: RangeSliderOptions, value: number): string {
+  if (opts.desc.includes('{}')) {
+    return opts.desc.replace('{}', String(value));
+  }
+  return opts.desc + ' ' + opts.formatDesc(value);
+}
+
 export function renderRangeSlider(
   containerEl: HTMLElement,
   opts: RangeSliderOptions,
@@ -83,14 +100,14 @@ export function renderRangeSlider(
   let captured: Setting;
   new Setting(containerEl)
     .setName(opts.name)
-    .setDesc(opts.desc + ' ' + opts.formatDesc(opts.initialValue))
+    .setDesc(buildRangeSliderDesc(opts, opts.initialValue))
     .addSlider(slider => slider
       .setLimits(opts.min, opts.max, opts.step)
       .setValue(opts.initialValue)
       .setDynamicTooltip()
       .onChange((value) => {
         opts.onChange(value);
-        captured.setDesc(opts.desc + ' ' + opts.formatDesc(value));
+        captured.setDesc(buildRangeSliderDesc(opts, value));
       }))
     .then(s => { captured = s; });
 }

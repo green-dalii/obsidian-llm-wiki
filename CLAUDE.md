@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-22 (v1.25.2 RELEASED)
+**Last Updated:** 2026-07-23 (v1.25.3 RELEASED)
 
 ---
 
-## Current Phase: v1.25.2 PATCH RELEASED 2026-07-22. Schema Phase 1 chain completed (PRs #331-#334). Version 1.25.2 shipped: tag vocab Phase 1, Codex OAuth, related-link prefix fix, page-template `---` fix, ESLint 0.4.1 Route A, dead-code cleanup. v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
+## Current Phase: v1.25.3 PATCH RELEASED 2026-07-23. Provider API key moved to Obsidian SecretStorage (Issue #182). Backward-compatible auto-migration. Quick Start README updated across 10 languages (ribbon icon + Query wiki step). 2529 tests passing (188 files). v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 

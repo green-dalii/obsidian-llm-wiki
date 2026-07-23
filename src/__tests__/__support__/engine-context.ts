@@ -86,6 +86,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   provider: 'mock',
   apiKey: '',
   openAICodexSecretId: '',
+  providerApiKeySecretId: 'karpathywiki-provider-api-key',
   baseUrl: '',
   model: 'mock-model',
   wikiFolder: 'wiki',

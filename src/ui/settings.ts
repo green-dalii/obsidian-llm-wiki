@@ -22,6 +22,7 @@ import { copyCodexDeviceCode, runCodexDeviceAuth, runCodexModelRefresh, runCodex
 import { applyCodexModelPolicy } from '../core/openai-codex-model-policy';
 import type { CodexDevicePrompt } from './openai-codex-auth-controls';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
+import { ProviderSecretStore } from '../llm-sdk/provider-secret-store';
 
 export class LLMWikiSettingTab extends PluginSettingTab {
   plugin: LLMWikiPlugin;
@@ -47,6 +48,15 @@ export class LLMWikiSettingTab extends PluginSettingTab {
   // a new probe-mutated field only requires extending this one helper,
   // not every save site.
   public commitTempSettings(): void {
+    // v1.25.3 #182: never write the plaintext apiKey into data.json.
+    // The canonical value lives in Obsidian SecretStorage (OS keychain);
+    // tempSettings.apiKey is an in-memory buffer that may hold a pending
+    // value the user typed. Zero it before the merge so saveData() never
+    // persists it. The SecretStorage flush happens in flushApiKey()
+    // (called by hide() before commitTempSettings), but guard here
+    // catches any caller that invokes commitTempSettings outside hide()
+    // (language-section Save button, test-connection-section auto-save).
+    this.tempSettings.apiKey = '';
     // v1.24.1 PATCH Phase 5.5.0 hotfix fix: belt-and-suspenders cascade.
     // setFieldValue already triggers cascadeUnifiedModelChange on a
     // dropdown/text-input edit, but there are at least 3 other write
@@ -73,10 +83,34 @@ export class LLMWikiSettingTab extends PluginSettingTab {
   hide(): void {
     const hasChanges = JSON.stringify(this.tempSettings) !== JSON.stringify(this.plugin.settings);
     if (hasChanges) {
+      // v1.25.3 #182: flush the in-memory apiKey edit to Obsidian
+      // SecretStorage BEFORE the data.json commit so the post-commit
+      // plugin.settings reflects the new state. This runs once per
+      // tab close — not per keystroke.
+      this.flushApiKey();
       this.commitTempSettings();
       void this.plugin.saveSettings();
       console.debug('Settings auto-saved on tab close');
     }
+  }
+
+  /**
+   * v1.25.3 #182: flush the pending apiKey textbox value into Obsidian
+   * SecretStorage and clear the in-memory pending value. ONLY writes
+   * when the user actually typed a new value — never overwrites an
+   * existing SecretStorage entry with an empty string on a no-op close
+   * (would silently destroy the user's key).
+   *
+   * Idempotent: calls after the first flush are no-ops (tempSettings.apiKey
+   * is already ''). Always sets `tempSettings.apiKey = ''` so the
+   * canonical settings field stays plaintext-free post-migration.
+   */
+  public flushApiKey(): void {
+    const pending = this.tempSettings.apiKey;
+    if (pending.trim().length === 0) return;  // nothing to flush
+    const store = new ProviderSecretStore(this.app.secretStorage, this.tempSettings.providerApiKeySecretId);
+    store.save(pending);
+    this.tempSettings.apiKey = '';
   }
 
   getText(key: keyof typeof TEXTS.en): string {

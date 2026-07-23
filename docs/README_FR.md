@@ -90,24 +90,36 @@ Vous prenez des notes. Elles restent dans des dossiers. Retrouver ce qui se reli
 
 1. **Installez.** Obsidian → Paramètres → Plugins communautaires → Parcourir → recherchez « Karpathy LLM Wiki » → Installer → Activer. Ou visitez la [page du plugin communautaire](https://community.obsidian.md/plugins/karpathywiki) et cliquez sur **Ajouter à Obsidian**.
 2. **Configurez un fournisseur.** Ouvrez Paramètres → Karpathy LLM Wiki → choisissez un fournisseur (OpenAI, Anthropic, Ollama, ChatGPT Plan (Codex OAuth), etc.) → entrez la clé API (pas nécessaire pour le local) → cliquez sur **Test Connection** → Enregistrez.
-3. **Ingérez une note.** `Cmd+P/Ctrl+P` → « Ingest single source » → choisissez n'importe quel fichier Markdown (ou PDF, v1.25.0+). Vos premières pages wiki apparaissent dans `wiki/sources/`, `wiki/entities/`, `wiki/concepts/` en quelques secondes.
+3. **Ingérez une note.** Deux méthodes :
+   - **⌨️ Clavier :** `Cmd+P/Ctrl+P` → « Ingest single source » → choisissez n'importe quel fichier Markdown (ou PDF, v1.25.0+).
+   - **🖱️ Icône de barre d'outils :** Cliquez sur l'**icône d'autocollant** dans le ruban gauche d'Obsidian pour ingérer instantanément la note actuellement ouverte — pas besoin de chercher dans les menus.
+   
+   Vos premières pages wiki apparaissent dans `wiki/sources/`, `wiki/entities/`, `wiki/concepts/` en quelques secondes.
+4. **Discutez avec votre wiki.** Deux méthodes :
+   - **⌨️ Clavier :** `Cmd+P/Ctrl+P` → « Query wiki ».
+   - **🖱️ Icône de barre d'outils :** Cliquez sur l'**icône de bulle de message** dans le ruban gauche d'Obsidian.
+   
+   Un panneau latéral droit de style Copilot s'ouvre, dans lequel vous pouvez discuter avec votre wiki. Les réponses sont accompagnées de `[[wiki-links]]` qui renvoient vers votre graphe de connaissances.
 
-C'est tout. Le plugin ne modifie rien dans vos notes originales — il crée uniquement de nouvelles pages dans `wiki/`. Pour discuter avec votre wiki : `Cmd+P/Ctrl+P` → « Query wiki ». (`Cmd` sur macOS, `Ctrl` sur Windows/Linux.)
+![Query side panel](/docs/assets/query-side-panel.png)
+
+C'est tout. Le plugin ne modifie rien dans vos notes originales — il crée uniquement de nouvelles pages dans `wiki/`. **Ingest** et **Query wiki** sont tous deux épinglés dans le ruban gauche pour un accès en un clic à tout moment. (`Cmd` sur macOS, `Ctrl` sur Windows/Linux.)
 
 ### Commandes principales
 
 | Commande | Action |
 |----------|--------|
-| **📥 Ingest single source** | `Cmd+P/Ctrl+P` → « Ingest single source » — choisissez un fichier Markdown ou **PDF (v1.25.0+)** pour obtenir des pages entité/concept/wiki |
+| **📥 Ingest single source** | `Cmd+P/Ctrl+P` → « Ingest single source » — choisissez un fichier Markdown ou **PDF (v1.25.0+)** pour obtenir des pages entité/concept/wiki. *Ou : 🖱️ cliquez sur l'icône d'autocollant du ruban gauche sur la note active.* |
 | **📂 Ingest from folder** | `Cmd+P/Ctrl+P` → « Ingest from folder » — ingestion par lot de toutes les notes d'un dossier, avec saut intelligent de lot |
 | **📑 Ingest multiple files** | `Cmd+P/Ctrl+P` → « Ingest multiple files » — sélectionnez un sous-ensemble via une arborescence à deux volets (file d'attente en direct + annulation par fichier) |
-| **🔍 Query wiki** | `Cmd+P/Ctrl+P` → « Query wiki » — discutez avec votre wiki dans un panneau latéral droit ; les réponses sont accompagnées de `[[wiki-links]]` |
+| **🔍 Query wiki** | `Cmd+P/Ctrl+P` → « Query wiki » — discutez avec votre wiki dans un panneau latéral droit ; les réponses sont accompagnées de `[[wiki-links]]`. *Ou : 🖱️ cliquez sur l'icône de bulle de message du ruban gauche.* |
 | **🛠️ Lint wiki** | `Cmd+P/Ctrl+P` → « Lint wiki » — analyse complète de santé : doublons, liens morts, pages vides, orphelines, alias manquants, contradictions |
 | **⚡ Smart Fix All** | dans le modal Lint — réparation en un clic par ordre causal avec rapport par phase |
 | **📋 Regenerate index** | `Cmd+P/Ctrl+P` → « Regenerate index » — reconstruit `wiki/index.md` avec les pages et alias actuels |
 | **⏹ Cancel** | `Cmd+P/Ctrl+P` → « Cancel current ingestion » ou cliquez sur la barre d'état — s'arrête proprement à la prochaine limite de lot |
 | **📊 Ingestion history** | `Cmd+P/Ctrl+P` → « View Ingestion History » — UI consultable pour les ingestions passées, rapports Lint et maintenances |
 
+![Command panel — all LLM Wiki commands live in Obsidian's command palette](/docs/assets/command-panel.png)
 | Avant | Après |
 |-------|-------|
 | `notes/machine-learning.md` (un fichier plat) | `wiki/concepts/supervised-learning.md` avec `[[liens bidirectionnels]]`, alias, attribution de source et une entrée dans `wiki/index.md` |
