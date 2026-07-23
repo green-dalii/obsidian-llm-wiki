@@ -1,10 +1,12 @@
 import {
   MINERU_API_BASE_URL,
+  MINERU_MAX_ZIP_BYTES,
   MINERU_MAX_RETRIES,
   MINERU_POLL_INTERVAL_MS,
   MINERU_RETRY_BASE_DELAY_MS,
 } from '../../constants';
 import type { PdfBackendProgressFn } from './types';
+import { MINERU_CONVERSION_PROFILE } from './mineru-profile';
 
 export type ProgressFn = PdfBackendProgressFn;
 
@@ -14,6 +16,10 @@ export interface MineruClientOptions {
   fetchFn: typeof fetch;
   sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
   now: () => number;
+  downloadFn?: (
+    url: string,
+    signal?: AbortSignal
+  ) => Promise<{ status: number; headers: Headers; arrayBuffer: ArrayBuffer }>;
 }
 
 export interface UploadLease {
@@ -137,7 +143,7 @@ class RetryableMineruError extends Error {
 }
 
 interface ApiEnvelope {
-  code: number;
+  code: number | string;
   msg?: string;
   trace_id?: string;
   data?: unknown;
@@ -161,6 +167,18 @@ interface DeadlineScope {
   dispose: () => void;
 }
 
+const MINERU_RETRYABLE_API_CODES = new Set([
+  '-10001', '-60007', '-60009', '-60020', '-60021', '-60022',
+]);
+
+function isAuthenticationMessage(message: string): boolean {
+  return /unauthori[sz]ed|invalid\s+(api\s+)?token|token\s+expired|authentication/i.test(message);
+}
+
+function isQuotaMessage(message: string): boolean {
+  return /quota|balance|credit|daily\s+extract\s+task\s+limit|daily\s+parsing\s+limit/i.test(message);
+}
+
 export class MineruClient {
   constructor(private readonly options: MineruClientOptions) {}
 
@@ -172,9 +190,9 @@ export class MineruClient {
         headers: this.apiHeaders(true),
         body: JSON.stringify({
           files: [{ name: pdfName }],
-          model_version: 'vlm',
-          enable_formula: true,
-          enable_table: true,
+          model_version: MINERU_CONVERSION_PROFILE.modelVersion,
+          enable_formula: MINERU_CONVERSION_PROFILE.enableFormula,
+          enable_table: MINERU_CONVERSION_PROFILE.enableTable,
         }),
         signal,
       });
@@ -190,7 +208,7 @@ export class MineruClient {
         );
       }
       const uploadUrl: unknown = fileUrls[0];
-      if (typeof uploadUrl !== 'string' || uploadUrl.length === 0) {
+      if (typeof uploadUrl !== 'string' || !isHttpsUrl(uploadUrl)) {
         throw new MineruInvalidResponseError(
           stage,
           this.errorDetails(taskId, envelope.trace_id)
@@ -249,7 +267,7 @@ export class MineruClient {
         const result = this.readSinglePollResult(envelope, taskId, traceId);
         if (result.state === 'done') {
           const zipUrl = result.full_zip_url;
-          if (!zipUrl || !zipUrl.startsWith('https://')) {
+          if (!zipUrl || !isHttpsUrl(zipUrl)) {
             throw new MineruInvalidResponseError(
               stage,
               this.errorDetails(taskId, traceId)
@@ -262,8 +280,16 @@ export class MineruClient {
           };
         }
         if (result.state === 'failed') {
+          const failureMessage = result.err_msg || 'Unknown extraction error.';
+          const details = this.errorDetails(taskId, traceId);
+          if (isAuthenticationMessage(failureMessage)) {
+            throw new MineruAuthenticationError('poll', details);
+          }
+          if (isQuotaMessage(failureMessage)) {
+            throw new MineruQuotaError('poll', details);
+          }
           throw new MineruTaskFailedError(
-            result.err_msg || 'Unknown extraction error.',
+            failureMessage,
             taskId,
             traceId,
             this.options.apiToken
@@ -320,13 +346,34 @@ export class MineruClient {
   async downloadResult(zipUrl: string, signal?: AbortSignal): Promise<Uint8Array> {
     const stage: MineruRequestStage = 'download';
     return this.runWithRetry(stage, async () => {
+      if (this.options.downloadFn) {
+        const result = await this.options.downloadFn(zipUrl, signal);
+        await this.requireSuccessfulHttp(
+          new Response(null, { status: result.status, headers: result.headers }),
+          stage
+        );
+        this.assertDownloadSize(result.headers, result.arrayBuffer.byteLength);
+        return new Uint8Array(result.arrayBuffer);
+      }
       const response = await this.options.fetchFn(zipUrl, {
         method: 'GET',
         signal,
       });
       await this.requireSuccessfulHttp(response, stage);
-      return new Uint8Array(await response.arrayBuffer());
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      this.assertDownloadSize(response.headers, bytes.length);
+      return bytes;
     }, signal);
+  }
+
+  private assertDownloadSize(headers: Headers, actualBytes: number): void {
+    const declaredBytes = Number(headers.get('Content-Length'));
+    if (
+      Number.isFinite(declaredBytes) && declaredBytes > MINERU_MAX_ZIP_BYTES
+      || actualBytes > MINERU_MAX_ZIP_BYTES
+    ) {
+      throw new MineruStageError('download', 'MinerU result archive exceeds the size limit.');
+    }
   }
 
   private apiHeaders(includeContentType: boolean): Record<string, string> {
@@ -409,7 +456,10 @@ export class MineruClient {
   ): Promise<void> {
     if (response.ok) return;
     const details = this.errorDetails(taskId, traceId, response.status);
-    if (response.status === 401 || response.status === 403) {
+    if (
+      (response.status === 401 || response.status === 403)
+      && (stage === 'request-upload' || stage === 'poll')
+    ) {
       throw new MineruAuthenticationError(stage, details);
     }
     const retryAfterMs = parseRetryAfter(response.headers.get('Retry-After'), this.options.now());
@@ -434,7 +484,11 @@ export class MineruClient {
       throw new MineruInvalidResponseError(stage, this.errorDetails(taskId));
     }
     const record = asRecord(parsed);
-    if (!record || typeof record.code !== 'number') {
+    if (
+      !record
+      || (typeof record.code !== 'number' && typeof record.code !== 'string')
+      || (typeof record.code === 'string' && record.code.length === 0)
+    ) {
       throw new MineruInvalidResponseError(stage, this.errorDetails(taskId));
     }
     const envelope: ApiEnvelope = {
@@ -443,7 +497,7 @@ export class MineruClient {
       ...(typeof record.trace_id === 'string' ? { trace_id: record.trace_id } : {}),
       ...('data' in record ? { data: record.data } : {}),
     };
-    if (envelope.code !== 0) {
+    if (envelope.code !== 0 && envelope.code !== '0') {
       const retryAfterMs = parseRetryAfter(
         response.headers.get('Retry-After'),
         this.options.now()
@@ -461,15 +515,34 @@ export class MineruClient {
   ): MineruClientError | RetryableMineruError {
     const message = envelope.msg ?? '';
     const details = this.errorDetails(taskId, envelope.trace_id);
-    if (/unauthori[sz]ed|invalid\s+(api\s+)?token|authentication/i.test(message)) {
+    const code = String(envelope.code).toUpperCase();
+    if (
+      code === 'A0202'
+      || code === 'A0211'
+      || isAuthenticationMessage(message)
+    ) {
       return new MineruAuthenticationError(stage, details);
     }
-    if (/quota|balance|credit/i.test(message)) {
+    if (
+      code === 'A0212'
+      || code === 'A0217'
+      || code === '-60018'
+      || code === '-60019'
+      || isQuotaMessage(message)
+    ) {
       return new MineruQuotaError(stage, details);
     }
-    if (/rate\s*limit|too\s+many\s+requests/i.test(message)) {
+    if (
+      /rate\s*limit|qps\s+limit|too\s+many\s+requests/i.test(message)
+    ) {
       return new RetryableMineruError(
         new MineruRateLimitError(stage, details),
+        retryAfterMs
+      );
+    }
+    if (MINERU_RETRYABLE_API_CODES.has(code)) {
+      return new RetryableMineruError(
+        new MineruStageError(stage, `MinerU ${stage} request failed: ${message || 'API error'}.`, details),
         retryAfterMs
       );
     }
@@ -629,6 +702,14 @@ export function sanitizeMineruErrorText(text: string, apiToken?: string): string
       '$1$2[REDACTED]'
     )
     .replace(/Bearer\s+[^\s,;]+/gi, 'Bearer [REDACTED]');
+}
+
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {

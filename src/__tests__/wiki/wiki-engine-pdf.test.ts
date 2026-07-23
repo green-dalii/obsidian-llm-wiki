@@ -77,6 +77,7 @@ const MINERU_TEXT_KEYS = [
   'mineruDesktopOnly',
   'mineruAuthenticationFailed',
   'mineruQuotaExceeded',
+  'mineruRateLimited',
   'mineruUploadFailed',
   'mineruTaskFailed',
   'mineruTaskTimedOut',
@@ -291,7 +292,7 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
     ['desktop only', new MineruConfigurationError('desktop-only'), '"paper": MinerU PDF conversion is available only in the desktop app.'],
     ['authentication', new MineruAuthenticationError('request-upload', { apiToken: 'secret-token' }), '"paper": MinerU could not authenticate. Check your API Token, then try again.'],
     ['quota', new MineruQuotaError('request-upload', { apiToken: 'secret-token' }), '"paper": Your MinerU quota is unavailable or exhausted. Check your MinerU account, then try again.'],
-    ['rate limit', new MineruRateLimitError('poll', { apiToken: 'secret-token' }), '"paper": Your MinerU quota is unavailable or exhausted. Check your MinerU account, then try again.'],
+    ['rate limit', new MineruRateLimitError('poll', { apiToken: 'secret-token' }), '"paper": The MinerU request for this PDF is temporarily rate limited. Try again later.'],
     ['upload request', new MineruInvalidResponseError('request-upload', { apiToken: 'secret-token' }), '"paper": MinerU could not accept the PDF upload. Check the file and your connection, then try again.'],
     ['upload', new MineruStageError('upload', 'signed https://example.test/result?token=secret-token', { apiToken: 'secret-token' }), '"paper": MinerU could not accept the PDF upload. Check the file and your connection, then try again.'],
     ['task', new MineruTaskFailedError('response body secret-token', 'task-1', 'trace-1', 'secret-token'), '"paper": MinerU could not process this PDF. Check the PDF and try again.'],
@@ -519,6 +520,27 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
 
     // Old content must be replaced with the new conversion.
     expect(h.files.get('sources/paper.pdf.md')).toBe(MARKDOWN);
+  });
+
+  it('does not write the native sidecar when MinerU is selected', async () => {
+    mockedConvert.mockResolvedValueOnce({
+      markdown: '# MinerU content',
+      metadata: { convertedAt: '2026-07-23T00:00:00Z', converter: 'mineru/vlm' },
+    });
+    const h = createWikiEngineHarness({
+      settings: {
+        pdfConversionBackend: 'mineru',
+        mineruApiToken: 'token',
+        writePdfMarkdownToVault: true,
+      },
+      llmResponses: [
+        JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] }),
+      ],
+    });
+
+    await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+    expect(h.files.has('sources/paper.pdf.md')).toBe(false);
   });
 
   it.each([

@@ -53,7 +53,7 @@ import { appendCustomQueryInstructions, logCustomInstructionsInjectionContext } 
 import { renderCustomInstructionsPanel, type CustomInstructionsPanelHandle } from './renderers/custom-instructions-panel';
 import type { RetrievalLabelData } from './types';
 
-export const VIEW_TYPE_QUERY = 'llm-wiki-query-view';
+export const VIEW_TYPE_QUERY = 'karpathywiki-mineru-query-view';
 
 export class QueryView extends ItemView {
   plugin: LLMWikiPlugin;

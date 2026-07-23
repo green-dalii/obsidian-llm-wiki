@@ -5,5 +5,6 @@ export const CODEX_DEVICE_URL = `${CODEX_OAUTH_ISSUER}/codex/device`;
 export const CODEX_RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses';
 export const CODEX_MODELS_URL = 'https://chatgpt.com/backend-api/codex/models';
 export const CODEX_REDIRECT_URI = 'http://localhost:1455/auth/callback';
-export const CODEX_SECRET_ID = 'karpathywiki-openai-codex';
+export const CODEX_SECRET_ID = PLUGIN_CODEX_SECRET_ID;
 export const CODEX_MODELS = ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark'] as const;
+import { PLUGIN_CODEX_SECRET_ID } from '../../core/plugin-identity';

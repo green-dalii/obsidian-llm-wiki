@@ -8,6 +8,7 @@
 // because old data on disk may still be from that version.
 
 import { DEFAULT_SETTINGS, type LLMWikiSettings } from '../types';
+import { PLUGIN_CODEX_SECRET_ID } from './plugin-identity';
 
 const LEGACY_CODEX_TOKEN_FIELDS = ['accessToken', 'refreshToken', 'idToken', 'access_token', 'refresh_token', 'id_token'] as const;
 
@@ -36,7 +37,11 @@ export function applySettingsMigrations(
   const savedRecord = savedData;
   const hasLegacyCodexToken = savedRecord !== null && LEGACY_CODEX_TOKEN_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(savedRecord, field));
   const needsCodexSettingsMigration = savedRecord !== null && (typeof savedRecord.openAICodexSecretId !== 'string' || savedRecord.openAICodexSecretId.trim().length === 0 || hasLegacyCodexToken);
-  if (!settings.openAICodexSecretId.trim()) settings.openAICodexSecretId = 'karpathywiki-openai-codex';
+  if (!settings.openAICodexSecretId.trim()) settings.openAICodexSecretId = PLUGIN_CODEX_SECRET_ID;
+  if (settings.openAICodexSecretId === 'karpathywiki-openai-codex') {
+    settings.openAICodexSecretId = PLUGIN_CODEX_SECRET_ID;
+    applied.push('mineru-fork-codex-secret-id');
+  }
   const untrustedSettings = settings as unknown as Record<string, unknown>;
   for (const field of LEGACY_CODEX_TOKEN_FIELDS) delete untrustedSettings[field];
   if (needsCodexSettingsMigration) applied.push('v1.25.0-codex-settings');

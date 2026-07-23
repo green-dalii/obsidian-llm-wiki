@@ -1,43 +1,30 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-16
+**Last Updated:** 2026-07-23
 
 ---
 
-## Current Phase: v1.25.0 PR3 + PR3 follow-up #2 SHIPPED (2026-07-16) — cache-only PDF; awaiting e2e + release; v1.24.1 PATCH RELEASED 2026-07-14
+## Current Phase: MinerU fork implementation complete (2026-07-23) — awaiting local e2e and release decision
 
-**v1.25.0 scope decision (2026-07-15, user-confirmed post-pivot):**
+This branch is an independent fork that can coexist with the upstream community plugin:
 
-Cache-only architecture replaces the previously-planned sidecar (`<vault>/<basename>.pdf.md`) approach.
+- Plugin ID: `karpathywiki-mineru`
+- Plugin name: **Karpathy LLM Wiki MinerU**
+- Upstream ID remains `karpathywiki`; settings and internal PDF caches therefore use separate plugin directories.
 
-- ✅ **PR2 redo (1-1.5 days)** — delete `pdf-ingest-orchestrator.ts`; refactor `wiki-engine.ingestPdfSource` to feed `convertPdfToMarkdown` result into `analyzeSource` via `contentOverride`; extend `PdfConversionCache` with `purgeExpired/enforceSizeLimit` (100MB / 1000-entry / 10MB-single caps + LRU-by-mtime eviction); add `converterVersion` to cache key; delete 5 dead i18n keys across 10 locales. **`prepareBatchIngest` deferred to PR3 follow-up #2.**
-- ✅ **PR3 (1 day)** — settings: `writePdfMarkdownToVault` toggle in Wiki Configuration (always visible, not Advanced-bound); `forcePdfSupport` toggle in Advanced for non-NATIVE providers only (universal escape hatch — user opted in → LLM call attempted → endpoint rejection surfaces via localized Notice); CHANGELOG; ROADMAP sync.
-  - Settings types + DEFAULT_SETTINGS
-  - 4 i18n keys × 10 locales for both PDF toggles
-  - sidecar write via direct vault.create/modify (no createOrUpdateFile cascade)
-  - normalizePath for cross-platform sidecar paths
-  - 3 new tests: default no-sidecar, write creates sidecar, write updates existing
-  - Code-review findings applied: simplified `ingestPdfSource` comment; used `normalizePath`; avoided `createOrUpdateFile` for sidecar to prevent auto-watch cascades.
-- ✅ **PR3 follow-up (2026-07-16)** — universal escape hatch + UX moves
-  - `forcePdfSupport` toggle: any non-NATIVE provider allowed; toggle hidden for NATIVE providers; provider switch to NATIVE auto-resets value; `FORCE_PDF_PROVIDER_IDS` constant deleted
-  - `writePdfMarkdownToVault` moved to Wiki Configuration → Wiki Folder (semantic: vault storage policy, not LLM config); always visible
-  - `advancedSettingsMode` default no longer resets `forcePdfSupport`
-  - 3 new tests: ollama + forcePdfSupport=true attempts LLM; deepseek same; endpoint-rejects error propagates verbatim
-- ✅ **PR3 follow-up #2 (2026-07-16)** — third-party model audit fixes
-  - **P0 (cross-platform cache filename safety)**: physical filename = sha256(logicalKey).slice(0,16) (Git short-hash style); fixes Windows ERROR_INVALID_NAME + POSIX unintended subpath when model contains `:` or `/`
-  - **P1 (batch-start housekeeping)**: new PdfConversionCache.prepareBatchIngest() wired into runBatchIngest()
-  - **P1 (PDF-shaped LLM errors → localized Notice)**: isPdfRelatedLlmError(message) classifier routes obvious PDF-rejection errors to reportSkip('unsupported-pdf')
-  - **P1 (settings defaults test)**: new src/__tests__/types/settings.test.ts
-  - **P2 (i18n user-perspective rewrite)**: forcePdfSupportDesc + sourceRejectedPdfUnsupported rewritten in 10 locales — drop developer jargon, speak user outcome
-- ⏳ **PR4 (optional, by AkaSakana)** — Kimi Files API provider dispatch + error regex classifiers + transient-retry extension. If AkaSakana ships as follow-up PR after v1.25.0 lands, we merge after review. If schedule slips, we port ourselves (1-day).
-- ⏳ **Final** — `pnpm build:dev` + HARD STOP + user e2e + push decision.
+**Delivered MinerU scope:**
 
-**AkaSakana PR #286 feedback adopted (2026-07-15):**
-- ✅ Cache key includes `converterVersion` so prompt upgrades invalidate stale entries.
-- ✅ `forcePdfSupport` is now a **universal escape hatch** (any non-NATIVE provider); default `false` (manual opt-in, NOT opt-out — many compatible endpoints don't reliably support PDF). (2026-07-16 user correction.)
-- ⏳ Kimi Files API (PR4, optional contribution): upload → extract → delete, error regex classifiers, transient-retry extension. AkaSakana owns the contribution; we transfer responsibility to TA via PR #286 reply.
+- ✅ Settings → Wiki Configuration offers an explicit **Native model / MinerU Official API** PDF conversion backend. Native remains the default; MinerU is desktop-only and never silently falls back to native conversion.
+- ✅ MinerU uses its official external cloud API. The UI discloses that the selected PDF is uploaded and requires a user-provided MinerU API Token.
+- ✅ Validated MinerU output is transactionally published beside the PDF as `<pdf-basename>.mineru/`, containing `document.md`, referenced images, and `.mineru-manifest.json`.
+- ✅ The internal conversion cache remains under `.obsidian/plugins/karpathywiki-mineru/pdf-cache/`. **Clear PDF conversion cache** removes only this internal cache and does not delete Vault-visible `.mineru/` artifacts.
+- ✅ PDF and parent-folder rename/move operations update managed artifact placement and manifest `sourcePath`. Managed `.mineru/` and temporary artifact paths are excluded from watcher, batch, picker, queue, and direct ingestion paths.
+- ✅ Batch authentication or quota failure suppresses later MinerU network attempts in that batch; rate-limit and file-specific failures remain isolated. Tokens, signed URLs, and raw response bodies are excluded from user reports.
+- ✅ Localized progress, actionable errors, settings, and managed-artifact guidance are implemented across all 10 locales.
+- ⏳ **Not yet claimed as released:** final gates, local debug build, user e2e, push, PR, tag, and release remain pending.
+- ⏳ **Deferred:** MinerU conversion on Obsidian mobile. A saved MinerU choice is preserved across devices, but mobile cannot start MinerU conversion.
 
-**Trust boundary (v1.25.0 PR3 follow-up, 2026-07-16):** the user is the authoritative source on what their endpoint supports. Pre-flight whitelist rejects violate user intent. The provider gate must attempt the call; LLM errors surface as localized Notices guiding the user to disable the toggle or check endpoint config.
+Full milestone and remaining work: [ROADMAP.md](./ROADMAP.md)
 
 **v1.24.1 PATCH release composition (2026-07-13/14 merge window):**
 - ✅ Phase 1 (#271): Fix #1 #268 Tier C forceRecreate bypass

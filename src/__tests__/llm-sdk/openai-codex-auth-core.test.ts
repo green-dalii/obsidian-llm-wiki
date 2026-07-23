@@ -38,7 +38,7 @@ describe('Codex OAuth core', () => {
     expect(CODEX_DEVICE_URL).toBe('https://auth.openai.com/codex/device');
     expect(CODEX_RESPONSES_URL).toBe('https://chatgpt.com/backend-api/codex/responses');
     expect(CODEX_REDIRECT_URI).toBe('http://localhost:1455/auth/callback');
-    expect(CODEX_SECRET_ID).toBe('karpathywiki-openai-codex');
+    expect(CODEX_SECRET_ID).toBe('karpathywiki-mineru-openai-codex');
     expect([...CODEX_MODELS]).toEqual(['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark']);
   });
 

@@ -663,6 +663,7 @@ export const ZH_TEXTS = {
     mineruDesktopOnly: '「{filename}」：MinerU PDF 转换仅可在桌面应用中使用。',
     mineruAuthenticationFailed: '「{filename}」：MinerU 认证失败。请检查 API Token，然后重试。',
     mineruQuotaExceeded: '「{filename}」：MinerU 配额不可用或已用尽。请检查 MinerU 账户，然后重试。',
+    mineruRateLimited: '「{filename}」：此 PDF 的 MinerU 请求暂时受到速率限制。请稍后重试。',
     mineruUploadFailed: '「{filename}」：MinerU 无法接收 PDF 上传。请检查文件和网络连接，然后重试。',
     mineruTaskFailed: '「{filename}」：MinerU 无法处理此 PDF。请检查 PDF，然后重试。',
     mineruTaskTimedOut: '「{filename}」：MinerU 未能在设定的超时时间内完成。请延长超时时间或稍后重试。',

@@ -36,6 +36,7 @@ import {
 } from '../constants';
 import { DiskCache, isMissingDirError, type DiskCacheMaintenanceResult } from './disk-cache';
 import { PLUGIN_ID } from './plugin-identity';
+export { buildMineruCacheKey } from './pdf-backends/mineru-profile';
 
 /**
  * Converter version baked into the cache key. Bump on prompt/system-prompt
@@ -80,11 +81,6 @@ export async function hashCacheKey(key: string, subtle?: SubtleCrypto): Promise<
   }
   const digest = await subtle.digest('SHA-256', new TextEncoder().encode(key));
   return bytesToHex(new Uint8Array(digest)).slice(0, 16);
-}
-
-/** Stable logical identity for MinerU's fixed v1 conversion contract. */
-export function buildMineruCacheKey(sourceSha256: string): string {
-  return `${sourceSha256}:mineru:vlm:mineru-v1:formula=true:table=true`;
 }
 
 /**

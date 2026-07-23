@@ -4,6 +4,8 @@ import {
   MineruCancelledError,
   MineruClient,
   MineruInvalidResponseError,
+  MineruQuotaError,
+  MineruStageError,
   MineruTaskFailedError,
   MineruTaskTimeoutError,
 } from '../../core/pdf-backends/mineru-client';
@@ -136,6 +138,22 @@ describe('MineruClient protocol', () => {
     expect(init.headers).toBeUndefined();
   });
 
+  it('rejects a non-HTTPS signed upload URL', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({
+      code: 0,
+      msg: 'ok',
+      data: {
+        batch_id: 'batch-123',
+        file_urls: ['http://upload.example.com/signed'],
+      },
+    }));
+    const client = createClient(fetchFn);
+
+    await expect(client.requestUpload('paper.pdf')).rejects.toBeInstanceOf(
+      MineruInvalidResponseError
+    );
+  });
+
   it('maps official poll states to typed progress and preserves the result URL', async () => {
     const fetchFn = vi.fn()
       .mockResolvedValueOnce(pollResponse('waiting-file'))
@@ -189,6 +207,32 @@ describe('MineruClient protocol', () => {
     });
   });
 
+  it('uses the direct binary download transport when provided', async () => {
+    const fetchFn = vi.fn();
+    const arrayBuffer = new Uint8Array([1, 2, 3]).buffer;
+    const downloadFn = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: new Headers({ 'Content-Length': '3' }),
+      arrayBuffer,
+    });
+    const client = createClient(fetchFn, { downloadFn });
+
+    const result = await client.downloadResult(ZIP_URL);
+
+    expect(result.buffer).toBe(arrayBuffer);
+    expect(downloadFn).toHaveBeenCalledWith(ZIP_URL, undefined);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('rejects a download whose declared size exceeds the archive limit', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(binaryResponse([1], 200, {
+      'Content-Length': String(256 * 1024 * 1024 + 1),
+    }));
+    const client = createClient(fetchFn);
+
+    await expect(client.downloadResult(ZIP_URL)).rejects.toBeInstanceOf(MineruStageError);
+  });
+
   it('rejects unknown states and done responses without an HTTPS result URL', async () => {
     const unknownClient = createClient(vi.fn().mockResolvedValue(pollResponse('queued')));
     await expect(unknownClient.waitForResult('batch-123')).rejects.toBeInstanceOf(
@@ -214,6 +258,23 @@ describe('MineruClient protocol', () => {
 });
 
 describe('MineruClient errors and stage-local retry', () => {
+  it.each([
+    ['A0202', MineruAuthenticationError],
+    ['A0211', MineruAuthenticationError],
+    ['A0212', MineruQuotaError],
+    ['A0217', MineruQuotaError],
+    [-60018, MineruQuotaError],
+    ['-60018', MineruQuotaError],
+    [-60019, MineruQuotaError],
+    ['-60019', MineruQuotaError],
+  ])('classifies official API code %s', async (code, ErrorType) => {
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ code, msg: 'official error' }));
+    const client = createClient(fetchFn);
+
+    await expect(client.requestUpload('paper.pdf')).rejects.toBeInstanceOf(ErrorType);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
   it.each([401, 403])('does not retry authentication status %i', async (status) => {
     const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ msg: 'unauthorized' }, status));
     const sleep = vi.fn().mockResolvedValue(undefined);
@@ -224,6 +285,64 @@ describe('MineruClient errors and stage-local retry', () => {
     );
     expect(fetchFn).toHaveBeenCalledTimes(1);
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it.each([401, 403])('keeps signed URL status %i file-local', async (status) => {
+    const uploadClient = createClient(vi.fn().mockResolvedValue(new Response(null, { status })));
+    await expect(uploadClient.uploadPdf(
+      { taskId: 'batch-123', uploadUrl: UPLOAD_URL },
+      new Uint8Array([1])
+    )).rejects.toBeInstanceOf(MineruStageError);
+
+    const downloadFn = vi.fn().mockResolvedValue({
+      status,
+      headers: new Headers(),
+      arrayBuffer: new ArrayBuffer(0),
+    });
+    const downloadClient = createClient(vi.fn(), { downloadFn });
+    await expect(downloadClient.downloadResult(ZIP_URL)).rejects.toBeInstanceOf(
+      MineruStageError
+    );
+  });
+
+  it('retries an official transient service code', async () => {
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ code: -60007, msg: 'service temporarily unavailable' }))
+      .mockResolvedValueOnce(uploadLeaseResponse());
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const client = createClient(fetchFn, { sleep });
+
+    await expect(client.requestUpload('paper.pdf')).resolves.toMatchObject({ taskId: 'batch-123' });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([-60013, -60002])('does not retry official permanent code %i', async (code) => {
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ code, msg: 'permanent failure' }));
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const client = createClient(fetchFn, { sleep });
+
+    await expect(client.requestUpload('paper.pdf')).rejects.toBeInstanceOf(MineruStageError);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it.each([-10001, -60020])('retries official transient code %i at most three times', async (code) => {
+    const fetchFn = vi.fn().mockImplementation(async () => jsonResponse({ code, msg: 'retry later' }));
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const client = createClient(fetchFn, { sleep });
+
+    await expect(client.requestUpload('paper.pdf')).rejects.toBeInstanceOf(MineruStageError);
+    expect(fetchFn).toHaveBeenCalledTimes(4);
+    expect(sleep).toHaveBeenCalledTimes(3);
+  });
+
+  it('classifies an asynchronous quota failure', async () => {
+    const client = createClient(vi.fn().mockResolvedValue(
+      pollResponse('failed', { err_msg: 'Daily extract task limit reached' })
+    ));
+
+    await expect(client.waitForResult('batch-123')).rejects.toBeInstanceOf(MineruQuotaError);
   });
 
   it.each([408, 429, 500, 503])('retries status %i at most three times', async (status) => {

@@ -99,6 +99,12 @@ export const PDF_CACHE_MAX_SINGLE_ENTRY_BYTES = 10 * 1024 * 1024;
 /** Official MinerU Precision API root. Signed upload/download URLs are opaque. */
 export const MINERU_API_BASE_URL = 'https://mineru.net/api/v4';
 
+/** Maximum accepted compressed MinerU result archive size. */
+export const MINERU_MAX_ZIP_BYTES = 256 * 1024 * 1024;
+
+/** Official MinerU Precision API single-PDF input limit. */
+export const MINERU_MAX_PDF_BYTES = 200 * 1024 * 1024;
+
 /** Maximum retries per MinerU HTTP stage, excluding the initial request. */
 export const MINERU_MAX_RETRIES = 3;
 
@@ -107,6 +113,10 @@ export const MINERU_RETRY_BASE_DELAY_MS = 1000;
 
 /** Delay between MinerU extraction status polls. */
 export const MINERU_POLL_INTERVAL_MS = 2000;
+
+export const MINERU_TIMEOUT_DEFAULT_MINUTES = 30;
+export const MINERU_TIMEOUT_MIN_MINUTES = 5;
+export const MINERU_TIMEOUT_MAX_MINUTES = 120;
 
 /** Provider IDs whose built-in clients support PDF natively (v1.25.0 PR1).
  *  Providers NOT in this list fall through to the `forcePdfSupport`

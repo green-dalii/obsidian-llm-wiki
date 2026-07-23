@@ -482,6 +482,7 @@ export const KO_TEXTS = {
     mineruDesktopOnly: '「{filename}」: MinerU PDF 변환은 데스크톱 앱에서만 사용할 수 있습니다.',
     mineruAuthenticationFailed: '「{filename}」: MinerU 인증에 실패했습니다. API Token을 확인한 뒤 다시 시도하세요.',
     mineruQuotaExceeded: '「{filename}」: MinerU 할당량을 사용할 수 없거나 모두 소진했습니다. MinerU 계정을 확인한 뒤 다시 시도하세요.',
+    mineruRateLimited: '「{filename}」: 이 PDF에 대한 MinerU 요청이 일시적으로 속도 제한을 받았습니다. 나중에 다시 시도하세요.',
     mineruUploadFailed: '「{filename}」: MinerU가 PDF 업로드를 받지 못했습니다. 파일과 연결을 확인한 뒤 다시 시도하세요.',
     mineruTaskFailed: '「{filename}」: MinerU가 이 PDF를 처리하지 못했습니다. PDF를 확인한 뒤 다시 시도하세요.',
     mineruTaskTimedOut: '「{filename}」: 설정된 제한 시간 안에 MinerU 처리가 끝나지 않았습니다. 제한 시간을 늘리거나 나중에 다시 시도하세요.',

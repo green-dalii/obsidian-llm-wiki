@@ -19,6 +19,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { requestUrl } from 'obsidian';
 import {
   obsidianFetchBridge,
+  obsidianBinaryDownload,
   isObsidianFetchBridge,
   streamingObsidianFetch,
   isLocalBaseURL,
@@ -30,8 +31,12 @@ function makeRequestUrlResult(opts: {
   status: number;
   text?: string;
   headers?: Record<string, string>;
+  bytes?: Uint8Array;
 }): Awaited<ReturnType<typeof requestUrl>> {
   const text = opts.text ?? '';
+  const arrayBuffer = opts.bytes
+    ? new Uint8Array(opts.bytes).buffer
+    : new TextEncoder().encode(text).buffer;
   // Best-effort JSON parse — production code (obsidianFetchBridge) only
   // uses `response.text`, never `response.json`, so this is purely a
   // mock fidelity convenience.
@@ -48,8 +53,8 @@ function makeRequestUrlResult(opts: {
     text,
     json,
     headers: opts.headers ?? {},
-    arrayBuffer: async () => new TextEncoder().encode(text).buffer,
-  } as unknown as Awaited<ReturnType<typeof requestUrl>>;
+    arrayBuffer,
+  };
 }
 
 describe('obsidianFetchBridge', () => {
@@ -118,6 +123,19 @@ describe('obsidianFetchBridge', () => {
       expect(res.headers).toBeInstanceOf(Headers);
       expect(res.headers.get('content-type')).toBe('application/json');
       expect(res.headers.get('x-request-id')).toBe('abc-123');
+    });
+
+    it('preserves non-UTF-8 response bytes', async () => {
+      const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x80]);
+      mockRequestUrl.mockResolvedValue(makeRequestUrlResult({
+        status: 200,
+        text: '%PDF\u0000��',
+        bytes,
+      }));
+
+      const res = await obsidianFetchBridge('https://example.com/result.zip');
+
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(bytes);
     });
   });
 
@@ -282,17 +300,18 @@ describe('obsidianFetchBridge', () => {
       expect(call.body).toBe('plain text body');
     });
 
-    it('serializes Uint8Array body via TextDecoder', async () => {
+    it('passes non-UTF-8 Uint8Array body as an exact ArrayBuffer', async () => {
       mockRequestUrl.mockResolvedValue(makeRequestUrlResult({ status: 200, text: '' }));
 
-      const bytes = new TextEncoder().encode('hello bytes');
+      const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x80]);
       await obsidianFetchBridge('https://api.example.com/v1/chat', {
         method: 'POST',
         body: bytes,
       });
 
       const call = mockRequestUrl.mock.calls[0][0] as unknown as Record<string, unknown>;
-      expect(call.body).toBe('hello bytes');
+      expect(call.body).toBeInstanceOf(ArrayBuffer);
+      expect(new Uint8Array(call.body as ArrayBuffer)).toEqual(bytes);
     });
 
     it('omits body when undefined (GET request safety)', async () => {
@@ -341,6 +360,26 @@ describe('obsidianFetchBridge', () => {
       expect(isObsidianFetchBridge(null)).toBe(false);
       expect(isObsidianFetchBridge(undefined)).toBe(false);
     });
+  });
+});
+
+describe('obsidianBinaryDownload', () => {
+  beforeEach(() => {
+    mockRequestUrl.mockReset();
+  });
+
+  it('returns requestUrl bytes directly without a Response re-buffer', async () => {
+    const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0xff, 0x80]);
+    const arrayBuffer = new Uint8Array(bytes).buffer;
+    mockRequestUrl.mockResolvedValue({
+      ...makeRequestUrlResult({ status: 200, bytes }),
+      arrayBuffer,
+    });
+
+    const result = await obsidianBinaryDownload('https://example.com/result.zip');
+
+    expect(result.arrayBuffer).toBe(arrayBuffer);
+    expect(new Uint8Array(result.arrayBuffer)).toEqual(bytes);
   });
 });
 

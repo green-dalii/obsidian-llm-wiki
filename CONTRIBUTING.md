@@ -20,7 +20,7 @@ pnpm dev
 pnpm build
 ```
 
-`main.js` is the compiled output loaded by Obsidian. Test by copying `main.js`, `manifest.json`, and `styles.css` into your vault's `.obsidian/plugins/karpathywiki/` folder.
+`main.js` is the compiled output loaded by Obsidian. Test this independent fork by copying `main.js`, `manifest.json`, and `styles.css` into your vault's `.obsidian/plugins/karpathywiki-mineru/` folder.
 
 ## Quality Checks
 

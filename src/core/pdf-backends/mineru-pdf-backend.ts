@@ -1,5 +1,12 @@
 import { normalizePath, Platform, type App, type DataAdapter } from 'obsidian';
-import { obsidianFetchBridge } from '../obsidian-fetch-bridge';
+import {
+  MINERU_TIMEOUT_DEFAULT_MINUTES,
+  MINERU_TIMEOUT_MAX_MINUTES,
+  MINERU_TIMEOUT_MIN_MINUTES,
+  MINERU_MAX_PDF_BYTES,
+} from '../../constants';
+import { obsidianBinaryDownload, obsidianFetchBridge } from '../obsidian-fetch-bridge';
+import { MINERU_CONVERSION_PROFILE } from './mineru-profile';
 import {
   buildMineruCacheKey,
   createPdfCache,
@@ -11,7 +18,7 @@ import { isEncryptedPdfText } from '../pdf-metadata';
 import { EncryptedPdfError } from './native-llm-pdf-backend';
 import { extractMineruArchive, type MineruArchiveResult } from './mineru-archive';
 import { MineruArtifactConflictError, MineruArtifactStore } from './mineru-artifacts';
-import { MineruCancelledError, MineruClient } from './mineru-client';
+import { MineruCancelledError, MineruClient, MineruStageError } from './mineru-client';
 import type {
   ArtifactInspection,
   MineruArtifactAdapter,
@@ -21,10 +28,6 @@ import type {
   PdfConversionResult,
 } from './types';
 import { MineruConfigurationError } from './types';
-
-const DEFAULT_TIMEOUT_MINUTES = 30;
-const MIN_TIMEOUT_MINUTES = 5;
-const MAX_TIMEOUT_MINUTES = 120;
 
 interface MineruClientFactoryOptions {
   apiToken: string;
@@ -66,6 +69,9 @@ async function convertPdfWithMineru(
   const emit = createProgressEmitter(ctx);
   if (ctx.abortSignal?.aborted) throw new MineruCancelledError('request-upload');
   emit({ stage: 'preparing' });
+  if (ctx.pdfFile.stat.size > MINERU_MAX_PDF_BYTES) {
+    throw new MineruStageError('upload', 'MinerU accepts PDF files up to 200 MB.');
+  }
 
   const artifactStore = deps.createArtifactStore(ctx);
   const inspection = await artifactStore.inspect(ctx.pdfFile.path);
@@ -135,7 +141,7 @@ async function convertPdfWithMineru(
     markdown: extracted.markdown,
     metadata: {
       convertedAt,
-      converter: 'mineru/vlm',
+      converter: MINERU_CONVERSION_PROFILE.converter,
     },
   };
   await cache.set(cacheToken, result);
@@ -149,14 +155,14 @@ function entryFromArtifact(
     markdown: inspection.markdown,
     metadata: {
       convertedAt: inspection.manifest.convertedAt,
-      converter: 'mineru/vlm',
+      converter: MINERU_CONVERSION_PROFILE.converter,
     },
   };
 }
 
 function normalizeTimeoutMinutes(value: number | undefined): number {
-  if (value === undefined || !Number.isFinite(value)) return DEFAULT_TIMEOUT_MINUTES;
-  return Math.min(MAX_TIMEOUT_MINUTES, Math.max(MIN_TIMEOUT_MINUTES, value));
+  if (value === undefined || !Number.isFinite(value)) return MINERU_TIMEOUT_DEFAULT_MINUTES;
+  return Math.min(MINERU_TIMEOUT_MAX_MINUTES, Math.max(MINERU_TIMEOUT_MIN_MINUTES, value));
 }
 
 function createProgressEmitter(ctx: PdfBackendContext): (progress: PdfBackendProgress) => void {
@@ -195,6 +201,10 @@ export function createMineruArtifactAdapter(adapter: DataAdapter): MineruArtifac
       return `${identity}:${physicalPath}`;
     },
     exists: (path) => adapter.exists(normalizePath(path)),
+    stat: async (path) => {
+      const stat = await adapter.stat(normalizePath(path));
+      return stat ? { size: stat.size } : null;
+    },
     readBinary: (path) => adapter.readBinary(normalizePath(path)),
     mkdir: (path) => adapter.mkdir(normalizePath(path)),
     writeBinary: (path, bytes) => adapter.writeBinary(normalizePath(path), bytes),
@@ -269,6 +279,7 @@ const defaultDependencies: MineruPdfBackendDependencies = {
     apiToken,
     timeoutMs,
     fetchFn: obsidianFetchBridge as unknown as typeof fetch,
+    downloadFn: obsidianBinaryDownload,
     sleep: waitForDelay,
     now: () => Date.now(),
   }),

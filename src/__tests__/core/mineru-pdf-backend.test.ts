@@ -9,6 +9,7 @@ import {
 } from '../../core/pdf-backends/mineru-pdf-backend';
 import { buildMineruCacheKey } from '../../core/pdf-cache';
 import { MineruCancelledError } from '../../core/pdf-backends/mineru-client';
+import { MineruStageError } from '../../core/pdf-backends/mineru-client';
 import { MineruArtifactConflictError } from '../../core/pdf-backends/mineru-artifacts';
 import { EncryptedPdfError } from '../../core/pdf-converter';
 import type {
@@ -109,6 +110,7 @@ interface HarnessOptions {
   bytes?: Uint8Array;
   inspection?: ArtifactInspection;
   cacheHit?: PdfConversionResult | null;
+  fileSize?: number;
 }
 
 function createHarness(options: HarnessOptions = {}) {
@@ -194,7 +196,12 @@ function createHarness(options: HarnessOptions = {}) {
       mineruApiToken: options.token ?? 'mineru-token',
       mineruTaskTimeoutMinutes: 30,
     },
-    pdfFile: { path: SOURCE_PATH, name: 'paper.pdf', extension: 'pdf' } as never,
+    pdfFile: {
+      path: SOURCE_PATH,
+      name: 'paper.pdf',
+      extension: 'pdf',
+      stat: { size: options.fileSize ?? (options.bytes ?? PDF_BYTES).length },
+    } as never,
     llmClient: { createMessage: nativeConvert } as unknown as LLMClient,
     resolveModelForTask: vi.fn(() => 'claude-opus-4-8'),
     subtle,
@@ -238,6 +245,14 @@ describe('MinerU PDF backend preconditions and identity', () => {
     const h = createHarness({ token });
 
     await expect(h.backend.convert(h.ctx)).rejects.toBeInstanceOf(MineruConfigurationError);
+    expect(h.mocks.readBinary).not.toHaveBeenCalled();
+    expect(h.mocks.requestUpload).not.toHaveBeenCalled();
+  });
+
+  it('rejects PDFs above the official input limit before reading or network', async () => {
+    const h = createHarness({ fileSize: 200 * 1024 * 1024 + 1 });
+
+    await expect(h.backend.convert(h.ctx)).rejects.toBeInstanceOf(MineruStageError);
     expect(h.mocks.readBinary).not.toHaveBeenCalled();
     expect(h.mocks.requestUpload).not.toHaveBeenCalled();
   });

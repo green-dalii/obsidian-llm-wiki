@@ -655,6 +655,7 @@ export const JA_TEXTS = {
     mineruDesktopOnly: '「{filename}」: MinerU の PDF 変換はデスクトップアプリでのみ利用できます。',
     mineruAuthenticationFailed: '「{filename}」: MinerU の認証に失敗しました。API Token を確認して、もう一度お試しください。',
     mineruQuotaExceeded: '「{filename}」: MinerU の利用枠が使用できないか、使い切られています。MinerU アカウントを確認して、もう一度お試しください。',
+    mineruRateLimited: '「{filename}」: この PDF に対する MinerU のリクエストは一時的にレート制限されています。しばらくしてからもう一度お試しください。',
     mineruUploadFailed: '「{filename}」: MinerU が PDF のアップロードを受け付けられませんでした。ファイルと接続を確認して、もう一度お試しください。',
     mineruTaskFailed: '「{filename}」: MinerU がこの PDF を処理できませんでした。PDF を確認して、もう一度お試しください。',
     mineruTaskTimedOut: '「{filename}」: 設定した時間内に MinerU の処理が完了しませんでした。タイムアウトを延長するか、後でもう一度お試しください。',

@@ -34,7 +34,16 @@
 import { Setting, Notice, TFile, BaseComponent, Platform } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
 import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from '../../types';
-import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIMIT_MIN } from '../../constants';
+import {
+  NOTICE_NORMAL,
+  NOTICE_ERROR,
+  NOTICE_SHORT,
+  CUSTOM_LIMIT_MAX,
+  CUSTOM_LIMIT_MIN,
+  MINERU_TIMEOUT_DEFAULT_MINUTES,
+  MINERU_TIMEOUT_MAX_MINUTES,
+  MINERU_TIMEOUT_MIN_MINUTES,
+} from '../../constants';
 import { HistoryModal } from '../history-modal';
 import { TagChipInputComponent } from '../tag-chip-input';
 import { setSettingsVisible } from '../settings-helpers';
@@ -99,19 +108,22 @@ export function renderWikiConfigSection(tab: LLMWikiSettingTab, containerEl: HTM
       .setDesc(tab.getText('mineruTaskTimeoutDesc'))
       .addText(text => {
         text
-          .setValue(String(tempSettings.mineruTaskTimeoutMinutes ?? 30))
+          .setValue(String(tempSettings.mineruTaskTimeoutMinutes ?? MINERU_TIMEOUT_DEFAULT_MINUTES))
           .onChange((value) => {
             const trimmed = value.trim();
             if (!trimmed) return;
             const parsed = Number(trimmed);
             if (!Number.isFinite(parsed)) return;
-            const clamped = Math.min(120, Math.max(5, parsed));
+            const clamped = Math.min(
+              MINERU_TIMEOUT_MAX_MINUTES,
+              Math.max(MINERU_TIMEOUT_MIN_MINUTES, parsed)
+            );
             tempSettings.mineruTaskTimeoutMinutes = clamped;
             if (clamped !== parsed) text.setValue(String(clamped));
           });
         text.inputEl.type = 'number';
-        text.inputEl.min = '5';
-        text.inputEl.max = '120';
+        text.inputEl.min = String(MINERU_TIMEOUT_MIN_MINUTES);
+        text.inputEl.max = String(MINERU_TIMEOUT_MAX_MINUTES);
         text.inputEl.step = 'any';
         text.inputEl.classList.add('llm-wiki-number-input');
       });

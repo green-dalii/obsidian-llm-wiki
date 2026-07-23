@@ -144,6 +144,7 @@ type MineruErrorTextKey =
   | 'mineruDesktopOnly'
   | 'mineruAuthenticationFailed'
   | 'mineruQuotaExceeded'
+  | 'mineruRateLimited'
   | 'mineruUploadFailed'
   | 'mineruTaskFailed'
   | 'mineruTaskTimedOut'
@@ -649,7 +650,8 @@ export class WikiEngine {
       return error.reason === 'desktop-only' ? 'mineruDesktopOnly' : 'mineruMissingToken';
     }
     if (error instanceof MineruAuthenticationError) return 'mineruAuthenticationFailed';
-    if (error instanceof MineruQuotaError || error instanceof MineruRateLimitError) return 'mineruQuotaExceeded';
+    if (error instanceof MineruQuotaError) return 'mineruQuotaExceeded';
+    if (error instanceof MineruRateLimitError) return 'mineruRateLimited';
     if (error instanceof MineruTaskTimeoutError) return 'mineruTaskTimedOut';
     if (error instanceof MineruTaskFailedError) return 'mineruTaskFailed';
     if (error instanceof MineruCancelledError) return 'mineruCancelled';
@@ -761,11 +763,10 @@ export class WikiEngine {
    * re-enters `ingestSource` with the converted markdown threaded via
    * `IngestOptions.contentOverride`.
    *
-   * Artifact policy: the cache (`.obsidian/plugins/karpathywiki/pdf-cache/`) is
-   * always the source of truth. When the user opts in via `writePdfMarkdownToVault`,
-   * the converted markdown is also written to `<dir>/<basename>.pdf.md` next to
-   * the source PDF. Otherwise (default, cache-only) no sidecar is written — the
-   * vault contains no implementation artifacts from PDF ingestion.
+   * Artifact policy: Native conversion uses the internal
+   * `.obsidian/plugins/karpathywiki-mineru/pdf-cache/` and optionally writes a
+   * `<dir>/<basename>.pdf.md` sidecar. MinerU publishes its validated managed
+   * artifact to `<dir>/<basename>.mineru/` and keeps the internal cache separate.
    *
    * Errors are caught and surfaced via the standard `reportSkip` path so
    * the user sees a localized Notice rather than an unhandled exception.
@@ -893,7 +894,7 @@ export class WikiEngine {
     // call is preserved.
     setPdfStage('pdfStageConverting');
 
-    // v1.25.0 PR3: optional sidecar write. When the user opts in via
+    // v1.25.0 PR3: optional Native-backend sidecar write. When the user opts in via
     // `writePdfMarkdownToVault`, persist the converted markdown next to the
     // source PDF (`<dir>/<basename>.pdf.md`). Default off → cache-only; the
     // `.obsidian` cache remains the only artifact. The write happens before
@@ -905,7 +906,10 @@ export class WikiEngine {
     // LLM-converted markdown — no pollution detection needed; (b) writing
     // through createOrUpdateFile would fire onFileWrite + invalidatePageCaches,
     // which could trigger auto-ingest cascades if the source folder is watched.
-    if (this.settings.writePdfMarkdownToVault === true) {
+    if (
+      this.settings.pdfConversionBackend !== 'mineru'
+      && this.settings.writePdfMarkdownToVault === true
+    ) {
       // v1.25.11 PATCH #169: sidecar-write stage mirror. Fires only when
       // the user has opted in via writePdfMarkdownToVault. ADD-only
       // emission — the vault write itself is unchanged.

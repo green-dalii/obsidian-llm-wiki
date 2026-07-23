@@ -482,6 +482,7 @@ export const ES_TEXTS = {
     mineruDesktopOnly: '«{filename}»: La conversión de PDF con MinerU solo está disponible en la aplicación de escritorio.',
     mineruAuthenticationFailed: '«{filename}»: MinerU no pudo autenticarte. Comprueba tu Token de API y vuelve a intentarlo.',
     mineruQuotaExceeded: '«{filename}»: Tu cuota de MinerU no está disponible o se ha agotado. Comprueba tu cuenta de MinerU y vuelve a intentarlo.',
+    mineruRateLimited: '«{filename}»: La solicitud de MinerU para este PDF está limitada temporalmente. Vuelve a intentarlo más tarde.',
     mineruUploadFailed: '«{filename}»: MinerU no pudo aceptar la carga del PDF. Comprueba el archivo y tu conexión y vuelve a intentarlo.',
     mineruTaskFailed: '«{filename}»: MinerU no pudo procesar este PDF. Comprueba el PDF y vuelve a intentarlo.',
     mineruTaskTimedOut: '«{filename}»: MinerU no terminó antes del tiempo límite configurado. Aumenta el tiempo límite o vuelve a intentarlo más tarde.',

@@ -22,7 +22,7 @@ function settings(provider = 'openai-codex'): import('../../types').LLMWikiSetti
   return {
     provider,
     apiKey: provider === 'openai' ? 'api-key' : '',
-    openAICodexSecretId: 'karpathywiki-openai-codex',
+    openAICodexSecretId: 'karpathywiki-mineru-openai-codex',
     baseUrl: '',
     model: provider === 'openai-codex' ? 'gpt-5.5' : 'model',
     language: 'en',
@@ -74,7 +74,7 @@ describe('OpenAI Codex plugin lifecycle', () => {
     expect(createLLMClientFromSettingsSync).toHaveBeenCalledWith(expect.objectContaining({ codexQuotaMessage: 'ChatGPT Codex 额度已用尽。请等待显示的重置时间后重试。' }), undefined);
   });
   it('migrates legacy readiness from SecretStorage without an API key', async () => {
-    const values = new Map<string, string>([['karpathywiki-openai-codex', JSON.stringify(freshCredential())]]);
+    const values = new Map<string, string>([['karpathywiki-mineru-openai-codex', JSON.stringify(freshCredential())]]);
     const secretStorage = { getSecret: (id: string) => values.get(id) ?? null, setSecret: (id: string, value: string) => { values.set(id, value); } };
     const app = { secretStorage };
     const plugin = new LLMWikiPlugin(app as never, {} as never);

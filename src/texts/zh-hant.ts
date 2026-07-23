@@ -655,6 +655,7 @@ export const ZH_HANT_TEXTS = {
     mineruDesktopOnly: '「{filename}」：MinerU PDF 轉換僅可在桌面應用程式中使用。',
     mineruAuthenticationFailed: '「{filename}」：MinerU 驗證失敗。請檢查 API Token，然後重試。',
     mineruQuotaExceeded: '「{filename}」：MinerU 配額無法使用或已用盡。請檢查 MinerU 帳戶，然後重試。',
+    mineruRateLimited: '「{filename}」：此 PDF 的 MinerU 請求暫時受到速率限制。請稍後重試。',
     mineruUploadFailed: '「{filename}」：MinerU 無法接收 PDF 上傳。請檢查檔案與網路連線，然後重試。',
     mineruTaskFailed: '「{filename}」：MinerU 無法處理此 PDF。請檢查 PDF，然後重試。',
     mineruTaskTimedOut: '「{filename}」：MinerU 未能在設定的逾時時間內完成。請延長逾時時間或稍後重試。',

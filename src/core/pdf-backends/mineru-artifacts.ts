@@ -4,6 +4,7 @@ import {
   getMineruTempDir,
   sanitizeMineruRelativePath,
 } from './mineru-paths';
+import { MINERU_CONVERSION_PROFILE } from './mineru-profile';
 import type {
   ArtifactInspection,
   MineruArtifactAdapter,
@@ -13,7 +14,7 @@ import type {
   MineruArtifactPublishInput,
 } from './types';
 
-export const MINERU_CONVERTER_VERSION = 'mineru-v1' as const;
+export const MINERU_CONVERTER_VERSION = MINERU_CONVERSION_PROFILE.converterVersion;
 
 const MANIFEST_FILENAME = '.mineru-manifest.json';
 const MARKDOWN_FILENAME = 'document.md';
@@ -165,10 +166,13 @@ export class MineruArtifactStore {
       const markdownBytes = new Uint8Array(await this.adapter.readBinary(
         `${sourceDirectory}/${MARKDOWN_FILENAME}`
       ));
-      const images = await Promise.all(existing.manifest.images.map(async (image) => ({
-        path: image.path,
-        bytes: new Uint8Array(await this.adapter.readBinary(`${sourceDirectory}/${image.path}`)),
-      })));
+      const images: MineruArtifactImageInput[] = [];
+      for (const image of existing.manifest.images) {
+        images.push({
+          path: image.path,
+          bytes: new Uint8Array(await this.adapter.readBinary(`${sourceDirectory}/${image.path}`)),
+        });
+      }
       const prepared: PreparedArtifact = {
         sourcePath: newSourcePath,
         markdownBytes,
@@ -201,8 +205,8 @@ export class MineruArtifactStore {
       schemaVersion: 1,
       sourcePath,
       sourceSha256: input.sourceSha256,
-      backend: 'mineru',
-      modelVersion: 'vlm',
+      backend: MINERU_CONVERSION_PROFILE.backend,
+      modelVersion: MINERU_CONVERSION_PROFILE.modelVersion,
       converterVersion: MINERU_CONVERTER_VERSION,
       convertedAt: input.convertedAt,
       taskId,
@@ -237,11 +241,11 @@ export class MineruArtifactStore {
 
       for (const image of manifest.images) {
         const imagePath = `${directory}/${image.path}`;
-        if (!await this.adapter.exists(imagePath)) {
+        const imageStat = await this.adapter.stat(imagePath);
+        if (!imageStat) {
           throw new Error(`Managed MinerU image is missing: ${image.path}`);
         }
-        const imageBytes = new Uint8Array(await this.adapter.readBinary(imagePath));
-        if (imageBytes.length !== image.bytes) {
+        if (imageStat.size !== image.bytes) {
           throw new Error(`Managed MinerU image byte length does not match: ${image.path}`);
         }
       }
@@ -326,10 +330,8 @@ export class MineruArtifactStore {
         await this.adapter.removeDirectory(paths.backupDirectory);
         sourceBackedUp = false;
       } catch (cleanupError) {
-        const cleanupMessage = errorMessage(cleanupError);
-        throw new MineruArtifactWriteError(
-          `MinerU artifacts were committed, but backup cleanup failed: ${cleanupMessage}`,
-          { cause: cleanupError, cleanupErrors: [cleanupMessage] }
+        console.warn(
+          `[MinerU artifact cleanup] Committed output is valid, but backup cleanup failed: ${errorMessage(cleanupError)}`
         );
       }
     }
@@ -400,8 +402,8 @@ function parseManifest(json: string, expectedSourcePath: string): MineruArtifact
     schemaVersion: 1,
     sourcePath: parsed.sourcePath,
     sourceSha256: parsed.sourceSha256,
-    backend: 'mineru',
-    modelVersion: 'vlm',
+    backend: MINERU_CONVERSION_PROFILE.backend,
+    modelVersion: MINERU_CONVERSION_PROFILE.modelVersion,
     converterVersion: MINERU_CONVERTER_VERSION,
     convertedAt: parsed.convertedAt,
     taskId,
@@ -440,7 +442,7 @@ function normalizeImages(images: MineruArtifactImageInput[]): MineruArtifactImag
     if (!image || !(image.bytes instanceof Uint8Array)) {
       throw new Error('MinerU image bytes must be Uint8Array values.');
     }
-    return { path: normalizeImagePath(image.path), bytes: new Uint8Array(image.bytes) };
+    return { path: normalizeImagePath(image.path), bytes: image.bytes };
   }).sort((left, right) => comparePaths(left.path, right.path));
   for (let index = 1; index < normalized.length; index += 1) {
     if (normalized[index - 1].path === normalized[index].path) {
@@ -560,6 +562,13 @@ function comparePaths(left: string, right: string): number {
 }
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  if (
+    bytes.buffer instanceof ArrayBuffer
+    && bytes.byteOffset === 0
+    && bytes.byteLength === bytes.buffer.byteLength
+  ) {
+    return bytes.buffer;
+  }
   const buffer = new ArrayBuffer(bytes.length);
   new Uint8Array(buffer).set(bytes);
   return buffer;

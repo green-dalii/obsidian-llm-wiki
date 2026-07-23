@@ -36,7 +36,6 @@ describe('extractMineruArchive', () => {
     const result = extractMineruArchive(archive);
 
     expect(result.markdown).toBe('# 标题\n\n![图像](<images/图 像.png>)\n');
-    expect(result.markdownBytes).toEqual(text(result.markdown));
     expect(result.images).toEqual([
       { path: 'images/图 像.png', bytes: new Uint8Array([1, 2, 3]) },
     ]);
@@ -353,7 +352,7 @@ describe('extractMineruArchive', () => {
     expect(() => extractMineruArchive(forged)).toThrow(MineruInvalidResultError);
     expect(pushSpy.mock.calls.length).toBeGreaterThan(0);
     expect(Math.max(...pushSpy.mock.calls.map(([chunk]) => chunk.length))).toBeLessThanOrEqual(
-      1024
+      64 * 1024
     );
     pushSpy.mockRestore();
   });

@@ -111,6 +111,13 @@ class MemoryArtifactAdapter implements MineruArtifactAdapter {
     return copy;
   }
 
+  async stat(path: string): Promise<{ size: number } | null> {
+    await this.beforeOperation(`stat:${path}`, false);
+    const actualPath = this.resolveFile(path);
+    const bytes = actualPath === undefined ? undefined : this.files.get(actualPath);
+    return bytes ? { size: bytes.length } : null;
+  }
+
   async mkdir(path: string): Promise<void> {
     await this.beforeOperation(`mkdir:${path}`, true);
     if (this.resolveDirectory(path) === undefined) this.directories.add(path);
@@ -390,6 +397,8 @@ describe('MineruArtifactStore.inspect', () => {
       manifest,
       markdown: '# Old\n\n![Old](images/old.png)\n',
     });
+    expect(adapter.operations).toContain(`stat:${OLD_DIR}/images/old.png`);
+    expect(adapter.operations).not.toContain(`readBinary:${OLD_DIR}/images/old.png`);
   });
 
   it.each([
@@ -628,8 +637,12 @@ describe('MineruArtifactStore.publish', () => {
       const backup = getMineruTempDir(OLD_PDF_PATH, `failure-${mutation}-backup`);
       adapter.setFailure(mutation);
 
-      await expect(makeStore(adapter, [`failure-${mutation}`]).publish(makePublishInput()))
-        .rejects.toBeInstanceOf(MineruArtifactWriteError);
+      const publication = makeStore(adapter, [`failure-${mutation}`]).publish(makePublishInput());
+      if (mutation === boundaries.length) {
+        await expect(publication).resolves.toBeUndefined();
+      } else {
+        await expect(publication).rejects.toBeInstanceOf(MineruArtifactWriteError);
+      }
       const rescanned = await makeStore(adapter).inspect(OLD_PDF_PATH);
       if (mutation <= commitPoint) {
         expect(adapter.snapshotTree(OLD_DIR), boundaries[mutation - 1]).toEqual(before);
@@ -666,14 +679,13 @@ describe('MineruArtifactStore.publish', () => {
       message: 'partial backup cleanup failure',
     });
 
-    const error = await captureWriteError(
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await expect(
       makeStore(adapter, ['commit-cleanup']).publish(makePublishInput())
-    );
+    ).resolves.toBeUndefined();
 
-    expect(error.message).toContain('partial backup cleanup failure');
-    expect(error.cause).toBeInstanceOf(Error);
-    expect((error.cause as Error).message).toBe('partial backup cleanup failure');
-    expect(error.cleanupErrors).toContain('partial backup cleanup failure');
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('partial backup cleanup failure'));
+    warning.mockRestore();
     const inspection = await makeStore(adapter).inspect(OLD_PDF_PATH);
     expect(inspection.kind).toBe('valid');
     if (inspection.kind === 'valid') expect(inspection.markdown).toContain('# New');
@@ -979,9 +991,13 @@ describe('MineruArtifactStore.moveForPdfRename', () => {
       );
       adapter.setFailure(mutation);
 
-      await expect(makeStore(adapter, [`rename-failure-${mutation}`])
-        .moveForPdfRename(OLD_PDF_PATH, NEW_PDF_PATH))
-        .rejects.toBeInstanceOf(MineruArtifactWriteError);
+      const move = makeStore(adapter, [`rename-failure-${mutation}`])
+        .moveForPdfRename(OLD_PDF_PATH, NEW_PDF_PATH);
+      if (mutation === boundaries.length) {
+        await expect(move).resolves.toBeUndefined();
+      } else {
+        await expect(move).rejects.toBeInstanceOf(MineruArtifactWriteError);
+      }
       if (mutation <= commitPoint) {
         expect(adapter.snapshotTree(OLD_DIR), boundaries[mutation - 1]).toEqual(before);
         expect(adapter.snapshotTree(NEW_DIR), boundaries[mutation - 1]).toEqual({

@@ -3,7 +3,7 @@ import { applySettingsMigrations } from '../../core/settings-migrations';
 
 describe('applySettingsMigrations — historical (#199 regression guard)', () => {
   it('uses the stable Codex secret ID for new settings', () => {
-    expect(applySettingsMigrations(null).settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
+    expect(applySettingsMigrations(null).settings.openAICodexSecretId).toBe('karpathywiki-mineru-openai-codex');
   });
 
   it('preserves the old provider while clearing the legacy plaintext API key (v1.25.3 #182 migration, v1.25.4 #339 phase-1-only)', async () => {
@@ -18,7 +18,7 @@ describe('applySettingsMigrations — historical (#199 regression guard)', () =>
     const { settings, applied } = applySettingsMigrations({ provider: 'openai', apiKey: 'existing-key' });
     expect(settings.provider).toBe('openai');
     expect(settings.apiKey).toBe('existing-key');                     // v1.25.4 #339: NOT cleared in phase 1
-    expect(settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
+    expect(settings.openAICodexSecretId).toBe('karpathywiki-mineru-openai-codex');
     expect(settings._migrated_v1_25_3_secret_storage).toBe(true);     // marker set (phase 1 complete)
     expect(applied).toContain('v1.25.3-secret-storage');
     // Legacy value stashed for main.ts to consume (NOT a real settings field).
@@ -47,8 +47,17 @@ describe('applySettingsMigrations — historical (#199 regression guard)', () =>
 
   it('repairs a blank legacy Codex secret ID', () => {
     const { settings, applied } = applySettingsMigrations({ openAICodexSecretId: '' });
-    expect(settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
+    expect(settings.openAICodexSecretId).toBe('karpathywiki-mineru-openai-codex');
     expect(applied).toContain('v1.25.0-codex-settings');
+  });
+
+  it('migrates the upstream default Codex secret ID to the fork namespace', () => {
+    const { settings, applied } = applySettingsMigrations({
+      openAICodexSecretId: 'karpathywiki-openai-codex',
+    });
+
+    expect(settings.openAICodexSecretId).toBe('karpathywiki-mineru-openai-codex');
+    expect(applied).toContain('mineru-fork-codex-secret-id');
   });
 
   it('never copies token-shaped fields into settings', () => {

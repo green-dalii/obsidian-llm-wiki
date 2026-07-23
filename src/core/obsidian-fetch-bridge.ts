@@ -29,7 +29,7 @@ export interface ObsidianFetchInit {
   method?: string;
   /** Fetch-API HeadersInit: plain object, Headers instance, or tuple array. */
   headers?: HeadersInit;
-  body?: string | Uint8Array | undefined;
+  body?: string | Uint8Array | ArrayBuffer | undefined;
   signal?: AbortSignal;
   // Note: AI-SDK doesn't pass these but we accept them defensively.
   timeout?: number;
@@ -96,14 +96,20 @@ export async function obsidianFetchBridge(
     throw new DOMException('The operation was aborted.', 'AbortError');
   }
 
-  // Build the request. Obsidian's requestUrl requires `body` as string
-  // (or undefined for GET), so we serialize Uint8Array as binary string.
-  let body: string | undefined;
+  // requestUrl accepts text or ArrayBuffer bodies. Preserve binary payloads
+  // exactly instead of routing them through UTF-8 text conversion.
+  let body: string | ArrayBuffer | undefined;
   if (init?.body !== undefined && init?.body !== null) {
     if (typeof init.body === 'string') {
       body = init.body;
     } else if (init.body instanceof Uint8Array) {
-      body = new TextDecoder().decode(init.body);
+      body = init.body.buffer instanceof ArrayBuffer
+        && init.body.byteOffset === 0
+        && init.body.byteLength === init.body.buffer.byteLength
+        ? init.body.buffer
+        : new Uint8Array(init.body).buffer;
+    } else if (init.body instanceof ArrayBuffer) {
+      body = init.body;
     } else {
       body = String(init.body);
     }
@@ -147,14 +153,46 @@ export async function obsidianFetchBridge(
     responseHeaders.set(key, value);
   }
 
-  const text = response.text ?? '';
   const status = response.status;
 
-  return new Response(text, {
+  return new Response(response.arrayBuffer, {
     status,
     statusText: response.status ? String(status) : '',
     headers: responseHeaders,
   });
+}
+
+export interface ObsidianBinaryDownloadResult {
+  status: number;
+  headers: Headers;
+  arrayBuffer: ArrayBuffer;
+}
+
+/** Download binary content through requestUrl without wrapping it in Response. */
+export async function obsidianBinaryDownload(
+  url: string,
+  signal?: AbortSignal
+): Promise<ObsidianBinaryDownloadResult> {
+  if (signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
+  }
+  let response;
+  try {
+    response = await requestUrl({ url, method: 'GET', throw: false });
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new TypeError(`obsidianBinaryDownload network error: ${error.message}`);
+    }
+    throw error;
+  }
+  if (signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
+  }
+  return {
+    status: response.status,
+    headers: new Headers(response.headers ?? {}),
+    arrayBuffer: response.arrayBuffer,
+  };
 }
 
 /**

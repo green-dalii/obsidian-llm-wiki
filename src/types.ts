@@ -2,6 +2,8 @@
 
 import { App } from 'obsidian';
 import type { RejectionReason } from './core/source-requirements';
+import { MINERU_TIMEOUT_DEFAULT_MINUTES } from './constants';
+import { PLUGIN_CODEX_SECRET_ID } from './core/plugin-identity';
 
 /**
  * Issue #244 — Programmatic Mentions writes (v1.23.3 / v1.24.0).
@@ -965,7 +967,7 @@ export const PREDEFINED_PROVIDERS: Record<string, ProviderConfig> = {
 export const DEFAULT_SETTINGS: LLMWikiSettings = {
   provider: 'anthropic',
   apiKey: '',
-  openAICodexSecretId: 'karpathywiki-openai-codex',
+  openAICodexSecretId: PLUGIN_CODEX_SECRET_ID,
   // v1.25.3 #182: stable secretId for the provider API key in
   // Obsidian SecretStorage. Plugin namespace + semantic role makes
   // the slot easy to find in the OS credential manager and avoids
@@ -1043,7 +1045,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   forcePdfSupport: false,
   pdfConversionBackend: 'native',
   mineruApiToken: '',
-  mineruTaskTimeoutMinutes: 30,
+  mineruTaskTimeoutMinutes: MINERU_TIMEOUT_DEFAULT_MINUTES,
   writePdfMarkdownToVault: false,
   // v1.26.0 (#382 item 2): dedup threshold overrides — undefined = use the
   // LINT_DEDUP_* constants in src/constants.ts. The UI renders them only

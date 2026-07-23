@@ -1,11 +1,11 @@
 import { strFromU8, UnzipInflate } from 'fflate';
+import { MINERU_MAX_ZIP_BYTES } from '../../constants';
 import { sanitizeMineruRelativePath } from './mineru-paths';
 
-const MAX_ZIP_BYTES = 256 * 1024 * 1024;
 const MAX_ZIP_ENTRIES = 10_000;
 const MAX_RETAINED_FILE_BYTES = 100 * 1024 * 1024;
-const MAX_RETAINED_TOTAL_BYTES = 1024 * 1024 * 1024;
-const STREAM_INPUT_CHUNK_BYTES = 1024;
+const MAX_RETAINED_TOTAL_BYTES = 256 * 1024 * 1024;
+const STREAM_INPUT_CHUNK_BYTES = 64 * 1024;
 
 const LOCAL_FILE_HEADER = 0x04034b50;
 const CENTRAL_FILE_HEADER = 0x02014b50;
@@ -54,7 +54,6 @@ export interface MineruArchiveImage {
 
 export interface MineruArchiveResult {
   markdown: string;
-  markdownBytes: Uint8Array;
   images: MineruArchiveImage[];
 }
 
@@ -246,7 +245,7 @@ function validateLocalRecords(
 }
 
 function parseArchive(bytes: Uint8Array): ParsedArchive {
-  if (bytes.length > MAX_ZIP_BYTES) invalid('MinerU ZIP exceeds the input size limit.');
+  if (bytes.length > MINERU_MAX_ZIP_BYTES) invalid('MinerU ZIP exceeds the input size limit.');
   if (bytes.length < 22) invalid('MinerU result is not a valid ZIP archive.');
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -593,5 +592,5 @@ export function extractMineruArchive(bytes: Uint8Array): MineruArchiveResult {
     return { path: outputPath, bytes: imageBytes };
   });
 
-  return { markdown, markdownBytes, images };
+  return { markdown, images };
 }

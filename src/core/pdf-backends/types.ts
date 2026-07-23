@@ -1,6 +1,7 @@
 import type { App, TFile } from 'obsidian';
 import type { LLMClient } from '../../types';
 import type { PdfCacheEntry } from '../pdf-cache';
+import type { MINERU_CONVERSION_PROFILE } from './mineru-profile';
 
 export type PdfConversionBackendId = 'native' | 'mineru';
 
@@ -66,9 +67,9 @@ export interface MineruArtifactManifest {
   schemaVersion: 1;
   sourcePath: string;
   sourceSha256: string;
-  backend: 'mineru';
-  modelVersion: 'vlm';
-  converterVersion: 'mineru-v1';
+  backend: typeof MINERU_CONVERSION_PROFILE.backend;
+  modelVersion: typeof MINERU_CONVERSION_PROFILE.modelVersion;
+  converterVersion: typeof MINERU_CONVERSION_PROFILE.converterVersion;
   convertedAt: string;
   taskId: string;
   traceId?: string;
@@ -105,6 +106,7 @@ export interface MineruArtifactAdapter {
    */
   getPathIdentity(path: string): Promise<string>;
   exists(path: string): Promise<boolean>;
+  stat(path: string): Promise<{ size: number } | null>;
   readBinary(path: string): Promise<ArrayBuffer>;
   mkdir(path: string): Promise<void>;
   writeBinary(path: string, bytes: ArrayBuffer): Promise<void>;

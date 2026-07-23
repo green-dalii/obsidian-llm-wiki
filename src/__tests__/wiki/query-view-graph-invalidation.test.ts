@@ -14,7 +14,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { QueryView } from '../../wiki/query-engine';
+import { QueryView, VIEW_TYPE_QUERY } from '../../wiki/query-engine';
 import type LLMWikiPlugin from '../../main';
 
 beforeEach(() => {
@@ -34,6 +34,10 @@ afterEach(() => {
   delete (globalThis as Record<string, unknown>).activeDocument;
   // eslint-disable-next-line obsidianmd/no-global-this
   delete (globalThis as Record<string, unknown>).HTMLElement;
+});
+
+it('uses a fork-specific workspace view type', () => {
+  expect(VIEW_TYPE_QUERY).toBe('karpathywiki-mineru-query-view');
 });
 
 /**
