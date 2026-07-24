@@ -6,22 +6,28 @@ describe('applySettingsMigrations — historical (#199 regression guard)', () =>
     expect(applySettingsMigrations(null).settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
   });
 
-  it('preserves the old provider while clearing the legacy plaintext API key (v1.25.3 #182 migration)', () => {
+  it('preserves the old provider while clearing the legacy plaintext API key (v1.25.3 #182 migration, v1.25.4 #339 phase-1-only)', async () => {
     // v1.25.3 #182: legacy plaintext apiKey in data.json is moved into
     // Obsidian SecretStorage (the actual write happens in main.ts; this
-    // helper just clears the plaintext and stashes the legacy value on a
-    // transient field). After the migration the in-memory apiKey is
-    // empty, the marker is set, and the legacy value is available for
-    // main.ts to forward to SecretStorage.
+    // helper just stashes the legacy value on a transient field).
+    //
+    // v1.25.4 #339: Phase 1 (stash) does NOT clear settings.apiKey any
+    // more — the wipe is deferred to commitSettingsMigrationV1_25_3()
+    // which main.ts calls ONLY after the SecretStorage write succeeds.
+    // This prevents the "both stores empty" failure mode on IO failure.
     const { settings, applied } = applySettingsMigrations({ provider: 'openai', apiKey: 'existing-key' });
     expect(settings.provider).toBe('openai');
-    expect(settings.apiKey).toBe('');                                  // cleared
+    expect(settings.apiKey).toBe('existing-key');                     // v1.25.4 #339: NOT cleared in phase 1
     expect(settings.openAICodexSecretId).toBe('karpathywiki-openai-codex');
-    expect(settings._migrated_v1_25_3_secret_storage).toBe(true);     // marker set
+    expect(settings._migrated_v1_25_3_secret_storage).toBe(true);     // marker set (phase 1 complete)
     expect(applied).toContain('v1.25.3-secret-storage');
     // Legacy value stashed for main.ts to consume (NOT a real settings field).
     const stashed = (settings as unknown as { _legacyApiKeyForSecretStorage?: string })._legacyApiKeyForSecretStorage;
     expect(stashed).toBe('existing-key');
+    // Phase 2: simulate what main.ts does after SecretStorage IO succeeds
+    const { commitSettingsMigrationV1_25_3 } = await import('../../core/settings-migrations');
+    commitSettingsMigrationV1_25_3(settings);
+    expect(settings.apiKey).toBe('');                                  // cleared by phase 2
   });
 
   it('repairs a blank legacy Codex secret ID', () => {

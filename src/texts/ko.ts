@@ -45,6 +45,10 @@ export const KO_TEXTS = {
     apiKeyName: 'API 키',
     apiKeyDesc: 'API 키. OS 자격 증명 관리자에 저장되며 data.json에는 기록되지 않습니다.',
     apiKeyPlaceholder: 'API 키 입력',
+    // v1.25.4 #339: SecretStorage migration repair + failure Notice
+    apiKeyMigrateToSecretStorageButton: 'SecretStorage 마이그레이션',
+    apiKeyMigratedToSecretStorageSuccess: 'API 키가 SecretStorage에서 설정으로 복원되었습니다.',
+    apiKeyMigrationFailedNotice: 'SecretStorage에 API 키 저장 실패: {}',
     codexAuthName: 'ChatGPT 플랜 로그인',
     codexAuthDesc: 'ChatGPT 플랜 사용량을 이용하는 실험적 Codex OAuth 액세스입니다. OpenAI Platform API 요금은 별도로 청구됩니다.',
     codexAuthSignedOut: '로그인하지 않음',

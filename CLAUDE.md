@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-23 (v1.25.3 RELEASED)
+**Last Updated:** 2026-07-24 (v1.25.4 PATCH IN FLIGHT — #339 fix + fast-uri CVE)
 
 ---
 
-## Current Phase: v1.25.3 PATCH RELEASED 2026-07-23. Provider API key moved to Obsidian SecretStorage (Issue #182). Backward-compatible auto-migration. Quick Start README updated across 10 languages (ribbon icon + Query wiki step). 2529 tests passing (188 files). v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
+## Current Phase: v1.25.4 PATCH IN FLIGHT (target 2026-07-24). Windows 10 SecretStorage regression fixed (#339): two-phase migration (plaintext wipe deferred until IO succeeds) + `flushApiKey(): boolean` + Migrate Secret Storage repair command. Plus `fast-uri` CVE pinned to 3.1.4. Production files lint 0/0; test-side cosmetic warnings separately overridden per user direction. 2535 tests passing (189 files). v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 
@@ -347,6 +347,7 @@ For full release workflow (commit + push + tag + release notes), use the `obsidi
 - **`Promise.allSettled` error isolation**: One failure doesn't crash the batch
 - **Pollution defense at write gate**: Centralized regex catches ALL sources
 - **LLM semantic page selection**: Meaning-based matching, not keyword
+- **SecretStorage / plaintext wipe ordering (Issue #339, v1.25.4 invariant)**: When migrating a value from plaintext into an external store (SecretStorage, keychain, OS credential manager), the plaintext MUST survive until the IO succeeds. The migration is two-phase: phase 1 = detect + stash plaintext on a transient field (no wipe), phase 2 = wipe plaintext ONLY after the IO write returns success. `flushApiKey`-style save helpers return `boolean` and the calling UI (`PluginSettingTab.hide()`, etc.) MUST skip the commit step on failure. Silent-skip on IO failure = "both stores empty" = user locked out, which is the exact failure mode #339 reported.
 - **Schema 三层分离 (Issue #328, Phase 1 active 2026-07-22 — Option A)**: As knowledge-conservation principle (anti-drift), each layer owns its half, **never overlap, can never conflict**:
   | Layer | Owned by | What it is |
   |---|---|---|

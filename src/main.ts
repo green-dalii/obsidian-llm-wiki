@@ -34,7 +34,7 @@ export async function initializeLLMClientAfterModules(modulesLoaded: Promise<voi
 export { createLLMClient };
 import { TEXTS } from './texts';
 import { getText } from './core/i18n';
-import { applySettingsMigrations } from './core/settings-migrations';
+import { applySettingsMigrations, commitSettingsMigrationV1_25_3 } from './core/settings-migrations';
 import { normalizeVocabularyCsv } from './core/tag-vocab';
 import { detectStaleWikiFolders } from './core/query-history-migration-check';
 import { BatchProgress } from './core/status-bar';
@@ -60,6 +60,8 @@ import type { IngestMethods } from './main-commands/ingest-commands';
 import { registerWikiCommands } from './main-commands/command-registry';
 import { codexAuthCommands } from './main-commands/codex-auth-commands';
 import type { CodexAuthCommandsMethods } from './main-commands/codex-auth-commands';
+import { secretStorageCommands } from './main-commands/secret-storage-commands';
+import type { SecretStorageCommandsMethods } from './main-commands/secret-storage-commands';
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- C-PR3: intentional interface+class merge for mixin pattern
 export class LLMWikiPlugin extends Plugin {
@@ -178,41 +180,35 @@ export class LLMWikiPlugin extends Plugin {
     // Obsidian SecretStorage. applySettingsMigrations is pure and cannot
     // touch IO, so it stashes the legacy value on a transient field;
     // main.ts owns the actual SecretStorage write and the cleanup.
+    //
+    // v1.25.4 #339: two-phase migration. Phase 1 (in applySettingsMigrations)
+    // only stashes the legacy key but NO LONGER wipes settings.apiKey.
+    // Phase 2 (commitSettingsMigrationV1_25_3) runs here ONLY after the
+    // IO write succeeds. On failure, plaintext survives in memory and
+    // on disk — no data loss.
     let migrationWriteFailed = false;
     if (applied.includes('v1.25.3-secret-storage')) {
       const legacy = (settings as unknown as { _legacyApiKeyForSecretStorage?: string })._legacyApiKeyForSecretStorage;
       if (typeof legacy === 'string' && legacy.length > 0) {
         try {
           this.app.secretStorage.setSecret(settings.providerApiKeySecretId, legacy);
+          // Phase 2: IO succeeded → wipe plaintext (now safely in OS keychain)
+          commitSettingsMigrationV1_25_3(settings);
           console.debug('[main.loadSettings] Legacy apiKey migrated to SecretStorage');
         } catch (error) {
-          // Don't crash loadSettings on SecretStorage failure (locked
-          // keychain, denied permission). The marker is still set, so
-          // the plaintext is gone from data.json — the user will need
-          // to re-enter the key through the settings UI on next save.
-          // BUT: do NOT delete the transient field yet — retry on next
-          // load by clearing the migration marker so the migration
-          // helper re-processes the saved data on restart.
-          console.error('[main.loadSettings] Failed to migrate apiKey into SecretStorage:', error);
+          // Phase 1 ran but IO failed. Phase 2 NOT called — settings.apiKey
+          // still has the plaintext, so the resolver falls through to it.
+          // Marker stays set (phase 1 idempotent), and on next load the
+          // migration re-detects the plaintext from disk and re-retries.
+          console.error('[main.loadSettings] Failed to migrate apiKey into SecretStorage; plaintext retained:', error);
           migrationWriteFailed = true;
         }
       }
-      // Delete the transient field; it must never be persisted to
-      // data.json. On write failure the migration marker was also
-      // NOT set (see above), so the migration will re-run on the
-      // next load and re-create this field.
+      // Delete the transient field regardless; it must never persist to data.json.
       delete (settings as unknown as { _legacyApiKeyForSecretStorage?: string })._legacyApiKeyForSecretStorage;
-      // On SecretStorage failure, unset the migration marker so the
-      // next load re-runs the migration (the plaintext did not
-      // survive in data.json because computeSettings cleared it, but
-      // the saveData() call below would persist the marker and block
-      // any future recovery). With no marker, the next load reads the
-      // original savedData (which still has the legacy plaintext on
-      // disk from before this update), re-detects it, and retries.
-      if (migrationWriteFailed && settings._migrated_v1_25_3_secret_storage) {
-        (settings as unknown as Record<string, unknown>)._migrated_v1_25_3_secret_storage = false;
-        console.debug('[main.loadSettings] Cleared migration marker so next load retries');
-      }
+      // On write failure the marker is still set (phase 1 ran), so the
+      // migration does NOT re-run on the next load (idempotent). The
+      // plaintext lives on in settings.apiKey and data.json — no data loss.
     }
 
     this.settings = settings;
@@ -227,7 +223,7 @@ export class LLMWikiPlugin extends Plugin {
       console.debug('loadSettings: watchedFolders was not an array, reset to []');
     }
 
-    if (applied.length > 0) {
+    if (applied.length > 0 && !migrationWriteFailed) {
       console.debug(`loadSettings: applied migrations: ${applied.join(', ')}`);
       await this.saveData(this.settings);
     }
@@ -375,11 +371,11 @@ export class LLMWikiPlugin extends Plugin {
 // method signatures on the LLMWikiPlugin instance type.
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- C-PR3 mixin pattern
 export interface LLMWikiPlugin extends PdfCacheMethods, ConnectionCommandsMethods,
-  SchemaCommandsMethods, QueryLintMethods, IngestMethods, CodexAuthCommandsMethods {}
+  SchemaCommandsMethods, QueryLintMethods, IngestMethods, CodexAuthCommandsMethods, SecretStorageCommandsMethods {}
 
 // v1.25.1 Phase C-PR3: prototype injection — copies runtime
 // implementations from each mixin module onto the class prototype.
 Object.assign(LLMWikiPlugin.prototype, pdfCacheCommands, connectionCommands,
-  schemaCommands, queryLintCommands, ingestCommands, codexAuthCommands);
+  schemaCommands, queryLintCommands, ingestCommands, codexAuthCommands, secretStorageCommands);
 
 export default LLMWikiPlugin;

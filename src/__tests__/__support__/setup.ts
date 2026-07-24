@@ -6,7 +6,6 @@ import { installObsidianDomHelpers } from './dom-helpers';
 
 // Polyfill window for code that uses window.setTimeout (e.g. withRetry)
 // @ts-expect-error — node test environment, window is not native
-// eslint-disable-next-line obsidianmd/no-global-this
 globalThis.window = globalThis;
 
 // NoticeMock hoisted to top of file so vi.mock factory can reference it
@@ -155,7 +154,6 @@ vi.mock('obsidian', () => ({
 // Production code uses activeDocument (Obsidian's popout-window-aware
 // document reference). jsdom only provides `document`, so we alias it
 // here so that tests don't need per-file eslint-disable comments.
-// eslint-disable-next-line obsidianmd/no-global-this
 (globalThis as Record<string, unknown>).activeDocument = globalThis.document;
 
 // Stub activeWindow for code that needs SubtleCrypto (PDF cache sha256).
@@ -163,12 +161,10 @@ vi.mock('obsidian', () => ({
 // default `window` does not implement SubtleCrypto, so we attach a minimal
 // `crypto.subtle` mock here. Tests that need deterministic sha256 output
 // override this in their own beforeEach.
-// eslint-disable-next-line obsidianmd/no-global-this
 (globalThis as Record<string, unknown>).activeWindow = globalThis.window ?? globalThis;
 
 // crypto is a non-writable getter in jsdom ≥24 (per Web spec). Use
 // defineProperty so the test shim can install a minimal SubtleCrypto mock.
-// eslint-disable-next-line obsidianmd/no-global-this
 Object.defineProperty(globalThis, 'crypto', {
   configurable: true,
   writable: true,
@@ -202,7 +198,6 @@ Object.defineProperty(globalThis, 'crypto', {
 // Install the same shape Obsidian documents (see `src/types/obsidian-dom.d.ts`)
 // onto `HTMLElement.prototype` and `Document.prototype` if either is
 // available. Skip silently on pure-node test files where neither exists.
-// eslint-disable-next-line obsidianmd/no-global-this
 if (typeof HTMLElement !== 'undefined' && typeof Document !== 'undefined'
     && typeof HTMLElement.prototype === 'object') {
   installObsidianDomHelpers(

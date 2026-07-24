@@ -22,6 +22,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 2529 tests passing (188 files). +14 tests since v1.25.2.
 - New tests cover: `ProviderSecretStore` load/save/clear/hasKey (78 lines), `resolveProviderApiKey` fallback chain (54 lines), migration idempotency and failure scenarios.
 
+## [1.25.4] - 2026-07-24
+
+### Fixed
+
+- **Windows 10 SecretStorage regression (Issue #339).** v1.25.3's two-phase SecretStorage migration could leave both `data.json.apiKey` and OS-keychain entry empty when `setSecret()` failed on a locked Windows Credential Manager. Split the migration into phase 1 (stash + no plaintext wipe) and phase 2 (clear plaintext only after IO success); `flushApiKey()` in the Settings tab now returns a boolean and `hide()` skips `commitTempSettings()` when the SecretStorage write throws, so the user-typed key survives a failed save for retry. Added a "Migrate Secret Storage" command that reads the live key out of SecretStorage and writes it back to `settings.apiKey` as a manual recovery path for the (rare) case where both stores end up empty. Reported and diagnosed by @55charasol5-Charades.
+
+### Security
+
+- **`fast-uri` pinned to 3.1.4 (>= 3.1.4 patches host-confusion via backslash authority delimiter).** `pnpm.overrides` updated; `pnpm audit` reports 0 high vulnerabilities. Co-bumped `brace-expansion` to 5.0.7 to clear the chained ReDoS advisory.
+
+### Maintenance
+
+- **`ProviderSecretStorageError` typed exception (`src/llm-sdk/provider-secret-store.ts`).** All OS keychain platform failures surface as one typed error class; callers can `instanceof`-check without parsing vendor-specific OS messages. `load()` swallows `getSecret` throws and returns `null` (resolver already has a fallback), `save()`/`clear()` rethrow (silent-skip would lose the user-typed key).
+- **`flushApiKey()` contract is now `boolean`.** `PluginSettingTab.hide()` consults the return value before calling `commitTempSettings()`. This is the single fragile seam in v1.25.3 — `#339`'s failure mode would have re-appeared whenever a user pasted a key on Win10 and closed the tab.
+- **Migration marker `_migrated_v1_25_3_secret_storage` honoured across v1.25.4.** v1.25.3 users with stored SecretStorage entries see no behaviour change; legacy plaintext (left over from v1.25.2 and earlier) migrates on next load with the new phase-1-only-then-phase-2 ordering.
+
+### Tests
+
+- 2535 tests passing (189 files). +6 tests since v1.25.3.
+- New tests cover: `flushApiKey()` boolean contract + `hide()` skip-on-failure (3 regression tests for the original failure mode), `ProviderSecretStore` throw-on-demand (`save`/`load`/`clear`), phase 1 stash leaves plaintext untouched + phase 2 clears only after IO success (settings-migrations).
+
 ## [1.25.2] - 2026-07-23
 
 ### Fixed

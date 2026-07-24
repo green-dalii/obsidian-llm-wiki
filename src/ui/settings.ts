@@ -24,6 +24,14 @@ import type { CodexDevicePrompt } from './openai-codex-auth-controls';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 import { ProviderSecretStore } from '../llm-sdk/provider-secret-store';
 
+// v1.25.4: `obsidianmd/settings-tab/prefer-setting-definitions` warning.
+// The `getSettingDefinitions()` declarative API requires Obsidian 1.13.0+
+// which has not yet shipped at the time of writing. When Obsidian's
+// declarative settings API is stable and required by this plugin's
+// minimum supported version, this suppression should be revisited:
+// implement `getSettingDefinitions()` on LLMWikiSettingTab and remove
+// this line. Tracked as a known-cost deferred change.
+// eslint-disable-next-line obsidianmd/settings-tab/prefer-setting-definitions
 export class LLMWikiSettingTab extends PluginSettingTab {
   plugin: LLMWikiPlugin;
   tempSettings: LLMWikiSettings;
@@ -87,7 +95,16 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       // SecretStorage BEFORE the data.json commit so the post-commit
       // plugin.settings reflects the new state. This runs once per
       // tab close — not per keystroke.
-      this.flushApiKey();
+      //
+      // v1.25.4 #339: when flushApiKey fails (Windows 10 Credential
+      // Manager locked etc.) we MUST NOT proceed to commitTempSettings,
+      // otherwise the unconditional `tempSettings.apiKey = ''` on
+      // commitTempSettings line 59 will wipe the user's freshly-typed
+      // key — re-creating the original #339 failure mode after the
+      // user retries. Skip the commit when flush fails and surface the
+      // Notice (already done in flushApiKey) so the user can edit+retry.
+      const flushSucceeded = this.flushApiKey();
+      if (!flushSucceeded) return;
       this.commitTempSettings();
       void this.plugin.saveSettings();
       console.debug('Settings auto-saved on tab close');
@@ -101,16 +118,35 @@ export class LLMWikiSettingTab extends PluginSettingTab {
    * existing SecretStorage entry with an empty string on a no-op close
    * (would silently destroy the user's key).
    *
-   * Idempotent: calls after the first flush are no-ops (tempSettings.apiKey
-   * is already ''). Always sets `tempSettings.apiKey = ''` so the
-   * canonical settings field stays plaintext-free post-migration.
+   * v1.25.4 #339: wraps save() in try/catch. On Windows 10 Credential
+   * Manager failure, the previous version threw silently and the tab
+   * hide aborted before commitTempSettings — but `hide()` would then
+   * have aborted the user-visible save flow (no Notice, no progress),
+   * which was worse UX. Now we surface a recoverable Notice AND return
+   * `false` so `hide()` skips commitTempSettings entirely; otherwise the
+   * unconditional `tempSettings.apiKey = ''` in commitTempSettings
+   * would wipe the freshly-typed plaintext and persist `''` to
+   * data.json — re-creating the original #339 failure mode.
+   *
+   * Returns true when the SecretStorage write succeeded (or there was
+   * nothing to write). Returns false when SecretStorage IO failed and
+   * the caller must NOT commit.
    */
-  public flushApiKey(): void {
+  public flushApiKey(): boolean {
     const pending = this.tempSettings.apiKey;
-    if (pending.trim().length === 0) return;  // nothing to flush
+    if (pending.trim().length === 0) return true;  // nothing to flush
     const store = new ProviderSecretStore(this.app.secretStorage, this.tempSettings.providerApiKeySecretId);
-    store.save(pending);
-    this.tempSettings.apiKey = '';
+    try {
+      store.save(pending);
+      this.tempSettings.apiKey = '';
+      return true;
+    } catch (error: unknown) {
+      // Keep tempSettings.apiKey populated so the user can retry on next save.
+      // Surface a recoverable Notice (error.message only — no PII).
+      const detail = error instanceof Error ? error.message : 'Unknown error';
+      new Notice(this.getText('apiKeyMigrationFailedNotice').replace('{}', detail), NOTICE_ERROR);
+      return false;
+    }
   }
 
   getText(key: keyof typeof TEXTS.en): string {

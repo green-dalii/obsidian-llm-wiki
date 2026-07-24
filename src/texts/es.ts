@@ -45,6 +45,10 @@ export const ES_TEXTS = {
     apiKeyName: 'API Key',
     apiKeyDesc: 'Clave API. Se guarda en el gestor de credenciales del sistema, no en data.json.',
     apiKeyPlaceholder: 'Introduce la API Key',
+    // v1.25.4 #339: SecretStorage migration repair + failure Notice
+    apiKeyMigrateToSecretStorageButton: 'Migrar SecretStorage',
+    apiKeyMigratedToSecretStorageSuccess: 'API Key restaurada de SecretStorage a configuración.',
+    apiKeyMigrationFailedNotice: 'Error al guardar la API Key en SecretStorage: {}',
     codexAuthName: 'Inicio de sesión del plan ChatGPT',
     codexAuthDesc: 'Acceso experimental a Codex mediante OAuth usando la asignación de tu plan ChatGPT. La facturación de la API de OpenAI Platform se mantiene separada.',
     codexAuthSignedOut: 'Sesión no iniciada',

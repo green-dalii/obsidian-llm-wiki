@@ -45,6 +45,10 @@ export const JA_TEXTS = {
     apiKeyName: 'API Key',
     apiKeyDesc: 'APIキー。OSの資格情報マネージャーに保存され、data.jsonには書き込まれません。',
     apiKeyPlaceholder: 'API Keyを入力',
+    // v1.25.4 #339: SecretStorage migration repair + failure Notice
+    apiKeyMigrateToSecretStorageButton: 'SecretStorageを移行',
+    apiKeyMigratedToSecretStorageSuccess: 'APIキーがSecretStorageから設定に復元されました。',
+    apiKeyMigrationFailedNotice: 'SecretStorageへのAPIキー保存に失敗しました: {}',
     codexAuthName: 'ChatGPTプランにサインイン',
     codexAuthDesc: 'ChatGPTプランの利用枠を使う実験的なCodex OAuthアクセスです。OpenAI Platform APIの課金は別途行われます。',
     codexAuthSignedOut: 'サインインしていません',
