@@ -32,6 +32,8 @@ describe('v1.25.0 PR3 PDF settings — defaults', () => {
   it('defaults PDF conversion to the native backend', () => {
     expect(DEFAULT_SETTINGS.pdfConversionBackend).toBe('native');
     expect(DEFAULT_SETTINGS.mineruApiToken).toBe('');
+    expect(DEFAULT_SETTINGS.mineruApiTokenSecretId).toBe('karpathywiki-mineru-mineru-api-token');
+    expect(DEFAULT_SETTINGS.providerApiKeySecretId).toBe('karpathywiki-mineru-provider-api-key');
     expect(DEFAULT_SETTINGS.mineruTaskTimeoutMinutes).toBe(30);
   });
 });

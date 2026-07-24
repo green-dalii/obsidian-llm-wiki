@@ -3,7 +3,11 @@
 import { App } from 'obsidian';
 import type { RejectionReason } from './core/source-requirements';
 import { MINERU_TIMEOUT_DEFAULT_MINUTES } from './constants';
-import { PLUGIN_CODEX_SECRET_ID } from './core/plugin-identity';
+import {
+  PLUGIN_CODEX_SECRET_ID,
+  PLUGIN_MINERU_TOKEN_SECRET_ID,
+  PLUGIN_PROVIDER_API_KEY_SECRET_ID,
+} from './core/plugin-identity';
 
 /**
  * Issue #244 — Programmatic Mentions writes (v1.23.3 / v1.24.0).
@@ -268,6 +272,7 @@ export interface LLMWikiSettings {
   // the plaintext field. Idempotent — set true after the migration
   // runs so the second load is a no-op.
   _migrated_v1_25_3_secret_storage?: boolean;
+  _migrated_mineru_secret_storage?: boolean;
 
   // Query dedup
   lastOfferedQueryHash?: string;
@@ -328,6 +333,9 @@ export interface LLMWikiSettings {
 
   /** MinerU API bearer token. Empty when MinerU is not configured. */
   mineruApiToken?: string;
+
+  /** SecretStorage slot for the MinerU API bearer token. */
+  mineruApiTokenSecretId?: string;
 
   /** Maximum time to wait for a MinerU conversion task. */
   mineruTaskTimeoutMinutes?: number;
@@ -972,7 +980,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // Obsidian SecretStorage. Plugin namespace + semantic role makes
   // the slot easy to find in the OS credential manager and avoids
   // collision with the Codex OAuth slot above.
-  providerApiKeySecretId: 'karpathywiki-provider-api-key',
+  providerApiKeySecretId: PLUGIN_PROVIDER_API_KEY_SECRET_ID,
   openAICodexModels: [],
   openAICodexModelsFetchedAt: 0,
   baseUrl: '',
@@ -1045,6 +1053,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   forcePdfSupport: false,
   pdfConversionBackend: 'native',
   mineruApiToken: '',
+  mineruApiTokenSecretId: PLUGIN_MINERU_TOKEN_SECRET_ID,
   mineruTaskTimeoutMinutes: MINERU_TIMEOUT_DEFAULT_MINUTES,
   writePdfMarkdownToVault: false,
   // v1.26.0 (#382 item 2): dedup threshold overrides — undefined = use the

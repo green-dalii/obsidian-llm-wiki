@@ -72,6 +72,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     // success. Belt-and-suspenders so a future caller bypassing
     // flushApiKey can't reintroduce the v1.25.3 #182 plaintext leak.
     this.tempSettings.apiKey = '';
+    this.tempSettings.mineruApiToken = '';
     // Cascade guard — see cascadeUnifiedModelChange for rationale.
     if (this.tempSettings.model.trim()) {
       this.cascadeUnifiedModelChange();
@@ -84,16 +85,33 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     return true;
   }
 
+  public async saveTempSettings(): Promise<boolean> {
+    const flushSucceeded = this.flushApiKey() && this.flushMineruToken();
+    if (!flushSucceeded) return false;
+    this.commitTempSettings();
+    await this.plugin.saveSettings();
+    return true;
+  }
+
   // Auto-save when user navigates away from settings tab
   hide(): void {
     const hasChanges = JSON.stringify(this.tempSettings) !== JSON.stringify(this.plugin.settings);
     if (hasChanges) {
-      // commitTempSettings owns the flush; skip saveSettings on failure
-      // so the typed apiKey survives for retry (v1.25.4 #339 invariant).
-      const commitSucceeded = this.commitTempSettings();
-      if (!commitSucceeded) return;
-      void this.plugin.saveSettings();
-      console.debug('Settings auto-saved on tab close');
+      // v1.25.3 #182: flush the in-memory apiKey edit to Obsidian
+      // SecretStorage BEFORE the data.json commit so the post-commit
+      // plugin.settings reflects the new state. This runs once per
+      // tab close — not per keystroke.
+      //
+      // v1.25.4 #339: when flushApiKey fails (Windows 10 Credential
+      // Manager locked etc.) we MUST NOT proceed to commitTempSettings,
+      // otherwise the unconditional `tempSettings.apiKey = ''` on
+      // commitTempSettings line 59 will wipe the user's freshly-typed
+      // key — re-creating the original #339 failure mode after the
+      // user retries. Skip the commit when flush fails and surface the
+      // Notice (already done in flushApiKey) so the user can edit+retry.
+      void (async () => {
+        if (await this.saveTempSettings()) console.debug('Settings auto-saved on tab close');
+      })();
     }
   }
 
@@ -129,6 +147,24 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     } catch (error: unknown) {
       // Keep tempSettings.apiKey populated so the user can retry on next save.
       // Surface a recoverable Notice (error.message only — no PII).
+      const detail = error instanceof Error ? error.message : 'Unknown error';
+      new Notice(this.getText('apiKeyMigrationFailedNotice').replace('{}', detail), NOTICE_ERROR);
+      return false;
+    }
+  }
+
+  public flushMineruToken(): boolean {
+    const pending = this.tempSettings.mineruApiToken ?? '';
+    if (pending.trim().length === 0) return true;
+    const store = new ProviderSecretStore(
+      this.app.secretStorage,
+      this.tempSettings.mineruApiTokenSecretId ?? '',
+    );
+    try {
+      store.save(pending);
+      this.tempSettings.mineruApiToken = '';
+      return true;
+    } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : 'Unknown error';
       new Notice(this.getText('apiKeyMigrationFailedNotice').replace('{}', detail), NOTICE_ERROR);
       return false;

@@ -184,7 +184,7 @@ export class MineruClient {
 
   async requestUpload(pdfName: string, signal?: AbortSignal): Promise<MineruUploadLease> {
     const stage: MineruRequestStage = 'request-upload';
-    return this.runWithRetry(stage, async () => {
+    return this.runStageWithDeadline(stage, async (requestSignal) => {
       const response = await this.options.fetchFn(`${MINERU_API_BASE_URL}/file-urls/batch`, {
         method: 'POST',
         headers: this.apiHeaders(true),
@@ -194,7 +194,7 @@ export class MineruClient {
           enable_formula: MINERU_CONVERSION_PROFILE.enableFormula,
           enable_table: MINERU_CONVERSION_PROFILE.enableTable,
         }),
-        signal,
+        signal: requestSignal,
       });
       await this.requireSuccessfulHttp(response, stage);
       const envelope = await this.readApiEnvelope(response, stage);
@@ -228,11 +228,11 @@ export class MineruClient {
     signal?: AbortSignal
   ): Promise<void> {
     const stage: MineruRequestStage = 'upload';
-    await this.runWithRetry(stage, async () => {
+    await this.runStageWithDeadline(stage, async (requestSignal) => {
       const response = await this.options.fetchFn(lease.uploadUrl, {
         method: 'PUT',
         body: bytes as unknown as BodyInit,
-        signal,
+        signal: requestSignal,
       });
       await this.requireSuccessfulHttp(response, stage, lease.taskId, lease.traceId);
     }, signal, lease.taskId, lease.traceId);
@@ -345,9 +345,9 @@ export class MineruClient {
 
   async downloadResult(zipUrl: string, signal?: AbortSignal): Promise<Uint8Array> {
     const stage: MineruRequestStage = 'download';
-    return this.runWithRetry(stage, async () => {
+    return this.runStageWithDeadline(stage, async (requestSignal) => {
       if (this.options.downloadFn) {
-        const result = await this.options.downloadFn(zipUrl, signal);
+        const result = await this.options.downloadFn(zipUrl, requestSignal);
         await this.requireSuccessfulHttp(
           new Response(null, { status: result.status, headers: result.headers }),
           stage
@@ -357,13 +357,36 @@ export class MineruClient {
       }
       const response = await this.options.fetchFn(zipUrl, {
         method: 'GET',
-        signal,
+        signal: requestSignal,
       });
       await this.requireSuccessfulHttp(response, stage);
       const bytes = new Uint8Array(await response.arrayBuffer());
       this.assertDownloadSize(response.headers, bytes.length);
       return bytes;
     }, signal);
+  }
+
+  private async runStageWithDeadline<T>(
+    stage: MineruRequestStage,
+    operation: (signal: AbortSignal) => Promise<T>,
+    externalSignal?: AbortSignal,
+    taskId?: string,
+    traceId?: string,
+  ): Promise<T> {
+    const deadline = this.createDeadlineScope(externalSignal);
+    try {
+      return await this.runWithRetry(
+        stage,
+        () => operation(deadline.signal),
+        deadline.signal,
+        taskId,
+        traceId,
+        deadline,
+        externalSignal,
+      );
+    } finally {
+      deadline.dispose();
+    }
   }
 
   private assertDownloadSize(headers: Headers, actualBytes: number): void {

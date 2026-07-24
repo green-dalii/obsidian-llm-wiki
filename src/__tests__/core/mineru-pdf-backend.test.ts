@@ -89,7 +89,7 @@ const validArtifact = (
   kind: 'valid',
   markdown: '# Artifact',
   manifest: {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourcePath: SOURCE_PATH,
     sourceSha256: SOURCE_HASH,
     backend: 'mineru',
@@ -107,6 +107,7 @@ const validArtifact = (
 interface HarnessOptions {
   mobile?: boolean;
   token?: string;
+  secretToken?: string;
   bytes?: Uint8Array;
   inspection?: ArtifactInspection;
   cacheHit?: PdfConversionResult | null;
@@ -173,16 +174,28 @@ function createHarness(options: HarnessOptions = {}) {
   const progress: PdfBackendProgress[] = [];
   const nativeConvert = vi.fn(async () => cachedEntry('# Native fallback'));
 
+  const createClient = vi.fn((_options: { apiToken: string; timeoutMs: number }) => ({
+    requestUpload,
+    uploadPdf,
+    waitForResult,
+    downloadResult,
+  }));
   const deps: MineruPdfBackendDependencies = {
     isMobile: () => options.mobile ?? false,
     createCache: () => ({ get: cacheGet, set: cacheSet }),
     createArtifactStore: () => ({ inspect, publish }),
-    createClient: () => ({ requestUpload, uploadPdf, waitForResult, downloadResult }),
+    createClient,
     extractArchive,
     now: () => new Date('2026-07-22T01:02:03.000Z'),
   };
   const ctx: PdfBackendContext = {
     app: {
+      secretStorage: {
+        getSecret: (id: string) => id === 'karpathywiki-mineru-mineru-api-token'
+          ? (options.secretToken ?? null)
+          : null,
+        setSecret: vi.fn(),
+      },
       vault: {
         configDir: '.obsidian', // eslint-disable-line obsidianmd/hardcoded-config-path
         adapter: { readBinary },
@@ -194,6 +207,7 @@ function createHarness(options: HarnessOptions = {}) {
       model: 'claude-opus-4-8',
       pdfConversionBackend: 'mineru',
       mineruApiToken: options.token ?? 'mineru-token',
+      mineruApiTokenSecretId: 'karpathywiki-mineru-mineru-api-token',
       mineruTaskTimeoutMinutes: 30,
     },
     pdfFile: {
@@ -225,11 +239,22 @@ function createHarness(options: HarnessOptions = {}) {
       extractArchive,
       readBinary,
       nativeConvert,
+      createClient,
     },
   };
 }
 
 describe('MinerU PDF backend preconditions and identity', () => {
+  it('prefers the MinerU token stored in SecretStorage', async () => {
+    const h = createHarness({ token: '', secretToken: 'stored-mineru-token' });
+
+    await h.backend.convert(h.ctx);
+
+    expect(h.mocks.createClient).toHaveBeenCalledWith({
+      apiToken: 'stored-mineru-token',
+      timeoutMs: 30 * 60_000,
+    });
+  });
   it('rejects mobile before reading the PDF or contacting MinerU', async () => {
     const h = createHarness({ mobile: true });
 

@@ -91,6 +91,50 @@ describe('OpenAI Codex plugin lifecycle', () => {
     const saved = saveData.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(saved.accessToken).toBeUndefined();
   });
+  it('moves a legacy MinerU token into the fork SecretStorage slot before clearing data.json', async () => {
+    const setSecret = vi.fn();
+    const app = { secretStorage: { getSecret: () => null, setSecret } };
+    const plugin = new LLMWikiPlugin(app as never, {} as never);
+    vi.spyOn(plugin, 'loadData').mockResolvedValue({
+      language: 'en',
+      wikiLanguage: 'en',
+      mineruApiToken: 'legacy-mineru-token',
+    });
+    const saveData = vi.spyOn(plugin, 'saveData').mockResolvedValue();
+
+    await plugin.loadSettings();
+
+    expect(setSecret).toHaveBeenCalledWith(
+      'karpathywiki-mineru-mineru-api-token',
+      'legacy-mineru-token',
+    );
+    const saved = saveData.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(saved.mineruApiToken).toBe('');
+  });
+  it('keeps a legacy MinerU token in data.json when SecretStorage migration fails', async () => {
+    const setSecret = vi.fn(() => { throw new Error('keychain locked'); });
+    const app = { secretStorage: { getSecret: () => null, setSecret } };
+    const plugin = new LLMWikiPlugin(app as never, {} as never);
+    vi.spyOn(plugin, 'loadData').mockResolvedValue({
+      language: 'en',
+      mineruApiToken: 'legacy-mineru-token',
+    });
+    const saveData = vi.spyOn(plugin, 'saveData').mockResolvedValue();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await plugin.loadSettings();
+    } finally {
+      consoleError.mockRestore();
+    }
+
+    expect(setSecret).toHaveBeenCalledWith(
+      'karpathywiki-mineru-mineru-api-token',
+      'legacy-mineru-token',
+    );
+    expect(plugin.settings.mineruApiToken).toBe('legacy-mineru-token');
+    expect(saveData).not.toHaveBeenCalled();
+  });
   it('does not initialize Codex without a stored credential', () => {
     const plugin = pluginWith(new CodexAuthManager({ store: memoryCredentialStore() }));
     plugin.initializeLLMClient();

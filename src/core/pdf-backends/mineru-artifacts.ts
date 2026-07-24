@@ -18,6 +18,7 @@ export const MINERU_CONVERTER_VERSION = MINERU_CONVERSION_PROFILE.converterVersi
 
 const MANIFEST_FILENAME = '.mineru-manifest.json';
 const MARKDOWN_FILENAME = 'document.md';
+const MANIFEST_SCHEMA_VERSION = 2;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const SAFE_ID_PATTERN = /^[A-Za-z0-9._:-]+$/;
 const ISO_TIMESTAMP_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
@@ -36,7 +37,8 @@ const MANIFEST_KEYS = [
   'images',
 ] as const;
 const REQUIRED_MANIFEST_KEYS = MANIFEST_KEYS.filter((key) => key !== 'traceId');
-const IMAGE_KEYS = ['path', 'bytes'] as const;
+const IMAGE_KEYS = ['path', 'bytes', 'sha256'] as const;
+const LEGACY_IMAGE_KEYS = ['path', 'bytes'] as const;
 
 export interface MineruArtifactStoreOptions {
   subtle: SubtleCrypto;
@@ -55,6 +57,17 @@ interface TransactionPaths {
   tempDirectory: string;
   backupDirectory?: string;
 }
+
+interface ParsedManifestImage {
+  path: string;
+  bytes: number;
+  sha256?: string;
+}
+
+type ParsedMineruArtifactManifest = Omit<MineruArtifactManifest, 'schemaVersion' | 'images'> & {
+  schemaVersion: 1 | 2;
+  images: ParsedManifestImage[];
+};
 
 export class MineruArtifactConflictError extends Error {
   constructor(message: string) {
@@ -75,6 +88,13 @@ export class MineruArtifactWriteError extends Error {
     this.name = 'MineruArtifactWriteError';
     this.cause = options?.cause;
     this.cleanupErrors = Object.freeze([...(options?.cleanupErrors ?? [])]);
+  }
+}
+
+class MineruArtifactUnownedConflict extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MineruArtifactUnownedConflict';
   }
 }
 
@@ -201,8 +221,15 @@ export class MineruArtifactStore {
     const images = normalizeImages(input.images);
     const markdownBytes = new TextEncoder().encode(input.markdown);
     const markdownSha256 = await sha256Bytes(markdownBytes, this.options.subtle);
+    const manifestImages: MineruArtifactManifestImage[] = await Promise.all(
+      images.map(async (image) => ({
+        path: image.path,
+        bytes: image.bytes.length,
+        sha256: await sha256Bytes(image.bytes, this.options.subtle),
+      }))
+    );
     const manifest: MineruArtifactManifest = {
-      schemaVersion: 1,
+      schemaVersion: MANIFEST_SCHEMA_VERSION,
       sourcePath,
       sourceSha256: input.sourceSha256,
       backend: MINERU_CONVERSION_PROFILE.backend,
@@ -213,7 +240,7 @@ export class MineruArtifactStore {
       ...(traceId === undefined ? {} : { traceId }),
       markdownPath: MARKDOWN_FILENAME,
       markdownSha256,
-      images: images.map((image) => ({ path: image.path, bytes: image.bytes.length })),
+      images: manifestImages,
     };
     return { sourcePath, markdownBytes, images, manifest };
   }
@@ -229,6 +256,7 @@ export class MineruArtifactStore {
     try {
       const manifestBytes = new Uint8Array(await this.adapter.readBinary(manifestPath));
       const manifest = parseManifest(decodeUtf8(manifestBytes), expectedSourcePath);
+      await this.assertNoUnownedEntries(directory, manifest);
       const markdownPath = `${directory}/${manifest.markdownPath}`;
       if (!await this.adapter.exists(markdownPath)) {
         throw new Error('Managed MinerU Markdown file is missing.');
@@ -239,23 +267,62 @@ export class MineruArtifactStore {
         throw new Error('Managed MinerU Markdown hash does not match its manifest.');
       }
 
+      const normalizedImages: MineruArtifactManifestImage[] = [];
       for (const image of manifest.images) {
         const imagePath = `${directory}/${image.path}`;
-        const imageStat = await this.adapter.stat(imagePath);
-        if (!imageStat) {
-          throw new Error(`Managed MinerU image is missing: ${image.path}`);
-        }
-        if (imageStat.size !== image.bytes) {
+        const imageBytes = new Uint8Array(await this.adapter.readBinary(imagePath));
+        if (imageBytes.length !== image.bytes) {
           throw new Error(`Managed MinerU image byte length does not match: ${image.path}`);
         }
+        const imageSha256 = await sha256Bytes(imageBytes, this.options.subtle);
+        if (manifest.schemaVersion === 2 && imageSha256 !== image.sha256) {
+          throw new Error(`Managed MinerU image hash does not match: ${image.path}`);
+        }
+        normalizedImages.push({ path: image.path, bytes: image.bytes, sha256: imageSha256 });
       }
 
-      return { kind: 'valid', manifest, markdown: decodeUtf8(markdownBytes) };
+      const normalizedManifest: MineruArtifactManifest = {
+        ...manifest,
+        schemaVersion: MANIFEST_SCHEMA_VERSION,
+        images: normalizedImages,
+      };
+
+      return { kind: 'valid', manifest: normalizedManifest, markdown: decodeUtf8(markdownBytes) };
     } catch (error) {
+      if (error instanceof MineruArtifactUnownedConflict) return { kind: 'unowned-conflict' };
       return {
         kind: 'managed-invalid',
         reason: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  private async assertNoUnownedEntries(
+    directory: string,
+    manifest: { markdownPath: string; images: Array<{ path: string }> }
+  ): Promise<void> {
+    const allowedFiles = new Set([
+      MANIFEST_FILENAME,
+      manifest.markdownPath,
+      ...manifest.images.map((image) => image.path),
+    ]);
+    const allowedFolders = new Set(collectImageDirectories(manifest.images));
+    const pending = [directory];
+    for (let index = 0; index < pending.length; index += 1) {
+      const listed = await this.adapter.list(pending[index]);
+      for (const file of listed.files) {
+        const relative = relativeListedPath(directory, file);
+        if (!allowedFiles.has(relative)) {
+          throw new MineruArtifactUnownedConflict(`Unowned MinerU artifact file: ${relative}`);
+        }
+      }
+      for (const folder of listed.folders) {
+        const relative = relativeListedPath(directory, folder);
+        if (!allowedFolders.has(relative)) {
+          throw new MineruArtifactUnownedConflict(`Unowned MinerU artifact directory: ${relative}`);
+        }
+        pending.push(folder);
+      }
     }
   }
 
@@ -371,11 +438,13 @@ function isAbortError(error: unknown): boolean {
     || error instanceof Error && error.name === 'AbortError';
 }
 
-function parseManifest(json: string, expectedSourcePath: string): MineruArtifactManifest {
+function parseManifest(json: string, expectedSourcePath: string): ParsedMineruArtifactManifest {
   const parsed: unknown = JSON.parse(json);
   if (!isRecord(parsed)) throw new Error('MinerU manifest must be a JSON object.');
   assertExactKeys(parsed, REQUIRED_MANIFEST_KEYS, MANIFEST_KEYS, 'MinerU manifest');
-  if (parsed.schemaVersion !== 1) throw new Error('MinerU manifest schemaVersion must be 1.');
+  if (parsed.schemaVersion !== 1 && parsed.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
+    throw new Error(`MinerU manifest schemaVersion must be 1 or ${MANIFEST_SCHEMA_VERSION}.`);
+  }
   if (parsed.sourcePath !== expectedSourcePath) {
     throw new Error('MinerU manifest sourcePath does not match the current PDF path.');
   }
@@ -397,9 +466,10 @@ function parseManifest(json: string, expectedSourcePath: string): MineruArtifact
     throw new Error('MinerU manifest markdownPath is invalid.');
   }
   assertSha256(parsed.markdownSha256, 'markdownSha256');
-  const images = parseManifestImages(parsed.images);
+  const schemaVersion = parsed.schemaVersion;
+  const images = parseManifestImages(parsed.images, schemaVersion);
   return {
-    schemaVersion: 1,
+    schemaVersion,
     sourcePath: parsed.sourcePath,
     sourceSha256: parsed.sourceSha256,
     backend: MINERU_CONVERSION_PROFILE.backend,
@@ -414,11 +484,12 @@ function parseManifest(json: string, expectedSourcePath: string): MineruArtifact
   };
 }
 
-function parseManifestImages(value: unknown): MineruArtifactManifestImage[] {
+function parseManifestImages(value: unknown, schemaVersion: 1 | 2): ParsedManifestImage[] {
   if (!Array.isArray(value)) throw new Error('MinerU manifest images must be an array.');
   const images = value.map((entry, index) => {
     if (!isRecord(entry)) throw new Error(`MinerU manifest image ${index} must be an object.`);
-    assertExactKeys(entry, IMAGE_KEYS, IMAGE_KEYS, `MinerU manifest image ${index}`);
+    const imageKeys = schemaVersion === 1 ? LEGACY_IMAGE_KEYS : IMAGE_KEYS;
+    assertExactKeys(entry, imageKeys, imageKeys, `MinerU manifest image ${index}`);
     const path = normalizeImagePath(entry.path);
     if (path !== entry.path) {
       throw new Error(`MinerU manifest image path is not normalized: ${String(entry.path)}`);
@@ -426,7 +497,9 @@ function parseManifestImages(value: unknown): MineruArtifactManifestImage[] {
     if (!Number.isSafeInteger(entry.bytes) || (entry.bytes as number) < 0) {
       throw new Error(`MinerU manifest image byte length is invalid: ${path}`);
     }
-    return { path, bytes: entry.bytes as number };
+    if (schemaVersion === 1) return { path, bytes: entry.bytes as number };
+    assertSha256(entry.sha256, `image ${path} sha256`);
+    return { path, bytes: entry.bytes as number, sha256: entry.sha256 };
   });
   for (let index = 0; index < images.length; index += 1) {
     if (index > 0 && images[index - 1].path >= images[index].path) {
@@ -515,7 +588,7 @@ function assertIsoTimestamp(value: unknown): asserts value is string {
   }
 }
 
-function collectImageDirectories(images: MineruArtifactImageInput[]): string[] {
+function collectImageDirectories(images: Array<{ path: string }>): string[] {
   const directories = new Set<string>();
   for (const image of images) {
     const segments = image.path.split('/');
@@ -528,6 +601,19 @@ function collectImageDirectories(images: MineruArtifactImageInput[]): string[] {
     const depthDifference = left.split('/').length - right.split('/').length;
     return depthDifference || comparePaths(left, right);
   });
+}
+
+function relativeListedPath(directory: string, path: string): string {
+  const normalizedDirectory = normalizeListedPath(directory);
+  const normalizedPath = normalizeListedPath(path);
+  const prefix = `${normalizedDirectory}/`;
+  return normalizedPath.startsWith(prefix)
+    ? normalizedPath.slice(prefix.length)
+    : normalizedPath;
+}
+
+function normalizeListedPath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 }
 
 function decodeUtf8(bytes: Uint8Array): string {

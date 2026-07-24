@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS } from '../../types';
 import { renderProviderSection } from '../../ui/settings-sections/provider-section';
 import { renderModelSection } from '../../ui/settings-sections/model-section';
 import { renderTestConnectionSection } from '../../ui/settings-sections/test-connection-section';
+import { renderLanguageSection } from '../../ui/settings-sections/language-section';
 import type { LLMWikiSettingTab } from '../../ui/settings';
 
 const { buttonClicks, settingNames } = vi.hoisted(() => ({ buttonClicks: [] as Array<() => unknown>, settingNames: [] as string[] }));
@@ -17,6 +18,7 @@ vi.mock('obsidian', () => {
     setLimits(): this { return this; }
     setDynamicTooltip(): this { return this; }
     setButtonText(): this { return this; }
+    setCta(): this { return this; }
     setDisabled(): this { return this; }
     setWarning(): this { return this; }
     onClick(callback: () => unknown): this { buttonClicks.push(callback); return this; }
@@ -56,6 +58,7 @@ function createTab(): LLMWikiSettingTab {
     refreshOpenAICodexModels: vi.fn(),
     copyOpenAICodexDeviceCode: vi.fn(),
     queueStaleCodexModelRefresh: vi.fn(),
+    saveTempSettings: vi.fn(async () => true),
     __modelFields: modelFields,
   } as unknown as LLMWikiSettingTab;
 }
@@ -83,14 +86,45 @@ describe('Codex settings section integration', () => {
     tab.plugin.initializeLLMClient = vi.fn();
     tab.plugin.wikiEngine = { updateSettings: vi.fn() } as never;
     tab.plugin.testLLMConnection = vi.fn(async () => { tab.plugin.settings.llmReady = true; return { success: true, message: 'ok' }; });
-    tab.plugin.saveSettings = vi.fn(async () => { persisted.push(tab.plugin.settings.llmReady); });
-    tab.commitTempSettings = vi.fn((): boolean => { tab.plugin.settings = { ...tab.tempSettings }; return true; });
+    tab.saveTempSettings = vi.fn(async () => {
+      tab.plugin.settings = { ...tab.tempSettings };
+      persisted.push(tab.plugin.settings.llmReady);
+      return true;
+    });
     tab.syncCodexModelsFromPlugin = vi.fn();
     renderTestConnectionSection(tab, {} as HTMLElement);
     await buttonClicks[0]();
     expect(tab.tempSettings.llmReady).toBe(true);
     expect(tab.plugin.settings.llmReady).toBe(true);
     expect(persisted).toEqual([true]);
+    expect(tab.saveTempSettings).toHaveBeenCalledTimes(1);
+  });
+  it('does not commit successful connection settings when pending secret flush fails', async () => {
+    const tab = createTab();
+    const oldSettings = { ...tab.tempSettings, llmReady: false, mineruApiToken: '' };
+    tab.tempSettings.pdfConversionBackend = 'mineru';
+    tab.tempSettings.mineruApiToken = 'pending-mineru-token';
+    tab.plugin.settings = oldSettings;
+    tab.plugin.initializeLLMClient = vi.fn();
+    tab.plugin.wikiEngine = { updateSettings: vi.fn() } as never;
+    tab.plugin.testLLMConnection = vi.fn(async () => ({ success: true, message: 'ok' }));
+    tab.saveTempSettings = vi.fn(async () => false);
+    tab.syncCodexModelsFromPlugin = vi.fn();
+    renderTestConnectionSection(tab, {} as HTMLElement);
+
+    await buttonClicks[0]();
+
+    expect(tab.saveTempSettings).toHaveBeenCalledTimes(1);
+    expect(tab.plugin.settings).toEqual(oldSettings);
+    expect(tab.tempSettings.mineruApiToken).toBe('pending-mineru-token');
+  });
+  it('uses the shared safe save path for the language Save button', async () => {
+    const tab = createTab();
+    renderLanguageSection(tab, {} as HTMLElement);
+
+    await buttonClicks[0]();
+
+    expect(tab.saveTempSettings).toHaveBeenCalledTimes(1);
   });
   it('preserves the active non-Codex model when a Codex connection test fails', async () => {
     const tab = createTab();

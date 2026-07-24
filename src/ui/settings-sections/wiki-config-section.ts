@@ -47,6 +47,7 @@ import {
 import { HistoryModal } from '../history-modal';
 import { TagChipInputComponent } from '../tag-chip-input';
 import { setSettingsVisible } from '../settings-helpers';
+import { ProviderSecretStore } from '../../llm-sdk/provider-secret-store';
 
 export function renderWikiConfigSection(tab: LLMWikiSettingTab, containerEl: HTMLElement): void {
   const { tempSettings } = tab;
@@ -96,9 +97,13 @@ export function renderWikiConfigSection(tab: LLMWikiSettingTab, containerEl: HTM
       .setName(tab.getText('mineruApiTokenName'))
       .setDesc(tab.getText('mineruApiTokenDesc'))
       .addText(text => {
+        const stored = new ProviderSecretStore(
+          tab.app.secretStorage,
+          tempSettings.mineruApiTokenSecretId ?? '',
+        ).load();
         text
           .setPlaceholder(tab.getText('mineruApiTokenPlaceholder'))
-          .setValue(tempSettings.mineruApiToken ?? '')
+          .setValue(stored ?? tempSettings.mineruApiToken ?? '')
           .onChange((value) => { tempSettings.mineruApiToken = value; });
         text.inputEl.type = 'password';
       });

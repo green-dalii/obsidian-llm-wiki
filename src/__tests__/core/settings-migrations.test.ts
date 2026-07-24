@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { applySettingsMigrations } from '../../core/settings-migrations';
+import {
+  applySettingsMigrations,
+  commitMineruTokenMigration,
+} from '../../core/settings-migrations';
 
 describe('applySettingsMigrations — historical (#199 regression guard)', () => {
   it('uses the stable Codex secret ID for new settings', () => {
@@ -35,7 +38,33 @@ describe('applySettingsMigrations — historical (#199 regression guard)', () =>
 
     expect(migrated.settings.pdfConversionBackend).toBe('native');
     expect(migrated.settings.mineruApiToken).toBe('');
+    expect(migrated.settings.mineruApiTokenSecretId).toBe('karpathywiki-mineru-mineru-api-token');
     expect(migrated.settings.mineruTaskTimeoutMinutes).toBe(30);
+  });
+
+  it('stages a legacy MinerU token for SecretStorage and clears it only after the write succeeds', () => {
+    const { settings, applied } = applySettingsMigrations({ mineruApiToken: ' mineru-secret ' });
+
+    expect(settings.mineruApiToken).toBe(' mineru-secret ');
+    expect(settings.mineruApiTokenSecretId).toBe('karpathywiki-mineru-mineru-api-token');
+    expect(settings._migrated_mineru_secret_storage).toBe(true);
+    expect(applied).toContain('mineru-secret-storage');
+    expect((settings as unknown as { _legacyMineruTokenForSecretStorage?: string })
+      ._legacyMineruTokenForSecretStorage).toBe('mineru-secret');
+
+    commitMineruTokenMigration(settings);
+    expect(settings.mineruApiToken).toBe('');
+  });
+
+  it('migrates upstream secret IDs to the fork namespace', () => {
+    const { settings, applied } = applySettingsMigrations({
+      providerApiKeySecretId: 'karpathywiki-provider-api-key',
+      mineruApiTokenSecretId: '',
+    });
+
+    expect(settings.providerApiKeySecretId).toBe('karpathywiki-mineru-provider-api-key');
+    expect(settings.mineruApiTokenSecretId).toBe('karpathywiki-mineru-mineru-api-token');
+    expect(applied).toContain('mineru-fork-provider-secret-id');
   });
 
   it('normalizes an unknown persisted PDF backend to native', () => {

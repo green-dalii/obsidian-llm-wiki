@@ -8,7 +8,11 @@
 // because old data on disk may still be from that version.
 
 import { DEFAULT_SETTINGS, type LLMWikiSettings } from '../types';
-import { PLUGIN_CODEX_SECRET_ID } from './plugin-identity';
+import {
+  PLUGIN_CODEX_SECRET_ID,
+  PLUGIN_MINERU_TOKEN_SECRET_ID,
+  PLUGIN_PROVIDER_API_KEY_SECRET_ID,
+} from './plugin-identity';
 
 const LEGACY_CODEX_TOKEN_FIELDS = ['accessToken', 'refreshToken', 'idToken', 'access_token', 'refresh_token', 'id_token'] as const;
 
@@ -41,6 +45,13 @@ export function applySettingsMigrations(
   if (settings.openAICodexSecretId === 'karpathywiki-openai-codex') {
     settings.openAICodexSecretId = PLUGIN_CODEX_SECRET_ID;
     applied.push('mineru-fork-codex-secret-id');
+  }
+  if (settings.providerApiKeySecretId === 'karpathywiki-provider-api-key') {
+    settings.providerApiKeySecretId = PLUGIN_PROVIDER_API_KEY_SECRET_ID;
+    applied.push('mineru-fork-provider-secret-id');
+  }
+  if (!settings.mineruApiTokenSecretId?.trim()) {
+    settings.mineruApiTokenSecretId = PLUGIN_MINERU_TOKEN_SECRET_ID;
   }
   const untrustedSettings = settings as unknown as Record<string, unknown>;
   for (const field of LEGACY_CODEX_TOKEN_FIELDS) delete untrustedSettings[field];
@@ -129,6 +140,18 @@ export function applySettingsMigrations(
     settings._migrated_v1_25_3_secret_storage = true;
   }
 
+  if (savedData && !savedData._migrated_mineru_secret_storage) {
+    const legacy = typeof savedData.mineruApiToken === 'string'
+      ? savedData.mineruApiToken.trim()
+      : '';
+    if (legacy) {
+      (settings as unknown as { _legacyMineruTokenForSecretStorage?: string })
+        ._legacyMineruTokenForSecretStorage = legacy;
+      applied.push('mineru-secret-storage');
+    }
+    settings._migrated_mineru_secret_storage = true;
+  }
+
   return { settings, applied };
 }
 
@@ -146,4 +169,8 @@ export function applySettingsMigrations(
  */
 export function commitSettingsMigrationV1_25_3(settings: LLMWikiSettings): void {
   settings.apiKey = '';
+}
+
+export function commitMineruTokenMigration(settings: LLMWikiSettings): void {
+  settings.mineruApiToken = '';
 }

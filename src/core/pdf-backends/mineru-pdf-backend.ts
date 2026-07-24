@@ -6,6 +6,7 @@ import {
   MINERU_MAX_PDF_BYTES,
 } from '../../constants';
 import { obsidianBinaryDownload, obsidianFetchBridge } from '../obsidian-fetch-bridge';
+import { resolveProviderApiKey } from '../../llm-sdk/provider-api-key-resolver';
 import { MINERU_CONVERSION_PROFILE } from './mineru-profile';
 import {
   buildMineruCacheKey,
@@ -63,7 +64,10 @@ async function convertPdfWithMineru(
   deps: MineruPdfBackendDependencies,
 ): Promise<PdfConversionResult> {
   if (deps.isMobile()) throw new MineruConfigurationError('desktop-only');
-  const apiToken = ctx.settings.mineruApiToken?.trim() ?? '';
+  const apiToken = resolveProviderApiKey({
+    apiKey: ctx.settings.mineruApiToken ?? '',
+    providerApiKeySecretId: ctx.settings.mineruApiTokenSecretId ?? '',
+  }, ctx.app.secretStorage);
   if (!apiToken) throw new MineruConfigurationError('missing-token');
 
   const emit = createProgressEmitter(ctx);
@@ -204,6 +208,13 @@ export function createMineruArtifactAdapter(adapter: DataAdapter): MineruArtifac
     stat: async (path) => {
       const stat = await adapter.stat(normalizePath(path));
       return stat ? { size: stat.size } : null;
+    },
+    list: async (path) => {
+      const listed = await adapter.list(normalizePath(path));
+      return {
+        files: listed.files.map((entry) => normalizePath(entry)),
+        folders: listed.folders.map((entry) => normalizePath(entry)),
+      };
     },
     readBinary: (path) => adapter.readBinary(normalizePath(path)),
     mkdir: (path) => adapter.mkdir(normalizePath(path)),

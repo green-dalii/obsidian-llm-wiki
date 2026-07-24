@@ -85,13 +85,8 @@ export function renderTestConnectionSection(tab: LLMWikiSettingTab, containerEl:
           tab.tempSettings.lintModel = tab.plugin.settings.lintModel;
           tab.tempSettings.queryModel = tab.plugin.settings.queryModel;
         }
-        // v1.25.8 HOTFIX: commitTempSettings internally flushes
-        // SecretStorage. On flush failure roll back plugin.settings to
-        // oldSettings so a later saveData() can't persist the typed
-        // apiKey as plaintext (v1.25.3 #182 invariant). flushApiKey
-        // already surfaced the apiKeyMigrationFailedNotice.
-        const commitSucceeded = tab.commitTempSettings();
-        if (!commitSucceeded) {
+        const saved = await tab.saveTempSettings();
+        if (!saved) {
           // Roll back plugin.settings AND persist it: testLLMConnection
           // already fired a fire-and-forget `void this.saveSettings()`
           // (line 128) that captured `testSettings.apiKey` as a plaintext
@@ -106,7 +101,6 @@ export function renderTestConnectionSection(tab: LLMWikiSettingTab, containerEl:
           tab.display();
           return;
         }
-        await tab.plugin.saveSettings();
         resetUi();
       }));
 }

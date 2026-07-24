@@ -54,10 +54,7 @@ export function renderLanguageSection(tab: LLMWikiSettingTab, containerEl: HTMLE
       .setButtonText(tab.getText('saveButton'))
       .setCta()
       .onClick(async () => {
-        // v1.25.8: skip saveSettings on flush failure so a typed key
-        // survives in tempSettings for retry (matches hide()).
-        if (!tab.commitTempSettings()) return;
-        await tab.plugin.saveSettings();
+        if (!await tab.saveTempSettings()) return;
         new Notice(tab.getText('savedNotice'), NOTICE_SHORT);
       }));
 

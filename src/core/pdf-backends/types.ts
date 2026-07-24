@@ -26,6 +26,7 @@ interface PdfBackendSettings {
   forcePdfSupport?: boolean;
   pdfConversionBackend?: PdfConversionBackendId;
   mineruApiToken?: string;
+  mineruApiTokenSecretId?: string;
   mineruTaskTimeoutMinutes?: number;
   [k: string]: unknown;
 }
@@ -61,10 +62,11 @@ export class MineruConfigurationError extends Error {
 export interface MineruArtifactManifestImage {
   path: string;
   bytes: number;
+  sha256: string;
 }
 
 export interface MineruArtifactManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   sourcePath: string;
   sourceSha256: string;
   backend: typeof MINERU_CONVERSION_PROFILE.backend;
@@ -107,6 +109,7 @@ export interface MineruArtifactAdapter {
   getPathIdentity(path: string): Promise<string>;
   exists(path: string): Promise<boolean>;
   stat(path: string): Promise<{ size: number } | null>;
+  list(path: string): Promise<{ files: string[]; folders: string[] }>;
   readBinary(path: string): Promise<ArrayBuffer>;
   mkdir(path: string): Promise<void>;
   writeBinary(path: string, bytes: ArrayBuffer): Promise<void>;

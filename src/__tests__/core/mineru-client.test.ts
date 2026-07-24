@@ -203,7 +203,7 @@ describe('MineruClient protocol', () => {
     expect(Array.from(result)).toEqual([1, 2, 3]);
     expect(fetchFn).toHaveBeenCalledWith(ZIP_URL, {
       method: 'GET',
-      signal: undefined,
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -220,7 +220,7 @@ describe('MineruClient protocol', () => {
     const result = await client.downloadResult(ZIP_URL);
 
     expect(result.buffer).toBe(arrayBuffer);
-    expect(downloadFn).toHaveBeenCalledWith(ZIP_URL, undefined);
+    expect(downloadFn).toHaveBeenCalledWith(ZIP_URL, expect.any(AbortSignal));
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
@@ -364,7 +364,7 @@ describe('MineruClient errors and stage-local retry', () => {
 
     await client.requestUpload('paper.pdf');
 
-    expect(sleep).toHaveBeenCalledWith(7000, undefined);
+    expect(sleep).toHaveBeenCalledWith(7000, expect.any(AbortSignal));
   });
 
   it('supports HTTP-date Retry-After using the injected clock', async () => {
@@ -378,7 +378,7 @@ describe('MineruClient errors and stage-local retry', () => {
 
     await client.requestUpload('paper.pdf');
 
-    expect(sleep).toHaveBeenCalledWith(12_000, undefined);
+    expect(sleep).toHaveBeenCalledWith(12_000, expect.any(AbortSignal));
   });
 
   it('uses Retry-After from a 2xx rate-limit API envelope', async () => {
@@ -394,7 +394,7 @@ describe('MineruClient errors and stage-local retry', () => {
 
     await client.requestUpload('paper.pdf');
 
-    expect(sleep).toHaveBeenCalledWith(9000, undefined);
+    expect(sleep).toHaveBeenCalledWith(9000, expect.any(AbortSignal));
   });
 
   it('retries only the failed download stage without replaying upload stages', async () => {
@@ -468,6 +468,29 @@ describe('MineruClient errors and stage-local retry', () => {
 });
 
 describe('MineruClient cancellation and timeout', () => {
+  it.each([
+    ['request-upload', (client: MineruClient) => client.requestUpload('paper.pdf')],
+    ['upload', (client: MineruClient) => client.uploadPdf(
+      { taskId: 'batch-123', uploadUrl: UPLOAD_URL },
+      new Uint8Array([1]),
+    )],
+    ['download', (client: MineruClient) => client.downloadResult(ZIP_URL)],
+  ] as const)('times out a pending %s transport even when it ignores AbortSignal', async (_stage, invoke) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-24T00:00:00.000Z'));
+    const never = (): Promise<Response> => new Promise(() => undefined);
+    const client = createClient(vi.fn(never), {
+      timeoutMs: 1000,
+      now: () => Date.now(),
+      downloadFn: async () => new Promise(() => undefined),
+    });
+
+    const pending = invoke(client).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await expect(pending).resolves.toBeInstanceOf(MineruTaskTimeoutError);
+  });
+
   it('converts abort during signed upload into MineruCancelledError', async () => {
     const controller = new AbortController();
     const fetchFn = vi.fn((_url: string, init?: RequestInit) => abortablePendingFetch(init?.signal));

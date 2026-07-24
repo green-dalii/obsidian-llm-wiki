@@ -34,7 +34,11 @@ export async function initializeLLMClientAfterModules(modulesLoaded: Promise<voi
 export { createLLMClient };
 import { TEXTS } from './texts';
 import { getText } from './core/i18n';
-import { applySettingsMigrations, commitSettingsMigrationV1_25_3 } from './core/settings-migrations';
+import {
+  applySettingsMigrations,
+  commitMineruTokenMigration,
+  commitSettingsMigrationV1_25_3,
+} from './core/settings-migrations';
 import { normalizeVocabularyCsv } from './core/tag-vocab';
 import { detectStaleWikiFolders } from './core/query-history-migration-check';
 import { BatchProgress } from './core/status-bar';
@@ -216,11 +220,27 @@ export class LLMWikiPlugin extends Plugin {
       // plaintext lives on in settings.apiKey and data.json — no data loss.
     }
 
+    if (applied.includes('mineru-secret-storage')) {
+      const legacy = (settings as unknown as { _legacyMineruTokenForSecretStorage?: string })
+        ._legacyMineruTokenForSecretStorage;
+      if (typeof legacy === 'string' && legacy.length > 0) {
+        try {
+          this.app.secretStorage.setSecret(settings.mineruApiTokenSecretId ?? '', legacy);
+          commitMineruTokenMigration(settings);
+        } catch (error) {
+          console.error('[main.loadSettings] Failed to migrate MinerU token into SecretStorage; plaintext retained:', error);
+          migrationWriteFailed = true;
+        }
+      }
+      delete (settings as unknown as { _legacyMineruTokenForSecretStorage?: string })
+        ._legacyMineruTokenForSecretStorage;
+    }
+
     this.settings = settings;
 
     if (savedData && !savedData.wikiLanguage) {
       this.settings.wikiLanguage = this.settings.language;
-      await this.saveData(this.settings);
+      if (!migrationWriteFailed) await this.saveData(this.settings);
     }
 
     if (!Array.isArray(this.settings.watchedFolders)) {

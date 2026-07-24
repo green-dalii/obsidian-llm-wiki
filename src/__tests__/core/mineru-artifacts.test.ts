@@ -118,6 +118,21 @@ class MemoryArtifactAdapter implements MineruArtifactAdapter {
     return bytes ? { size: bytes.length } : null;
   }
 
+  async list(path: string): Promise<{ files: string[]; folders: string[] }> {
+    this.operations.push(`list:${path}`);
+    const actual = this.resolveDirectory(path) ?? path;
+    const prefix = `${actual}/`;
+    const files = [...this.files.keys()].filter((entry) => {
+      const relative = entry.slice(prefix.length);
+      return entry.startsWith(prefix) && !relative.includes('/');
+    });
+    const folders = [...this.directories].filter((entry) => {
+      const relative = entry.slice(prefix.length);
+      return entry.startsWith(prefix) && !relative.includes('/');
+    });
+    return { files, folders };
+  }
+
   async mkdir(path: string): Promise<void> {
     await this.beforeOperation(`mkdir:${path}`, true);
     if (this.resolveDirectory(path) === undefined) this.directories.add(path);
@@ -305,7 +320,7 @@ async function makeManifest(
   overrides: Partial<MineruArtifactManifest> = {}
 ): Promise<MineruArtifactManifest> {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourcePath,
     sourceSha256: 'b'.repeat(64),
     backend: 'mineru',
@@ -316,9 +331,13 @@ async function makeManifest(
     traceId: 'old-trace',
     markdownPath: 'document.md',
     markdownSha256: await sha256Bytes(encoder.encode(markdown), subtle),
-    images: [...images]
+    images: await Promise.all([...images]
       .sort((left, right) => left.path.localeCompare(right.path))
-      .map((image) => ({ path: image.path, bytes: image.bytes.length })),
+      .map(async (image) => ({
+        path: image.path,
+        bytes: image.bytes.length,
+        sha256: await sha256Bytes(image.bytes, subtle),
+      }))),
     ...overrides,
   };
 }
@@ -339,6 +358,30 @@ async function seedManagedArtifact(
     encoder.encode(`${JSON.stringify(manifest, null, 2)}\n`)
   );
   return manifest;
+}
+
+async function seedSchemaV1ManagedArtifact(
+  adapter: MemoryArtifactAdapter,
+  sourcePath = OLD_PDF_PATH,
+  overrides: Record<string, unknown> = {}
+): Promise<MineruArtifactManifest> {
+  const directory = getMineruArtifactDir(sourcePath);
+  const markdown = '# Old\n\n![Old](images/old.png)\n';
+  const images = [{ path: 'images/old.png', bytes: new Uint8Array([7, 8, 9, 10]) }];
+  const normalized = await makeManifest(sourcePath, markdown, images);
+  const legacyManifest = {
+    ...normalized,
+    schemaVersion: 1,
+    images: normalized.images.map(({ path, bytes }) => ({ path, bytes })),
+    ...overrides,
+  };
+  adapter.seedFile(`${directory}/document.md`, encoder.encode(markdown));
+  for (const image of images) adapter.seedFile(`${directory}/${image.path}`, image.bytes);
+  adapter.seedFile(
+    `${directory}/${MANIFEST_NAME}`,
+    encoder.encode(`${JSON.stringify(legacyManifest, null, 2)}\n`)
+  );
+  return normalized;
 }
 
 async function captureWriteError(action: Promise<unknown>): Promise<MineruArtifactWriteError> {
@@ -387,7 +430,7 @@ describe('MineruArtifactStore.inspect', () => {
     await expect(store.inspect(OLD_PDF_PATH)).resolves.toEqual({ kind: 'unowned-conflict' });
   });
 
-  it('returns valid after verifying the Markdown hash and each image byte length', async () => {
+  it('returns valid after verifying Markdown and image hashes', async () => {
     const adapter = new MemoryArtifactAdapter();
     const manifest = await seedManagedArtifact(adapter);
     const store = makeStore(adapter);
@@ -397,12 +440,76 @@ describe('MineruArtifactStore.inspect', () => {
       manifest,
       markdown: '# Old\n\n![Old](images/old.png)\n',
     });
-    expect(adapter.operations).toContain(`stat:${OLD_DIR}/images/old.png`);
-    expect(adapter.operations).not.toContain(`readBinary:${OLD_DIR}/images/old.png`);
+    expect(adapter.operations).toContain(`readBinary:${OLD_DIR}/images/old.png`);
+  });
+
+  it('reuses a schema-v1 managed artifact after exact ownership and byte-length checks', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    const normalized = await seedSchemaV1ManagedArtifact(adapter);
+
+    const result = await makeStore(adapter).inspect(OLD_PDF_PATH);
+
+    expect(result).toEqual({
+      kind: 'valid',
+      manifest: normalized,
+      markdown: '# Old\n\n![Old](images/old.png)\n',
+    });
+    expect(adapter.operations).toContain(`readBinary:${OLD_DIR}/images/old.png`);
+  });
+
+  it('does not weaken schema-v2 image hash requirements when accepting schema-v1 artifacts', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    const manifest = await seedManagedArtifact(adapter);
+    adapter.seedFile(
+      `${OLD_DIR}/${MANIFEST_NAME}`,
+      encoder.encode(`${JSON.stringify({
+        ...manifest,
+        images: manifest.images.map(({ path, bytes }) => ({ path, bytes })),
+      }, null, 2)}\n`)
+    );
+
+    const result = await makeStore(adapter).inspect(OLD_PDF_PATH);
+
+    expect(result.kind).toBe('managed-invalid');
+  });
+
+  it('keeps schema-v1 ownership checks exact before reuse', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    await seedSchemaV1ManagedArtifact(adapter);
+    adapter.seedFile(`${OLD_DIR}/images/extra.png`, new Uint8Array([1]));
+
+    await expect(makeStore(adapter).inspect(OLD_PDF_PATH))
+      .resolves.toEqual({ kind: 'unowned-conflict' });
+  });
+
+  it('treats undeclared files in a managed directory as an ownership conflict', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    await seedManagedArtifact(adapter);
+    adapter.seedFile(`${OLD_DIR}/notes.md`, encoder.encode('user-owned'));
+
+    await expect(makeStore(adapter).inspect(OLD_PDF_PATH))
+      .resolves.toEqual({ kind: 'unowned-conflict' });
+  });
+
+  it('treats undeclared directories in a managed directory as an ownership conflict', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    await seedManagedArtifact(adapter);
+    adapter.seedDirectory(`${OLD_DIR}/notes`);
+
+    await expect(makeStore(adapter).inspect(OLD_PDF_PATH))
+      .resolves.toEqual({ kind: 'unowned-conflict' });
+  });
+
+  it('detects same-size image corruption from the stored content hash', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    await seedManagedArtifact(adapter);
+    adapter.seedFile(`${OLD_DIR}/images/old.png`, new Uint8Array([10, 9, 8, 7]));
+
+    expect((await makeStore(adapter).inspect(OLD_PDF_PATH)).kind).toBe('managed-invalid');
   });
 
   it.each([
-    ['schema version', { schemaVersion: 2 }],
+    ['schema version', { schemaVersion: 3 }],
     ['source path', { sourcePath: 'papers/other.pdf' }],
     ['source SHA casing', { sourceSha256: 'A'.repeat(64) }],
     ['backend', { backend: 'native' }],
@@ -469,13 +576,17 @@ describe('MineruArtifactStore.inspect', () => {
     [[{ path: 'images/a.png', bytes: Number.MAX_SAFE_INTEGER + 1 }], 'unsafe size'],
   ])('rejects image manifest entries with %s', async (images) => {
     const adapter = new MemoryArtifactAdapter();
-    await seedManagedArtifact(adapter, OLD_PDF_PATH, { images });
+    await seedManagedArtifact(
+      adapter,
+      OLD_PDF_PATH,
+      { images } as unknown as Partial<MineruArtifactManifest>,
+    );
     expect((await makeStore(adapter).inspect(OLD_PDF_PATH)).kind).toBe('managed-invalid');
   });
 });
 
 describe('MineruArtifactStore.publish', () => {
-  it('stages, validates, and swaps a generated manifest with sorted exact sizes', async () => {
+  it('stages, validates, and swaps a generated manifest with sorted exact sizes and hashes', async () => {
     const adapter = new MemoryArtifactAdapter();
     await seedManagedArtifact(adapter);
     adapter.seedFile(OLD_PDF_PATH, new Uint8Array([4, 5, 6]));
@@ -495,8 +606,16 @@ describe('MineruArtifactStore.publish', () => {
     expect(inspection.markdown).toBe(input.markdown);
     expect(inspection.manifest.sourcePath).toBe(OLD_PDF_PATH);
     expect(inspection.manifest.images).toEqual([
-      { path: 'images/chart.png', bytes: 3 },
-      { path: 'images/z-last.png', bytes: 1 },
+      {
+        path: 'images/chart.png',
+        bytes: 3,
+        sha256: await sha256Bytes(new Uint8Array([1, 2, 3]), subtle),
+      },
+      {
+        path: 'images/z-last.png',
+        bytes: 1,
+        sha256: await sha256Bytes(new Uint8Array([9]), subtle),
+      },
     ]);
     expect(inspection.manifest.markdownSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(inspection.manifest.converterVersion).toBe('mineru-v1');
@@ -847,6 +966,21 @@ describe('MineruArtifactStore.moveForPdfRename', () => {
     expect(
       adapter.operations.some((operation) => operation === `removeDirectory:${OLD_PDF_PATH}`)
     ).toBe(false);
+  });
+
+  it('upgrades schema-v1 manifests to schema-v2 when a PDF rename already rewrites the manifest', async () => {
+    const adapter = new MemoryArtifactAdapter();
+    const normalized = await seedSchemaV1ManagedArtifact(adapter);
+
+    await makeStore(adapter, ['rename-v1']).moveForPdfRename(OLD_PDF_PATH, NEW_PDF_PATH);
+
+    const moved = await makeStore(adapter).inspect(NEW_PDF_PATH);
+    expect(moved.kind).toBe('valid');
+    if (moved.kind !== 'valid') throw new Error('expected moved schema-v1 artifact to be valid');
+    expect(moved.manifest).toEqual({ ...normalized, sourcePath: NEW_PDF_PATH });
+    const persisted = JSON.parse(decoder.decode(adapter.files.get(`${NEW_DIR}/${MANIFEST_NAME}`)));
+    expect(persisted.schemaVersion).toBe(2);
+    expect(persisted.images[0].sha256).toBe(normalized.images[0].sha256);
   });
 
   it('transactionally rewrites sourcePath when both PDF paths map to the same artifact directory', async () => {

@@ -98,6 +98,7 @@ function createTab(overrides: Partial<typeof DEFAULT_SETTINGS> = {}): LLMWikiSet
     display: vi.fn(),
     isWikiInitialized: vi.fn(() => true),
     app: {
+      secretStorage: { getSecret: () => null, setSecret: vi.fn() },
       vault: { getAbstractFileByPath: vi.fn() },
       workspace: { getLeaf: vi.fn() },
     },
