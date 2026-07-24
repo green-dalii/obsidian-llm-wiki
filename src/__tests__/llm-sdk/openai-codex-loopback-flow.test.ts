@@ -26,10 +26,21 @@ afterEach(() => {
 });
 
 describe('Codex loopback flow', () => {
-  it('bundles desktop HTTP as a lazy CommonJS require', () => {
+  it('bundles desktop HTTP as a lazy ESM dynamic import of node:module', () => {
+    // v1.25.6: switched from bare require('node:http') (which Bot
+    // rejected as no-unsafe-* propagation) to a typed createRequire
+    // helper. esbuild compiles the dynamic import('node:module') pattern
+    // to a lazy Promise that resolves the module at first call — the
+    // bundle MUST NOT eagerly import node:http at module-eval time
+    // (which would defeat the Platform.isDesktop guard). The string
+    // 'require("node:http")' is no longer present; we assert the
+    // equivalent: a lazy import of node:module that resolves to a
+    // createRequire factory used to load node:http on first call.
     const bundle = readFileSync('main.js', 'utf8');
+    expect(bundle).not.toContain('require("node:http")');
     expect(bundle).not.toContain('import("node:http")');
-    expect(bundle).toContain('require("node:http")');
+    expect(bundle).toContain('import("node:module")');
+    expect(bundle).toContain('createRequire');
   });
   it('rejects mobile runtime loading before resolving Node HTTP', async () => {
     const importHttp = vi.fn();

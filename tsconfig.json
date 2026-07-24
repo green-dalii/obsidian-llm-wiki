@@ -15,6 +15,9 @@
     "lib": [
       "DOM",
       "ES2021"
+    ],
+    "types": [
+      "node"
     ]
   },
   "include": [
