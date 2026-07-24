@@ -45,6 +45,10 @@ export const FR_TEXTS = {
     apiKeyName: 'Clé API',
     apiKeyDesc: 'Clé API. Stockée dans le gestionnaire d’identifiants de l’OS, pas dans data.json.',
     apiKeyPlaceholder: 'Saisir la clé API',
+    // v1.25.4 #339: SecretStorage migration repair + failure Notice
+    apiKeyMigrateToSecretStorageButton: 'Migrer SecretStorage',
+    apiKeyMigratedToSecretStorageSuccess: 'Clé API restaurée de SecretStorage vers les paramètres.',
+    apiKeyMigrationFailedNotice: 'Échec de l\'enregistrement de la clé API dans SecretStorage : {}',
     codexAuthName: 'Connexion au forfait ChatGPT',
     codexAuthDesc: 'Accès expérimental à Codex via OAuth utilisant le quota de votre forfait ChatGPT. La facturation de l’API OpenAI Platform reste séparée.',
     codexAuthSignedOut: 'Non connecté',

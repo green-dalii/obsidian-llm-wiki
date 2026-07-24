@@ -76,3 +76,41 @@ describe('ProviderSecretStore (#182)', () => {
     expect(backend.values.get('slot-b')).toBe('key-b');
   });
 });
+
+// v1.25.4 #339: throw-on-demand contracts. On a Windows 10 / Obsidian
+// 1.12.7 Credential Manager failure, setSecret/getSecret throw
+// synchronously. The wrapper must surface writes as ProviderSecretStorageError
+// (so the user-typed key is NEVER silently dropped) and degrade reads to
+// null (matching the existing "no key" contract the resolver already
+// interprets as "fall back to settings.apiKey").
+describe('ProviderSecretStore (#339 throw-on-demand)', () => {
+  const SECRET_ID = 'karpathywiki-provider-api-key';
+
+  function throwingBackend(message = 'keychain locked'): { getSecret: (id: string) => string | null; setSecret: (id: string, value: string) => void } {
+    return {
+      getSecret: () => { throw new Error(message); },
+      setSecret: () => { throw new Error(message); },
+    };
+  }
+
+  it('save() throws ProviderSecretStorageError when setSecret throws (caller must retry, no silent loss)', async () => {
+    const { ProviderSecretStorageError } = await import('../../llm-sdk/provider-secret-store');
+    const backend = throwingBackend('Windows Credential Manager is locked');
+    const store = new ProviderSecretStore(backend, SECRET_ID);
+    expect(() => store.save('sk-user-key-12345')).toThrow(ProviderSecretStorageError);
+  });
+
+  it('load() returns null when getSecret throws (resolver falls through to settings.apiKey)', () => {
+    const backend = throwingBackend('locked');
+    const store = new ProviderSecretStore(backend, SECRET_ID);
+    expect(store.load()).toBeNull();
+    expect(store.hasKey()).toBe(false);
+  });
+
+  it('clear() throws ProviderSecretStorageError when setSecret throws', async () => {
+    const { ProviderSecretStorageError } = await import('../../llm-sdk/provider-secret-store');
+    const backend = throwingBackend('clear failed');
+    const store = new ProviderSecretStore(backend, SECRET_ID);
+    expect(() => store.clear()).toThrow(ProviderSecretStorageError);
+  });
+});

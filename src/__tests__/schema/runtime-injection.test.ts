@@ -248,11 +248,7 @@ describe('stripLegacyBakedTagEnum (legacy schema body, in-memory)', () => {
   //     finding #1: the sanitizer must hit ALL 6 legacy sites, not just
   //     Classification Rules). ===
   it('replaces the legacy Wiki Structure entity parenthetical with a runtime pointer', () => {
-    const legacy = `## Wiki Structure
-- Entity pages: \`entities/\` (${VALID_ENTITY_TAGS.join(', ')})
-- Concept pages: \`concepts/\` — already-clean pointer (do NOT match this form)
-- Source pages: \`sources/\`
-`;
+    const legacy = `## Wiki Structure\n- Entity pages: \`entities/\` (${VALID_ENTITY_TAGS.join(', ')})\n- Concept pages: \`concepts/\` — already-clean pointer (do NOT match this form)\n- Source pages: \`sources/\`\n`;
     const sanitized = stripLegacyBakedTagEnum(legacy);
     expect(sanitized).not.toContain(VALID_ENTITY_TAGS[0]);
     expect(sanitized).not.toMatch(/Entity pages: `entities\/` \([^)]*\)/);
@@ -262,10 +258,7 @@ describe('stripLegacyBakedTagEnum (legacy schema body, in-memory)', () => {
   });
 
   it('replaces the legacy Wiki Structure concept parenthetical with a runtime pointer', () => {
-    const legacy = `## Wiki Structure
-- Entity pages: \`entities/\` (person, organization)
-- Concept pages: \`concepts/\` (${VALID_CONCEPT_TAGS.join(', ')})
-`;
+    const legacy = `## Wiki Structure\n- Entity pages: \`entities/\` (person, organization)\n- Concept pages: \`concepts/\` (${VALID_CONCEPT_TAGS.join(', ')})\n`;
     const sanitized = stripLegacyBakedTagEnum(legacy);
     expect(sanitized).not.toContain(VALID_CONCEPT_TAGS[0]);
     expect(sanitized).not.toMatch(/Concept pages: `concepts\/` \([^)]*\)/);
@@ -281,7 +274,7 @@ describe('stripLegacyBakedTagEnum (legacy schema body, in-memory)', () => {
     const sanitized = stripLegacyBakedTagEnum(legacy);
     expect(sanitized).not.toContain(VALID_ENTITY_TAGS[0]);
     expect(sanitized).not.toMatch(/MUST be one of:/);
-    expect(sanitized).toMatch(/\`tags:\` — entity subtype; the valid values are runtime-injected by the \*\*Active Tag Vocabulary\*\*/);
+    expect(sanitized).toMatch(/`tags:` — entity subtype; the valid values are runtime-injected by the \*\*Active Tag Vocabulary\*\*/);
     // Other frontmatter field lines are preserved (separate lines, separate anchors)
     expect(sanitized).toMatch(/`aliases:` \(optional\) — alternative names/);
   });
@@ -294,7 +287,7 @@ describe('stripLegacyBakedTagEnum (legacy schema body, in-memory)', () => {
     const sanitized = stripLegacyBakedTagEnum(legacy);
     expect(sanitized).not.toContain(VALID_CONCEPT_TAGS[0]);
     expect(sanitized).not.toMatch(/MUST be one of:/);
-    expect(sanitized).toMatch(/\`tags:\` — concept subtype; the valid values are runtime-injected/);
+    expect(sanitized).toMatch(/`tags:` — concept subtype; the valid values are runtime-injected/);
   });
 
   it('replaces ALL six legacy sites in a single body (full legacy vault fixture)', () => {

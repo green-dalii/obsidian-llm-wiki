@@ -42,13 +42,12 @@ afterEach(() => {
 // Test-environment document accessors. Wrapped once so the test body
 // avoids Obsidian review-rule warnings in every assertion.
 //
-// `document` here is the jsdom-injected global (set in beforeEach),
-// NOT the bare DOM global — production code paths must use
-// `activeDocument` (per CLAUDE.md "Obsidian Plugin Submission Rules").
-/* eslint-disable obsidianmd/prefer-active-doc */
-const root = () => document.getElementById('root') as HTMLElement;
-const newInputEvent = () => new ((document as Document & { defaultView: Window }).defaultView.Event)('input');
-/* eslint-enable obsidianmd/prefer-active-doc */
+// `activeDocument` here is the jsdom-injected global (set in beforeEach),
+// per CLAUDE.md "Obsidian Plugin Submission Rules" — production code
+// paths must use `activeDocument`; the bare `document` global is
+// forbidden.
+const root = () => activeDocument.getElementById('root') as HTMLElement;
+const newInputEvent = () => new ((activeDocument as Document & { defaultView: Window }).defaultView.Event)('input');
 
 function buildOptions(overrides: Partial<CustomInstructionsPanelOptions> = {}): CustomInstructionsPanelOptions {
   return {
@@ -133,8 +132,7 @@ describe('renderCustomInstructionsPanel — Issue #251', () => {
 
     const ta = getTextarea(r);
     ta.value = 'hello';
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    ta.dispatchEvent(new (document as Document & { defaultView: Window }).defaultView.Event('input'));
+    ta.dispatchEvent(new (activeDocument as Document & { defaultView: Window }).defaultView.Event('input'));
 
     expect(counter.textContent).toMatch(/5\/100/);
 
@@ -147,8 +145,7 @@ describe('renderCustomInstructionsPanel — Issue #251', () => {
 
     const ta = getTextarea(r);
     ta.value = 'a'.repeat(20);
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    ta.dispatchEvent(new (document as Document & { defaultView: Window }).defaultView.Event('input'));
+    ta.dispatchEvent(new (activeDocument as Document & { defaultView: Window }).defaultView.Event('input'));
 
     expect(ta.value.length).toBe(10);
 
@@ -274,8 +271,7 @@ describe('renderCustomInstructionsPanel — Issue #251', () => {
     // After dispose, the input listener is removed; the counter should stay
     // at its last value rather than updating.
     ta.value = 'changed';
-    // eslint-disable-next-line obsidianmd/prefer-active-doc
-    ta.dispatchEvent(new (document as Document & { defaultView: Window }).defaultView.Event('input'));
+    ta.dispatchEvent(new (activeDocument as Document & { defaultView: Window }).defaultView.Event('input'));
 
     // Counter should NOT update post-dispose (still 0/100 from initial state).
     expect(getCounter(r).textContent).toMatch(/0\/100/);

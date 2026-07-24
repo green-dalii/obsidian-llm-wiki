@@ -45,6 +45,10 @@ export const EN_TEXTS = {
     apiKeyName: 'API Key',
     apiKeyDesc: 'API key. Stored in your OS credential manager — not in data.json.',
     apiKeyPlaceholder: 'Enter API Key',
+    // v1.25.4 #339: SecretStorage migration repair + failure Notice
+    apiKeyMigrateToSecretStorageButton: 'Migrate Secret Storage',
+    apiKeyMigratedToSecretStorageSuccess: 'API key restored from SecretStorage to settings.',
+    apiKeyMigrationFailedNotice: 'Failed to save API key to SecretStorage: {}',
     codexAuthName: 'ChatGPT Plan sign-in',
     codexAuthDesc: 'Experimental Codex OAuth access using your ChatGPT plan allowance. OpenAI Platform API billing remains separate.',
     codexAuthSignedOut: 'Not signed in',

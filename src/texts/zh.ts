@@ -45,6 +45,10 @@ export const ZH_TEXTS = {
     apiKeyName: 'API Key',
     apiKeyDesc: 'API 密钥。存储在操作系统凭据管理器中，不写入 data.json。',
     apiKeyPlaceholder: '输入 API Key',
+    // v1.25.4 #339: SecretStorage migration repair + failure Notice
+    apiKeyMigrateToSecretStorageButton: '迁移 SecretStorage',
+    apiKeyMigratedToSecretStorageSuccess: 'API Key 已从 SecretStorage 还原到设置。',
+    apiKeyMigrationFailedNotice: '无法将 API Key 保存到 SecretStorage：{}',
     codexAuthName: '登录 ChatGPT 套餐',
     codexAuthDesc: '通过实验性的 Codex OAuth 使用 ChatGPT 套餐额度。OpenAI Platform API 仍单独计费。',
     codexAuthSignedOut: '未登录',

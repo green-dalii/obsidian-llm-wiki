@@ -93,24 +93,26 @@ export function applySettingsMigrations(
 
   // v1.25.3 #182 migration: move the legacy plaintext `apiKey` out of
   // data.json into Obsidian SecretStorage. Pure-function side: detect,
-  // stash the plaintext on a transient field, clear the plaintext in
-  // `settings`, mark the migration done. The actual SecretStorage
-  // write happens in `main.ts loadSettings` after this helper returns
-  // — applySettingsMigrations must stay pure (no IO).
+  // stash the plaintext on a transient field, mark the migration done.
+  // The actual SecretStorage write happens in `main.ts loadSettings`
+  // after this helper returns — applySettingsMigrations must stay pure
+  // (no IO).
   //
-  // Idempotency: `_migrated_v1_25_3_secret_storage` is set on the
-  // returned settings object, then persisted to data.json via
-  // saveData(). On the next load, the flag suppresses re-runs even
-  // if the SecretStorage write failed (failed-write → empty secretId
-  // slot, user re-prompts; the helper still treats this as "done"
-  // because the data.json side is settled).
+  // v1.25.4 #339: Phase 1 (this function) only stashes the legacy key
+  // and does NOT clear settings.apiKey any more. The wipe is deferred
+  // to commitSettingsMigrationV1_25_3() which main.ts calls ONLY after
+  // the SecretStorage write succeeds. This prevents the "both stores
+  // empty" failure mode on IO failure.
   if (savedData && !savedData._migrated_v1_25_3_secret_storage) {
     const legacy = typeof savedData.apiKey === 'string' ? savedData.apiKey.trim() : '';
     if (legacy.length > 0) {
       // Stash for main.ts to read. NOT a settings field — main.ts is
       // expected to delete this after the SecretStorage write succeeds.
       (settings as unknown as { _legacyApiKeyForSecretStorage?: string })._legacyApiKeyForSecretStorage = legacy;
-      settings.apiKey = '';
+      // v1.25.4 #339: DO NOT clear settings.apiKey here — phase 2
+      // (commitSettingsMigrationV1_25_3) does that only after the IO
+      // write succeeds. Keeping the plaintext ensures the resolver's
+      // "fall back to settings.apiKey" path works if IO fails.
       applied.push('v1.25.3-secret-storage');
     }
     // Mark even when no plaintext exists, so the helper's behavior is
@@ -119,4 +121,20 @@ export function applySettingsMigrations(
   }
 
   return { settings, applied };
+}
+
+/**
+ * v1.25.4 #339: Phase 2 of the v1.25.3 secret-storage migration. Call
+ * ONLY after the SecretStorage `setSecret(...)` write has succeeded.
+ *
+ * Wipes `settings.apiKey` (the plaintext is now safely in OS keychain)
+ * and sets the final marker. Idempotent — safe to call multiple times
+ * (second wipe is a no-op since apiKey is already '').
+ *
+ * This is deliberately a separate function from applySettingsMigrations
+ * so main.ts owns the orchestration (phase 1 = stash, IO = setSecret,
+ * phase 2 = wipe) and the pure-function contract stays intact.
+ */
+export function commitSettingsMigrationV1_25_3(settings: LLMWikiSettings): void {
+  settings.apiKey = '';
 }

@@ -20,10 +20,8 @@
 import { describe, it, expect } from 'vitest';
 // Test-environment only — Node fs/path APIs are not used in production
 // code (CLAUDE.md Obsidian Bot rule forbids Node builtins).
-/* eslint-disable import/no-nodejs-modules */
 import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
-/* eslint-enable import/no-nodejs-modules */
 
 /** Resolve paths from this test file (uses Node fs/path — test only). */
 const SRC_ROOT = new URL('../../..', import.meta.url).pathname;

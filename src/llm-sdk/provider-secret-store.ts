@@ -42,6 +42,20 @@ export interface ProviderSecretStoreLike {
   hasKey(): boolean;
 }
 
+/**
+ * v1.25.4 #339: typed error for SecretStorage platform failures
+ * (Windows 10 Credential Manager locked / service unavailable / macOS
+ * Keychain access denied / Linux Secret Service timeout). Surfaces as
+ * a constructor so callers can `instanceof` without coupling to the
+ * underlying OS error message, which varies by platform.
+ */
+export class ProviderSecretStorageError extends Error {
+  constructor(public readonly cause: unknown, message = 'SecretStorage IO failed') {
+    super(message);
+    this.name = 'ProviderSecretStorageError';
+  }
+}
+
 export class ProviderSecretStore implements ProviderSecretStoreLike {
   constructor(
     private readonly storage: ProviderSecretStorage,
@@ -52,9 +66,19 @@ export class ProviderSecretStore implements ProviderSecretStoreLike {
    * Read the stored key, trim whitespace, and return null when nothing
    * is configured (null / empty / whitespace-only). Callers receive a
    * normalized value they can pass directly to the LLM SDK.
+   *
+   * v1.25.4 #339: swallows getSecret platform throws and returns null
+   * so the resolver's existing "fall through to settings.apiKey" path
+   * kicks in. We never want a transient Credential Manager error to
+   * brick LLM initialization on the read path.
    */
   load(): string | null {
-    const raw = this.storage.getSecret(this.secretId);
+    let raw: string | null;
+    try {
+      raw = this.storage.getSecret(this.secretId);
+    } catch {
+      return null;
+    }
     if (raw === null || raw === undefined) return null;
     const trimmed = raw.trim();
     return trimmed.length === 0 ? null : trimmed;
@@ -65,14 +89,19 @@ export class ProviderSecretStore implements ProviderSecretStoreLike {
    * clear (matches `CodexCredentialStore.clear()` convention of writing
    * `''` to the secretId rather than deleting it — keeps the slot
    * registered with the OS credential manager).
+   *
+   * v1.25.4 #339: rethrows setSecret platform throws as
+   * `ProviderSecretStorageError`. Silent-skip would drop the user-typed
+   * key on the floor — the documented #339 failure mode. Callers must
+   * decide whether to surface a Notice, retry, or refuse the save.
    */
   save(key: string): void {
     const trimmed = (key ?? '').trim();
-    if (trimmed.length === 0) {
-      this.storage.setSecret(this.secretId, '');
-      return;
+    try {
+      this.storage.setSecret(this.secretId, trimmed.length === 0 ? '' : trimmed);
+    } catch (error: unknown) {
+      throw wrapStorageError(error);
     }
-    this.storage.setSecret(this.secretId, trimmed);
   }
 
   /**
@@ -80,12 +109,22 @@ export class ProviderSecretStore implements ProviderSecretStoreLike {
    * slot registered with the OS credential manager — Obsidian's
    * SecretStorage doesn't expose a delete API, so empty-string is the
    * canonical "clear" (same convention as CodexCredentialStore).
+   *
+   * v1.25.4 #339: same throw contract as `save()`.
    */
   clear(): void {
-    this.storage.setSecret(this.secretId, '');
+    try {
+      this.storage.setSecret(this.secretId, '');
+    } catch (error: unknown) {
+      throw wrapStorageError(error);
+    }
   }
 
   hasKey(): boolean {
     return this.load() !== null;
   }
+}
+
+function wrapStorageError(cause: unknown): ProviderSecretStorageError {
+  return new ProviderSecretStorageError(cause, cause instanceof Error ? cause.message : undefined);
 }

@@ -11,7 +11,7 @@
  *   - cascade+seeds (pprCascade with explicit seeds from lex)
  */
 
-/* eslint-disable no-undef, import/no-nodejs-modules, no-console -- eval script, not in production bundle */
+/* eslint-disable obsidianmd/rule-custom-message -- eval script, not in production bundle; console.* is intentional logging for the standalone tsx run */
 // tsc disable for .ts import extensions + node:fs/path/url usage
 // @ts-nocheck
 // @ts-nocheck
@@ -189,3 +189,4 @@ console.log(`|---|---|---|`);
 console.log(`| lex      | ${(lex.avgR5 * 100).toFixed(1)}% | ${(lex.avgR10 * 100).toFixed(1)}% |`);
 console.log(`| cascade  | ${(cascade.avgR5 * 100).toFixed(1)}% | ${(cascade.avgR10 * 100).toFixed(1)}% |`);
 console.log(`| seeds    | ${(seeds.avgR5 * 100).toFixed(1)}% | ${(seeds.avgR10 * 100).toFixed(1)}% |`);
+/* eslint-enable obsidianmd/rule-custom-message */

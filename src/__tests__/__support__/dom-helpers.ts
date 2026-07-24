@@ -126,7 +126,7 @@ export function installObsidianDomHelpers(
     const el = this.createElement(tag);
     applyOpts(el, o);
     cb?.(el);
-    return el as HTMLElementTagNameMap[K];
+    return el;
   };
 
   docProto.createDiv = function createDivOnDoc(

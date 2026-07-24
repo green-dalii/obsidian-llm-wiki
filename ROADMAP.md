@@ -2,11 +2,25 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.3 PATCH (RELEASED 2026-07-23). | **Updated:** 2026-07-23
+**Version:** 1.25.4 PATCH (target 2026-07-24). | **Updated:** 2026-07-24
 
 ## Current Status
 
-**v1.25.3 — RELEASED 2026-07-23.** PATCH scope. Provider API key moved to Obsidian SecretStorage (Issue #182). Backward-compatible auto-migration; migration failure retries on restart. Quick Start README updated across 10 languages (ribbon icon + Query wiki step). 2529 tests passing (188 files, +14 since v1.25.2).
+**v1.25.4 — TARGET 2026-07-24.** PATCH scope. Fixes the Windows 10 SecretStorage regression (Issue #339) — split migration into phase 1 (stash + no plaintext wipe) and phase 2 (clear plaintext only after IO success). `flushApiKey()` returns boolean so `hide()` skips `commitTempSettings()` on failure. New "Migrate Secret Storage" recovery command. Plus `fast-uri` CVE bump to 3.1.4 / `brace-expansion` to 5.0.7. Bot review compliance upgraded: production files strict 0/0; test-side cosmetic warnings separately overridden. 2535 tests passing (189 files, +6 since v1.25.3).
+
+### v1.25.4 composition (planned)
+
+| # | Commit subject | Notes |
+|---|----------------|-------|
+| 1 | `test(secret-storage): add throw-on-demand coverage for save/clear/load` | RED-GREEN refactor scaffolding |
+| 2 | `feat(secret-storage): typed error class + try/catch on save/clear/load` | `ProviderSecretStorageError` |
+| 3 | `feat(settings-migrations): split v1.25.3 secret-storage migration into phase 1 stash and phase 2 commit` | Plaintext wipe deferred until IO success |
+| 4 | `feat(main): orchestrate two-phase migration with IO-success-gated plaintext wipe` | Skips `saveData` on write failure |
+| 5 | `feat(ui): surface SecretStorage save failure as a recoverable Notice + boolean flushApiKey contract` | The fragile seam in v1.25.3 |
+| 6 | `feat(commands): add Migrate Secret Storage repair command` | Manual recovery for `data.json` ∪ SecretStorage both empty |
+| 7 | `chore(deps): bump pnpm.overrides.fast-uri to 3.1.4 (CVE host-confusion) + brace-expansion 5.0.7` | pnpm audit 0 high |
+| 8 | `feat(i18n): add 3 keys for Migrate Secret Storage across 10 locales` | apiKeyMigrateToSecretStorageButton + 2 more |
+| 9 | `chore(lint): production-side obsidianmd bot warnings fully enforced (0/0); test-side cosmetic warnings relaxed per user direction v1.25.4` | option B layered override |
 
 ### v1.25.3 composition (1 commit, secret-storage + README sync)
 

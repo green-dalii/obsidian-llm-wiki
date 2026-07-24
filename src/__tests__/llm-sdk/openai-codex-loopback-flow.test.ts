@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-// eslint-disable-next-line import/no-nodejs-modules
 import { readFileSync } from 'node:fs';
 import { createLoopbackServer, loadNodeHttp, parseLoopbackCallback, runLoopbackLogin } from '../../llm-sdk/openai-codex/loopback-flow';
 import type { LoopbackHttpModule } from '../../llm-sdk/openai-codex/loopback-flow';
