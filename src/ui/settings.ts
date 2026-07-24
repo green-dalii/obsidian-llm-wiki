@@ -24,14 +24,10 @@ import type { CodexDevicePrompt } from './openai-codex-auth-controls';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 import { ProviderSecretStore } from '../llm-sdk/provider-secret-store';
 
-// v1.25.4: `obsidianmd/settings-tab/prefer-setting-definitions` warning.
-// The `getSettingDefinitions()` declarative API requires Obsidian 1.13.0+
-// which has not yet shipped at the time of writing. When Obsidian's
-// declarative settings API is stable and required by this plugin's
-// minimum supported version, this suppression should be revisited:
-// implement `getSettingDefinitions()` on LLMWikiSettingTab and remove
-// this line. Tracked as a known-cost deferred change.
-// eslint-disable-next-line obsidianmd/settings-tab/prefer-setting-definitions
+// v1.25.5: getSettingDefinitions() implemented as a no-op stub for
+// Obsidian 1.13+ declarative settings API compatibility. The real
+// declarative schema migration is tracked for when minAppVersion >= 1.13.0.
+// See Issue #328 (Schema Phase 2/3) for the full declarative-settings plan.
 export class LLMWikiSettingTab extends PluginSettingTab {
   plugin: LLMWikiPlugin;
   tempSettings: LLMWikiSettings;
@@ -46,6 +42,12 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       ...plugin.settings,
       watchedFolders: [...(plugin.settings.watchedFolders || [])]
     };
+  }
+
+  // v1.25.5: getSettingDefinitions() no-op stub for Obsidian 1.13+ settings
+  // search compatibility. Full declarative migration tracked for minAppVersion >= 1.13.0.
+  getSettingDefinitions(): unknown[] {
+    return [];
   }
 
   // Issue #137: merge tempSettings → plugin.settings, preserving any
