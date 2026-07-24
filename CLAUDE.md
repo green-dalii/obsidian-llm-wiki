@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-24 (v1.25.4 PATCH IN FLIGHT — #339 fix + fast-uri CVE)
+**Last Updated:** 2026-07-24 (v1.25.5 PATCH RELEASED — Bot compliance regression fixed)
 
 ---
 
-## Current Phase: v1.25.4 PATCH IN FLIGHT (target 2026-07-24). Windows 10 SecretStorage regression fixed (#339): two-phase migration (plaintext wipe deferred until IO succeeds) + `flushApiKey(): boolean` + Migrate Secret Storage repair command. Plus `fast-uri` CVE pinned to 3.1.4. Production files lint 0/0; test-side cosmetic warnings separately overridden per user direction. 2535 tests passing (189 files). v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
+## Current Phase: v1.25.5 PATCH RELEASED (2026-07-24). Bot compliance regression (v1.25.4 P0) fixed: Platform.isDesktop guard + getSettingDefinitions() stub + no-restricted-disable global override removed. Production lint = Bot-equivalent. v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 

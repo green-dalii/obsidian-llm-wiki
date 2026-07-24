@@ -132,18 +132,22 @@ class NodeLoopbackServer implements LoopbackServer {
 }
 
 async function requireNodeHttp(): Promise<typeof import('node:http')> {
+  // v1.25.5: Platform.isDesktop guard satisfies the
+  // obsidianmd/no-nodejs-modules AST guard-detection pattern so the
+  // rule no longer fires — no eslint-disable needed.
+  //
   // CommonJS `require('node:http')` is the CJS-bundle contract pinned by
   // the test in src/__tests__/llm-sdk/openai-codex-loopback-flow.test.ts
   // (`bundles desktop HTTP as a lazy CommonJS require`) — the bundled
   // main.js MUST NOT contain `import("node:http")`. The require value is
   // `any` per the standard library typings; we type-annotate the binding
   // `const http: typeof import('node:http')` so downstream callers can
-  // never see `any`. Every disable below is a side-effect of the single
-  // `require('node:http')` expression. Only invoked at runtime when
-  // `Platform.isDesktopApp === true` (callers in `loadNodeHttp` guard
-  // before invoking). See v1.25.2 bot feedback for the historical
-  // report that drove this construction.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment, obsidianmd/no-nodejs-modules, no-undef -- CommonJS require is the bundle-shape contract (test pins `require("node:http")` in main.js); require() is typed `any` (annotated binding preserves static module type for downstream callers); Node http loader is desktop-only (guarded by Platform.isDesktopApp in loadNodeHttp())
+  // never see `any`. The three eslint-disable-line below are for the
+  // nature of CommonJS require() itself and are NOT in the Bot's
+  // no-restricted-disable list (they are @typescript-eslint/* and
+  // no-undef, which are safe to disable per-line).
+  if (!Platform.isDesktop) throw new Error('Codex browser login is available only on desktop');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment, no-undef -- CommonJS require() is the CJS-bundle contract; require() returns `any` (annotated binding preserves static module type for downstream callers); no-undef fires because require is not a browser global - desktop-only, guarded by Platform.isDesktop above
   const http: typeof import('node:http') = require('node:http');
   return http;
 }
