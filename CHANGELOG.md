@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 2529 tests passing (188 files). +14 tests since v1.25.2.
 - New tests cover: `ProviderSecretStore` load/save/clear/hasKey (78 lines), `resolveProviderApiKey` fallback chain (54 lines), migration idempotency and failure scenarios.
 
+## [1.25.6] - 2026-07-24
+
+### Fixed
+
+- **Bot review `@typescript-eslint/no-unsafe-*` warnings (14) in `loopback-flow.ts`** — non-blocking but bot-enforced. Root cause: `require('node:http')` returns `any` per `@types/node`, propagating through every downstream caller and triggering `no-unsafe-call` / `no-unsafe-assignment` / `no-unsafe-member-access` / `no-unsafe-argument`. v1.25.5's `const http: T = require(...)` type annotation did not satisfy the linter — it inspects expression return types, not annotations. Replaced bare `require()` with the typed Node API `module.createRequire(__filename)` invoked via dynamic `import('node:module')`, eliminating `any` propagation. Bundle-shape test updated to assert `import("node:module")` + `createRequire` instead of the now-absent `require("node:http")` string.
+- **`tsconfig.json` types: ["node"]`** added so `createRequire` / `__filename` / `import('node:module')` resolve to `@types/node` declarations.
+
 ## [1.25.5] - 2026-07-24
 
 ### Fixed

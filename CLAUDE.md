@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-24 (v1.25.5 PATCH RELEASED — Bot compliance regression fixed)
+**Last Updated:** 2026-07-24 (v1.25.6 PATCH RELEASED — eliminated 14 no-unsafe-* Bot warnings via createRequire)
 
 ---
 
-## Current Phase: v1.25.5 PATCH RELEASED (2026-07-24). Bot compliance regression (v1.25.4 P0) fixed: Platform.isDesktop guard + getSettingDefinitions() stub + no-restricted-disable global override removed. Production lint = Bot-equivalent. v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
+## Current Phase: v1.25.6 PATCH RELEASED (2026-07-24). All Bot lint warnings eliminated: v1.25.5 fixed inline-disables; v1.25.6 fixed `no-unsafe-*` propagation by replacing bare require() with typed `module.createRequire(__filename)`. Production lint fully Bot-equivalent. v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 

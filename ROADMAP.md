@@ -2,20 +2,18 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.5 PATCH (released 2026-07-24). | **Updated:** 2026-07-24
+**Version:** 1.25.6 PATCH (released 2026-07-24). | **Updated:** 2026-07-24
 
 ## Current Status
 
-**v1.25.5 — RELEASED 2026-07-24.** PATCH scope. Fixes v1.25.4 P0 Obsidian Bot review compliance regression: eliminated `obsidianmd/*` inline-disables from production files by adding `Platform.isDesktop` guard to `requireNodeHttp()` (satisfies AST guard-detection) and `getSettingDefinitions()` no-op stub to `LLMWikiSettingTab` (satisfies method-detection). Removed global `eslint-comments/no-restricted-disable: "off"` from `eslint.config.mjs`. Test files excluded from lint scope to match Bot pipeline. Production lint now Bot-equivalent. 2535 tests passing (189 files).
+**v1.25.6 — RELEASED 2026-07-24.** PATCH scope. Eliminates 14 `@typescript-eslint/no-unsafe-*` Bot warnings in `loopback-flow.ts` by replacing bare `require('node:http')` with typed `module.createRequire(__filename)` via dynamic `import('node:module')`. Bundle-shape test updated to assert the new pattern. Production lint Bot-equivalent. 2535 tests passing (189 files).
 
-### v1.25.5 composition
+### v1.25.6 composition
 
 | # | Commit subject | Notes |
 |---|----------------|-------|
-| 1 | `fix(lint): Platform.isDesktop guard for requireNodeHttp, eliminate no-nodejs-modules disable` | Path A — AST guard pattern |
-| 2 | `fix(lint): getSettingDefinitions no-op stub, eliminate prefer-setting-definitions disable` | Path B — method-detection |
-| 3 | `config(eslint): remove no-restricted-disable global override, exclude test files from lint` | Match Bot pipeline exactly |
-| 4 | `chore: bump version to 1.25.5 + CHANGELOG + lockfile regen` | Release packaging |
+| 1 | `fix(lint): use createRequire(__filename) to eliminate no-unsafe-* propagation` | Path A from analysis |
+| 2 | `chore: bump version to 1.25.6 + tsconfig types + CHANGELOG` | Release packaging |
 
 ## Next: v1.26.0 MINOR
 | 7 | `chore(deps): bump pnpm.overrides.fast-uri to 3.1.4 (CVE host-confusion) + brace-expansion 5.0.7` | pnpm audit 0 high |
