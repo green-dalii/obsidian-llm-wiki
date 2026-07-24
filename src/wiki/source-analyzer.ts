@@ -190,11 +190,18 @@ export class SourceAnalyzer {
     // the generated `sources/<slug>` page (consumed there by
     // `fix-dead-link`'s slugify-normalized cross-page alias match).
     const noteFm = this.ctx.app.metadataCache
-      .getFileCache(file)?.frontmatter as { aliases?: unknown } | undefined;
+      .getFileCache(file)?.frontmatter as { aliases?: unknown; language?: unknown } | undefined;
     const rawNoteAliases = noteFm?.aliases;
     const sourceNoteAliases: string[] = Array.isArray(rawNoteAliases)
       ? rawNoteAliases.filter((a): a is string => typeof a === 'string')
       : [];
+    // Source note's frontmatter `language:` lets us skip the translation
+    // instruction when the source is already in the wiki's language (e.g. a
+    // Russian source in a Russian wiki -- translating verbatim quotes into the
+    // same language is wasteful and bloats the JSON). Absent -> legacy behavior.
+    const sourceLang = typeof noteFm?.language === 'string'
+      ? noteFm.language.trim().toLowerCase()
+      : '';
 
     console.debug('Existing Wiki pages count: — delayed until post-extraction matching');
 
@@ -312,7 +319,17 @@ export class SourceAnalyzer {
       // alongside each quote in mentions_with_provenance. The downstream
       // formatter renders: "<verbatim>" (<translation>) -- [[path|display]].
       // When source and wiki languages match, skip the translation field.
-      const translationHint = wikiLang !== 'en'
+      // When the source's own language matches the wiki language, translating
+      // its verbatim quotes back into the same language is meaningless (and
+      // bloats the JSON to the point of truncation). Prefer the explicit
+      // frontmatter `language:` signal; fall back to the legacy `!== 'en'`
+      // proxy only when the source is untagged, so cross-language wikis keep
+      // their translation behavior unchanged.
+      const wikiLangLower = wikiLang.toLowerCase();
+      const sameLanguage = sourceLang !== ''
+        && (sourceLang === wikiLangLower || sourceLang === wikiLangName.toLowerCase());
+      const crossLanguage = sourceLang !== '' ? !sameLanguage : wikiLang !== 'en';
+      const translationHint = crossLanguage
         ? `\n\nTRANSLATION (cross-language wikis): For each entry in mentions_with_provenance, ALSO add a 'translation' field containing a ${wikiLangName} translation of the quote text. The 'quote' field MUST stay verbatim in the source's original language; the translation goes in a separate 'translation' field. Example: {"quote": "Machine learning is fun", "translation": "机器学习很有趣", "source_path": "...", ...}`
         : '';
       // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer (buildSystemPrompt) always injects once.
