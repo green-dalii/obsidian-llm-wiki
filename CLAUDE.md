@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-24 (v1.25.6 PATCH RELEASED — eliminated 14 no-unsafe-* Bot warnings via createRequire)
+**Last Updated:** 2026-07-24 (v1.25.6 PATCH RELEASED — Obsidian Bot 0/0 first time, lessons codified)
 
 ---
 
-## Current Phase: v1.25.6 PATCH RELEASED (2026-07-24). All Bot lint warnings eliminated: v1.25.5 fixed inline-disables; v1.25.6 fixed `no-unsafe-*` propagation by replacing bare require() with typed `module.createRequire(__filename)`. Production lint fully Bot-equivalent. v1.26.0 MINOR following (see CHANGELOG.md and ROADMAP.md).
+## Current Phase: v1.25.6 PATCH RELEASED (2026-07-24). Obsidian Bot: **0 errors / 0 warnings** for the first time. v1.25.4/5/6 saga: v1.25.4 inline-disable 反模式 → v1.25.5 Platform.isDesktop guard + getSettingDefinitions stub → v1.25.6 createRequire(__filename) 消除 no-unsafe-* 传播。三次教训已写进 §"Bot compliance invariant" (under Key Design Decisions). v1.26.0 MINOR following.
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 
@@ -358,6 +358,17 @@ For full release workflow (commit + push + tag + release notes), use the `obsidi
   **Hard rule for future contributors:** the schema file MUST NOT bake runtime parameters (tag lists, folder paths, language). It MUST remain pure user domain knowledge. Adding/expanding the runtime injection layer (`buildActiveTagVocabularySection` and future `buildActiveFolderLayoutSection`) is the only legitimate home for things the Settings panel controls. Violating this rule reintroduces the dual-source problem (Phase 1 was approved specifically to eliminate this drift class).
 
   Full rationale: [[feedback-schema-phase1-option-a-decision]] + Issue #328 + [[feedback-schema-template-programmatic-injection]].
+
+- **Obsidian Bot compliance invariant (v1.25.6 hard-won, applies to ALL future code)**:
+  - **Bot runs an independent `obsidianmd/recommended` ruleset.** Your local `eslint.config.mjs` cannot turn off Bot's hard barriers. Always lint as if your flat config is exactly Bot's.
+  - **`obsidianmd/*` is no-disable by default.** Specifically `no-nodejs-modules`, `settings-tab/prefer-setting-definitions`, `no-global-this`, `prefer-active-doc`. The local config may try to relax these — Bot will still reject inline `eslint-disable`.
+  - **`@typescript-eslint/no-unsafe-*` propagates through function boundaries.** `const x: T = require(...)` does NOT satisfy the linter — it inspects expression return types, not annotations. `any` from a `require()` pollutes every downstream caller.
+  - **Standard Node.js API patterns that work**:
+    - Node built-in modules: `await import('node:module')` (dynamic) inside `if (!Platform.isDesktop) throw ...` guard. Static `import` of node built-ins is unconditionally rejected.
+    - Type-safe require: `module.createRequire(__filename)` (Node 15+ official API) — use this for typed `node:http` etc. instead of bare `require()`.
+    - `__filename` / `__dirname` need inline `eslint-disable no-undef` (not in Bot's no-restricted-disable list — legal per-line).
+  - **Test bundle-shape contracts may be obsolete.** v1.25.5's `expect(bundle).toContain('require("node:http")')` became false after `createRequire` migration. Update assertions to the new pattern (`import("node:module")` + `createRequire` present).
+  - **Memory:** [[feedback_obsidian_bot_double_lint]] (the v1.25.4/5/6 three-attempt saga with full root-cause analysis).
 
 ---
 
