@@ -22,7 +22,8 @@ import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
 import { formatPageRefSummary } from '../../core/ppr-cascade';
 import { buildTurnIndicator, observeVisibleTurn } from '../turn-indicator';
-import { TOKENS_QUERY_LLM_SELECT, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_SHORT, NOTICE_NORMAL, NOTICE_ERROR, CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS } from '../../constants';
+import { TOKENS_QUERY_ANSWER, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_SHORT, NOTICE_NORMAL, NOTICE_ERROR, CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS } from '../../constants';
+import { capMaxTokens } from '../../core/token-cap';
 import { getSectionLabels } from '../system-prompts';
 
 import { extractThinkingPanel } from './renderers/thinking-extract';
@@ -514,7 +515,16 @@ export class QueryView extends ItemView {
         try {
           fullResponse = await this.plugin.llmClient.createMessageStream({
             model: queryModel,
-            max_tokens: TOKENS_QUERY_LLM_SELECT,
+            // Issue #75 cap applied here rather than inherited: the advanced-
+            // settings wrapper only overrides createMessage, so a streaming
+            // call would otherwise ignore maxTokensPerCall and can exceed a
+            // local server's context window.
+            max_tokens: capMaxTokens(TOKENS_QUERY_ANSWER, this.plugin.settings),
+            onFinish: (meta) => {
+              if (meta.finishReason === 'length') {
+                console.warn('[QueryView] streaming answer truncated (finish_reason=length) at max_tokens=', capMaxTokens(TOKENS_QUERY_ANSWER, this.plugin.settings));
+              }
+            },
             system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
             messages: conversationMessages,
             onChunk: (chunk) => {
@@ -550,7 +560,12 @@ export class QueryView extends ItemView {
             try {
               fullResponse = await this.plugin.llmClient.createMessage({
                 model: queryModel,
-                max_tokens: TOKENS_QUERY_LLM_SELECT,
+                max_tokens: TOKENS_QUERY_ANSWER,
+                onFinish: (meta) => {
+                  if (meta.finishReason === 'length') {
+                    console.warn('[QueryView] non-stream-fallback answer truncated (finish_reason=length) at max_tokens=', TOKENS_QUERY_ANSWER);
+                  }
+                },
                 system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
                 messages: conversationMessages,
                 ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),
@@ -639,7 +654,12 @@ export class QueryView extends ItemView {
         console.debug('[QueryView] non-stream-main chat model:', queryModel);
         const response = await this.plugin.llmClient!.createMessage({
           model: queryModel,
-          max_tokens: TOKENS_QUERY_LLM_SELECT,
+          max_tokens: TOKENS_QUERY_ANSWER,
+          onFinish: (meta) => {
+            if (meta.finishReason === 'length') {
+              console.warn('[QueryView] non-stream-main answer truncated (finish_reason=length) at max_tokens=', TOKENS_QUERY_ANSWER);
+            }
+          },
           system: appendCustomQueryInstructions(wikiContext, this.plugin.settings.customQueryInstructions),
           messages: conversationMessages,
           ...(this.plugin.settings.disableThinking ? { enableThinking: false } : {}),

@@ -20,7 +20,7 @@
 
 import { type LanguageModel, APICallError } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { LLMClient } from '../types';
+import { LLMClient, type LLMFinishReason } from '../types';
 import { obsidianFetchBridge, streamWithFallback } from '../core/obsidian-fetch-bridge';
 import { mapAiSdkError } from './openai-sdk-client';
 import {
@@ -157,7 +157,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
         ...(temperature !== undefined ? { temperature } : {}),
       });
-      reportFinish(onFinish, result.finishReason);
+      reportFinish(onFinish, result.finishReason, result.usage);
       return result.text;
     } catch (err) {
       // v1.23.0 P1.5: URL fallback for custom baseURLs.
@@ -185,7 +185,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...(temperature !== undefined ? { temperature } : {}),
         });
-        reportFinish(onFinish, result.finishReason);
+        reportFinish(onFinish, result.finishReason, result.usage);
         return result.text;
       }
 
@@ -217,7 +217,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...(temperature !== undefined ? { temperature } : {}),
         });
-        reportFinish(onFinish, result.finishReason);
+        reportFinish(onFinish, result.finishReason, result.usage);
         return result.text;
       }
 
@@ -259,6 +259,12 @@ export class OpenAICompatSdkClient implements LLMClient {
       // plugin's Custom Advanced Settings (which can pass through
       // a different providerOptions shape in v1.24.0).
       openaiOpts.thinking = { type: 'disabled' };
+      // llama.cpp's llama-server (and most local OpenAI-compatible servers
+      // serving Qwen3-family models) ignores `thinking.type` entirely — it
+      // expects chat_template_kwargs instead. Unknown fields are ignored by
+      // both dialects, so sending both is safe and makes the toggle actually
+      // work against local backends.
+      openaiOpts.chat_template_kwargs = { enable_thinking: false };
     }
 
     if (opts.repetitionPenalty !== undefined) {
@@ -281,8 +287,9 @@ export class OpenAICompatSdkClient implements LLMClient {
     enableThinking?: boolean;
     temperature?: number;
     repetition_penalty?: number;
+    onFinish?: (meta: { finishReason: LLMFinishReason }) => void;
   }): Promise<string> {
-    const { model, max_tokens, system, messages, onChunk, temperature, repetition_penalty, enableThinking } = params;
+    const { model, max_tokens, system, messages, onChunk, temperature, repetition_penalty, enableThinking, onFinish } = params;
 
     // v1.23.0 P1-7 follow-up: stream path uses streamWithFallback
     // (real streaming via window.fetch with CORS fallback to
@@ -339,6 +346,15 @@ export class OpenAICompatSdkClient implements LLMClient {
         await new Promise<void>(resolve => window.setTimeout(resolve, 0));
       }
       console.debug(`[STREAM-CHUNK] total chunks forwarded: ${chunkCount} in ${Date.now() - streamStartTime}ms`);
+
+      // Surface why generation stopped. Without this a `length` finish is
+      // indistinguishable from a normal one and the answer simply ends
+      // mid-sentence with no indication anything was cut.
+      try {
+        reportFinish(onFinish, await result.finishReason, await result.usage);
+      } catch {
+        /* finishReason unavailable on this provider — leave as unknown */
+      }
 
       // Collect reasoning content (if any) from the post-stream Promise.
       // OpenAI o-series and reasoning-capable providers populate this.

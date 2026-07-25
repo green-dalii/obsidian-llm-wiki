@@ -145,8 +145,14 @@ describe('OpenAICompatSdkClient', () => {
       });
 
       const call = mockGenerateText.mock.calls[0][0] as unknown as Record<string, unknown>;
+      // Both dialects are sent: `thinking.type` for DeepSeek/Kimi/GLM, and
+      // `chat_template_kwargs` for llama.cpp-style local servers, which ignore
+      // the former entirely. Each side ignores the field it does not know.
       expect(call.providerOptions).toEqual({
-        openaiCompatible: { thinking: { type: 'disabled' } },
+        openaiCompatible: {
+          thinking: { type: 'disabled' },
+          chat_template_kwargs: { enable_thinking: false },
+        },
       });
     });
 

@@ -29,6 +29,7 @@ import {
   MentionWithProvenance,
   WIKI_LANGUAGES,
   LLMFinishReason,
+  LLMUsage,
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../core/json';
@@ -226,8 +227,13 @@ export class SourceAnalyzer {
     // closure so the parse-failure path and the catch path share one
     // implementation. Returns whether the caller should re-run this batch;
     // the caller owns the loop control (`batchNum--; continue;`).
+    // Whether a halve-and-retry is still available for the current batch.
+    // Gates both the retry itself and the decision to skip JSON repair on a
+    // truncated response — repair is the last salvage once halving is spent.
+    const canHalveBatch = (): boolean => !retryingBatch && currentBatchSize > limits.minBatchSize;
+
     const halveBatchAndRetry = (batchLabel: string, cause: string): boolean => {
-      if (retryingBatch || currentBatchSize <= limits.minBatchSize) return false;
+      if (!canHalveBatch()) return false;
       currentBatchSize = Math.max(limits.minBatchSize, Math.floor(currentBatchSize * 0.5));
       console.warn(`${batchLabel} Truncation detected (${cause}), halving batch size to ${currentBatchSize} and retrying`);
       retryingBatch = true;
@@ -340,7 +346,7 @@ export class SourceAnalyzer {
         // report it leave this at 'unknown', which keeps pre-#305 behavior.
         // Held in an object rather than a bare `let` so control-flow analysis
         // does not narrow it to its initializer across the callback.
-        const finish: { reason: LLMFinishReason } = { reason: 'unknown' };
+        const finish: { reason: LLMFinishReason; usage?: LLMUsage } = { reason: 'unknown' };
         const response = await client.createMessage({
           model: resolvedModel,
           max_tokens: batchMaxTokens,
@@ -349,23 +355,49 @@ export class SourceAnalyzer {
           response_format: { type: 'json_object' },
           cacheBreakpoint: staticPrefix.length,
           maxTokensPerCall: retryCap,
-          onFinish: (meta) => { finish.reason = meta.finishReason; },
+          onFinish: (meta) => { finish.reason = meta.finishReason; finish.usage = meta.usage; },
         });
 
-        console.debug(`[Batch ${batchNum + 1}] Response length:`, response.length);
+        // Surface real token usage (Issue #305 follow-up): the model reports
+        // prompt/completion tokens; logging them per batch turns truncation
+        // tuning (batch size vs max_tokens vs context window) into a
+        // measurement instead of a char-count guess.
+        const usageStr = finish.usage
+          ? ` | tokens in=${finish.usage.inputTokens ?? '?'} out=${finish.usage.outputTokens ?? '?'} (max_tokens=${batchMaxTokens})`
+          : '';
+        console.debug(`[Batch ${batchNum + 1}] Response length:`, response.length, usageStr);
         this.ctx.onProgress?.(`Analyzed batch ${batchNum + 1}, processing...`);
 
-        const analysisData = await parseJsonResponse(response, async (malformedJson: string) => {
-          const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
-          return await client.createMessage({
-            model: resolveModelForTask(this.ctx.settings, 'ingest'),
-            max_tokens: retryCap, // Repair may need full output if original was truncated at retryCap
-            system: await this.ctx.buildSystemPrompt('analyze'),
-            messages: [{ role: 'user', content: repairPrompt }],
-            response_format: { type: 'json_object' },
-            maxTokensPerCall: retryCap,
-          });
-        }, { silentOnEmpty: true }) as Partial<SourceAnalysis> | null;
+        // Issue #305 follow-up: on a truncated response (finish_reason=length)
+        // the JSON is *incomplete*, not malformed, and a syntax-repair pass
+        // costs another retryCap-sized call re-hitting the same limit
+        // (observed: a ~48k-token repair that itself truncates). Prefer
+        // halve-and-retry, which re-runs the batch smaller.
+        //
+        // Only skip repair while that retry is actually available. Once the
+        // halving budget is spent, repair becomes the last salvage: a truncated
+        // batch is a prefix of complete items followed by one cut-off item, and
+        // closing the brackets around the complete ones is exactly what the
+        // repair prompt asks for. Without it the parse-failure path falls to
+        // `return null` on a first batch — dropping the whole source rather
+        // than the items that did arrive.
+        //
+        // Providers that report no finish reason keep 'unknown' and the repair
+        // path regardless.
+        const repairFn = finish.reason === 'length' && canHalveBatch()
+          ? undefined
+          : async (malformedJson: string) => {
+            const repairPrompt = `Fix the following malformed JSON. Only fix JSON syntax errors (unescaped quotes, trailing commas, missing brackets). Do NOT change any values or content. Output ONLY the fixed JSON, no other text.\n\n${malformedJson}`;
+            return await client.createMessage({
+              model: resolveModelForTask(this.ctx.settings, 'ingest'),
+              max_tokens: retryCap, // Repair may need full output if original was truncated at retryCap
+              system: await this.ctx.buildSystemPrompt('analyze'),
+              messages: [{ role: 'user', content: repairPrompt }],
+              response_format: { type: 'json_object' },
+              maxTokensPerCall: retryCap,
+            });
+          };
+        const analysisData = await parseJsonResponse(response, repairFn, { silentOnEmpty: true }) as Partial<SourceAnalysis> | null;
 
         if (!analysisData) {
           // Issue #305: a truncated response is not malformed JSON, it is
@@ -385,6 +417,15 @@ export class SourceAnalyzer {
           if (isFirstBatch) return null;
           break;
         }
+
+        // Issue #305 follow-up: the one-retry-per-batch budget must reset once
+        // a batch parses successfully. Otherwise the first halve anywhere
+        // latches `retryingBatch` for the rest of the source, so a later
+        // truncation can no longer halve (halveBatchAndRetry short-circuits)
+        // and its batch is silently dropped — the source finalizes as
+        // complete while missing that batch's items. Resetting here, on the
+        // success path, gives each batch its own retry budget.
+        retryingBatch = false;
 
         const { validity, data: norm } = normalizeBatchResponse(analysisData);
 

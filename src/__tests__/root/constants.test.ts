@@ -56,8 +56,8 @@ describe('Token budget constants (Issue #75)', () => {
     // v1.24.1 PATCH Phase 5.5.0: raised all Query-token budgets to 2000
     // so DeepSeek V3's reasoning preamble doesn't consume the entire
     // budget before the JSON output is emitted. TOKENS_LINT_ORPHAN_FIX
-    // (800) and TOKENS_QUERY_LLM_SELECT (3000) stay at their non-2000
-    // values from prior cycles.
+    // (800) stays at its non-2000 value from a prior cycle; the
+    // user-facing answer has its own budget (TOKENS_QUERY_ANSWER).
     expect(TOKENS_QUERY_PAGE_SELECT).toBe(2000);
     expect(TOKENS_QUERY_MODEL_DETECT).toBe(2000);
     expect(TOKENS_QUERY_SEED_SELECT).toBe(2000);

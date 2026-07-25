@@ -151,7 +151,7 @@ export class OpenAISdkClient implements LLMClient {
         ...(temperature !== undefined ? { temperature } : {}),
         // Top-level repetition_penalty is non-standard for OpenAI; pass via providerOptions.
       });
-      reportFinish(onFinish, result.finishReason);
+      reportFinish(onFinish, result.finishReason, result.usage);
       return result.text;
     } catch (err) {
       // v1.23.0 P1.5: URL fallback for custom baseURLs (Kimi / z.ai / GLM).
@@ -179,7 +179,7 @@ export class OpenAISdkClient implements LLMClient {
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...(temperature !== undefined ? { temperature } : {}),
         });
-        reportFinish(onFinish, result.finishReason);
+        reportFinish(onFinish, result.finishReason, result.usage);
         return result.text;
       }
       throw mapAiSdkError(err);

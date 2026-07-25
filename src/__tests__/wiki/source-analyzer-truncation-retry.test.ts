@@ -46,18 +46,23 @@ interface ScriptedReply {
  * because the repair call site does not pass `onFinish`. Keeping them out of
  * the script means the script indexes extraction attempts only.
  */
-function scriptedClient(replies: ScriptedReply[]): {
+function scriptedClient(replies: ScriptedReply[], opts: { repair?: (broken: string) => string } = {}): {
   client: LLMClient;
   prompts: string[];
+  repairPrompts: string[];
 } {
   const prompts: string[] = [];
+  const repairPrompts: string[] = [];
   let idx = 0;
   let lastText = '';
   const client: LLMClient = {
     createMessage: async (params) => {
       const first = params.messages[0];
       const prompt = typeof first.content === 'string' ? first.content : '';
-      if (prompt.startsWith('Fix the following malformed JSON')) return lastText;
+      if (prompt.startsWith('Fix the following malformed JSON')) {
+        repairPrompts.push(prompt);
+        return opts.repair ? opts.repair(lastText) : lastText;
+      }
       prompts.push(prompt);
       const reply = replies[idx++];
       if (!reply) throw new Error(`unscripted extraction call #${idx}`);
@@ -66,7 +71,7 @@ function scriptedClient(replies: ScriptedReply[]): {
       return reply.text;
     },
   };
-  return { client, prompts };
+  return { client, prompts, repairPrompts };
 }
 
 function analyzerWith(client: LLMClient): SourceAnalyzer {
@@ -148,6 +153,111 @@ describe('SourceAnalyzer truncation retry (#305)', () => {
     expect(result).toBeNull();
     expect(prompts.filter(p => batchSizeOf(p) !== null)).toHaveLength(2);
     expect(warn.mock.calls.filter(c => String(c[0]).includes('halving batch size'))).toHaveLength(1);
+    warn.mockRestore();
+  });
+});
+
+/**
+ * A truncated batch that still reaches the repair path.
+ *
+ * `TRUNCATED` above stops before any closing brace, so neither the
+ * brace-count nor the greedy-regex recovery finds a candidate and `repairFn`
+ * is never consulted. A real truncated batch cuts off after several complete
+ * items, leaving closing braces behind — the greedy regex then matches up to
+ * the last one, fails to parse, and the repair call fires. That is the call
+ * this change avoids.
+ */
+const TRUNCATED_MID_ARRAY = '{"source_title": "Protein misfolding", "entities": ['
+  + '{"name": "Amyloid", "type": "other", "summary": "An aggregate", "mentions_in_source": []}, '
+  + '{"name": "Tau", "type": "other", "summary": "Aggregation occurs spontane';
+
+describe('SourceAnalyzer truncation — no futile repair call (#305 follow-up)', () => {
+  it('skips the JSON-repair call when the response was truncated', async () => {
+    // A truncated response is incomplete, not malformed: repair cannot restore
+    // content the model never emitted, and the call costs another
+    // retryCap-sized request that re-hits the same limit.
+    const { client, repairPrompts } = scriptedClient([
+      { text: TRUNCATED_MID_ARRAY, finishReason: 'length' },
+      { text: VALID, finishReason: 'stop' },
+    ]);
+
+    await run(analyzerWith(client));
+
+    expect(repairPrompts).toHaveLength(0);
+  });
+
+  it('still repairs a malformed-but-complete response', async () => {
+    // finish_reason=stop means the model finished; the JSON is genuinely
+    // broken, so the repair path must stay. parseJsonResponse attempts repair
+    // from two recovery strategies, so the count is "more than none" rather
+    // than an exact number.
+    const { client, repairPrompts } = scriptedClient([
+      { text: '{"entities": [oops]}', finishReason: 'stop' },
+    ]);
+
+    await run(analyzerWith(client));
+
+    expect(repairPrompts.length).toBeGreaterThan(0);
+  });
+
+  it('still repairs when the client reports no finish reason', async () => {
+    const { client, repairPrompts } = scriptedClient([
+      { text: '{"entities": [oops]}' },
+    ]);
+
+    await run(analyzerWith(client));
+
+    expect(repairPrompts.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * What a repair pass actually does to a truncated batch: drop the cut-off tail
+ * and close the brackets around the items that did arrive. The default stub
+ * echoes the broken text back, which models repair as unable to help — fine for
+ * asserting "repair was skipped", useless for asserting "repair salvaged it".
+ */
+function closeBrackets(broken: string): string {
+  const lastComplete = broken.lastIndexOf('}');
+  return lastComplete === -1 ? broken : broken.slice(0, lastComplete + 1) + ']}';
+}
+
+describe('SourceAnalyzer truncation — repair is the last salvage (#305 follow-up)', () => {
+  it('repairs a truncated batch once the halving budget is spent', async () => {
+    // First truncation halves. The second cannot halve again within the same
+    // batch, and without repair the parse failure reaches `if (isFirstBatch)
+    // return null` — dropping the whole source instead of the complete items
+    // the model did emit.
+    const { client, repairPrompts } = scriptedClient([
+      { text: TRUNCATED_MID_ARRAY, finishReason: 'length' },
+      { text: TRUNCATED_MID_ARRAY, finishReason: 'length' },
+    ], { repair: closeBrackets });
+
+    const result = await run(analyzerWith(client));
+
+    expect(repairPrompts.length).toBeGreaterThan(0);
+    expect(result).not.toBeNull();
+    expect(result!.entities.map(e => e.name)).toEqual(['Amyloid']);
+  });
+});
+
+describe('SourceAnalyzer truncation — retry budget resets per batch (#305 follow-up)', () => {
+  it('halves again for a later truncation once a batch has succeeded', async () => {
+    // The one-retry-per-batch budget used to latch for the whole source: the
+    // first halve anywhere meant a later truncated batch could no longer
+    // halve, and was dropped while the source finalized as "complete".
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { client } = scriptedClient([
+      { text: TRUNCATED, finishReason: 'length' },  // batch 1 truncates -> halve
+      { text: VALID, finishReason: 'stop' },        // retry succeeds -> budget resets
+      { text: TRUNCATED, finishReason: 'length' },  // batch 2 truncates -> must halve again
+      { text: VALID, finishReason: 'stop' },
+    ]);
+
+    await run(analyzerWith(client));
+
+    const halvings = warn.mock.calls.filter(c => String(c[0]).includes('halving batch size'));
+    expect(halvings.length).toBeGreaterThanOrEqual(2);
     warn.mockRestore();
   });
 });
