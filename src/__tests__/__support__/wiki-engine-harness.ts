@@ -14,8 +14,13 @@ import { WikiEngine } from '../../wiki/wiki-engine';
 import { parseFrontmatter } from '../../core/frontmatter';
 import { DEFAULT_SETTINGS } from './engine-context';
 
+type LLMRequest = Parameters<LLMClient['createMessage']>[0];
+
 export interface WikiEngineHarness {
   engine: WikiEngine;
+  /** Every request handed to the LLM stub, in order. Lets a test assert on the
+   *  prompt the engine built, not just on what the stub returned. */
+  llmRequests: LLMRequest[];
   /** Every path written by the engine (via onFileWrite), in order. */
   writtenPaths: string[];
   /** Every IngestReport delivered to onDone, in order. */
@@ -52,6 +57,7 @@ function mkFile(path: string): TFile {
 
 export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHarness {
   const files = new Map<string, string>(Object.entries(opts.files ?? {}));
+  const llmRequests: LLMRequest[] = [];
   const writtenPaths: string[] = [];
   const reports: IngestReport[] = [];
   const stats = { llmCalls: 0, vaultMarkdownScans: 0 };
@@ -99,8 +105,9 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
   } as unknown as App;
 
   const client: LLMClient = {
-    createMessage: async () => {
+    createMessage: async params => {
       stats.llmCalls++;
+      llmRequests.push(params);
       return opts.llmResponses?.[llmIdx++] ?? '{"entities":[],"concepts":[]}';
     },
   };
@@ -132,7 +139,7 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
     () => { /* onEnd: nothing to capture */ },
   );
 
-  return { engine, writtenPaths, reports, files, stats, startedFilenames, progressMessages };
+  return { engine, llmRequests, writtenPaths, reports, files, stats, startedFilenames, progressMessages };
 }
 
 /** True if any written path is a wiki entity/concept/source page (the #164 symptom). */
