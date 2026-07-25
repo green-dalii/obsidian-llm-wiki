@@ -241,13 +241,14 @@ export const TOKENS_QUERY_MODEL_DETECT = 2000;
 export const TOKENS_QUERY_PAGE_SELECT = 2000;
 
 /**
- * Token budget for query LLM selection (Layer 2/3).
+ * Output budget for the final conversational answer in the Query flow.
  *
- * v1.24.1 PATCH Phase 5.5.0: already 3000 from a prior cycle; unchanged.
- * (Earlier note incorrectly said raise to 2000 — that would have been
- * a regression. The user constraint is "only raise, never lower".)
+ * The Query flow used to reuse a 3000-token budget named for the internal
+ * page-selection step. On reasoning models the chain of thought is billed
+ * against the same budget and routinely consumes a third to a half of it, so
+ * the visible answer was cut mid-sentence.
  */
-export const TOKENS_QUERY_LLM_SELECT = 3000;
+export const TOKENS_QUERY_ANSWER = 8000;
 
 /**
  * Token budget for query suggest-save dedup check.

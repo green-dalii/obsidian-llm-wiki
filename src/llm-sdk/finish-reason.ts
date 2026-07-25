@@ -7,7 +7,7 @@
 // `result.finishReason`; every client here simply dropped it on `return
 // result.text`. These helpers carry it to callers that opt in.
 
-import type { LLMFinishReason } from '../types';
+import type { LLMFinishReason, LLMFinishMeta, LLMUsage } from '../types';
 
 const KNOWN_FINISH_REASONS: readonly LLMFinishReason[] = [
   'stop',
@@ -41,9 +41,10 @@ export function normalizeFinishReason(raw: unknown): LLMFinishReason {
  * site and every mock client unchanged.
  */
 export function reportFinish(
-  onFinish: ((meta: { finishReason: LLMFinishReason }) => void) | undefined,
+  onFinish: ((meta: LLMFinishMeta) => void) | undefined,
   raw: unknown,
+  usage?: LLMUsage,
 ): void {
   if (!onFinish) return;
-  onFinish({ finishReason: normalizeFinishReason(raw) });
+  onFinish({ finishReason: normalizeFinishReason(raw), ...(usage ? { usage } : {}) });
 }

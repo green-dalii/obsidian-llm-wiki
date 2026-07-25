@@ -548,6 +548,21 @@ export type LLMFinishReason =
   | 'other'
   | 'unknown';
 
+/** Token usage for a single LLM call (AI-SDK v6 shape). Any field may be
+ *  undefined when a provider omits usage from its response. */
+export interface LLMUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+}
+
+/** Metadata surfaced by SDK-backed clients via `onFinish` (Issue #305 +
+ *  token usage). Additive: callers that ignore it are unaffected. */
+export interface LLMFinishMeta {
+  finishReason: LLMFinishReason;
+  usage?: LLMUsage;
+}
+
 export interface LLMClient {
   createMessage(params: {
     model: string;
@@ -574,7 +589,7 @@ export interface LLMClient {
     // so every existing caller and every mock client is unaffected. Callers
     // that need to distinguish "the model finished" from "the model ran out
     // of tokens" opt in; callers that do not, see no change.
-    onFinish?: (meta: { finishReason: LLMFinishReason }) => void;
+    onFinish?: (meta: LLMFinishMeta) => void;
   }): Promise<string>;
 
   createMessageStream?(params: {
@@ -586,6 +601,8 @@ export interface LLMClient {
     enableThinking?: boolean;
     temperature?: number;
     repetition_penalty?: number;
+    /** Issue: streamed answers were truncated silently — surface finish_reason. */
+    onFinish?: (meta: LLMFinishMeta) => void;
   }): Promise<string>;
 
   listModels?(): Promise<string[]>;
