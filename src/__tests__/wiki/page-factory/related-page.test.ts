@@ -310,3 +310,55 @@ describe('updateRelatedPage — Mentions are never LLM-owned (#267 parity)', () 
     expect(seenPrompt).toContain('Old body.');
   });
 });
+// #312 part 3 — the related-page rewrite prompt had no output format block, so
+// the model was free to open the page with the newest source's facts. The
+// contract mirrors appendToReviewedPage: existing content keeps its position,
+// new information comes after it.
+describe('updateRelatedPage — output order contract (#312)', () => {
+  it('renders an explicit output format placing new information AFTER existing content', async () => {
+    let seenPrompt = '';
+    const ctx = makeCtx({ pageContent: EXISTING_FM });
+    ctx.getClient = () => ({
+      createMessage: async (req: { messages: Array<{ content: string }> }) => {
+        seenPrompt = req.messages[0].content;
+        return '## Description\nOld body.\n\n## Extra\nNew facts.';
+      },
+    }) as ReturnType<RelatedPageContext['getClient']>;
+
+    const result = await updateRelatedPage(
+      ctx,
+      PAGE_TITLE,
+      makeAnalysis(PAGE_TITLE),
+      { path: 'src.md', basename: 'src' },
+    );
+
+    expect(result).toBe(true);
+    expect(seenPrompt).toContain('**Output Format:**');
+    expect(seenPrompt).toContain('NEVER place new information above the existing content.');
+  });
+
+  it('orders the two output slots existing-before-new in the rendered prompt', async () => {
+    let seenPrompt = '';
+    const ctx = makeCtx({ pageContent: EXISTING_FM });
+    ctx.getClient = () => ({
+      createMessage: async (req: { messages: Array<{ content: string }> }) => {
+        seenPrompt = req.messages[0].content;
+        return '## Description\nOld body.';
+      },
+    }) as ReturnType<RelatedPageContext['getClient']>;
+
+    await updateRelatedPage(
+      ctx,
+      PAGE_TITLE,
+      makeAnalysis(PAGE_TITLE),
+      { path: 'src.md', basename: 'src' },
+    );
+
+    const existingSlot = seenPrompt.indexOf('[existing sections');
+    const newSlot = seenPrompt.indexOf('[new information');
+    expect(existingSlot).toBeGreaterThan(-1);
+    expect(newSlot).toBeGreaterThan(-1);
+    // Positional contract, not merely textual presence.
+    expect(existingSlot).toBeLessThan(newSlot);
+  });
+});
