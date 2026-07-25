@@ -16,7 +16,8 @@
 //     kept tight to control classify-token cost.
 
 import { TFile } from 'obsidian';
-import type { EntityInfo, ConceptInfo, LLMWikiSettings } from '../../types';
+import type { EntityInfo, ConceptInfo, LLMWikiSettings, SourceContext } from '../../types';
+import { slugKeys } from '../../core/slug';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
 import { TOKENS_MERGE_TRIAGE } from '../../constants';
@@ -148,6 +149,44 @@ export async function classifyMergeNeed(
   }
 
   return { strategy, items, reason };
+}
+
+/**
+ * Issue #312 part 2 — deterministic ownership test, no LLM involved.
+ *
+ * True when the source carries the page's own lemma: its file basename, its
+ * analyzer title, or one of its curated note aliases slug-matches the page
+ * name or one of the page's aliases. That is the case where the source IS the
+ * page's subject rather than a document that mentions it in passing.
+ *
+ * Fires only when `sourceContext` is present, i.e. on the ingest path. Callers
+ * without one (lint) keep their previous behaviour exactly.
+ *
+ * On a corpus whose notes are not lemma-shaped — no note titled like the page
+ * it is about — this never matches and the merge path is unchanged. Inert
+ * rather than harmful is the intended failure mode.
+ */
+export function isSourceOwnPageLemma(params: {
+  pageName: string;
+  pageAliases?: readonly string[];
+  sourceBasename: string;
+  sourceContext?: SourceContext;
+}): boolean {
+  const { pageName, pageAliases = [], sourceBasename, sourceContext } = params;
+  if (!sourceContext) return false;
+
+  const pageKeys = slugKeys(pageName, pageAliases);
+  if (pageKeys.size === 0) return false;
+
+  const sourceKeys = slugKeys(sourceBasename, [
+    sourceContext.sourceTitle,
+    ...(sourceContext.noteAliases ?? []),
+  ]);
+
+  for (const key of sourceKeys) {
+    if (pageKeys.has(key)) return true;
+  }
+  return false;
 }
 
 /**

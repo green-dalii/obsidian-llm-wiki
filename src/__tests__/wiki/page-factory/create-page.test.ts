@@ -51,7 +51,10 @@ function makeCtx(opts: {
   };
 }
 
-const EMPTY_ANALYSIS = {} as unknown;
+// #312: the third parameter used to be `unknown` and was dropped on the floor;
+// it now carries the source analysis. These cases exercise the no-analysis
+// path (lint-side callers), which is exactly what `{} as unknown` meant here.
+const EMPTY_ANALYSIS = undefined;
 
 describe('createOrUpdatePage — empty name guard', () => {
   it('returns path=null when name is empty', async () => {
