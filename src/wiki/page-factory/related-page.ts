@@ -113,7 +113,11 @@ export async function updateRelatedPage(
   const promptBody = stripMentionsSection(existingBody, labels.mentions_in_source);
 
   const prompt = PROMPTS.updateRelatedPage
-    .replace('{{page_name}}', pageName)
+    // Global: `{{page_name}}` occurs twice in the template. A string pattern
+    // replaces only the first match, so the sentence that names the page's
+    // subject ("provides additional information about {{page_name}}") reached
+    // the model with the literal placeholder still in it.
+    .replace(/\{\{page_name\}\}/g, pageName)
     .replace('{{existing_body}}', promptBody)
     .replace('{{source_basename}}', sourceFile.basename)
     .replace('{{new_info}}', JSON.stringify(newInfo))

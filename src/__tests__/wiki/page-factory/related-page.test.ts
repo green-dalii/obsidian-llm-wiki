@@ -362,3 +362,34 @@ describe('updateRelatedPage — output order contract (#312)', () => {
     expect(existingSlot).toBeLessThan(newSlot);
   });
 });
+
+// The rendering bug the output-order work uncovered: `{{page_name}}` occurs
+// twice in the template, and `String.prototype.replace` with a string pattern
+// substitutes only the first occurrence. Every related-page rewrite therefore
+// asked the model to add information about a literal `{{page_name}}`.
+describe('updateRelatedPage — placeholder rendering', () => {
+  it('substitutes every {{page_name}} occurrence, not just the first', async () => {
+    let seenPrompt = '';
+    const ctx = makeCtx({ pageContent: EXISTING_FM });
+    ctx.getClient = () => ({
+      createMessage: async (req: { messages: Array<{ content: string }> }) => {
+        seenPrompt = req.messages[0].content;
+        return '## Description\nOld body.';
+      },
+    }) as ReturnType<RelatedPageContext['getClient']>;
+
+    await updateRelatedPage(
+      ctx,
+      PAGE_TITLE,
+      makeAnalysis(PAGE_TITLE),
+      { path: 'src.md', basename: 'src' },
+    );
+
+    expect(seenPrompt).toContain(`provides additional information about ${PAGE_TITLE}`);
+    expect(seenPrompt).not.toContain('{{page_name}}');
+    // Note: `{{existing_pages}}` does survive here, but it comes from the
+    // shared UNIVERSAL_LINK_CONSTRAINTS prose and is not a placeholder this
+    // template renders. Out of scope for this fix — asserted narrowly so the
+    // test pins the bug it is about.
+  });
+});
