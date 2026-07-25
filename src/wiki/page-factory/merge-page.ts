@@ -27,7 +27,7 @@
 //     Mentions section (pageIsReviewed: true).
 
 import { TFile } from 'obsidian';
-import type { EntityInfo, ConceptInfo, LLMWikiSettings, LLMClient } from '../../types';
+import type { EntityInfo, ConceptInfo, LLMWikiSettings, LLMClient, SourceContext } from '../../types';
 import {
   TOKENS_PAGE_GENERATION,
   TOKENS_APPEND_REVIEWED,
@@ -40,12 +40,12 @@ import {
   preserveExistingSections,
 } from '../../core/section-header-canonicalizer';
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
-import { mergeFrontmatter } from '../../core/frontmatter';
+import { mergeFrontmatter, parseFrontmatter } from '../../core/frontmatter';
 import { injectMentionsSection } from '../../core/mentions-injector';
 import { applySectionLabels, getSectionLabels } from '../system-prompts';
 import { UNIVERSAL_LINK_CONSTRAINTS } from '../prompts/constraints';
 import { buildPagesListForPrompt } from './path-resolution';
-import { classifyMergeNeed } from './merge-triage';
+import { classifyMergeNeed, isSourceOwnPageLemma } from './merge-triage';
 import { assembleFinalContent } from './mentions-integration';
 import { applyComplementaryAppends } from './complementary-appends';
 import { firstQuotesForPrompt, isConversationSource, mergeError } from './contextualize';
@@ -81,6 +81,7 @@ export async function mergePage(
   extraPagePaths: string[],
   path: string,
   sourceSlug?: string,
+  sourceContext?: SourceContext,
 ): Promise<string | null> {
   const client = ctx.getClient();
   if (!client) throw new Error('LLM client not initialized');
@@ -92,17 +93,45 @@ export async function mergePage(
       sourceSlug ? `sources/${sourceSlug}` : sourceFile.path,
     );
 
+    // Issue #312 part 2 — deterministic, no LLM: is this source the page's own
+    // subject? Compared against the page FILE name (the page's identity) plus
+    // its curated aliases; slug comparison on both sides, so "Silent
+    // Inflammation.md" matches the page "Silent-Inflammation".
+    const pageBasename = path.split('/').pop()?.replace(/\.md$/i, '') ?? '';
+    const existingAliases = parseFrontmatter(existingContent)?.aliases;
+    const sourceOwnsPage = isSourceOwnPageLemma({
+      pageName: pageBasename,
+      pageAliases: Array.isArray(existingAliases) ? existingAliases : undefined,
+      sourceBasename: sourceFile.basename,
+      sourceContext,
+    });
+
     // 1. v1.24.0 #216 — classify-then-route triage.
     let shouldSkip = false;
     let complementaryBody: string | null = null;
     try {
       const triage = await classifyMergeNeed(ctx, info, pageType, sourceFile, existingBody);
-      if (triage.strategy === 'skip') {
+
+      // #312 part 2: a page's own primary source must not be dropped on a
+      // novelty judgement — that is how an incidental mention keeps a
+      // definition it wrote first. Route it to the body merge, which is the
+      // prompt's own stated default whenever the call is not clear-cut.
+      // Deliberately narrow: only `skip` is overridden. `complementary`
+      // already writes the new facts, and rerouting it would trade a targeted
+      // append for a full rewrite without cause.
+      const strategy = triage.strategy === 'skip' && sourceOwnsPage ? 'merge' : triage.strategy;
+      if (strategy !== triage.strategy) {
+        console.debug(
+          `[mergePage] triage=skip overridden to merge — "${sourceFile.basename}" carries this page's own lemma (#312) for ${path}`,
+        );
+      }
+
+      if (strategy === 'skip') {
         console.debug(
           `[mergePage] triage=skip reason="${triage.reason}" — preserving existing body for ${path}`,
         );
         shouldSkip = true;
-      } else if (triage.strategy === 'complementary' && triage.items.length > 0) {
+      } else if (strategy === 'complementary' && triage.items.length > 0) {
         console.debug(
           `[mergePage] triage=complementary items=${triage.items.length} — appending to existing sections for ${path}`,
         );

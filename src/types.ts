@@ -31,6 +31,29 @@ export interface MentionWithProvenance {
   extracted_at: string;
 }
 
+/**
+ * Issue #312 — the ingest-side facts the merge path needs in order to tell a
+ * source that a page is ABOUT from a source that merely mentions it.
+ *
+ * Optional at every call site. Callers without an ingest upstream (the lint
+ * pipeline) pass nothing, which leaves both the merge routing and the rendered
+ * triage prompt exactly as they were.
+ */
+export interface SourceContext {
+  /** `SourceAnalysis.source_title` — the analyzer's title for the source. */
+  sourceTitle: string;
+  /**
+   * `SourceAnalysis.summary` — what the SOURCE document is about. Distinct
+   * from `EntityInfo.summary` / `ConceptInfo.summary`, which describe the
+   * extracted item; the triage prompt already carries the latter.
+   */
+  summary: string;
+  /** Carried for telemetry only — deliberately not rendered into any prompt. */
+  sourcePath: string;
+  /** Curated `aliases:` authored on the source note frontmatter (Issue #185). */
+  noteAliases?: string[];
+}
+
 export interface SourceAnalysis {
   source_file: string;
   source_title: string;

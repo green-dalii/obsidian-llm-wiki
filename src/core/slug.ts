@@ -41,6 +41,23 @@ export function computeSlug(text: string, preserveCase = false): string {
   return preserveCase ? finalSlug : finalSlug.toLowerCase();
 }
 
+// Issue #312 — comparison keys for "do these two names denote the same thing".
+// Returns the slugified forms of a name plus its aliases in the case-insensitive
+// comparison form (never preserveCase, per the rule above), so a caller can test
+// two naming sets for overlap with a set intersection.
+//
+// Pure and allocation-cheap: the merge path calls it once per page write.
+export function slugKeys(name: string, aliases: readonly string[] = []): Set<string> {
+  const keys = new Set<string>();
+  for (const raw of [name, ...aliases]) {
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) continue;
+    keys.add(computeSlug(trimmed));
+  }
+  return keys;
+}
+
 // Filter out aliases that are redundant against a page's own filename.
 // Obsidian resolves `[[X]]` to a file whose basename equals X (case-insensitive),
 // so an alias that already equals the filename is a self-pointing no-op that only

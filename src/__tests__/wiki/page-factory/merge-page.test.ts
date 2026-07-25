@@ -197,3 +197,84 @@ describe('appendToReviewedPage — happy path writes merged content', () => {
     expect(written).not.toContain('quote-A');
   });
 });
+// Issue #312 part 2 — deterministic ownership guard. A source that carries the
+// page's own lemma must not be dropped on a novelty judgement: that is how a
+// page keeps a definition written by the first source that mentioned it in
+// passing, while its actual subject source is skipped.
+describe('mergePage — source owning the page lemma overrides triage=skip (#312)', () => {
+  const OWNING_CONTEXT = {
+    sourceTitle: 'Caching',
+    summary: 'A note about caching.',
+    sourcePath: 'Notes/Caching.md',
+  };
+
+  it('routes to the body merge when the source basename is the page lemma', async () => {
+    const ctx = makeCtx(makeClient([
+      JSON.stringify({ strategy: 'skip', reason: 'no new info' }),
+      '## Description\nMerged text.',
+    ]));
+
+    const result = await mergePage(
+      ctx,
+      createMockEntity({ name: 'Caching' }),
+      'entity',
+      { path: 'Notes/Caching.md', basename: 'Caching' },
+      EXISTING,
+      [],
+      'wiki/entities/caching.md',
+      undefined,
+      OWNING_CONTEXT,
+    );
+
+    expect(result).toBe('wiki/entities/caching.md');
+    const written = ctx.written.get('wiki/entities/caching.md')!;
+    // The skip verdict was overridden — the merge path produced the body.
+    expect(written).toContain('Merged text.');
+  });
+
+  it('leaves triage=skip intact when the source does not carry the page lemma', async () => {
+    const ctx = makeCtx(makeClient([
+      JSON.stringify({ strategy: 'skip', reason: 'no new info' }),
+      '## Description\nMerged text.',
+    ]));
+
+    await mergePage(
+      ctx,
+      createMockEntity({ name: 'Caching' }),
+      'entity',
+      { path: 'Notes/Distributed Systems.md', basename: 'Distributed Systems' },
+      EXISTING,
+      [],
+      'wiki/entities/caching.md',
+      undefined,
+      { sourceTitle: 'Distributed Systems', summary: 's', sourcePath: 'Notes/Distributed Systems.md' },
+    );
+
+    const written = ctx.written.get('wiki/entities/caching.md')!;
+    // Unchanged behaviour: an incidental source is still skipped.
+    expect(written).toContain('Old text.');
+    expect(written).not.toContain('Merged text.');
+  });
+
+  it('does not fire without a source context — lint-side callers are unchanged', async () => {
+    const ctx = makeCtx(makeClient([
+      JSON.stringify({ strategy: 'skip', reason: 'no new info' }),
+      '## Description\nMerged text.',
+    ]));
+
+    await mergePage(
+      ctx,
+      createMockEntity({ name: 'Caching' }),
+      'entity',
+      // Same basename as the page: only the missing context keeps the guard off.
+      { path: 'Notes/Caching.md', basename: 'Caching' },
+      EXISTING,
+      [],
+      'wiki/entities/caching.md',
+    );
+
+    const written = ctx.written.get('wiki/entities/caching.md')!;
+    expect(written).toContain('Old text.');
+    expect(written).not.toContain('Merged text.');
+  });
+});

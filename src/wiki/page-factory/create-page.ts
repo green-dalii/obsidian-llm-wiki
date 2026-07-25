@@ -19,7 +19,15 @@
 // Conversation sources emit a single synthetic citation line.
 
 import { TFile } from 'obsidian';
-import type { EntityInfo, ConceptInfo, PageCreationResult, LLMWikiSettings, LLMClient } from '../../types';
+import type {
+  EntityInfo,
+  ConceptInfo,
+  PageCreationResult,
+  LLMWikiSettings,
+  LLMClient,
+  SourceAnalysis,
+  SourceContext,
+} from '../../types';
 import { PROMPTS } from '../../prompts';
 import { TOKENS_PAGE_GENERATION } from '../../constants';
 import { resolveModelForTask } from '../../core/model-resolver';
@@ -46,6 +54,23 @@ export interface CreatePageContext extends PathResolutionContext {
 }
 
 /**
+ * Issue #312 — lift the ingest-side source facts out of the analysis object
+ * the engine already hands to this module. Returns undefined when there is no
+ * analysis (lint-side callers), which keeps the merge path unchanged for them.
+ */
+export function sourceContextFromAnalysis(
+  analysis: SourceAnalysis | undefined,
+): SourceContext | undefined {
+  if (!analysis) return undefined;
+  return {
+    sourceTitle: analysis.source_title,
+    summary: analysis.summary,
+    sourcePath: analysis.source_file,
+    noteAliases: analysis.source_note_aliases,
+  };
+}
+
+/**
  * Generic page CRUD (entity/concept unified). Returns:
  *   - { path } when a page was written.
  *   - { path: null } when the name was empty.
@@ -59,6 +84,7 @@ export async function createOrUpdatePage(
   sourceFile: TFile | { path: string; basename: string },
   extraPagePaths: string[] = [],
   sourceSlug?: string,
+  sourceContext?: SourceContext,
 ): Promise<PageCreationResult> {
   if (!info.name || info.name.trim().length === 0) {
     console.warn(`${pageType} name is empty, skipping creation`);
@@ -84,7 +110,7 @@ export async function createOrUpdatePage(
         if (isReviewed) {
           await appendToReviewedPage(ctx, info, sourceFile, existingContent, targetPath, sourceSlug);
         } else {
-          await mergePage(ctx, info, targetType, sourceFile, existingContent, extraPagePaths, targetPath, sourceSlug);
+          await mergePage(ctx, info, targetType, sourceFile, existingContent, extraPagePaths, targetPath, sourceSlug, sourceContext);
         }
         console.debug(`Cross-type collision: merged "${info.name}" content into ${targetType} page ${targetPath}`);
       }
@@ -110,7 +136,7 @@ export async function createOrUpdatePage(
     return { path: updatedPath, created: false };
   }
 
-  const mergedPath = await mergePage(ctx, info, pageType, sourceFile, existingContent, extraPagePaths, result.path, sourceSlug);
+  const mergedPath = await mergePage(ctx, info, pageType, sourceFile, existingContent, extraPagePaths, result.path, sourceSlug, sourceContext);
   return { path: mergedPath, created: false };
 }
 
@@ -121,12 +147,15 @@ export async function createOrUpdatePage(
 export async function createOrUpdateEntityPage(
   ctx: CreatePageContext,
   entity: EntityInfo,
-  _analysis: unknown,
+  analysis: SourceAnalysis | undefined,
   sourceFile: TFile | { path: string; basename: string },
   extraPagePaths: string[] = [],
   sourceSlug?: string,
 ): Promise<PageCreationResult> {
-  return createOrUpdatePage(ctx, entity, 'entity', sourceFile, extraPagePaths, sourceSlug);
+  return createOrUpdatePage(
+    ctx, entity, 'entity', sourceFile, extraPagePaths, sourceSlug,
+    sourceContextFromAnalysis(analysis),
+  );
 }
 
 /**
@@ -136,12 +165,15 @@ export async function createOrUpdateEntityPage(
 export async function createOrUpdateConceptPage(
   ctx: CreatePageContext,
   concept: ConceptInfo,
-  _analysis: unknown,
+  analysis: SourceAnalysis | undefined,
   sourceFile: TFile | { path: string; basename: string },
   extraPagePaths: string[] = [],
   sourceSlug?: string,
 ): Promise<PageCreationResult> {
-  return createOrUpdatePage(ctx, concept, 'concept', sourceFile, extraPagePaths, sourceSlug);
+  return createOrUpdatePage(
+    ctx, concept, 'concept', sourceFile, extraPagePaths, sourceSlug,
+    sourceContextFromAnalysis(analysis),
+  );
 }
 
 /**

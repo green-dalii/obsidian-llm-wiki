@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyMergeNeed,
   buildNewInfoSummary,
+  isSourceOwnPageLemma,
   type MergeTriageContext,
 } from '../../../wiki/page-factory/merge-triage';
 import { createMockEntity } from '../../__support__/factories';
@@ -182,5 +183,67 @@ describe('classifyMergeNeed — client precondition', () => {
     await expect(
       classifyMergeNeed(ctx, createMockEntity({ name: 'X' }), 'entity', { path: 'p.md', basename: 'p.md' }, '# x'),
     ).rejects.toThrow(/LLM client not initialized/);
+  });
+});
+// Issue #312 part 2 — the deterministic half of the fix. Pure string
+// comparison: no LLM, no IO. The predicate answers "is this source the page's
+// subject", which the triage prompt never asks.
+describe('isSourceOwnPageLemma — deterministic ownership', () => {
+  const ctx = { sourceTitle: 'Silent Inflammation', summary: 's', sourcePath: 'Notes/Silent Inflammation.md' };
+
+  it('matches across the space/dash spelling difference between note and page', () => {
+    expect(isSourceOwnPageLemma({
+      pageName: 'Silent-Inflammation',
+      sourceBasename: 'Silent Inflammation',
+      sourceContext: ctx,
+    })).toBe(true);
+  });
+
+  it('matches on the analyzer source title when the file name differs', () => {
+    expect(isSourceOwnPageLemma({
+      pageName: 'Silent-Inflammation',
+      sourceBasename: '2026-03-11 notes',
+      sourceContext: ctx,
+    })).toBe(true);
+  });
+
+  it('matches on a curated note alias', () => {
+    expect(isSourceOwnPageLemma({
+      pageName: 'Chronische-Inflammation',
+      sourceBasename: 'Silent Inflammation',
+      sourceContext: { ...ctx, noteAliases: ['Chronische Inflammation'] },
+    })).toBe(true);
+  });
+
+  it('matches on one of the page aliases', () => {
+    expect(isSourceOwnPageLemma({
+      pageName: 'CoQ10',
+      pageAliases: ['Coenzym Q10'],
+      sourceBasename: 'Coenzym-Q10',
+      sourceContext: { sourceTitle: 'Coenzym Q10', summary: 's', sourcePath: 'n.md' },
+    })).toBe(true);
+  });
+
+  it('does not match a source that merely mentions the page', () => {
+    expect(isSourceOwnPageLemma({
+      pageName: 'Silent-Inflammation',
+      sourceBasename: 'Omega-3',
+      sourceContext: { sourceTitle: 'Omega-3', summary: 's', sourcePath: 'n.md' },
+    })).toBe(false);
+  });
+
+  it('never fires without a source context, even on an exact name match', () => {
+    expect(isSourceOwnPageLemma({
+      pageName: 'Silent-Inflammation',
+      sourceBasename: 'Silent Inflammation',
+    })).toBe(false);
+  });
+
+  it('returns false for an empty page name instead of matching everything', () => {
+    expect(isSourceOwnPageLemma({
+      pageName: '   ',
+      sourceBasename: 'Silent Inflammation',
+      sourceContext: ctx,
+    })).toBe(false);
   });
 });
