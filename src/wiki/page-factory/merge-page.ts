@@ -110,7 +110,7 @@ export async function mergePage(
     let shouldSkip = false;
     let complementaryBody: string | null = null;
     try {
-      const triage = await classifyMergeNeed(ctx, info, pageType, sourceFile, existingBody);
+      const triage = await classifyMergeNeed(ctx, info, pageType, sourceFile, existingBody, sourceContext);
 
       // #312 part 2: a page's own primary source must not be dropped on a
       // novelty judgement — that is how an incidental mention keeps a

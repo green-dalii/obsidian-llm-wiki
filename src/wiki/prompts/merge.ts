@@ -36,7 +36,7 @@ export const MERGE_PROMPTS = {
 {{existing_content}}
 
 **New Information from Source File:**
-{{new_info}}
+{{new_info}}{{source_context}}
 
 **Available sections in the existing page (target_section MUST be one of these exact names):**
 {{section_labels}}
@@ -69,7 +69,7 @@ Output JSON format (ONLY this object, no other text):
 
 Rules:
 - Default to "merge" if uncertain — better to rewrite than to silently drop new info.
-- \`target_section\` MUST be exactly one of the available sections list (case-sensitive).
+- \`target_section\` MUST be exactly one of the available sections list (case-sensitive).{{source_ownership_rule}}
 - Output ONLY JSON, nothing else.`,
 
   mergeEntityPage: `You are a Wiki editor performing intelligent content integration. Merge new source information into an existing page following the schema-defined structure.

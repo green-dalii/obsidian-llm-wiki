@@ -247,3 +247,67 @@ describe('isSourceOwnPageLemma — deterministic ownership', () => {
     })).toBe(false);
   });
 });
+
+// Issue #312 part 1 — the source-level summary plus the question that makes it
+// usable. Both are placeholder-rendered, so a caller without an ingest
+// upstream gets the prompt it got before, character for character.
+describe('classifyMergeNeed — source context in the triage prompt (#312)', () => {
+  const CONTEXT = {
+    sourceTitle: 'Silent Inflammation',
+    summary: 'A note on low-grade chronic inflammation and its markers.',
+    sourcePath: 'Notes/Silent Inflammation.md',
+  };
+
+  async function renderPrompt(sourceContext?: typeof CONTEXT): Promise<string> {
+    let seen = '';
+    const ctx = makeCtx({
+      createMessage: async (...a: unknown[]) => {
+        const req = a[0] as { messages: Array<{ content: string }> };
+        seen = req.messages[0].content;
+        return JSON.stringify({ strategy: 'skip', reason: 'r' });
+      },
+    });
+    await classifyMergeNeed(
+      ctx,
+      createMockEntity({ name: 'Silent Inflammation' }),
+      'entity',
+      { path: 'Notes/Silent Inflammation.md', basename: 'Silent Inflammation' },
+      '## Description\nExisting.',
+      sourceContext,
+    );
+    return seen;
+  }
+
+  it('adds the source summary under its own label, distinct from the item summary', async () => {
+    const prompt = await renderPrompt(CONTEXT);
+    expect(prompt).toContain('Source summary: A note on low-grade chronic inflammation');
+    // The item-level `Summary:` from buildNewInfoSummary is still there and is
+    // a different line — the collision the fix set out to avoid.
+    expect(prompt).toMatch(/^Summary: /m);
+    expect(prompt.match(/Source summary:/g)).toHaveLength(1);
+  });
+
+  it('asks whether the source is the page subject, not only whether the info is new', async () => {
+    const prompt = await renderPrompt(CONTEXT);
+    expect(prompt).toContain('primarily ABOUT this page or only mentions it in passing');
+  });
+
+  it('does not repeat the source name that {{new_info}} already carries', async () => {
+    const prompt = await renderPrompt(CONTEXT);
+    expect(prompt.match(/Silent Inflammation/g)?.length).toBeGreaterThan(0);
+    expect(prompt).not.toContain('Source being merged:');
+  });
+
+  it('renders the pre-change prompt exactly when no context is supplied', async () => {
+    const prompt = await renderPrompt(undefined);
+    expect(prompt).not.toContain('Source summary:');
+    expect(prompt).not.toContain('primarily ABOUT this page');
+    // No placeholder survives, and no blank line drifts in where the block
+    // would have gone: `{{new_info}}` is still followed directly by the
+    // sections header.
+    expect(prompt).not.toMatch(/\{\{\w+\}\}/);
+    expect(prompt).toMatch(/\n\n\*\*Available sections/);
+    // An empty placeholder must not leave a blank line behind anywhere.
+    expect(prompt).not.toContain('\n\n\n');
+  });
+});
