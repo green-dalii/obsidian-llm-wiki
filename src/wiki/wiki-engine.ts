@@ -12,6 +12,8 @@ import {
   IngestOptions,
   BatchRequirementsContext,
   EngineContext,
+  VALID_SOURCE_TAGS,
+  DEFAULT_SOURCE_TAG,
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { getText } from '../core/i18n';
@@ -1214,13 +1216,17 @@ export class WikiEngine {
 
     // Issue #90: inherit tags from source note frontmatter when available,
     // so the generated summary page doesn't pollute the tag vocabulary with
-    // LLM-derived concept names. Fallback to LLM-derived tags if source has none.
-    const sourceTags = extractSourceTags(content);
+    // LLM-derived concept names. Source pages use the closed VALID_SOURCE_TAGS
+    // taxonomy, so inherited tags are filtered to it and the documented default
+    // is the last resort — concept names are not a legal value here.
+    const sourceTags = extractSourceTags(content).filter(t =>
+      (VALID_SOURCE_TAGS as readonly string[]).includes(t)
+    );
     const tagsValue = existingTags
       ? existingTags.join(', ')
       : sourceTags.length > 0
         ? sourceTags.join(', ')
-        : analysis.concepts.map(c => c.name).join(', ');
+        : DEFAULT_SOURCE_TAG;
 
     const createdPagesList = plannedPaths.length > 0
       ? plannedPaths.map(p => {
