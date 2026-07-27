@@ -33,6 +33,7 @@ import {
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../core/json';
+import { getSourceLanguage, isCrossLanguage } from '../core/source-language';
 import { matchExtractedToExisting } from '../core/index-search';
 import { coerceToArray } from '../core/arrays';
 import { isBlankSource } from '../core/frontmatter';
@@ -200,9 +201,7 @@ export class SourceAnalyzer {
     // instruction when the source is already in the wiki's language (e.g. a
     // Russian source in a Russian wiki -- translating verbatim quotes into the
     // same language is wasteful and bloats the JSON). Absent -> legacy behavior.
-    const sourceLang = typeof noteFm?.language === 'string'
-      ? noteFm.language.trim().toLowerCase()
-      : '';
+    const sourceLang = getSourceLanguage(file, this.ctx.app) ?? '';
 
     console.debug('Existing Wiki pages count: — delayed until post-extraction matching');
 
@@ -331,10 +330,7 @@ export class SourceAnalyzer {
       // frontmatter `language:` signal; fall back to the legacy `!== 'en'`
       // proxy only when the source is untagged, so cross-language wikis keep
       // their translation behavior unchanged.
-      const wikiLangLower = wikiLang.toLowerCase();
-      const sameLanguage = sourceLang !== ''
-        && (sourceLang === wikiLangLower || sourceLang === wikiLangName.toLowerCase());
-      const crossLanguage = sourceLang !== '' ? !sameLanguage : wikiLang !== 'en';
+      const crossLanguage = isCrossLanguage(sourceLang || null, wikiLang);
       const translationHint = crossLanguage
         ? `\n\nTRANSLATION (cross-language wikis): For each entry in mentions_with_provenance, ALSO add a 'translation' field containing a ${wikiLangName} translation of the quote text. The 'quote' field MUST stay verbatim in the source's original language; the translation goes in a separate 'translation' field. Example: {"quote": "Machine learning is fun", "translation": "机器学习很有趣", "source_path": "...", ...}`
         : '';
