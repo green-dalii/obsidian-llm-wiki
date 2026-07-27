@@ -1,12 +1,20 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-25 (v1.25.9 PATCH SHIPPED — re-publish of v1.25.8 to recover from release-engineering incident where v1.25.8 GitHub release record was deleted while Obsidian's automated community plugin review bot was mid-review; review is one-shot, hence v1.25.9 carries identical code to v1.25.8. Also fixes `versions.json` trailing-comma JSON syntax error from v1.25.8 bump commit `c572c27`. main @ `c304a1f` for v1.25.8, then release prep commit for v1.25.9.)
+**Last Updated:** 2026-07-27 (v1.25.10 PATCH SCOPE LOCKED + v1.26.0 design anchor created at GH issue [#358](https://github.com/green-dalii/obsidian-llm-wiki/issues/358). main @ `7e22848` after 2026-07-26 PATCH batch merge (#347/#349/#350/#352 → 2605 tests / 195 files). v1.26.0 design integrates #220 + #285 + #328 + #330 + #348 into one coherent direction with DocTpoint as co-author.)
 
 ---
 
-## Current Phase: v1.25.9 PATCH SHIPPED 2026-07-25. v1.25.8 PATCH SHIPPED 2026-07-25 (bot review failed mid-flight due to release-engineering incident — release record deleted while bot was reviewing). Hotfix PATCH: `commitTempSettings()` now flushes Obsidian SecretStorage on every commit (not only on `hide()`), so Test Connection / Language Save / hide() all keep the canonical store in sync. Fixes the v1.25.7 PATCH regression where switching LLM Provider (e.g. Deepseek → MiniMax) made Test Connection succeed but Lint/Query/Ingest fail with 401 "Missing Authentication header" (singleton `this.llmClient` rebuilt from SecretStorage after `commitTempSettings` still held the previous provider's key). 7 new tests (+6 commit-flush regression cases via real `LLMWikiSettingTab` prototype + 1 mock signature update in `settings-codex-sections.test.ts`). Bot: **0 errors / 0 warnings** preserved. 2572 tests / 193 files.
+## Current Phase: v1.25.10 PATCH scope locked; v1.26.0 MINOR in design phase.
 
-**Deferred from v1.25.7 PATCH** (moved to v1.26.0 MINOR to avoid scope over-inflation): P0-1 fix-runners parallelization, P1-1 analysis content-hash cache, P1-2 smart-skip controller. Detailed plan archived in [[project_v1.25.7_lint_perf_plan]]. **🚫 Embedding/RAG/vector index for lint perf: 永久禁止** — see [[feedback_no_rag_embedding_perf]].
+**v1.25.10 PATCH** (planned, sequential on v1.25.9): four item scope, all derived from [#330](https://github.com/green-dalii/obsidian-llm-wiki/issues/330) + [#356](https://github.com/green-dalii/obsidian-llm-wiki/issues/356) (frontmatter-strip bug):
+- admission criterion in Task Requirements (closes DocTpoint §2 "rules stated twice in the same prompt")
+- cross-type dedup candidate visibility (closes §3, #328 Phase 2 pre-condition)
+- `merge` vs `contradictory` route split (closes §4, `src/wiki/page-factory/merge-page.ts:124`)
+- alias hardening (3-char floor + uniqueness, DocTpoint §3 measured 0 side effects)
+
+**v1.26.0 MINOR** (in design, anchor [#358](https://github.com/green-dalii/obsidian-llm-wiki/issues/358)): 8-item committed scope + 4-item research track + 5 open design questions. DocTpoint co-author on `docs/v1.26.0-design.md` (Triage role granted 2026-07-27, label + issue close authority, no push/merge authority).
+
+**Companion deferred from v1.25.7 PATCH** (moved to v1.26.0 MINOR to avoid scope over-inflation): P0-1 fix-runners parallelization, P1-1 analysis content-hash cache, P1-2 smart-skip controller. Detailed plan archived in [[project_v1.25.7_lint_perf_plan]]. **🚫 Embedding/RAG/vector index for lint perf: 永久禁止** — see [[feedback_no_rag_embedding_perf]].
 
 **v1.25.1 PATCH (2026-07-20, 11 commits, ~80 files, 2274 tests):**
 
@@ -365,6 +373,22 @@ For full release workflow (commit + push + tag + release notes), use the `obsidi
     - `__filename` / `__dirname` need inline `eslint-disable no-undef` (not in Bot's no-restricted-disable list — legal per-line).
   - **Test bundle-shape contracts may be obsolete.** v1.25.5's `expect(bundle).toContain('require("node:http")')` became false after `createRequire` migration. Update assertions to the new pattern (`import("node:module")` + `createRequire` present).
   - **Memory:** [[feedback_obsidian_bot_double_lint]] (the v1.25.4/5/6 three-attempt saga with full root-cause analysis).
+
+- **Complementary memory model (v1.26.0 design anchor — #358)**:
+  - Source notes are **episodic memory**: sequential, lossy-never-intended, preserves authorial voice, hesitation, retraction. They serve the query "what did the source say, verbatim?".
+  - Wiki pages are **semantic memory**: consolidated, abstracted, indexed, graph-traversable. They serve the query "across many sources, what is the relation between X and Y?".
+  - Neither replaces the other. Both are necessary. The plugin's design target is to expose a **complementary query surface**, not to maximise fidelity to source.
+  - The framing was developed in the #330 discussion. Two analogies were tested for fit: a signal-processing analogy (time-domain ↔ frequency-domain projection, breaks on Parseval / linearity / canonical-basis axes); a neuroscience analogy (hippocampus ↔ cortex consolidation, lossy by design). The neuroscience analogy mapped better.
+  - **Hard rule for future contributors:** the plugin MUST NOT attempt to make wiki pages win every query. When a user complains "the raw note beats the wiki for query X", the answer is **"that is the division of labour — the wiki serves a different query"**, not "fix the wiki to win X".
+  - **Practical implications:** "self-improving over time" = periodic consolidation pass with LLM judgement on past decisions, NOT a smarter ingest path. The smallest kernel of the Karpathy cycle is Preview-Confirm gate + identity ambiguity record + stable mutation interface, NOT an agent framework refactor.
+  - Full rationale: #330 reply comment + #358 tracking issue + [[project_v1_26_0_design]] (when created).
+
+- **Architect-level contributors (added 2026-07-27, applies to v1.26.0+ design work)**:
+  - **Definition.** A contributor who has submitted ≥3 PRs touching core engine files with measurable impact AND authored ≥2 design-level issues that influenced the roadmap. Currently granted to: @DocTpoint (7 issues/PRs in 60 days: #285 typed edges + #328 schema split + #330 ingest critique + #347 source-ownership + #357 source-lemma + #348 source-lemmma derived; 419-note German medical corpus as ongoing stress test).
+  - **Role on GitHub.** `Triage` role (Settings → Collaborators → Add → Role: Triage). This grants: label management on all issues/PRs, issue close/reopen authority, ability to mark duplicates, view on private repo metadata. It does **NOT** grant: direct push to protected branches, merge authority, release-tag authority. Triage role works **inside** the standard PR review workflow (CLAUDE.md §Git Workflow), not around it.
+  - **Why Triage, not Collaborator / Maintain.** Pushing to main is gated by §Git Workflow red line. Merge authority is the maintainer's responsibility under §PR Merge Workflow. Triage is the smallest scope that recognises "this contributor's issues have been driving the roadmap" without bypassing review gates.
+  - **What we expect.** Triage role holders co-write design docs (`docs/v1.Y.Z-design.md`) for the version they shape; review PRs that touch their design surface; flag regressions against their prior contributions. They do NOT speak for the project in user-facing channels or change release scope unilaterally.
+  - **What we don't expect.** Triage is not a path to maintainer. Maintainer promotion is a separate decision triggered by sustained Triage work + user approval, not by accumulating time in role.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Version:** 1.25.9 PATCH (re-publish of 1.25.8). | **Updated:** 2026-07-25
+**Version:** 1.25.9 PATCH (re-publish of 1.25.8). | **Updated:** 2026-07-27
 
 ## Current Status
 
@@ -12,9 +12,62 @@
 **v1.25.8 — RELEASED 2026-07-25.** Hotfix PATCH scope:
 - **PR #353** (self): `commitTempSettings()` now flushes Obsidian SecretStorage on every commit (not only on `hide()`). Fixes v1.25.7 PATCH regression where switching LLM Provider (e.g. Deepseek → MiniMax) made Test Connection succeed but Lint/Query/Ingest fail with 401 "Missing Authentication header". Singleton `this.llmClient` rebuilt by `initializeLLMClient()` after `commitTempSettings` was still reading SecretStorage's previous provider's key (the in-memory typed key never got flushed). Two root causes inside `commitTempSettings`: (1) only `hide()` called `flushApiKey()` — Test Connection / Language Save paths skipped it. (2) `testLLMConnection`'s fire-and-forget `void this.saveSettings()` would have persisted the typed apiKey as plaintext on flush-failure even after our rollback; added an explicit `saveSettings()` after rollback. 7 new tests (+6 commit-flush regression cases against the real `LLMWikiSettingTab.commitTempSettings` / `flushApiKey` via `Object.create(prototype)` + 1 mock signature update). **Bot 0/0 preserved.** 2572 tests / 193 files.
 
-## Next: v1.26.0 MINOR (after v1.25.8 ships)
+**2026-07-26 PATCH batch (merged between v1.25.9 and v1.25.10)** — main @ `7e22848`, 2605 tests / 195 files:
+- **PR #347** DocTpoint — source-ownership merge (closes #312, #288 silent-mentions pattern)
+- **PR #349** eucher — source-page tag vocabulary (stays inside closed enum)
+- **PR #350** eucher — translation-hint gated on source frontmatter language
+- **PR #352** eucher — silent-truncation finish-reason (closes #305 follow-on)
 
-Theme: Kimi Files API + non-routine PDF providers (PR4, AkaSakana contribution) + wiki-engine.ts decomposition (3rd-party audit P1, 2026-07-19) + #220 source-revision awareness Tier 0+1 + #328 Schema Phase 2/3 + DocTpoint open issues (#330/#312/#306 follow-up). Also carries over the v1.25.7 PATCH deferred items: **P0-1 fix-runners parallelization**, **P1-1 analysis content-hash cache**, **P1-2 smart-skip controller**.
+## Next: v1.25.10 PATCH (sequential on v1.25.9)
+
+Theme: four-item bug-fix scope from #330 close-out + #356 frontmatter-strip. All items have measured reproduction or empirical evidence; scope is intentionally narrow to land before v1.26.0 opens the design window.
+
+**Scope (locked 2026-07-27)**:
+- **admission criterion in Task Requirements** — closes #330 §2 (rules stated twice in the same prompt; 17 citation-titled pages violated)
+- **cross-type dedup candidate visibility** — closes #330 §3 (`src/wiki/page-factory/path-resolution.ts:165` filter scope); pre-condition for #328 Phase 2
+- **`merge` vs `contradictory` route split** — closes #330 §4 (`src/wiki/page-factory/merge-page.ts:124` routes both into same body rewrite)
+- **alias hardening** — closes #330 §3 (3-char floor + uniqueness; DocTpoint measured 0 links affected by 3-char floor, 30/31,553 by uniqueness)
+- **#356 frontmatter-strip fix** — preserves unknown top-level fields on re-touch (data-loss bug, not v1.26.0 feature)
+
+**Out of scope for v1.25.10** (moved to v1.26.0): identity ambiguity record, bidirectional frontmatter, typed edges, Preview-Confirm gate, source-lemma PR #357 (already in `feat/ingest-source-lemma` branch, ships independently).
+
+## Next: v1.26.0 MINOR (after v1.25.10 ships)
+
+**Design anchor:** [#358](https://github.com/green-dalii/obsidian-llm-wiki/issues/358). Co-author @DocTpoint. Design doc in `docs/v1.26.0-design.md` (drafting after #358 receives community feedback).
+
+**Philosophy: complementary memory model.** Source notes are episodic memory (preserve verbatim, lossy-never-intended, authorial voice). Wiki pages are semantic memory (consolidated, abstracted, graph-traversable). Neither replaces the other; the plugin exposes a complementary query surface, not maximum fidelity to source. Full rationale: #330 reply comment (2026-07-27) + CLAUDE.md §Complementary memory model invariant.
+
+**Committed scope (8 items)**:
+
+| Item | Anchor issue | Lands in |
+|---|---|---|
+| Per-type registration via Settings | #328 Phase 2 + FrancoTampieri (`engagements/`, `findings/`, `risks/`) | v1.26.0 MINOR |
+| User-extensible typed edges (frontmatter `relations:` block) | #285 + DocTpoint OKF extension | v1.26.0 MINOR |
+| Bidirectional frontmatter (`derived_from` on wiki, `wiki_pages` on source) | #220 + #330 §5 | v1.26.0 MINOR |
+| Identity ambiguity record (minimal, scope-limited) | #330 §7 | v1.26.0 MINOR |
+| #357 source-lemma deterministic merge | PR #357 (already draft, +504 LOC) | v1.26.0 MINOR |
+| Preview-Confirm gate (`ingestMode: 'interactive'`, opt-in, default 'auto') | #330 §2 + Karpathy "discusses" | v1.26.0 MINOR |
+| Stable mutation interface (initial API names: `getAmbiguityRecords` / `resolveAmbiguity` / `getRecentMerges` / `revisePage` — subject to design review) | #330 §8 (LLM-wiki CLI option) | v1.26.0 MINOR |
+| Settings-owned enum-as-section-value (CVSS-style controlled vocab) | #328 §2 FrancoTampieri gray-zone question | v1.26.0 MINOR |
+
+**Research track (v1.27.0+, not committed)**:
+
+| Item | Note |
+|---|---|
+| Computable schema (`rules.ts`) | depends on Phase 2 typed edges landing cleanly |
+| Query profile selector (4 modes: cross-reference / source-faithful / concept-only / sparse-annotation) | depends on rules.ts |
+| Periodic consolidation pass + stale-claim re-ask | depends on ambiguity records accumulating at scale |
+| External LLM-wiki CLI (sibling project, not in plugin) | per green-dalii's #330 reply on Obsidian CLI integration; uses the stable mutation interface above |
+
+**Out of scope (explicit)**:
+- ❌ Embedding / vector store / RAG retrieval — see [[feedback_no_rag_embedding_perf]]
+- ❌ Plugin → agent framework refactor (we expose interfaces, not an agent runtime)
+- ❌ Multi-vault isolation (cost > observed benefit)
+- ❌ Plugin-internal scheduler for consolidation (external orchestration is the right home)
+
+**Companion items carried from v1.25.7 PATCH deferred**: P0-1 fix-runners parallelization, P1-1 analysis content-hash cache, P1-2 smart-skip controller (see [[project_v1.25.7_lint_perf_plan]]).
+
+**i18n expansion to 11 languages:** add `ru` (Русский) to `WIKI_LANGUAGES` + `src/texts/ru.ts` + `docs/README_RU.md` + 11-way language switcher across all READMEs. Driven by recent RU user growth + @eucher's 3 ingest/LLM PRs (RU speaker). No new functionality beyond text strings + 11-locale parity test update.
 
 Historic compositions (v1.25.7 and earlier) live in [CHANGELOG.md](./CHANGELOG.md) — kept brief here.
 
@@ -23,6 +76,8 @@ Historic compositions (v1.25.7 and earlier) live in [CHANGELOG.md](./CHANGELOG.m
 ## Version Timeline
 | Version | Date | Headline |
 |---------|------|----------|
+| **1.25.10 PATCH** | TBD (planned) | Sequential PATCH on v1.25.9 carrying bug fixes only: admission criterion, cross-type dedup visibility, merge/contradictory route split, alias hardening, #356 frontmatter-strip |
+| **1.26.0 MINOR** | TBD (in design) | Complementary memory model: per-type registration, typed edges, bidirectional frontmatter, identity ambiguity record, Preview-Confirm gate, stable mutation interface. Anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issues/358) |
 | **1.25.9** | 2026-07-25 | PATCH: Re-publish v1.25.8 to recover from a release-engineering incident where the v1.25.8 GitHub release record was inadvertently deleted while Obsidian's automated community plugin review bot was mid-review. No code changes vs v1.25.8. Also fixes `versions.json` trailing-comma JSON syntax error introduced in v1.25.8 bump commit |
 | **1.25.8** | 2026-07-25 | PATCH Hotfix: `commitTempSettings()` now flushes Obsidian SecretStorage on every commit (not only `hide()`). Fixes v1.25.7 regression where provider switching made Test Connection succeed but Lint/Query/Ingest fail with 401 "Missing Authentication header". +7 tests (6 against real `LLMWikiSettingTab.commitTempSettings` via `Object.create(prototype)` + 1 mock signature update). Bot 0/0 preserved. 2572 tests / 193 files |
 | **1.25.7** | 2026-07-25 | PATCH: API key switching bug fix (regression since v1.25.3 #182, PR #346) + DocTpoint dedup perf PRs #344+#345. Cache-stable prompt layout (54s→1.2s repeat) + slim dedup + top-K candidate pre-filter (660K→372K prompt tokens, −44%). 19 new tests since v1.25.6. Bot 0/0 preserved. 2566 tests / 192 files |
