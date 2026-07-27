@@ -15,6 +15,8 @@
 
 [공식 사이트](https://llmwiki.greenerai.top/) | [옵시디언 마켓플레이스](https://community.obsidian.md/plugins/karpathywiki) | [블로그](https://llmwiki.greenerai.top/blog/) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
+> **MinerU fork 안내(로컬 빌드 전용):** 이 브랜치는 독립 플러그인 `karpathywiki-mineru` / **Karpathy LLM Wiki MinerU** 를 빌드하며, 업스트림 마켓플레이스 플러그인 `karpathywiki`와 공존할 수 있습니다. 로컬 빌드는 `.obsidian/plugins/karpathywiki-mineru/`에 설치하세요. 위 마켓플레이스/업데이트 링크는 MinerU 릴리스가 명시적으로 발표되기 전까지 업스트림을 가리킵니다.
+
 🤔 [이 플러그인이 필요한 이유?](#-이-플러그인이-필요한-이유) | 🚀 [빠른 시작](#-빠른-시작) | ✨ [주요 기능](#-주요-기능) | 🌐 [생태계](#-생태계) | 🔍 [검색 작동 방식](#-검색-작동-방식) | 🤖 [모델](#-모델) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← 이 플러그인이 도움이 되었다면, 커피 한 잔♥️ 사주시거나 별표🌟 하나 부탁드려요↗
@@ -72,7 +74,7 @@
 - **5시간 프로젝트가 아닌 5분 설정을 원하신다면.** 커뮤니티 플러그인에서 설치 → 공급자 선택 → 노트 하나 수집. CLI, Python, 별도 런타임, 벡터 DB가 필요 없습니다. 몇 초 만에 `wiki/`에 Wiki 페이지가 나타납니다.
 - **깔끔하고 자체 완결적인 무언가를 원하신다면.** 플러그인의 외부 의존성은 정확히 0개입니다: 임베딩 모델, 벡터 데이터베이스, pip 패키지, Docker 컨테이너가 없습니다. 노트를 읽고, LLM과 통신하며, 볼트에 Wiki 페이지를 작성하는 단일 Obsidian 플러그인입니다. 모든 것이 Obsidian 안에 있습니다.
 - **인터넷이 아닌 *여러분의 노트*에서 답변하는 질의 가능한 채팅** — 모든 답변에 `[[wiki-links]]`가 포함되어 지식 그래프로 연결됩니다.
-- **데이터 주권을 중요시한다면** — Ollama나 LM Studio와 함께 완전히 로컬에서 실행되며, 인터넷에 전혀 연결되지 않습니다.
+- **데이터 주권을 중요시한다면** — Ollama나 LM Studio 같은 로컬 공급자와 **Native model** PDF 백엔드를 사용하면 노트와 PDF가 기기에 남습니다. **MinerU Official API**를 선택하면 선택한 PDF가 MinerU 외부 클라우드 서비스에 업로드됩니다.
 - **지원되는 10개 언어 중 하나로 글을 쓰거나 읽는다면** — UI와 Wiki 출력 언어는 독립적입니다 (Wiki는 중국어로, 인터페이스는 영어로 유지 가능).
 - **`[[wiki-links]]`를 작성하여 그래프를 유지 관리한다면** — 여러분이 작성하는 모든 링크가 이미 검색을 풍부하게 합니다; 별도의 태깅/임베딩/인덱싱 단계가 필요 없습니다.
 - **원클릭 유지관리를 원하신다면** — Lint 상태 검사 + Smart Fix All로 중복, 데드 링크, 고아 페이지를 직접 관리하지 않고도 관리할 수 있습니다.
@@ -87,7 +89,9 @@
 
 ## 🚀 빠른 시작
 
-1. **설치.** Obsidian → 설정 → 커뮤니티 플러그인 → 찾아보기 → "Karpathy LLM Wiki" 검색 → 설치 → 활성화. 또는 [커뮤니티 플러그인 페이지](https://community.obsidian.md/plugins/karpathywiki)에서 **Add to Obsidian** 클릭.
+1. **설치할 에디션을 선택합니다.**
+   - **이 MinerU fork(로컬 빌드 전용):** 이 브랜치를 로컬에서 빌드한 뒤 `main.js`, `manifest.json`, `styles.css`를 `.obsidian/plugins/karpathywiki-mineru/`에 복사하고 **Karpathy LLM Wiki MinerU**를 활성화합니다. **MinerU Official API** 백엔드는 이 설치 경로에만 포함됩니다.
+   - **업스트림 `karpathywiki`:** Obsidian → 설정 → 커뮤니티 플러그인 → 찾아보기 → "Karpathy LLM Wiki" 검색 → 설치 → 활성화하거나 [커뮤니티 플러그인 페이지](https://community.obsidian.md/plugins/karpathywiki)를 사용합니다. Marketplace/커뮤니티 플러그인은 MinerU 백엔드가 없는 업스트림 `karpathywiki`를 설치합니다.
 2. **공급자 설정.** 설정 → Karpathy LLM Wiki 열기 → 공급자 선택 (OpenAI, Anthropic, Ollama, ChatGPT Plan (Codex OAuth) 등) → API 키 입력 (로컬은 불필요) → **Test Connection** 클릭 → 저장.
 3. **노트 하나 수집.** 두 가지 방법:
    - **⌨️ 키보드:** `Cmd+P/Ctrl+P` → "Ingest single source" → Markdown (또는 PDF, v1.25.0+) 파일 선택.
@@ -143,8 +147,9 @@
 ### 📄 PDF 수집 (v1.25.0+)
 
 - **🔌 공급자 게이트** — Anthropic, OpenAI, Bedrock이 PDF를 네이티브로 처리합니다. 다른 OpenAI/Anthropic 호환 엔드포인트에서는 설정 → LLM Configuration → Advanced에서 **Force PDF Support**를 활성화하여 호출을 시도할 수 있습니다. Apple Silicon에서의 로컬 OCR, 서드파티 추출기(MinerU, Docling, Mathpix, Adobe), 전체 PDF 수집 워크스루에 대해서는 아래 [PDF OCR 경로](#-pdf-ocr-경로)와 [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)를 참조하세요.
-- **🗄️ 제한된 캐시** — `.obsidian/plugins/karpathywiki/pdf-cache/`에 변환된 Markdown을 저장하며, 콘텐츠 해시 + 모델 + converter version으로 키가 지정됩니다. 3계층 방어 하우스키핑: 총 100MB / 1000개 항목 / 단일 10MB 상한, LRU-by-mtime 축출.
+- **🗄️ 제한된 캐시** — 이 fork는 변환된 Markdown을 업스트림 `karpathywiki`와 분리된 `.obsidian/plugins/karpathywiki-mineru/pdf-cache/`에 저장하며, 콘텐츠 해시 + 모델 + converter version으로 키가 지정됩니다. 3계층 방어 하우스키핑: 총 100MB / 1000개 항목 / 단일 10MB 상한, LRU-by-mtime 축출.
 - **📝 선택적 볼트 사이드카** — 설정 → Wiki Configuration → Wiki Folder → *Write PDF Markdown to Vault*를 켜면 소스 PDF 옆에 `<basename>.pdf.md`를 작성합니다 (기본값 꺼짐 — 캐시 전용이 기본).
+- **⛏️ MinerU Official API 백엔드** — 이 fork는 설정 → Wiki Configuration → PDF conversion backend에서 **Native model**(기본값, 업스트림 v1.25.6 동작) 또는 **MinerU Official API**를 제공합니다. MinerU는 데스크톱 전용이며, 사용자가 제공한 MinerU API Token으로 선택한 PDF를 MinerU 외부 클라우드 API에 업로드합니다. 실패해도 Native로 조용히 폴백하지 않으며, 성공하면 PDF 옆에 `document.md`, 이미지, `.mineru-manifest.json`이 포함된 관리형 `<basename>.mineru/`를 게시합니다. **Clear PDF conversion cache**는 내부 캐시만 제거하고 볼트에 보이는 `.mineru/` 아티팩트는 삭제하지 않습니다.
 - **🛡️ Verbatim 트랜스크립터 프롬프트** — OCR 스타일 변환, `[illegible]` / `[figure: ...]` 반환각 마커 포함; 소형 로컬 모델의 markdown 펜스 래핑은 캐시 쓰기 전에 자동 정리됩니다.
 
 ### 📄 PDF OCR 경로
@@ -153,7 +158,7 @@
 
 1. **☁️ PDF를 네이티브 지원하는 클라우드 공급자** — Anthropic, OpenAI, AWS Bedrock이 PDF를 기본 지원합니다. 수집만 하면 됩니다; 추가 설정 불필요. 다른 OpenAI/Anthropic 호환 엔드포인트에서는 설정 → LLM Configuration → Advanced에서 **Force PDF Support**를 활성화하세요.
 2. **🖥️ Apple Silicon 로컬 OCR** — [oMLX](https://github.com/jundot/omlx)가 Microsoft Markitdown을 내장 PDF→Markdown 백엔드로 통합합니다. oMLX에서 Markitdown 활성화, [Baidu Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) (3B / 570M 활성, 2026-06 오픈소스)을 비전 모델로 로드, 플러그인을 Custom OpenAI-Compatible 공급자로 oMLX에 연결, **Force PDF Support** 켜기, oMLX가 서빙하는 멀티모달 모델 선택. PDF가 기기를 떠나지 않습니다.
-3. **🛠️ 서드파티 추출기 (MinerU, Docling, Mathpix, Adobe)** — PDF에 대해 별도 추출기를 실행하여 `.md` 파일을 생성한 다음, 플러그인의 표준 파이프라인을 통해 일반 Markdown 노트로 수집합니다. 과학 논문, 스캔 문서, 수학 중심 PDF에 가장 안정적입니다.
+3. **🛠️ 서드파티 추출기 (MinerU, Docling, Mathpix, Adobe)** — 업스트림 사용자는 별도 추출기로 PDF에서 `.md`를 만들고 일반 Markdown 노트로 수집할 수 있습니다. 이 MinerU fork의 데스크톱 사용자는 통합 **MinerU Official API** 백엔드를 선택할 수도 있습니다. 선택한 PDF만 업로드하고, Token은 Obsidian SecretStorage에 저장하며, PDF 옆에 관리형 `<basename>.mineru/` 아티팩트를 작성합니다.
 
 📖 **세 가지 경로 모두에 대한 전체 설정 워크스루** (클라우드 공급자, oMLX 하드웨어 계층, MinerU 설치, 캐시 하우스키핑) → [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
 
@@ -168,9 +173,9 @@
 
 ### 🔒 개인정보
 
-- **🚫 백엔드 없음, 추적 없음, 분석 없음.** 완전히 Obsidian 내부에서 실행됩니다. 네트워크는 설정한 LLM 공급자와의 통신에만 사용됩니다.
+- **🚫 프로젝트 백엔드 없음, 추적 없음, 분석 없음.** Obsidian 내부에서 실행됩니다. 네트워크는 설정한 LLM 공급자와, 선택한 경우 PDF 변환용 MinerU Official API와의 통신에만 사용됩니다.
 - **📁 소스 파일은 읽기 전용입니다.** 플러그인은 원본 볼트 노트를 절대 수정하지 않습니다 — `wiki/` 아래에 새 페이지만 생성합니다.
-- **🦙 완전 로컬 모드.** Ollama, LM Studio, 또는 모든 로컬 OpenAI 호환 엔드포인트 → 노트가 기기를 떠나지 않습니다.
+- **🦙 로컬 구성에서는 완전 로컬 모드.** Ollama, LM Studio 같은 로컬 공급자와 Native PDF 백엔드를 사용하면 노트와 PDF가 기기에 남습니다. MinerU를 선택하면 선택한 PDF가 MinerU 외부 클라우드 서비스에 업로드됩니다.
 - **🔐 최소 권한.** Wiki 관리를 위한 볼트 파일 접근. Query 모달의 "Copy" 버튼 클릭 시에만 클립보드 접근.
 
 ### 🦙 로컬 우선
@@ -296,11 +301,11 @@ Obsidian 커뮤니티 플러그인에서 설치 → 공급자 선택 → **Test 
 
 ### 기존 Wiki는 안전한가요?
 
-✅ v1.0.0 이후 하위 호환성 유지. 덮어쓰기로부터 보호하려면 페이지에 `reviewed: true`를 설정하세요. v1.24.x에서 업그레이드해도 볼트가 다시 작성되지 않습니다; v1.25.0의 PDF 수집은 기본적으로 캐시 전용입니다.
+✅ v1.0.0 이후 하위 호환성 유지. 덮어쓰기로부터 보호하려면 페이지에 `reviewed: true`를 설정하세요. v1.24.x에서 업그레이드해도 볼트가 다시 작성되지 않습니다. Native PDF 수집은 기본적으로 캐시 전용입니다. MinerU 변환 성공 시 관리형 `<basename>.mineru/` 아티팩트를 쓰지만 원본 PDF나 소스 노트를 덮어쓰지 않습니다.
 
 ### 내 데이터가 외부로 전송되나요?
 
-🚫 백엔드 없음, 분석 없음 — 플러그인은 완전히 Obsidian 내부에서 실행됩니다. 수집/조회를 위해 명시적으로 보낸 텍스트만 기기를 떠나며, 설정한 LLM 공급자에게만 전송됩니다. 완전한 데이터 로컬리티를 위해 Ollama나 LM Studio를 사용하세요.
+🚫 프로젝트 백엔드 없음, 분석 없음 — 플러그인은 Obsidian 내부에서 실행됩니다. 수집/조회를 위해 명시적으로 보낸 텍스트는 설정한 LLM 공급자에게만 전송됩니다. PDF 변환에 **MinerU Official API**를 선택하면 선택한 PDF가 사용자의 Token으로 MinerU 외부 클라우드 API에 업로드됩니다. 로컬 PDF 경로에는 Native 백엔드와 Ollama 또는 LM Studio를 사용하세요.
 
 ### 내 언어로 사용할 수 있나요?
 
@@ -334,14 +339,14 @@ Obsidian 커뮤니티 플러그인에서 설치 → 공급자 선택 → **Test 
 
 ## 🔒 개인정보
 
-이 플러그인은 Obsidian 커뮤니티 플러그인 마켓에 등록되어 있으며 보안 및 권한에 대한 자동 검토를 받습니다.
+업스트림 `karpathywiki` 플러그인은 Obsidian 커뮤니티 플러그인 마켓에 등록되어 보안 및 권한 자동 검토를 받습니다. 이 MinerU fork는 MinerU 릴리스가 명시적으로 발표되기 전까지 로컬 빌드입니다.
 
-- **🚫 백엔드 없음, 서버 없음, 데이터 수집 없음.** Obsidian 내에서 실행되는 순수 로컬 소프트웨어입니다. 플러그인은 데이터를 수집, 저장, 전송할 수 없으며 실제로 그러지 않습니다 — 그러한 서버가 존재하지 않기 때문입니다.
-- **🔐 네트워크 접근은 옵트인입니다.** 설정한 LLM 공급자와의 통신에만 사용됩니다. 공급자를 선택하고, API 키를 입력하고, 데이터가 어디로 갈지 결정하는 것은 여러분입니다.
+- **🚫 프로젝트 백엔드 없음, 서버 없음, 데이터 수집 없음.** Obsidian 내에서 실행되는 로컬 소프트웨어입니다. 이 프로젝트는 자체 서비스를 운영하지 않으므로 데이터를 수집할 수 없습니다.
+- **🔐 네트워크 접근은 옵트인입니다.** 설정한 LLM 공급자와, 선택한 경우 변환할 PDF를 위한 MinerU Official API와의 통신에만 사용됩니다. 공급자/백엔드를 선택하고, 필요한 Key 또는 Token을 입력하고, 데이터가 어디로 갈지 결정하는 것은 여러분입니다.
 - **📁 볼트 파일 접근**은 Wiki 관리에 사용됩니다 (노트 읽기, 페이지 생성, 데드 링크 스캔, 중복 감지). 플러그인은 소스 파일을 절대 수정하지 않습니다.
 - **📋 클립보드 접근**은 Query 모달의 "Copy" 버튼에서만 사용됩니다 — 클릭할 때만입니다.
 
-완전한 데이터 로컬리티를 위해 Ollama 또는 LM Studio를 사용하세요. 로컬 공급자를 사용하면 데이터가 기기를 떠나지 않습니다.
+완전한 데이터 로컬리티를 위해 Native PDF 백엔드와 Ollama 또는 LM Studio를 사용하세요. 로컬 LLM 공급자를 사용해도 MinerU를 선택하면 선택한 PDF가 MinerU 외부 클라우드 서비스로 업로드됩니다.
 
 ---
 

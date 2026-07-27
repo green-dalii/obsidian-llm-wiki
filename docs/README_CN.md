@@ -15,6 +15,8 @@
 
 [官网](https://llmwiki.greenerai.top/) | [Obsidian 插件市场](https://community.obsidian.md/plugins/karpathywiki) | [博客](https://llmwiki.greenerai.top/zh/blog/) | [反馈讨论](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
+> **MinerU fork 说明（仅本地构建）：** 此分支构建独立插件 `karpathywiki-mineru` / **Karpathy LLM Wiki MinerU**，可与上游插件 `karpathywiki` 共存。请把本地构建产物安装到 `.obsidian/plugins/karpathywiki-mineru/`；上方插件市场/更新链接仍指向上游版本，除非明确发布 MinerU 版本。
+
 🤔 [为什么使用此插件？](#-为什么使用此插件) | 🚀 [快速开始](#-快速开始) | ✨ [核心特性](#-核心特性) | 🌐 [生态](#-生态) | 🔍 [检索工作原理](#-检索工作原理) | 🤖 [模型推荐](#-模型推荐) | ❓ [常见问题](#-常见问题)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← 如果你觉得项目帮到了你，欢迎请我杯咖啡♥️或为项目点亮🌟↗
@@ -22,7 +24,7 @@
 
 ---
 
-> **⚡ 更新提醒：** 本项目迭代速度快，会经常进行 Bug 修复、性能提升或新功能、体验优化等。建议经常在 Obsidian 中更新到最新版本（**设置 → 社区插件 → 检查更新**），或开启插件的自动更新功能以确保获得最佳体验。
+> **⚡ 更新提醒：** Obsidian 的「检查更新」和社区插件自动更新仅适用于上游 `karpathywiki`。此 MinerU fork 是本地构建；更新时需要重新构建本分支，并替换 `.obsidian/plugins/karpathywiki-mineru/` 中的 `main.js`、`manifest.json` 和 `styles.css`。
 
 ## 📑 目录
 
@@ -75,7 +77,7 @@
 - **想要 5 分钟的上手时间，而非 5 小时的项目。** 从社区插件市场安装 → 选择 Provider → 摄入一篇笔记。没有 CLI、没有 Python、没有独立运行时、没有向量数据库。几秒内就能在 `wiki/` 中看到 Wiki 页面。
 - **想要干净、自包含的解决方案。** 插件有零个外部依赖：没有嵌入模型、没有向量数据库、没有 pip 包、没有 Docker 容器。它是一个单一的 Obsidian 插件，读取你的笔记、与 LLM 对话、将 Wiki 页面写入你的 vault。一切都在 Obsidian 内部运行。
 - **想要一个基于*你的笔记*回答的可查询聊天**——而非互联网——每个答案都带有 `[[wiki-links]]` 回到你的知识图谱。
-- **关心数据主权**——使用 Ollama 或 LM Studio 完全本地运行，永不触网。
+- **关心数据主权**——使用 Ollama 或 LM Studio 等本地 Provider，并选择 **Native model** PDF 后端时，笔记和 PDF 都留在本机；选择 **MinerU Official API** 会把所选 PDF 上传到 MinerU 外部云服务。
 - **使用或阅读 10 种支持语言中的任何一种**——界面和 Wiki 输出语言相互独立（你的 Wiki 可以是中文而界面是英文）。
 - **通过写 `[[wiki-links]]` 来维护图谱**——你写的每个链接已经在丰富检索；无需单独的标签/嵌入/索引步骤。
 - **想要一键维护**——Lint 健康扫描 + 一键智能修复自动处理重复、断链和孤立页，无需手动整理。
@@ -90,7 +92,9 @@
 
 ## 🚀 快速开始
 
-1. **安装。** Obsidian → 设置 → 第三方插件 → 社区插件 → 浏览 → 搜索 "Karpathy LLM Wiki" → 安装 → 启用。或访问 [社区插件页面](https://community.obsidian.md/plugins/karpathywiki) 点击 **Add to Obsidian**。
+1. **选择一个版本安装。**
+   - **本 MinerU fork（仅本地构建）：** 在本分支完成本地构建，再将 `main.js`、`manifest.json` 和 `styles.css` 复制到 `.obsidian/plugins/karpathywiki-mineru/`，然后启用 **Karpathy LLM Wiki MinerU**。只有这一路径包含 **MinerU Official API** 后端。
+   - **上游 `karpathywiki`：** Obsidian → 设置 → 第三方插件 → 社区插件 → 浏览 → 搜索 "Karpathy LLM Wiki" → 安装 → 启用，或访问 [社区插件页面](https://community.obsidian.md/plugins/karpathywiki)。插件市场/社区插件安装的是上游 `karpathywiki`，不包含 MinerU 后端。
 2. **配置 Provider。** 打开 设置 → Karpathy LLM Wiki → 选择 Provider（OpenAI、Anthropic、Ollama、ChatGPT Plan (Codex OAuth) 等）→ 输入 API Key（本地模型不需要）→ 点击 **测试连接** → 保存。
 3. **摄入一篇笔记。** 两种方式：
    - **⌨️ 键盘：** `Cmd+P/Ctrl+P` → 「摄入单个源文件」 → 选择任意 Markdown（或 PDF，v1.25.0+）文件。
@@ -149,8 +153,9 @@
 ### 📄 PDF 摄入 (v1.25.0+)
 
 - **🔌 Provider 准入** — Anthropic、OpenAI 和 Bedrock 原生支持 PDF。对于任何其他 OpenAI/Anthropic 兼容端点，在设置 → LLM 配置 → 高级中开启 **Force PDF Support** 让插件尝试调用。关于 Apple Silicon 上的本地 OCR、第三方提取工具（MinerU、Docling、Mathpix、Adobe）及完整 PDF 摄入教程，见下方的 [PDF OCR 路径](#-pdf-ocr-路径) 和 [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)。
-- **🗄️ 有界缓存** — `.obsidian/plugins/karpathywiki/pdf-cache/` 按内容哈希 + 模型 + 转换器版本为键存储转换后的 Markdown。三层防御治理：总计 100 MB / 1000 条 / 单条 10 MB 上限，LRU-by-mtime 淘汰。
+- **🗄️ 有界缓存** — 此 fork 将转换后的 Markdown 存在 `.obsidian/plugins/karpathywiki-mineru/pdf-cache/`，与上游 `karpathywiki` 缓存分离；键仍为内容哈希 + 模型 + 转换器版本。三层防御治理：总计 100 MB / 1000 条 / 单条 10 MB 上限，LRU-by-mtime 淘汰。
 - **📝 可选 vault sidecar** — 设置 → Wiki 配置 → Wiki 文件夹 → *将 PDF Markdown 写入 Vault* 在源 PDF 旁写入 `<basename>.pdf.md`（默认关闭——仅缓存模式）。
+- **⛏️ MinerU Official API 后端** — 此 fork 在设置 → Wiki 配置 → PDF 转换后端中提供 **Native model**（默认，上游 v1.25.6 行为）和 **MinerU Official API**。MinerU 仅桌面端可用，使用你提供的 MinerU API Token，会把所选 PDF 上传到 MinerU 外部云 API；失败时不会静默回退到 Native。成功后会在 PDF 旁发布受管理的 `<basename>.mineru/`，包含 `document.md`、图片和 `.mineru-manifest.json`。**清除 PDF 转换缓存**只清理内部缓存，不删除 vault 可见的 `.mineru/` 产物。
 - **🛡️ 逐字转录提示** — 带 `[illegible]` / `[figure: ...]` 反幻觉标记的 OCR 风格转换；小型本地模型的 markdown 围栏包裹在写入缓存前自动清洗。
 
 ### 📄 PDF OCR 路径
@@ -159,7 +164,7 @@
 
 1. **☁️ 云端 Provider 原生 PDF 支持** — Anthropic、OpenAI 或 AWS Bedrock 开箱即用。直接摄入，无需额外设置。对于任何其他 OpenAI/Anthropic 兼容端点，在设置 → LLM 配置 → 高级中开启 **Force PDF Support** 让插件尝试调用。
 2. **🖥️ Apple Silicon 本地 OCR** — [oMLX](https://github.com/jundot/omlx) 将 Microsoft Markitdown 集成为其内置的 PDF→Markdown 后端。在 oMLX 中启用 Markitdown，加载 [百度 Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR)（3B / 570M 活跃参数，2026-06 开源）作为视觉模型，将插件指向 oMLX 作为自定义 OpenAI 兼容 Provider，开启 **Force PDF Support**，选择 oMLX 服务的多模态模型。PDF 全程不离开你的机器。
-3. **🛠️ 第三方提取工具（MinerU、Docling、Mathpix、Adobe）** — 在你的 PDF 上运行独立提取工具生成 `.md` 文件，然后通过插件的标准管线将其作为普通 Markdown 笔记摄入。对于科学论文、扫描文档、数学密集型 PDF 最为可靠。
+3. **🛠️ 第三方提取工具（MinerU、Docling、Mathpix、Adobe）** — 上游用户可先用独立工具把 PDF 转成 `.md`，再作为普通 Markdown 笔记摄入。此 MinerU fork 的桌面端也可直接选择内置 **MinerU Official API** 后端；它只上传所选 PDF，Token 存在 Obsidian SecretStorage，并在 PDF 旁写入受管理的 `<basename>.mineru/` 产物。
 
 📖 **所有三条路径的完整设置教程**（云端 Provider、oMLX 硬件等级、MinerU 安装、缓存管理）→ [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
 
@@ -174,9 +179,9 @@
 
 ### 🔒 隐私
 
-- **🚫 无后端、无追踪、无分析。** 完全在 Obsidian 内部运行。网络仅用于与你配置的 LLM 提供商通信。
+- **🚫 无项目后端、无追踪、无分析。** 在 Obsidian 内部运行。网络仅用于与你配置的 LLM Provider 通信；若选择 MinerU，则还用于 PDF 转换时访问 MinerU Official API。
 - **📁 源文件只读。** 插件永不修改你的原始 vault 笔记——仅在 `wiki/` 下创建新页面。
-- **🦙 完全本地模式。** Ollama、LM Studio 或任何本地 OpenAI 兼容端点——你的笔记永不离开你的机器。
+- **🦙 按本地方式配置时可完全本地运行。** 使用 Ollama、LM Studio 或其他本地 Provider，并选择 Native PDF 后端时，笔记和 PDF 都留在本机；选择 MinerU 会把所选 PDF 上传到 MinerU 外部云服务。
 - **🔐 最小化权限。** Vault 文件访问用于 Wiki 管理。剪贴板访问仅在你在查询弹窗中点击"复制"按钮时。
 
 ### 🦙 本地优先
@@ -302,11 +307,11 @@ pnpm llm-wiki ingest --vault /path/to/vault --source "notes/foo.md" --dry-run
 
 ### 我现有的 Wiki 安全吗？
 
-✅ 自 v1.0.0 向后兼容。在任何页面设置 `reviewed: true` 以保护不被覆盖。从 v1.24.x 升级不会重写你的 vault；v1.25.0 的 PDF 摄入默认仅缓存。
+✅ 自 v1.0.0 向后兼容。在任何页面设置 `reviewed: true` 以保护不被覆盖。从 v1.24.x 升级不会重写你的 vault；Native PDF 摄入默认仅缓存。MinerU 成功转换后会写入受管理的 `<basename>.mineru/` 产物，但不会覆盖原始 PDF 或源笔记。
 
 ### 我的数据会被发送给第三方吗？
 
-🚫 无后端、无分析——插件完全在 Obsidian 内部运行。只有你明确发送用于摄入/查询的文本离开你的设备，且仅发往你配置的 LLM 提供商。如需完全数据本地化，使用 Ollama 或 LM Studio。
+🚫 无项目后端、无分析——插件在 Obsidian 内部运行。你明确发送用于摄入/查询的文本只会发往你配置的 LLM 提供商。若选择 **MinerU Official API** 进行 PDF 转换，所选 PDF 会使用你的 Token 上传到 MinerU 外部云 API；如需本地 PDF 路径，请选择 Native 后端并搭配 Ollama 或 LM Studio。
 
 ### 能用我的语言使用吗？
 
@@ -340,14 +345,14 @@ pnpm llm-wiki ingest --vault /path/to/vault --source "notes/foo.md" --dry-run
 
 ## 🔒 隐私
 
-本插件已上架 Obsidian 社区插件市场，并接受安全与权限的自动化审核。
+上游 `karpathywiki` 插件已上架 Obsidian 社区插件市场，并接受安全与权限的自动化审核；此 MinerU fork 在明确发布前仅为本地构建。
 
-- **🚫 无后端、无服务器、无数据收集。** 纯本地软件，运行于 Obsidian 内部。插件不能也不会以任何方式收集、存储或传输你的数据到任何服务器——因为这样的服务器根本不存在。
-- **🔐 网络访问是自愿的。** 仅用于与你配置的 LLM 提供商通信。你选择提供商、你输入 API Key、你决定数据去向。
+- **🚫 无项目后端、无服务器、无数据收集。** 纯本地软件，运行于 Obsidian 内部。本项目不运营自己的服务，因此无法收集你的数据。
+- **🔐 网络访问是自愿的。** 仅用于与你配置的 LLM 提供商通信；若选择 MinerU，则用于把你转换的 PDF 发送到 MinerU Official API。你选择提供商/后端、输入所需 Key 或 Token，并决定数据去向。
 - **📁 Vault 文件访问** 用于 Wiki 管理（阅读笔记、生成页面、扫描死链、检测重复）。插件永不修改你的源文件。
 - **📋 剪贴板访问** 仅用于查询弹窗中的"复制"按钮——且仅在你点击时使用。
 
-如需完全数据本地化，使用 Ollama 或 LM Studio。使用本地 Provider 时，你的数据永不离开你的机器。
+如需完全数据本地化，请使用 Native PDF 后端并搭配 Ollama 或 LM Studio。即使 LLM Provider 是本地的，选择 MinerU 仍会把所选 PDF 上传到 MinerU 外部云服务。
 
 ---
 

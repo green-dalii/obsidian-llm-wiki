@@ -8,6 +8,11 @@
 
 **v1.26.0 — MERGED to main on 2026-08-02 (awaiting release notes + tag).** MINOR release anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issues/358) (complementary memory model). User-visible surface: the headless ingest CLI (`pnpm llm-wiki ingest`, bin `llm-wiki` in npm) — originally planned as a v1.25.12 PATCH but reclassified as MINOR on review since the CLI is a brand-new user-visible tool with a fresh flag surface. Plus the #383 folder-boundary follow-up (identity-check regression + unanchored configDir leak + shell-test rewrites). Plus PR #357 (DocTpoint source-lemma deterministic merge) — first item of the v1.26.0 design scope.
 
+### MinerU fork remaining work (not released)
+
+- Rerun the schema-v2/hash/SecretStorage hardened build in Obsidian and verify the managed-artifact and credential flows against the installed local build.
+- After a successful rerun, complete the full Six-Gate closure and local debug-build handoff before any tag or release action.
+
 *Composition (10 commits on `main` since v1.25.11 PATCH, oldest → newest)*:
 - `7825325` chore(tools): expose `llm-wiki` CLI via bin, scripts.ingest, and executable bit (PR #387)
 - `c905ffd` Merge pull request #387 from `feat/cli-ux-v1.25.12`

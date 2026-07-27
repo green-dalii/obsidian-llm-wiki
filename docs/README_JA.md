@@ -15,6 +15,8 @@
 
 [公式サイト](https://llmwiki.greenerai.top/) | [Obsidianマーケットプレース](https://community.obsidian.md/plugins/karpathywiki) | [ブログ](https://llmwiki.greenerai.top/blog/) | [Discussions](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
+> **MinerU fork注記（ローカルビルドのみ）：** このブランチは独立プラグイン `karpathywiki-mineru` / **Karpathy LLM Wiki MinerU** をビルドします。上流マーケットプレース版 `karpathywiki` と共存できます。ローカルビルドは `.obsidian/plugins/karpathywiki-mineru/` にインストールしてください。上のマーケットプレース/更新リンクは、MinerUリリースが明示されるまでは上流版を指します。
+
 🤔 [なぜこのプラグインなのか？](#-なぜこのプラグインなのか) | 🚀 [クイックスタート](#-クイックスタート) | ✨ [特徴](#-特徴) | 🌐 [エコシステム](#-エコシステム) | 🔍 [検索の仕組み](#-検索の仕組み) | 🤖 [モデル](#-モデル) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← このプラグインが役に立ったら、コーヒー一杯♥️を奢ってくれたら嬉しいです、またはスター🌟を付けてね↗
@@ -72,7 +74,7 @@
 - **5分でセットアップして、5時間かけるプロジェクトにはしたくない。** コミュニティプラグインからインストール → プロバイダーを選択 → ノートを取り込み。CLIもPythonも別ランタイムもベクトルDBも不要。数秒で`wiki/`以下にWikiページが生成されます。
 - **クリーンで自己完結したものが欲しい。** 外部依存ゼロ：埋め込みモデルもベクトルDBもpipパッケージもDockerコンテナも不要。ノートを読み、LLMと通信し、Wikiページをvaultに書き出す単一のObsidianプラグインです。すべてがObsidian内部で動作します。
 - **インターネットではなく*自分のノート*から答えてくれる、クエリ可能なチャットが欲しい。** すべての回答には`[[wiki-links]]`が付き、あなたの知識グラフに戻れます。
-- **データ主権を重視する。** OllamaやLM Studioで完全ローカル運用 — インターネットに触れません。
+- **データ主権を重視する。** OllamaやLM Studioなどのローカルプロバイダーと **Native model** PDFバックエンドを使えば、ノートとPDFは端末内に留まります。**MinerU Official API** を選ぶと、選択したPDFがMinerUの外部クラウドサービスへアップロードされます。
 - **10言語対応で読み書きしている。** UIとWiki出力言語は独立して設定可能（UIは英語のまま、Wikiは日本語で出力できます）。
 - **`[[wiki-links]]`を書くことでグラフを育てている。** あなたが書くすべてのリンクが検索を強化します。別途タグ付けや埋め込み、インデックス作成は不要。
 - **ワンクリックでメンテナンスしたい。** Lintヘルススキャン＋スマート全自動修復で、重複やリンク切れ、孤立ページを手作業なしで管理。
@@ -87,7 +89,9 @@
 
 ## 🚀 クイックスタート
 
-1. **インストール。** Obsidian → 設定 → コミュニティプラグイン → ブラウズ → 「Karpathy LLM Wiki」を検索 → インストール → 有効化。または[コミュニティプラグインページ](https://community.obsidian.md/plugins/karpathywiki)にアクセスして「Add to Obsidian」をクリック。
+1. **インストールする版を選択。**
+   - **このMinerU fork（ローカルビルドのみ）：** このブランチをローカルでビルドし、`main.js`、`manifest.json`、`styles.css`を`.obsidian/plugins/karpathywiki-mineru/`へコピーして **Karpathy LLM Wiki MinerU** を有効化します。**MinerU Official API** バックエンドを含むのはこのインストール方法だけです。
+   - **上流 `karpathywiki`：** Obsidian → 設定 → コミュニティプラグイン → ブラウズ → 「Karpathy LLM Wiki」を検索 → インストール → 有効化、または[コミュニティプラグインページ](https://community.obsidian.md/plugins/karpathywiki)を使用します。Marketplace/コミュニティプラグインから入るのは上流`karpathywiki`で、MinerUバックエンドは含まれません。
 2. **プロバイダーを設定。** 設定 → Karpathy LLM Wiki → プロバイダーを選択（OpenAI、Anthropic、Ollama、ChatGPT Plan（Codex OAuth）など）→ APIキーを入力（ローカルは不要）→ **Test Connection** → 保存。
 3. **ノートを取り込む。** 2つの方法：
    - **⌨️ キーボード：** `Cmd+P/Ctrl+P` → 「Ingest single source」 → Markdown（またはPDF、v1.25.0+）ファイルを選択。
@@ -143,8 +147,9 @@
 ### 📄 PDF取り込み（v1.25.0+）
 
 - **🔌 プロバイダーゲート** — Anthropic、OpenAI、BedrockはPDFをネイティブ処理。その他のOpenAI/Anthropic互換エンドポイントでは、設定→LLM Configuration→Advancedの **Force PDF Support** を有効にするとプラグインが呼び出しを試行します。Apple SiliconでのローカルOCR、サードパーティ抽出ツール（MinerU、Docling、Mathpix、Adobe）の詳細と完全なPDF取り込みチュートリアルは、以下の[PDF OCRパス](#-pdf-ocrパス)および[docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)を参照。
-- **🗄️ 有界キャッシュ** — `.obsidian/plugins/karpathywiki/pdf-cache/`に、コンテンツハッシュ＋モデル＋コンバーターバージョンでキー付けされた変換済みMarkdownを保存。三層防御のハウスキーピング：合計100MB/1000エントリ/単一10MB上限＋LRU-by-mtimeエビクション。
+- **🗄️ 有界キャッシュ** — このforkは変換済みMarkdownを `.obsidian/plugins/karpathywiki-mineru/pdf-cache/` に保存し、上流 `karpathywiki` とは分離します。キーはコンテンツハッシュ＋モデル＋コンバーターバージョンです。三層防御のハウスキーピング：合計100MB/1000エントリ/単一10MB上限＋LRU-by-mtimeエビクション。
 - **📝 任意のVaultサイドカー** — 設定→Wiki Configuration→Wiki Folder→*Write PDF Markdown to Vault*で、ソースPDFの隣に`<basename>.pdf.md`を書き出し（デフォルトはオフ。キャッシュのみがデフォルト）。
+- **⛏️ MinerU Official APIバックエンド** — このforkでは設定→Wiki Configuration→PDF conversion backendで **Native model**（デフォルト、上流v1.25.6の挙動）または **MinerU Official API** を選べます。MinerUはデスクトップ専用で、あなたのMinerU API Tokenを使い、選択したPDFをMinerUの外部クラウドAPIへアップロードします。失敗時にNativeへ静かにフォールバックすることはありません。成功すると、PDFの隣に`document.md`、画像、`.mineru-manifest.json`を含む管理対象`<basename>.mineru/`を公開します。**Clear PDF conversion cache** は内部キャッシュだけを削除し、Vaultに見える`.mineru/`成果物は削除しません。
 - **🛡️ 逐語転写プロンプト** — `[illegible]`/`[figure: ...]`の反幻覚マーカー付きOCRスタイル変換。小型ローカルモデルが出力をmarkdownフェンスで囲んでしまう場合、キャッシュ書き込み前に自動クリーンアップ。
 
 ### 📄 PDF OCRパス
@@ -153,7 +158,7 @@
 
 1. **☁️ クラウドプロバイダー（ネイティブPDF対応）** — Anthropic、OpenAI、またはAWS BedrockがそのままPDFを読み取り。追加設定不要で取り込み可能。その他のOpenAI/Anthropic互換エンドポイントでは、設定→LLM Configuration→Advancedの **Force PDF Support** を有効にするとプラグインが呼び出しを試行。
 2. **🖥️ Apple SiliconでのローカルOCR** — [oMLX](https://github.com/jundot/omlx)はMicrosoft Markitdownを内蔵のPDF→Markdownバックエンドとして統合。oMLXでMarkitdownを有効化し、[Baidu Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR)（3B/570M-active、2026-06オープンソース）をビジョンモデルとしてロード。プラグインをカスタムOpenAI互換プロバイダーに設定し、**Force PDF Support**をオンにして、oMLXが提供するマルチモーダルモデルを選択。PDFがマシンを離れることはありません。
-3. **🛠️ サードパーティ抽出ツール（MinerU、Docling、Mathpix、Adobe）** — PDFに対して別の抽出ツールを実行して`.md`ファイルを生成し、その後プラグインの標準パイプラインで通常のMarkdownノートとして取り込み。学術論文、スキャン文書、数式の多いPDFに最も信頼性の高い方法です。
+3. **🛠️ サードパーティ抽出ツール（MinerU、Docling、Mathpix、Adobe）** — 上流版ユーザーは別ツールでPDFから`.md`を生成し、通常のMarkdownノートとして取り込めます。このMinerU forkのデスクトップ版では、統合された **MinerU Official API** バックエンドも選択できます。アップロードするのは選択したPDFだけで、TokenはObsidian SecretStorageに保存され、PDFの隣に管理対象`<basename>.mineru/`成果物を書き込みます。
 
 📖 **3つのパスすべての完全セットアップ手順**（クラウドプロバイダー、oMLXハードウェア階層、MinerUインストール、キャッシュ管理）→ [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
 
@@ -168,9 +173,9 @@
 
 ### 🔒 プライバシー
 
-- **🚫 バックエンドなし、トラッキングなし、分析なし。** Obsidian内部でのみ動作。ネットワークは設定したLLMプロバイダーとの通信のみに使用。
+- **🚫 プロジェクトのバックエンドなし、トラッキングなし、分析なし。** Obsidian内部で動作します。ネットワークは設定したLLMプロバイダー、および選択した場合はPDF変換用のMinerU Official APIとの通信にのみ使用します。
 - **📁 ソースファイルは読み取り専用。** プラグインは元のvaultノートを決して変更せず、`wiki/`以下に新しいページを作成するのみ。
-- **🦙 完全ローカルモード。** Ollama、LM Studio、または任意のローカルOpenAI互換エンドポイントで — ノートがマシンを離れることはありません。
+- **🦙 ローカル構成なら完全ローカル。** Ollama、LM StudioなどのローカルプロバイダーとNative PDFバックエンドを使えば、ノートとPDFは端末内に留まります。MinerUを選ぶと、選択したPDFはMinerUの外部クラウドサービスへアップロードされます。
 - **🔐 最小限の権限。** VaultファイルアクセスはWiki管理用。クリップボードアクセスはQueryモーダルの「コピー」ボタンをクリックした時のみ。
 
 ### 🦙 ローカルファースト
@@ -296,11 +301,11 @@ Obsidianコミュニティプラグインからインストール → プロバ�
 
 ### 既存のWikiは安全ですか？
 
-✅ v1.0.0以降後方互換。任意のページに`reviewed: true`を設定すると上書きから保護。v1.24.xからのアップグレードでvaultが書き換えられることはありません。v1.25.0のPDF取り込みはデフォルトでキャッシュのみ。
+✅ v1.0.0以降後方互換。任意のページに`reviewed: true`を設定すると上書きから保護。v1.24.xからのアップグレードでvaultが書き換えられることはありません。Native PDF取り込みはデフォルトでキャッシュのみです。MinerU変換が成功すると管理対象`<basename>.mineru/`成果物を書き込みますが、元PDFやソースノートは上書きしません。
 
 ### データは外部に送信されますか？
 
-🚫 バックエンドなし、分析なし — Obsidian内部でのみ動作。取り込み/クエリのために明示的に送信したテキストだけがデバイスを離れ、設定したLLMプロバイダーにのみ送られます。完全なデータローカリティにはOllamaやLM Studioを使用してください。
+🚫 プロジェクトのバックエンドなし、分析なし — プラグインはObsidian内で動作します。取り込み/クエリのために明示的に送信したテキストは、設定したLLMプロバイダーにのみ送られます。PDF変換に **MinerU Official API** を選ぶと、選択したPDFはあなたのTokenでMinerU外部クラウドAPIへアップロードされます。ローカルPDF処理にはNativeバックエンドとOllamaまたはLM Studioを使用してください。
 
 ### 自分の言語で使えますか？
 
@@ -334,14 +339,14 @@ Obsidianコミュニティプラグインからインストール → プロバ�
 
 ## 🔒 プライバシー
 
-このプラグインはObsidianコミュニティプラグインマーケットに掲載されており、セキュリティと権限の自動レビューを受けています。
+上流 `karpathywiki` プラグインはObsidianコミュニティプラグインマーケットに掲載され、セキュリティと権限の自動レビューを受けています。このMinerU forkは、MinerUリリースが明示されるまではローカルビルドです。
 
-- **🚫 バックエンドもサーバーもデータ収集もありません。** Obsidian内部で動作する純粋なローカルソフトウェアです。プラグインはあなたのデータを収集、保存、送信することはできません — そのようなサーバーは存在しないからです。
-- **🔐 ネットワークアクセスはオプトイン。** 設定したLLMプロバイダーとの通信のみに使用。プロバイダーの選択、APIキーの入力、データの送信先はすべてあなたが決定します。
+- **🚫 プロジェクトのバックエンドもサーバーもデータ収集もありません。** Obsidian内部で動作するローカルソフトウェアです。このプロジェクトは独自サービスを運営しないため、あなたのデータを収集できません。
+- **🔐 ネットワークアクセスはオプトイン。** 設定したLLMプロバイダー、および選択した場合は変換対象PDFのためのMinerU Official APIとの通信にのみ使用します。プロバイダー/バックエンドの選択、必要なKeyまたはTokenの入力、データ送信先はすべてあなたが決定します。
 - **📁 Vaultファイルアクセス**はWiki管理（ノートの読み取り、ページ生成、リンク切れスキャン、重複検出）に使用。プラグインがソースファイルを変更することは決してありません。
 - **📋 クリップボードアクセス**はQueryモーダルの「コピー」ボタンでのみ使用 — クリックした時だけです。
 
-完全なデータローカリティには、OllamaやLM Studioを使用してください。ローカルプロバイダーでは、データがマシンを離れることは決してありません。
+完全なデータローカリティには、Native PDFバックエンドとOllamaまたはLM Studioを使用してください。ローカルLLMプロバイダーでも、MinerUを選ぶと選択したPDFはMinerU外部クラウドサービスへアップロードされます。
 
 ---
 

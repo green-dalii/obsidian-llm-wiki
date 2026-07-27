@@ -1,10 +1,10 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-07-23
+**Last Updated:** 2026-07-29
 
 ---
 
-## Current Phase: MinerU fork implementation complete (2026-07-23) — awaiting local e2e and release decision
+## Current Phase: MinerU fork on upstream v1.25.6 — schema-v2 Obsidian rerun pending
 
 This branch is an independent fork that can coexist with the upstream community plugin:
 
@@ -12,40 +12,13 @@ This branch is an independent fork that can coexist with the upstream community 
 - Plugin name: **Karpathy LLM Wiki MinerU**
 - Upstream ID remains `karpathywiki`; settings and internal PDF caches therefore use separate plugin directories.
 
-**Delivered MinerU scope:**
+The schema-v2/hash/SecretStorage hardened build still requires a final Obsidian rerun. Until that rerun and the subsequent quality gates complete, this fork is not released.
 
-- ✅ Settings → Wiki Configuration offers an explicit **Native model / MinerU Official API** PDF conversion backend. Native remains the default; MinerU is desktop-only and never silently falls back to native conversion.
-- ✅ MinerU uses its official external cloud API. The UI discloses that the selected PDF is uploaded and requires a user-provided MinerU API Token.
-- ✅ Validated MinerU output is transactionally published beside the PDF as `<pdf-basename>.mineru/`, containing `document.md`, referenced images, and `.mineru-manifest.json`.
-- ✅ The internal conversion cache remains under `.obsidian/plugins/karpathywiki-mineru/pdf-cache/`. **Clear PDF conversion cache** removes only this internal cache and does not delete Vault-visible `.mineru/` artifacts.
-- ✅ PDF and parent-folder rename/move operations update managed artifact placement and manifest `sourcePath`. Managed `.mineru/` and temporary artifact paths are excluded from watcher, batch, picker, queue, and direct ingestion paths.
-- ✅ Batch authentication or quota failure suppresses later MinerU network attempts in that batch; rate-limit and file-specific failures remain isolated. Tokens, signed URLs, and raw response bodies are excluded from user reports.
-- ✅ Localized progress, actionable errors, settings, and managed-artifact guidance are implemented across all 10 locales.
-- ⏳ **Not yet claimed as released:** final gates, local debug build, user e2e, push, PR, tag, and release remain pending.
-- ⏳ **Deferred:** MinerU conversion on Obsidian mobile. A saved MinerU choice is preserved across devices, but mobile cannot start MinerU conversion.
+Remaining work and release gates: [ROADMAP.md](./ROADMAP.md)
 
-Full milestone and remaining work: [ROADMAP.md](./ROADMAP.md)
+**Upstream baseline now rebased to v1.25.6 (released 2026-07-24):** Bot-equivalent production lint fixes for `loopback-flow.ts` (`module.createRequire(__filename)` via dynamic `import('node:module')`), `tsconfig.json` Node types, version packaging, and 2535 passing tests across 189 files. Preserve those release facts when editing docs; this fork is not released unless explicitly stated.
 
-**v1.24.1 PATCH release composition (2026-07-13/14 merge window):**
-- ✅ Phase 1 (#271): Fix #1 #268 Tier C forceRecreate bypass
-- ✅ Phase 2 (#276): page-factory.ts 1297-LOC god-class split (10 modules + 99 tests)
-- ✅ Phase 3 (#277/280): Bedrock Stage 1 via bedrock-mantle (~+3 KB, zero new npm deps)
-- ✅ Phase 4 (#269): #272 LM Studio no-key ingest fix
-- ✅ Phase 5 (#281): 5-stage PPR seed-selection pipeline (lex → LLM keywords → local scan → LLM KB fallback → PPR) + post-e2e noise/correctness fixes. 1825 → 2060 tests.
-- ✅ Phase 5.5 (#282): parseJsonResponse empty-body quiet path (`silentOnEmpty` + `throwOnEmpty`). Closes #255 + #274. 2060 → 2073 tests (+13).
-- ✅ Phase 6 (#283): #258 entities-page redundant `## 基本信息` body block fix at the prompt + schema + lint layer. Closes #258. 2073 → 2080 tests (+7).
-
-**Issues closed in v1.24.1:**
-- #255 — Lint console errors (CLOSED via #282)
-- #258 — entities-page `## 基本信息` drift (CLOSED via #283)
-- #274 — Ollama Qwen3.5:9b no-key empty body (CLOSED via #282)
-- #275 — deepseek seed-selector empty body (CLOSED via `Closes #275` in v1.24.1 release commit; e2e PASSED on deepseek-v4-flash)
-
-**v1.24.2 PATCH open issues (next cycle):**
-- #255 follow-up — none
-- #275 streaming-mode port (`selectSeedsWithLLM` to streaming + parse first stop chunk) — Fix #0 candidate
-
-Full composition + execution plan: [ROADMAP.md](./ROADMAP.md)
+Historical release composition and issue closure records live in [CHANGELOG.md](./CHANGELOG.md). Forward-looking work lives in [ROADMAP.md](./ROADMAP.md); do not keep copied release timelines in AGENTS.md.
 
 ### Withdrawn / non-issues (kept for archaeology)
 
@@ -436,7 +409,7 @@ For any new function or behavior change: write a failing test first, then write 
 
 | File | Responsibility | What belongs | What does NOT belong |
 |------|---------------|--------------|---------------------|
-| **AGENTS.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current state (v1.22.6 released + v1.23.0 in flight) | Old release histories, project structure tree, full version timeline |
+| **AGENTS.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current MinerU fork on upstream v1.25.6 with schema-v2 Obsidian rerun pending | Old release histories, project structure tree, full version timeline |
 | **ROADMAP.md** | Planning | Next Milestone / Version Timeline (condensed) / Deferred & Backlog | Per-version detail (use CHANGELOG) |
 | **CHANGELOG.md** | History (Keep a Changelog) | Per-version Added/Changed/Fixed/Removed — ancient versions are pre-aggregated, **do not re-merge** | Forward-looking plans, dev standards |
 | **CONTRIBUTING.md** | Contributor guide | Project structure tree, architecture, Mermaid, dev setup | User docs, design philosophy |

@@ -15,6 +15,8 @@
 
 [Sitio oficial](https://llmwiki.greenerai.top/) | [Mercado de Obsidian](https://community.obsidian.md/plugins/karpathywiki) | [Blog](https://llmwiki.greenerai.top/blog/) | [Debate](https://github.com/green-dalii/obsidian-llm-wiki/discussions)
 
+> **Nota del fork MinerU (solo build local):** Esta rama compila un plugin independiente, `karpathywiki-mineru` / **Karpathy LLM Wiki MinerU**, que puede coexistir con el plugin upstream `karpathywiki` del mercado. Instala la build local en `.obsidian/plugins/karpathywiki-mineru/`; los enlaces de mercado/actualización anteriores siguen apuntando a upstream salvo que se anuncie explícitamente un release de MinerU.
+
 🤔 [Por qué este plugin?](#-por-qué-este-plugin) | 🚀 [Inicio rápido](#-inicio-rápido) | ✨ [Características](#-características) | 🌐 [Ecosistema](#-ecosistema) | 🔍 [Cómo funciona la recuperación](#-cómo-funciona-la-recuperación) | 🤖 [Modelos](#-modelos) | ❓ [FAQ](#-faq)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H7V1228WMD) ← Si este plugin te ha sido útil, invítame a un café♥️ o deja una estrella🌟↗
@@ -72,7 +74,7 @@ Escribes notas. Se quedan en carpetas. Encontrar relaciones significa recordar h
 - **Quieres una configuración de 5 minutos, no un proyecto de 5 horas.** Instala desde Plugins Comunitarios → elige un proveedor → ingesta una nota. Sin CLI, sin Python, sin runtime separado, sin BD vectorial. Ves páginas wiki en `wiki/` en segundos.
 - **Quieres algo limpio y autocontenido.** El plugin tiene exactamente cero dependencias externas: sin modelo de embeddings, sin base de datos vectorial, sin paquete pip, sin contenedor Docker. Es un solo plugin de Obsidian que lee tus notas, habla con un LLM y escribe páginas wiki en tu vault. Todo vive dentro de Obsidian.
 - **Quieres un chat consultable que responda desde *tus* notas** — no desde internet — con cada respuesta llevando `[[wiki-links]]` de vuelta a tu grafo de conocimiento.
-- **Te importa la soberanía de datos** — funciona completamente en local con Ollama o LM Studio, sin tocar internet.
+- **Te importa la soberanía de datos** — con un proveedor local como Ollama o LM Studio y el backend PDF **Native model**, tus notas y PDFs permanecen en tu equipo. **MinerU Official API** sube el PDF seleccionado al servicio cloud externo de MinerU.
 - **Escribes o lees en cualquiera de los 10 idiomas compatibles** — la UI y el idioma de salida del wiki son independientes (tu wiki puede estar en chino mientras la interfaz está en inglés).
 - **Mantienes el grafo escribiendo `[[wiki-links]]`** — cada enlace que escribes ya enriquece la recuperación; sin paso separado de etiquetado/embedding/indexación.
 - **Quieres mantenimiento con un clic** — Escaneo de salud Lint + Smart Fix All mantienen a raya duplicados, enlaces rotos y páginas huérfanas sin que tengas que curar manualmente.
@@ -87,7 +89,9 @@ Escribes notas. Se quedan en carpetas. Encontrar relaciones significa recordar h
 
 ## 🚀 Inicio rápido
 
-1. **Instala.** Obsidian → Configuración → Plugins comunitarios → Examinar → busca "Karpathy LLM Wiki" → Instalar → Habilitar. O visita la [página del Plugin Comunitario](https://community.obsidian.md/plugins/karpathywiki) y haz clic en **Add to Obsidian**.
+1. **Elige una edición para instalar.**
+   - **Este fork MinerU (solo build local):** Compila esta rama localmente, copia `main.js`, `manifest.json` y `styles.css` en `.obsidian/plugins/karpathywiki-mineru/` y habilita **Karpathy LLM Wiki MinerU**. Solo esta ruta de instalación incluye el backend **MinerU Official API**.
+   - **Upstream `karpathywiki`:** Obsidian → Configuración → Plugins comunitarios → Examinar → busca "Karpathy LLM Wiki" → Instalar → Habilitar, o usa la [página del Plugin Comunitario](https://community.obsidian.md/plugins/karpathywiki). Marketplace/Plugins comunitarios instala el upstream `karpathywiki`, sin backend MinerU.
 2. **Configura un proveedor.** Abre Configuración → Karpathy LLM Wiki → elige un proveedor (OpenAI, Anthropic, Ollama, ChatGPT Plan (Codex OAuth), etc.) → introduce la clave API (no necesaria para local) → haz clic en **Test Connection** → Guardar.
 3. **Ingesta una nota.** Dos formas:
    - **⌨️ Teclado:** `Cmd+P/Ctrl+P` → "Ingest single source" → elige cualquier archivo Markdown (o **PDF**, v1.25.0+).
@@ -143,8 +147,9 @@ Eso es todo. El plugin no modifica nada en tus notas originales — solo crea p�
 ### 📄 Ingesta de PDF (v1.25.0+)
 
 - **🔌 Puerta de proveedor** — Anthropic, OpenAI y Bedrock manejan PDF de forma nativa. Para cualquier otro endpoint compatible con OpenAI/Anthropic, activa **Force PDF Support** en Configuración → LLM Configuration → Advanced para que el plugin intente la llamada. Para OCR local en Apple Silicon, extractores de terceros (MinerU, Docling, Mathpix, Adobe) y la guía completa de ingesta PDF, consulta [Rutas de OCR PDF](#-rutas-de-ocr-pdf) más abajo y [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md).
-- **🗄️ Caché acotada** — `.obsidian/plugins/karpathywiki/pdf-cache/` almacena el Markdown convertido, indexado por hash de contenido + modelo + versión del convertidor. Mantenimiento de tres capas de defensa: 100 MB total / 1000 entradas / 10 MB por entrada individual con evicción LRU por mtime.
+- **🗄️ Caché acotada** — este fork almacena el Markdown convertido en `.obsidian/plugins/karpathywiki-mineru/pdf-cache/`, separado del upstream `karpathywiki`, indexado por hash de contenido + modelo + versión del convertidor. Mantenimiento de tres capas de defensa: 100 MB total / 1000 entradas / 10 MB por entrada individual con evicción LRU por mtime.
 - **📝 Sidecar opcional en el vault** — Configuración → Wiki Configuration → Wiki Folder → *Write PDF Markdown to Vault* escribe `<basename>.pdf.md` junto al PDF fuente (desactivado por defecto — solo caché es el valor predeterminado).
+- **⛏️ Backend MinerU Official API** — este fork añade Configuración → Wiki Configuration → PDF conversion backend: **Native model** (predeterminado, comportamiento upstream v1.25.6) o **MinerU Official API**. MinerU es solo escritorio, usa tu MinerU API Token, sube el PDF seleccionado a la API cloud externa de MinerU, nunca vuelve silenciosamente a Native si falla y publica resultados validados junto al PDF como `<basename>.mineru/` con `document.md`, imágenes y `.mineru-manifest.json`. **Clear PDF conversion cache** elimina solo la caché interna, no esos artefactos `.mineru/` visibles en el vault.
 - **🛡️ Prompt de transcripción literal** — conversión estilo OCR con marcadores anti-alucinación `[illegible]` / `[figure: ...]`; el envoltorio de fences markdown de modelos locales pequeños se limpia automáticamente antes de escribir en caché.
 
 ### 📄 Rutas de OCR PDF
@@ -153,7 +158,7 @@ Tres rutas, elige la que se ajuste a tu configuración:
 
 1. **☁️ Proveedor cloud con soporte PDF nativo** — Anthropic, OpenAI o AWS Bedrock leen PDFs sin configuración adicional. Solo ingesta; no se necesita configuración extra. Para cualquier otro endpoint compatible con OpenAI/Anthropic, activa **Force PDF Support** en Configuración → LLM Configuration → Advanced para que el plugin intente la llamada.
 2. **🖥️ OCR local en Apple Silicon** — [oMLX](https://github.com/jundot/omlx) integra Microsoft Markitdown como backend PDF→Markdown incorporado. Activa Markitdown en oMLX, carga [Baidu Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) (3B / 570M activos, open-source 2026-06) como modelo de visión, apunta el plugin a oMLX como proveedor Custom OpenAI-Compatible, activa **Force PDF Support** y elige el modelo multimodal que oMLX está sirviendo. El PDF nunca sale de tu máquina.
-3. **🛠️ Extractor de terceros (MinerU, Docling, Mathpix, Adobe)** — ejecuta un extractor separado en tus PDFs para producir archivos `.md`, luego ingéstalos como notas Markdown regulares a través del pipeline estándar del plugin. La opción más fiable para artículos científicos, documentos escaneados y PDFs con muchas matemáticas.
+3. **🛠️ Extractor de terceros (MinerU, Docling, Mathpix, Adobe)** — los usuarios upstream pueden ejecutar un extractor separado para producir `.md` e ingerirlos como notas Markdown regulares. En este fork MinerU, los usuarios de escritorio pueden elegir el backend integrado **MinerU Official API**; sube solo el PDF seleccionado, guarda el token mediante Obsidian SecretStorage y escribe artefactos `<basename>.mineru/` gestionados junto al PDF.
 
 📖 **Guías de configuración completas** para las tres rutas (proveedores cloud, niveles de hardware oMLX, instalación de MinerU, mantenimiento de caché) → [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
 
@@ -168,9 +173,9 @@ Tres rutas, elige la que se ajuste a tu configuración:
 
 ### 🔒 Privacidad
 
-- **🚫 Sin backend, sin seguimiento, sin análisis.** Se ejecuta completamente dentro de Obsidian. La red se usa solo para comunicarse con el proveedor LLM que configures.
+- **🚫 Sin backend del proyecto, sin seguimiento, sin análisis.** Se ejecuta dentro de Obsidian. La red se usa solo para el proveedor LLM configurado y, si se selecciona, para MinerU Official API durante la conversión de PDF.
 - **📁 Los archivos fuente son de solo lectura.** El plugin nunca modifica tus notas originales del vault — solo crea páginas nuevas dentro de `wiki/`.
-- **🦙 Modo local completo.** Ollama, LM Studio o cualquier endpoint local compatible con OpenAI → tus notas nunca salen de tu máquina.
+- **🦙 Modo completamente local con configuración local.** Con Ollama, LM Studio u otro proveedor local y el backend PDF Native, tus notas y PDFs permanecen en tu equipo. MinerU sube el PDF seleccionado al servicio cloud externo de MinerU.
 - **🔐 Permisos mínimos.** Acceso a archivos del vault para la gestión del wiki. Acceso al portapapeles solo cuando haces clic en el botón "Copiar" en el modal de Consulta.
 
 ### 🦙 Local-first
@@ -296,11 +301,11 @@ Instala desde Plugins Comunitarios de Obsidian → elige un proveedor → **Test
 
 ### Mi wiki existente está segura?
 
-✅ Retrocompatible desde v1.0.0. Establece `reviewed: true` en cualquier página para protegerla contra sobrescritura. Actualizar desde v1.24.x no reescribe tu vault; la ingesta de PDF de v1.25.0 es solo caché por defecto.
+✅ Retrocompatible desde v1.0.0. Establece `reviewed: true` en cualquier página para protegerla contra sobrescritura. Actualizar desde v1.24.x no reescribe tu vault; la ingesta PDF Native es solo caché por defecto. Una conversión MinerU correcta escribe artefactos `<basename>.mineru/` gestionados, pero no sobrescribe el PDF original ni las notas fuente.
 
 ### Mis datos se envían a algún sitio?
 
-🚫 Sin backend, sin análisis — el plugin se ejecuta completamente dentro de Obsidian. Solo el texto que envías explícitamente para ingesta/consulta sale de tu dispositivo, y solo al proveedor LLM que configures. Para localidad completa de datos, usa Ollama o LM Studio.
+🚫 Sin backend del proyecto, sin análisis — el plugin se ejecuta dentro de Obsidian. El texto que envías explícitamente para ingesta/consulta va solo al proveedor LLM configurado. Si eliges **MinerU Official API** para convertir PDF, el PDF seleccionado se sube a la API cloud externa de MinerU con tu token; para una ruta PDF local, usa Native con Ollama o LM Studio.
 
 ### Puedo usar el plugin en mi idioma?
 
@@ -334,14 +339,14 @@ Haz clic en la barra de estado (muestra "Ingesting… click to cancel") o `Cmd+P
 
 ## 🔒 Privacidad
 
-Este plugin está listado en el Mercado de Plugins Comunitarios de Obsidian y se somete a revisión automatizada de seguridad y permisos.
+El plugin upstream `karpathywiki` está listado en el Mercado de Plugins Comunitarios de Obsidian y se somete a revisión automatizada de seguridad y permisos; este fork MinerU es una build local hasta que se anuncie explícitamente un release.
 
-- **🚫 Sin backend, sin servidor, sin recopilación de datos.** Software puramente local que se ejecuta dentro de Obsidian. El plugin no puede ni recopila, almacena ni transmite tus datos a ningún servidor — porque dicho servidor no existe.
-- **🔐 El acceso a la red es opt-in.** Se usa únicamente para comunicarse con el proveedor LLM que configures. Tú eliges el proveedor, tú introduces la clave API, tú decides a dónde van tus datos.
+- **🚫 Sin backend del proyecto, sin servidor, sin recopilación de datos.** Software puramente local que se ejecuta dentro de Obsidian. Este proyecto no opera un servicio propio, por lo que no puede recopilar tus datos.
+- **🔐 El acceso a la red es opt-in.** Se usa únicamente para comunicarse con el proveedor LLM configurado y, si lo eliges, con MinerU Official API para el PDF que conviertas. Tú eliges proveedor/backend, introduces la clave o token requerido y decides a dónde van tus datos.
 - **📁 El acceso a los archivos del vault** se usa para la gestión del wiki (leer notas, generar páginas, escanear enlaces rotos, detectar duplicados). El plugin nunca modifica tus archivos fuente.
 - **📋 El acceso al portapapeles** se usa exclusivamente por el botón "Copiar" en el modal de Consulta, y solo cuando haces clic en él.
 
-Para una localidad completa de datos, utiliza Ollama o LM Studio. Con un proveedor local, tus datos nunca salen de tu máquina.
+Para una localidad completa de datos, usa el backend PDF Native con Ollama o LM Studio. Incluso con un proveedor LLM local, elegir MinerU sube el PDF seleccionado al servicio cloud externo de MinerU.
 
 ---
 
@@ -371,4 +376,3 @@ Apache License, Versión 2.0 — consulta [LICENSE](../LICENSE) y [NOTICE](../NO
 **Mantenedor:** [@green-dalii](https://github.com/green-dalii)
 
 [![Star History Chart](https://api.star-history.com/chart?repos=green-dalii/obsidian-llm-wiki&type=timeline&legend=bottom-right&sealed_token=Xa2Oeo4ZXfP48muFa_nEj7wrUaENRLnE0bXSZM7EKTUhHHlmnDFmmxSW80NS8-kXm4kDDMbdzkrZ0MtcqUcmAxB1a1FVVmIIimncTWL9Zg7Ms7j8gnjdCpd0-SyvSc5ubCtUB2zkqtn_V4alrEi7UbBpTlNTdHPva_Vuar5lx9d-ousGG-zhpUk3cGaw)](https://www.star-history.com/?repos=green-dalii%2Fobsidian-llm-wiki&type=timeline&legend=bottom-right)
-

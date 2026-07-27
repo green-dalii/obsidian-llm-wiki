@@ -20,7 +20,7 @@ pnpm dev
 pnpm build
 ```
 
-`main.js` is the compiled output loaded by Obsidian. Test this independent fork by copying `main.js`, `manifest.json`, and `styles.css` into your vault's `.obsidian/plugins/karpathywiki-mineru/` folder.
+`main.js` is the compiled output loaded by Obsidian. Test this independent MinerU fork (`karpathywiki-mineru` / **Karpathy LLM Wiki MinerU**) by copying `main.js`, `manifest.json`, and `styles.css` into your vault's `.obsidian/plugins/karpathywiki-mineru/` folder; it can coexist with upstream `karpathywiki` because plugin settings and caches use separate directories.
 
 ## Quality Checks
 
@@ -119,15 +119,16 @@ src/
 │   ├── smoke-test.ts           # LLM configuration verification wrapper (v1.23.0)
 │   ├── transient-retry.ts      # Project-wide withTransientRetry<T> helper (v1.24.0, 3× exp backoff)
 │   ├── model-resolver.ts       # resolveModelForTask(settings, task) #208 per-task routing helper (v1.24.0)
-│   ├── pdf-cache.ts            # Content-hash PDF conversion cache + LRU eviction (v1.25.0)
-│   ├── pdf-converter.ts        # PDF→Markdown via LLM FilePart + OCR-style prompt (v1.25.0)
+│   ├── pdf-cache.ts            # Content-hash PDF conversion cache + LRU eviction (fork path karpathywiki-mineru/pdf-cache)
+│   ├── pdf-converter.ts        # PDF→Markdown router for Native model / MinerU Official API backends
 │   ├── pdf-metadata.ts         # Pure-function PDF Info dict parser (title/author/pageCount, v1.25.0)
 │   ├── folder-scope.ts         # Folder-boundary predicate (#364, v1.25.10) — anchor on trailing slash, root wildcard
 │   ├── contradicted-marker.ts  # `contradictions:` frontmatter marker (#312 §4, v1.25.10)
 │   ├── source-language.ts      # Source-frontmatter language directive builder (#350 follow-on, v1.25.10)
 │   ├── template-renderer.ts    # {{placeholder}} substitution with named keys (#244/v1.25.10)
 │   ├── lint-analysis-cache.ts  # Content-hash lint analysis cache (P1-1 helper, v1.25.10; controller wire deferred)
-│   └── lint-smart-skip.ts      # Per-phase verdict helpers (P1-2 helper, v1.25.10; controller wire deferred)
+│   ├── lint-smart-skip.ts      # Per-phase verdict helpers (P1-2 helper, v1.25.10; controller wire deferred)
+│   └── pdf-backends/           # Native LLM PDF backend + MinerU client/artifact/path/archive helpers
 ├── wiki/                # Wiki engine modules
 │   ├── wiki-engine.ts   # Orchestrator (ingest, lint, log) — v1.25.1: 4 internal modules extracted
 │   ├── graph-cache.ts   # (v1.25.1) `_cachedGraph` + invalidate logic

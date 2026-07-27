@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Independent MinerU fork documentation.** README plus all 9 localized READMEs describe the local-build fork identity (`karpathywiki-mineru` / **Karpathy LLM Wiki MinerU**), coexistence with upstream `karpathywiki`, the explicit **Native model / MinerU Official API** PDF backend choice, desktop-only MinerU conversion, external PDF upload disclosure, user-provided MinerU token, no silent Native fallback, separate internal cache, and managed `<pdf-basename>.mineru/` artifacts.
+
+### Changed
+
+- **Pre-hardening schema-v1 E2E evidence recorded.** On 2026-07-23, `Recursive Harness Self-Improvement.pdf` produced non-empty `document.md`, images, and `.mineru-manifest.json` under `Recursive Harness Self-Improvement.mineru/`. This is historical evidence for the pre-hardening build only.
+
 ## [1.25.12] - 2026-08-01
 
 > **Note.** The work that was originally planned as `v1.25.12 PATCH` (CLI UX
