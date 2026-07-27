@@ -36,6 +36,7 @@ import { canonicalizeSectionHeaders } from '../../core/section-header-canonicali
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { parseFrontmatter, enforceFrontmatterConstraints } from '../../core/frontmatter';
 import { injectMentionsSection } from '../../core/mentions-injector';
+import { renderTemplate } from '../../core/template-renderer';
 import { applySectionLabels, getSectionLabels } from '../system-prompts';
 import { resolvePagePath, buildPagesListForPrompt, type PathResolutionContext } from './path-resolution';
 import { mergePage } from './merge-page';
@@ -201,26 +202,26 @@ export async function createNewPage(
   try {
     const generatePrompt = pageType === 'entity' ? PROMPTS.generateEntityPage : PROMPTS.generateConceptPage;
 
-    const prompt = generatePrompt
-      .replace('{{entity_name}}', info.name)
-      .replace('{{concept_name}}', info.name)
-      .replace('{{entity_type}}', info.type)
-      .replace('{{concept_type}}', info.type)
-      .replace('{{entity_summary}}', info.summary)
-      .replace('{{concept_summary}}', info.summary)
-      .replace('{{extraction_aliases}}', info.aliases?.length
-        ? `[${info.aliases.join(', ')}]` : 'None')
-      .replace('{{related_entities}}', info.related_entities?.join(', ') || 'No related entities')
-      .replace('{{related_concepts}}', info.related_concepts?.join(', ') || 'No related concepts')
-      .replace('{{existing_pages}}', await buildPagesListForPrompt(ctx, extraPagePaths))
-      .replace('{{related_content}}', 'No existing content')
-      .replace('{{merge_strategy}}', 'New page, no merge needed.')
-      .replace('{{date}}', new Date().toISOString().split('T')[0])
+    const prompt = renderTemplate(generatePrompt, {
+      entity_name: info.name,
+      concept_name: info.name,
+      entity_type: info.type,
+      concept_type: info.type,
+      entity_summary: info.summary,
+      concept_summary: info.summary,
+      extraction_aliases: info.aliases?.length ? `[${info.aliases.join(', ')}]` : 'None',
+      related_entities: info.related_entities?.join(', ') || 'No related entities',
+      related_concepts: info.related_concepts?.join(', ') || 'No related concepts',
+      existing_pages: await buildPagesListForPrompt(ctx, extraPagePaths),
+      related_content: 'No existing content',
+      merge_strategy: 'New page, no merge needed.',
+      date: new Date().toISOString().split('T')[0],
       // Issue #155: entity/concept pages cite the canonical source PAGE
       // ([[sources/<slug>]]), not the raw note path — so a collision-
       // disambiguated source slug is honored and the normalizer passes it
       // through unchanged.
-      .replace(/\{\{source_file\}\}/g, sourceSlug ? `sources/${sourceSlug}` : sourceFile.path);
+      source_file: sourceSlug ? `sources/${sourceSlug}` : sourceFile.path,
+    });
 
     // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
     const finalPrompt = applySectionLabels(prompt, ctx.settings);

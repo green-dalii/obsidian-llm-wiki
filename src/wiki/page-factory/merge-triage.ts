@@ -24,6 +24,7 @@ import { TOKENS_MERGE_TRIAGE } from '../../constants';
 import { resolveModelForTask } from '../../core/model-resolver';
 import { getSectionLabels, applySectionLabels } from '../system-prompts';
 import { firstQuotesForPrompt } from './contextualize';
+import { renderTemplate } from '../../core/template-renderer';
 
 /** Strategy selected by the LLM for handling new information vs. an existing page. */
 export type MergeStrategy = 'merge' | 'skip' | 'complementary' | 'contradictory';
@@ -86,14 +87,15 @@ export async function classifyMergeNeed(
   const labels = getSectionLabels(ctx.settings);
   const sectionLabelsList = Object.values(labels).join('\n- ');
 
-  const triagePrompt = PROMPTS.mergeAnalysis
-    .replace('{{page_name}}', info.name)
-    .replace('{{page_type}}', pageType)
-    .replace('{{existing_content}}', existingContent)
-    .replace('{{new_info}}', buildNewInfoSummary(info, sourceFile))
-    .replace('{{source_context}}', renderSourceContextBlock(sourceContext))
-    .replace('{{source_ownership_rule}}', renderSourceOwnershipRule(sourceContext))
-    .replace('{{section_labels}}', `- ${sectionLabelsList}`);
+  const triagePrompt = renderTemplate(PROMPTS.mergeAnalysis, {
+    page_name: info.name,
+    page_type: pageType,
+    existing_content: existingContent,
+    new_info: buildNewInfoSummary(info, sourceFile),
+    source_context: renderSourceContextBlock(sourceContext),
+    source_ownership_rule: renderSourceOwnershipRule(sourceContext),
+    section_labels: `- ${sectionLabelsList}`,
+  });
 
   // Issue #328 Phase 1 follow-up: removed appendTagVocabularyToPrompt wrapper
   // because the system layer now always injects the same section once.

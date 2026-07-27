@@ -42,6 +42,7 @@ import {
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { mergeFrontmatter, parseFrontmatter } from '../../core/frontmatter';
 import { injectMentionsSection } from '../../core/mentions-injector';
+import { renderTemplate } from '../../core/template-renderer';
 import { applySectionLabels, getSectionLabels } from '../system-prompts';
 import { UNIVERSAL_LINK_CONSTRAINTS } from '../prompts/constraints';
 import { buildPagesListForPrompt } from './path-resolution';
@@ -169,15 +170,16 @@ export async function mergePage(
     // 2. LLM intelligent body merge.
     const mergePrompt = pageType === 'entity' ? PROMPTS.mergeEntityPage : PROMPTS.mergeConceptPage;
 
-    const prompt = mergePrompt
-      .replace('{{existing_body}}', existingBody)
-      .replace('{{new_source}}', sourceFile.basename)
-      .replace('{{entity_summary}}', info.summary)
-      .replace('{{concept_summary}}', info.summary)
-      .replace('{{related_entities}}', info.related_entities?.join(', ') || '')
-      .replace('{{related_concepts}}', info.related_concepts?.join(', ') || '')
-      .replace('{{key_details}}', firstQuotesForPrompt(info))
-      .replace('{{existing_pages}}', await buildPagesListForPrompt(ctx, extraPagePaths));
+    const prompt = renderTemplate(mergePrompt, {
+      existing_body: existingBody,
+      new_source: sourceFile.basename,
+      entity_summary: info.summary,
+      concept_summary: info.summary,
+      related_entities: info.related_entities?.join(', ') || '',
+      related_concepts: info.related_concepts?.join(', ') || '',
+      key_details: firstQuotesForPrompt(info),
+      existing_pages: await buildPagesListForPrompt(ctx, extraPagePaths),
+    });
 
     // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
     const finalPrompt = applySectionLabels(prompt, ctx.settings);
@@ -252,12 +254,13 @@ export async function appendToReviewedPage(
     );
 
     // 2. Minimal LLM check for genuinely new content.
-    const prompt = PROMPTS.appendToReviewedPage
-      .replace('{{existing_body}}', existingBody)
-      .replace('{{new_source}}', sourceFile.basename)
-      .replace('{{entity_summary}}', info.summary)
-      .replace('{{key_details}}', firstQuotesForPrompt(info))
-      .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
+    const prompt = renderTemplate(PROMPTS.appendToReviewedPage, {
+      existing_body: existingBody,
+      new_source: sourceFile.basename,
+      entity_summary: info.summary,
+      key_details: firstQuotesForPrompt(info),
+      constraints: UNIVERSAL_LINK_CONSTRAINTS,
+    });
 
     // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
     const finalPrompt = applySectionLabels(prompt, ctx.settings);
