@@ -24,6 +24,7 @@ import type { BatchProgress } from '../core/status-bar';
 import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
 import { slugify } from '../core/slug';
+import { isInFolderScope } from '../core/folder-scope';
 import { parseFrontmatter } from '../core/frontmatter';
 import { COMPATIBLE_SOURCE_EXTENSIONS, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 import { FileSuggestModal, FolderSuggestModal, MultiFileSuggestModal, IngestReportModal } from '../ui/modals';
@@ -132,8 +133,11 @@ export const ingestCommands = {
 
     new FolderSuggestModal(this.app, this.settings.wikiFolder, (folder) => {
       const allowedExts: readonly string[] = COMPATIBLE_SOURCE_EXTENSIONS;
+      // Issue #364: scope on the folder boundary, not on a bare string prefix.
+      // See core/folder-scope.ts for the two cases a bare startsWith leaks.
       const files = this.app.vault.getFiles()
-        .filter(f => f.path.startsWith(folder.path) && allowedExts.includes(f.extension.toLowerCase()));
+        .filter(f => isInFolderScope(f.path, folder.path, folder.isRoot())
+          && allowedExts.includes(f.extension.toLowerCase()));
 
       if (files.length === 0) {
         const msg = TEXTS[this.settings.language].selectFolderNoMdFiles.replace('{path}', folder.path);
