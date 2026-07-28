@@ -20,6 +20,7 @@ import LLMWikiPlugin from '../../main';
 import { TEXTS } from '../../texts';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
+import { renderTemplate } from '../../core/template-renderer';
 import { formatPageRefSummary } from '../../core/ppr-cascade';
 import { buildTurnIndicator, observeVisibleTurn } from '../turn-indicator';
 import { TOKENS_QUERY_ANSWER, TOKENS_QUERY_SAVE_DEDUP, NOTICE_BRIEF, NOTICE_SHORT, NOTICE_NORMAL, NOTICE_ERROR, CUSTOM_QUERY_INSTRUCTIONS_MAX_CHARS } from '../../constants';
@@ -386,8 +387,9 @@ export class QueryView extends ItemView {
 
     try {
       const conversationText = this.plugin.wikiEngine.formatConversation(this.history);
-      const prompt = PROMPTS.evaluateConversationValue
-        .replace('{{conversation}}', conversationText.substring(0, 3000));
+      const prompt = renderTemplate(PROMPTS.evaluateConversationValue, {
+        conversation: conversationText.substring(0, 3000),
+      });
 
       // v1.24.0 #208: log resolved query model for e2e verification.
       const queryModel = resolveModelForTask(this.plugin.settings, 'query');

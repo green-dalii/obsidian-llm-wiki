@@ -4,6 +4,7 @@ import { EngineContext, ContradictionInfo } from '../types';
 import { slugify } from '../core/slug';
 import { parseFrontmatter } from '../core/frontmatter';
 import { cleanMarkdownResponse } from '../core/markdown';
+import { renderTemplate } from '../core/template-renderer';
 import { TOKENS_CONTRADICTION } from '../constants';
 import { PROMPTS } from '../prompts';
 import { resolveModelForTask } from '../core/model-resolver';
@@ -169,12 +170,10 @@ ${contradiction.source_page}
     const existingContent = await this.ctx.tryReadFile(pagePath);
     if (!existingContent) throw new Error('Affected wiki page not found');
 
-    const prompt = PROMPTS.resolveContradiction
-      .replace('{{existing_content}}', existingContent.substring(0, 6000))
-      .replace(
-        '{{contradiction_content}}',
-        contradictionContent.substring(0, 3000)
-      );
+    const prompt = renderTemplate(PROMPTS.resolveContradiction, {
+      existing_content: existingContent.substring(0, 6000),
+      contradiction_content: contradictionContent.substring(0, 3000),
+    });
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
 

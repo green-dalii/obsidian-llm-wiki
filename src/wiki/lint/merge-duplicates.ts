@@ -6,6 +6,7 @@ import { parseFrontmatter, enforceFrontmatterConstraints, serializeFrontmatter }
 import { parseJsonResponse } from '../../core/json';
 import { cleanMarkdownResponse } from '../../core/markdown';
 import { escapeRegex } from './utils';
+import { renderTemplate } from '../../core/template-renderer';
 import { resolveModelForTask } from '../../core/model-resolver';
 
 export async function mergeDuplicatePages(
@@ -80,9 +81,10 @@ export async function mergeDuplicatePages(
   let llmMergeSucceeded = false;
   if (client) {
     try {
-      const prompt = PROMPTS.mergeDuplicatePages
-        .replace('{{target_content}}', targetBody)
-        .replace('{{source_content}}', sourceBody);
+      const prompt = renderTemplate(PROMPTS.mergeDuplicatePages, {
+        target_content: targetBody,
+        source_content: sourceBody,
+      });
 
       const mergedContent = await client.createMessage({
         model: resolveModelForTask(ctx.settings, 'lint'),

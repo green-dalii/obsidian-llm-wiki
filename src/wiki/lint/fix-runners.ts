@@ -11,6 +11,7 @@ import { detectRateLimitFailures, formatRateLimitNotice } from '../../core/rate-
 import { resolveModelForTask } from '../../core/model-resolver';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from '../../core/tag-vocab';
 import { mergeFrontmatterArrayField, replaceFrontmatterArrayField, parseFrontmatter } from '../../core/frontmatter';
+import { renderTemplate } from '../../core/template-renderer';
 import { TOKENS_LINT_ALIAS_BATCH, NOTICE_ERROR, NOTICE_RATE_LIMIT } from '../../constants';
 import { buildWikiLanguageDirective } from '../system-prompts';
 import { TagViolation } from './scanners';
@@ -81,9 +82,10 @@ export async function runAliasCompletion(
           const bodyMatch = page.content.match(/^---[\s\S]*?\n---\n?([\s\S]*)/);
           const body = bodyMatch ? bodyMatch[1].trim() : '';
 
-          const prompt = PROMPTS.generateAliases
-            .replace('{{title}}', page.basename)
-            .replace('{{body}}', body.substring(0, 2000));
+          const prompt = renderTemplate(PROMPTS.generateAliases, {
+            title: page.basename,
+            body: body.substring(0, 2000),
+          });
 
           const response = await client.createMessage({
             model: resolveModelForTask(ctx.settings, 'lint'),

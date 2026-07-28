@@ -17,6 +17,7 @@ import {
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { getText } from '../core/i18n';
+import { renderTemplate } from '../core/template-renderer';
 import { slugify } from '../core/slug';
 import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
@@ -1238,15 +1239,16 @@ export class WikiEngine {
         '\n' +
         analysis.concepts.map(c => `- [[concepts/${slugify(c.name, preserveCase)}|${c.name}]]`).join('\n');
 
-    const prompt = PROMPTS.generateSummaryPage
-      .replace('{{source_title}}', analysis.source_title)
-      .replace('{{content}}', content.substring(0, 500))
-      .replace('{{analysis}}', JSON.stringify(analysis))
-      .replace('{{created_pages_list}}', createdPagesList || '(none)')
-      .replace(/{{source_file}}/g, file.path)
-      .replace(/{{date}}/g, new Date().toISOString().split('T')[0])
-      .replace('{{tags}}', tagsValue)
-      .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
+    const prompt = renderTemplate(PROMPTS.generateSummaryPage, {
+      source_title: analysis.source_title,
+      content: content.substring(0, 500),
+      analysis: JSON.stringify(analysis),
+      created_pages_list: createdPagesList || '(none)',
+      source_file: file.path,
+      date: new Date().toISOString().split('T')[0],
+      tags: tagsValue,
+      constraints: UNIVERSAL_LINK_CONSTRAINTS,
+    });
 
     const finalPrompt = this.applySectionLabels(prompt);
 

@@ -25,6 +25,7 @@ import { getExistingWikiPages } from '../lint/get-existing-pages';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResponse } from '../../core/json';
 import { normalizeLLMPath } from '../../core/prompt-builders';
+import { renderTemplate } from '../../core/template-renderer';
 import { resolveModelForTask } from '../../core/model-resolver';
 import { appendAliases, type AliasesContext } from './aliases';
 
@@ -194,13 +195,14 @@ export async function resolvePagePath(
     const client = ctx.getClient();
     if (!client) return { path: slugPath };
 
-    const prompt = PROMPTS.resolveEntityDedup
-      .replace('{{wikiFolder}}', ctx.settings.wikiFolder)
-      .replace('{{entity_name}}', name)
-      .replace('{{entity_type}}', pageType)
-      .replace('{{entity_summary}}', summary.substring(0, 300))
-      .replace('{{page_type}}', pageType)
-      .replace('{{existing_pages}}', pagesList);
+    const prompt = renderTemplate(PROMPTS.resolveEntityDedup, {
+      wikiFolder: ctx.settings.wikiFolder,
+      entity_name: name,
+      entity_type: pageType,
+      entity_summary: summary.substring(0, 300),
+      page_type: pageType,
+      existing_pages: pagesList,
+    });
 
     const response = await client.createMessage({
       model: resolveModelForTask(ctx.settings, 'ingest'),

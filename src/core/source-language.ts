@@ -1,62 +1,56 @@
 /**
  * Source-language signal extraction + cross-language policy.
  *
- * Background: PR #350 added frontmatter `language:` reading inside
- * `src/wiki/source-analyzer.ts:193-205, 334-337` to gate the cross-language
- * translation hint. GH #361 Theme 1 promotes that detection + policy into
- * shared helpers so future prompt sites can reuse the same logic.
- *
- * The two helpers are intentionally pure:
- * - `getSourceLanguage` reads frontmatter via `app.metadataCache` (the only
- *   non-pure operation).
- * - `isCrossLanguage` takes the resolved strings and answers the policy
- *   question with no IO.
+ * Exposes three primitives:
+ * - `normalizeSourceLanguage(value)` — pure frontmatter value normaliser
+ * - `getSourceLanguage(file, app)` — Obsidian-aware wrapper
+ * - `getWikiLanguageName(wikiLang)` — resolves WIKI_LANGUAGES display name
+ * - `isCrossLanguage(sourceLang, wikiLang)` — translation-hint gate
  */
 import type { App, TFile } from 'obsidian';
 import { WIKI_LANGUAGES } from '../types';
 
-/**
- * Read the source note's frontmatter `language:` and normalise it.
- *
- * Returns `null` when the frontmatter is absent, the `language:` key is
- * missing, the value is not a string, or the value is whitespace-only.
- *
- * @returns trimmed lowercase language string, or `null` when unknown.
- */
-export function getSourceLanguage(file: TFile, app: App): string | null {
-  const cache = app.metadataCache.getFileCache(file);
-  const fm = cache?.frontmatter as { language?: unknown } | undefined;
-  const raw = fm?.language;
-  if (typeof raw !== 'string') return null;
-  const trimmed = raw.trim().toLowerCase();
-  return trimmed.length > 0 ? trimmed : null;
+/** Resolve a wiki language code to its WIKI_LANGUAGES display name. */
+export function getWikiLanguageName(wikiLang: string): string {
+  return WIKI_LANGUAGES[wikiLang] ?? wikiLang;
 }
 
 /**
- * Decide whether the wiki should emit the cross-language translation hint
- * given the source's language (or absence thereof) and the wiki's language.
+ * Pure normaliser for a frontmatter `language:` value.
+ * Returns `null` for non-string or whitespace-only input.
+ */
+export function normalizeSourceLanguage(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** Read the source note's frontmatter `language:` via Obsidian metadata cache. */
+export function getSourceLanguage(file: TFile, app: App): string | null {
+  const cache = app.metadataCache.getFileCache(file);
+  return normalizeSourceLanguage(cache?.frontmatter?.language);
+}
+
+/**
+ * Decide whether the wiki should emit the cross-language translation hint.
  *
- * Policy:
- * - When source language is known (non-null, non-empty): compare against the
- *   wiki's WIKI_LANGUAGES display name OR the wiki code itself, both
- *   case-insensitive. Returns true iff they differ.
- * - When source language is unknown (null OR empty string): fall back to the
- *   legacy `wikiLang !== 'en'` proxy. This preserves v1.25.x behaviour for
- *   cross-language wikis that did not adopt frontmatter `language:`.
- *
- * @param sourceLang result of `getSourceLanguage`, or `''` / `null`
+ * @param sourceLang result of `normalizeSourceLanguage` (null when unknown)
  * @param wikiLang   the user's wiki language code (e.g. `'en'`, `'ru'`)
+ *
+ * Returns `true` when source and wiki languages differ; `false` when they
+ * match. When source language is unknown (null), falls back to the legacy
+ * v1.25.x English-wiki proxy (`wikiLang !== 'en'`). The proxy will retire
+ * once all sources adopt frontmatter `language:` (tracked by v1.26.0 MINOR).
  */
 export function isCrossLanguage(
   sourceLang: string | null,
   wikiLang: string
 ): boolean {
-  if (sourceLang !== null && sourceLang !== '') {
-    const sourceLangLower = sourceLang.toLowerCase();
+  if (sourceLang !== null) {
     const wikiLangLower = wikiLang.toLowerCase();
-    const wikiLangNameLower = (WIKI_LANGUAGES[wikiLang] ?? wikiLang).toLowerCase();
-    return sourceLangLower !== wikiLangLower && sourceLangLower !== wikiLangNameLower;
+    const wikiLangNameLower = getWikiLanguageName(wikiLang).toLowerCase();
+    return sourceLang !== wikiLangLower && sourceLang !== wikiLangNameLower;
   }
-  // Legacy fallback: English wiki suppresses translation hint unconditionally.
+  // v1.25.x legacy proxy — see doc above. Will retire with v1.26.0.
   return wikiLang !== 'en';
 }

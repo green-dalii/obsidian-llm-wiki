@@ -28,6 +28,7 @@ import { resolveModelForTask } from '../../../core/model-resolver';
 import { parseJsonResponse } from '../../../core/json';
 import { detectRateLimitFailures, formatRateLimitNotice } from '../../../core/rate-limit';
 import { normalizeLLMPath } from '../../../core/prompt-builders';
+import { renderTemplate } from '../../../core/template-renderer';
 import { PROMPTS } from '../../../prompts';
 import type { LintPhaseContext, DuplicateResult, ScannerPage } from '../types';
 import {
@@ -211,10 +212,11 @@ export async function runDedupPhase(
             `- Candidate A: ${c.target}\n  Candidate B: ${c.source}\n  Signal: ${c.reason}`
           ).join('\n');
 
-          const dedupPrompt = PROMPTS.lintDuplicateDetection
-            .replace('{{wikiFolder}}', ctx.settings.wikiFolder)
-            .replace('{{candidates}}', candidateList)
-            .replace('{{total}}', String(pagesForDedup.length));
+          const dedupPrompt = renderTemplate(PROMPTS.lintDuplicateDetection, {
+            wikiFolder: ctx.settings.wikiFolder,
+            candidates: candidateList,
+            total: String(pagesForDedup.length),
+          });
 
           console.debug(`lintWiki: batch ${batchNum}/${batches.length} — ${batch.length} candidates`);
           // v1.24.0 #208: log resolved lint model for e2e verification

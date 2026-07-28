@@ -27,13 +27,13 @@ import {
   ConceptInfo,
   ContradictionInfo,
   MentionWithProvenance,
-  WIKI_LANGUAGES,
   LLMFinishReason,
   LLMUsage,
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse } from '../core/json';
-import { getSourceLanguage, isCrossLanguage } from '../core/source-language';
+import { isCrossLanguage, normalizeSourceLanguage, getWikiLanguageName } from '../core/source-language';
+import { renderTemplate } from '../core/template-renderer';
 import { matchExtractedToExisting } from '../core/index-search';
 import { coerceToArray } from '../core/arrays';
 import { isBlankSource } from '../core/frontmatter';
@@ -201,7 +201,9 @@ export class SourceAnalyzer {
     // instruction when the source is already in the wiki's language (e.g. a
     // Russian source in a Russian wiki -- translating verbatim quotes into the
     // same language is wasteful and bloats the JSON). Absent -> legacy behavior.
-    const sourceLang = getSourceLanguage(file, this.ctx.app) ?? '';
+    // Reuse the frontmatter value already fetched above instead of a second
+    // metadataCache call.
+    const sourceLang = normalizeSourceLanguage(noteFm?.language);
 
     console.debug('Existing Wiki pages count: — delayed until post-extraction matching');
 
@@ -270,11 +272,12 @@ export class SourceAnalyzer {
     // Issue #244 (manual test fix): inject the source's original vault path
     // so the LLM records it in `mentions_with_provenance[i].source_path`
     // instead of guessing `wiki/sources/<slug>`.
-    const templateUntouched = PROMPTS.analyzeSource
-      .replace('{{content}}', content)
-      .replace('{{existing_pages}}', '')  // Empty — dedup handled downstream
-      .replace('{{existing_slugs}}', existingSlugs)
-      .replace(/\{\{source_path\}\}/g, file.path);
+    const templateUntouched = renderTemplate(PROMPTS.analyzeSource, {
+      content,
+      existing_pages: '',  // Empty — dedup handled downstream
+      existing_slugs: existingSlugs,
+      source_path: file.path,
+    });
     const batchMarker = '{{batch_context}}';
     const markerIdx = templateUntouched.indexOf(batchMarker);
     const staticPrefix = templateUntouched.substring(0, markerIdx);
@@ -312,12 +315,13 @@ export class SourceAnalyzer {
         batchContext = `This is round ${batchNum + 1} of extraction. Extract the next batch of most important entities and concepts from the remaining content. If no more items are worth extracting, return empty arrays [] for entities and concepts.${alreadyExtracted}`;
       }
 
-      const prompt = staticPrefix + batchContext + suffixTemplate
-        .replace('{{granularity_instruction}}', granularityInstruction)
-        .replace(/{{batch_size}}/g, String(currentBatchSize));
+      const prompt = renderTemplate(staticPrefix + batchContext + suffixTemplate, {
+        granularity_instruction: granularityInstruction,
+        batch_size: String(currentBatchSize),
+      });
 
       const wikiLang = this.ctx.settings.wikiLanguage || 'en';
-      const wikiLangName = WIKI_LANGUAGES[wikiLang] || wikiLang;
+      const wikiLangName = getWikiLanguageName(wikiLang);
       const langHint = `\n\nCRITICAL LANGUAGE REQUIREMENT: Summaries, descriptions, source_title, and key_points in your JSON output MUST be written in ${wikiLangName}. HOWEVER: entity names and concept names MUST be preserved in their original source language -- NEVER translate names. mentions_in_source MUST be verbatim quotes from the source (preserve original language).`;
       // Issue #244 (manual test fix): when the user's wiki language differs
       // from English, instruct the LLM to ALSO emit a 'translation' field
@@ -330,7 +334,7 @@ export class SourceAnalyzer {
       // frontmatter `language:` signal; fall back to the legacy `!== 'en'`
       // proxy only when the source is untagged, so cross-language wikis keep
       // their translation behavior unchanged.
-      const crossLanguage = isCrossLanguage(sourceLang || null, wikiLang);
+      const crossLanguage = isCrossLanguage(sourceLang, wikiLang);
       const translationHint = crossLanguage
         ? `\n\nTRANSLATION (cross-language wikis): For each entry in mentions_with_provenance, ALSO add a 'translation' field containing a ${wikiLangName} translation of the quote text. The 'quote' field MUST stay verbatim in the source's original language; the translation goes in a separate 'translation' field. Example: {"quote": "Machine learning is fun", "translation": "机器学习很有趣", "source_path": "...", ...}`
         : '';

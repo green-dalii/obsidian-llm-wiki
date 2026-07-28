@@ -11,6 +11,7 @@ import { slugify } from '../core/slug';
 import { parseJsonResponse } from '../core/json';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { applySectionLabels } from './system-prompts';
+import { renderTemplate } from '../core/template-renderer';
 import { resolveModelForTask } from '../core/model-resolver';
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { TOKENS_CONVERSATION_EXTRACTION, TOKENS_CONVERSATION_PAGE, TOKENS_PAGE_GENERATION, TOKENS_QUERY_SAVE_DEDUP } from '../constants';
@@ -214,15 +215,16 @@ CRITICAL RULES:
 
     const tags = parsed.concepts.map(c => c.name).join(', ');
 
-    const summaryPrompt = PROMPTS.generateSummaryPage
-      .replace('{{source_title}}', parsed.source_title)
-      .replace('{{content}}', conversationText.substring(0, 500))
-      .replace('{{analysis}}', JSON.stringify(parsed))
-      .replace('{{created_pages_list}}', createdPagesList)
-      .replace(/{{source_file}}/g, `Conversation: ${parsed.source_title}`)
-      .replace(/{{date}}/g, actualDate)
-      .replace('{{tags}}', tags)
-      .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
+    const summaryPrompt = renderTemplate(PROMPTS.generateSummaryPage, {
+      source_title: parsed.source_title,
+      content: conversationText.substring(0, 500),
+      analysis: JSON.stringify(parsed),
+      created_pages_list: createdPagesList,
+      source_file: `Conversation: ${parsed.source_title}`,
+      date: actualDate,
+      tags,
+      constraints: UNIVERSAL_LINK_CONSTRAINTS,
+    });
 
     const finalSummaryPrompt = applySectionLabels(summaryPrompt, this.ctx.settings);
 
@@ -310,9 +312,10 @@ CRITICAL RULES:
 
   private async checkDedup(wikiIndex: string, conversationText: string): Promise<string> {
     const summary = conversationText.substring(0, 1500);
-    const prompt = PROMPTS.dedupCheck
-      .replace('{{wiki_index}}', wikiIndex.substring(0, 3000))
-      .replace('{{conversation_summary}}', summary);
+    const prompt = renderTemplate(PROMPTS.dedupCheck, {
+      wiki_index: wikiIndex.substring(0, 3000),
+      conversation_summary: summary,
+    });
 
     const client = this.ctx.getClient();
     if (!client) throw new Error('LLM client not initialized');

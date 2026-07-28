@@ -21,6 +21,7 @@ import { resolveModelForTask } from '../../core/model-resolver';
 import { cleanMarkdownResponse } from '../../core/markdown';
 import { mergeFrontmatter, parseFrontmatter } from '../../core/frontmatter';
 import { stripMentionsSection } from '../../core/mentions-parser';
+import { renderTemplate } from '../../core/template-renderer';
 import {
   canonicalizeSectionHeaders,
   preserveExistingSections,
@@ -112,16 +113,13 @@ export async function updateRelatedPage(
   // format; it is re-attached deterministically by assembleFinalContent below.
   const promptBody = stripMentionsSection(existingBody, labels.mentions_in_source);
 
-  const prompt = PROMPTS.updateRelatedPage
-    // Global: `{{page_name}}` occurs twice in the template. A string pattern
-    // replaces only the first match, so the sentence that names the page's
-    // subject ("provides additional information about {{page_name}}") reached
-    // the model with the literal placeholder still in it.
-    .replace(/\{\{page_name\}\}/g, pageName)
-    .replace('{{existing_body}}', promptBody)
-    .replace('{{source_basename}}', sourceFile.basename)
-    .replace('{{new_info}}', JSON.stringify(newInfo))
-    .replace('{{constraints}}', UNIVERSAL_LINK_CONSTRAINTS);
+  const prompt = renderTemplate(PROMPTS.updateRelatedPage, {
+    page_name: pageName,
+    existing_body: promptBody,
+    source_basename: sourceFile.basename,
+    new_info: JSON.stringify(newInfo),
+    constraints: UNIVERSAL_LINK_CONSTRAINTS,
+  });
 
   const client = ctx.getClient();
   if (!client) throw new Error('LLM client not initialized');

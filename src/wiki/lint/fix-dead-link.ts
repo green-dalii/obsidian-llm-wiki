@@ -2,6 +2,7 @@ import { EngineContext } from '../../types';
 import { PROMPTS } from '../../prompts';
 import { TOKENS_LINT_PAGE_FIX, WIKI_SUBFOLDERS } from '../../constants';
 import { buildSystemPrompt } from '../system-prompts';
+import { renderTemplate } from '../../core/template-renderer';
 import { parseJsonResponse } from '../../core/json';
 import { slugify } from '../../core/slug';
 import { resolveModelForTask } from '../../core/model-resolver';
@@ -126,10 +127,11 @@ export async function fixDeadLink(
       return `- ${p.wikiLink}${aliasSuffix}`;
     }).join('\n');
 
-  const prompt = PROMPTS.fixDeadLink
-    .replace('{{source_content}}', sourceContent.substring(0, 2000))
-    .replace('{{target_name}}', targetName)
-    .replace('{{existing_pages}}', pagesList.substring(0, 3000));
+  const prompt = renderTemplate(PROMPTS.fixDeadLink, {
+    source_content: sourceContent.substring(0, 2000),
+    target_name: targetName,
+    existing_pages: pagesList.substring(0, 3000),
+  });
 
   const client = ctx.getClient();
   if (!client) return 'no action taken (no client)';

@@ -7,6 +7,7 @@ import { parseSchemaSuggestion } from './parse-suggestion';
 import { capMaxTokens } from '../core/token-cap';
 import { resolveModelForTask } from '../core/model-resolver';
 import { TOKENS_SCHEMA_SUGGESTION } from '../constants';
+import { renderTemplate } from '../core/template-renderer';
 
 const SCHEMA_FILENAME = 'schema/config.md';
 const SUGGESTIONS_FILENAME = 'schema/suggestions.md';
@@ -430,10 +431,11 @@ ${body}`;
     // 'English' keeps v1.21.x behaviour for unrecognised language codes.
     const userLanguage = WIKI_LANGUAGES[this.settings.language] ?? 'English';
 
-    const prompt = PROMPTS.suggestSchemaUpdate
-      .replace('{{schema_content}}', schemaContent)
-      .replace('{{analysis_context}}', context)
-      .replace('{{user_language}}', userLanguage);
+    const prompt = renderTemplate(PROMPTS.suggestSchemaUpdate, {
+      schema_content: schemaContent,
+      analysis_context: context,
+      user_language: userLanguage,
+    });
 
     try {
       const response = await this.client.createMessage({
