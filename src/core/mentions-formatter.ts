@@ -61,10 +61,10 @@ export function formatMentionsSection(
   // Issue #244 manual-test fix: conversation ingest does not extract verbatim
   // Mentions; the page-factory synthesizes one "from <conversation>" citation.
   if (options.conversationMode) {
-    const leftPath = sourcePath.replace(/\.md$/, '');
-    const displayName = leftPath.split('/').pop() || leftPath;
+    const leftPath = (sourcePath ?? '').replace(/\.md$/, '');
     const label = options.conversationLabel?.trim() || 'this conversation';
-    return [`## ${sectionLabel}`, '', `- (${label}) — [[${leftPath}|${displayName}]]`].join('\n');
+    // Same rule as the quote bullets: no path ⇒ no link, never `[[|]]` (#363).
+    return [`## ${sectionLabel}`, '', `- (${label})${renderCitation(leftPath)}`].join('\n');
   }
 
   if (!mentions || mentions.length === 0) return '';
@@ -106,6 +106,24 @@ export function formatMentionsSection(
 
 // ─── helpers ───────────────────────────────────────────────────────────
 
+/**
+ * Issue #363 — render the trailing citation, or nothing when there is no path.
+ *
+ * `[[|]]` is not a weak link, it is an unresolvable one: Obsidian collapses
+ * every occurrence into a single nameless graph node and refuses to open it.
+ * A blank path can arrive legitimately — the auto-provenance builder writes
+ * `source_path: ''` for the page-factory to fill at write time — so the
+ * formatter must be unable to express an empty target rather than trust every
+ * producer upstream of it to be non-blank. The quote is still emitted; the
+ * parser accepts the citation-less shape and the next merge fills the
+ * attribution back in from the source being ingested.
+ */
+function renderCitation(leftPath: string): string {
+  if (!leftPath) return '';
+  const displayName = leftPath.split('/').pop() || leftPath;
+  return ` — [[${leftPath}|${displayName}]]`;
+}
+
 function isStructured(m: unknown[]): boolean {
   return m.length > 0 && typeof m[0] === 'object' && m[0] !== null && 'quote' in m[0];
 }
@@ -142,23 +160,23 @@ function buildBullets(
   const bullets: string[] = [];
   let used = 0;
   for (const e of entries) {
-    const leftPath = e.sourcePath.replace(/\.md$/, '');
-    const displayName = leftPath.split('/').pop() || leftPath;
+    const leftPath = (e.sourcePath ?? '').replace(/\.md$/, '');
     // Half-width parentheses regardless of locale (per design decision).
     // Translation is rendered ONLY when present — single-language wikis skip it.
     const quotePart = e.translation?.trim()
       ? `"${e.quote}" (${e.translation})`
       : `"${e.quote}"`;
-    const line = `- ${quotePart} — [[${leftPath}|${displayName}]]`;
+    const citation = renderCitation(leftPath);
+    const line = `- ${quotePart}${citation}`;
     if (used + line.length + 1 > maxChars) {
       if (used === 0) {
         // First quote already exceeds budget — emit a truncated head.
-        const overhead = ` — [[${leftPath}|${displayName}]]`.length + 3;
+        const overhead = citation.length + 3;
         const head = Math.max(0, maxChars - overhead);
         const truncated = e.translation?.trim()
           ? `"${e.quote.substring(0, head)}..." (${e.translation})`
           : `"${e.quote.substring(0, head)}..."`;
-        bullets.push(`- ${truncated} — [[${leftPath}|${displayName}]]`);
+        bullets.push(`- ${truncated}${citation}`);
       }
       break;
     }

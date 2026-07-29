@@ -94,7 +94,23 @@ function findSection(
 //   - "quote" (translation) — [[leftPath|display]]
 // Half-width parentheses, em-dash separator (U+2014). Anything that does not
 // match is treated as a hand-edit and flips `fullyParsed` to false.
-const BULLET_RE = /^-\s+"([\s\S]+)"(?:\s+\(([^)]*)\))?\s+—\s+\[\[([^\]|]+)\|[^\]]*\]\]\s*$/;
+//
+// Issue #363 — the citation is optional and its target may be empty:
+//   - "quote" — [[|]]   written by builds whose `formatMentionsSection` took a
+//                       blank `source_path` straight from the model
+//   - "quote"           what the formatter emits now when no source path is
+//                       known (an empty target is not representable, see
+//                       `mentions-formatter.ts`)
+// Requiring a non-empty target froze both shapes out of the parser: the line
+// failed, `computeReingestMentions` returned `preserveRaw`, the #267 fail-safe
+// fired, and the page never accumulated another quote — on every subsequent
+// ingest, not once. Both shapes now parse with an empty `source_path`, which
+// `computeReingestMentions` fills from `defaultSourcePath`, so the page repairs
+// itself the next time it merges. That attribution is an inference, not a
+// recovery: an empty target carries no source, so the quote is attributed to
+// the source being merged. It is the same rule the legacy shape already uses
+// for a quote under a group header, and strictly more than `[[|]]` conveyed.
+const BULLET_RE = /^-\s+"([\s\S]+)"(?:\s+\(([^)]*)\))?(?:\s+—\s+\[\[([^\]|]*)\|[^\]]*\]\])?\s*$/;
 
 // Issue #289 — the pre-#244 shape, grouped by source under a blockquote header:
 //   > **Source: [[sources/X|X]]**
@@ -168,7 +184,9 @@ export function parseMentionsSection(body: string, sectionLabel: string): Parsed
       mentions.push({
         quote,
         ...(translation && translation.trim() ? { translation: translation.trim() } : {}),
-        source_path: leftPath,
+        // Absent citation (group undefined) and empty target (`[[|]]`) are the
+        // same state: no source on the line. #363.
+        source_path: leftPath ?? '',
         source_slug: '',
         extracted_at: '',
       });

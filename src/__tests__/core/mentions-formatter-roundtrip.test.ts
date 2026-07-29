@@ -301,3 +301,117 @@ describe('#289 — legacy grouped-blockquote Mentions sections', () => {
     ]);
   });
 });
+
+// ─── #363: citation with no resolvable target ────────────────────────────
+//
+// An empty wikilink `[[|]]` reached pages through `formatMentionsSection`
+// taking a blank `source_path` straight from the model. It reads as cosmetic
+// and is not: `BULLET_RE` required a non-empty target, so the line failed to
+// parse, `computeReingestMentions` returned `preserveRaw`, the #267 fail-safe
+// fired, and the page stopped accumulating quotes on every later ingest.
+// Measured on a 417-note corpus (9272 writes): 119 frozen pages, 104 of the
+// 144 unparseable lines were empty backlinks.
+//
+// The two halves below are one fix, not two: the formatter stops writing an
+// empty target (it emits the quote without a citation), and the parser accepts
+// both that shape and the `[[|]]` already sitting in vaults. Shipping only the
+// formatter half would trade one unparseable shape for another.
+
+describe('#363 — empty and absent citations', () => {
+  const frozen = [
+    `## ${LABEL}`,
+    '',
+    '- "ein eingefrorener Beleg" — [[|]]',
+    '- "mit Übersetzung" (with translation) — [[|]]',
+  ].join('\n');
+
+  it('parses a bullet whose citation target is empty', () => {
+    const r = parseMentionsSection(frozen, LABEL);
+    expect(r.found).toBe(true);
+    expect(r.fullyParsed).toBe(true); // the fail-safe no longer fires
+    expect(r.mentions.map(m => m.quote)).toEqual(['ein eingefrorener Beleg', 'mit Übersetzung']);
+    expect(r.mentions.map(m => m.source_path)).toEqual(['', '']);
+    expect(r.mentions[1].translation).toBe('with translation');
+  });
+
+  it('parses a bullet that carries no citation at all', () => {
+    const body = [`## ${LABEL}`, '', '- "a quote with no source"'].join('\n');
+    const r = parseMentionsSection(body, LABEL);
+    expect(r.fullyParsed).toBe(true);
+    expect(r.mentions).toEqual([mention({ quote: 'a quote with no source', source_path: '' })]);
+  });
+
+  it('[control] a real target is still required to be recovered verbatim', () => {
+    const r = parseMentionsSection([`## ${LABEL}`, '', '- "q" — [[notes/A|A]]'].join('\n'), LABEL);
+    expect(r.fullyParsed).toBe(true);
+    expect(r.mentions[0].source_path).toBe('notes/A');
+  });
+
+  it('[control] genuinely unstructurable lines still fail safe', () => {
+    const body = [
+      `## ${LABEL}`,
+      '',
+      '- "a real quote" — [[|]]',
+      '- a freehand note that is not a quote at all',
+    ].join('\n');
+    const r = parseMentionsSection(body, LABEL);
+    expect(r.fullyParsed).toBe(false);
+    expect(r.raw).toContain('freehand note');
+  });
+
+  it('the formatter emits no wikilink when the source path is blank', () => {
+    const section = formatMentionsSection([mention({ quote: 'q', source_path: '' })], '', LABEL);
+    expect(section).toContain('- "q"');
+    expect(section).not.toContain('[[');
+  });
+
+  it('the formatter emits no wikilink in conversation mode without a path', () => {
+    const section = formatMentionsSection([], '', LABEL, {
+      conversationMode: true,
+      conversationLabel: 'Conversation: X',
+    });
+    expect(section).toContain('- (Conversation: X)');
+    expect(section).not.toContain('[[');
+  });
+
+  it('a citation-less bullet round-trips through the parser', () => {
+    const section = formatMentionsSection([mention({ quote: 'orphan', source_path: '' })], '', LABEL);
+    const r = parseMentionsSection(section, LABEL);
+    expect(r.fullyParsed).toBe(true);
+    expect(r.mentions).toEqual([mention({ quote: 'orphan', source_path: '' })]);
+  });
+
+  it('fills a blank source from the source being merged, and keeps it blank without one', () => {
+    const withDefault = computeReingestMentions(frozen, [], LABEL, 'sources/Aktuell.md');
+    expect(withDefault.preserveRaw).toBeNull();
+    expect(withDefault.mentions.map(m => m.source_path)).toEqual(['sources/Aktuell', 'sources/Aktuell']);
+
+    const withoutDefault = computeReingestMentions(frozen, [], LABEL);
+    expect(withoutDefault.preserveRaw).toBeNull();
+    expect(withoutDefault.mentions.map(m => m.source_path)).toEqual(['', '']);
+  });
+
+  it('[invariance] a frozen page merging a new source keeps its quotes AND heals the links', () => {
+    const existingBody = ['# Klotho', '', '## Summary', 'A frozen page.', '', frozen].join('\n');
+    const { mentions: unioned, preserveRaw } = computeReingestMentions(
+      existingBody,
+      [mention({ quote: 'neuer Beleg', source_path: 'sources/Neu.md' })],
+      LABEL,
+      'sources/Aktuell.md',
+    );
+    expect(preserveRaw).toBeNull();
+
+    const merged = injectMentionsSection(existingBody, unioned, 'sources/Aktuell.md', { sectionLabel: LABEL });
+    expect(merged).toContain('ein eingefrorener Beleg');
+    expect(merged).toContain('mit Übersetzung');
+    expect(merged).toContain('neuer Beleg');
+    expect(merged).not.toContain('[[|]]');
+    expect((merged.match(/## Mentions in Source/g) || []).length).toBe(1);
+
+    // And the page is now in a shape that parses on its own — the freeze is
+    // gone for good, not just for this pass.
+    const reparsed = parseMentionsSection(merged, LABEL);
+    expect(reparsed.fullyParsed).toBe(true);
+    expect(reparsed.mentions).toHaveLength(3);
+  });
+});
