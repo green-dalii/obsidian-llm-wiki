@@ -28,6 +28,7 @@ function makeBackends() {
 
 function makeContext(pdfConversionBackend: unknown): PdfBackendContext {
   return {
+    app: { secretStorage: null },
     settings: { pdfConversionBackend },
   } as unknown as PdfBackendContext;
 }

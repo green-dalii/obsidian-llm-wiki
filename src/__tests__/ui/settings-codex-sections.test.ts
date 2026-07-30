@@ -108,6 +108,7 @@ describe('Codex settings section integration', () => {
     tab.plugin.initializeLLMClient = vi.fn();
     tab.plugin.wikiEngine = { updateSettings: vi.fn() } as never;
     tab.plugin.testLLMConnection = vi.fn(async () => ({ success: true, message: 'ok' }));
+    tab.plugin.saveSettings = vi.fn(async () => undefined);
     tab.saveTempSettings = vi.fn(async () => false);
     tab.syncCodexModelsFromPlugin = vi.fn();
     renderTestConnectionSection(tab, {} as HTMLElement);
