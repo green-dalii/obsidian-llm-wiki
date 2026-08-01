@@ -195,11 +195,24 @@ describe('Orphan Matcher — Pure Functions', () => {
       expect(result).toBe('wiki/entities/page.md');
     });
 
-    it('handles paths starting with wiki folder name', () => {
-      // If path starts with wiki folder name (not full path), it's treated as full
-      const result = normalizeOrphanPagePath('wiki-concepts/page.md', 'wiki');
-      // startsWith('wiki') is true, so treated as full path
-      expect(result).toBe('wiki-concepts/page.md');
+    // Issue #383 — INVERTED. This test used to assert the unanchored
+    // behaviour ("startsWith('wiki') is true, so treated as full path"),
+    // which is the bug: a relative page whose first segment merely starts
+    // with the folder's name never received its prefix, and the resulting
+    // link pointed at a path that does not exist.
+    it('prefixes a relative path whose first segment starts with the folder name', () => {
+      expect(normalizeOrphanPagePath('wiki-concepts/page.md', 'wiki'))
+        .toBe('wiki/wiki-concepts/page.md');
+    });
+
+    it('prefixes a relative file sitting beside the wiki folder', () => {
+      expect(normalizeOrphanPagePath('wikipedia.md', 'wiki'))
+        .toBe('wiki/wikipedia.md');
+    });
+
+    it('still leaves a genuinely absolute path untouched', () => {
+      expect(normalizeOrphanPagePath('wiki/concepts/page.md', 'wiki'))
+        .toBe('wiki/concepts/page.md');
     });
 
     it('handles root-level paths', () => {

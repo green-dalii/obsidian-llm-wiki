@@ -6,6 +6,7 @@ import { LLMWikiSettings } from '../types';
 import { WikiEngine } from '../wiki/wiki-engine';
 import { TEXTS } from '../texts';
 import { fixPollutedSources, scanPollutedSources } from '../core/sources-normalizer';
+import { isInFolderScope } from '../core/folder-scope';
 import { findIncompletePages, cleanIncompletePages } from '../core/incomplete-page-cleaner';
 import { needsLogHeaderMigration, migrateLogHeader } from '../core/log-header';
 import { ensureWelcomeNote, type EnsureResult, type VaultAdapter } from '../core/ensure-welcome-note';
@@ -403,8 +404,11 @@ export class AutoMaintainManager {
     let sourcesFilesScanned = 0;
     let sourcesFilesPolluted = 0;
     try {
+      // Issue #383: anchored — this phase WRITES (vault.process below), so an
+      // unanchored prefix would rewrite files in a sibling folder
+      // ("wiki-archive/") or beside the wiki ("wiki.md") on every startup.
       const wikiFiles = this.app.vault.getMarkdownFiles()
-        .filter(f => f.path.startsWith(wikiFolder));
+        .filter(f => isInFolderScope(f.path, wikiFolder, false));
       console.debug(`[QuickFixes] Phase 2: scanning ${wikiFiles.length} files in "${wikiFolder}"`);
       const sourcesPreserveCase = this.settings.slugCase === 'preserve';
       for (const file of wikiFiles) {

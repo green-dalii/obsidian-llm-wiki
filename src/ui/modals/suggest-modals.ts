@@ -6,6 +6,7 @@
 
 import { App, TFile, TFolder, FuzzySuggestModal } from 'obsidian';
 import { COMPATIBLE_SOURCE_EXTENSIONS } from '../../constants';
+import { isInFolderScope } from '../../core/folder-scope';
 
 const isCompatibleSource = (f: TFile): boolean =>
   (COMPATIBLE_SOURCE_EXTENSIONS as readonly string[]).includes(f.extension.toLowerCase());
@@ -24,9 +25,13 @@ export class FileSuggestModal extends FuzzySuggestModal<TFile> {
     // v1.25.0 PR2: include PDFs in the source picker (PDFs are a first-class
     // source format). Filter by compatible extension + exclude wiki/config
     // directories, mirroring the legacy markdown-only behavior.
+    // Issue #383: the exclusion is anchored. Unanchored it hid the user's own
+    // notes from the source picker whenever their path merely started with the
+    // wiki folder's name ("wiki-archive/note.md", "wiki.md").
     return this.app.vault.getFiles()
       .filter(f => isCompatibleSource(f))
-      .filter(f => !f.path.startsWith(this.wikiFolder) && !f.path.startsWith(this.app.vault.configDir));
+      .filter(f => !isInFolderScope(f.path, this.wikiFolder, false)
+                && !f.path.startsWith(this.app.vault.configDir));
   }
 
   getItemText(file: TFile): string {
@@ -52,8 +57,15 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     const folders: TFolder[] = [];
     const root = this.app.vault.getRoot();
 
+    // Issue #383: anchored, but note the shape — the set to exclude here is the
+    // wiki folder ITSELF plus its descendants, and `isInFolderScope` answers
+    // "descendant of", which a folder is not of itself. Dropping the identity
+    // check would put the wiki folder back into the picker.
+    const isWikiScope = (path: string): boolean =>
+      path === this.wikiFolder || isInFolderScope(path, this.wikiFolder, false);
+
     const collect = (folder: TFolder) => {
-      if (!folder.path.startsWith(this.app.vault.configDir) && !folder.path.startsWith(this.wikiFolder)) {
+      if (!folder.path.startsWith(this.app.vault.configDir) && !isWikiScope(folder.path)) {
         folders.push(folder);
       }
       for (const child of folder.children) {

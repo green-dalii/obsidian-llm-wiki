@@ -78,7 +78,12 @@ export function normalizeOrphanPagePath(
   pagePath: string,
   wikiFolder: string
 ): string {
-  return pagePath.startsWith(wikiFolder)
+  // Issue #383: this one asks "is the path already absolute?", so it keeps the
+  // plain prefix form rather than isInFolderScope — but the prefix has to be
+  // anchored all the same. Unanchored, a relative page whose name merely starts
+  // with the folder's name ("wikipedia.md" under wikiFolder "wiki") was taken
+  // for an absolute path and never got its prefix, producing a dead link.
+  return pagePath.startsWith(`${wikiFolder}/`)
     ? pagePath
     : `${wikiFolder}/${pagePath}`;
 }

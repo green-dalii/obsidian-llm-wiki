@@ -3,6 +3,7 @@ import { getText } from '../../../core/i18n';
 import { fixDoubleNestedWikiLinks } from '../utils';
 import { scanPollutedSources, fixPollutedSources } from '../../../core/sources-normalizer';
 import { parseFrontmatter } from '../../../core/frontmatter';
+import { isInFolderScope } from '../../../core/folder-scope';
 import { LINT_PREP_BATCH_READ } from '../../../constants';
 import { LintPhaseContext, ScannerPage } from '../types';
 
@@ -19,8 +20,11 @@ export interface PreparationResult {
 export async function runPreparationPhase(
   ctx: LintPhaseContext,
 ): Promise<PreparationResult> {
+  // Issue #383: anchored so lint does not pull a sibling folder
+  // ("wiki-archive/") or a neighbouring file ("wiki.md") into the page set
+  // every later phase operates on.
   const wikiFiles = ctx.app.vault.getMarkdownFiles()
-    .filter(f => f.path.startsWith(ctx.settings.wikiFolder) &&
+    .filter(f => isInFolderScope(f.path, ctx.settings.wikiFolder, false) &&
                  !f.path.includes('index.md') &&
                  !f.path.includes('log.md') &&
                  !f.path.includes('/schema/') &&

@@ -23,6 +23,7 @@ import { getText } from '../../core/i18n';
 import { buildFolderTree, type TreeNode } from '../../core/build-folder-tree';
 import type { IngestQueue } from '../../core/ingest-queue';
 import { COMPATIBLE_SOURCE_EXTENSIONS } from '../../constants';
+import { isInFolderScope } from '../../core/folder-scope';
 
 export class MultiFileSuggestModal extends Modal {
   /** The shared ingest queue. Modal reads + subscribes; never owns
@@ -97,8 +98,12 @@ export class MultiFileSuggestModal extends Modal {
     // close every <details> and force the user to re-expand
     // folders (the bug v2 fixes). v1.25.0 PR2: include PDFs.
     const compatibleExts: readonly string[] = COMPATIBLE_SOURCE_EXTENSIONS;
+    // Issue #383: anchored — unanchored, the two-pane picker silently dropped
+    // the user's own notes whose path merely starts with the wiki folder's
+    // name ("wiki-archive/note.md", "wiki.md").
     const available = this.app.vault.getFiles()
-      .filter(f => !f.path.startsWith(this.wikiFolder) && !f.path.startsWith(this.app.vault.configDir))
+      .filter(f => !isInFolderScope(f.path, this.wikiFolder, false)
+                && !f.path.startsWith(this.app.vault.configDir))
       .filter(f => compatibleExts.includes(f.extension.toLowerCase()))
       .sort((a, b) => a.path.localeCompare(b.path));
     this.treeRoots = buildFolderTree(available);

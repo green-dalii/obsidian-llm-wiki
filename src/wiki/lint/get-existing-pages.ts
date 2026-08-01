@@ -1,5 +1,6 @@
 import { App } from 'obsidian';
 import { parseFrontmatter } from '../../core/frontmatter';
+import { isInFolderScope } from '../../core/folder-scope';
 
 export async function getExistingWikiPages(
   app: App,
@@ -7,9 +8,11 @@ export async function getExistingWikiPages(
 ): Promise<Array<{ path: string; title: string; wikiLink: string; aliases?: string[]; ctime?: number }>> {
   const wikiFiles = app.vault
     .getMarkdownFiles()
+    // Issue #383: anchored so a sibling folder ("wiki-archive/") and a
+    // neighbouring file ("wiki.md") are not reported as wiki pages.
     .filter(
       f =>
-        f.path.startsWith(wikiFolder) &&
+        isInFolderScope(f.path, wikiFolder, false) &&
         !f.path.includes('index.md') &&
         !f.path.includes('log.md') &&
         !f.path.includes('/schema/') &&
