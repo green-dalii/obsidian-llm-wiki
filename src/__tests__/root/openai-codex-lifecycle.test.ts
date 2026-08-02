@@ -133,6 +133,7 @@ describe('OpenAI Codex plugin lifecycle', () => {
       'legacy-mineru-token',
     );
     expect(plugin.settings.mineruApiToken).toBe('legacy-mineru-token');
+    expect(plugin.settings._migrated_mineru_secret_storage).not.toBe(true);
     expect(saveData).not.toHaveBeenCalled();
   });
   it('does not initialize Codex without a stored credential', () => {

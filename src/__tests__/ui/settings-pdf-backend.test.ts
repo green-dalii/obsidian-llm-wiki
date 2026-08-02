@@ -157,6 +157,18 @@ describe('PDF backend settings', () => {
     expect(setting('writePdfMarkdownToVaultName')).toBeUndefined();
   });
 
+  it('preserves an explicit empty MinerU token edit across settings rerenders', () => {
+    const tab = createTab({ pdfConversionBackend: 'mineru' });
+    tab.app.secretStorage.getSecret = vi.fn(() => 'stored-token');
+    renderWiki(tab);
+
+    setting('mineruApiTokenName')?.control?.trigger('');
+    renderWiki(tab);
+
+    expect(tab.pendingMineruTokenEdit).toBe('');
+    expect(setting('mineruApiTokenName')?.control?.value).toBe('');
+  });
+
   it('refreshes on backend changes without clearing the saved MinerU token', () => {
     const tab = createTab({ pdfConversionBackend: 'mineru', mineruApiToken: 'keep-me' });
     renderWiki(tab);

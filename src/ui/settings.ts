@@ -32,6 +32,7 @@ import { ProviderSecretStore } from '../llm-sdk/provider-secret-store';
 export class LLMWikiSettingTab extends PluginSettingTab {
   plugin: LLMWikiPlugin;
   tempSettings: LLMWikiSettings;
+  public pendingMineruTokenEdit: string | null = null;
   public codexAuthBusy = false;
   public codexDevicePrompt: CodexDevicePrompt | null = null;
   private codexModelRefreshAttemptedAt = 0;
@@ -95,7 +96,8 @@ export class LLMWikiSettingTab extends PluginSettingTab {
 
   // Auto-save when user navigates away from settings tab
   hide(): void {
-    const hasChanges = JSON.stringify(this.tempSettings) !== JSON.stringify(this.plugin.settings);
+    const hasChanges = this.pendingMineruTokenEdit !== null
+      || JSON.stringify(this.tempSettings) !== JSON.stringify(this.plugin.settings);
     if (hasChanges) {
       // v1.25.3 #182: flush the in-memory apiKey edit to Obsidian
       // SecretStorage BEFORE the data.json commit so the post-commit
@@ -154,15 +156,18 @@ export class LLMWikiSettingTab extends PluginSettingTab {
   }
 
   public flushMineruToken(): boolean {
-    const pending = this.tempSettings.mineruApiToken ?? '';
-    if (pending.trim().length === 0) return true;
+    const explicitEdit = this.pendingMineruTokenEdit;
+    const pending = explicitEdit ?? this.tempSettings.mineruApiToken ?? '';
+    if (explicitEdit === null && pending.trim().length === 0) return true;
     const store = new ProviderSecretStore(
       this.app.secretStorage,
       this.tempSettings.mineruApiTokenSecretId ?? '',
     );
     try {
-      store.save(pending);
+      if (pending.trim().length === 0) store.clear();
+      else store.save(pending);
       this.tempSettings.mineruApiToken = '';
+      this.pendingMineruTokenEdit = null;
       return true;
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : 'Unknown error';

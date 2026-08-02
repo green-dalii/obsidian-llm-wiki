@@ -32,11 +32,13 @@ function makeTab(overrides: Partial<LLMWikiSettings> = {}) {
     },
     plugin,
     tempSettings,
+    pendingMineruTokenEdit: null,
     cascadeUnifiedModelChange: vi.fn(),
     commitTempSettings: LLMWikiSettingTab.prototype.commitTempSettings,
     flushApiKey: LLMWikiSettingTab.prototype.flushApiKey,
     flushMineruToken: LLMWikiSettingTab.prototype.flushMineruToken,
     saveTempSettings: LLMWikiSettingTab.prototype.saveTempSettings,
+    hide: LLMWikiSettingTab.prototype.hide,
     getText: () => 'Secret write failed: {}',
   } as unknown as LLMWikiSettingTab;
   return {
@@ -67,5 +69,35 @@ describe('settings shared safe save path', () => {
     expect(tab.tempSettings.mineruApiToken).toBe('mineru-token');
     expect(plugin.settings.mineruApiToken).toBe(DEFAULT_SETTINGS.mineruApiToken);
     expect(plugin.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('clears a stored MinerU token after an explicit empty edit', async () => {
+    const { tab, plugin, secretStorage } = makeTab({
+      mineruApiToken: '',
+      mineruApiTokenSecretId: 'mineru-slot',
+    });
+    tab.pendingMineruTokenEdit = '';
+
+    await expect(tab.saveTempSettings()).resolves.toBe(true);
+
+    expect(secretStorage.setSecret).toHaveBeenCalledWith('mineru-slot', '');
+    expect(tab.pendingMineruTokenEdit).toBeNull();
+    expect(plugin.settings.mineruApiToken).toBe('');
+    expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists an explicit MinerU token clear when the settings tab closes', async () => {
+    const { tab, plugin, secretStorage } = makeTab();
+    tab.pendingMineruTokenEdit = '';
+
+    tab.hide();
+
+    await vi.waitFor(() => {
+      expect(secretStorage.setSecret).toHaveBeenCalledWith(
+        DEFAULT_SETTINGS.mineruApiTokenSecretId,
+        '',
+      );
+    });
+    expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
   });
 });

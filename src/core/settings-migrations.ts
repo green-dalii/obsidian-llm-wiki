@@ -148,8 +148,10 @@ export function applySettingsMigrations(
       (settings as unknown as { _legacyMineruTokenForSecretStorage?: string })
         ._legacyMineruTokenForSecretStorage = legacy;
       applied.push('mineru-secret-storage');
+    } else {
+      settings._migrated_mineru_secret_storage = true;
+      applied.push('mineru-secret-storage');
     }
-    settings._migrated_mineru_secret_storage = true;
   }
 
   return { settings, applied };
@@ -173,4 +175,5 @@ export function commitSettingsMigrationV1_25_3(settings: LLMWikiSettings): void 
 
 export function commitMineruTokenMigration(settings: LLMWikiSettings): void {
   settings.mineruApiToken = '';
+  settings._migrated_mineru_secret_storage = true;
 }

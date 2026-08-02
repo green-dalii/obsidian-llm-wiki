@@ -103,8 +103,11 @@ export function renderWikiConfigSection(tab: LLMWikiSettingTab, containerEl: HTM
         ).load();
         text
           .setPlaceholder(tab.getText('mineruApiTokenPlaceholder'))
-          .setValue(stored ?? tempSettings.mineruApiToken ?? '')
-          .onChange((value) => { tempSettings.mineruApiToken = value; });
+          .setValue(tab.pendingMineruTokenEdit ?? stored ?? tempSettings.mineruApiToken ?? '')
+          .onChange((value) => {
+            tab.pendingMineruTokenEdit = value;
+            tempSettings.mineruApiToken = value;
+          });
         text.inputEl.type = 'password';
       });
 

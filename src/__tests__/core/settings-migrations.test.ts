@@ -47,13 +47,24 @@ describe('applySettingsMigrations — historical (#199 regression guard)', () =>
 
     expect(settings.mineruApiToken).toBe(' mineru-secret ');
     expect(settings.mineruApiTokenSecretId).toBe('karpathywiki-mineru-mineru-api-token');
-    expect(settings._migrated_mineru_secret_storage).toBe(true);
+    expect(settings._migrated_mineru_secret_storage).not.toBe(true);
     expect(applied).toContain('mineru-secret-storage');
     expect((settings as unknown as { _legacyMineruTokenForSecretStorage?: string })
       ._legacyMineruTokenForSecretStorage).toBe('mineru-secret');
 
     commitMineruTokenMigration(settings);
     expect(settings.mineruApiToken).toBe('');
+    expect(settings._migrated_mineru_secret_storage).toBe(true);
+  });
+
+  it('records the MinerU SecretStorage migration when no legacy token exists', () => {
+    const first = applySettingsMigrations({ mineruApiToken: '' });
+
+    expect(first.settings._migrated_mineru_secret_storage).toBe(true);
+    expect(first.applied).toContain('mineru-secret-storage');
+
+    const second = applySettingsMigrations(first.settings);
+    expect(second.applied).not.toContain('mineru-secret-storage');
   });
 
   it('migrates upstream secret IDs to the fork namespace', () => {
