@@ -106,6 +106,7 @@ const validArtifact = (
 
 interface HarnessOptions {
   mobile?: boolean;
+  desktop?: boolean;
   token?: string;
   secretToken?: string;
   bytes?: Uint8Array;
@@ -181,7 +182,7 @@ function createHarness(options: HarnessOptions = {}) {
     downloadResult,
   }));
   const deps: MineruPdfBackendDependencies = {
-    isMobile: () => options.mobile ?? false,
+    isDesktopApp: () => options.desktop ?? !(options.mobile ?? false),
     createCache: () => ({ get: cacheGet, set: cacheSet }),
     createArtifactStore: () => ({ inspect, publish }),
     createClient,
@@ -257,6 +258,17 @@ describe('MinerU PDF backend preconditions and identity', () => {
   });
   it('rejects mobile before reading the PDF or contacting MinerU', async () => {
     const h = createHarness({ mobile: true });
+
+    await expect(h.backend.convert(h.ctx)).rejects.toMatchObject({
+      name: 'MineruConfigurationError',
+      reason: 'desktop-only',
+    });
+    expect(h.mocks.readBinary).not.toHaveBeenCalled();
+    expect(h.mocks.requestUpload).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-mobile environment that is not the desktop app', async () => {
+    const h = createHarness({ mobile: false, desktop: false });
 
     await expect(h.backend.convert(h.ctx)).rejects.toMatchObject({
       name: 'MineruConfigurationError',

@@ -40,7 +40,7 @@ interface MineruClientFactoryOptions {
 }
 
 export interface MineruPdfBackendDependencies {
-  isMobile: () => boolean;
+  isDesktopApp: () => boolean;
   createCache: (ctx: PdfBackendContext) => Pick<PdfConversionCache, 'get' | 'set'>;
   createArtifactStore: (
     ctx: PdfBackendContext,
@@ -67,7 +67,7 @@ async function convertPdfWithMineru(
   ctx: PdfBackendContext,
   deps: MineruPdfBackendDependencies,
 ): Promise<PdfConversionResult> {
-  if (deps.isMobile()) throw new MineruConfigurationError('desktop-only');
+  if (!deps.isDesktopApp()) throw new MineruConfigurationError('desktop-only');
   const apiToken = resolveProviderApiKey({
     apiKey: ctx.settings.mineruApiToken ?? '',
     providerApiKeySecretId: ctx.settings.mineruApiTokenSecretId ?? '',
@@ -287,7 +287,7 @@ function waitForDelay(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 const defaultDependencies: MineruPdfBackendDependencies = {
-  isMobile: () => Platform.isMobile,
+  isDesktopApp: () => Platform.isDesktopApp,
   createCache: (ctx) => createPdfCache(ctx.app),
   createArtifactStore: (ctx) => createMineruArtifactStore(ctx.app, ctx.subtle),
   createClient: ({ apiToken, timeoutMs }) => new MineruClient({
