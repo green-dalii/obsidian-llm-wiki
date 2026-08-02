@@ -337,8 +337,6 @@ describe('MinerU PDF backend recovery matrix', () => {
 
   const reparsingCases = [
     ['missing with cache hit', { kind: 'missing' }, cachedEntry('# Stale cache')],
-    ['managed-invalid with cache hit', { kind: 'managed-invalid', reason: 'hash mismatch' }, cachedEntry('# Stale cache')],
-    ['managed-invalid with cache miss', { kind: 'managed-invalid', reason: 'hash mismatch' }, null],
     ['stale source hash with cache hit', validArtifact({ manifest: { ...validArtifact().manifest, sourceSha256: 'b'.repeat(64) } }), cachedEntry('# Stale cache')],
   ] satisfies Array<[string, ArtifactInspection, PdfConversionResult | null]>;
 
@@ -372,6 +370,20 @@ describe('MinerU PDF backend recovery matrix', () => {
     await expect(h.backend.convert(h.ctx)).rejects.toBeInstanceOf(MineruArtifactConflictError);
     expect(h.mocks.readBinary).not.toHaveBeenCalled();
     expect(h.mocks.cacheGet).not.toHaveBeenCalled();
+    expect(h.mocks.requestUpload).not.toHaveBeenCalled();
+    expect(h.mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it('fails closed on invalid managed artifacts before PDF IO, cache, network, or writes', async () => {
+    const h = createHarness({
+      inspection: { kind: 'managed-invalid', reason: 'hash mismatch' },
+      cacheHit: cachedEntry(),
+    });
+
+    await expect(h.backend.convert(h.ctx)).rejects.toBeInstanceOf(MineruArtifactConflictError);
+    expect(h.mocks.readBinary).not.toHaveBeenCalled();
+    expect(h.mocks.cacheGet).not.toHaveBeenCalled();
+    expect(h.mocks.createClient).not.toHaveBeenCalled();
     expect(h.mocks.requestUpload).not.toHaveBeenCalled();
     expect(h.mocks.publish).not.toHaveBeenCalled();
   });

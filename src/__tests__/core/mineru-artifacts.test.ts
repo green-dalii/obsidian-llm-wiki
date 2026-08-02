@@ -665,17 +665,17 @@ describe('MineruArtifactStore.publish', () => {
     expect(adapter.mutationOperations()).toEqual([]);
   });
 
-  it('replaces a managed-invalid final directory transactionally', async () => {
+  it('refuses a malformed managed manifest without deleting undeclared user files', async () => {
     const adapter = new MemoryArtifactAdapter();
-    await seedManagedArtifact(adapter, OLD_PDF_PATH, {
-      converterVersion: 'stale' as 'mineru-v1',
-    });
+    adapter.seedFile(`${OLD_DIR}/${MANIFEST_NAME}`, encoder.encode('{bad json'));
+    adapter.seedFile(`${OLD_DIR}/notes.md`, encoder.encode('keep me'));
+    const before = adapter.snapshotTree(OLD_DIR);
 
-    await makeStore(adapter, ['repair']).publish(makePublishInput());
+    await expect(makeStore(adapter, ['unsafe-repair']).publish(makePublishInput()))
+      .rejects.toBeInstanceOf(MineruArtifactConflictError);
 
-    expect((await makeStore(adapter).inspect(OLD_PDF_PATH)).kind).toBe('valid');
-    expect(decoder.decode(adapter.files.get(`${OLD_DIR}/document.md`)))
-      .toBe(makePublishInput().markdown);
+    expect(adapter.snapshotTree(OLD_DIR)).toEqual(before);
+    expect(adapter.mutationOperations()).toEqual([]);
   });
 
   it('refuses an unowned final directory without overwriting it', async () => {
@@ -1247,7 +1247,7 @@ describe('MineruArtifactStore path locks', () => {
     }
   });
 
-  it('serializes physical path aliases reported by a case-insensitive adapter', async () => {
+  it('serializes then rejects an alias whose manifest source path does not match exactly', async () => {
     const adapter = new MemoryArtifactAdapter(true);
     await seedManagedArtifact(adapter);
     const renameTemp = getMineruTempDir(CASE_ONLY_NEW_PDF_PATH, 'case-lock');
@@ -1271,9 +1271,14 @@ describe('MineruArtifactStore path locks', () => {
     pause.release();
     await rename;
     const waiterResult = await waiter;
-    expect(waiterResult.status).toBe('fulfilled');
-    const inspection = await makeStore(adapter).inspect('papers/ORIGINAL.pdf');
+    expect(waiterResult.status).toBe('rejected');
+    if (waiterResult.status === 'rejected') {
+      expect(waiterResult.error).toBeInstanceOf(MineruArtifactConflictError);
+    }
+    const inspection = await makeStore(adapter).inspect(CASE_ONLY_NEW_PDF_PATH);
     expect(inspection.kind).toBe('valid');
-    if (inspection.kind === 'valid') expect(inspection.markdown).toBe('# Alias waiter');
+    if (inspection.kind === 'valid') {
+      expect(inspection.markdown).toBe('# Old\n\n![Old](images/old.png)\n');
+    }
   });
 });

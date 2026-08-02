@@ -76,6 +76,12 @@ export class MineruArtifactConflictError extends Error {
   }
 }
 
+export function isMineruArtifactConflict(
+  inspection: ArtifactInspection,
+): inspection is Extract<ArtifactInspection, { kind: 'unowned-conflict' | 'managed-invalid' }> {
+  return inspection.kind === 'unowned-conflict' || inspection.kind === 'managed-invalid';
+}
+
 export class MineruArtifactWriteError extends Error {
   readonly cause?: unknown;
   readonly cleanupErrors: readonly string[];
@@ -129,7 +135,7 @@ export class MineruArtifactStore {
     await withArtifactPathLocks([finalIdentity], async () => {
       throwIfAborted(signal);
       const existing = await this.inspect(prepared.sourcePath);
-      if (existing.kind === 'unowned-conflict') {
+      if (isMineruArtifactConflict(existing)) {
         throw new MineruArtifactConflictError(
           `Refusing to replace ${finalDirectory}: existing content is not a valid managed artifact.`
         );

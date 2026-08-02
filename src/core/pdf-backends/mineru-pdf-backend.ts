@@ -18,7 +18,11 @@ import {
 import { isEncryptedPdfText } from '../pdf-metadata';
 import { EncryptedPdfError } from './native-llm-pdf-backend';
 import { extractMineruArchive, type MineruArchiveResult } from './mineru-archive';
-import { MineruArtifactConflictError, MineruArtifactStore } from './mineru-artifacts';
+import {
+  isMineruArtifactConflict,
+  MineruArtifactConflictError,
+  MineruArtifactStore,
+} from './mineru-artifacts';
 import { MineruCancelledError, MineruClient, MineruStageError } from './mineru-client';
 import type {
   ArtifactInspection,
@@ -79,9 +83,9 @@ async function convertPdfWithMineru(
 
   const artifactStore = deps.createArtifactStore(ctx);
   const inspection = await artifactStore.inspect(ctx.pdfFile.path);
-  if (inspection.kind === 'unowned-conflict') {
+  if (isMineruArtifactConflict(inspection)) {
     throw new MineruArtifactConflictError(
-      `Refusing to replace MinerU artifacts for ${ctx.pdfFile.path}: the target directory is not managed by this plugin.`
+      `Refusing to replace MinerU artifacts for ${ctx.pdfFile.path}: existing artifact ownership could not be verified.`
     );
   }
 
