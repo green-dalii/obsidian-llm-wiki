@@ -33,7 +33,7 @@
 import { Setting, Notice, TFile, BaseComponent } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
 import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS } from '../../types';
-import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIMIT_MIN } from '../../constants';
+import { NOTICE_NORMAL, NOTICE_ERROR, NOTICE_SHORT, CUSTOM_LIMIT_MAX, CUSTOM_LIMIT_MIN, MINERU_API_TOKEN_SECRET_ID } from '../../constants';
 import { HistoryModal } from '../history-modal';
 import { TagChipInputComponent } from '../tag-chip-input';
 import { setSettingsVisible } from '../settings-helpers';
@@ -53,6 +53,30 @@ export function renderWikiConfigSection(tab: LLMWikiSettingTab, containerEl: HTM
       .setValue(tempSettings.wikiFolder)
       .onChange((value) => { tempSettings.wikiFolder = value; }));
 
+  let mineruTokenSetting: Setting | null = null;
+  new Setting(containerEl)
+    .setName(tab.getText('pdfConversionBackendName'))
+    .setDesc(tab.getText('pdfConversionBackendDesc'))
+    .addDropdown(dropdown => dropdown
+      .addOption('native', tab.getText('pdfConversionBackendNative'))
+      .addOption('mineru', tab.getText('pdfConversionBackendMineru'))
+      .setValue(tempSettings.pdfConversionBackend ?? 'native')
+      .onChange(value => {
+        tempSettings.pdfConversionBackend = value as 'native' | 'mineru';
+        setSettingsVisible([mineruTokenSetting], value === 'mineru');
+      }));
+
+  mineruTokenSetting = new Setting(containerEl)
+    .setName(tab.getText('mineruApiTokenName'))
+    .setDesc(tab.getText('mineruApiTokenDesc'))
+    .addText(text => {
+      text
+        .setPlaceholder(tab.getText('mineruApiTokenPlaceholder'))
+        .setValue(tab.app.secretStorage.getSecret(MINERU_API_TOKEN_SECRET_ID) ?? '')
+        .onChange(value => { tab.app.secretStorage.setSecret(MINERU_API_TOKEN_SECRET_ID, value.trim()); });
+      text.inputEl.type = 'password';
+    });
+  setSettingsVisible([mineruTokenSetting], tempSettings.pdfConversionBackend === 'mineru');
   // Granularity + custom limits
   let customEntitySetting: Setting | null = null;
   let customConceptSetting: Setting | null = null;

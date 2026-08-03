@@ -19,6 +19,7 @@ import { TFile, TFolder } from 'obsidian';
 import { createWikiEngineHarness, wikiPagesWritten } from '../__support__/wiki-engine-harness';
 import * as pdfConverter from '../../core/pdf-converter';
 import { convertPdfToMarkdown } from '../../core/pdf-converter';
+import { MineruPdfError } from '../../core/mineru-pdf';
 
 // Mock pdf-converter so we don't need real PDF bytes / SubtleCrypto / LLM call.
 // Tests assert on WikiEngine's integration with the converter's return value.
@@ -132,6 +133,38 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
     await expect(h.engine.ingestSource(pdfFile('sources/paper.pdf'))).rejects.toThrow(/LLM API timeout/);
     // No skip report — error was thrown, not reported
     expect(h.reports.at(-1)?.skipped).toBeFalsy();
+  });
+
+  it('propagates MinerU API errors instead of reporting unsupported PDF', async () => {
+    mockedConvert.mockRejectedValueOnce(new MineruPdfError('MinerU request failed with HTTP 401.'));
+    const h = createWikiEngineHarness();
+
+    await expect(h.engine.ingestSource(pdfFile('sources/paper.pdf'))).rejects.toThrow(/HTTP 401/);
+
+    expect(h.reports.at(-1)?.skipped).toBeFalsy();
+  });
+
+  it('reads the MinerU token from SecretStorage and wires phase progress', async () => {
+    mockedConvert.mockResolvedValueOnce({
+      markdown: '# Paper\n\nbody',
+      metadata: { convertedAt: '2026-08-03T00:00:00Z', converter: 'mineru/vlm' },
+    });
+    const h = createWikiEngineHarness({
+      settings: {
+        pdfConversionBackend: 'mineru',
+      },
+      llmResponses: [JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] })],
+    });
+    Object.assign(h.engine['app'], {
+      secretStorage: { getSecret: vi.fn(() => 'secret-token') },
+    });
+
+    await h.engine.ingestSource(pdfFile('sources/paper.pdf'));
+
+    const call = mockedConvert.mock.calls[0]?.[0];
+    expect(call?.mineruApiToken).toBe('secret-token');
+    expect(call?.settings).not.toHaveProperty('mineruApiToken');
+    expect(typeof call?.onMineruPhase).toBe('function');
   });
 
   it('does NOT write a sidecar file by default (cache-only architecture)', async () => {
@@ -478,6 +511,19 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
       // fired successfully during the ingest window.
       await ingestPromise.catch(() => undefined);
       // After completion, isIngesting() flips back to false.
+      expect(h.engine.isIngesting()).toBe(false);
+    });
+
+    it('handles MinerU AbortError and clears the PDF ingestion lifecycle', async () => {
+      mockedConvert.mockRejectedValueOnce(new DOMException('cancelled', 'AbortError'));
+      const h = createWikiEngineHarness({ settings: { pdfConversionBackend: 'mineru' } });
+      Object.assign(h.engine['app'], {
+        secretStorage: { getSecret: vi.fn(() => 'secret-token') },
+      });
+
+      await expect(h.engine.ingestSource(pdfFile('sources/paper.pdf'))).resolves.toBeUndefined();
+
+      expect(h.engine.wasCancelled).toBe(true);
       expect(h.engine.isIngesting()).toBe(false);
     });
   });

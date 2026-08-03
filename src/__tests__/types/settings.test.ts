@@ -29,6 +29,11 @@ describe('v1.25.0 PR3 PDF settings — defaults', () => {
     expect(DEFAULT_SETTINGS).toHaveProperty('forcePdfSupport');
     expect(DEFAULT_SETTINGS).toHaveProperty('writePdfMarkdownToVault');
   });
+  it('does not persist MinerU secret details or timeout controls', () => {
+    expect(DEFAULT_SETTINGS).not.toHaveProperty('mineruApiTokenSecretId');
+    expect(DEFAULT_SETTINGS).not.toHaveProperty('mineruApiToken');
+    expect(DEFAULT_SETTINGS).not.toHaveProperty('mineruTaskTimeoutMinutes');
+  });
 });
 
 // v1.26.0 (#382 item 2): dedup threshold overrides — three optional
