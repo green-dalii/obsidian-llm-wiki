@@ -70,7 +70,12 @@ export function buildStubContent(params: StubContentParams): string {
   const { title, stubType, referringPageRel } = params;
   const today = new Date().toISOString().split('T')[0];
   const defaultTag = stubType === 'entity' ? 'other' : 'term';
-  return `---\ntype: ${stubType}\ncreated: ${today}\nsources: ["[[${referringPageRel}]]"]\ntags: [${defaultTag}]\ngeneration_complete: false\n---\n# ${title}\n\n> Stub created by Fix Dead Links — referenced by [[${referringPageRel}]]. Will be filled by next ingest of an actual source that defines this entity.\n`;
+  // Emit `sources:` as block-style so the v1.25.11 provenance-stamp
+  // writer in create-page.ts's `appendSourceSlugToFrontmatter` (which
+  // only detects `^sources:\s*$`) merges into it instead of inserting
+  // a duplicate top-level `sources:` key. Duplicate keys are invalid
+  // YAML and break Obsidian's Properties render. See issue #399.
+  return `---\ntype: ${stubType}\ncreated: ${today}\nsources:\n  - [[${referringPageRel}]]\ntags: [${defaultTag}]\ngeneration_complete: false\n---\n# ${title}\n\n> Stub created by Fix Dead Links — referenced by [[${referringPageRel}]]. Will be filled by next ingest of an actual source that defines this entity.\n`;
 }
 
 /**

@@ -333,7 +333,10 @@ export async function createNewPage(
  * `[[]]` wrapper); we add both to keep the wire format identical to
  * what `merge-page.ts:95` would have produced.
  */
-function appendSourceSlugToFrontmatter(content: string, sourceSlug: string): string {
+// Exported for direct unit-test coverage of the flow-style detection path
+// added for #399. Not part of the plugin's public API — call sites live in
+// createOrUpdatePage / createNewPage above.
+export function appendSourceSlugToFrontmatter(content: string, sourceSlug: string): string {
   if (!content.startsWith('---')) return content;
   const fmEnd = content.indexOf('\n---\n', 3);
   if (fmEnd === -1) return content;
@@ -342,6 +345,34 @@ function appendSourceSlugToFrontmatter(content: string, sourceSlug: string): str
   const sourceEntry = `[[sources/${sourceSlug}]]`;
 
   const lines = fmText.split('\n');
+
+  // First, handle inline flow-style `sources: ["[[...]]", ...]`. Prior to
+  // this fix, we only matched the block-style form `^sources:\s*$`, so a
+  // flow-style existing key would fall through to the "no sources yet"
+  // branch and get a NEW block-style key inserted — producing two
+  // top-level `sources:` keys, which is invalid YAML and breaks the
+  // Properties panel. See #399. Detect the flow-style form, extract its
+  // wikilink entries, add the new one if absent, then re-emit as
+  // block-style (canonical shape used elsewhere in the plugin).
+  const flowIdx = lines.findIndex(l => /^sources:\s*\[.*\]\s*$/.test(l));
+  if (flowIdx !== -1) {
+    const flowMatch = lines[flowIdx].match(/^sources:\s*\[(.*)\]\s*$/);
+    const entries: string[] = [];
+    if (flowMatch && flowMatch[1].trim().length > 0) {
+      const linkPattern = /\[\[([^\]]+)\]\]/g;
+      let m;
+      while ((m = linkPattern.exec(flowMatch[1])) !== null) {
+        entries.push(m[1]);
+      }
+    }
+    const targetLink = sourceEntry.slice(2, -2);
+    if (entries.includes(targetLink)) return content;
+    entries.push(targetLink);
+    const blockLines = ['sources:', ...entries.map(e => `  - [[${e}]]`)];
+    lines.splice(flowIdx, 1, ...blockLines);
+    return `---\n${lines.join('\n')}\n---\n${body}`;
+  }
+
   const sourcesIdx = lines.findIndex(l => /^sources:\s*$/.test(l));
   if (sourcesIdx === -1) {
     // No existing `sources:` key — insert one. Anchor on `tags:` so the
