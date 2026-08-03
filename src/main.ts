@@ -5,7 +5,7 @@ import {
   LLMClient,
   IngestReport,
 } from './types';
-import { NOTICE_NORMAL, NOTICE_ABORT } from './constants';
+import { NOTICE_NORMAL, NOTICE_ABORT, MINERU_API_TOKEN_SECRET_ID } from './constants';
 import { preloadLLMClientModules } from './llm-sdk/create-llm-client';
 import { isProviderConfigured } from './core/provider-auth';
 import { resolveProviderApiKey } from './llm-sdk/provider-api-key-resolver';
@@ -212,6 +212,24 @@ export class LLMWikiPlugin extends Plugin {
     }
 
     this.settings = settings;
+
+    const legacyMineru = this.settings as LLMWikiSettings & {
+      mineruApiToken?: string;
+      mineruTaskTimeoutMinutes?: number;
+    };
+    if ('mineruApiToken' in legacyMineru || 'mineruTaskTimeoutMinutes' in legacyMineru) {
+      try {
+        const token = legacyMineru.mineruApiToken?.trim();
+        if (token && !this.app.secretStorage.getSecret(MINERU_API_TOKEN_SECRET_ID)) {
+          this.app.secretStorage.setSecret(MINERU_API_TOKEN_SECRET_ID, token);
+        }
+        delete legacyMineru.mineruApiToken;
+        delete legacyMineru.mineruTaskTimeoutMinutes;
+        await this.saveData(this.settings);
+      } catch (error) {
+        console.error('[main.loadSettings] Failed to migrate MinerU token to SecretStorage:', error);
+      }
+    }
 
     if (savedData && !savedData.wikiLanguage) {
       this.settings.wikiLanguage = this.settings.language;

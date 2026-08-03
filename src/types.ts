@@ -175,6 +175,8 @@ export interface LLMWikiSettings {
   openAICodexUnavailableModels?: string[];
   baseUrl: string;
   model: string;
+  /** PDF conversion backend. Native keeps the existing provider flow. */
+  pdfConversionBackend?: 'native' | 'mineru';
   wikiFolder: string;
   language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it';
   wikiLanguage: string;
@@ -965,6 +967,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   openAICodexModelsFetchedAt: 0,
   baseUrl: '',
   model: '',  // No hardcoded default — user must fetch models or enter manually
+  pdfConversionBackend: 'native',
   wikiFolder: 'wiki',
   language: 'en',
   wikiLanguage: 'en',

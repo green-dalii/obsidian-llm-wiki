@@ -25,6 +25,7 @@ import { resolveSourceSlug } from '../core/source-slug';
 import { parseFrontmatter, upsertFrontmatterField, mergeFrontmatterArrayField, extractBody } from '../core/frontmatter';
 import { setGenerationComplete } from '../core/incomplete-page-cleaner';
 import { convertPdfToMarkdown, UnsupportedProviderError, EncryptedPdfError } from '../core/pdf-converter';
+import { MineruPdfError } from '../core/mineru-pdf';
 import { hashBody, checkContentRequirements } from '../core/source-requirements';
 import { resolveModelForTask } from '../core/model-resolver';
 import type { SourceRejection } from '../core/source-requirements';
@@ -50,7 +51,7 @@ import { fixPollutedSources } from '../core/sources-normalizer';
 // v1.25.1 Phase C-PR1: buildLogHeader moved into LogWriter.
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
-import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS } from '../constants';
+import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS, MINERU_API_TOKEN_SECRET_ID } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
 import type { Graph } from '../core/build-graph';
@@ -690,6 +691,18 @@ export class WikiEngine {
           baseUrl: this.settings.baseUrl,
           model: this.settings.model,
           forcePdfSupport: this.settings.forcePdfSupport,
+          pdfConversionBackend: this.settings.pdfConversionBackend,
+        },
+        ...(this.settings.pdfConversionBackend === 'mineru'
+          ? { mineruApiToken: this.app.secretStorage.getSecret(MINERU_API_TOKEN_SECRET_ID) ?? '' }
+          : {}),
+        onMineruPhase: phase => {
+          const key = phase === 'uploading'
+            ? 'mineruUploadingInProgress'
+            : phase === 'waiting'
+              ? 'mineruWaitingInProgress'
+              : 'mineruDownloadingInProgress';
+          this.notifyProgress(getText(lang, key).replace('{filename}', file.basename));
         },
         pdfFile: file,
         llmClient: this.getLLMClient() as never,
@@ -713,6 +726,9 @@ export class WikiEngine {
       if (error instanceof EncryptedPdfError) {
         this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
         return;
+      }
+      if (error instanceof MineruPdfError) {
+        throw error;
       }
       // v1.25.0 PR3 follow-up #2 (P1 #3): LLM errors during PDF conversion
       // surface via the localized `sourceRejectedPdfUnsupported` Notice so the
@@ -832,7 +848,23 @@ export class WikiEngine {
     // already provided a converted body — otherwise this would recurse
     // (ingestPdfSource re-enters ingestSource with contentOverride set).
     if (file.extension.toLowerCase() === 'pdf' && !opts?.contentOverride) {
-      return this.ingestPdfSource(file, opts);
+      try {
+        return await this.ingestPdfSource(file, opts);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          this.wasCancelled = true;
+          new Notice(getText(this.settings.language, 'ingestionCancelled'), NOTICE_NORMAL);
+          return;
+        }
+        throw error;
+      } finally {
+        // Successful conversion re-enters this method and clears the shared
+        // controller in the main finally block. Pre-conversion exits do not.
+        if (this.abortController !== null) {
+          this.abortController = null;
+          this.onIngestionEnd?.();
+        }
+      }
     }
 
     // #164 pre-ingest requirements gate — runs BEFORE any cancellation/UI setup so

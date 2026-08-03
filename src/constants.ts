@@ -106,6 +106,15 @@ export const NATIVE_PDF_PROVIDER_IDS = [
   'bedrock-openai',
 ] as const;
 
+/** MinerU online API endpoints and bounded conversion resources. */
+export const MINERU_API_BASE_URL = 'https://mineru.net/api/v4';
+export const MINERU_API_TOKEN_SECRET_ID = 'karpathywiki-mineru-api-token';
+export const MINERU_MAX_PDF_BYTES = 200 * 1024 * 1024;
+export const MINERU_MAX_ZIP_BYTES = 256 * 1024 * 1024;
+export const MINERU_MAX_ARCHIVE_FILES = 10_000;
+export const MINERU_POLL_INTERVAL_MS = 3000;
+export const MINERU_TIMEOUT_MS = 30 * 60 * 1000;
+
 /** Minimum custom entity/concept limit per type. */
 export const CUSTOM_LIMIT_MIN = 1;
 
