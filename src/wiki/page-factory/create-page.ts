@@ -368,7 +368,11 @@ export function appendSourceSlugToFrontmatter(content: string, sourceSlug: strin
     const targetLink = sourceEntry.slice(2, -2);
     if (entries.includes(targetLink)) return content;
     entries.push(targetLink);
-    const blockLines = ['sources:', ...entries.map(e => `  - [[${e}]]`)];
+    // Double-quote wikilink values. Unquoted `- [[x]]` YAML-parses as a
+    // nested flow sequence (not a string), which breaks Obsidian's Properties
+    // panel + backlinks + graph edges. Match `yamlStringify()` in
+    // src/core/frontmatter.ts (line 104). See PR #405 review.
+    const blockLines = ['sources:', ...entries.map(e => `  - "[[${e}]]"`)];
     lines.splice(flowIdx, 1, ...blockLines);
     return `---\n${lines.join('\n')}\n---\n${body}`;
   }
@@ -379,18 +383,29 @@ export function appendSourceSlugToFrontmatter(content: string, sourceSlug: strin
     // block order (type / created / updated / sources / tags / aliases /
     // reviewed) matches the canonical layout produced by
     // `enforceFrontmatterConstraints` + `serializeFrontmatter`.
+    //
+    // Double-quote the wikilink value — bare `- [[x]]` YAML-parses as a
+    // nested flow sequence (not a string). See PR #405 review.
     const tagsIdx = lines.findIndex(l => /^tags:\s*$/.test(l));
     const insertAt = tagsIdx === -1 ? lines.length : tagsIdx;
-    lines.splice(insertAt, 0, `sources:\n  - ${sourceEntry}`);
+    lines.splice(insertAt, 0, `sources:\n  - "${sourceEntry}"`);
   } else {
     // Existing `sources:` block — append the new entry if not already
     // present. Scan only indented continuation lines (same semantics
-    // as `mergeFrontmatter`'s Set dedup, lines 484-490).
+    // as `mergeFrontmatter`'s Set dedup, lines 484-490). Continuation
+    // lines may be quoted (`- "[[x]]"` canonical) or bare (`- [[x]]`
+    // legacy) — strip both to check.
     const existing = new Set<string>();
     for (let i = sourcesIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line.startsWith('- ')) break;
-      const entry = line.substring(2).trim();
+      let entry = line.substring(2).trim();
+      // Strip surrounding quotes if present so `- "[[x]]"` and `- [[x]]`
+      // are treated as the same entry.
+      if ((entry.startsWith('"') && entry.endsWith('"')) ||
+          (entry.startsWith("'") && entry.endsWith("'"))) {
+        entry = entry.slice(1, -1);
+      }
       if (entry.startsWith('[[') && entry.endsWith(']]')) {
         existing.add(entry.slice(2, -2).trim());
       }
@@ -403,7 +418,8 @@ export function appendSourceSlugToFrontmatter(content: string, sourceSlug: strin
     while (insertAt < lines.length && lines[insertAt].trim().startsWith('- ')) {
       insertAt++;
     }
-    lines.splice(insertAt, 0, `  - ${sourceEntry}`);
+    // Quoted (see comment above).
+    lines.splice(insertAt, 0, `  - "${sourceEntry}"`);
   }
   return `---\n${lines.join('\n')}\n---\n${body}`;
 }
