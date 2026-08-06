@@ -390,36 +390,44 @@ export function appendSourceSlugToFrontmatter(content: string, sourceSlug: strin
     const insertAt = tagsIdx === -1 ? lines.length : tagsIdx;
     lines.splice(insertAt, 0, `sources:\n  - "${sourceEntry}"`);
   } else {
-    // Existing `sources:` block — append the new entry if not already
-    // present. Scan only indented continuation lines (same semantics
-    // as `mergeFrontmatter`'s Set dedup, lines 484-490). Continuation
-    // lines may be quoted (`- "[[x]]"` canonical) or bare (`- [[x]]`
-    // legacy) — strip both to check.
-    const existing = new Set<string>();
+    // Existing `sources:` block — collect continuation entries, append
+    // the new one if not already present, and re-emit the WHOLE block
+    // in canonical quoted form. This "block heals" behavior means a
+    // legacy v1.25.11-stamped file (with bare `- [[x]]` entries) gets
+    // normalized to `- "[[x]]"` the next time we stamp it, matching
+    // the healing behavior the flow→block branch already has. See PR
+    // #405 review note A from @DocTpoint.
+    //
+    // Continuation lines may be quoted (`- "[[x]]"` canonical) or
+    // bare (`- [[x]]` legacy) — strip surrounding quotes when reading,
+    // always emit quoted when writing.
+    const entries: string[] = [];
+    const seen = new Set<string>();
+    let contEnd = sourcesIdx + 1;
     for (let i = sourcesIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line.startsWith('- ')) break;
+      contEnd = i + 1;
       let entry = line.substring(2).trim();
-      // Strip surrounding quotes if present so `- "[[x]]"` and `- [[x]]`
-      // are treated as the same entry.
       if ((entry.startsWith('"') && entry.endsWith('"')) ||
           (entry.startsWith("'") && entry.endsWith("'"))) {
         entry = entry.slice(1, -1);
       }
       if (entry.startsWith('[[') && entry.endsWith(']]')) {
-        existing.add(entry.slice(2, -2).trim());
+        const inner = entry.slice(2, -2).trim();
+        if (!seen.has(inner)) {
+          seen.add(inner);
+          entries.push(inner);
+        }
       }
     }
-    if (existing.has(sourceEntry.slice(2, -2))) return content;
-    // Find the first non-`sources:` continuation line — that's where we
-    // append. If no continuation lines exist yet, insert immediately
-    // after the `sources:` key.
-    let insertAt = sourcesIdx + 1;
-    while (insertAt < lines.length && lines[insertAt].trim().startsWith('- ')) {
-      insertAt++;
-    }
-    // Quoted (see comment above).
-    lines.splice(insertAt, 0, `  - "${sourceEntry}"`);
+    const targetInner = sourceEntry.slice(2, -2);
+    if (seen.has(targetInner)) return content;
+    entries.push(targetInner);
+    // Splice out the old (bare + new) continuation lines and replace
+    // with the canonical quoted form for all entries.
+    const newContinuation = entries.map(e => `  - "[[${e}]]"`);
+    lines.splice(sourcesIdx + 1, contEnd - (sourcesIdx + 1), ...newContinuation);
   }
   return `---\n${lines.join('\n')}\n---\n${body}`;
 }

@@ -180,4 +180,108 @@ describe('appendSourceSlugToFrontmatter (#399)', () => {
       ]);
     });
   });
+
+  // PR #405 review — @DocTpoint notes A and B.
+  //
+  // A. "Flow heals, block doesn't": the block-append branch previously
+  //    only spliced one new line, so a v1.25.11-stamped file (with bare
+  //    `- [[x]]` continuation entries) ended up with a correct new entry
+  //    next to a broken bare one. The block branch now re-emits the whole
+  //    block from a Set, normalizing legacy entries on touch.
+  //
+  // B. The quote-tolerant dedup path had no test feeding legacy unquoted
+  //    block input.
+  //
+  // These cases feed the exact shape a real v1.25.11 vault carries today
+  // and assert both the healing behavior AND idempotency against it.
+  describe('PR #405 note A/B: legacy bare block-style entries heal on touch', () => {
+    it('bare entries get re-emitted as quoted when a new entry is appended', () => {
+      const before = [
+        '---',
+        'type: concept',
+        'sources:',
+        '  - [[sources/Existing]]',  // legacy bare
+        'tags: [term]',
+        '---',
+        '',
+        '# Title',
+        '',
+      ].join('\n');
+      const out = appendSourceSlugToFrontmatter(before, 'New');
+      // Both entries end up quoted — the old one heals.
+      expect(out).toContain('sources:\n  - "[[sources/Existing]]"\n  - "[[sources/New]]"');
+      // No bare `- [[x]]` continuation lines survive.
+      expect(out).not.toMatch(/^\s*-\s+\[\[/m);
+      // Parser-shape guard: sources is a flat string array, both entries strings.
+      const parsed = parseFrontmatter(out);
+      expect(parsed.sources).toEqual([
+        '[[sources/Existing]]',
+        '[[sources/New]]',
+      ]);
+    });
+
+    it('bare + quoted mixed continuation lines heal on touch (no duplication)', () => {
+      // The exact shape a v1.25.11 vault could carry: an old bare entry
+      // plus a newer quoted one, from two separate provenance stamps.
+      const before = [
+        '---',
+        'type: concept',
+        'sources:',
+        '  - [[sources/OldBare]]',
+        '  - "[[sources/NewerQuoted]]"',
+        'tags: [term]',
+        '---',
+        '',
+        '# Title',
+        '',
+      ].join('\n');
+      const out = appendSourceSlugToFrontmatter(before, 'ThirdEntry');
+      expect(out).toContain(
+        'sources:\n  - "[[sources/OldBare]]"\n  - "[[sources/NewerQuoted]]"\n  - "[[sources/ThirdEntry]]"',
+      );
+      const parsed = parseFrontmatter(out);
+      expect(parsed.sources).toEqual([
+        '[[sources/OldBare]]',
+        '[[sources/NewerQuoted]]',
+        '[[sources/ThirdEntry]]',
+      ]);
+    });
+
+    it('is idempotent against a legacy bare entry (dedup strips quotes on both sides)', () => {
+      const before = [
+        '---',
+        'type: concept',
+        'sources:',
+        '  - [[sources/Existing]]',  // legacy bare
+        'tags: [term]',
+        '---',
+        '',
+        '# Title',
+        '',
+      ].join('\n');
+      // Try to stamp the same source again — should be a no-op.
+      const out = appendSourceSlugToFrontmatter(before, 'Existing');
+      expect(out).toBe(before);
+    });
+
+    it('is idempotent against a legacy bare entry when the new stamp uses the target slug', () => {
+      // Same as above but the "new" stamp uses the same slug the legacy
+      // entry pointed to — proves the strip-both dedup catches it before
+      // we go re-emit the block.
+      const before = [
+        '---',
+        'type: concept',
+        'sources:',
+        '  - [[sources/Alpha]]',
+        '  - [[sources/Beta]]',
+        'tags: [term]',
+        '---',
+        '',
+        '# Title',
+        '',
+      ].join('\n');
+      const out = appendSourceSlugToFrontmatter(before, 'Beta');
+      expect(out).toBe(before);
+    });
+  });
 });
