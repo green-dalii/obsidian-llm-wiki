@@ -6,7 +6,7 @@
 // behavior (#234 sources/ filter + L2 polluted-basename filter + 50-page cap
 // with entity/concept bias).
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   resolvePagePath,
   buildPagesListForPrompt,
@@ -146,6 +146,55 @@ describe('resolvePagePath — LLM semantic dedup fallback', () => {
     };
     await resolvePagePath(ctx, 'Novel', 'entity', 'desc');
     expect(seenMode).toBe('index');
+  });
+
+  // #407 Stage 1: an unreadable reply is not an answer. The returned path is
+  // the same one `match: false` produces, which is why the distinction has to
+  // be visible in the log — before this, the no-exception failure path left no
+  // trace at all and the duplicate page it caused had no explanation.
+  it.each([
+    ['empty', ''],
+    ['empty', '<think>spent the budget deliberating</think>'],
+    ['malformed', '{"match": true, "path": "wiki/entities/Other.md"'],
+  ])('reports an unreadable dedup reply as %s instead of as "no match"', async (reason, reply) => {
+    const errors: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.map(String).join(' '));
+    });
+    const ctx = makeCtx({
+      mockVault: {
+        getMarkdownFiles: () => [{ path: 'wiki/entities/Other.md', basename: 'Other' }],
+      },
+      client: { createMessage: async () => reply },
+    });
+
+    const result = await resolvePagePath(ctx, 'Unreadable', 'entity', 'desc');
+    spy.mockRestore();
+
+    expect(result.path).toBe('wiki/entities/Unreadable.md');
+    const line = errors.find(e => e.includes('Entity resolution for "Unreadable"'));
+    expect(line).toBeDefined();
+    expect(line).toContain(reason);
+    expect(line).toContain('no match decided');
+  });
+
+  it('does not report a well-formed match=false as a parse failure', async () => {
+    const errors: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.map(String).join(' '));
+    });
+    const ctx = makeCtx({
+      mockVault: {
+        getMarkdownFiles: () => [{ path: 'wiki/entities/Other.md', basename: 'Other' }],
+      },
+      client: { createMessage: async () => JSON.stringify({ match: false }) },
+    });
+
+    const result = await resolvePagePath(ctx, 'Novel', 'entity', 'desc');
+    spy.mockRestore();
+
+    expect(result.path).toBe('wiki/entities/Novel.md');
+    expect(errors.some(e => e.includes('unreadable'))).toBe(false);
   });
 
   it('returns slug path when LLM throws (defensive fallback)', async () => {

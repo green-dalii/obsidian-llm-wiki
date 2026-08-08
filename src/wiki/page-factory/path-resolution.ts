@@ -23,7 +23,7 @@ import { ConflictResolver } from '../../core/conflict-resolver';
 import { localKeywordMatch } from '../../core/index-search';
 import { getExistingWikiPages } from '../lint/get-existing-pages';
 import { PROMPTS } from '../../prompts';
-import { parseJsonResponse } from '../../core/json';
+import { parseJsonResult } from '../../core/json';
 import { normalizeLLMPath } from '../../core/prompt-builders';
 import { renderTemplate } from '../../core/template-renderer';
 import { resolveModelForTask } from '../../core/model-resolver';
@@ -218,12 +218,34 @@ export async function resolvePagePath(
       ...(ctx.settings.disableThinking ? { enableThinking: false } : {}),
     });
 
-    const result = (await parseJsonResponse(response)) as {
-      match?: boolean;
-      path?: string | null;
-    } | null;
+    const parsed = await parseJsonResult(response);
 
-    if (result?.match && result?.path) {
+    if (!parsed.ok) {
+      // #407 Stage 1. Until now this path returned `null` and joined the
+      // `match === false` branch below, so an unreadable reply was recorded as
+      // "no existing page matches" and a new page was written for an entity
+      // that may already have one — without leaving a trace, because the
+      // `catch` further down only sees thrown errors.
+      //
+      // The fallback is deliberately unchanged: this function must return a
+      // path, and `slugPath` is still it. What changes is that the fallback is
+      // now taken as a failure to read the reply, not as an answer to the
+      // question. What to do about it beyond reporting — retry on `empty`,
+      // surface the uncertainty to the caller — needs a return channel this
+      // signature does not have, and is left to the later stages.
+      const detail =
+        parsed.reason === 'exception'
+          ? `exception: ${String(parsed.error)}`
+          : `${parsed.reason}, raw length ${parsed.rawLength}`;
+      console.error(
+        `Entity resolution for "${name}": dedup reply unreadable (${detail}) — using slug path, no match decided`,
+      );
+      return { path: slugPath };
+    }
+
+    const result = parsed.value as { match?: boolean; path?: string | null };
+
+    if (result.match && result.path) {
       const normalizedPath = normalizeLLMPath(result.path, ctx.settings.wikiFolder);
       console.debug(`Entity resolution: "${name}" matched existing page "${normalizedPath}"`);
       // Append the new name as an alias to the existing page to prevent future duplicates
