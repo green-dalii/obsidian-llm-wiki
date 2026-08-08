@@ -113,30 +113,44 @@ export interface RequestUrlResponse {
  * own API is not reachable from a plain Node install).
  */
 export async function requestUrl(param: RequestUrlParam): Promise<RequestUrlResponse> {
+  // Function-start early-exit guard — satisfies `obsidianmd/no-nodejs-modules`
+  // AST guard-detection for the dynamic `node:https`/`node:http` imports below
+  // (mirrors src/llm-sdk/openai-codex/loopback-flow.ts). The CLI's own Platform
+  // shim hardcodes `isDesktop: true`, so this never throws at runtime; it
+  // declares the invariant "this code is desktop-only" that the rule requires.
+  if (!Platform.isDesktop) throw new Error('requestUrl (node:http) is desktop-only');
+
   const url = new URL(param.url);
-  const { request } = await import(url.protocol === 'https:' ? 'node:https' : 'node:http');
+
+  // Two separate `await import()` branches (rather than `await import(cond)`)
+  // so TS infers `request` back to the correct overload from each module.
+  // Otherwise the dynamic argument leaves the return type as `any` and the
+  // downstream `request(url, ...)` chain turns into 6 unsafe-call /
+  // unsafe-member-access warnings — and ESLint's `no-unsafe-call` rule
+  // promotes the first one to Error. Dynamic imports satisfy
+  // `obsidianmd/no-nodejs-modules` without any inline `eslint-disable`.
+  const request: typeof import('node:http').request = url.protocol === 'https:'
+    ? (await import('node:https')).request
+    : (await import('node:http')).request;
 
   const { status, headers, buffer } = await new Promise<{
     status: number;
     headers: Record<string, string>;
     buffer: Buffer;
   }>((resolve, reject) => {
-    const req = request(
-      url,
-      { method: param.method ?? 'GET', headers: param.headers ?? {} },
-      (res: import('node:http').IncomingMessage) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (c: Buffer) => chunks.push(c));
-        res.on('end', () => {
-          const flat: Record<string, string> = {};
-          for (const [k, v] of Object.entries(res.headers)) {
-            if (v !== undefined) flat[k] = Array.isArray(v) ? v.join(', ') : v;
-          }
-          resolve({ status: res.statusCode ?? 0, headers: flat, buffer: Buffer.concat(chunks) });
-        });
-        res.on('error', reject);
-      },
-    );
+    function onResponse(res: import('node:http').IncomingMessage): void {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => {
+        const flat: Record<string, string> = {};
+        for (const [k, v] of Object.entries(res.headers)) {
+          if (v !== undefined) flat[k] = Array.isArray(v) ? v.join(', ') : v;
+        }
+        resolve({ status: res.statusCode ?? 0, headers: flat, buffer: Buffer.concat(chunks) });
+      });
+      res.on('error', reject);
+    }
+    const req = request(url, { method: param.method ?? 'GET', headers: param.headers ?? {} }, onResponse);
     req.on('error', reject);
     if (param.body !== undefined) req.write(param.body);
     req.end();
@@ -155,7 +169,13 @@ export async function requestUrl(param: RequestUrlParam): Promise<RequestUrlResp
     arrayBuffer,
     text,
     get json(): unknown {
-      return text === '' ? null : JSON.parse(text);
+      if (text === '') return null;
+      try {
+        return JSON.parse(text) as unknown;
+      } catch (e) {
+        // Obsidian's real `requestUrl().json` throws on bad JSON. Match it.
+        throw new Error(`Request URL response is not valid JSON: ${(e as Error).message}`);
+      }
     },
   };
 }

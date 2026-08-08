@@ -288,7 +288,7 @@ export class NodeVault {
     } catch {
       return null;
     }
-    return parseFrontmatter(content) as Record<string, unknown> | null;
+    return parseFrontmatter(content);
   }
 }
 

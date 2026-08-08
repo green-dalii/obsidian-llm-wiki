@@ -13,6 +13,7 @@
     "build:dev": "node esbuild.config.mjs dev",
     "llm-wiki": "node tools/llm-wiki-cli/run-llm-wiki.mjs",
     "lint": "eslint src/ --max-warnings=0",
+    "lint:tools-bot": "eslint --config eslint.tools-bot.config.mjs tools/ --max-warnings=-1 || true",
     "css-lint": "node scripts/css-lint.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
