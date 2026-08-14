@@ -39,6 +39,52 @@ import { buildSamplingArgs } from './sampling-args';
 // extractProviderMessage handles both via the same nested lookup.
 export { mapAiSdkError };
 
+/**
+ * Issue #449: build the `system` argument for `generateText`/`streamText`,
+ * attaching Anthropic's `cacheControl: { type: 'ephemeral' }` marker
+ * when `cacheBreakpoint` is defined.
+ *
+ * AI SDK v6 system type is `string | SystemModelMessage | SystemModelMessage[]`,
+ * where SystemModelMessage = `{ role: 'system'; content: string; providerOptions? }`.
+ * The Anthropic provider reads `providerOptions.anthropic.cacheControl` from
+ * the system message and emits it on the wire as `cache_control: { type: 'ephemeral' }`
+ * on the matching text block (verified in @ai-sdk/anthropic@2.0.x dist/index.mjs:2300-2307).
+ *
+ * Three branches:
+ * - `cacheBreakpoint` undefined → `system: undefined` (caller-side spread
+ *   `...(systemWithCacheControl !== undefined ? { system } : {})` then
+ *   omits the field, matching the pre-fix behaviour exactly).
+ * - `cacheBreakpoint` defined + `system` empty → also `undefined`. The
+ *   cache marker on an empty string is a no-op and would otherwise emit
+ *   a stray block.
+ * - `cacheBreakpoint` defined + `system` non-empty → returns a single
+ *   SystemModelMessage carrying `providerOptions.anthropic.cacheControl`.
+ *
+ * The Anthropic Messages API caps at 4 cache breakpoints per request
+ * (MAX_CACHE_BREAKPOINTS in @ai-sdk/anthropic); one ephemeral marker on
+ * the only system block is well under that.
+ */
+function buildSystemWithCacheControl(
+  system: string | undefined,
+  cacheBreakpoint: number | undefined
+):
+  | string
+  | undefined
+  | Array<{
+      role: 'system';
+      content: string;
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } };
+    }> {
+  if (cacheBreakpoint === undefined || !system) return system;
+  return [
+    {
+      role: 'system' as const,
+      content: system,
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' as const } } },
+    },
+  ];
+}
+
 export interface AnthropicSdkClientOptions {
   apiKey: string;
   /**
@@ -106,7 +152,12 @@ export class AnthropicSdkClient implements LLMClient {
   }
 
   async createMessage(params: LLMClient['createMessage'] extends (p: infer P) => unknown ? P : never): Promise<string> {
-    const { model, max_tokens, system, messages, temperature, top_p, repetition_penalty, enableThinking, onFinish } = params;
+    const { model, max_tokens, system, messages, temperature, top_p, repetition_penalty, enableThinking, cacheBreakpoint, onFinish } = params;
+
+    // Issue #449: when cacheBreakpoint is defined, emit system as a
+    // single text block carrying providerOptions.anthropic.cacheControl.
+    // Absent cacheBreakpoint → keep the existing string-only path.
+    const systemWithCacheControl = buildSystemWithCacheControl(system, cacheBreakpoint);
 
     try {
       const languageModel = this.getProvider(model, this.fetchImpl);
@@ -115,7 +166,7 @@ export class AnthropicSdkClient implements LLMClient {
       const result = await generateText({
         model: languageModel,
         // Anthropic accepts system at top-level; AI-SDK abstracts this.
-        ...(system ? { system } : {}),
+        ...(systemWithCacheControl !== undefined ? { system: systemWithCacheControl } : {}),
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         maxOutputTokens: max_tokens,
         providerOptions: this.buildProviderOptions({
@@ -144,7 +195,7 @@ export class AnthropicSdkClient implements LLMClient {
         const { generateText } = await import('ai');
         const result = await generateText({
           model: retryLanguageModel,
-          ...(system ? { system } : {}),
+          ...(systemWithCacheControl !== undefined ? { system: systemWithCacheControl } : {}),
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           maxOutputTokens: max_tokens,
           providerOptions: this.buildProviderOptions({

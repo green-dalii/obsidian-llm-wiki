@@ -225,6 +225,104 @@ describe('AnthropicSdkClient', () => {
     });
   });
 
+  // Issue #449: cacheBreakpoint is a typed field (src/types.ts:684
+  // `cacheBreakpoint?: number`) on LLMClient.createMessage and is
+  // SET by source-analyzer.ts:404 (`cacheBreakpoint: staticPrefix.length`)
+  // but ZERO SDK clients read it. The user's opt-in intent (per-note
+  // caching) never reaches the wire.
+  //
+  // Anthropic-side wire shape: providerOptions.anthropic.cacheControl
+  // sits on a SYSTEM text block, not at top-level. The AI SDK's
+  // streamText/generateText accept `system` as either a string or
+  // an array of content parts; to emit cache_control we must switch
+  // the system shape to a single text part carrying the cacheControl
+  // providerOptions. Absent cacheBreakpoint → keep the existing
+  // string-only path (no behaviour change for callers that don't opt in).
+  describe('Issue #449: cacheBreakpoint → cache_control wire-up', () => {
+    function asSystemBlocks(call: Record<string, unknown>): Array<{ role: string; content: string; providerOptions?: { anthropic?: { cacheControl?: unknown } } }> | string | undefined {
+      return call.system as never;
+    }
+
+    it('emits cache_control on system block when cacheBreakpoint is defined (createMessage)', async () => {
+      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
+      await client.createMessage({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 100,
+        system: 'You are Claude, a helpful assistant.',
+        messages: [{ role: 'user', content: 'hi' }],
+        cacheBreakpoint: 42,
+      });
+
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      const system = asSystemBlocks(call);
+      // System must now be a SystemModelMessage[] (one entry carrying
+      // providerOptions.anthropic.cacheControl). AI SDK v6 type is
+      // `string | SystemModelMessage | SystemModelMessage[]`.
+      expect(Array.isArray(system)).toBe(true);
+      const blocks = system as Array<{ role: string; content: string; providerOptions?: { anthropic?: { cacheControl?: unknown } } }>;
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].role).toBe('system');
+      expect(blocks[0].content).toBe('You are Claude, a helpful assistant.');
+      expect(blocks[0].providerOptions).toEqual({
+        anthropic: { cacheControl: { type: 'ephemeral' } },
+      });
+    });
+
+    it('keeps system as plain string when cacheBreakpoint is undefined (no behaviour change)', async () => {
+      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
+      await client.createMessage({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 100,
+        system: 'You are Claude, a helpful assistant.',
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      // Regression: callers that don't opt in must NOT see the new
+      // array shape — preserves all existing assertions on
+      // `expect(call.system).toBe('...')`.
+      expect(call.system).toBe('You are Claude, a helpful assistant.');
+    });
+
+    it('omits system entirely when cacheBreakpoint is undefined and system is undefined', async () => {
+      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
+      await client.createMessage({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+      });
+
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      expect('system' in call ? call.system : undefined).toBeUndefined();
+    });
+
+    it('co-emits cache_control alongside enableThinking=false (no key collision in providerOptions)', async () => {
+      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
+      await client.createMessage({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 100,
+        system: 'You are Claude, a helpful assistant.',
+        messages: [{ role: 'user', content: 'hi' }],
+        cacheBreakpoint: 42,
+        enableThinking: false,
+      });
+
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      // Thinking control travels in providerOptions.anthropic.thinking
+      // (existing path); cache_control travels on the system block.
+      // They MUST NOT collide — verify both are present and at their
+      // canonical locations.
+      const system = asSystemBlocks(call) as Array<{ providerOptions?: { anthropic?: { cacheControl?: unknown } } }>;
+      expect(Array.isArray(system)).toBe(true);
+      expect(system[0].providerOptions).toEqual({
+        anthropic: { cacheControl: { type: 'ephemeral' } },
+      });
+      expect(call.providerOptions).toEqual({
+        anthropic: { thinking: { type: 'disabled' } },
+      });
+    });
+  });
+
   describe('custom baseURL for Anthropic-compatible providers (Coding Plan / z.ai / GLM-Antropic)', () => {
     beforeEach(() => {
       mockCreateAnthropic.mockClear();
