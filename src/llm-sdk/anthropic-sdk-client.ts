@@ -44,12 +44,29 @@ export { mapAiSdkError };
  * `providerOptions.anthropic.cacheControl` when `cacheBreakpoint` is defined;
  * otherwise return system unchanged so the spread+ternary at the call site is
  * a no-op. Returns `string | undefined | SystemModelMessage[]` (AI SDK v6 union).
+ *
+ * Wire shape: AI SDK's Anthropic adapter reads `providerOptions.anthropic.cacheControl`
+ * from the system message and emits `cache_control: { type: 'ephemeral' }` on the
+ * matching text block. See `@ai-sdk/anthropic@2.0.x/dist/index.mjs:2300-2307`.
+ *
+ * Anthropic Messages API caps at 4 cache breakpoints per request; one ephemeral
+ * marker on the only system block is well under that.
+ *
+ * Returns a 1-element array (never a single object) so Direction 2 cross-note
+ * caching (ROADMAP #452) can append additional system blocks without changing
+ * this signature or the call-site spread.
+ *
+ * Short-circuit: when `cacheBreakpoint` is undefined OR `system` is empty, returns
+ * `undefined` (not `system`) so the call-site spread omits the `system` key
+ * entirely — matches pre-fix truthy-check semantics and prevents an empty text
+ * block from consuming one of Anthropic's cache breakpoint slots.
  */
 function buildSystemWithCacheControl(
   system: string | undefined,
   cacheBreakpoint: number | undefined,
 ): string | undefined | SystemModelMessage[] {
-  if (cacheBreakpoint === undefined || !system) return system;
+  if (cacheBreakpoint === undefined) return system;
+  if (!system) return undefined;
   return [{
     role: 'system',
     content: system,

@@ -681,6 +681,11 @@ export interface LLMClient {
       // `json_object` (unchanged behaviour for the existing 15 call sites
       // that have not yet opted in).
       | { type: 'json_object'; schema?: Record<string, unknown> };
+    /**
+     * Anthropic prompt-cache breakpoint offset. Anthropic SDK honors this;
+     * OpenAI / openai-compat / OpenAI Codex clients ignore the field (AI SDK
+     * does not expose cache hooks for those providers). See Issue #449 + Issue #468.
+     */
     cacheBreakpoint?: number;
     /**
      * Which step of the pipeline is asking. Purely for accounting: an ingest is

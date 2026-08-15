@@ -226,10 +226,11 @@ describe('AnthropicSdkClient', () => {
   });
 
   // Issue #449: cacheBreakpoint is a typed field (src/types.ts:684
-  // `cacheBreakpoint?: number`) on LLMClient.createMessage and is
-  // SET by source-analyzer.ts:404 (`cacheBreakpoint: staticPrefix.length`)
-  // but ZERO SDK clients read it. The user's opt-in intent (per-note
-  // caching) never reaches the wire.
+  // `cacheBreakpoint?: number`) on LLMClient.createMessage and SET by
+  // source-analyzer.ts:404 (`cacheBreakpoint: staticPrefix.length`).
+  // The Anthropic SDK client must read it and emit
+  // providerOptions.anthropic.cacheControl on the system block so the
+  // user's opt-in (per-note caching) reaches the wire.
   //
   // Anthropic-side wire shape: providerOptions.anthropic.cacheControl
   // sits on a SYSTEM text block, not at top-level. The AI SDK's
@@ -309,6 +310,60 @@ describe('AnthropicSdkClient', () => {
       });
       expect(call.providerOptions).toEqual({
         anthropic: { thinking: { type: 'disabled' } },
+      });
+    });
+
+    it('omits system entirely when cacheBreakpoint is defined but system is empty (#449 Branch B)', async () => {
+      // Pre-fix truthy check dropped empty system; post-fix returns undefined
+      // from the helper on `!system` short-circuit so the call-site spread
+      // omits the `system` key. This pins the boundary so a future refactor
+      // that re-emits `system: ''` (consuming one of Anthropic's 4 cache
+      // breakpoints) is caught here.
+      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
+      await client.createMessage({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 100,
+        system: '',
+        messages: [{ role: 'user', content: 'hi' }],
+        cacheBreakpoint: 42,
+      });
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      expect('system' in call).toBe(false);
+    });
+
+    it('omits system entirely when cacheBreakpoint is defined but system is undefined', async () => {
+      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
+      await client.createMessage({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+        cacheBreakpoint: 42,
+      });
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      expect('system' in call).toBe(false);
+    });
+
+    it('co-emits cache_control on a non-English system prompt (locale-stable contract)', async () => {
+      // Pins the invariant that cache_control wiring is locale-agnostic. The
+      // i18n concern is whether the cache marker lands on a locale-stable block
+      // (deferred to Direction 2 cross-note caching); the wire-shape contract
+      // for cache_control emission itself is locale-independent.
+      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
+      await client.createMessage({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 100,
+        system: 'Du bist Claude, ein hilfreicher Assistent.',
+        messages: [{ role: 'user', content: 'hi' }],
+        cacheBreakpoint: 42,
+      });
+      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
+      const system = asSystemBlocks(call) as Array<{ role: string; content: string; providerOptions?: { anthropic?: { cacheControl?: unknown } } }>;
+      expect(Array.isArray(system)).toBe(true);
+      expect(system).toHaveLength(1);
+      expect(system[0].role).toBe('system');
+      expect(system[0].content).toBe('Du bist Claude, ein hilfreicher Assistent.');
+      expect(system[0].providerOptions).toEqual({
+        anthropic: { cacheControl: { type: 'ephemeral' } },
       });
     });
   });
