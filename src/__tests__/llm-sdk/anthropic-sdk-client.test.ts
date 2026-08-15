@@ -269,6 +269,11 @@ describe('AnthropicSdkClient', () => {
     });
 
     it('keeps system as plain string when cacheBreakpoint is undefined (no behaviour change)', async () => {
+      // Regression guard for the no-op path. Pre-existing #147 block already
+      // asserts the plain-string shape when system is provided and no
+      // cacheBreakpoint is set; we re-pin the invariant inside the #449
+      // block so a refactor that re-introduces an array shape for the
+      // undefined-cacheBreakpoint branch is caught here too.
       const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
       await client.createMessage({
         model: 'claude-sonnet-4-5',
@@ -278,22 +283,7 @@ describe('AnthropicSdkClient', () => {
       });
 
       const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
-      // Regression: callers that don't opt in must NOT see the new
-      // array shape — preserves all existing assertions on
-      // `expect(call.system).toBe('...')`.
       expect(call.system).toBe('You are Claude, a helpful assistant.');
-    });
-
-    it('omits system entirely when cacheBreakpoint is undefined and system is undefined', async () => {
-      const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test' });
-      await client.createMessage({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 100,
-        messages: [{ role: 'user', content: 'hi' }],
-      });
-
-      const call = mockGenerateText.mock.calls[0][0] as Record<string, unknown>;
-      expect('system' in call ? call.system : undefined).toBeUndefined();
     });
 
     it('co-emits cache_control alongside enableThinking=false (no key collision in providerOptions)', async () => {

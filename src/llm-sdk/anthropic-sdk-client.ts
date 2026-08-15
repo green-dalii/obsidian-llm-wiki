@@ -18,7 +18,7 @@
 // Architecture: same shape as OpenAISdkClient — implements LLMClient,
 // uses obsidianFetchBridge, lazy-loads @ai-sdk/anthropic.
 
-import { type LanguageModel } from 'ai';
+import { type LanguageModel, type SystemModelMessage } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { LLMClient } from '../types';
 import { obsidianFetchBridge, streamWithFallback } from '../core/obsidian-fetch-bridge';
@@ -40,49 +40,21 @@ import { buildSamplingArgs } from './sampling-args';
 export { mapAiSdkError };
 
 /**
- * Issue #449: build the `system` argument for `generateText`/`streamText`,
- * attaching Anthropic's `cacheControl: { type: 'ephemeral' }` marker
- * when `cacheBreakpoint` is defined.
- *
- * AI SDK v6 system type is `string | SystemModelMessage | SystemModelMessage[]`,
- * where SystemModelMessage = `{ role: 'system'; content: string; providerOptions? }`.
- * The Anthropic provider reads `providerOptions.anthropic.cacheControl` from
- * the system message and emits it on the wire as `cache_control: { type: 'ephemeral' }`
- * on the matching text block (verified in @ai-sdk/anthropic@2.0.x dist/index.mjs:2300-2307).
- *
- * Three branches:
- * - `cacheBreakpoint` undefined → `system: undefined` (caller-side spread
- *   `...(systemWithCacheControl !== undefined ? { system } : {})` then
- *   omits the field, matching the pre-fix behaviour exactly).
- * - `cacheBreakpoint` defined + `system` empty → also `undefined`. The
- *   cache marker on an empty string is a no-op and would otherwise emit
- *   a stray block.
- * - `cacheBreakpoint` defined + `system` non-empty → returns a single
- *   SystemModelMessage carrying `providerOptions.anthropic.cacheControl`.
- *
- * The Anthropic Messages API caps at 4 cache breakpoints per request
- * (MAX_CACHE_BREAKPOINTS in @ai-sdk/anthropic); one ephemeral marker on
- * the only system block is well under that.
+ * Issue #449: emit system as a SystemModelMessage[] carrying
+ * `providerOptions.anthropic.cacheControl` when `cacheBreakpoint` is defined;
+ * otherwise return system unchanged so the spread+ternary at the call site is
+ * a no-op. Returns `string | undefined | SystemModelMessage[]` (AI SDK v6 union).
  */
 function buildSystemWithCacheControl(
   system: string | undefined,
-  cacheBreakpoint: number | undefined
-):
-  | string
-  | undefined
-  | Array<{
-      role: 'system';
-      content: string;
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } };
-    }> {
+  cacheBreakpoint: number | undefined,
+): string | undefined | SystemModelMessage[] {
   if (cacheBreakpoint === undefined || !system) return system;
-  return [
-    {
-      role: 'system' as const,
-      content: system,
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' as const } } },
-    },
-  ];
+  return [{
+    role: 'system',
+    content: system,
+    providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+  }];
 }
 
 export interface AnthropicSdkClientOptions {
