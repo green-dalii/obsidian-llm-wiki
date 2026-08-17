@@ -78,7 +78,7 @@ See [CLAUDE.md §"📦 Development Workflow"](./CLAUDE.md) + [`.claude/skills/ob
 **Remaining follow-ups (moved to v1.27.0 window):**
 - **#407 Stages 1+2** — port the 8 silent-failure call sites (`path-resolution.ts:220` + `conversation-ingest.ts:337` first), one PR per blast radius.
 - **#450 Finding 2** — `extractPassthroughLines` whole-class passthrough (separate commit on `fix/438-frontmatter-...`, filed as new issue to track).
-- **#452** — slug-list catalog sorting (companion to #449 Direction 2 cross-note caching; gated on #449 Direction 1 shipping first).
+- **#452** — slug-list catalog sorting (companion to #449 Direction 2 cross-note caching). Independent of #449 Direction 1 (#464, still in review): PR #483 touches only the catalog block at the head of the extraction prompt.
 
 **Bedrock Stage 2 — SSO/Profile auth (decision 2026-08-07; cancels the prior "≥3 user requests" gate).** Now scoped to **v1.27.0** via a **zero-AWS-SDK** path: hand-rolled IAM Identity Center OIDC (reusing the Codex OAuth skeleton at `src/llm-sdk/openai-codex/`) → `GetRoleCredentials` → temp IAM creds → **hand-written SigV4** → existing `bedrock-mantle` endpoint. ~+10 KB, zero new npm deps (vs the rejected PR #263's +1.2 MB). Rationale: the `bedrock-mantle` endpoint accepts AWS credentials (SigV4) per AWS docs and speaks standard OpenAI/Anthropic protocols over plain SSE — no native ConverseStream event-stream signing needed. Design plan + implementation checklist: [[project_bedrock_stage2_codex_style_sigv4]].
 
