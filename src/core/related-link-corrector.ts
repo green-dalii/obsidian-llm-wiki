@@ -55,6 +55,17 @@ export function correctRelatedLinkPrefixes(
 ): string {
   // Full-vault name → path index. Titles outrank aliases: a title is the page's
   // own claim to a name, an alias is someone's cross-reference to it.
+  //
+  // The index is keyed case-folded — `slugify(x, false)` — on both sides, per the
+  // contract stated at slug.ts: comparison callers must not pass `preserveCase`,
+  // so slugs stay comparable whatever the user's `slugCase` setting is. Under
+  // `slugCase: 'preserve'` a case-sensitive key would make this resolver stricter
+  // than `scanDeadLinks`, which judges over `knownTargetsLower`: a model writing
+  // "mediterrane Ernährung" for the page "Mediterrane-Ernährung" would miss the
+  // index here and be stamped into a dead link that the scanner would have
+  // accepted unchanged. `preserveCase` is left alone on the pre-existing
+  // `folderBySlug` path below, which keys both sides the same way and is not
+  // part of this change.
   const pathByTitle = new Map<string, string>();
   const pathByAlias = new Map<string, string>();
   const ambiguousTitles = new Set<string>();
@@ -67,7 +78,7 @@ export function correctRelatedLinkPrefixes(
       into: Map<string, string>,
       clash: Set<string>,
     ) => {
-      const s = slugify(raw, preserveCase);
+      const s = slugify(raw, false);
       if (!s) return;
       const prev = into.get(s);
       if (prev && prev !== relPath) { clash.add(s); return; }
@@ -86,7 +97,7 @@ export function correctRelatedLinkPrefixes(
     }
   }
   const resolveInVault = (name: string): string | undefined => {
-    const s = slugify(name, preserveCase);
+    const s = slugify(name, false);
     if (!s) return undefined;
     if (!ambiguousTitles.has(s)) {
       const byTitle = pathByTitle.get(s);

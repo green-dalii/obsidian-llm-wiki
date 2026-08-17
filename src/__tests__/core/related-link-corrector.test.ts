@@ -234,6 +234,26 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
     expect(r).not.toContain('Zellreinigung');
   });
 
+  it('resolves a title the model wrote in another case, even under slugCase: preserve', () => {
+    // Measured on a 2838-page vault: the resolver keyed its index with
+    // `preserveCase`, so this link died while `scanDeadLinks` — which judges
+    // over `knownTargetsLower` — would have accepted it untouched. The index is
+    // a comparison, so it folds case (slug.ts contract).
+    const c = ['## Related Concepts', '- [[mediterrane Ernährung]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, true, vault([
+      { path: 'wiki/concepts/Mediterrane-Ernährung.md', title: 'Mediterrane-Ernährung' },
+    ]));
+    expect(r).toContain('[[concepts/Mediterrane-Ernährung|mediterrane Ernährung]]');
+  });
+
+  it('folds case on curated aliases too', () => {
+    const c = ['## Related Entities', '- [[vitamin d]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, true, vault([
+      { path: 'wiki/entities/Cholecalciferol.md', title: 'Cholecalciferol', aliases: ['Vitamin D'] },
+    ]));
+    expect(r).toContain('[[entities/Cholecalciferol|vitamin d]]');
+  });
+
   it('never resolves onto a sources/ page (#234 invariant, new home)', () => {
     const c = ['## Related Entities', '- [[Gedächtnis]]'].join('\n');
     const r = correctRelatedLinkPrefixes(c, ['Gedächtnis'], [], ENT, CON, true, vault([
