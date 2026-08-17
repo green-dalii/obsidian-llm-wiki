@@ -69,14 +69,31 @@ describe('prependReasoningForParse — Issue #443 follow-up', () => {
     expect(out.endsWith('\n\n')).toBe(true);
   });
 
-  it('prepends raw reasoning before non-empty text using blank-line separator', () => {
-    const reasoning = '{"entities": [{"name": "X"}]}';
+  it('drops reasoning when visible text is non-empty, regardless of reasoning shape (Issue #474 — Layer 1 contract change)', () => {
+    // v1.26.4 PATCH (Issue #474) deliberately changed the contract:
+    // when reasoning has NO <think> wrapper AND visible text is non-empty,
+    // the reasoning is dropped. The visible text is the LLM's canonical
+    // output channel — the prose/json in reasoning is auxiliary.
+    //
+    // Previous behavior: prepended reasoning + "\n\n" + text, then
+    // parseJsonResult's balanced-JSON finder walked into the reasoning
+    // first. For reasoning=JSON+text=JSON, parseJsonResult picked the
+    // LAST balanced JSON (the visible one) — worked. For
+    // reasoning=prose+text=JSON (deepseek-v4-flash case), the
+    // balanced-JSON finder walked into the prose and either crashed on
+    // `Unexpected token 'T'` or matched an `{...}` substring inside the
+    // prose — the visible JSON never parsed.
+    //
+    // New behavior: text non-empty → return text only. Reasoning is
+    // preserved ONLY when text is empty (Qwen3.5 case) or when the
+    // reasoning already has <think> wrappers (R1 / o-series case, see
+    // the wrap branch in markdown.ts).
+    const jsonReasoning = '{"entities": [{"name": "X"}]}';
     const text = 'visible answer';
-    const out = prependReasoningForParse(reasoning, text);
-    expect(out).not.toMatch(/<think>/);
-    expect(out).toContain('"entities"');
-    expect(out.endsWith('visible answer')).toBe(true);
-    expect(out).toContain('\n\n');
+    const out = prependReasoningForParse(jsonReasoning, text);
+    expect(out).toBe(text);
+    expect(out).not.toContain('"entities"');
+    expect(out).not.toContain('\n\n');
   });
 
   it('escapes literal </think inside reasoning to prevent premature block close', () => {
@@ -84,5 +101,67 @@ describe('prependReasoningForParse — Issue #443 follow-up', () => {
     const out = prependReasoningForParse(reasoning, '');
     // The escape prevents extractThinkingBlocks regex from mis-splitting.
     expect(out).toContain('<\\/think');
+  });
+
+  // v1.26.4 PATCH (Issue #474 — Layer 1): prose-reasoning pollution regression.
+  //
+  // Background: deepseek-v4-flash is a reasoning model. Its chat template
+  // emits:
+  //   - reasoning_content = "The user is asking me to extract entities.
+  //                          Let me think about which entities are
+  //                          relevant..."  (English prose)
+  //   - content           = '{"entities":[{"name":"X"}]}'            (the JSON)
+  //
+  // The previous contract prepended the reasoning verbatim before the
+  // visible text, so parseJsonResponse received prose + JSON. Every
+  // parse layer (captureThinkingBlocks prefix-{ filler, balanced-JSON
+  // finder, greedy regex) walked into the prose first and either
+  // crashed on `Unexpected token 'T'` or matched an `{...}` substring
+  // inside the prose. The visible JSON never parsed.
+  //
+  // Fix: when reasoning has NO <think> wrapper (i.e. it's prose, not a
+  // structured R1/o-series reasoning block) AND visible text is non-empty,
+  // the visible text already contains the LLM's canonical JSON. Drop the
+  // prose — do NOT pollute the parse target.
+  //
+  // Qwen3.5 (Issue #443) case: reasoning IS JSON-shaped, text='' — must
+  // still prepend (this is the recovery path). Preserved.
+  // R1 / o-series case: reasoning has <think> wrapper — wrap branch, preserved.
+  it('drops raw prose reasoning when visible text is non-empty (Issue #474 — DeepSeek v4-flash)', () => {
+    const proseReasoning =
+      'The user is asking me to extract entities from the source. Let me ' +
+      'think about which entities are relevant. I see references to ' +
+      'Biochemie, so NO2 is probably one. Let me format my answer.';
+    const visibleJson = '{"entities":[{"name":"NO2"}]}';
+
+    const out = prependReasoningForParse(proseReasoning, visibleJson);
+
+    // The fix: prose must NOT appear in the output when text is present.
+    // The visible JSON is the canonical output — preserve it verbatim.
+    expect(out).toBe(visibleJson);
+    expect(out).not.toContain('The user is asking');
+    expect(out).not.toContain('Let me think');
+  });
+
+  it('still prepends raw JSON-shaped reasoning when text is empty (Qwen3.5 case preserved)', () => {
+    // This is the Qwen3.5 / LMStudio recovery path. reasoning IS the
+    // JSON; text is empty. The balanced-JSON finder needs the JSON to
+    // survive intact.
+    const jsonInReasoning = '{"entities":[{"name":"X"}]}';
+    const out = prependReasoningForParse(jsonInReasoning, '');
+    expect(out).toContain(jsonInReasoning);
+    expect(out.endsWith('\n\n')).toBe(true);
+  });
+
+  it('still wraps <think>-tagged reasoning when text is non-empty (R1 / o-series case preserved)', () => {
+    // R1 and o-series emit reasoning with explicit <think>...</think>
+    // tags. The Query UI relies on extractThinkingBlocks to find those
+    // blocks. Wrapping them again keeps the contract.
+    const r1Reasoning = '<think>step 1: think</think>step 2: reason';
+    const text = 'answer';
+    const out = prependReasoningForParse(r1Reasoning, text);
+    expect(out).toMatch(/<think>/);
+    expect(out).toMatch(/<\/think>/);
+    expect(out).toContain('answer');
   });
 });

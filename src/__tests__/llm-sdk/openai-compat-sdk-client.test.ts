@@ -5,7 +5,7 @@
 // parameterizing over their baseURLs.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { APICallError, NoObjectGeneratedError } from 'ai';
+import { APICallError, NoObjectGeneratedError, NoOutputGeneratedError } from 'ai';
 
 vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai');
@@ -1588,6 +1588,268 @@ describe('OpenAICompatSdkClient', () => {
           response_format: { type: 'json_object', schema },
         }),
       ).rejects.toBe(err);
+    });
+  });
+
+  // ==========================================================================
+  // v1.26.4 PATCH (Issue #474 — Layer 2): NoOutputGeneratedError catch.
+  //
+  // Background: deepseek-v4-flash + reasoning model + heavy prompt → the
+  // reasoning_content consumes the entire maxOutputTokens budget. The
+  // model emits zero tokens in the visible content channel. AI SDK's
+  // step-level retry loop then throws `NoOutputGeneratedError`
+  // (sibling of `NoObjectGeneratedError`, both extend `AISDKError` —
+  // `AI_NoOutputGeneratedError` vs `AI_NoObjectGeneratedError`,
+  // ai@6.0.230/dist/index.mjs:5146, 7077, 7232, 7933).
+  //
+  // Previous behavior: the catch block only checked
+  // `NoObjectGeneratedError.isInstance(err)`. The sibling class slipped
+  // through and was mapped by `mapAiSdkError` to a "Failed to connect
+  // to <provider> API" misreport. The user saw a connectivity error
+  // when the actual cause was "model produced nothing".
+  //
+  // Fix: catch `NoOutputGeneratedError` alongside `NoObjectGeneratedError`
+  // and return the empty quiet path (empty string for createMessage;
+  // empty typed shape for createMessageWithOutput). The caller's
+  // `parseJsonResponse` already handles empty input via its
+  // `silentOnEmpty` / `EmptyResponseError` branches.
+  // ==========================================================================
+  describe('NoOutputGeneratedError path (Issue #474 — Layer 2)', () => {
+    // Minimal real-shape constructor — AI SDK's NoOutputGeneratedError
+    // accepts zero-args in some lines (line 5146) and structured-args in
+    // others (line 7933). We use the no-args form to mirror the
+    // step-retry exhaustion path that's the actual #474 cause.
+    const makeNoOutputError = () => new NoOutputGeneratedError();
+
+    it('returns "" from createMessage when generateText throws NoOutputGeneratedError', async () => {
+      // Issue #474 symptom: deepseek-v4-flash burned all budget on
+      // reasoning, emitted zero visible content, SDK threw
+      // NoOutputGeneratedError. Old behavior: error propagated as
+      // "Failed to connect to deepseek API". New behavior: empty quiet
+      // path so caller-side parseJsonResponse can take its empty-input
+      // branch (Source analysis: halveBatchAndRetry / Source analysis
+      // failed).
+      mockGenerateText.mockReset();
+      mockGenerateText.mockRejectedValueOnce(makeNoOutputError());
+
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'https://api.deepseek.com/v1',
+        provider: 'deepseek',
+      });
+      const result = await client.createMessage({
+        model: 'deepseek-v4-flash',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'extract' }],
+        response_format: { type: 'json_object' },
+      });
+
+      expect(result).toBe('');
+      // Exactly one generateText call — no retry, no chain. The error
+      // class is recovered inline (empty quiet path), not retried.
+      expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns empty typed shape from createMessageWithOutput when generateText throws NoOutputGeneratedError', async () => {
+      // The typed-output path mirrors the empty quiet path:
+      //   text: ''             (caller parseJsonResponse gets empty input)
+      //   output: undefined    (no SDK-parsed object — there was nothing)
+      //   outputMode: 'json_schema' (unchanged from cache default)
+      //   finishReason: 'stop' (the SDK's step retry exhaustion is
+      //                       semantically "stop", not "error" — the
+      //                       model wasn't refused or rate-limited)
+      //   usage: undefined     (no token counts when nothing was emitted)
+      mockGenerateText.mockReset();
+      mockGenerateText.mockRejectedValueOnce(makeNoOutputError());
+
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'https://api.deepseek.com/v1',
+        provider: 'deepseek',
+      });
+      const result = await client.createMessageWithOutput!({
+        model: 'deepseek-v4-flash',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'extract' }],
+        response_format: { type: 'json_object' },
+      });
+
+      expect(result.text).toBe('');
+      expect(result.output).toBeUndefined();
+      expect(result.finishReason).toBe('stop');
+      expect(result.usage).toBeUndefined();
+    });
+
+    it('does NOT trigger 3-tier demotion chain on NoOutputGeneratedError (different error class)', async () => {
+      // The 3-tier chain runs on APICallError + statusCode===400.
+      // NoOutputGeneratedError is AISDKError, not APICallError — same
+      // invariant as NoObjectGeneratedError. Must NOT demote, must NOT
+      // consume the error and rethrow. The empty quiet path is the
+      // single recovery action.
+      mockGenerateText.mockReset();
+      mockGenerateText.mockRejectedValueOnce(makeNoOutputError());
+
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'https://api.deepseek.com/v1',
+        provider: 'deepseek',
+      });
+      const result = await client.createMessage({
+        model: 'deepseek-v4-flash',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'extract' }],
+        response_format: { type: 'json_object' },
+      });
+
+      expect(result).toBe('');
+      expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT trigger reasoning-strip or token-key retry on NoOutputGeneratedError', async () => {
+      // The reasoning-strip and token-key retry paths both require
+      // APICallError + statusCode===400. NoOutputGeneratedError is
+      // AISDKError — neither branch matches. Sanity check that exactly
+      // one call to generateText happens (no retries, no probes).
+      mockGenerateText.mockReset();
+      mockGenerateText.mockRejectedValueOnce(makeNoOutputError());
+
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'https://api.deepseek.com/v1',
+        provider: 'deepseek',
+      });
+      const result = await client.createMessage({
+        model: 'deepseek-v4-flash',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'extract' }],
+        response_format: { type: 'json_object' },
+        enableThinking: false, // would normally trigger reasoning-strip path on 400
+      });
+
+      expect(result).toBe('');
+      expect(mockGenerateText).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ==========================================================================
+  // v1.26.4 PATCH (Issue #474 — Layer 3): mode clamp for non-supportsStructuredOutputs providers.
+  //
+  // Background: cloud openai-compat providers (deepseek / kimi / glm /
+  // minimax / openrouter) do NOT declare `supportsStructuredOutputs:
+  // true` in `PREDEFINED_PROVIDERS`. The AI SDK already encodes
+  // `response_format: { type: 'json_object' }` on the wire for them
+  // regardless of what `Output.object({schema})` was passed — but
+  // `OutputModeProber` defaults to `json_schema`, so `buildOutputArgs`
+  // tries to emit `Output.object` and the schema is silently dropped at
+  // the SDK layer. Worse, `outputMode` reports `json_schema` to the
+  // caller (dishonest — the wire shape was json_object).
+  //
+  // Fix: pre-seed `outputModeProber` to `json_object` for providers
+  // whose `supportsStructuredOutputs` is false, on the first call per
+  // (baseURL, model). Subsequent calls reuse the cached mode. The
+  // `outputMode` reported to the caller is now honest (matches the
+  // wire shape the SDK actually emitted).
+  //
+  // Local providers (lmstudio / ollama / custom) declare
+  // `supportsStructuredOutputs: true` — the pre-seed is a no-op for them.
+  // ==========================================================================
+  describe('mode clamp for non-supportsStructuredOutputs providers (Issue #474 — Layer 3)', () => {
+    it('seeds mode to json_object for deepseek on first call (supportsStructuredOutputs=false)', async () => {
+      // deepseek is the canonical "no json_schema on wire" case.
+      // First call: OutputModeProber has no entry for (baseURL, model)
+      // → default 'json_schema'. supportsStructuredOutputs=false →
+      // pre-seed to 'json_object' BEFORE buildOutputArgs runs. The
+      // schema in response_format gets dropped (Tier 1: Output.json()
+      // can't carry a schema), which matches what the SDK actually does
+      // on the wire for this provider — so reporting is honest.
+      mockGenerateText.mockReset();
+      mockGenerateText.mockResolvedValue(makeResult('{}'));
+
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'https://api.deepseek.com/v1',
+        provider: 'deepseek',
+      });
+      const schema = {
+        type: 'object',
+        properties: { name: { type: 'string' } },
+        required: ['name'],
+      } as const;
+      const result = await client.createMessageWithOutput!({
+        model: 'deepseek-chat',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+        response_format: { type: 'json_object', schema },
+      });
+
+      // Honest reporting: mode is json_object, matching the wire shape
+      // the SDK emitted (schema was dropped at the SDK layer because
+      // Output.json() can't carry a schema; the wire is json_object).
+      expect(result.outputMode).toBe('json_object');
+      // The model-emitted text is what the caller gets (parseable
+      // through parseJsonResponse downstream).
+      expect(result.text).toBe('{}');
+    });
+
+    it('keeps mode as json_schema for lmstudio on first call (supportsStructuredOutputs=true)', async () => {
+      // Local LM Studio / Ollama / custom providers accept json_schema
+      // on the wire. The pre-seed is gated on supportsStructuredOutputs,
+      // so their mode stays 'json_schema' (Tier 0). Backward compat:
+      // existing LM Studio 3-tier chain behavior is unchanged.
+      mockGenerateText.mockReset();
+      mockGenerateText.mockResolvedValue(makeResult('{}'));
+
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'lmstudio-key',
+        baseURL: 'http://localhost:1234/v1',
+        provider: 'lmstudio',
+      });
+      const schema = {
+        type: 'object',
+        properties: { name: { type: 'string' } },
+        required: ['name'],
+      } as const;
+      const result = await client.createMessageWithOutput!({
+        model: 'qwen3.5',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'hi' }],
+        response_format: { type: 'json_object', schema },
+      });
+
+      expect(result.outputMode).toBe('json_schema');
+    });
+
+    it('reuses seeded json_object on subsequent calls (no re-probe)', async () => {
+      // The pre-seed is committed to the cache. Subsequent calls for
+      // the same (baseURL, model) read the cached mode — no extra
+      // probes, no waste. This is the same per-model key space the
+      // OutputModeProber already uses; the pre-seed is just an
+      // initialization step, not a demotion.
+      mockGenerateText.mockReset();
+      mockGenerateText.mockResolvedValue(makeResult('{}'));
+
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'https://api.deepseek.com/v1',
+        provider: 'deepseek',
+      });
+      // Call 1: seeds the cache.
+      await client.createMessageWithOutput!({
+        model: 'deepseek-chat',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'a' }],
+        response_format: { type: 'json_object' },
+      });
+      // Call 2: should read the cached mode (no wire probe needed).
+      mockGenerateText.mockResolvedValue(makeResult('{"x":1}'));
+      const result2 = await client.createMessageWithOutput!({
+        model: 'deepseek-chat',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'b' }],
+        response_format: { type: 'json_object' },
+      });
+      expect(result2.outputMode).toBe('json_object');
+      expect(mockGenerateText).toHaveBeenCalledTimes(2);
     });
   });
 

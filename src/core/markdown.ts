@@ -226,10 +226,24 @@ export function prependReasoningForParse(reasoning: string, text: string): strin
   if (/<think(?:ing)?\b[^>]*>/i.test(reasoning)) {
     return wrapReasoningContent(reasoning, text);
   }
-  // No closing tag in reasoning — prepending raw is safer than wrapping,
-  // because wrap + strip loses the JSON-shaped reasoning payload. The
-  // visible text follows after a blank line; parseJsonResponse's
-  // balanced-JSON finder will walk into the reasoning text first.
+  // v1.26.4 PATCH (Issue #474 — Layer 1): when reasoning has NO <think>
+  // wrapper AND visible text is non-empty, the reasoning is prose and
+  // must NOT pollute the parse target. Some reasoning models
+  // (deepseek-v4-flash) emit prose `reasoning_content` + JSON in the
+  // visible `content` channel. Prepending the prose forces
+  // parseJsonResult's balanced-JSON finder to walk into English text
+  // and either crash on `Unexpected token 'T'` or match a `{...}`
+  // substring inside the prose — the visible JSON never parses.
+  // Drop the prose — the visible text already contains the canonical JSON.
+  //
+  // The Qwen3.5 case (text='', reasoning=JSON, LM Studio) is preserved:
+  // we still prepend when text is empty so the JSON-shaped reasoning
+  // payload reaches the balanced finder. The R1 / o-series wrap branch
+  // above preserves the extractThinkingBlocks contract for those models.
+  if (text) return text;
+  // No closing tag in reasoning + text empty. Prepend raw so
+  // parseJsonResponse's balanced finder can recover. Escape any literal
+  // </think> so extractThinkingBlocks regex does not mis-split.
   const safeReasoning = reasoning.replace(/<\/think/gi, '<\\/think');
-  return text ? `${safeReasoning}\n\n${text}` : `${safeReasoning}\n\n`;
+  return `${safeReasoning}\n\n`;
 }

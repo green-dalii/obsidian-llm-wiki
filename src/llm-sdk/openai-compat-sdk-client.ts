@@ -18,7 +18,7 @@
 // `supportsStructuredOutputs`, `includeUsage`) are set automatically
 // based on the `provider` id we pass in.
 
-import { type LanguageModel, APICallError, NoObjectGeneratedError } from 'ai';
+import { type LanguageModel, APICallError, NoObjectGeneratedError, NoOutputGeneratedError } from 'ai';
 import type { z } from 'zod';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import {
@@ -139,6 +139,38 @@ export class OpenAICompatSdkClient implements LLMClient {
   }
 
   /**
+   * v1.26.4 PATCH (Issue #474 — Layer 3): pre-seed OutputModeProber on
+   * the first call for a (baseURL, model) pair. For providers whose
+   * `supportsStructuredOutputs` flag is false (deepseek / kimi / glm /
+   * minimax / openrouter — cloud openai-compat backends), the SDK
+   * encodes `response_format: { type: 'json_object' }` on the wire
+   * regardless of whether we passed `Output.object({schema})` — the
+   * schema is silently dropped at the SDK layer. Without the pre-seed,
+   * `outputMode` reports `json_schema` (dishonest — the wire shape was
+   * json_object) and a 400 on the first call would waste a demotion
+   * cycle going `json_schema → json_object` that the SDK would have
+   * already done on its own.
+   *
+   * The pre-seed commits the cache with the value the wire actually
+   * used. Subsequent calls reuse the cached mode (no extra probes).
+   * Cache write happens here — not in the 400-retry catch chain —
+   * because the prober's success-only demotion policy is for
+   * 400-driven demotions. This is initialization, not demotion.
+   *
+   * For providers with `supportsStructuredOutputs: true` (lmstudio /
+   * ollama / custom), the cached default of `json_schema` is kept and
+   * the existing 3-tier chain handles rejections.
+   */
+  private getCurrentOutputMode(model: string): OutputMode {
+    const cached = this.outputModeProber.getMode(this.baseURL, model);
+    if (cached === 'json_schema' && !this.supportsStructuredOutputs) {
+      this.outputModeProber.markMode(this.baseURL, model, 'json_object');
+      return 'json_object';
+    }
+    return cached;
+  }
+
+  /**
    * Build the AI-SDK provider for a given model.
    *
    * `fetchFn` is the fetch adapter. Pass the streaming variant
@@ -245,7 +277,15 @@ export class OpenAICompatSdkClient implements LLMClient {
     // is gone. The 3-tier mode ('json_schema' / 'json_object' /
     // 'text_prompt') is consulted instead, and the demotion happens in
     // the catch-block below.
-    const currentMode = this.outputModeProber.getMode(this.baseURL, model);
+    //
+    // v1.26.4 PATCH (Issue #474 — Layer 3): use getCurrentOutputMode
+    // instead of getMode — the helper pre-seeds the cache to
+    // 'json_object' for providers whose supportsStructuredOutputs is
+    // false (deepseek / kimi / glm / minimax / openrouter) so
+    // `outputMode` reporting is honest (matches the wire shape the SDK
+    // actually emits) and the wasted `json_schema → json_object`
+    // demotion cycle on first 400 is skipped.
+    const currentMode = this.getCurrentOutputMode(model);
     const outputArgs = buildOutputArgs(response_format, currentMode);
 
     // [DEBUG-LOG v1.26.3 E2E] visible entry-point trace: response_format
@@ -381,6 +421,35 @@ export class OpenAICompatSdkClient implements LLMClient {
         // the existing throw path below would otherwise lose this
         // diagnostic.
         throw err;
+      }
+
+      // v1.26.4 PATCH (Issue #474 — Layer 2): catch the sibling class
+      // `NoOutputGeneratedError`. AI SDK throws this from the
+      // step-retry exhaustion path (ai@6.0.230/dist/index.mjs:5146,
+      // 7077, 7232, 7933) when the model produced zero output across
+      // all retries — typical with reasoning models (deepseek-v4-flash)
+      // whose `reasoning_content` consumes the entire `maxOutputTokens`
+      // budget and leaves `content` empty.
+      //
+      // Without this branch, the error propagates to the user as
+      // "Failed to connect to <provider> API" — a budget-exhaustion
+      // problem misreported as a connectivity/credentials error. The
+      // caller's `parseJsonResponse` has a well-defined empty-input
+      // path (`silentOnEmpty: true` / `EmptyResponseError`); let it
+      // run instead.
+      //
+      // Different error class from `NoObjectGeneratedError` (sibling
+      // — both extend `AISDKError`, markers `AI_NoObjectGeneratedError`
+      // vs `AI_NoOutputGeneratedError`). Cannot share the
+      // `err.text`-recovery branch above because NoOutputGeneratedError
+      // has no `.text` field (the model emitted nothing to capture).
+      if (NoOutputGeneratedError.isInstance(err)) {
+        console.debug(
+          `[NO-OUTPUT-GENERATED] baseURL=${this.baseURL} model=${model} ` +
+          `model produced zero output across step retries — returning empty quiet path`,
+        );
+        reportFinish(onFinish, 'stop', undefined);
+        return '';
       }
 
       // v1.23.0 P1.5: URL fallback for custom baseURLs.
@@ -744,7 +813,10 @@ export class OpenAICompatSdkClient implements LLMClient {
   }> {
     const { model, max_tokens, system, messages, response_format, enableThinking, repetition_penalty, temperature, top_p, seed, onFinish } = params;
 
-    const currentMode = this.outputModeProber.getMode(this.baseURL, model);
+    // v1.26.4 PATCH (Issue #474 — Layer 3): see createMessage. Use
+    // getCurrentOutputMode for honest outputMode reporting on
+    // non-supportsStructuredOutputs providers.
+    const currentMode = this.getCurrentOutputMode(model);
     const outputArgs = buildOutputArgs(response_format, currentMode);
 
     console.debug(
@@ -907,6 +979,27 @@ export class OpenAICompatSdkClient implements LLMClient {
           };
         }
         throw err;
+      }
+
+      // v1.26.4 PATCH (Issue #474 — Layer 2): catch the sibling class
+      // `NoOutputGeneratedError` on the typed-output path. Same root
+      // cause as the createMessage branch (reasoning budget exhausted
+      // → zero visible content). Return the empty quiet shape so the
+      // caller's parseJsonResponse can take its empty-input branch.
+      // See the long comment in createMessage for the rationale.
+      if (NoOutputGeneratedError.isInstance(err)) {
+        console.debug(
+          `[NO-OUTPUT-GENERATED] (typed) baseURL=${this.baseURL} model=${model} ` +
+          `model produced zero output across step retries — returning empty quiet path`,
+        );
+        reportFinish(onFinish, 'stop', undefined);
+        return {
+          text: '',
+          output: undefined,
+          outputMode: currentMode,
+          finishReason: 'stop',
+          usage: undefined,
+        };
       }
 
       // URL fallback (same as createMessage).
