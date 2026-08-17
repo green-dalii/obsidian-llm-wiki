@@ -11,9 +11,6 @@ export const GENERATION_PROMPTS = {
 - Related concepts: {{related_concepts}}
 - Extraction aliases (seeds): {{extraction_aliases}}
 
-**Existing Wiki Pages (use these exact full paths when referencing):**
-{{existing_pages}}
-
 **Existing Related Content in Wiki:**
 {{related_content}}
 
@@ -21,7 +18,7 @@ export const GENERATION_PROMPTS = {
 
 **Task Requirements:**
 1. Create an entity page with basic and key information
-2. When referencing other pages, copy the wiki-link format EXACTLY from the "Existing Wiki Pages" list. The LEFT side of | is the full path (entities/Page-Name), the RIGHT side is the DISPLAY NAME ONLY. NEVER duplicate folder prefixes like entities/ or concepts/ in the display name. Example: [[entities/Qwen|Qwen]] is CORRECT, [[entities/Qwen|entities/Qwen]] is WRONG
+2. When referencing another page, write [[Name]] using the name as you would say it. Do NOT write a folder path and do NOT guess one — the system resolves every name to its real page after generation, against the whole wiki. A display name is optional: [[Qwen]] and [[Qwen|the Qwen family]] are both correct.
 3. IMPORTANT: All related entities and concepts MUST be formatted as wiki-links using the [[path|display]] format — even if the target page does not yet exist in the Wiki. This allows the Lint system to detect dead links and create stub pages later. Never output a related entity/concept name as plain text.
 4. If the entity already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise
@@ -72,9 +69,6 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 - Related entities: {{related_entities}}
 - Extraction aliases (seeds): {{extraction_aliases}}
 
-**Existing Wiki Pages (use these exact full paths when referencing):**
-{{existing_pages}}
-
 **Existing Related Content in Wiki:**
 {{related_content}}
 
@@ -82,7 +76,7 @@ aliases: ["Alternative name or translation"]  # REQUIRED: at least 1 alias, must
 
 **Task Requirements:**
 1. Create a concept page including definition, characteristics, and applications
-2. When referencing other pages, copy the wiki-link format EXACTLY from the "Existing Wiki Pages" list. The LEFT side of | is the full path (concepts/Page-Name), the RIGHT side is the DISPLAY NAME ONLY. NEVER duplicate folder prefixes like entities/ or concepts/ in the display name. Example: [[concepts/Attention|Attention]] is CORRECT, [[concepts/Attention|concepts/Attention]] is WRONG
+2. When referencing another page, write [[Name]] using the name as you would say it. Do NOT write a folder path and do NOT guess one — the system resolves every name to its real page after generation, against the whole wiki. A display name is optional: [[Attention]] and [[Attention|attention mechanism]] are both correct.
 3. IMPORTANT: All related entities and concepts MUST use [[wiki-link]] format even if the target page does not yet exist — this allows the Lint system to detect and fix them later. Never output a related entity/concept name as plain text.
 4. If the concept already exists in the Wiki, use the merge strategy above for intelligent merging
 4. Be objective, accurate, and concise

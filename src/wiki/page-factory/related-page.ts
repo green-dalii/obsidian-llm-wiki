@@ -149,6 +149,10 @@ export async function updateRelatedPage(
     labels.related_entities,
     labels.related_concepts,
     ctx.settings.slugCase === 'preserve',
+    // #482 stage 2: resolve the link targets against every page. This path
+    // never had a candidate list in its prompt, so until now a related name
+    // whose page carries a different title could only become a dead link.
+    { wikiFolder: ctx.settings.wikiFolder, pages: await getExistingWikiPages(ctx.app as never, ctx.settings.wikiFolder) },
   );
 
   // Completeness is the schema's call, not the model's: restore any canonical

@@ -38,7 +38,8 @@ import { parseFrontmatter, enforceFrontmatterConstraints } from '../../core/fron
 import { injectMentionsSection } from '../../core/mentions-injector';
 import { renderTemplate } from '../../core/template-renderer';
 import { applySectionLabels, getSectionLabels } from '../system-prompts';
-import { resolvePagePath, buildPagesListForPrompt, type PathResolutionContext } from './path-resolution';
+import { resolvePagePath, type PathResolutionContext } from './path-resolution';
+import { getExistingWikiPages } from '../lint/get-existing-pages';
 import { mergePage } from './merge-page';
 import { appendToReviewedPage } from './merge-page';
 import { isConversationSource, contextualizeError } from './contextualize';
@@ -215,7 +216,6 @@ export async function createNewPage(
       extraction_aliases: info.aliases?.length ? `[${info.aliases.join(', ')}]` : 'None',
       related_entities: info.related_entities?.join(', ') || 'No related entities',
       related_concepts: info.related_concepts?.join(', ') || 'No related concepts',
-      existing_pages: await buildPagesListForPrompt(ctx, extraPagePaths),
       related_content: 'No existing content',
       merge_strategy: 'New page, no merge needed.',
       date: new Date().toISOString().split('T')[0],
@@ -256,6 +256,9 @@ export async function createNewPage(
       labels.related_entities,
       labels.related_concepts,
       ctx.settings.slugCase === 'preserve',
+      // #482 stage 2: the prompt no longer carries a page list, so the link
+      // targets are resolved here — against every page, not a window.
+      { wikiFolder: ctx.settings.wikiFolder, pages: await getExistingWikiPages(ctx.app as never, ctx.settings.wikiFolder) },
     );
     // Issue #244: programmatically inject the Mentions section.
     const isConv = isConversationSource(sourceFile, ctx.settings.wikiFolder);

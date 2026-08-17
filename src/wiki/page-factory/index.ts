@@ -10,7 +10,6 @@
 //   - `pageFactory.createOrUpdateEntityPage(...)`
 //   - `pageFactory.createOrUpdateConceptPage(...)`
 //   - `pageFactory.updateRelatedPage(...)`
-//   - `pageFactory.buildPagesListForPrompt(...)`
 //
 // so existing callers (`wiki-engine.ts`, `conversation-ingest.ts`, and the
 // 5 existing page-factory-*.test.ts integration tests) keep working
@@ -41,7 +40,7 @@ import {
   createOrUpdatePage as _createOrUpdatePage,
   type CreatePageContext,
 } from './create-page';
-import { buildPagesListForPrompt, resolvePagePath, type PathResolutionContext } from './path-resolution';
+import { resolvePagePath, type PathResolutionContext } from './path-resolution';
 import { updateRelatedPage, type RelatedPageContext } from './related-page';
 import { mergePage as _mergePage, appendToReviewedPage as _appendToReviewedPage } from './merge-page';
 import { applyComplementaryAppends as _applyComplementaryAppends } from './complementary-appends';
@@ -156,18 +155,6 @@ export class PageFactory {
       sourceFile,
       sourceSlug,
     );
-  }
-
-  /**
-   * Build the page list shown to the LLM in dedup/seed-selection prompts.
-   * Kept on the class because wiki-engine.ts uses it directly. Delegates
-   * to `buildPagesListForPrompt` in `path-resolution.ts`.
-   */
-  async buildPagesListForPrompt(
-    includePaths: string[] = [],
-    options: { excludeSources?: boolean } = { excludeSources: true },
-  ): Promise<string> {
-    return buildPagesListForPrompt(this.pathCtx, includePaths, options);
   }
 
   // ────────────────────────────────────────────────────────────────────

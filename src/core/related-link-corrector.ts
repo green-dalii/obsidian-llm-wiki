@@ -19,14 +19,83 @@
 
 import { slugify } from './slug';
 
+/** A wiki page as the resolver needs it: where it lives and what it answers to. */
+export interface ExistingPageRef {
+  path: string;
+  title: string;
+  aliases?: string[];
+}
+
+/**
+ * Issue #482 stage 2: the whole vault, deterministically, instead of a window.
+ *
+ * The comment above explains why the prompt's candidate list cannot do this job
+ * — the target is often outside it, and a sibling created in the same run is
+ * outside it at any cap. The consequence taken here is to stop showing the list
+ * at all (the generation and merge prompts no longer carry `existing_pages`)
+ * and to resolve every related link after generation against an index of
+ * *every* page: title first, then curated aliases, so `[[E433]]` lands on
+ * `entities/Polysorbate` even though no window would have contained it.
+ *
+ * A name the vault does not know keeps the previous behaviour — folder from the
+ * typed related lists, slug from the name — so the dead-link/stub path that
+ * requirement 3 of the generation prompt relies on is unchanged.
+ *
+ * An alias claimed by two pages resolves to neither (the #446 lesson): the
+ * ambiguity goes to the typed-list fallback rather than to a coin flip.
+ */
 export function correctRelatedLinkPrefixes(
   content: string,
   relatedEntities: string[] | undefined,
   relatedConcepts: string[] | undefined,
   relatedEntitiesLabel: string,
   relatedConceptsLabel: string,
-  preserveCase: boolean
+  preserveCase: boolean,
+  vaultIndex?: { wikiFolder: string; pages: ExistingPageRef[] },
 ): string {
+  // Full-vault name → path index. Titles outrank aliases: a title is the page's
+  // own claim to a name, an alias is someone's cross-reference to it.
+  const pathByTitle = new Map<string, string>();
+  const pathByAlias = new Map<string, string>();
+  const ambiguousTitles = new Set<string>();
+  const ambiguousAliases = new Set<string>();
+  if (vaultIndex) {
+    const prefix = vaultIndex.wikiFolder + '/';
+    const register = (
+      raw: string,
+      relPath: string,
+      into: Map<string, string>,
+      clash: Set<string>,
+    ) => {
+      const s = slugify(raw, preserveCase);
+      if (!s) return;
+      const prev = into.get(s);
+      if (prev && prev !== relPath) { clash.add(s); return; }
+      into.set(s, relPath);
+    };
+    for (const page of vaultIndex.pages) {
+      if (!page.path.startsWith(prefix)) continue;
+      const relPath = page.path.slice(prefix.length).replace(/\.md$/, '');
+      // sources/ is never a body-link target (constraints.ts), and
+      // contradictions/ pages are not referenced by name.
+      if (!relPath.startsWith('entities/') && !relPath.startsWith('concepts/')) continue;
+      register(page.title, relPath, pathByTitle, ambiguousTitles);
+      for (const alias of page.aliases ?? []) {
+        register(alias, relPath, pathByAlias, ambiguousAliases);
+      }
+    }
+  }
+  const resolveInVault = (name: string): string | undefined => {
+    const s = slugify(name, preserveCase);
+    if (!s) return undefined;
+    if (!ambiguousTitles.has(s)) {
+      const byTitle = pathByTitle.get(s);
+      if (byTitle) return byTitle;
+    }
+    if (!ambiguousAliases.has(s)) return pathByAlias.get(s);
+    return undefined;
+  };
+
   // Name→type map from the typed related lists. Catches links mis-sectioned by
   // the LLM (e.g. an entity listed under Related Concepts): the known type wins
   // over the section's implied type. A name in BOTH lists is ambiguous → defer to
@@ -62,6 +131,12 @@ export function correctRelatedLinkPrefixes(
   // intent this function cannot read. Case-sensitive on purpose — see the
   // "is case-sensitive on the folder prefix" test for the contract.
   const linkRe = /\[\[(entities|entity|concepts|concept|sources)\/([^\]|]+)(\|[^\]]*)?\]\]/g;
+  // #482 stage 2: without a candidate list in the prompt the model also emits
+  // bare `[[Name]]`, which the prefixed pattern above cannot see. In these two
+  // sections a bare link is always an entity or concept reference, so it gets
+  // the same treatment: resolved against the vault, or folder-stamped from the
+  // typed lists so the stub path can pick it up.
+  const bareLinkRe = /\[\[(?!entities\/|entity\/|concepts\/|concept\/|sources\/)([^\]|/]+)(\|[^\]]*)?\]\]/g;
   let current: 'entities' | 'concepts' | undefined;
   return content.split('\n').map(line => {
     const header = /^#{1,6}\s+(.*?)\s*$/.exec(line);
@@ -70,14 +145,30 @@ export function correctRelatedLinkPrefixes(
       return line;
     }
     if (!current) return line;
-    return line.replace(linkRe, (full, folder: string, target: string, display?: string) => {
-      const s = slugify(target, preserveCase);
+    const rewrite = (target: string, folder: string | undefined, display: string | undefined): string => {
+      // The vault's own answer wins: it knows the real path, including the case
+      // where `target` is an alias of a page with a different title.
+      const inVault = resolveInVault(target);
+      if (inVault) {
+        // An already-correct link keeps its exact shape, display or not.
+        if (folder && inVault === `${folder}/${target}`) return `[[${inVault}${display ?? ''}]]`;
+        return `[[${inVault}|${display ? display.slice(1) : target}]]`;
+      }
       // Known type wins over section; otherwise the section dictates the folder
       // (within "Related Concepts" every link is a concept, etc.). This also
       // self-heals stale links carried through a merge from the existing body.
+      const s = slugify(target, preserveCase);
       const correct = (!ambiguous.has(s) && folderBySlug.get(s)) || current;
-      if (correct === folder) return full;
-      return `[[${correct}/${target}${display ?? ''}]]`;
-    });
+      // A prefixed link keeps its shape; a bare link gains a display so the
+      // rendered text stays the name rather than the path we just added.
+      const label = display ? display.slice(1) : (folder ? undefined : target);
+      return `[[${correct}/${target}${label === undefined ? '' : `|${label}`}]]`;
+    };
+    return line
+      .replace(linkRe, (full, folder: string, target: string, display?: string) => {
+        const out = rewrite(target, folder, display);
+        return out === `[[${folder}/${target}${display ?? ''}]]` ? full : out;
+      })
+      .replace(bareLinkRe, (_full, target: string, display?: string) => rewrite(target, undefined, display));
   }).join('\n');
 }

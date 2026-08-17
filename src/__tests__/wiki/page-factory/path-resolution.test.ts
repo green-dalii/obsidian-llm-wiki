@@ -1,15 +1,14 @@
 // Module-level unit tests for page-factory/path-resolution.ts
 //
-// v1.24.1 Phase 2 refactor: resolvePagePath and buildPagesListForPrompt were
-// lifted out of PageFactory. The tests pin the slug-vs-LLM fallback chain,
-// cross-type collision detection, and the LLM candidate-list truncation
-// behavior (#234 sources/ filter + L2 polluted-basename filter + 50-page cap
-// with entity/concept bias).
+// v1.24.1 Phase 2 refactor: resolvePagePath was lifted out of PageFactory.
+// These tests pin the slug-vs-LLM fallback chain and cross-type collision
+// detection. The prompt's candidate-list builder that used to live here went
+// with #482 stage 2: link targets are resolved against the whole vault after
+// generation, so no window is built for a prompt any more.
 
 import { describe, it, expect, vi } from 'vitest';
 import {
   resolvePagePath,
-  buildPagesListForPrompt,
   type PathResolutionContext,
 } from '../../../wiki/page-factory/path-resolution';
 import type { LLMWikiSettings } from '../../../types';
@@ -314,41 +313,5 @@ describe('resolvePagePath — collision shape (cross-type)', () => {
     }
     // Either way, the result should be a slug OR a collision — never both.
     expect(result.path === null || result.collision === undefined).toBe(true);
-  });
-});
-
-describe('buildPagesListForPrompt — #234 sources/ filter', () => {
-  it('returns an empty string when the vault has no wiki pages', async () => {
-    const ctx = makeCtx({ mockVault: { getMarkdownFiles: () => [] } });
-    const out = await buildPagesListForPrompt(ctx, [], { excludeSources: true });
-    expect(out).toBe('');
-  });
-
-  it('excludes sources/ pages by default; surfaces them when excludeSources=false', async () => {
-    // Smoke test: confirms the option flag is honored. Source pages are
-    // rendered in the output list.
-    const ctx = makeCtx({
-      mockVault: {
-        getMarkdownFiles: () => [
-          { path: 'wiki/sources/foo.md', basename: 'foo' },
-          { path: 'wiki/entities/bar.md', basename: 'bar' },
-        ],
-      },
-    });
-    const withSources = await buildPagesListForPrompt(ctx, [], { excludeSources: false });
-    expect(withSources).toContain('sources/foo');
-    const withoutSources = await buildPagesListForPrompt(ctx, [], { excludeSources: true });
-    expect(withoutSources).not.toContain('sources/');
-    expect(withoutSources).toContain('entities/bar');
-  });
-});
-
-describe('buildPagesListForPrompt — includePaths', () => {
-  it('appends includePaths that are not already in the rendered list', async () => {
-    const ctx = makeCtx({
-      mockVault: { getMarkdownFiles: () => [] },
-    });
-    const out = await buildPagesListForPrompt(ctx, ['wiki/sources/x.md']);
-    expect(out).toContain('- [[sources/x|x]]');
   });
 });

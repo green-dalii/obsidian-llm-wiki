@@ -187,3 +187,94 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
     });
   });
 });
+
+// Issue #482 stage 2: the generation and merge prompts no longer carry a page
+// list, so this pass is where a related name meets the vault — all of it, not a
+// 50-page window. These tests pin what the window could never do.
+describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
+  const ENT = 'Related Entities';
+  const CON = 'Related Concepts';
+  const vault = (pages: Array<{ path: string; title: string; aliases?: string[] }>) =>
+    ({ wikiFolder: 'wiki', pages });
+
+  it('resolves a bare link to the page that exists, wherever it sits in the vault', () => {
+    const c = ['## Related Concepts', '- [[Insulinresistenz]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, [], ['Insulinresistenz'], ENT, CON, true, vault([
+      { path: 'wiki/concepts/Insulinresistenz.md', title: 'Insulinresistenz' },
+    ]));
+    expect(r).toContain('[[concepts/Insulinresistenz|Insulinresistenz]]');
+  });
+
+  it('follows a curated alias to a page whose title differs — the case no window can cover', () => {
+    // The name in the prose is an alias; the page carries another title. Only a
+    // full-vault alias index can connect them.
+    const c = ['## Related Entities', '- [[E433]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, true, vault([
+      { path: 'wiki/entities/Polysorbate.md', title: 'Polysorbate', aliases: ['E433'] },
+    ]));
+    expect(r).toContain('[[entities/Polysorbate|E433]]');
+  });
+
+  it('refuses an alias claimed by two pages and falls back to the typed list (#446)', () => {
+    const c = ['## Related Entities', '- [[E433]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, true, vault([
+      { path: 'wiki/entities/Polysorbate.md', title: 'Polysorbate', aliases: ['E433'] },
+      { path: 'wiki/entities/Polysorbat-80.md', title: 'Polysorbat-80', aliases: ['E433'] },
+    ]));
+    expect(r).toContain('[[entities/E433|E433]]');
+  });
+
+  it('prefers a page title over another page holding the name as an alias', () => {
+    const c = ['## Related Concepts', '- [[Autophagie]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, true, vault([
+      { path: 'wiki/concepts/Zellreinigung.md', title: 'Zellreinigung', aliases: ['Autophagie'] },
+      { path: 'wiki/concepts/Autophagie.md', title: 'Autophagie' },
+    ]));
+    expect(r).toContain('[[concepts/Autophagie|Autophagie]]');
+    expect(r).not.toContain('Zellreinigung');
+  });
+
+  it('never resolves onto a sources/ page (#234 invariant, new home)', () => {
+    const c = ['## Related Entities', '- [[Gedächtnis]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, ['Gedächtnis'], [], ENT, CON, true, vault([
+      { path: 'wiki/sources/Gedächtnis.md', title: 'Gedächtnis' },
+    ]));
+    expect(r).not.toContain('sources/Gedächtnis');
+    expect(r).toContain('[[entities/Gedächtnis|Gedächtnis]]');
+  });
+
+  it('leaves a name the vault does not know to the stub path, folder from the typed list', () => {
+    const c = ['## Related Concepts', '- [[Noch-Nicht-Da]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, [], ['Noch-Nicht-Da'], ENT, CON, true, vault([]));
+    expect(r).toContain('[[concepts/Noch-Nicht-Da|Noch-Nicht-Da]]');
+  });
+
+  it('rewrites a mis-prefixed link to the real path instead of only re-typing it', () => {
+    const c = ['## Related Entities', '- [[sources/E433|E433]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, true, vault([
+      { path: 'wiki/entities/Polysorbate.md', title: 'Polysorbate', aliases: ['E433'] },
+    ]));
+    expect(r).toContain('[[entities/Polysorbate|E433]]');
+  });
+
+  it('leaves an already-correct link byte-identical', () => {
+    const c = ['## Related Concepts', '- [[concepts/Autophagie|Autophagie]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, true, vault([
+      { path: 'wiki/concepts/Autophagie.md', title: 'Autophagie' },
+    ]));
+    expect(r).toBe(c);
+  });
+
+  it('touches nothing outside the two Related sections', () => {
+    const c = [
+      '## Mentions in Source',
+      '- "quote" — [[sources/Notiz|Notiz]]',
+      '## Description',
+      'Prose mentioning [[Autophagie]] in passing.',
+    ].join('\n');
+    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, true, vault([
+      { path: 'wiki/concepts/Autophagie.md', title: 'Autophagie' },
+    ]));
+    expect(r).toBe(c);
+  });
+});

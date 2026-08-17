@@ -47,7 +47,7 @@ import { injectMentionsSection } from '../../core/mentions-injector';
 import { renderTemplate } from '../../core/template-renderer';
 import { applySectionLabels, getSectionLabels } from '../system-prompts';
 import { UNIVERSAL_LINK_CONSTRAINTS } from '../prompts/constraints';
-import { buildPagesListForPrompt } from './path-resolution';
+import { getExistingWikiPages } from '../lint/get-existing-pages';
 import { classifyMergeNeed, isSourceOwnPageLemma } from './merge-triage';
 import { assembleFinalContent } from './mentions-integration';
 import { applyComplementaryAppends } from './complementary-appends';
@@ -193,7 +193,6 @@ export async function mergePage(
       related_entities: info.related_entities?.join(', ') || '',
       related_concepts: info.related_concepts?.join(', ') || '',
       key_details: firstQuotesForPrompt(info),
-      existing_pages: await buildPagesListForPrompt(ctx, extraPagePaths),
     });
 
     // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
@@ -225,6 +224,9 @@ export async function mergePage(
       labels.related_entities,
       labels.related_concepts,
       ctx.settings.slugCase === 'preserve',
+      // #482 stage 2: the merge prompt no longer carries a page list, so the
+      // link targets are resolved here — against every page, not a window.
+      { wikiFolder: ctx.settings.wikiFolder, pages: await getExistingWikiPages(ctx.app as never, ctx.settings.wikiFolder) },
     );
     // Completeness is the schema's call, not the model's: restore any canonical
     // section that carried content before the rewrite and is wholly absent from

@@ -244,42 +244,6 @@ describe('PageFactory — Core Paths', () => {
     });
   });
 
-  describe('buildPagesListForPrompt', () => {
-    it('returns formatted list from existing pages', async () => {
-      const { ctx } = createMockContext({
-        vaultFiles: {
-          'wiki/entities/llm.md': '---\ntype: entity\ntitle: LLM\naliases: ["Large Language Model"]\n---\n# LLM',
-          'wiki/concepts/rlhf.md': '---\ntype: concept\ntitle: RLHF\n---\n# RLHF',
-        },
-      });
-      // Override getExistingWikiPages to return mock pages
-      ctx.getExistingWikiPages = async () => [
-        { path: 'wiki/entities/llm.md', title: 'LLM', wikiLink: '[[entities/llm|LLM]]', aliases: ['Large Language Model'] },
-        { path: 'wiki/concepts/rlhf.md', title: 'RLHF', wikiLink: '[[concepts/rlhf|RLHF]]', aliases: [] },
-      ];
-
-      const factory = new PageFactory(ctx);
-      const list = await (factory as unknown as { buildPagesListForPrompt: (paths?: string[]) => Promise<string> })
-        .buildPagesListForPrompt([]);
-
-      expect(list).toContain('[[entities/llm|llm]]');
-      expect(list).toContain('[[concepts/rlhf|rlhf]]');
-      expect(list).toContain('aliases: Large Language Model');
-    });
-
-    it('includes extra paths not in existing list', async () => {
-      const { ctx } = createMockContext({
-        vaultFiles: {},
-      });
-      ctx.getExistingWikiPages = async () => [];
-
-      const factory = new PageFactory(ctx);
-      const list = await (factory as unknown as { buildPagesListForPrompt: (paths?: string[]) => Promise<string> })
-        .buildPagesListForPrompt(['wiki/entities/new.md']);
-
-      expect(list).toContain('[[entities/new|new]]');
-    });
-  });
 
   describe('Edge cases', () => {
     it('skips empty entity names', async () => {
