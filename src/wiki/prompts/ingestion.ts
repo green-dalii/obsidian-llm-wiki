@@ -3,9 +3,6 @@
 export const INGESTION_PROMPTS = {
   analyzeSource: `You are a Wiki knowledge base maintainer. Analyze the following source file and output structured JSON.
 
-**Existing Wiki pages — use ONLY these exact paths when creating [[links]]:**
-{{existing_slugs}}
-
 **Source File:**
 - Original vault path: {{source_path}}
 - Use this EXACT path in every mentions_with_provenance[i].source_path field. Do NOT invent a wiki/sources/<slug> path.
@@ -29,8 +26,7 @@ export const INGESTION_PROMPTS = {
 4c. CROSS-LANGUAGE TRANSLATION (only when wikiLanguage is different from source language): each entry in mentions_with_provenance may include an optional 'translation' field -- a wiki-language translation of the quote. The 'quote' field itself MUST stay verbatim in the source's original language; translation goes in a separate field. Skip this field entirely when source and wiki languages match.
 5. For related_entities and related_concepts: identify entities/concepts mentioned in the same context as this item. These should be other items extracted from this same source file
 6. Identify contradictions or conflicts with the existing Wiki (only output contradictions in the first round)
-7. Identify related existing Wiki pages (only output related_pages in the first round)
-8. Generate key points from the source file (only output key_points in the first round)
+7. Generate key points from the source file (only output key_points in the first round)
 
 **Output Format (strict JSON, output only JSON, no explanatory text):**
 {
@@ -68,7 +64,6 @@ export const INGESTION_PROMPTS = {
       "resolution": "Suggested resolution"
     }
   ],
-  "related_pages": ["Related existing Wiki page names — use ONLY the plain page name, NOT wiki-link format. Example: 'Machine Learning' not [[concepts/Machine Learning|Machine Learning]]"],
   "key_points": ["Key point 1", "Key point 2"]
 }
 
@@ -103,7 +98,6 @@ export const INGESTION_PROMPTS = {
 - "mentions_in_source" MUST contain 2-4 verbatim quotes from the source text. Do NOT paraphrase — copy the actual sentences where the entity/concept appears. Include full sentences with context, not fragments
 - Each entity and concept should have its own independent Wiki page
 - Carefully compare against existing content when detecting contradictions
-- related_pages should be pages that actually exist in the current Wiki
 - Output must be valid JSON format
 - Do NOT repeat any item already in the "extracted list". If no unextracted items remain in the source, return empty arrays [] for entities and concepts
 - Apply the wiki-link test to every candidate: if an entity/concept would not be linked from other notes, do not extract it. Knowledge claims and findings are more valuable than evidence containers`,

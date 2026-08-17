@@ -1,81 +1,3 @@
-// Issue #116: build a compact slug-only list of existing wiki pages.
-// The verbose index is capped at 40K chars, so the LLM often guesses slugs
-// wrong. A slug-only list for 500 pages is ~18K chars and fits uncapped.
-function collectSlugs(app: EngineContext['app'], wikiFolder: string, sourcePath?: string): string[] {
-  const wikiPrefix = wikiFolder + '/';
-  const files = app.vault.getMarkdownFiles();
-  return files
-    .filter(f =>
-      f.path.startsWith(wikiPrefix) &&
-      !f.path.includes('/schema/') &&
-      !f.path.endsWith('/index.md') &&
-      f.path !== sourcePath
-    )
-    .map(f => f.path.replace(wikiPrefix, '').replace(/\.md$/, ''))
-    .sort();
-}
-
-export function buildCompactSlugList(app: EngineContext['app'], wikiFolder: string, sourcePath?: string): string {
-  return collectSlugs(app, wikiFolder, sourcePath).join('\n');
-}
-
-// Issue #452: the slug catalog sits at the top of the extraction prompt and is
-// ~91% of it, so it is the block a prompt cache would reuse. Every cache in
-// play (Anthropic, OpenAI, llama.cpp's KV reuse) is a *prefix* cache: it keeps
-// the longest common leading span and recomputes everything after the first
-// divergence. A freshly sorted list diverges on every note, because the pages
-// the previous note created sort into the middle — measured 23.5 s of prefill
-// per note against 4.39 s when the new slugs are appended instead (LM Studio,
-// 2844 slugs, 24.5 K prompt tokens).
-//
-// So a run freezes its catalog once, sorted, and appends pages that appear
-// while it runs — in first-seen order, so an earlier append never shifts. The
-// list stays deterministic with respect to the vault state at run start; only
-// the run's own new pages are ordered by creation instead of alphabetically.
-//
-// Two consequences worth knowing. A page deleted mid-run stays in the catalog
-// until the run ends (a stale link target, resolved downstream by
-// PageFactory.resolvePagePath) — dropping it would reintroduce exactly the
-// mid-list divergence this avoids. And re-ingesting a source that lives
-// *inside* the wiki folder still excludes its own slug per call, which shifts
-// the list at that one line; sources outside the wiki folder (the normal case)
-// are unaffected because they were never in the catalog.
-export function createRunSlugCatalog(): RunSlugCatalog {
-  return { base: null, appended: [] };
-}
-
-/**
- * Render the catalog for one extraction call, keeping the block prefix-stable
- * across the run. Without a catalog this is `buildCompactSlugList` — single-file
- * ingests have no run to be stable across.
- */
-export function buildRunScopedSlugList(
-  app: EngineContext['app'],
-  wikiFolder: string,
-  sourcePath: string | undefined,
-  catalog: RunSlugCatalog
-): string {
-  const current = collectSlugs(app, wikiFolder, sourcePath);
-  if (!catalog.base) {
-    catalog.base = current;
-    return current.join('\n');
-  }
-
-  const known = new Set([...catalog.base, ...catalog.appended]);
-  for (const slug of current) {
-    if (known.has(slug)) continue;
-    catalog.appended.push(slug);
-    known.add(slug);
-  }
-
-  const wikiPrefix = wikiFolder + '/';
-  const selfSlug = sourcePath?.startsWith(wikiPrefix)
-    ? sourcePath.replace(wikiPrefix, '').replace(/\.md$/, '')
-    : undefined;
-  const all = [...catalog.base, ...catalog.appended];
-  return (selfSlug ? all.filter(s => s !== selfSlug) : all).join('\n');
-}
-
 // Source Analyzer — iterative batch extraction of entities/concepts from source files.
 // Extracted from WikiEngine.
 
@@ -340,27 +262,21 @@ export class SourceAnalyzer {
     // Issue #85 v6 / #328 Phase 1 follow-up: user-layer tag-vocab removed
     // (system layer append once, see comments at the injection site below).
     //
-    // Issue #116: inject a compact slug-only list of existing wiki pages so
-    // the LLM uses exact paths when generating [[links]]. The verbose index
-    // is capped at 40K chars and causes dead-link slug mismatches; a slug-only
-    // list for 500 pages is ~18K chars and fits uncapped.
+    // Issue #482 stage 1: extraction carries no vault-side payload. The slug
+    // catalog that used to sit at the top of this prompt (#116) was ~91% of it
+    // on a mature vault, grew without bound, and duplicated work the later
+    // stages already do per item — `PageFactory.resolvePagePath` resolves
+    // identity against ranked same-type candidates, and related_pages is
+    // matched programmatically from the extracted names after extraction.
+    // Extraction is reading, not linking: the prompt is now instructions plus
+    // the note, so its prefix is identical for every note and per-note cost is
+    // a function of the note instead of the vault.
     //
-    // Issue #452: inside a run the catalog comes from the run's snapshot, so the
-    // block stays byte-identical from note to note and the prompt cache keeps it.
-    const existingSlugs = opts?.slugCatalog
-      ? buildRunScopedSlugList(this.ctx.app, this.ctx.settings.wikiFolder, file.path, opts.slugCatalog)
-      : buildCompactSlugList(this.ctx.app, this.ctx.settings.wikiFolder, file.path);
-
-    // ⚡ Page list removed from extraction prompt — PageFactory.resolvePagePath
-    // handles deduplication via slug/alias/LLM matching. Programmatic
-    // related_pages matching runs after extraction instead.
     // Issue #244 (manual test fix): inject the source's original vault path
     // so the LLM records it in `mentions_with_provenance[i].source_path`
     // instead of guessing `wiki/sources/<slug>`.
     const templateUntouched = renderTemplate(PROMPTS.analyzeSource, {
       content,
-      existing_pages: '',  // Empty — dedup handled downstream
-      existing_slugs: existingSlugs,
       source_path: file.path,
     });
     const batchMarker = '{{batch_context}}';

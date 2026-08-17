@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createMockContext, createMockFile } from '../__support__/engine-context';
-import { SourceAnalyzer, buildCompactSlugList } from '../../wiki/source-analyzer';
+import { SourceAnalyzer } from '../../wiki/source-analyzer';
 import { TFile } from 'obsidian';
 
 // We can't instantiate TFile without Obsidian, so we test SourceAnalyzer
@@ -201,32 +201,16 @@ describe('SourceAnalyzer', () => {
   });
 });
 
-describe('buildCompactSlugList (#116)', () => {
-  it('returns sorted slugs for all wiki pages except schema, index, and source itself', () => {
-    const { ctx } = createMockContext({
-      vaultFiles: {
-        'sources/test.md': '# Test',
-        'wiki/index.md': '# Index',
-        'wiki/schema/config.md': '# Schema',
-        'wiki/entities/Entity-One.md': '# Entity One',
-        'wiki/concepts/Concept-Two.md': '# Concept Two',
-      },
-    });
-    const slugs = buildCompactSlugList(ctx.app, 'wiki', 'sources/test.md');
-    expect(slugs).toContain('entities/Entity-One');
-    expect(slugs).toContain('concepts/Concept-Two');
-    expect(slugs).not.toContain('index');
-    expect(slugs).not.toContain('schema/config');
-    expect(slugs).not.toContain('sources/test');
-    const lines = slugs.split('\n');
-    expect(lines).toEqual([...lines].sort());
-  });
-
-  it('injects the slug list into the analyzeSource prompt', async () => {
+// Issue #482 stage 1: the extraction prompt carries no vault-side payload.
+// This replaces the #116 slug-list tests — the list is gone, and what needs
+// pinning now is its absence, whatever the vault contains.
+describe('analyzeSource payload (#482)', () => {
+  it('sends no page catalog, no matter how many pages exist', async () => {
     const { ctx } = createMockContext({
       vaultFiles: {
         'sources/test.md': '# Test\nContent.',
         'wiki/entities/Existing-Page.md': '# Existing Page',
+        'wiki/concepts/Another-Page.md': '# Another Page',
       },
       llmResponses: [JSON.stringify({
         source_title: 'Test',
@@ -239,9 +223,42 @@ describe('buildCompactSlugList (#116)', () => {
     // eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast
     await analyzer.analyzeSource(createMockFile('sources/test.md') as unknown as TFile);
     expect(spy).toHaveBeenCalled();
-    const prompt = spy.mock.calls[0][0].messages[0].content;
-    expect(prompt).toContain('entities/Existing-Page');
-    expect(prompt).toContain('**Existing Wiki pages — use ONLY these exact paths when creating [[links]]:**');
+    const prompt = spy.mock.calls[0][0].messages[0].content as string;
+    expect(prompt).not.toContain('entities/Existing-Page');
+    expect(prompt).not.toContain('concepts/Another-Page');
+    expect(prompt).not.toContain('Existing Wiki pages');
+    // The note itself and its path still travel.
+    expect(prompt).toContain('Content.');
+    expect(prompt).toContain('sources/test.md');
+  });
+
+  it('renders an identical prefix for two notes in different vault states', async () => {
+    const render = async (extraPages: Record<string, string>) => {
+      const { ctx } = createMockContext({
+        vaultFiles: {
+          'sources/test.md': '# Test\nContent.',
+          ...extraPages,
+        },
+        llmResponses: [JSON.stringify({
+          source_title: 'Test',
+          summary: 'A test.',
+          entities: [{ name: 'Foo', type: 'other', summary: 'bar', mentions_in_source: [] }],
+        })],
+      });
+      const spy = vi.spyOn(ctx.getClient()!, 'createMessage');
+      const analyzer = new SourceAnalyzer(ctx);
+      // eslint-disable-next-line obsidianmd/no-tfile-tfolder-cast
+      await analyzer.analyzeSource(createMockFile('sources/test.md') as unknown as TFile);
+      return spy.mock.calls[0][0].messages[0].content as string;
+    };
+
+    const empty = await render({});
+    const populated = await render({
+      'wiki/entities/One.md': '# One',
+      'wiki/concepts/Two.md': '# Two',
+      'wiki/concepts/Three.md': '# Three',
+    });
+    expect(populated).toBe(empty);
   });
 });
 

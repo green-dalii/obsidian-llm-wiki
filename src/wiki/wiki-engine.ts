@@ -50,7 +50,7 @@ import { ContradictionManager } from './contradictions';
 import { fixPollutedSources } from '../core/sources-normalizer';
 // v1.25.1 Phase C-PR1: buildLogHeader moved into LogWriter.
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
-import { SourceAnalyzer, createRunSlugCatalog } from './source-analyzer';
+import { SourceAnalyzer } from './source-analyzer';
 import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
@@ -427,7 +427,7 @@ export class WikiEngine {
    * ingestSource call in the batch so within-batch duplicates are caught too.
    */
   createBatchContext(): BatchRequirementsContext {
-    return { seen: new Set<string>(), ingested: this.buildIngestedHashes(), slugCatalog: createRunSlugCatalog() };
+    return { seen: new Set<string>(), ingested: this.buildIngestedHashes() };
   }
 
   /**
@@ -482,10 +482,6 @@ export class WikiEngine {
    * `ingestSource` as before.
    */
   async runExtractionOnly(file: TFile): Promise<SourceAnalysis | null> {
-    // Per-file CLI ingest: no batch context, so the slug-catalog path
-    // (#452) is skipped and each call gets a freshly sorted list. The LLM
-    // sees the same prompt shape it always has for this entry point —
-    // prefix-cache savings are zero across single-file calls anyway.
     return this.sourceAnalyzer.analyzeSource(file);
   }
 
@@ -897,9 +893,6 @@ export class WikiEngine {
       const analysisStart = Date.now();
       analysis = await this.sourceAnalyzer.analyzeSource(file, {
         ...(opts?.contentOverride !== undefined ? { contentOverride: opts.contentOverride } : {}),
-        // #452: a folder/batch ingest carries its catalog snapshot, so every
-        // note in the run sends the same prefix-stable page list.
-        ...(opts?.batchCtx ? { slugCatalog: opts.batchCtx.slugCatalog } : {}),
       });
       if (!analysis) {
         // When the user opted into a custom repetitionPenalty, append the

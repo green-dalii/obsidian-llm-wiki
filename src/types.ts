@@ -581,27 +581,12 @@ export interface IngestReport {
   rejectedFiles?: Array<{ path: string; reason: RejectionReason; detail?: string }>;
 }
 
-/**
- * Issue #452: the run's page catalog for the extraction prompt — frozen sorted
- * at run start, new pages appended in first-seen order so the block stays
- * prefix-stable and the prompt cache keeps it. Rationale and the measurement
- * live at `buildRunScopedSlugList` in `wiki/source-analyzer.ts`.
- */
-export interface RunSlugCatalog {
-  /** Sorted snapshot of the vault at run start; null until the first call. */
-  base: string[] | null;
-  /** Slugs that appeared during the run, in first-seen order. */
-  appended: string[];
-}
-
 /** Cross-file dedup state shared across a folder/batch ingest run (#164). */
 export interface BatchRequirementsContext {
   /** Content hashes of files already ingested earlier in this batch. */
   seen: Set<string>;
   /** Content hashes already present in the wiki (snapshot at batch start). */
   ingested: Set<string>;
-  /** #452: catalog snapshot shared by every extraction call in this run. */
-  slugCatalog: RunSlugCatalog;
 }
 
 /** Options for WikiEngine.ingestSource (all optional, backward-compatible). */
