@@ -455,6 +455,12 @@ export class AutoMaintainManager {
     }
 
     // ---- Phase 5: Build notice ----
+    //
+    // v1.26.4 UX: for a healthy wiki, the notice is compact — title +
+    // page-count summary + disable hint. The per-check detail lines
+    // (Wiki structure / Sources normalized / incomplete pages) are
+    // ONLY added when that check actually needed fixing, so a routine
+    // morning startup isn't 6 lines of "everything is fine".
     const structureLabel = structureOk
       ? texts.startupCheckStructureOk
       : texts.startupCheckStructureMissing;
@@ -473,19 +479,29 @@ export class AutoMaintainManager {
     // createWelcomeNoteAsync(); a separate Notice is shown when it
     // finishes. We surface the decision here so the user sees that
     // onboarding is in progress, not the path.
-    const summary = `${texts.startupCheckTitle}\n` +
-      `${texts.startupCheckStructureLabel}: ${structureLabel}\n` +
-      `${texts.startupCheckSourcesLabel}: ${sourcesLabel}\n` +
-      `${incompleteLabel}\n` +
-      (welcomeNeeded
-        ? `${texts.startupCheckWelcomePending ?? 'Welcome note: generating in background (you will get a Notice when it finishes).'}\n`
-        : '') +
-      `${texts.startupCheckSummary
-        .replace('{pages}', String(pages.length))
-        .replace('{entities}', String(entities))
-        .replace('{concepts}', String(concepts))
-        .replace('{sources}', String(sources))}\n` +
-      `${texts.startupCheckDisableHint}`;
+    const lines: string[] = [texts.startupCheckTitle];
+
+    // Detail lines only when the check needed fixing (not "all good").
+    if (!structureOk) {
+      lines.push(`${texts.startupCheckStructureLabel}: ${structureLabel}`);
+    }
+    if (sourcesFilesCleaned > 0) {
+      lines.push(`${texts.startupCheckSourcesLabel}: ${sourcesLabel}`);
+    }
+    if (incompleteFilesArchived > 0) {
+      lines.push(incompleteLabel);
+    }
+    if (welcomeNeeded) {
+      lines.push(texts.startupCheckWelcomePending ?? 'Welcome note: generating in background (you will get a Notice when it finishes).');
+    }
+    lines.push(texts.startupCheckSummary
+      .replace('{pages}', String(pages.length))
+      .replace('{entities}', String(entities))
+      .replace('{concepts}', String(concepts))
+      .replace('{sources}', String(sources)));
+    lines.push(texts.startupCheckDisableHint);
+
+    const summary = lines.join('\n');
 
     console.debug('[QuickFixes] Notice payload:\n' + summary.split('\n').map(l => '  ' + l).join('\n'));
     console.debug('[QuickFixes] ===== Startup quick fixes COMPLETE =====');
