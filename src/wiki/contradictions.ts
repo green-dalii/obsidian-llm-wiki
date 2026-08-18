@@ -6,6 +6,7 @@ import { parseFrontmatter } from '../core/frontmatter';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { renderTemplate } from '../core/template-renderer';
 import { TOKENS_CONTRADICTION } from '../constants';
+import { clampPageSections, restoreWithheldSections } from '../core/clamp-page-sections';
 import { PROMPTS } from '../prompts';
 import { resolveModelForTask } from '../core/model-resolver';
 import {
@@ -171,9 +172,23 @@ ${contradiction.source_page}
     const existingContent = await this.ctx.tryReadFile(pagePath);
     if (!existingContent) throw new Error('Affected wiki page not found');
 
+    // The page is clamped in whole `##` sections rather than characters, and
+    // what is withheld comes back after the rewrite. The prompt tells the model
+    // to output the complete page and the result is written over the file, so a
+    // blind cut here is not a smaller prompt — it is content deleted from disk.
+    const page = clampPageSections(existingContent, 6000);
+    if (page.hardCut) {
+      throw new Error(
+        'Affected wiki page exceeds the prompt budget and has no section boundary to '
+        + 'clamp at; refusing to rewrite it, because the model cannot be shown the part '
+        + 'it would be asked to preserve.',
+      );
+    }
+    const record = clampPageSections(contradictionContent, 3000);
+
     const prompt = renderTemplate(PROMPTS.resolveContradiction, {
-      existing_content: existingContent.substring(0, 6000),
-      contradiction_content: contradictionContent.substring(0, 3000),
+      existing_content: page.text,
+      contradiction_content: record.text,
     });
 
     const finalPrompt = applySectionLabels(prompt, this.ctx.settings);
@@ -193,7 +208,10 @@ ${contradiction.source_page}
       ...(this.ctx.settings.disableThinking ? { enableThinking: false } : {}),
     });
 
-    const cleaned = cleanMarkdownResponse(fixedContent);
+    const cleaned = restoreWithheldSections(
+      cleanMarkdownResponse(fixedContent),
+      page.withheld,
+    );
     await this.ctx.createOrUpdateFile(pagePath, cleaned);
     console.debug('Contradiction resolved:', contradictionPath);
   }
