@@ -83,6 +83,26 @@ function readOutput<T>(result: { output?: unknown }, mode: OutputMode): T | unde
   return result.output as T | undefined;
 }
 
+/**
+ * Issue #481: when a per-task policy pins `text_prompt`, no `response_format`
+ * reaches the wire, so the only thing left telling the model to answer in JSON
+ * is the prompt. The 400-driven demotion paths below add
+ * `JSON_ENFORCEMENT_SYSTEM_PREFIX` when they fall to that tier; a pinned mode
+ * has no such retry to hang it on, so it is added up front instead.
+ *
+ * Only when the caller actually wanted JSON. A prose step pinned to
+ * `text_prompt` passes no `response_format`, and prefixing its system prompt
+ * with a JSON instruction would corrupt the very output being measured.
+ */
+function forcedTextPromptSystem(
+  system: string | undefined,
+  responseFormat: unknown,
+  outputModeOverride: OutputMode | undefined,
+): string | undefined {
+  if (outputModeOverride !== 'text_prompt' || !responseFormat) return system;
+  return system ? `${JSON_ENFORCEMENT_SYSTEM_PREFIX}\n\n${system}` : JSON_ENFORCEMENT_SYSTEM_PREFIX;
+}
+
 export class OpenAICompatSdkClient implements LLMClient {
   private readonly apiKey: string;
   private readonly baseURL: string;
@@ -272,7 +292,12 @@ export class OpenAICompatSdkClient implements LLMClient {
   }
 
   async createMessage(params: LLMClient['createMessage'] extends (p: infer P) => unknown ? P : never): Promise<string> {
-    const { model, max_tokens, system, messages, temperature, top_p, repetition_penalty, seed, enableThinking, response_format, onFinish } = params;
+    const { model, max_tokens, messages, temperature, top_p, repetition_penalty, seed, enableThinking, reasoningEffort, response_format, outputModeOverride, onFinish } = params;
+    // Issue #481: a pinned mode skips the prober for this call. `text_prompt`
+    // puts no `response_format` on the wire, so the JSON shape has to come from
+    // the prompt — the same prefix the 400-driven demotion adds at retry time,
+    // applied up front because there is no retry here.
+    const system = forcedTextPromptSystem(params.system, response_format, outputModeOverride);
 
     // v1.26.3 PATCH (Issue #443): translate the public `response_format`
     // shape into the AI SDK's `output` mechanism via `buildOutputArgs`
@@ -304,7 +329,7 @@ export class OpenAICompatSdkClient implements LLMClient {
     // `outputMode` reporting is honest (matches the wire shape the SDK
     // actually emits) and the wasted `json_schema → json_object`
     // demotion cycle on first 400 is skipped.
-    const currentMode = this.getCurrentOutputMode(model);
+    const currentMode = outputModeOverride ?? this.getCurrentOutputMode(model);
     const outputArgs = buildOutputArgs(response_format, currentMode);
 
     // [DEBUG-LOG v1.26.3 E2E] visible entry-point trace: response_format
@@ -332,6 +357,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         ...outputArgs,
         providerOptions: this.buildProviderOptions({
           enableThinking,
+          reasoningEffort,
           repetitionPenalty: repetition_penalty,
         }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
         ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -496,6 +522,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
             enableThinking,
+            reasoningEffort,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -563,7 +590,10 @@ export class OpenAICompatSdkClient implements LLMClient {
         const retryLanguageModel = this.getProvider(model, this.fetchImpl);
         const { generateText } = await import('ai');
         // Retry without reasoningEffort — pass enableThinking=true so
-        // buildProviderOptions does not re-add the field. The user's
+        // buildProviderOptions does not re-add the field. A per-task policy's
+        // named effort (#481) is dropped here for the same reason: the backend
+        // just rejected that wire field, so re-sending it at another value
+        // would only earn a second 400. The user's
         // intent ("force-disable thinking") was honored by the first
         // attempt; on the retry we accept whatever the backend's
         // default reasoning behavior is, since the field itself is
@@ -710,6 +740,7 @@ export class OpenAICompatSdkClient implements LLMClient {
             ...buildOutputArgs(response_format, demotedMode),
             providerOptions: this.buildProviderOptions({
               enableThinking,
+              reasoningEffort,
               repetitionPenalty: repetition_penalty,
             }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
             ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -771,6 +802,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
             enableThinking,
+            reasoningEffort,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -821,7 +853,9 @@ export class OpenAICompatSdkClient implements LLMClient {
     messages: Array<{ role: 'user' | 'assistant'; content: string | MessageContentPart[] }>;
     response_format?: { type: 'json_object'; schema?: Record<string, unknown> | z.ZodType };
     task?: string;
+    outputModeOverride?: OutputMode;
     enableThinking?: boolean;
+    reasoningEffort?: 'low' | 'medium' | 'high';
     temperature?: number;
     top_p?: number;
     seed?: number;
@@ -834,12 +868,16 @@ export class OpenAICompatSdkClient implements LLMClient {
     finishReason: LLMFinishReason;
     usage?: LLMUsage;
   }> {
-    const { model, max_tokens, system, messages, response_format, enableThinking, repetition_penalty, temperature, top_p, seed, onFinish } = params;
+    const { model, max_tokens, messages, response_format, outputModeOverride, enableThinking, reasoningEffort, repetition_penalty, temperature, top_p, seed, onFinish } = params;
+    // See createMessage — a pinned `text_prompt` needs the prompt-side
+    // enforcement up front, because no demotion retry will add it.
+    const system = forcedTextPromptSystem(params.system, response_format, outputModeOverride);
 
     // v1.26.4 PATCH (Issue #474 — Layer 3): see createMessage. Use
     // getCurrentOutputMode for honest outputMode reporting on
-    // non-supportsStructuredOutputs providers.
-    const currentMode = this.getCurrentOutputMode(model);
+    // non-supportsStructuredOutputs providers. A per-task policy (#481) pins
+    // the mode ahead of both.
+    const currentMode = outputModeOverride ?? this.getCurrentOutputMode(model);
     const outputArgs = buildOutputArgs(response_format, currentMode);
 
     console.debug(
@@ -860,6 +898,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         ...outputArgs,
         providerOptions: this.buildProviderOptions({
           enableThinking,
+          reasoningEffort,
           repetitionPenalty: repetition_penalty,
         }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
         ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -976,6 +1015,7 @@ export class OpenAICompatSdkClient implements LLMClient {
                 ...buildOutputArgs(response_format, 'text_prompt'),
                 providerOptions: this.buildProviderOptions({
                   enableThinking,
+                  reasoningEffort,
                   repetitionPenalty: repetition_penalty,
                 }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
                 ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -1052,6 +1092,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
             enableThinking,
+            reasoningEffort,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -1111,6 +1152,7 @@ export class OpenAICompatSdkClient implements LLMClient {
               ...buildOutputArgs(response_format, demotedMode),
               providerOptions: this.buildProviderOptions({
                 enableThinking,
+                reasoningEffort,
                 repetitionPenalty: repetition_penalty,
               }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
               ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -1149,6 +1191,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
             enableThinking,
+            reasoningEffort,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
           ...buildSamplingArgs({ temperature, top_p, seed }),
@@ -1198,11 +1241,19 @@ export class OpenAICompatSdkClient implements LLMClient {
    */
   private buildProviderOptions(opts: {
     enableThinking?: boolean;
+    reasoningEffort?: 'low' | 'medium' | 'high';
     repetitionPenalty?: number;
   }): Record<string, Record<string, unknown>> {
     const openaiOpts: Record<string, unknown> = {};
 
-    if (opts.enableThinking === false && !this.reasoningStripProber.shouldStrip(this.baseURL)) {
+    // Issue #481: a named effort bounds the thinking instead of only permitting
+    // it. Same wire key as the force-disable path below, different value, and it
+    // takes precedence — asking for `low` and `none` at once is a contradiction
+    // the policy layer cannot produce (`off` yields no effort) and that a call
+    // site should not be able to smuggle in either.
+    if (opts.reasoningEffort && !this.reasoningStripProber.shouldStrip(this.baseURL)) {
+      openaiOpts.reasoningEffort = opts.reasoningEffort;
+    } else if (opts.enableThinking === false && !this.reasoningStripProber.shouldStrip(this.baseURL)) {
       // v1.26.0 Batch 6: force-disable thinking via reasoningEffort.
       //
       // Prior mechanism (PR #410 / Batch 2) used `thinking.type: 'disabled'`
@@ -1355,6 +1406,8 @@ export class OpenAICompatSdkClient implements LLMClient {
         ...(system ? { system } : {}),
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         maxOutputTokens: max_tokens,
+        // No effort here: the stream path carries no `task` label (#469), so
+        // no per-step policy can be resolved for it.
         providerOptions: this.buildProviderOptions({
           enableThinking,
           repetitionPenalty: repetition_penalty,

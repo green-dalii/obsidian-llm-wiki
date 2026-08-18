@@ -1,0 +1,163 @@
+// task-policy.ts — per-step choice of wire output mode and thinking.
+//
+// Issue #481 established that on an openai-compatible wire the two are not
+// independent: a `response_format` on the request sets `reasoning_tokens` to
+// 0 regardless of `reasoning_effort`, `disableThinking`, or the server's own
+// switch. "Let this step think" is therefore not a flag but a decision about
+// the output mode, and it can only be made per step — the pipeline's schema
+// callers (extract, lemma-classify, merge-triage, the dedup pair) and its
+// prose callers (page-generate, source-page, merge-body, related-page,
+// complementary, pdf-convert) want opposite things from the same setting.
+//
+// Which of them benefits from reasoning is unmeasured. This module exists so
+// that it can be measured: an arm of a comparison run is a policy string, not
+// a patch and a rebuild.
+//
+// Default is "change nothing". An unset policy resolves to `default` on both
+// axes, which means the OutputModeProber picks the mode exactly as before and
+// the caller's own `enableThinking` argument is passed through untouched.
+// `src/__tests__/core/task-policy.test.ts` pins that.
+
+import type { OutputMode } from '../llm-sdk/output-mode-prober';
+
+/**
+ * Output mode for one step. `default` leaves the choice to the
+ * OutputModeProber's per-model cache (today's behaviour: start at
+ * `json_schema`, demote on a 400).
+ *
+ * The other three name a wire shape and pin it, skipping the prober for this
+ * step only. `text_prompt` is the one that matters for reasoning — it is the
+ * only mode that puts no `response_format` on the request.
+ */
+export type TaskOutputMode = 'default' | OutputMode;
+
+/**
+ * Thinking for one step. `default` passes the call site's own argument
+ * through, which is what every call site does with `disableThinking` today.
+ *
+ * `off` and `on` override it. Note that both are requests, not guarantees:
+ * with a `response_format` on the wire, `on` is overruled by the schema
+ * (#481), which is precisely why the two axes are set together here.
+ *
+ * `low` / `medium` / `high` are `on` with a budget — they send
+ * `reasoning_effort` at that level. The distinction earns its place: measured
+ * on gemma-4-26b, unbounded thinking at the extraction step consumed all
+ * 16000 tokens of the batch budget and returned nothing, twice. "Thinking
+ * helps here" and "thinking fits here" are different questions, and only the
+ * bounded levels can ask the first one.
+ */
+export type TaskThinking = 'default' | 'off' | 'on' | 'low' | 'medium' | 'high';
+
+/** The three that name a budget, as opposed to just not suppressing. */
+export const THINKING_EFFORTS = ['low', 'medium', 'high'] as const;
+export type ThinkingEffort = (typeof THINKING_EFFORTS)[number];
+
+export function thinkingEffort(thinking: TaskThinking): ThinkingEffort | undefined {
+  return (THINKING_EFFORTS as readonly string[]).includes(thinking)
+    ? thinking as ThinkingEffort
+    : undefined;
+}
+
+export interface TaskPolicy {
+  outputMode: TaskOutputMode;
+  thinking: TaskThinking;
+}
+
+export const DEFAULT_TASK_POLICY: TaskPolicy = Object.freeze({
+  outputMode: 'default',
+  thinking: 'default',
+});
+
+/** Wildcard key: applies to every task that has no entry of its own. */
+export const TASK_POLICY_WILDCARD = '*';
+
+export type TaskPolicyMap = Readonly<Record<string, TaskPolicy>>;
+
+/**
+ * The policy for one `task` label, or the default when none applies.
+ *
+ * Lookup order is specific → wildcard → default, so `*=text:on` can set a
+ * baseline for a whole run and a single `extract=schema:off` entry can hold
+ * one step out of it.
+ */
+export function resolveTaskPolicy(
+  policies: TaskPolicyMap | undefined,
+  task: string | undefined,
+): TaskPolicy {
+  if (!policies) return DEFAULT_TASK_POLICY;
+  if (task && policies[task]) return policies[task];
+  return policies[TASK_POLICY_WILDCARD] ?? DEFAULT_TASK_POLICY;
+}
+
+const MODE_ALIASES: Readonly<Record<string, TaskOutputMode>> = {
+  '-': 'default',
+  'default': 'default',
+  'schema': 'json_schema',
+  'json_schema': 'json_schema',
+  'json': 'json_object',
+  'json_object': 'json_object',
+  'text': 'text_prompt',
+  'text_prompt': 'text_prompt',
+};
+
+const THINKING_ALIASES: Readonly<Record<string, TaskThinking>> = {
+  '-': 'default',
+  'default': 'default',
+  'off': 'off',
+  'on': 'on',
+  'low': 'low',
+  'medium': 'medium',
+  'high': 'high',
+};
+
+/**
+ * Parse a policy spec into a map. The format is meant to survive a shell
+ * script and stay readable in a run manifest:
+ *
+ *   extract=text:on,merge-triage=text:on,page-generate=-:off
+ *
+ * One entry per task, `task=mode:thinking`, `-` for "leave alone", and the
+ * thinking half optional (`extract=text` means mode only). `*` as the task
+ * name sets the baseline for every step.
+ *
+ * Throws on anything it does not understand rather than skipping it. A
+ * silently ignored entry would mean an arm that did not run what its own
+ * manifest says it ran, and the manifest is the only record of which arm a
+ * number came from.
+ */
+export function parseTaskPolicySpec(spec: string): TaskPolicyMap {
+  const policies: Record<string, TaskPolicy> = {};
+  for (const rawEntry of spec.split(',')) {
+    const entry = rawEntry.trim();
+    if (entry === '') continue;
+    const eq = entry.indexOf('=');
+    if (eq <= 0) {
+      throw new Error(`task policy: expected "task=mode[:thinking]", got "${entry}"`);
+    }
+    const task = entry.slice(0, eq).trim();
+    const [rawMode = '', rawThinking = '-'] = entry.slice(eq + 1).trim().split(':');
+    const outputMode = MODE_ALIASES[rawMode.trim()];
+    const thinking = THINKING_ALIASES[rawThinking.trim()];
+    if (!outputMode) {
+      throw new Error(
+        `task policy for "${task}": unknown mode "${rawMode}" `
+        + `(expected one of -, schema, json, text)`,
+      );
+    }
+    if (!thinking) {
+      throw new Error(
+        `task policy for "${task}": unknown thinking "${rawThinking}" `
+        + `(expected one of -, off, on, low, medium, high)`,
+      );
+    }
+    policies[task] = { outputMode, thinking };
+  }
+  return policies;
+}
+
+/** Round-trips `parseTaskPolicySpec`, for stamping the arm into a manifest. */
+export function formatTaskPolicyMap(policies: TaskPolicyMap): string {
+  return Object.entries(policies)
+    .map(([task, policy]) => `${task}=${policy.outputMode}:${policy.thinking}`)
+    .join(',');
+}

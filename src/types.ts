@@ -3,6 +3,8 @@
 import { App } from 'obsidian';
 import type { z } from 'zod';
 import type { RejectionReason } from './core/source-requirements';
+import type { TaskPolicyMap } from './core/task-policy';
+import type { OutputMode } from './llm-sdk/output-mode-prober';
 
 /**
  * Issue #244 — Programmatic Mentions writes (v1.23.3 / v1.24.0).
@@ -322,6 +324,13 @@ export interface LLMWikiSettings {
   // (where it was opt-out). The semantic is now opt-in: the user must
   // explicitly enable "Disable thinking" in Custom Advanced Settings.
   disableThinking?: boolean;
+
+  // Issue #481: per-step output mode and thinking. Unset — the default, and
+  // what every existing data.json has — means every step behaves exactly as
+  // before; see src/core/task-policy.ts. Deliberately not exposed in the UI:
+  // the settings worth offering are the ones a measurement has picked out, and
+  // this field is what makes that measurement possible.
+  taskPolicies?: TaskPolicyMap;
 
   // Advanced settings mode — 'default' hides the toggles/inputs; 'custom'
   // reveals them. In v1.20.0, 'default' no longer forces anything — the
@@ -718,8 +727,27 @@ export interface LLMClient {
      * Clients ignore it; the CLI groups its usage report by it.
      */
     task?: string;
+    /**
+     * Pin the wire output mode for this one call, bypassing the
+     * OutputModeProber's cached choice. Set by the client wrapper from the
+     * per-task policy (`src/core/task-policy.ts`); no call site passes it.
+     *
+     * Why it exists: `text_prompt` is the only mode that puts no
+     * `response_format` on the request, and per #481 that is the only way a
+     * schema-carrying step can think at all. A 400-driven demotion cannot
+     * serve here — it is a repair, and it never fires on a backend that
+     * accepts the schema.
+     */
+    outputModeOverride?: OutputMode;
     maxTokensPerCall?: number;  // Issue #75: cap for truncation retry
     enableThinking?: boolean;   // ROADMAP P3 #12: allow thinking for thinking-capable models
+    /**
+     * Bound the thinking rather than only permitting it. Sent as
+     * `reasoning_effort` at the named level — the same wire key the
+     * force-disable path uses with `'none'`. Set by the wrapper from the
+     * per-task policy; no call site passes it.
+     */
+    reasoningEffort?: 'low' | 'medium' | 'high';
     temperature?: number;       // Issue #128: per-request sampling temperature
     /**
      * Nucleus sampling. Travels with `temperature` because a preset is a pair:
@@ -781,7 +809,11 @@ export interface LLMClient {
     // shape and the Tier 1/2 fallback parseJsonResponse validation).
     response_format?: { type: 'json_object'; schema?: Record<string, unknown> | z.ZodType };
     task?: string;
+    /** See `createMessage`. Set by the wrapper from the per-task policy. */
+    outputModeOverride?: OutputMode;
     enableThinking?: boolean;
+    /** See `createMessage`. */
+    reasoningEffort?: 'low' | 'medium' | 'high';
     temperature?: number;
     top_p?: number;
     seed?: number;

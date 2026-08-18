@@ -50,5 +50,6 @@ export function createLLMClient(
     samplingSeed: settings.samplingSeed,
     chatTemperature: settings.chatTemperature,
     repetitionPenalty: settings.repetitionPenalty,
+    taskPolicies: settings.taskPolicies,
   });
 }

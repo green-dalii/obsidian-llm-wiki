@@ -21,6 +21,8 @@
 import { LLMClient } from './types';
 import { capMaxTokens } from './core/token-cap';
 import { recordTaskUsage } from './core/llm-task-usage';
+import { resolveTaskPolicy, thinkingEffort, type TaskPolicyMap, type ThinkingEffort } from './core/task-policy';
+import type { OutputMode } from './llm-sdk/output-mode-prober';
 
 export interface WrapperSettings {
   maxTokensPerCall: number;
@@ -35,6 +37,11 @@ export interface WrapperSettings {
   samplingSeed?: number;
   chatTemperature?: number;
   repetitionPenalty?: number;
+  /**
+   * Issue #481 follow-up: per-step output mode / thinking. Unset means every
+   * step keeps today's behaviour — see src/core/task-policy.ts.
+   */
+  taskPolicies?: TaskPolicyMap;
 }
 
 // Closed union for the [llm] debug-log breadcrumb. Stays narrow so a typo
@@ -87,6 +94,7 @@ export function wrapWithAdvancedSettings(
     return client.createMessage({
       ...params,
       ...injectAdvancedSettings(params, settings, capTokens),
+      ...applyTaskPolicy(params.task, settings),
     });
   });
 
@@ -96,6 +104,7 @@ export function wrapWithAdvancedSettings(
       return client.createMessageWithOutput!({
         ...params,
         ...injectAdvancedSettings(params, settings, capTokens),
+        ...applyTaskPolicy(params.task, settings),
       });
     });
   }
@@ -137,6 +146,38 @@ function injectAdvancedSettings(
     ...(params.top_p === undefined && settings.extractionTopP !== undefined ? { top_p: settings.extractionTopP } : {}),
     ...(params.repetition_penalty === undefined && settings.repetitionPenalty !== undefined ? { repetition_penalty: settings.repetitionPenalty } : {}),
     ...(params.seed === undefined && settings.samplingSeed !== undefined ? { seed: settings.samplingSeed } : {}),
+  };
+}
+
+/**
+ * Overlay for the per-step policy (Issue #481 follow-up).
+ *
+ * Applied after `injectAdvancedSettings` and therefore wins over it and over
+ * the call site: the policy names one step deliberately, while the call site
+ * passes `disableThinking` because every call site does. An unset policy
+ * spreads `{}` and changes nothing, which is what keeps the default path
+ * byte-identical to pre-#481.
+ *
+ * Not applied on the stream path — it carries no `task` label (#469), so
+ * there is nothing to key a per-step decision on.
+ */
+function applyTaskPolicy(
+  task: string | undefined,
+  settings: WrapperSettings,
+): Partial<{
+  outputModeOverride: OutputMode;
+  enableThinking: boolean;
+  reasoningEffort: ThinkingEffort;
+}> {
+  const policy = resolveTaskPolicy(settings.taskPolicies, task);
+  const effort = thinkingEffort(policy.thinking);
+  return {
+    ...(policy.outputMode !== 'default' ? { outputModeOverride: policy.outputMode } : {}),
+    ...(policy.thinking !== 'default' ? { enableThinking: policy.thinking !== 'off' } : {}),
+    // A named level is `on` plus a budget; it rides alongside enableThinking
+    // rather than replacing it, because the suppression field and the effort
+    // field are the same wire key and the client decides which value it takes.
+    ...(effort ? { reasoningEffort: effort } : {}),
   };
 }
 

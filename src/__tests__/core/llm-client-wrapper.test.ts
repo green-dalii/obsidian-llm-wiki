@@ -169,3 +169,59 @@ describe('wrapWithAdvancedSettings — typed-output path (createMessageWithOutpu
     expect(wrapped.createMessageWithOutput).toBeUndefined();
   });
 });
+
+// Issue #481 follow-up: the per-step policy is applied here, at the one seam
+// every call passes through. Two properties matter — an unset policy must not
+// add a single field (otherwise both arms of a comparison have moved before
+// it starts), and a named step must win over the call site, because the call
+// site passes `disableThinking` unconditionally while the policy names one
+// step deliberately.
+describe('wrapWithAdvancedSettings — per-task policy (#481)', () => {
+  it('adds nothing when no policy is configured', () => {
+    for (const task of ['extract', 'page-generate', 'merge-triage', undefined]) {
+      const body = sent({}, task === undefined ? {} : { task });
+      expect(body).not.toHaveProperty('outputModeOverride');
+      expect(body).not.toHaveProperty('enableThinking');
+    }
+  });
+
+  it('adds nothing to a step the policy does not name', () => {
+    const body = sent(
+      { taskPolicies: { extract: { outputMode: 'text_prompt', thinking: 'on' } } },
+      { task: 'page-generate' },
+    );
+    expect(body).not.toHaveProperty('outputModeOverride');
+    expect(body).not.toHaveProperty('enableThinking');
+  });
+
+  it('pins the output mode and thinking for the step it names', () => {
+    const body = sent(
+      { taskPolicies: { extract: { outputMode: 'text_prompt', thinking: 'on' } } },
+      { task: 'extract' },
+    );
+    expect(body.outputModeOverride).toBe('text_prompt');
+    expect(body.enableThinking).toBe(true);
+  });
+
+  it('overrides the call site, which passes disableThinking unconditionally', () => {
+    const body = sent(
+      { taskPolicies: { extract: { outputMode: 'default', thinking: 'on' } } },
+      { task: 'extract', enableThinking: false },
+    );
+    expect(body.enableThinking).toBe(true);
+    expect(body).not.toHaveProperty('outputModeOverride');
+  });
+
+  it('applies on the typed path too — the schema callers live there', () => {
+    const { client, sentBodies } = typedClientSpy();
+    const wrapped = wrapWithAdvancedSettings(client, {
+      maxTokensPerCall: 0,
+      taskPolicies: { 'merge-triage': { outputMode: 'text_prompt', thinking: 'on' } },
+    });
+    void wrapped.createMessageWithOutput!({
+      ...CALL, task: 'merge-triage',
+    } as Parameters<NonNullable<LLMClient['createMessageWithOutput']>>[0]);
+    expect(sentBodies[0].outputModeOverride).toBe('text_prompt');
+    expect(sentBodies[0].enableThinking).toBe(true);
+  });
+});

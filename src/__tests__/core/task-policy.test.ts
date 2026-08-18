@@ -1,0 +1,132 @@
+// Issue #481 follow-up: per-step output mode and thinking.
+//
+// The property that matters most here is the same one #208's resolver pins:
+// an unset policy must leave every step exactly as it was. Everything else in
+// this module is opt-in, and an opt-in that changes the default path is a
+// regression no measurement would catch — both arms would have moved.
+//
+// The second group covers the parser. It throws rather than skipping bad
+// entries on purpose: a skipped entry produces a run whose manifest names an
+// arm it did not execute, and the manifest is the only record tying a number
+// to its conditions.
+
+import { describe, it, expect } from 'vitest';
+import {
+  DEFAULT_TASK_POLICY,
+  formatTaskPolicyMap,
+  parseTaskPolicySpec,
+  resolveTaskPolicy,
+  thinkingEffort,
+} from '../../core/task-policy';
+
+// Every `task:` label a production call site passes today.
+const TASK_LABELS = [
+  'extract', 'extract-retry', 'lemma-classify', 'merge-triage', 'merge-body',
+  'reviewed-append', 'related-page', 'complementary', 'page-generate',
+  'source-page', 'pdf-convert', 'dedup', 'conversation-extract',
+  'conversation-extract-retry', 'conversation-page', 'conversation-save-dedup',
+  'contradictions', 'fix-dead-link', 'link-orphan', 'lint-alias', 'lint-dedup',
+  'lint-tag-fix', 'query-view-evaluate', 'schema-suggest', 'welcome-translate',
+];
+
+describe('resolveTaskPolicy — the default path is untouched', () => {
+  it('resolves every known task to the default when no policy is set', () => {
+    for (const task of TASK_LABELS) {
+      expect(resolveTaskPolicy(undefined, task)).toEqual(DEFAULT_TASK_POLICY);
+      expect(resolveTaskPolicy({}, task)).toEqual(DEFAULT_TASK_POLICY);
+    }
+  });
+
+  it('resolves an untagged call to the default', () => {
+    expect(resolveTaskPolicy(undefined, undefined)).toEqual(DEFAULT_TASK_POLICY);
+    expect(resolveTaskPolicy({ extract: { outputMode: 'text_prompt', thinking: 'on' } }, undefined))
+      .toEqual(DEFAULT_TASK_POLICY);
+  });
+
+  it('leaves the steps a policy does not name alone', () => {
+    const policies = parseTaskPolicySpec('extract=text:on');
+    expect(resolveTaskPolicy(policies, 'extract'))
+      .toEqual({ outputMode: 'text_prompt', thinking: 'on' });
+    for (const task of TASK_LABELS.filter(t => t !== 'extract')) {
+      expect(resolveTaskPolicy(policies, task)).toEqual(DEFAULT_TASK_POLICY);
+    }
+  });
+});
+
+describe('resolveTaskPolicy — wildcard', () => {
+  it('applies to every step that has no entry of its own', () => {
+    const policies = parseTaskPolicySpec('*=-:off,extract=text:on');
+    expect(resolveTaskPolicy(policies, 'extract'))
+      .toEqual({ outputMode: 'text_prompt', thinking: 'on' });
+    expect(resolveTaskPolicy(policies, 'page-generate'))
+      .toEqual({ outputMode: 'default', thinking: 'off' });
+    expect(resolveTaskPolicy(policies, 'merge-triage'))
+      .toEqual({ outputMode: 'default', thinking: 'off' });
+  });
+});
+
+describe('parseTaskPolicySpec', () => {
+  it('accepts the short aliases and the wire names', () => {
+    expect(parseTaskPolicySpec('a=schema,b=json,c=text,d=-')).toEqual({
+      a: { outputMode: 'json_schema', thinking: 'default' },
+      b: { outputMode: 'json_object', thinking: 'default' },
+      c: { outputMode: 'text_prompt', thinking: 'default' },
+      d: { outputMode: 'default', thinking: 'default' },
+    });
+    expect(parseTaskPolicySpec('a=json_schema:on')).toEqual({
+      a: { outputMode: 'json_schema', thinking: 'on' },
+    });
+  });
+
+  it('tolerates whitespace and empty entries', () => {
+    expect(parseTaskPolicySpec(' extract = text : on , , merge-triage=text ')).toEqual({
+      extract: { outputMode: 'text_prompt', thinking: 'on' },
+      'merge-triage': { outputMode: 'text_prompt', thinking: 'default' },
+    });
+  });
+
+  it('returns an empty map for an empty spec', () => {
+    expect(parseTaskPolicySpec('')).toEqual({});
+    expect(parseTaskPolicySpec('   ')).toEqual({});
+  });
+
+  it('throws on a malformed entry rather than skipping it', () => {
+    expect(() => parseTaskPolicySpec('extract')).toThrow(/expected "task=mode/);
+    expect(() => parseTaskPolicySpec('=text')).toThrow(/expected "task=mode/);
+    expect(() => parseTaskPolicySpec('extract=grammar')).toThrow(/unknown mode "grammar"/);
+    expect(() => parseTaskPolicySpec('extract=text:maybe')).toThrow(/unknown thinking "maybe"/);
+  });
+
+  it('round-trips through formatTaskPolicyMap', () => {
+    const spec = 'extract=text:on,page-generate=-:off';
+    const parsed = parseTaskPolicySpec(spec);
+    expect(parseTaskPolicySpec(formatTaskPolicyMap(parsed))).toEqual(parsed);
+  });
+});
+
+// The bounded levels (#481 follow-up). Unbounded thinking at the extraction
+// step spent the whole 16000-token batch budget in the reasoning channel and
+// returned nothing, twice, so "may think" and "may think this much" had to
+// become different settings.
+describe('parseTaskPolicySpec — bounded thinking', () => {
+  it('accepts the three effort levels', () => {
+    expect(parseTaskPolicySpec('extract=text:low,a=text:medium,b=text:high')).toEqual({
+      extract: { outputMode: 'text_prompt', thinking: 'low' },
+      a: { outputMode: 'text_prompt', thinking: 'medium' },
+      b: { outputMode: 'text_prompt', thinking: 'high' },
+    });
+  });
+
+  it('names them in the error for an unknown level', () => {
+    expect(() => parseTaskPolicySpec('extract=text:lowish'))
+      .toThrow(/expected one of -, off, on, low, medium, high/);
+  });
+
+  it('reports an effort only for the levels that name one', () => {
+    expect(thinkingEffort('low')).toBe('low');
+    expect(thinkingEffort('high')).toBe('high');
+    expect(thinkingEffort('on')).toBeUndefined();
+    expect(thinkingEffort('off')).toBeUndefined();
+    expect(thinkingEffort('default')).toBeUndefined();
+  });
+});
