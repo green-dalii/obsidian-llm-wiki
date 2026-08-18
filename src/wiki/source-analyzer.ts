@@ -11,7 +11,6 @@ import {
   MentionWithProvenance,
   LLMFinishReason,
   LLMUsage,
-  RunSlugCatalog,
 } from '../types';
 import { PROMPTS } from '../prompts';
 import { parseJsonResponse, parseJsonResult } from '../core/json';
@@ -153,15 +152,11 @@ export class SourceAnalyzer {
    *   string as the source body. Used by the PDF branch to feed LLM-converted
    *   markdown without writing a sidecar file. Path-based operations
    *   (slug resolution, frontmatter inheritance) still use `file`.
-   * - `slugCatalog` (#452): the run's frozen page catalog. Folder/batch ingests
-   *   pass the one on their `BatchRequirementsContext` so the catalog block at
-   *   the top of the prompt stays prefix-stable across the run; single-file
-   *   ingests omit it and get a freshly sorted list as before.
    *
    * Returns null on blank content (defense-in-depth; the pre-ingest gate
    * normally rejects blank sources first).
    */
-  async analyzeSource(file: TFile, opts?: { contentOverride?: string; slugCatalog?: RunSlugCatalog }): Promise<SourceAnalysis | null> {
+  async analyzeSource(file: TFile, opts?: { contentOverride?: string }): Promise<SourceAnalysis | null> {
     console.debug('=== Source analysis started ===');
     console.debug('File:', file.path);
     if (opts?.contentOverride !== undefined) {
