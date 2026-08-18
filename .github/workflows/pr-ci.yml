@@ -1,0 +1,56 @@
+name: Gate 1 (Five-Gate)
+
+# Defense-in-depth layer on top of the per-fix E2E handoff (CLAUDE.md §"Six-Gate
+# Quality Closure" / §"Per-fix E2E handoff"). Gate 1 is verified locally before
+# `git push`; this CI re-runs the same five checks on every PR against `main`
+# so reviewer never sees a mechanical failure that slipped through.
+#
+# CI does NOT enable auto-merge. Explicit "merge it" / "合并" from the
+# maintainer is still required (CLAUDE.md "NEVER auto-merge PRs").
+#
+# Obsidian Bot review remains a separate pipeline; CI green ≠ Bot-approved.
+# See [[feedback_obsidian_bot_double_lint]] for the double-lint invariant.
+#
+# Lockfile-pinned install (`pnpm install --frozen-lockfile`) keeps the lockfile
+# authoritative AND prevents `eslint-plugin-obsidianmd` drift between local
+# Gate 1 and CI. `npm ci` is NOT used because:
+#   - the project's `packageManager` field pins pnpm@10.14.0
+#   - pnpm-specific `overrides` (flat format per `feedback_pnpm_vs_npm_overrides_incompatibility`)
+#     are not honored by npm
+#   - pnpm cache key (`pnpm-lock.yaml` hash) keeps CI fast
+# The Bot alignment step at release time remains the final word on plugin
+# version per "Bot alignment (pre-release)" under §"Gate 1: Five-Gate automated".
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gate-1:
+    name: Gate 1 / Five-Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'pnpm'
+
+      - name: Install (lockfile-pinned)
+        run: pnpm install --frozen-lockfile
+
+      - name: Five-Gate (lint + typecheck + test + build + css-lint)
+        run: |
+          set -e
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+          pnpm css-lint

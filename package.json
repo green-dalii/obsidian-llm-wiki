@@ -17,7 +17,9 @@
     "css-lint": "node scripts/css-lint.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck:tools": "tsc -p tools/llm-wiki-cli/tsconfig.json --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:tools": "tsc -p tools/llm-wiki-cli/tsconfig.json --noEmit",
+    "gate:1": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm css-lint"
   },
   "keywords": [
     "obsidian",

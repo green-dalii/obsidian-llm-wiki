@@ -153,13 +153,38 @@ main (protected) ────► tag → release
 
 For contributor PRs that need rebase after base-branch move: use `gh pr update-branch --rebase` — NEVER locally fork + push + create a new PR. See [[feedback_pr_merge_credit_preservation]].
 
+**Mandatory merge sequence (added 2026-08-18):** every merge MUST follow this exact order. Skipping any step is a procedural miss even when content review passed:
+
+```
+gh pr review <N> --body "<file>"   # ← MANDATORY. Formal review event lands on the PR.
+gh pr merge <N> --admin --squash --delete-branch   # ← ONLY after user said "merge it"
+```
+
+- **`gh pr review --approve` (or `--request-changes`) MUST be posted BEFORE `gh pr merge`.** This lands the formal review verdict on the PR timeline; downstream tooling (release notes, contributor credit, audit trail) reads from that event, not from comments.
+- For architect-level contributor PRs (e.g. @DocTpoint), per [[feedback_reply_brevity_for_architect_contributors]]: review body should be **decision + ≤5 sentences** + concrete `file:line` findings, not a long-form audit.
+- **Post-merge audit trail:** if a `gh pr merge` was executed without the matching `--approve` event (procedural miss, not content miss), immediately post `gh pr comment <N> --body <audit-note>` recording what was skipped. Don't rebase, don't re-merge, don't amend — the merge commit hash stands; only the audit trail is patched. Incident reference: PR #478 (2026-08-18, merge `2806d24`).
+- Anti-pattern: "`gh pr merge --admin` doesn't enforce reviews, so I can skip --approve." Wrong — `--admin` bypasses the **requirement** rule, not the **review event** rule. Two separate audit surfaces.
+
 ---
 
 ## 📦 Development Workflow
 
 ```bash
-pnpm lint && pnpm test && npx tsc --noEmit && pnpm build && pnpm css-lint   # Gate 1
+pnpm gate:1                    # Gate 1: lint + typecheck + test + build + css-lint (preferred)
+pnpm lint && pnpm test && pnpm typecheck && pnpm build && pnpm css-lint   # Gate 1, explicit form
 ```
+
+`pnpm gate:1` is a composite alias added 2026-08-18; both forms are equivalent. Prefer `pnpm gate:1` for one-shot local verification.
+
+### Gate 1 CI (added 2026-08-18)
+
+`.github/workflows/pr-ci.yml` runs the full Five-Gate on every PR to `main`. Status check: `Gate 1 / Five-Gate`. Branch protection requires it (`strict: false`, `require_last_push_approval: true`).
+
+CI is a **defense-in-depth** layer on top of the per-fix E2E handoff manual Gate 1 (which is still required before `git push`). CI does NOT enable auto-merge — explicit "merge it" / "合并" still required per §"⚠️ Git Safety Protocol".
+
+Obsidian Bot review remains a separate pipeline (not a GitHub status check); CI green ≠ Bot-approved. See `feedback_obsidian_bot_double_lint` for the double-lint invariant.
+
+Lockfile-pinned install (`pnpm install --frozen-lockfile`) prevents `eslint-plugin-obsidianmd` drift between local Gate 1 and CI; the Bot alignment step at release time remains the final word on plugin version per "Bot alignment (pre-release)" under §"Gate 1: Five-Gate automated". `npm ci` is intentionally NOT used (project pins `pnpm@10.14.0`; pnpm `overrides` are flat and npm cannot honor them per `feedback_pnpm_vs_npm_overrides_incompatibility`).
 
 ### Build modes
 
