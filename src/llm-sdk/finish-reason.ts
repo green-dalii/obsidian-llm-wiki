@@ -35,6 +35,29 @@ export function normalizeFinishReason(raw: unknown): LLMFinishReason {
 }
 
 /**
+ * Lift the SDK's reasoning-token count onto our own `LLMUsage`.
+ *
+ * The SDK reports it twice: `outputTokenDetails.reasoningTokens` is current,
+ * the top-level `reasoningTokens` is deprecated but still populated by some
+ * providers. We read the current one first and keep every other field the
+ * SDK sent, so this is purely additive for callers that ignore it.
+ *
+ * Absent stays absent. A provider that omits the field must not be recorded
+ * as one that reported zero — the guard below distinguishes the two, and
+ * collapsing them here would make "this model does not think"
+ * indistinguishable from "this provider does not say".
+ */
+export function normalizeUsage(usage: unknown): LLMUsage | undefined {
+  if (!usage || typeof usage !== 'object') return undefined;
+  const raw = usage as LLMUsage & {
+    outputTokenDetails?: { reasoningTokens?: number };
+    reasoningTokens?: number;
+  };
+  const reasoning = raw.outputTokenDetails?.reasoningTokens ?? raw.reasoningTokens;
+  return reasoning === undefined ? raw : { ...raw, reasoningTokens: reasoning };
+}
+
+/**
  * Invoke the optional `onFinish` callback with a normalized reason.
  *
  * No-op when the caller did not pass one, which keeps every existing call
@@ -46,5 +69,45 @@ export function reportFinish(
   usage?: LLMUsage,
 ): void {
   if (!onFinish) return;
-  onFinish({ finishReason: normalizeFinishReason(raw), ...(usage ? { usage } : {}) });
+  const normalized = normalizeUsage(usage);
+  onFinish({ finishReason: normalizeFinishReason(raw), ...(normalized ? { usage: normalized } : {}) });
+}
+
+/**
+ * Issue #470: restore the reasoning-only guard that shipped in v1.19.0 for
+ * Issue #99 and was dropped with `src/llm-client.ts` in the v1.23.0 AI-SDK
+ * migration.
+ *
+ * A thinking-capable model whose runtime ignores the thinking-disable control
+ * spends its budget in the reasoning channel and returns empty visible
+ * content at `finish_reason: length`. On the wire that is a 200, so without
+ * this the caller sees a generic parse failure and goes looking for a bad
+ * prompt — the exact wrong place.
+ *
+ * Two deliberate narrowings against the v1.19.0 predicate:
+ *
+ *   - `text` is the text the caller is about to receive, AFTER the
+ *     reasoning-channel prepend (`prependReasoningForParse`). LMStudio +
+ *     Qwen3.5 routes valid structured output into `reasoning_content` with
+ *     empty visible content; that call succeeded and must not throw here.
+ *   - An absent `reasoningTokens` never fires. The predicate needs the
+ *     provider to have said what the tokens went to; without it, "empty at
+ *     length" is just truncation, which is #305's signal, not this one.
+ */
+export function assertNotReasoningOnly(
+  text: string,
+  raw: unknown,
+  usage: LLMUsage | undefined,
+): void {
+  if (text.trim().length > 0) return;
+  if (normalizeFinishReason(raw) !== 'length') return;
+  const outputTokens = usage?.outputTokens ?? 0;
+  const reasoningTokens = usage?.reasoningTokens;
+  if (reasoningTokens === undefined || outputTokens <= 0) return;
+  if (reasoningTokens / outputTokens < 0.5) return;
+  throw new Error(
+    `The model returned empty content after spending ${reasoningTokens} of `
+    + `${outputTokens} output tokens on reasoning. Disable thinking for this `
+    + `model, or raise the token limit so the answer fits after it.`,
+  );
 }

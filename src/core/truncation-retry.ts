@@ -41,8 +41,13 @@ export interface TruncationRetryOptions<T> {
   getStopReason?: (response: T) => string | null | undefined;
   /**
    * Optional: called when the initial response is truncated. May throw to abort
-   * the retry and surface a domain-specific error (e.g. #99 reasoning-only
-   * response detection).
+   * the retry and surface a domain-specific error.
+   *
+   * Issue #470: this used to name the #99 reasoning-only detection as its
+   * example, which had not been true since that guard left with
+   * `src/llm-client.ts` in the v1.23.0 AI-SDK migration. The guard now lives
+   * at `assertNotReasoningOnly` in `llm-sdk/finish-reason.ts`, where finish
+   * reason and usage are already normalized. This hook has no caller.
    */
   onTruncatedResponse?: (response: T) => void;
 }

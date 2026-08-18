@@ -668,6 +668,19 @@ export interface LLMUsage {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  /**
+   * Reasoning tokens counted inside `outputTokens`. Normalized by
+   * `normalizeUsage` from the SDK's `outputTokenDetails.reasoningTokens`
+   * (its deprecated top-level `reasoningTokens` is the fallback), which in
+   * turn comes from `usage.completion_tokens_details.reasoning_tokens` on
+   * the wire.
+   *
+   * Undefined means "the provider said nothing", which is not the same as
+   * zero: a provider that omits the field and a model that did not think
+   * are indistinguishable from the response alone, and only the second is
+   * a statement about the model.
+   */
+  reasoningTokens?: number;
 }
 
 /** Metadata surfaced by SDK-backed clients via `onFinish` (Issue #305 +

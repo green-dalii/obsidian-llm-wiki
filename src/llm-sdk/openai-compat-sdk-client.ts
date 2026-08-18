@@ -39,7 +39,7 @@ import {
 import { TokenKeyProber } from './token-key-probe';
 import { ReasoningStripProber } from './reasoning-strip-probe';
 import { OutputModeProber, type OutputMode } from './output-mode-prober';
-import { reportFinish } from './finish-reason';
+import { assertNotReasoningOnly, normalizeUsage, reportFinish } from './finish-reason';
 import { buildSamplingArgs } from './sampling-args';
 import { buildOutputArgs } from './output-args';
 import { JSON_ENFORCEMENT_SYSTEM_PREFIX } from './json-prompt-prefix';
@@ -63,6 +63,25 @@ export interface OpenAICompatSdkClientOptions {
 // unchanged.
 import { repetitionPenaltyWireField } from '../core/repetition-penalty-dialect';
 export { repetitionPenaltyWireField };
+
+/**
+ * Read the SDK's parsed output, or `undefined` when there is none to read.
+ *
+ * `generateText`'s `output` is a getter that throws `NoOutputGeneratedError`
+ * whenever no output specification was passed (`ai@6.0.230/dist/index.mjs`
+ * line 5146). At the `text_prompt` tier `buildOutputArgs` deliberately passes
+ * none — the JSON shape comes from the prompt — so every plain
+ * `result.output` read at that tier throws, whatever the model returned.
+ *
+ * Today the tier is only reachable through a 400-driven demotion, where the
+ * throw lands in the surrounding catch-all and reads as a failed retry. The
+ * #470 guard below has to work on exactly that tier, so it cannot touch the
+ * getter directly.
+ */
+function readOutput<T>(result: { output?: unknown }, mode: OutputMode): T | undefined {
+  if (mode === 'text_prompt') return undefined;
+  return result.output as T | undefined;
+}
 
 export class OpenAICompatSdkClient implements LLMClient {
   private readonly apiKey: string;
@@ -347,6 +366,10 @@ export class OpenAICompatSdkClient implements LLMClient {
       const finalText = reasoningContent
         ? prependReasoningForParse(reasoningContent, result.text)
         : result.text;
+      // Issue #470: empty answer + `length` + the budget spent on reasoning is
+      // a thinking-control failure, not a parse failure. Checked on finalText
+      // so the reasoning-channel prepend above counts as content.
+      assertNotReasoningOnly(finalText, result.finishReason, normalizeUsage(result.usage));
       return finalText;
     } catch (err) {
       // v1.26.3 PATCH Path 2 fix (DocTpoint CHANGES_REQUESTED
@@ -867,12 +890,21 @@ export class OpenAICompatSdkClient implements LLMClient {
       const text = reasoningContent
         ? prependReasoningForParse(reasoningContent, result.text)
         : result.text;
+      const usage = normalizeUsage(result.usage);
+      const output = readOutput<T>(result, currentMode);
+      // Issue #470: same guard as the plain path, with one extra let-through —
+      // a typed call that produced `output` delivered its answer even when the
+      // visible text is empty, so only the case with nothing at all can be a
+      // reasoning-only response.
+      if (output === undefined) {
+        assertNotReasoningOnly(text, result.finishReason, usage);
+      }
       return {
         text,
-        output: result.output as T | undefined,
+        output,
         outputMode: currentMode,
         finishReason: result.finishReason,
-        usage: result.usage,
+        usage,
       };
     } catch (err) {
       // v1.26.3 PATCH Path 2 fix (mirrors createMessage):
@@ -958,7 +990,7 @@ export class OpenAICompatSdkClient implements LLMClient {
               );
               return {
                 text: retryResult.text,
-                output: retryResult.output as T | undefined,
+                output: readOutput<T>(retryResult, 'text_prompt'),
                 outputMode: 'text_prompt',
                 finishReason: retryResult.finishReason,
                 usage: retryResult.usage,
@@ -1027,7 +1059,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         reportFinish(onFinish, result.finishReason, result.usage);
         return {
           text: result.text,
-          output: result.output as T | undefined,
+          output: readOutput<T>(result, currentMode),
           outputMode: currentMode,
           finishReason: result.finishReason,
           usage: result.usage,
@@ -1086,7 +1118,7 @@ export class OpenAICompatSdkClient implements LLMClient {
             reportFinish(onFinish, result.finishReason, result.usage);
             return {
               text: result.text,
-              output: result.output as T | undefined,
+              output: readOutput<T>(result, demotedMode),
               outputMode: demotedMode,
               finishReason: result.finishReason,
               usage: result.usage,
@@ -1124,7 +1156,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         reportFinish(onFinish, result.finishReason, result.usage);
         return {
           text: result.text,
-          output: result.output as T | undefined,
+          output: readOutput<T>(result, currentMode),
           outputMode: currentMode,
           finishReason: result.finishReason,
           usage: result.usage,
