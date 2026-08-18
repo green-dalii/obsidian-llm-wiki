@@ -10,7 +10,7 @@
 
 | Gate | Constraint | How |
 |------|-----------|-----|
-| **1. Code correct** | `pnpm lint` 0/0 + `npx tsc --noEmit` 0/0 + `pnpm test` all pass + `pnpm build` clean + `pnpm css-lint` 0 | Five-Gate script |
+| **1. Code correct** | `pnpm lint` 0/0 + `npx tsc --noEmit` 0/0 + `pnpm build` clean + `pnpm test` all pass + `pnpm css-lint` 0 | Five-Gate script (build BEFORE test — see §"Gate 1: Five-Gate automated") |
 | **2. No side effects** | Call-site audit + data flow + state mutation + error propagation | Structured review |
 | **3. No breaking changes** | API/Schema/File format/Default behavior/Command IDs/Obsidian API | Breaking-change matrix |
 | **4. No performance regression** | CPU/memory/IO/network/token — 5-dim written assessment | simplify + code-review + Gate 4 table |
@@ -20,10 +20,12 @@
 ### Gate 1: Five-Gate automated
 
 ```bash
-pnpm lint && npx tsc --noEmit && pnpm test && pnpm build && pnpm css-lint
+pnpm lint && npx tsc --noEmit && pnpm build && pnpm test && pnpm css-lint
 ```
 
 All five must pass. ESLint checks style, TypeScript checks types, css-lint checks Obsidian review compliance — three complementary checks, single tool passing is insufficient. No `@ts-ignore` / `eslint-disable` to silence failures.
+
+**Order is non-negotiable**: `pnpm build` MUST run before `pnpm test`. The test suite contains build-artifact verifications (e.g. `src/__tests__/llm-sdk/openai-codex-loopback-flow.test.ts:39` reads `main.js` to assert the esbuild bundle shape), so a test-first run fails with ENOENT on a fresh clone. Local Gate 1 typically has `main.js` on disk from a prior `pnpm build:dev`, which is why this ordering bug was missed before PR #487's first CI run on 2026-08-18.
 
 **Bot alignment (pre-release):** local `pnpm lint` ≠ Obsidian review bot. Bot runs newer `eslint-plugin-obsidianmd`. Before each release:
 ```bash
@@ -171,7 +173,7 @@ gh pr merge <N> --admin --squash --delete-branch   # ← ONLY after user said "m
 
 ```bash
 pnpm gate:1                    # Gate 1: lint + typecheck + test + build + css-lint (preferred)
-pnpm lint && pnpm test && pnpm typecheck && pnpm build && pnpm css-lint   # Gate 1, explicit form
+pnpm lint && pnpm test && pnpm typecheck && pnpm build && pnpm css-lint   # WRONG ORDER — see §"Gate 1: Five-Gate automated"; build must precede test
 ```
 
 `pnpm gate:1` is a composite alias added 2026-08-18; both forms are equivalent. Prefer `pnpm gate:1` for one-shot local verification.

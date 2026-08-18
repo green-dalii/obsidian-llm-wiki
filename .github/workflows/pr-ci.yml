@@ -46,11 +46,20 @@ jobs:
       - name: Install (lockfile-pinned)
         run: pnpm install --frozen-lockfile
 
-      - name: Five-Gate (lint + typecheck + test + build + css-lint)
+      - name: Five-Gate (lint + typecheck + build + test + css-lint)
+        # Order is non-negotiable: `build` MUST run before `test`. The test
+        # suite contains build-artifact verifications (e.g.
+        # `src/__tests__/llm-sdk/openai-codex-loopback-flow.test.ts:39` reads
+        # `main.js` to assert the esbuild bundle shape), so a test-first run
+        # fails with ENOENT on a fresh CI clone where `main.js` doesn't exist
+        # yet. Local Gate 1 typically has `main.js` on disk from a prior
+        # `pnpm build:dev`, which is why this ordering bug was missed before
+        # the first CI run. CLAUDE.md §"Gate 1: Five-Gate automated" carries
+        # the corrected order.
         run: |
           set -e
           pnpm lint
           pnpm typecheck
-          pnpm test
           pnpm build
+          pnpm test
           pnpm css-lint
