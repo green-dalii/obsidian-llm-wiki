@@ -56,6 +56,37 @@ describe('extractThinkingBlocks', () => {
     expect(result.visibleContent).toContain('# End');
   });
 
+  // v1.26.4 PATCH #473 — LM Studio / DeepSeek reasoning models emit
+  // chain-of-thought into the visible content channel wrapped only in the
+  // bare ` thinking… response` delimiter (no XML tags). This used to
+  // leak straight into MarkdownRenderer.
+  it('strips bare thinking...response text form (no XML)', () => {
+    const input = ' thinking\n我需要分析这个 Wiki 的健康状况。\n response\n\n## LLM 分析\n\n- 矛盾: A';
+    const result = extractThinkingBlocks(input);
+    expect(result.thinkingBlocks).toEqual(['我需要分析这个 Wiki 的健康状况。']);
+    expect(result.visibleContent).not.toContain('我需要分析');
+    expect(result.visibleContent).toContain('## LLM 分析');
+    expect(result.visibleContent).toContain('- 矛盾: A');
+  });
+
+  it('strips multiple bare thinking blocks in one response', () => {
+    const input = ' thinking\nfirst\n response\n\n- item 1\n\n thinking\nsecond\n response\n\n- item 2';
+    const result = extractThinkingBlocks(input);
+    expect(result.thinkingBlocks).toEqual(['first', 'second']);
+    expect(result.visibleContent).not.toContain('first');
+    expect(result.visibleContent).not.toContain('second');
+  });
+
+  it('leaves bare thinking block incomplete (no response) intact in visible', () => {
+    // Defensive: if the model emits ` thinking\n…` without a closing
+    // ` response`, leave the body visible rather than swallowing the rest.
+    const input = ' thinking\nnever closes\n\n- item 1';
+    const result = extractThinkingBlocks(input);
+    expect(result.thinkingBlocks).toEqual([]);
+    expect(result.visibleContent).toContain('never closes');
+    expect(result.visibleContent).toContain('- item 1');
+  });
+
   it('preserves inline <think> in visible content if block is incomplete (no closing tag)', () => {
     // Defensive: if the model emitted <think> without a closing tag, leave it
     // visible (rather than swallowing everything after).

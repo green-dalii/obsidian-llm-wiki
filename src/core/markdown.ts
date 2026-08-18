@@ -145,7 +145,13 @@ export function extractThinkingBlocks(content: string): {
   // are matched individually rather than as one giant block.
   // Require a closing tag — incomplete blocks (no close) are left in the
   // visible content to avoid swallowing the rest of the response.
-  const blockRegex = /<think(?:ing)?\b[^>]*>[\s\S]*?<\/think(?:ing)?>\s*/gi;
+  // v1.26.4 PATCH #473: also match the BARE ` thinking… response` text
+  // form (no XML tags). LM Studio / DeepSeek reasoning models route
+  // chain-of-thought into the visible content channel wrapped only in the
+  // delimiter. The `<thinking>…</thinking>` XML form is matched by the
+  // first alternation. Both share one regex.
+  const blockRegex =
+    /(?:<think(?:ing)?\b[^>]*>[\s\S]*?<\/think(?:ing)?>\s*|\bthinking\s*\n[\s\S]*?\n\s*response\s*(?=\n|$))/gi;
   const thinkingBlocks: string[] = [];
   let visibleContent = content.replace(blockRegex, (_match) => {
     return '';
@@ -155,9 +161,14 @@ export function extractThinkingBlocks(content: string): {
   // replacement in two passes (strip with whitespace, then collect inner)
   // is simpler than passing through a callback with capture groups.
   const innerRegex = /<think(?:ing)?\b[^>]*>([\s\S]*?)<\/think(?:ing)?>/gi;
+  const bareInnerRegex = /\bthinking\s*\n([\s\S]*?)\n\s*response\s*(?=\n|$)/gi;
   let m: RegExpExecArray | null;
   while ((m = innerRegex.exec(content)) !== null) {
     thinkingBlocks.push(unescapeThinkingTag(m[1].trim()));
+  }
+  let b: RegExpExecArray | null;
+  while ((b = bareInnerRegex.exec(content)) !== null) {
+    thinkingBlocks.push(b[1].trim());
   }
 
   return { thinkingBlocks, visibleContent: visibleContent.trimStart() };
@@ -247,3 +258,4 @@ export function prependReasoningForParse(reasoning: string, text: string): strin
   const safeReasoning = reasoning.replace(/<\/think/gi, '<\\/think');
   return `${safeReasoning}\n\n`;
 }
+

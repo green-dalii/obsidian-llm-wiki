@@ -32,7 +32,6 @@ import { runPreparationPhase } from './phases/preparation';
 import { runProgrammaticPhase } from './phases/programmatic';
 import { runDedupPhase } from './llm-phases/dedup-phase';
 import { runContradictionPhase } from './llm-phases/contradiction-phase';
-import { runAnalysisPhase } from './llm-phases/analysis-phase';
 import { buildLintReport } from './report-builder';
 import { LintContext, LintPhaseContext, ProgrammaticFindings } from './types';
 import { NOTICE_NORMAL, NOTICE_ERROR } from '../../constants';
@@ -215,7 +214,6 @@ export async function runLintWiki(
       findings: findingsWithEmpty,
       duplicates,
       contradictionsReport: '',
-      cleanedLLM: '',
       elapsedSeconds: 0,
       totalPages: wikiFiles.length,
     });
@@ -238,29 +236,31 @@ export async function runLintWiki(
     //
     // v1.25.1 Phase F2 (closes controller.ts:239 TODO from v1.18.0+):
     // analysis-phase.ts makes a single LLM call with token-bounded content
-    // sample (8 pages × 600 chars) — the parallelization question is now
-    // resolved as "single bounded call" (item a-c below remain future
-    // work). Tracked in v1.26.0 lint perf opening (ROADMAP §v1.26.0 row 3).
+    // ---- 6. (removed) LLM analysis phase ----
     //
-    // Historical TODO (single-call strategy adopted; hierarchical + cache
-    // optimizations deferred to v1.26.0):
-    //   a. Hierarchical LLM analysis: page-1 pass summarizes each page into
-    //      a compact signature (~200 tokens), page-2 pass reasons over
-    //      signatures. Total tokens bounded by O(N) but quality is similar.
-    //   b. Skip analysis entirely if programmatic checks found 0 issues
-    //      AND user hasn't enabled "deep analysis" in settings.
-    //   c. Cache the LLM analysis result, only re-run if wiki content
-    //      hash changed since last lint.
-    //   d. Parallel LLM analysis: split the wiki into N chunks, analyze
-    //      each in parallel, merge findings. Reduces wall-clock but uses
-    //      N×tokens. Trade-off for large wikis.
+    // v1.26.4 PATCH #473 follow-up: the LLM analysis section was deleted
+    // entirely from the LintReportModal. Rationale ( Karpathy first
+    // principles + complementary memory model ):
+    //   1. The prompt asks the LLM to judge the whole wiki, but the LLM
+    //      only sees a 5-field WikiStats block + 8 pages of content sample
+    //      (~5 K tokens of the 152 K-token vault). The analysis is
+    //      dishonest: it has to repeat the programmatic findings or invent
+    //      details about pages it never read.
+    //   2. Karpathy's lint design ("ask the LLM to health-check") is
+    //      conversational. The schema-suggest button keeps that path for
+    //      users who want LLM-driven schema recommendations.
+    //   3. The LLM call also surfaced 5 known regressions we kept
+    //      patching instead of removing: duplicate "## LLM 分析" heading,
+    //      leaked chain-of-thought from LM Studio reasoning models,
+    //      nested <ul><ul> rendering, repeated headings, JSON parse
+    //      failures on truncated output. Removing the call removes all of
+    //      them at once.
+    //   4. Lint speed up by ~10-30 s on large wikis (one fewer LLM call).
     //
-    // See ROADMAP.md "Lint performance" section.
-    const cleanedLLM = await runAnalysisPhase(
-      phaseCtx,
-      { wikiFiles, pageMap, progReport },
-      checkCancelled,
-    );
+    // The contradictions phase (above) remains — it surfaces genuinely
+    // LLM-shaped judgements (claim A contradicts claim B), which are
+    // hard to detect programmatically. Schema suggestions remain on the
+    // "Analyze Schema" button (Layer 4 in the modal).
 
     // ---- 7. Combine and display ----
     // Measure elapsed wall time since runLintWiki started. Round to whole
@@ -285,7 +285,7 @@ export async function runLintWiki(
       progReport = aliasPre + progReport;
     }
 
-    const fullReport = `# ${t.lintReportTitle}\n\n> ${summaryText}\n\n${progReport}${contradictionsReport}${cleanedLLM.startsWith('##') ? '' : t.lintLLMAnalysisHeading + '\n\n'}${cleanedLLM}`;
+    const fullReport = `# ${t.lintReportTitle}\n\n> ${summaryText}\n\n${progReport}${contradictionsReport}`;
 
     // v1.24.0: removed the v1.18.0-era "Missing Concept Pages tracker" TODO
     // (24 lines of design notes that had been parked here since 2026-07 and

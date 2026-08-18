@@ -36,7 +36,6 @@ describe('buildLintReport', () => {
       findings: makeFindings(),
       duplicates: [],
       contradictionsReport: '',
-      cleanedLLM: '## LLM analysis\nLooks good.',
       elapsedSeconds: 5,
       totalPages: 10,
     });
@@ -51,7 +50,6 @@ describe('buildLintReport', () => {
       findings: makeFindings(),
       duplicates: [{ target: 'wiki/entities/A.md', source: 'wiki/entities/B.md', reason: 'same name' }],
       contradictionsReport: '',
-      cleanedLLM: 'OK',
       elapsedSeconds: 1,
       totalPages: 5,
     });
@@ -66,7 +64,6 @@ describe('buildLintReport', () => {
       findings: makeFindings({ deadLinks: [{ source: 'entities/X', target: 'entities/Missing' }] }),
       duplicates: [],
       contradictionsReport: '',
-      cleanedLLM: 'OK',
       elapsedSeconds: 1,
       totalPages: 5,
     });
@@ -80,7 +77,6 @@ describe('buildLintReport', () => {
       findings: makeFindings({ orphans: ['wiki/entities/Orphan.md'] }),
       duplicates: [],
       contradictionsReport: '',
-      cleanedLLM: 'OK',
       elapsedSeconds: 1,
       totalPages: 5,
     });
@@ -98,7 +94,6 @@ describe('buildLintReport', () => {
       }),
       duplicates: [],
       contradictionsReport: '',
-      cleanedLLM: 'OK',
       elapsedSeconds: 1,
       totalPages: 5,
     });
@@ -116,7 +111,6 @@ describe('buildLintReport', () => {
       }),
       duplicates: [],
       contradictionsReport: '',
-      cleanedLLM: 'OK',
       elapsedSeconds: 1,
       totalPages: 5,
     });
@@ -130,7 +124,6 @@ describe('buildLintReport', () => {
       findings: makeFindings({ deadLinks: [{ source: 'entities/X', target: 'entities/Y' }] }),
       duplicates: [{ target: 'wiki/entities/Y.md', source: 'wiki/entities/X.md', reason: 'same' }],
       contradictionsReport: '',
-      cleanedLLM: 'OK',
       elapsedSeconds: 1,
       totalPages: 5,
     });
@@ -145,7 +138,6 @@ describe('buildLintReport', () => {
       }),
       duplicates: [],
       contradictionsReport: '',
-      cleanedLLM: 'OK',
       elapsedSeconds: 1,
       totalPages: 5,
     });

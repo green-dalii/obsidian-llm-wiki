@@ -43,7 +43,7 @@ import { assertNotReasoningOnly, normalizeUsage, reportFinish } from './finish-r
 import { buildSamplingArgs } from './sampling-args';
 import { buildOutputArgs } from './output-args';
 import { JSON_ENFORCEMENT_SYSTEM_PREFIX } from './json-prompt-prefix';
-import { prependReasoningForParse } from '../core/markdown';
+import { prependReasoningForParse, wrapReasoningContent } from '../core/markdown';
 import { isPlaceholderJsonText } from '../core/json';
 
 export interface OpenAICompatSdkClientOptions {
@@ -1408,7 +1408,7 @@ export class OpenAICompatSdkClient implements LLMClient {
       }
 
       if (reasoningContent) {
-        fullText = prependReasoningForParse(reasoningContent, fullText);
+        fullText = wrapReasoningContent(reasoningContent, fullText);
       }
       return fullText;
     } catch (err) {
@@ -1452,7 +1452,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           }
         } catch { /* no reasoning */ }
         if (reasoningContent) {
-          fullText = prependReasoningForParse(reasoningContent, fullText);
+          fullText = wrapReasoningContent(reasoningContent, fullText);
         }
         return fullText;
       }
@@ -1512,7 +1512,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         // next call gets a fresh probe.
         this.reasoningStripProber.markStrip(this.baseURL);
         if (reasoningContent) {
-          fullText = prependReasoningForParse(reasoningContent, fullText);
+          fullText = wrapReasoningContent(reasoningContent, fullText);
         }
         return fullText;
       }
@@ -1550,7 +1550,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           }
         } catch { /* no reasoning */ }
         if (reasoningContent) {
-          fullText = prependReasoningForParse(reasoningContent, fullText);
+          fullText = wrapReasoningContent(reasoningContent, fullText);
         }
         return fullText;
       }

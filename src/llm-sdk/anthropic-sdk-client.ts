@@ -30,6 +30,7 @@ import {
 } from '../core/url-fallback';
 import { reportFinish } from './finish-reason';
 import { buildSamplingArgs } from './sampling-args';
+import { wrapReasoningContent } from '../core/markdown';
 
 // Re-export for callers that import from anthropic-sdk-client only.
 // Reuse the same error mapper as OpenAI — AI-SDK's APICallError shape is
@@ -255,7 +256,7 @@ export class AnthropicSdkClient implements LLMClient {
         // No reasoning for this model — ignore.
       }
       if (reasoningContent) {
-        fullText = `<think>\n${reasoningContent}\n</think>\n\n${fullText}`;
+        fullText = wrapReasoningContent(reasoningContent, fullText);
       }
       return fullText;
     } catch (err) {
@@ -297,7 +298,7 @@ export class AnthropicSdkClient implements LLMClient {
           }
         } catch { /* no reasoning */ }
         if (reasoningContent) {
-          fullText = `<think>\n${reasoningContent}\n</think>\n\n${fullText}`;
+          fullText = wrapReasoningContent(reasoningContent, fullText);
         }
         return fullText;
       }

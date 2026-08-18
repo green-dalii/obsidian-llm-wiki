@@ -6,6 +6,7 @@ import { mapAiSdkError } from './openai-sdk-client';
 import type { CodexAuthManager } from './openai-codex/auth-manager';
 import { CODEX_MODELS } from './openai-codex/constants';
 import { normalizeCodexRequest } from './openai-codex/request-adapter';
+import { wrapReasoningContent } from '../core/markdown';
 
 type CodexAuth = Pick<CodexAuthManager, 'getAccess' | 'refreshAfterUnauthorized'>;
 type CodexFetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -136,6 +137,30 @@ export class OpenAICodexSdkClient implements LLMClient {
       for await (const chunk of result.textStream) {
         text += chunk;
         params.onChunk(chunk);
+      }
+      // Match openai-sdk-client / openai-compat-sdk-client / anthropic-sdk-client:
+      // collect the post-stream reasoning channel and wrap as <think> so the
+      // Query UI's extractThinkingPanel renders it as a collapsible <details>
+      // block. Without this, reasoning-capable Codex models (o-series)
+      // appear to "lose" their chain-of-thought in the Query response.
+      let reasoningContent = '';
+      try {
+        const reasoning = await result.reasoning;
+        if (typeof reasoning === 'string' && reasoning) {
+          reasoningContent = reasoning;
+        } else if (Array.isArray(reasoning)) {
+          reasoningContent = reasoning
+            .map((r) => {
+              const t = (r as { text?: unknown }).text;
+              return typeof t === 'string' ? t : '';
+            })
+            .join('');
+        }
+      } catch {
+        /* no reasoning for this provider — ignore */
+      }
+      if (reasoningContent) {
+        text = wrapReasoningContent(reasoningContent, text);
       }
       return text;
     } catch (error) {

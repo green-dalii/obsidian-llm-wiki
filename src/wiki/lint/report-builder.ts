@@ -10,7 +10,6 @@ export interface ReportInput {
   findings: ProgrammaticFindings;
   duplicates: DuplicateResult[];
   contradictionsReport: string;
-  cleanedLLM: string;
   elapsedSeconds: number;
   totalPages: number;
 }
@@ -21,7 +20,7 @@ export interface ReportInput {
  * Pure function: no I/O, no LLM. Easy to unit test by passing fixture findings.
  */
 export function buildLintReport(input: ReportInput): string {
-  const { settings, findings, duplicates, contradictionsReport, cleanedLLM, elapsedSeconds, totalPages } = input;
+  const { settings, findings, duplicates, contradictionsReport, elapsedSeconds, totalPages } = input;
   const t = TEXTS[settings.language];
   const folder = settings.wikiFolder;
 
@@ -226,6 +225,9 @@ export function buildLintReport(input: ReportInput): string {
     progReport = aliasPre + progReport;
   }
 
-  const llmHeading = cleanedLLM.startsWith('##') ? '' : t.lintLLMAnalysisHeading + '\n\n';
-  return `# ${t.lintReportTitle}\n\n> ${summaryText}\n\n${progReport}${contradictionsReport}${llmHeading}${cleanedLLM}`;
+  // v1.26.4 PATCH #473 follow-up: the LLM analysis section was removed
+  // from the LintReportModal entirely (Karpathy first principles —
+  // see controller.ts comment block). The LintReportBody is therefore
+  // pure programmatic findings + contradictions, with no LLM section.
+  return `# ${t.lintReportTitle}\n\n> ${summaryText}\n\n${progReport}${contradictionsReport}`;
 }

@@ -64,46 +64,59 @@ export class LintReportModal extends Modal {
       attr: { style: 'font-weight: bold; margin-bottom: 10px;' }
     });
 
-    // === Layer 1: Alias completion (pre-flight, shown only when needed) ===
-    if (this.counts.pagesMissingAliases > 0 && this.fixCallbacks.onCompleteAliases) {
-      const row = actionSection.createDiv({ attr: { style: 'margin-bottom: 10px;' } });
-      const btn = row.createEl('button', {
-        text: t.lintAliasesCompleteBtn.replace('{count}', String(this.counts.pagesMissingAliases)),
-        cls: 'mod-cta',
-        attr: { style: 'font-weight: bold;' }
-      });
+    // Button-row builder: default style (no `mod-cta`) for per-fix
+    // buttons, optional `mod-cta` for the highlight action. Keeps the
+    // modal visually calm — the user's eyes go to "Smart Fix All" without
+    // every secondary button competing for attention.
+    const makeButton = (
+      parent: HTMLElement,
+      text: string,
+      cta: boolean,
+      click: () => void,
+    ): HTMLButtonElement => {
+      const btn = parent.createEl('button', { text });
+      if (cta) btn.classList.add('mod-cta');
       btn.addEventListener('click', () => {
-        this.fixCallbacks.onCompleteAliases?.();
+        click();
         this.close();
       });
+      return btn;
+    };
+    const rowStyle = 'display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;';
+
+    // === Layer 1: Pre-flight row (alias completion + tag retag share one row) ===
+    const preflightCount =
+      (this.counts.pagesMissingAliases > 0 ? 1 : 0) +
+      (this.counts.tagViolations > 0 ? 1 : 0);
+    if (preflightCount > 0) {
+      const preflightRow = actionSection.createDiv({ attr: { style: rowStyle } });
+      if (this.counts.pagesMissingAliases > 0 && this.fixCallbacks.onCompleteAliases) {
+        makeButton(
+          preflightRow,
+          t.lintAliasesCompleteBtn.replace('{count}', String(this.counts.pagesMissingAliases)),
+          false,
+          () => this.fixCallbacks.onCompleteAliases?.(),
+        );
+      }
+      if (this.counts.tagViolations > 0 && this.fixCallbacks.onRetagViolations) {
+        makeButton(
+          preflightRow,
+          t.lintTagViolationRetagBtn.replace('{count}', String(this.counts.tagViolations)),
+          false,
+          () => this.fixCallbacks.onRetagViolations?.(),
+        );
+      }
     }
 
-    // === Layer 1.5: Issue #85 v7 — Tag violation retag (LLM bulk) ===
-    if (this.counts.tagViolations > 0 && this.fixCallbacks.onRetagViolations) {
-      const row = actionSection.createDiv({ attr: { style: 'margin-bottom: 10px;' } });
-      const btn = row.createEl('button', {
-        text: t.lintTagViolationRetagBtn.replace('{count}', String(this.counts.tagViolations)),
-        cls: 'mod-cta',
-        attr: { style: 'font-weight: bold;' }
-      });
-      btn.addEventListener('click', () => {
-        this.fixCallbacks.onRetagViolations?.();
-        this.close();
-      });
-    }
-
-    // === Layer 1b: Polluted page fix (structural root cause) ===
+    // === Layer 1b: Polluted page fix (structural root cause, optional own row) ===
     if (this.counts.pollutedPages > 0 && this.fixCallbacks.onFixPollutedPages) {
-      const row = actionSection.createDiv({ attr: { style: 'margin-bottom: 10px;' } });
-      const btn = row.createEl('button', {
-        text: t.lintModalFixPolluted.replace('{count}', String(this.counts.pollutedPages)),
-        cls: 'mod-cta',
-        attr: { style: 'font-weight: bold;' }
-      });
-      btn.addEventListener('click', () => {
-        this.fixCallbacks.onFixPollutedPages?.();
-        this.close();
-      });
+      const pollutedRow = actionSection.createDiv({ attr: { style: rowStyle } });
+      makeButton(
+        pollutedRow,
+        t.lintModalFixPolluted.replace('{count}', String(this.counts.pollutedPages)),
+        false,
+        () => this.fixCallbacks.onFixPollutedPages?.(),
+      );
     }
 
     // === Layer 2: Causality-ordered fix buttons (duplicates → dead links → orphans → empty pages) ===
@@ -116,44 +129,39 @@ export class LintReportModal extends Modal {
     ].filter(item => item.count > 0 && item.cb);
 
     if (fixableItems.length > 0) {
-      const fixRow = actionSection.createDiv({
-        attr: { style: 'display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;' }
-      });
+      const fixRow = actionSection.createDiv({ attr: { style: rowStyle } });
       for (const item of fixableItems) {
-        const btn = fixRow.createEl('button', {
-          text: item.text.replace('{count}', String(item.count)),
-          cls: 'mod-cta'
-        });
-        btn.addEventListener('click', () => {
-          item.cb?.();
-          this.close();
-        });
+        makeButton(
+          fixRow,
+          item.text.replace('{count}', String(item.count)),
+          false,
+          () => item.cb?.(),
+        );
       }
     }
 
-    // === Layer 3: Smart Fix All (batched all-in-one) ===
+    // === Layer 3 + 4 (combined row): Smart Fix All (highlight) + Analyze Schema ===
     const totalFixable = this.counts.deadLinks + this.counts.emptyPages + this.counts.orphans + this.counts.duplicates + this.counts.pagesMissingAliases;
-    if (totalFixable > 0 && this.fixCallbacks.onFixAll) {
-      const row = actionSection.createDiv({ attr: { style: 'margin-bottom: 10px;' } });
-      const btn = row.createEl('button', {
-        text: t.lintModalFixAll.replace('{count}', String(totalFixable)),
-        attr: { style: 'font-weight: bold;' }
-      });
-      btn.addEventListener('click', () => {
-        this.fixCallbacks.onFixAll?.();
-        this.close();
-      });
-    }
-
-    // === Layer 4: Schema analysis (independent) ===
-    if (this.fixCallbacks.onAnalyzeSchema) {
-      const row = actionSection.createDiv({ attr: { style: 'margin-top: 8px;' } });
-      row.createEl('button', {
-        text: t.lintModalAnalyzeSchema,
-      }).addEventListener('click', () => {
-        this.fixCallbacks.onAnalyzeSchema?.();
-        this.close();
-      });
+    const hasFixAll = totalFixable > 0 && this.fixCallbacks.onFixAll;
+    const hasAnalyzeSchema = !!this.fixCallbacks.onAnalyzeSchema;
+    if (hasFixAll || hasAnalyzeSchema) {
+      const summaryRow = actionSection.createDiv({ attr: { style: rowStyle } });
+      if (hasFixAll) {
+        makeButton(
+          summaryRow,
+          t.lintModalFixAll.replace('{count}', String(totalFixable)),
+          true, // mod-cta — this is the highlight action
+          () => this.fixCallbacks.onFixAll?.(),
+        );
+      }
+      if (hasAnalyzeSchema) {
+        makeButton(
+          summaryRow,
+          t.lintModalAnalyzeSchema,
+          false,
+          () => this.fixCallbacks.onAnalyzeSchema?.(),
+        );
+      }
     }
   }
 
