@@ -309,6 +309,10 @@ describe('runBatchedWithRetry', () => {
       }),
     });
 
-    expect(result.elapsedMs).toBeGreaterThanOrEqual(30);
+    // GH Actions shared runners (Linux, ubuntu-latest) under load routinely
+    // fire a 30 ms `setTimeout` at 28–29 ms (timing jitter). 5 ms slop keeps the
+    // assertion semantic ("elapsed ≥ mocked sleep duration") without
+    // teaching maintainers to re-run a flake rather than read it.
+    expect(result.elapsedMs).toBeGreaterThanOrEqual(25);
   });
 });
