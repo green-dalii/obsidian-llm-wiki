@@ -482,6 +482,10 @@ export class WikiEngine {
    * `ingestSource` as before.
    */
   async runExtractionOnly(file: TFile): Promise<SourceAnalysis | null> {
+    // Per-file CLI ingest: no batch context, so the slug-catalog path
+    // (#452) is skipped and each call gets a freshly sorted list. The LLM
+    // sees the same prompt shape it always has for this entry point —
+    // prefix-cache savings are zero across single-file calls anyway.
     return this.sourceAnalyzer.analyzeSource(file);
   }
 

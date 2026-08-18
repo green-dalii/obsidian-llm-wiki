@@ -41,7 +41,7 @@ describe('AutoMaintainManager.processBatch — watcher batch context (#164 revie
     // so within-batch dedup never ran and buildIngestedHashes re-walked the vault
     // once per file. The fix mirrors main.ts: one createBatchContext() per batch,
     // threaded through { batchCtx } to each ingest.
-    const batchCtx = { seen: new Set<string>(), ingested: new Set<string>() };
+    const batchCtx = { seen: new Set<string>(), ingested: new Set<string>(), slugCatalog: { base: null, appended: [] as string[] } };
     const createBatchContext = vi.fn<BatchCtxFn>(() => batchCtx);
     const ingestSource = vi.fn<IngestFn>(async () => undefined);
 
