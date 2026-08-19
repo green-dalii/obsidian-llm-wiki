@@ -1,6 +1,6 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-08-14
+**Last Updated:** 2026-08-19
 
 **Current state pointer:** see [ROADMAP.md](./ROADMAP.md#current-status) for active development phase + [CHANGELOG.md](./CHANGELOG.md) for shipped history. CLAUDE.md carries process standards only.
 
@@ -251,8 +251,8 @@ Every change via `Read` + `Edit` — no sed/awk/python for code or document edit
 
 ## 🌍 Internationalization
 
-- **UI**: 10 languages, 277+ fields
-- **Wiki output**: 10 languages + custom input
+- **UI**: 11 locales (EN canonical + 10 translations: ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT/RU; Russian added v1.26.0 PR #397), 277+ fields per locale
+- **Wiki output**: 11 languages independent of UI + custom input option
 - **Code**: English only, minimal comments
 - **User-facing strings** = user language, not implementation language
 

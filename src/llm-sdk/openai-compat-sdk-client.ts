@@ -39,7 +39,7 @@ import {
 import { TokenKeyProber } from './token-key-probe';
 import { ReasoningStripProber } from './reasoning-strip-probe';
 import { OutputModeProber, type OutputMode } from './output-mode-prober';
-import { assertNotReasoningOnly, normalizeUsage, reportFinish } from './finish-reason';
+import { assertNotReasoningOnly, normalizeUsage, reportFinish, extractReasoningText } from './finish-reason';
 import { buildSamplingArgs } from './sampling-args';
 import { buildOutputArgs } from './output-args';
 import { JSON_ENFORCEMENT_SYSTEM_PREFIX } from './json-prompt-prefix';
@@ -1497,12 +1497,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         }
         let reasoningContent = '';
         try {
-          const reasoning = await result.reasoning;
-          if (typeof reasoning === 'string' && reasoning) {
-            reasoningContent = reasoning;
-          } else if (Array.isArray(reasoning)) {
-            reasoningContent = reasoning.map((r) => (r as { text?: string }).text || '').join('');
-          }
+          reasoningContent = extractReasoningText(await result.reasoning);
         } catch { /* no reasoning */ }
         if (reasoningContent) {
           fullText = wrapReasoningContent(reasoningContent, fullText);
@@ -1552,12 +1547,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         }
         let reasoningContent = '';
         try {
-          const reasoning = await result.reasoning;
-          if (typeof reasoning === 'string' && reasoning) {
-            reasoningContent = reasoning;
-          } else if (Array.isArray(reasoning)) {
-            reasoningContent = reasoning.map((r) => (r as { text?: string }).text || '').join('');
-          }
+          reasoningContent = extractReasoningText(await result.reasoning);
         } catch { /* no reasoning */ }
         // Bug-3: markStrip AFTER the retry succeeds. If the stream
         // throws (network blip, transient 5xx), the cache is not
@@ -1595,12 +1585,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         }
         let reasoningContent = '';
         try {
-          const reasoning = await result.reasoning;
-          if (typeof reasoning === 'string' && reasoning) {
-            reasoningContent = reasoning;
-          } else if (Array.isArray(reasoning)) {
-            reasoningContent = reasoning.map((r) => (r as { text?: string }).text || '').join('');
-          }
+          reasoningContent = extractReasoningText(await result.reasoning);
         } catch { /* no reasoning */ }
         if (reasoningContent) {
           fullText = wrapReasoningContent(reasoningContent, fullText);

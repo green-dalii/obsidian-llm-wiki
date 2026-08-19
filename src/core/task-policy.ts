@@ -135,6 +135,9 @@ export function parseTaskPolicySpec(spec: string): TaskPolicyMap {
       throw new Error(`task policy: expected "task=mode[:thinking]", got "${entry}"`);
     }
     const task = entry.slice(0, eq).trim();
+    if (task === '') {
+      throw new Error(`task policy: empty task name in "${entry}"`);
+    }
     const [rawMode = '', rawThinking = '-'] = entry.slice(eq + 1).trim().split(':');
     const outputMode = MODE_ALIASES[rawMode.trim()];
     const thinking = THINKING_ALIASES[rawThinking.trim()];

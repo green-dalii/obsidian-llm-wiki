@@ -151,7 +151,7 @@ export function extractThinkingBlocks(content: string): {
   // delimiter. The `<thinking>…</thinking>` XML form is matched by the
   // first alternation. Both share one regex.
   const blockRegex =
-    /(?:<think(?:ing)?\b[^>]*>[\s\S]*?<\/think(?:ing)?>\s*|\bthinking\s*\n[\s\S]*?\n\s*response\s*(?=\n|$))/gi;
+    /(?:<think(?:ing)?\b[^>]*>[\s\S]*?<\/think(?:ing)?>\s*|\b[Tt]hinking\s*\n[\s\S]*?\n\s*[Rr]esponse\s*(?=\n|$))/gi;
   const thinkingBlocks: string[] = [];
   let visibleContent = content.replace(blockRegex, (_match) => {
     return '';
@@ -161,7 +161,7 @@ export function extractThinkingBlocks(content: string): {
   // replacement in two passes (strip with whitespace, then collect inner)
   // is simpler than passing through a callback with capture groups.
   const innerRegex = /<think(?:ing)?\b[^>]*>([\s\S]*?)<\/think(?:ing)?>/gi;
-  const bareInnerRegex = /\bthinking\s*\n([\s\S]*?)\n\s*response\s*(?=\n|$)/gi;
+  const bareInnerRegex = /\b[Tt]hinking\s*\n([\s\S]*?)\n\s*[Rr]esponse\s*(?=\n|$)/gi;
   let m: RegExpExecArray | null;
   while ((m = innerRegex.exec(content)) !== null) {
     thinkingBlocks.push(unescapeThinkingTag(m[1].trim()));

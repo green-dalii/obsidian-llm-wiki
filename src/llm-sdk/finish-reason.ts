@@ -74,6 +74,28 @@ export function reportFinish(
 }
 
 /**
+ * Lift the SDK's reasoning-channel content onto a string.
+ *
+ * The SDK's `result.reasoning` is either a string (most providers) or an
+ * array of `{ text }` parts (anthropic). Both shapes appear across the
+ * 4 SDK clients (openai / openai-compat / openai-codex / anthropic). Centralised
+ * here so each client carries the same shape-checking logic instead of
+ * copying the `typeof === 'string'` / `Array.isArray` branching.
+ */
+export function extractReasoningText(reasoning: unknown): string {
+  if (typeof reasoning === 'string') return reasoning;
+  if (Array.isArray(reasoning)) {
+    return reasoning
+      .map((r) => {
+        const t = (r as { text?: unknown }).text;
+        return typeof t === 'string' ? t : '';
+      })
+      .join('');
+  }
+  return '';
+}
+
+/**
  * Issue #470: restore the reasoning-only guard that shipped in v1.19.0 for
  * Issue #99 and was dropped with `src/llm-client.ts` in the v1.23.0 AI-SDK
  * migration.
