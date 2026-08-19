@@ -9,7 +9,22 @@ listed in alphabetical order by GitHub handle:
 - DocTpoint — ingest reliability fixes, #383 folder-boundary follow-up
   analysis, source-slug = page-lemma deterministic merge (PR #357, #348),
   vault-wide link retarget for `mergeDuplicates` (PR #392, #386),
-  and `created:` provenance fix (PR #396, #388)
+  `created:` provenance fix (PR #396, #388), headless-CLI request path on
+  `node:http` so a slow local model is not truncated (PR #418), H1
+  re-assertion after an LLM body rewrite and H1-by-position (PR #422, #437,
+  Issue #419, #435), the parse-failure result type that makes a broken
+  response distinguishable from an empty one (PR #436, #444, Issue #407),
+  order-independent resolution of ambiguous designators and the removal of
+  the alias latch on the ambiguous fallback (PR #471, #478, Issue #446),
+  runtime tag-vocabulary deferral in the empty-page lint prompt (PR #460,
+  Issue #459), run-scoped extraction catalog for prompt-cache stability
+  (PR #483, Issue #452), staged extraction payload so the ingest prompt is
+  a function of the note rather than of the vault (PR #484, Issue #482),
+  per-step output mode and thinking policy (PR #490, Issue #481),
+  restoration of the reasoning-only response guard dropped in the v1.23.0
+  AI-SDK migration (PR #488, Issue #470), section-shaped contradiction
+  clamp that restores withheld content (PR #492), and issue reports #403,
+  #407, #423, #424, #443, #446, #449, #452, #463, #470, #481, #482
 - eucher — headless ingest CLI implementation (PR #372,
   `feat(tools): headless ingest CLI for running the engine under Node`),
   CLI sampling/thinking controls, plugin source resolution,
