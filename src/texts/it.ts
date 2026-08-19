@@ -502,7 +502,6 @@ export const IT_TEXTS = {
     // completato" — il retry recupera solo questo batch.
     llmRetryRecoveredToast: 'Attività LLM: {count} batch hanno richiesto un nuovo tentativo a causa di una risposta transitoria del provider. Vedi la console per i dettagli. Se questo si ripete, riduci Page Generation Concurrency nelle impostazioni del provider.',
     ingestReportFailedGuidance: 'Questi elementi non sono stati creati automaticamente. Puoi creare manualmente le pagine corrispondenti, oppure abbassare la granularità di estrazione e ri-acquisire il file sorgente.',
-    ingestReportCollisions: 'Collisioni inter-tipo (unite come alias)',
 
     // Nomi Comandi (sentence case secondo la regola 1 dell'Obsidian Bot)
     cmdIngestSource: 'Acquisisci singola sorgente',
@@ -543,7 +542,6 @@ export const IT_TEXTS = {
     lintStageContradiction: 'Rilevamento delle contraddizioni',
     ingestionCancelling: 'Annullamento — si fermerà al completamento del batch corrente',
     ingestionCancelled: 'Acquisizione annullata',
-    crossTypeCollisionNotice: '{count} elementi uniti come alias inter-tipo (duplicati entità ↔ concetto prevenuti)',
     // v1.26.3 PATCH follow-up (B2.5): status-bar progress text i18n
     ingestBatchInitial: 'Analisi batch 1/{total}...',
     ingestBatchProgress: 'Analisi batch {current}/{total} ({entities} entità, {concepts} concetti finora)...',

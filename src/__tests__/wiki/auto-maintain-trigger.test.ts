@@ -20,7 +20,6 @@ describe('IngestReport.trigger dispatch (v1.22.6 #204)', () => {
       entitiesCreated: 0,
       conceptsCreated: 0,
       failedItems: [],
-      collisions: [],
       contradictionsFound: 0,
       success: true,
     };
@@ -35,7 +34,6 @@ describe('IngestReport.trigger dispatch (v1.22.6 #204)', () => {
       entitiesCreated: 0,
       conceptsCreated: 1,
       failedItems: [],
-      collisions: [],
       contradictionsFound: 0,
       success: true,
       trigger: 'auto',
@@ -51,7 +49,6 @@ describe('IngestReport.trigger dispatch (v1.22.6 #204)', () => {
       entitiesCreated: 1,
       conceptsCreated: 0,
       failedItems: [],
-      collisions: [],
       contradictionsFound: 0,
       success: true,
       trigger: 'manual',
@@ -88,7 +85,6 @@ function baseReport(): IngestReport {
     entitiesCreated: 0,
     conceptsCreated: 0,
     failedItems: [],
-    collisions: [],
     contradictionsFound: 0,
     success: true,
   };

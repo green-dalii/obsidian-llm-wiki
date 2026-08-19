@@ -494,7 +494,6 @@ export const DE_TEXTS = {
     // möglicherweise noch.
     llmRetryRecoveredToast: 'LLM-Aufgabe: {count} Batch(es) wurden wegen einer vorübergehenden Provider-Antwort wiederholt. Details in der Konsole. Falls dies häufiger auftritt, reduziere die Page Generation Concurrency in den Provider-Einstellungen.',
     ingestReportFailedGuidance: 'Diese Elemente konnten nicht automatisch erstellt werden. Du kannst die entsprechenden Seiten manuell erstellen oder die Extraktions-Granularität senken und die Quelldatei erneut aufnehmen.',
-    ingestReportCollisions: 'Cross-Type-Kollisionen (als Aliase zusammengeführt)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Einzelne Quelle aufnehmen',
@@ -535,7 +534,6 @@ export const DE_TEXTS = {
     lintStageContradiction: 'Widersprüche werden erkannt',
     ingestionCancelling: 'Wird abgebrochen — Stopp nach aktuellem Batch',
     ingestionCancelled: 'Aufnahme abgebrochen',
-    crossTypeCollisionNotice: '{count} Einträge als Cross-Type-Alias zusammengeführt (Entity ↔ Concept Duplikate verhindert)',
     // v1.26.3 PATCH follow-up (B2.5): status-bar progress text i18n
     ingestBatchInitial: 'Analyse Batch 1/{total}...',
     ingestBatchProgress: 'Analyse Batch {current}/{total} ({entities} Entitäten, {concepts} Konzepte bisher)...',

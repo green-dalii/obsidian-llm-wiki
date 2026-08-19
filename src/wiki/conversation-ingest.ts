@@ -94,7 +94,6 @@ export class ConversationIngestor {
             entitiesCreated: 0,
             conceptsCreated: 0,
             failedItems: [],
-            collisions: [],
             contradictionsFound: 0,
             success: true,
             errorMessage: 'Knowledge already exists in Wiki',
@@ -257,7 +256,6 @@ CRITICAL RULES:
     parsed.created_pages.push(summaryPath);
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
-    const collisions: Array<{ name: string; sourceType: 'entity' | 'concept'; targetType: 'entity' | 'concept'; targetPath: string }> = [];
 
     for (const entity of parsed.entities) {
       await this.orch.apiDelay();
@@ -269,9 +267,6 @@ CRITICAL RULES:
         if (entityResult.path) {
           (entityResult.created ? parsed.created_pages : parsed.updated_pages)
             .push(entityResult.path);
-        }
-        if (entityResult.collision) {
-          collisions.push(entityResult.collision);
         }
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -290,9 +285,6 @@ CRITICAL RULES:
         if (conceptResult.path) {
           (conceptResult.created ? parsed.created_pages : parsed.updated_pages)
             .push(conceptResult.path);
-        }
-        if (conceptResult.collision) {
-          collisions.push(conceptResult.collision);
         }
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -316,7 +308,6 @@ CRITICAL RULES:
       entitiesCreated,
       conceptsCreated,
       failedItems,
-      collisions,
       contradictionsFound: parsed.contradictions?.length || 0,
       success: true,
       elapsedSeconds: Math.round((Date.now() - startTime) / 1000),

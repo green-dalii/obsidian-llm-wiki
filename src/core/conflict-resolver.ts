@@ -37,9 +37,6 @@ export type ConflictAction = 'create' | 'merge' | 'flag' | 'disambiguate';
 export interface ConflictResolution {
   action: ConflictAction;
   targetPath: string;           // path to create or existing page to merge into
-  existingPath?: string;        // only when action is 'merge' or 'flag'
-  existingType?: PageType;      // type of the existing page (for cross-type collisions)
-  aliasToAdd?: string | null;   // alias to add (null = redundant with title/filename)
   confidence: 'high' | 'medium' | 'low';
   reason: string;
   /**
@@ -55,10 +52,6 @@ export interface ConflictResolution {
 
 function folderOf(pageType: PageType): string {
   return pageType === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
-}
-
-function oppositeFolder(pageType: PageType): string {
-  return pageType === 'entity' ? WIKI_SUBFOLDERS.concepts : WIKI_SUBFOLDERS.entities;
 }
 
 /** Return the slug-match key for a page: its title's slug + its alias slugs. */
@@ -114,14 +107,11 @@ export class ConflictResolver {
    * 2. Same-type slug/alias match on exactly one page → merge into that page
    * 3. Same-type slug/alias match on more than one page → 'disambiguate'
    *    with `candidates` ranked by tag overlap (Issue #446)
-   * 4. Cross-type slug/alias match → merge into opposite-folder page
-   * 5. No match → create new page
+   * 4. No match → create new page
    */
   resolve(check: ConflictCheck): ConflictResolution {
     const folder = folderOf(check.pageType);
-    const otherFolder = oppositeFolder(check.pageType);
     const sameTypePages = this.allPages.filter(p => p.path.includes(`/${folder}/`));
-    const otherTypePages = this.allPages.filter(p => p.path.includes(`/${otherFolder}/`));
     const checkKey = check.slug.toLowerCase();
 
     // 1. Same-type match: exact path match or slug/alias match
@@ -161,34 +151,7 @@ export class ConflictResolver {
       };
     }
 
-    // 2. Cross-type match: exists in opposite folder
-    //
-    // Issue #446: the same designators collide here, only from the other side —
-    // when the extraction classifies `DHA` as a concept, the two entity pages
-    // that carry it are cross-type matches and there are no same-type ones. The
-    // ambiguity is identical; only the contract differs, because this branch
-    // reports a collision the caller merges into rather than a path it writes.
-    // Ranking the matches keeps that contract and drops the dependency on list
-    // order. Routing a cross-type ambiguity to the semantic dedup would be the
-    // fuller answer, but that call is same-type by construction and gets its
-    // own design.
-    const otherExactPath = `${this.wikiFolder}/${otherFolder}/${check.slug}.md`;
-    const crossMatches = otherTypePages.filter(p => p.path === otherExactPath || slugMatchKeys(p).has(checkKey));
-    if (crossMatches.length > 0) {
-      const [best] = rankByTagOverlap(crossMatches, check.tags);
-      return {
-        action: 'merge',
-        targetPath: best.path,
-        existingPath: best.path,
-        existingType: otherFolder === WIKI_SUBFOLDERS.entities ? 'entity' : 'concept',
-        aliasToAdd: check.name !== best.title ? check.name : null,
-        confidence: crossMatches.length > 1 ? 'medium' : 'high',
-        reason: `Cross-type collision: ${check.pageType} "${check.name}" → ${best.path}`
-          + (crossMatches.length > 1 ? ` (${crossMatches.length} candidates, ranked)` : ''),
-      };
-    }
-
-    // 3. No match — create new
+    // 2. No match — create new
     return {
       action: 'create',
       targetPath: `${this.wikiFolder}/${folder}/${check.slug}.md`,

@@ -541,7 +541,7 @@ export interface SchemaSuggestion {
 
 // Ingestion report passed to onDone callback
 
-// Result of page creation/update, with optional collision info
+// Result of page creation/update
 export interface PageCreationResult {
   path: string | null;
   /**
@@ -554,12 +554,6 @@ export interface PageCreationResult {
    * not be reported as creations.
    */
   created: boolean;
-  collision?: {
-    name: string;
-    sourceType: 'entity' | 'concept';
-    targetType: 'entity' | 'concept';
-    targetPath: string;
-  };
 }
 
 export interface IngestReport {
@@ -569,7 +563,6 @@ export interface IngestReport {
   entitiesCreated: number;
   conceptsCreated: number;
   failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }>;
-  collisions: Array<{ name: string; sourceType: 'entity' | 'concept'; targetType: 'entity' | 'concept'; targetPath: string }>;
   contradictionsFound: number;
   success: boolean;
   errorMessage?: string;

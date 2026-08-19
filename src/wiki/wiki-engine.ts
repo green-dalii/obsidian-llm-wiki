@@ -563,7 +563,6 @@ export class WikiEngine {
       entitiesCreated: 0,
       conceptsCreated: 0,
       failedItems: [],
-      collisions: [],
       contradictionsFound: 0,
       success: true,
       skipped: true,
@@ -883,7 +882,6 @@ export class WikiEngine {
     );
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
-    const collisions: Array<{ name: string; sourceType: 'entity' | 'concept'; targetType: 'entity' | 'concept'; targetPath: string }> = [];
     let analysis: SourceAnalysis | null = null;
 
     try {
@@ -1002,13 +1000,6 @@ export class WikiEngine {
                 (entityResult.created ? analysis!.created_pages : analysis!.updated_pages)
                   .push(entityResult.path);
               }
-              if (entityResult.collision) {
-                console.debug(`Entity "${entity.name}" → collision with ${entityResult.collision.targetType}`);
-                return {
-                  success: true as const,
-                  collision: entityResult.collision,
-                };
-              }
               return { success: true as const };
             } catch (error) {
               const reason = error instanceof Error ? error.message : String(error);
@@ -1022,13 +1013,6 @@ export class WikiEngine {
             if (conceptResult.path) {
               (conceptResult.created ? analysis!.created_pages : analysis!.updated_pages)
                 .push(conceptResult.path);
-            }
-            if (conceptResult.collision) {
-              console.debug(`Concept "${concept.name}" → collision with ${conceptResult.collision.targetType}`);
-              return {
-                success: true as const,
-                collision: conceptResult.collision,
-              };
             }
             return { success: true as const };
           } catch (error) {
@@ -1048,9 +1032,6 @@ export class WikiEngine {
           name: f.id.split(':')[1] ?? f.id,
           reason: f.reason,
         });
-      }
-      for (const c of pageGenResult.collisions) {
-        collisions.push(c);
       }
       if (pageGenResult.rateLimitInfo) {
         console.warn(
@@ -1174,7 +1155,7 @@ export class WikiEngine {
       // totalTime was computed above; do not redeclare here.
 
       console.debug('=== Ingestion complete ===');
-      console.debug(`Ingestion complete [${modeLabel}]: Created ${dedupedCreatedPages.length} pages (${entitiesCreated} entities + ${conceptsCreated} concepts), Updated ${updated} pages, ${collisions.length} cross-type collisions`);
+      console.debug(`Ingestion complete [${modeLabel}]: Created ${dedupedCreatedPages.length} pages (${entitiesCreated} entities + ${conceptsCreated} concepts), Updated ${updated} pages`);
       console.debug(`[Total time] ${totalTime}ms (${Math.round(totalTime/1000)}s)`);
       console.debug('[Phase breakdown]:');
       console.debug(`  - Source analysis: ${analysisTime}ms`);
@@ -1192,12 +1173,6 @@ export class WikiEngine {
         for (const line of llmByTask) console.debug(line);
       }
 
-      // Show collision notice if any occurred
-      if (collisions.length > 0) {
-        new Notice(getText(this.settings.language, 'crossTypeCollisionNotice')
-          .replace('{count}', String(collisions.length)), NOTICE_NORMAL);
-      }
-
       this.onDone?.({
         sourceFile: file.path,
         createdPages: dedupedCreatedPages,
@@ -1205,7 +1180,6 @@ export class WikiEngine {
         entitiesCreated,
         conceptsCreated,
         failedItems,
-        collisions,
         contradictionsFound: analysis.contradictions.length,
         success: true,
         elapsedSeconds: Math.round(totalTime / 1000),
@@ -1227,7 +1201,6 @@ export class WikiEngine {
           entitiesCreated: createdPages.filter(p => p.includes('/entities/')).length,
           conceptsCreated: createdPages.filter(p => p.includes('/concepts/')).length,
           failedItems,
-          collisions,
           contradictionsFound: analysis?.contradictions?.length || 0,
           success: false,
           cancelled: true,
@@ -1250,7 +1223,6 @@ export class WikiEngine {
         entitiesCreated: createdPages.filter(p => p.includes('/entities/')).length,
         conceptsCreated: createdPages.filter(p => p.includes('/concepts/')).length,
         failedItems,
-        collisions,
         contradictionsFound: analysis?.contradictions?.length || 0,
         success: false,
         errorMessage: errorMsg,

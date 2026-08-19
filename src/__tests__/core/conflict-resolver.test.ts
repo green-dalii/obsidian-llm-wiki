@@ -28,28 +28,32 @@ describe('ConflictResolver', () => {
     expect(result.targetPath).toBe('wiki/entities/foo.md');
   });
 
+  // Issue #472: a designator is `(letters, type)`. The same letters under the
+  // other type denote a different thing — `CR` is chromium as an entity and
+  // caloric restriction as a concept — so the opposite folder is not a merge
+  // target and not a reason to withhold the page. This test's NAME said so
+  // before its body did.
   it('returns create when only opposite-type page exists (cross-type considered distinct)', () => {
     const r = new ConflictResolver(WIKI_FOLDER, pages(['concepts/foo.md']));
     const result = r.resolve({ name: 'Foo', slug: 'foo', pageType: 'entity' });
-    expect(result.action).toBe('merge');    // cross-type collision → merge into concept
-    expect(result.reason).toContain('Cross-type');
+    expect(result.action).toBe('create');
+    expect(result.targetPath).toBe('wiki/entities/foo.md');
   });
 
-  it('returns merge with correct target when cross-type match exists', () => {
+  it('creates in its own folder even when the opposite folder holds the designator', () => {
     const r = new ConflictResolver(WIKI_FOLDER, pages(['concepts/foo.md', 'entities/bar.md']));
     const result = r.resolve({ name: 'Foo', slug: 'foo', pageType: 'entity' });
-    expect(result.action).toBe('merge');
-    expect(result.targetPath).toBe('wiki/concepts/foo.md');
-    expect(result.existingType).toBe('concept');
+    expect(result.action).toBe('create');
+    expect(result.targetPath).toBe('wiki/entities/foo.md');
   });
 
-  it('matches by alias in same page', () => {
+  it('does not match an opposite-type page by alias', () => {
     const r = new ConflictResolver(WIKI_FOLDER, [
       { path: 'wiki/entities/llm.md', title: 'LLM', aliases: ['Large Language Model'] },
     ]);
     const result = r.resolve({ name: 'Large Language Model', slug: 'large-language-model', pageType: 'concept' });
-    expect(result.action).toBe('merge');
-    expect(result.reason).toContain('Cross-type');
+    expect(result.action).toBe('create');
+    expect(result.targetPath).toBe('wiki/concepts/large-language-model.md');
   });
 
   it('selects correct high-confidence for same-type match', () => {
@@ -59,11 +63,11 @@ describe('ConflictResolver', () => {
     expect(result.targetPath).toBe('wiki/entities/vigilanz.md');  // same-type preferred
   });
 
-  it('handles case-insensitive slug collisions', () => {
+  it('does not reach into entities/ for a concept of the same name', () => {
     const r = new ConflictResolver(WIKI_FOLDER, pages(['entities/chain-of-thought.md', 'entities/chain-of-thought.md']));
     const result = r.resolve({ name: 'chain of thought', slug: 'chain-of-thought', pageType: 'concept' });
-    expect(result.action).toBe('merge');
-    expect(result.reason).toContain('Cross-type');
+    expect(result.action).toBe('create');
+    expect(result.targetPath).toBe('wiki/concepts/chain-of-thought.md');
   });
 });
 

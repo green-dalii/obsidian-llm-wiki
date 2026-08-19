@@ -493,7 +493,6 @@ export const PT_TEXTS = {
     // "Lint concluído" — a nova tentativa recupera apenas este lote.
     llmRetryRecoveredToast: 'Tarefa LLM: {count} lote(s) precisaram de nova tentativa devido a uma resposta transitória do provedor. Veja o console para detalhes. Se isso se repetir, reduza Page Generation Concurrency nas configurações do provedor.',
     ingestReportFailedGuidance: 'Estes itens não puderam ser criados automaticamente. Você pode criar as páginas manualmente ou reduzir a granularidade da extração e reingerir o arquivo fonte.',
-    ingestReportCollisions: 'Colisões cross-type (fundidas como alias)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Ingerir fonte individual',
@@ -534,7 +533,6 @@ export const PT_TEXTS = {
     lintStageContradiction: 'Detectando contradições',
     ingestionCancelling: 'Cancelando — irá parar após o lote atual',
     ingestionCancelled: 'Ingestão cancelada',
-    crossTypeCollisionNotice: '{count} elementos fundidos como alias cross-type (duplicatas entidade ↔ conceito evitadas)',
     // v1.26.3 PATCH follow-up (B2.5): status-bar progress text i18n
     ingestBatchInitial: 'Analisando lote 1/{total}...',
     ingestBatchProgress: 'Analisando lote {current}/{total} ({entities} entidades, {concepts} conceitos até agora)...',

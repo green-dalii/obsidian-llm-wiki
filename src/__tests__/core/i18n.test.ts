@@ -17,9 +17,9 @@ describe('getText', () => {
   });
 
   it('performs single placeholder replacement', () => {
-    const result = getText('en', 'crossTypeCollisionNotice', { count: '3' });
+    const result = getText('en', 'lintReadingPages', { count: '3' });
     expect(result).toContain('3');
-    expect(result).toContain('merged');
+    expect(result).toContain('Wiki pages');
   });
 
   it('performs multiple placeholder replacements', () => {

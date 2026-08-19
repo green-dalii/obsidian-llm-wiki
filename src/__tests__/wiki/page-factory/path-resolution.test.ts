@@ -59,32 +59,26 @@ describe('resolvePagePath — exact-slug fast path', () => {
     // slugCase='preserve' keeps the original case in the slug.
     const result = await resolvePagePath(ctx, 'Karpathy', 'entity', 'summary');
     expect(result.path).toBe('wiki/entities/Karpathy.md');
-    expect(result.collision).toBeUndefined();
   });
 
-  it('appends an alias when a cross-type duplicate (concepts/ + entities/) exists', async () => {
-    // Both folders have a page with slug "Karpathy" → fast-path's existing
-    // check hits AND the other-folder cross-type check also hits, triggering
-    // appendAliases on the OPPOSITE folder.
+  it('leaves the opposite-folder page untouched when both folders hold the slug', async () => {
+    // Issue #472: the fast path used to probe the opposite folder and, on a
+    // hit, write the extracted name onto that page as an alias — "bridging"
+    // the two. A multi-word name survives `filterRedundantAliases` (which
+    // compares against the basename, not the slug), so the write was real: it
+    // put this name into the other type's namespace, after which the two pages
+    // matched each other on every later ingest. The opposite page is now
+    // neither read nor written.
+    const conceptBefore = '---\ntitle: Deep-Learning\n---\n\n# concepts/';
     const ctx = makeCtx({
       files: {
-        'wiki/concepts/Karpathy.md': '---\ntitle: Karpathy\n---\n\n# concepts/',
-        'wiki/entities/Karpathy.md': '---\ntitle: Karpathy\n---\n\n# entity',
+        'wiki/concepts/Deep-Learning.md': conceptBefore,
+        'wiki/entities/Deep-Learning.md': '---\ntitle: Deep-Learning\n---\n\n# entity',
       },
     });
-    // Name "Karpathy" slugifies to "Karpathy" (preserve case) → existing
-    // slugPath check returns non-null → cross-type branch → appendAliases
-    // is called with [name="Karpathy"]. But filterRedundantAliases drops
-    // "Karpathy" because it equals the basename case-insensitively, so the
-    // alias no-ops. We use a distinct alias string via the slug-mismatch
-    // route: name "KarpathyAlias" but pre-existing slugPath must still hit.
-    // Easier: pre-create the alias-matching page directly via the LLM
-    // fallback path. We test that branch separately; here we assert the
-    // no-op behavior for the canonical "same name" cross-type case.
-    const result = await resolvePagePath(ctx, 'Karpathy', 'entity', 'summary');
-    // slugPath exists → fast-path returns it; the cross-type alias was a
-    // no-op because name === basename (case-insensitive).
-    expect(result.path).toBe('wiki/entities/Karpathy.md');
+    const result = await resolvePagePath(ctx, 'Deep Learning', 'entity', 'summary');
+    expect(result.path).toBe('wiki/entities/Deep-Learning.md');
+    expect(ctx.written.get('wiki/concepts/Deep-Learning.md')).toBe(conceptBefore);
   });
 });
 
@@ -297,21 +291,14 @@ describe('resolvePagePath — LLM semantic dedup fallback', () => {
   });
 });
 
-describe('resolvePagePath — collision shape (cross-type)', () => {
-  it('returns path=null + collision when ConflictResolver flags Cross-type', async () => {
+describe('resolvePagePath — the opposite type is a different designator (#472)', () => {
+  it('creates in its own folder when only the opposite folder holds the name', async () => {
     const ctx = makeCtx({
       files: {
         'wiki/concepts/Cross.md': '# concept exists',
       },
     });
     const result = await resolvePagePath(ctx, 'Cross', 'entity', 'desc');
-    if (result.collision) {
-      expect(result.path).toBeNull();
-      expect(result.collision.sourceType).toBe('entity');
-      expect(result.collision.targetType).toBe('concept');
-      expect(result.collision.targetPath).toBe('wiki/concepts/Cross.md');
-    }
-    // Either way, the result should be a slug OR a collision — never both.
-    expect(result.path === null || result.collision === undefined).toBe(true);
+    expect(result.path).toBe('wiki/entities/Cross.md');
   });
 });

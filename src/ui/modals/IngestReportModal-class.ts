@@ -7,11 +7,10 @@
 //   3. Skipped files (batch ingest only)
 //   4. Elapsed time
 //   5. Stats (created / updated / contradictions)
-//   6. Collisions (if any)
-//   7. Created / updated / failed page lists
-//   8. Rejected / skipped files (requirements gate, #164)
-//   9. Error message (if any)
-//   10. Close button
+//   6. Created / updated / failed page lists
+//   7. Rejected / skipped files (requirements gate, #164)
+//   8. Error message (if any)
+//   9. Close button
 //
 // Extracted from the original `src/ui/modals.ts` god file (PR split).
 // No behavior change — pure code movement.
@@ -44,7 +43,7 @@ export class IngestReportModal extends Modal {
   }
 
   onOpen() {
-    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, collisions, elapsedSeconds, skippedFiles, totalFilesInFolder, rejectedFiles } = this.report;
+    const { sourceFile, createdPages, updatedPages, entitiesCreated, conceptsCreated, failedItems, contradictionsFound, success, errorMessage, elapsedSeconds, skippedFiles, totalFilesInFolder, rejectedFiles } = this.report;
 
     const statusEmoji = success ? '✅' : '⚠️';
     this.contentEl.createEl('h2', { text: `${statusEmoji} ${this.t('ingestReportTitle')}` });
@@ -80,17 +79,6 @@ export class IngestReportModal extends Modal {
     statsEl.createEl('p', { text: this.t('ingestReportUpdatedPages').replace('{count}', String(updatedPages.length)) });
     if (contradictionsFound > 0) {
       statsEl.createEl('p', { text: this.t('ingestReportContradictionsFound').replace('{count}', String(contradictionsFound)) });
-    }
-
-    // Collisions
-    if (collisions && collisions.length > 0) {
-      this.contentEl.createEl('h3', { text: '🔀 ' + this.t('ingestReportCollisions') + ` (${collisions.length})` });
-      const list = this.contentEl.createEl('ul');
-      for (const c of collisions) {
-        const sourceTypeLabel = c.sourceType === 'entity' ? this.t('ingestReportEntityType') : this.t('ingestReportConceptType');
-        const targetTypeLabel = c.targetType === 'entity' ? this.t('ingestReportEntityType') : this.t('ingestReportConceptType');
-        list.createEl('li', { text: `"${c.name}" (${sourceTypeLabel}) → ${targetTypeLabel}` });
-      }
     }
 
     // Created pages

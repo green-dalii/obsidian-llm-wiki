@@ -110,7 +110,9 @@ describe('PageFactory — Core Paths', () => {
       expect(result.path).toBe('wiki/entities/unique-entity.md');
     });
 
-    it('detects cross-type collision and returns collision info', async () => {
+    // Issue #472: a concept of the same name is a different designator, so it
+    // is not a target and not an obstacle — the entity gets its own page.
+    it('ignores a same-name page in the opposite folder', async () => {
       const { ctx } = createMockContext({
         vaultFiles: {
           'wiki/concepts/shared-name.md': '---\ntype: concept\n---\n# Shared Name\nContent',
@@ -119,17 +121,10 @@ describe('PageFactory — Core Paths', () => {
       });
       const factory = new PageFactory(ctx);
 
-      const result = await (factory as unknown as { resolvePagePath: (n: string, t: 'entity' | 'concept', s: string) => Promise<{ path: string | null; collision?: unknown }> })
+      const result = await (factory as unknown as { resolvePagePath: (n: string, t: 'entity' | 'concept', s: string) => Promise<{ path: string | null }> })
         .resolvePagePath('Shared Name', 'entity', 'An entity with shared name');
 
-      expect(result.path).toBeNull();
-      expect(result.collision).toBeDefined();
-      expect(result.collision).toMatchObject({
-        name: 'Shared Name',
-        sourceType: 'entity',
-        targetType: 'concept',
-        targetPath: 'wiki/concepts/shared-name.md',
-      });
+      expect(result.path).toBe('wiki/entities/shared-name.md');
     });
   });
 
@@ -214,7 +209,7 @@ describe('PageFactory — Core Paths', () => {
       expect(content).toContain('Fresh content');
     });
 
-    it('handles cross-type collision by merging into target', async () => {
+    it('writes its own page instead of merging into the opposite folder', async () => {
       const { ctx, vault } = createMockContext({
         vaultFiles: {
           'wiki/concepts/collision.md': '---\ntype: concept\n---\n# Collision\nConcept content',
@@ -238,9 +233,11 @@ describe('PageFactory — Core Paths', () => {
         []
       );
 
-      // Should merge into the concept page
-      const content = vault.read('wiki/concepts/collision.md');
-      expect(content).toContain('Merged entity content into concept');
+      // Issue #472: the concept page keeps its content untouched; the entity
+      // is written to its own folder.
+      const concept = vault.read('wiki/concepts/collision.md');
+      expect(concept).not.toContain('Merged entity content into concept');
+      expect(vault.read('wiki/entities/collision.md')).toBeTruthy();
     });
   });
 

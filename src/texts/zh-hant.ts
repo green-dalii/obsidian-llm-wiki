@@ -465,7 +465,6 @@ export const ZH_HANT_TEXTS = {
     rejectionReasonType: '不支援的型別',
     rejectionReasonDuplicate: '重複內容',
     ingestReportFailedGuidance: '這些條目未能自動建立。您可手動建立對應頁面，或降低提取顆粒度後重新攝入原始檔。',
-    ingestReportCollisions: '跨型別碰撞（已合併為別名）',
 
     // 命令名称（sentence case 遵循 Obsidian Bot 规则）
     cmdIngestSource: '攝入單個原始檔',
@@ -506,7 +505,6 @@ export const ZH_HANT_TEXTS = {
     lintStageContradiction: '正在偵測衝突',
     ingestionCancelling: '正在取消 — 當前批次完成後將停止',
     ingestionCancelled: '提取已取消',
-    crossTypeCollisionNotice: '{count} 個條目合併為跨型別別名（實體 ↔ 概念重複已防止）',
     // v1.26.3 PATCH follow-up (B2.5): status-bar progress text i18n
     ingestBatchInitial: '正在分析批次 1/{total}...',
     ingestBatchProgress: '正在分析批次 {current}/{total}（已提取 {entities} 個實體、{concepts} 個概念）...',

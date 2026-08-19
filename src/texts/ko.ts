@@ -493,7 +493,6 @@ export const KO_TEXTS = {
     // 복구합니다.
     llmRetryRecoveredToast: 'LLM 작업: {count}개 배치가 provider의 일시적 응답 문제로 재시도가 필요했습니다 (자동 복구됨). 자세한 내용은 콘솔을 참조하세요. 반복되면 Provider 설정에서 Page Generation Concurrency를 낮추세요.',
     ingestReportFailedGuidance: '이 항목은 자동으로 생성되지 않았습니다. 해당하는 페이지를 수동으로 생성하거나 추출 세분화를 낮추고 소스 파일을 다시 수집할 수 있습니다.',
-    ingestReportCollisions: '크로스타입 충돌 (별칭으로 병합됨)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: '단일 소스 수집',
@@ -539,7 +538,6 @@ export const KO_TEXTS = {
     lintStageContradiction: '모순 감지 중',
     ingestionCancelling: '취소 중 — 현재 배치 완료 후 중지됩니다',
     ingestionCancelled: '수집이 취소되었습니다',
-    crossTypeCollisionNotice: '{count}개 항목이 크로스타입 별칭으로 병합됨（엔티티 ↔ 컨셉 중복 방지）',
     // v1.26.3 PATCH follow-up (B2.5): status-bar progress text i18n
     ingestBatchInitial: '배치 1/{total} 분석 중...',
     ingestBatchProgress: '배치 {current}/{total} 분석 중（엔티티 {entities}개, 컨셉 {concepts}개까지）...',

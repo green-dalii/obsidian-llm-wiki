@@ -8,7 +8,7 @@
  *   1. Slice tasks into concurrency-sized batches
  *   2. allSettled each batch
  *   3. For each failure, retry once after a 2s delay
- *   4. Aggregate collisions + failures
+ *   4. Aggregate failures
  *   5. detectRateLimitFailures across failures
  *   6. Sleep `batchDelayMs` between batches
  *   7. checkCancelled before each batch (abort-aware)
@@ -23,34 +23,20 @@ import { detectRateLimitFailures, type RateLimitInfo } from '../../core/rate-lim
 import { DEFAULT_API_RETRY_DELAY_MS } from '../../constants';
 
 /**
- * Collision data attached to a successful task result. Carried through the
- * pipeline so the caller can record collisions in the analysis report without
- * re-running the task.
- */
-export interface Collision {
-  name: string;
-  sourceType: 'entity' | 'concept';
-  targetType: 'entity' | 'concept';
-  targetPath: string;
-}
-
-/**
  * Result returned by the per-task `execute` callback. Discriminated by
  * `success` so TypeScript can narrow without casts at the call site.
  *
- *   - `success: true` — task ran without error; `collision` may still be set
- *     when an entity/concept resolved to an existing page with a different
- *     type ("Entity-vs-Concept collision" — the LLM and the wiki disagreed).
+ *   - `success: true` — task ran without error.
  *   - `success: false` — task failed; `failureReason` carries the error
  *     message used for retry + rate-limit detection.
  */
 export type TaskResult =
-  | { success: true; collision?: Collision }
+  | { success: true }
   | { success: false; failureReason: string };
 
 /**
  * A single unit of work for the batch runner. `id` is used in progress
- * messages, console output, and collision/failure records. `payload` is the
+ * messages, console output, and failure records. `payload` is the
  * opaque data the caller's `execute` callback consumes.
  *
  * Generic parameter `T` lets each call site carry its own payload type
@@ -90,15 +76,13 @@ export interface BatchRunnerOptions<T> {
 
 /**
  * Aggregate result from a batch run. Caller (WikiEngine) merges these into
- * its own analysis state (collisions / failedItems / created_pages).
+ * its own analysis state (failedItems / created_pages).
  */
 export interface BatchRunnerResult {
   /** Number of tasks that completed with `success: true` (first attempt OR successful retry). */
   succeeded: number;
   /** Tasks that failed even after the retry. */
   failed: Array<{ id: string; reason: string }>;
-  /** Collisions collected from successful tasks. */
-  collisions: Collision[];
   /** Rate-limit signal: null if no 429s detected. */
   rateLimitInfo: RateLimitInfo | null;
   /** Total wall time of the batch run in milliseconds. */
@@ -114,7 +98,7 @@ export interface BatchRunnerResult {
  *   - Slice `tasks` into `concurrency`-sized batches in order
  *   - For each batch:
  *     1. checkCancelled() — throws if user cancelled
- *     2. allSettled each task; capture collisions + failures
+ *     2. allSettled each task; capture failures
  *     3. For each failure, sleep `apiDelayMs` (default 2000ms) and retry once
  *     4. Sleep `batchDelayMs` before next batch (skip on last)
  *   - Detect rate-limit failures across all failures → return RateLimitInfo
@@ -131,7 +115,6 @@ export async function runBatchedWithRetry<T>(
   const startTime = Date.now();
   const succeeded: string[] = [];
   const failed: Array<{ id: string; reason: string }> = [];
-  const collisions: Collision[] = [];
 
   for (let i = 0; i < opts.tasks.length; i += opts.concurrency) {
     opts.checkCancelled();
@@ -140,7 +123,6 @@ export async function runBatchedWithRetry<T>(
     // First-attempt run.
     const firstAttempt = await runBatch(batch, opts);
     for (const id of firstAttempt.succeeded) succeeded.push(id);
-    collisions.push(...firstAttempt.collisions);
     const retryQueue = firstAttempt.retryQueue;
 
     // Single retry for failures.
@@ -151,7 +133,6 @@ export async function runBatchedWithRetry<T>(
         opts,
       );
       for (const id of retryAttempt.succeeded) succeeded.push(id);
-      collisions.push(...retryAttempt.collisions);
       // For rejected retry tasks, fall back to the FIRST-attempt reason
       // (the retry produced no new information). For success/fail-of-retry,
       // record the second-attempt reason.
@@ -177,7 +158,6 @@ export async function runBatchedWithRetry<T>(
   return {
     succeeded: succeeded.length,
     failed,
-    collisions,
     rateLimitInfo,
     elapsedMs: Date.now() - startTime,
   };
@@ -188,7 +168,6 @@ export async function runBatchedWithRetry<T>(
  * results so the caller can choose what to do with each category:
  *
  *   - `succeeded` — task IDs to push to the cumulative `succeeded` list
- *   - `collisions` — successful tasks that carried collision data
  *   - `retryQueue` — failures to either feed into a retry pass (first
  *     attempt) or record as final `failed` (retry pass); each entry has
  *     the task + the reason string for the failure
@@ -203,7 +182,6 @@ async function runBatch<T>(
   opts: BatchRunnerOptions<T>,
 ): Promise<{
   succeeded: string[];
-  collisions: Collision[];
   retryQueue: Array<{ task: BatchTask<T>; reason: string }>;
 }> {
   const settled = await Promise.allSettled(
@@ -221,7 +199,6 @@ async function runBatch<T>(
   );
 
   const succeeded: string[] = [];
-  const collisions: Collision[] = [];
   const retryQueue: Array<{ task: BatchTask<T>; reason: string }> = [];
 
   settled.forEach((result, idx) => {
@@ -235,11 +212,10 @@ async function runBatch<T>(
     const v = result.value;
     if (v.success) {
       succeeded.push(task.id);
-      if (v.collision) collisions.push(v.collision);
     } else {
       retryQueue.push({ task, reason: v.failureReason });
     }
   });
 
-  return { succeeded, collisions, retryQueue };
+  return { succeeded, retryQueue };
 }

@@ -42,7 +42,6 @@ describe('runBatchedWithRetry', () => {
 
     expect(result.succeeded).toBe(3);
     expect(result.failed).toEqual([]);
-    expect(result.collisions).toEqual([]);
     expect(result.rateLimitInfo).toBeNull();
     // 1 task × 3 = 3 first-attempt calls, 0 retries
     expect(execute).toHaveBeenCalledTimes(3);
@@ -103,31 +102,6 @@ describe('runBatchedWithRetry', () => {
     expect(execute).toHaveBeenCalledTimes(2); // first throw + retry throw
   });
 
-  it('propagates collision from successful task result', async () => {
-    const tasks = [task('e1', { collision: true })];
-    const execute = vi.fn().mockResolvedValue({
-      success: true as const,
-      collision: {
-        name: 'e1',
-        sourceType: 'entity' as const,
-        targetType: 'concept' as const,
-        targetPath: 'concepts/e1.md',
-      },
-    });
-
-    const result = await runBatchedWithRetry({
-      tasks,
-      concurrency: 1,
-      batchDelayMs: 0,
-      checkCancelled: () => {},
-      apiDelay: vi.fn().mockResolvedValue(undefined),
-      execute,
-    });
-
-    expect(result.succeeded).toBe(1);
-    expect(result.collisions).toHaveLength(1);
-    expect(result.collisions[0].targetPath).toBe('concepts/e1.md');
-  });
 
   it('detects rate-limit failures across multiple failed tasks', async () => {
     const tasks = [

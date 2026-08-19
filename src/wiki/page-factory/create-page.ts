@@ -5,11 +5,10 @@
 // / createNewPage) and 1 private router (createOrUpdatePage).
 //
 // Behavior (v1.24.1 Phase 2 refactor — preserved verbatim):
-//   - createOrUpdatePage resolves the path first (slug match / LLM dedup
-//     fallback / cross-type collision detection).
-//   - collision branch: merge into the EXISTING page in the opposite
-//     folder (preserves the cross-type information; reviewed pages use
-//     appendToReviewedPage, non-reviewed use mergePage).
+//   - createOrUpdatePage resolves the path first (same-type slug match / LLM
+//     dedup fallback). Issue #472: the opposite folder is not consulted, so
+//     there is no cross-type branch — same letters under the other type are a
+//     different designator.
 //   - new-file branch: LLM generates the body (entity or concept prompt).
 //   - existing-file branch: reviewed pages route to appendToReviewedPage;
 //     other pages route to mergePage.
@@ -76,8 +75,6 @@ export function sourceContextFromAnalysis(
  * Generic page CRUD (entity/concept unified). Returns:
  *   - { path } when a page was written.
  *   - { path: null } when the name was empty.
- *   - { path: null, collision: {...} } when a cross-type collision was
- *     detected and merged into the existing page.
  */
 export async function createOrUpdatePage(
   ctx: CreatePageContext,
@@ -102,26 +99,7 @@ export async function createOrUpdatePage(
   // pages' tags and needs no new read at the note.
   const result = await resolvePagePath(ctx, info.name, pageType, info.summary, info.type ? [info.type] : undefined);
   if (result.path === null) {
-    if (result.collision) {
-      // Cross-type collision: a page for this item already exists in the
-      // opposite folder. Don't create a duplicate file, but merge the new
-      // content into the existing page so the source's summary / mentions
-      // / sources aren't lost. Use the EXISTING page's type for the merge
-      // so it keeps its classification.
-      const { targetPath, targetType } = result.collision;
-      const existingContent = await ctx.tryReadFile(targetPath);
-      if (existingContent) {
-        const isReviewed = parseFrontmatter(existingContent)?.reviewed === true;
-        if (isReviewed) {
-          await appendToReviewedPage(ctx, info, sourceFile, existingContent, targetPath, sourceSlug);
-        } else {
-          await mergePage(ctx, info, targetType, sourceFile, existingContent, extraPagePaths, targetPath, sourceSlug, sourceContext);
-        }
-        console.debug(`Cross-type collision: merged "${info.name}" content into ${targetType} page ${targetPath}`);
-      }
-    }
-    // Either nothing was written, or the content was merged into a page that
-    // already existed in the opposite folder — never a creation.
+    // Nothing was written: the resolver reached no decision it could act on.
     return { ...result, created: false };
   }
   console.debug('Resolved path:', result.path);

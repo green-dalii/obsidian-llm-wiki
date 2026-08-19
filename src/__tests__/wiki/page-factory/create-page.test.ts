@@ -66,7 +66,6 @@ describe('createOrUpdatePage — empty name guard', () => {
       { path: 'p.md', basename: 'p.md' },
     );
     expect(result.path).toBeNull();
-    expect(result.collision).toBeUndefined();
   });
 });
 

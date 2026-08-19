@@ -6,11 +6,11 @@
 // testable.
 //
 // Behavior (v1.24.1 Phase 2 refactor — preserved verbatim):
-//   - resolvePagePath: exact-slug fast path → ConflictResolver (slug/alias
-//     match, including cross-type collision) → LLM semantic dedup fallback.
-//     Returns `{ path: null, collision: {...} }` when a cross-type collision
-//     is detected so callers merge into the existing page instead of
-//     creating a new file.
+//   - resolvePagePath: exact-slug fast path → ConflictResolver (same-type
+//     slug/alias match) → LLM semantic dedup fallback. Issue #472: matching is
+//     scoped to the item's own type throughout — a designator is `(letters,
+//     type)`, so the same letters in the opposite folder denote a different
+//     thing and are never consulted.
 //   - buildPagesListForPrompt: filters out sources/ by default (#234) and
 //     polluted basenames (L2); caps at MAX_PAGES=50 with entity/concept
 //     bias based on includePaths; emits a "(truncated)" suffix when the cap
@@ -82,12 +82,6 @@ export function selectDedupCandidates(
 /** Mirrors the subset of PageCreationResult we return. */
 export interface ResolvedPathResult {
   path: string | null;
-  collision?: {
-    name: string;
-    sourceType: 'entity' | 'concept';
-    targetType: 'entity' | 'concept';
-    targetPath: string;
-  };
 }
 
 /**
@@ -114,10 +108,9 @@ export interface PathResolutionContext extends AliasesContext {
  * Determine the actual file path for a new entity/concept, using slug-based
  * matching first and falling back to LLM semantic resolution.
  *
- * Returns `{ path: null, collision: {...} }` when a cross-type collision
- * is detected (same name exists in the opposite folder). Callers must NOT
- * create a new file in that case, but should merge the new content into
- * `collision.targetPath` so no information from the source is lost.
+ * Issue #472: the opposite folder is never consulted. A page there carrying
+ * the same letters is a different designator, so it can neither be a merge
+ * target nor a reason to withhold this one.
  */
 export async function resolvePagePath(
   ctx: PathResolutionContext,
@@ -127,7 +120,6 @@ export async function resolvePagePath(
   tags?: string[],
 ): Promise<ResolvedPathResult> {
   const folder = pageType === 'entity' ? WIKI_SUBFOLDERS.entities : WIKI_SUBFOLDERS.concepts;
-  const otherFolder = pageType === 'entity' ? WIKI_SUBFOLDERS.concepts : WIKI_SUBFOLDERS.entities;
   const slug = slugify(name, ctx.settings.slugCase === 'preserve');
   const slugPath = `${ctx.settings.wikiFolder}/${folder}/${slug}.md`;
 
@@ -154,15 +146,11 @@ export async function resolvePagePath(
   // Fast path: exact slug match (same type folder)
   const existing = await ctx.tryReadFile(slugPath);
   if (existing !== null) {
-    // Check for historical cross-type duplicate: if the same name exists in the
-    // opposite folder, it means an earlier ingestion classified this item differently.
-    // Append the new name as an alias to bridge the two pages (Bug #1 fix).
-    const otherSlugPath = `${ctx.settings.wikiFolder}/${otherFolder}/${slug}.md`;
-    const otherExisting = await ctx.tryReadFile(otherSlugPath);
-    if (otherExisting !== null) {
-      console.warn(`Historical cross-type duplicate detected: ${folder}/${slug}.md and ${otherFolder}/${slug}.md both exist — appending alias`);
-      await appendAliases(ctx, otherSlugPath, [name]);
-    }
+    // Issue #472: a page in the opposite folder that happens to carry the same
+    // letters is a different designator, not a duplicate of this one. It is
+    // neither read nor written here — the previous code bridged the two with an
+    // alias, which wrote this name into the other type's namespace and made the
+    // two pages match each other on every later ingest.
     return { path: slugPath };
   }
 
@@ -174,22 +162,9 @@ export async function resolvePagePath(
     const resolver = new ConflictResolver(ctx.settings.wikiFolder, allPages);
     const cr = resolver.resolve({ name, slug, pageType, tags });
 
-    if (cr.action === 'merge' && !cr.reason.includes('Cross-type')) {
+    if (cr.action === 'merge') {
       await appendAliases(ctx, cr.targetPath, [name]);
       return { path: cr.targetPath };
-    }
-
-    if (cr.action === 'merge' && cr.reason.includes('Cross-type')) {
-      await appendAliases(ctx, cr.targetPath, [name]);
-      return {
-        path: null,
-        collision: {
-          name,
-          sourceType: pageType,
-          targetType: cr.existingType || (otherFolder === WIKI_SUBFOLDERS.entities ? 'entity' : 'concept'),
-          targetPath: cr.targetPath,
-        },
-      };
     }
 
     // Issue #446: more than one same-type page carries this designator. The

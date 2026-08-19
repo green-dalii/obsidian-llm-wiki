@@ -177,18 +177,21 @@ describe('Issue #446 — ambiguous designators, same-type gate', () => {
   );
 });
 
-describe('Issue #446 — the same designators from the cross-type side', () => {
-  // When the extraction classifies DHA as a concept, the two entity pages that
-  // carry it are cross-type matches and no same-type match exists. Same
-  // ambiguity, other branch: it keeps returning a collision, but the collision
-  // target no longer depends on the page order.
-  it.each(DESIGNATORS)('$designator picks the same cross-type target under every order', (d) => {
+describe('Issue #472 — the same designators from the cross-type side', () => {
+  // Under #446 this was the other half of the same ambiguity: classify DHA as a
+  // concept and the two entity pages carrying it became cross-type matches to
+  // merge into. #472 retires that reading. A designator is `(letters, type)` —
+  // `CR` is chromium as an entity and caloric restriction as a concept — so
+  // pages in the opposite folder are not weaker candidates for this item, they
+  // are candidates for a different item. Nothing there is ambiguous, and
+  // nothing there is a merge target.
+  it.each(DESIGNATORS)('$designator ignores the opposite folder entirely', (d) => {
     const pages = pagesOf(d, otherTypeFolder(d));
     const forward = resolve(d, pages);
     const backward = resolve(d, [...pages].reverse());
 
-    expect(forward.action).toBe('merge');
-    expect(forward.reason).toContain('Cross-type');
+    expect(forward.action).toBe('create');
+    expect(forward.targetPath).toBe(`${WIKI}/${sameTypeFolder(d)}/${computeSlug(d.designator)}.md`);
     expect(backward.targetPath).toBe(forward.targetPath);
   });
 });

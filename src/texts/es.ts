@@ -493,7 +493,6 @@ export const ES_TEXTS = {
     // el reintento solo recupera este lote.
     llmRetryRecoveredToast: 'Tarea LLM: {count} lote(s) requirieron reintento por una respuesta transitoria del proveedor. Consulta la consola para más detalles. Si esto se repite, reduce Page Generation Concurrency en la configuración del proveedor.',
     ingestReportFailedGuidance: 'Estos elementos no pudieron crearse automáticamente. Puedes crear manualmente las páginas correspondientes, o reducir la granularidad de extracción y volver a ingerir el archivo fuente.',
-    ingestReportCollisions: 'Colisiones cross-type (fusionadas como alias)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Ingestar fuente individual',
@@ -534,7 +533,6 @@ export const ES_TEXTS = {
     lintStageContradiction: 'Detectando contradicciones',
     ingestionCancelling: 'Cancelando — se detendrá tras el lote actual',
     ingestionCancelled: 'Ingesta cancelada',
-    crossTypeCollisionNotice: '{count} elementos fusionados como alias cross-type (duplicados entidad ↔ concepto evitados)',
     // v1.26.3 PATCH follow-up (B2.5): status-bar progress text i18n
     ingestBatchInitial: 'Analizando lote 1/{total}...',
     ingestBatchProgress: 'Analizando lote {current}/{total} ({entities} entidades, {concepts} conceptos hasta ahora)...',

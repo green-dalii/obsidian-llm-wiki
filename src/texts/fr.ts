@@ -468,7 +468,6 @@ export const FR_TEXTS = {
     rejectionReasonType: 'type non pris en charge',
     rejectionReasonDuplicate: 'contenu en double',
     ingestReportFailedGuidance: "Ces éléments n'ont pas pu être créés automatiquement. Vous pouvez créer manuellement les pages correspondantes, ou réduire la granularité d'extraction et réimporter le fichier source.",
-    ingestReportCollisions: 'Collisions cross-type (fusionnées comme alias)',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
     cmdIngestSource: 'Importer une source unique',
@@ -509,7 +508,6 @@ export const FR_TEXTS = {
     lintStageContradiction: 'Détection des contradictions',
     ingestionCancelling: 'Annulation — arrêt après le lot en cours',
     ingestionCancelled: 'Ingestion annulée',
-    crossTypeCollisionNotice: '{count} éléments fusionnés comme alias cross-type (doublons entité ↔ concept évités)',
     // v1.26.3 PATCH follow-up (B2.5): status-bar progress text i18n
     ingestBatchInitial: 'Analyse du lot 1/{total}...',
     ingestBatchProgress: 'Analyse du lot {current}/{total} ({entities} entités, {concepts} concepts jusqu\'à présent)...',
