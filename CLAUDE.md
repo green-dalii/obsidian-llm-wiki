@@ -251,7 +251,7 @@ Every change via `Read` + `Edit` — no sed/awk/python for code or document edit
 
 ## 🌍 Internationalization
 
-- **UI**: 11 locales (EN canonical + 10 translations: ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT/RU; Russian added v1.26.0 PR #397), 277+ fields per locale
+- **UI**: 11 locales (EN canonical + 10 translations: ZH/ZH-Hant/JA/KO/DE/FR/ES/PT/IT/RU), 277+ fields per locale. Locale list lives in `src/texts/`.
 - **Wiki output**: 11 languages independent of UI + custom input option
 - **Code**: English only, minimal comments
 - **User-facing strings** = user language, not implementation language

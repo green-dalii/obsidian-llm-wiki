@@ -7,11 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> **Status.** v1.26.3 PATCH SHIPPED 2026-08-12. **v1.26.4 PATCH SHIPPED 2026-08-19** (20 merge commits / 3434 tests / +3786/-1816 LOC). Composition: see [ROADMAP v1.26.x PATCH track](./ROADMAP.md). The v1.26.4 items below were released; remaining Unreleased entries accumulate toward v1.26.5.
-
-### Fixed
-
-(placeholder — accumulate toward v1.26.5)
+> **Status.** Latest shipped: v1.26.4 PATCH (2026-08-19). Composition details in the v1.26.4 entry below. The v1.26.5 PATCH slot was CANCELLED 2026-08-19 — folded into v1.27.0 MINOR to amortize release-cycle overhead. Pending work tracks live in [ROADMAP.md](./ROADMAP.md).
 
 ## [1.26.4] - 2026-08-19
 
@@ -54,16 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-task policy: choose output mode and thinking per pipeline step (Issue #481, PR #490).** `taskPolicies?: TaskPolicyMap` on `LLMWikiSettings` maps a task label to `{outputMode, thinking}`, resolved specific → wildcard → default. The client wrapper applies it at the one seam every call already passes through, so **no call site changes**. An unset policy spreads `{}` and the path stays byte-identical to today. The spec format is `extract=text:on,merge-triage=text:on,page-generate=-:off`; `parseTaskPolicySpec` throws on anything it cannot read (a silently-ignored entry would mean an arm that did not run what its own manifest says it ran). Two mechanics the wire forced: a pinned `text_prompt` puts no `response_format` on the wire, so the JSON shape has to come from the prompt — `forcedTextPromptSystem` adds `JSON_ENFORCEMENT_SYSTEM_PREFIX` up front (the 400-driven demotion adds it at retry time; a pinned mode has no retry path); `low` / `medium` / `high` send `reasoning_effort` and the reasoning-strip retry deliberately drops the field (the backend just rejected it, so re-sending it would only earn a second 400). `low`/`medium`/`high` are indistinguishable on LM Studio / gemma-4-26b-a4b-qat (byte-identical output at 417 reasoning tokens); `reasoning_effort: none` does switch reasoning off. The levels are the standard openai-compatible field and are carried for the backends that honour it. The stream path is untouched — it carries no `task` label (#469), so there is nothing to key a per-step decision on. The setting is deliberately not exposed in the UI — the settings worth offering are the ones a measurement has picked out, and this field is what makes that measurement possible. 3430 → 3434 tests. Unblocks #481.
 
 - **Extraction payload stops growing with the vault (Issue #482 stages 1+2, PR #484).** **Stage 1** removes the slug catalog that was the first block of `analyzeSource` and ~91% of its characters (2,843 lines / 69,355 chars on a mature vault). The prompt is now instructions plus the note, so its prefix is identical for every note — the best case for prefix caching — and per-note cost is a function of the note instead of the vault. Requirement 7 (`related_pages`) went with it: `source-analyzer.ts` overwrites `accumulation.relatedPages` unconditionally with the programmatic match whenever anything was extracted, so the LLM output was paid for and discarded. **Stage 2** stops showing the candidate list in generation/merge prompts and resolves every related link after generation against an index of every page: title first, then curated aliases — so `[[E433]]` lands on `entities/Polysorbate` (a connection no candidate window could contain, because the page's title is not the name in the prose). An alias claimed by two pages resolves to neither (#446 lesson); bare `[[Name]]` links are now in scope, since a prompt without a path list produces them. A name the vault does not know keeps the previous behaviour (folder from typed related lists, slug from the name) so the dead-link/stub path that requirement 3 of the generation prompt relies on is unchanged. `buildPagesListForPrompt` had no remaining caller and is removed with its facade and its tests; the #234 invariant it carried — sources/ is never a body-link target — now sits on the resolver, which cannot select a sources/ page at all. The closing commit removes the run-scoped catalog plumbing #483 added: stage 1 makes the block it stabilises unnecessary. **Acceptance measurement** (2,838-page vault): Stage 1 — 4 usable draws each, catalog arm runs round 1 then loses round 2 to the output ceiling every draw (398-421 s); stage 1 arm runs both rounds (80-110 s). Round 1 differs (`mergeBatchResults` is strictly additive; a name in only one arm cannot have been dropped by a later round). Stage 2 — 8,800 related links: 7,962 → 8,191 resolving (90.48% → 93.08%); +235 newly resolving, −6 (one class: links that resolved only because a sources/ page carried the name — the #234 invariant arriving in its new home; the resulting 6 dead links convert to stubs via Fix Dead Links, tracked separately as #485). Net -288 LOC; 3434 tests. Closes #482 stages 1+2.
-
-## [1.25.12] - 2026-08-01
-
-> **Note.** The work that was originally planned as `v1.25.12 PATCH` (CLI UX
-> for the headless ingest CLI, shipped via PR #389 + the parent commits
-> merged as PR #387 and #389) was, on review, reclassified as MINOR scope —
-> the headless CLI is a user-visible new tool (`pnpm llm-wiki`, the `ingest`
-> subcommand, a fresh flag surface). It ships with **v1.26.0 MINOR** rather
-> than as a standalone patch; the patch slot stays unused. See the v1.26.0
-> entry below for the substantive notes.
 
 ## [1.26.2] - 2026-08-09
 
@@ -253,268 +239,26 @@ MINOR. Anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issue
 - `tools/llm-wiki-cli/tsconfig.json` (PR #372) — separate tsconfig for the CLI with `@types/node@22`; root tsconfig excludes `src/__tests__/tools/**` to keep the `parseArgs` import below `node_modules/@types/node@16` from poisoning root tsc.
 - `versions.json` gains `1.26.0: 1.11.4` entry.
 
-## [1.25.11] - 2026-07-31
+## [1.25.x PATCH series] - 2026-07-18 → 2026-07-31
 
-### Fixed
+**Super-aggregated per Keep a Changelog spec + CLAUDE.md "ancient versions are pre-aggregated".** 11 PATCH releases (v1.25.0 + 1.25.1 → 1.25.11) over 14 days. Per-PR detail preserved in `git log --oneline 1.25.0..1.25.12` and memory files (`project_v1.25.x_release.md` series).
 
-- **Freshly generated entity/concept pages silently lost the `sources:` provenance field (#365).** The `enforceFrontmatterConstraints` call at `create-page.ts:293` runs before `createOrUpdateFile`; it rewrites the frontmatter from a fixed allowlist (`type`, `created`, `updated`, `tags`, `aliases`, `reviewed`) and strips every other field — including `sources:`. So the generated page landed in the vault with `type: entity`, `created: …`, `tags: …` and *zero* `sources:` entries, even though the LLM had correctly included them in its output. The root cause was the gap between `enforceFrontmatterConstraints` (allowlist-based, strips unknowns) and `mergeFrontmatter` (union-based, merges `sources`); the two helpers were never designed to be chained. Fix: splice a `mergeFrontmatter(content, 'sources/<slug>')` call AFTER the constraints pass but BEFORE the vault write, so the `sources:` entry re-punctures the allowlist it was just stripped from — byte-shape identical to the `merge-page.ts:93` path. A structural frontmatter-fence guard (`expect(…).toBe(2)`) prevents a double-`---` regression class (wrapping a pre-delimited `serializeFrontmatter` output in another pair of `---` fences).
+### Aggregate scope
 
-- **Relative cross-file links in README files break in Obsidian's community plugin browser (#375).** When a `](docs/README_CN.md)` markdown anchor resolves correctly on GitHub, the marketplace render strips relative paths, so users lose navigation between locales and to the companion PDF-OCR / MODEL guides. Rewrote every cross-file URL in all 10 README files (EN + 9 locales) to the absolute form `https://github.com/green-dalii/obsidian-llm-wiki/blob/main/…`. (Image refs `![…](…)` are exempted — Obsidian renders them correctly inline.) A new `src/__tests__/root/readme-links.test.ts` (12 cases) pins the contract: 10 files × no relative cross-file link + 1 switcher-count parity + 1 canonical-prefix check.
+- **v1.25.0** (2026-07-18) — **MINOR** — PDF Ingest Level 1 (content-hash cache + bounded growth + provider gate + Force-PDF-Support escape hatch + local OCR path on Apple Silicon + AbortSignal-cancellable). 2182 tests / 165 files.
+- **v1.25.1 → v1.25.11** — 10 PATCHes covering high-ROI bug-fix clusters:
+  - **Frontmatter data-loss class:** #312 part 2 (merge-triage own-source skip override), #356 (unknown-field strip on re-touch), #363 (Mentions `[[|]]` empty-citation truncation), #365 (freshly-generated pages losing `sources:` field).
+  - **Lint pipeline hardening:** #367 P0-1 (fix-runners batched by `pageGenerationConcurrency`), P1-1/P1-2 helpers (`LintAnalysisCache`, `lint-smart-skip` — shipped dead per dead-code-as-docs policy; wire-up deferred to v1.26.0).
+  - **Path-resolution safety:** #364 (folder-scope prefix leak — sibling files sharing name prefix matched), #446 follow-up's precursor (alias latch removal).
+  - **Slug / tag handling:** #366 phase 1 (Turkish-aware case fold on slug comparison keys), #368 (custom tag vocabulary documented as LLM hint not enforcement gate), `MIN_ALIAS_LENGTH` lowered 3 → 2 chars.
+  - **README + i18n + status-bar i18n:** #169 (fine-grained pipeline stage hints in status bar), #375 (relative cross-file README links broken in Obsidian marketplace — switched to absolute GitHub URLs across all 10 locales), 30 dead `lintStatus*` i18n keys removed, EN banner upgrade (Obsidian Review Perfect Score + Local-first privacy), comparison table dedup 12 → 8 rows, MinerU online conversion added as first item in Ecosystem section of all 10 READMEs.
+  - **Per-step LLM accounting (Issue #99):** #339 follow-up — SecretStorage migration 2-phase wipe (text survives until IO succeeds) + task-label audit on 5 call sites → `core/llm-task-usage.ts` accumulator.
 
-- **4× frontmatter re-parse on every freshly generated page (simplify follow-up, F2).** The initial #365 fix called `mergeFrontmatter` for the source-stamp, but `mergeFrontmatter` internally runs `parseFrontmatter` + `extractBody` + `extractPassthroughLines` + `serializeFrontmatter` — 4× regex passes over the content. `enforceFrontmatterConstraints` (called ~60 lines earlier) had already produced a canonical YAML block; the work was duplicated. Replaced with a local `appendSourceSlugToFrontmatter` helper that uses substring slicing + `split('\n')` + `join('\n')` — single linear scan, no re-serialization. Output byte-shape is bit-identical to `mergeFrontmatter`'s (same `[[sources/<slug>]]` wikilink form, same Set dedup contract from `frontmatter.ts:484-490`). On a 200-page vault ingest this saves ~200 redundant YAML parses+serializes.
+### Aggregate stats
 
-- **Dead `lintStatus*` i18n keys retained after rename (simplify follow-up, F5).** The diff renamed active call sites from `lintStatusReading` / `lintStatusDuplicates` / `lintStatusScanningLinks` to `lintStagePrep` / `lintStageDedup` / `lintStageProgrammatic`; the old keys remained defined in all 10 locales with their old string values. Deleted 30 dead entries (3 keys × 10 locales).
-
-- **Dead `fitIndicatorToContainer` alias export (simplify follow-up, F6).** `src/wiki/turn-indicator.ts:312` re-exported `fitIndicatorToContainer = updateIndicatorTranslation` "to preserve older callers" — but zero callers existed anywhere in `src/`. Dead exports mislead future contributors.
-
-### Added
-
-- **Fine-grained pipeline stage hints in the bottom-right status bar (#169).** The v3 plan moved fine-grained progress (e.g. "Generating summary", "Detecting duplicates", "Reading PDF") from Notice popups to the status bar. The always-visible cancel base label (e.g. "Ingesting… (click to cancel)") stays put — stage labels are ADD-only emission sandwiched between the page name and the base label. Coverage: 7 ingest stages (analyze / summary / entity / concept / retry / save / index), 3 PDF stages (reading / converting / sidecar), 5 lint SCAN stages (prep / programmatic / analyzing / dedup / contradiction). Lint fix-all is unchanged (already dual-channel via `makeMirroredNotice`). 15 new i18n keys across all 10 locales (EN + 9 i18n). NOT ETA per user constraint.
-
-- **EN README banner — official Obsidian authority signal + privacy positioning.** Replaced the generic tagline with a two-line banner surfacing the verified Obsidian Community Plugins "Health Excellent" + "Review Passed" badges ("Obsidian Review Perfect Score") plus a privacy line ("Local-first • No backend • GDPR-Friendly") aimed at EU users concerned about data sovereignty. Synced to all 9 locale READMEs.
-
-- **Comparison table deduplication (12 → 8 rows).** Merged the "Delivery form / Setup effort / Install path" cluster into one row, the "Architecture complexity / Embeddings required" cluster into one row, and the "Retrieval algorithm / Query pipeline" cluster into one row. Same info, more scannable. Synced to all 9 locale READMEs.
-
-- **Star CTA in Quick Start + MinerU online conversion in Ecosystem.** Single-line star reminder at the end of Quick Start (mirrors the AFFiNE/Dify pattern of surfacing the ask at this scroll depth). MinerU online conversion (`mineru.net/OpenSourceTools/Extractor`) added as the FIRST item in the Ecosystem section of all 10 READMEs, with links to the official online service, the self-host GitHub repo, and Issue #376 for future native integration. Synced to all 9 locale READMEs.
-
-- **PDF-OCR-GUIDE.md — MinerU section rewritten with three fixes.** Online service URL corrected from `mineru.net/` root to `mineru.net/OpenSourceTools/Extractor`. Workflow language no longer tells users to drop converted `.md` files into the plugin's auto-generated `sources/` output directory (confirmed via code search in `src/constants.ts:20`, `src/wiki/conversation-ingest.ts:196` that `sources/` is the plugin's output subdirectory, NOT a user input folder). Added a privacy-sensitive self-host path linking to the MinerU GitHub repo and a "Native integration roadmap" note pointing at Issue #376 (reopened as future-consideration).
-
-### Internal
-
-- `src/core/ingest-stages.ts` — new module holding `STAGE_KEYS` (canonical ordered list of all 15 stage key names, `as const` tuple) and the derived `StageKey` union type. Production callers resolve stage labels through the standard `getText()` access pattern.
-- `buildIngestStatusBarText` gained an optional 4th `stage` parameter sandwiched between filename and base label. Absent / empty / whitespace = omitted (backward-compatible).
-- `appendSourceSlugToFrontmatter` (create-page.ts private helper) handles the source-stamp splice without going through `mergeFrontmatter`'s 4× re-parse path. Original `mergeFrontmatter` unchanged for `merge-page.ts` callers (which need the `updated:` reset + full re-serialization).
-- `src/wiki/lint/llm-phases/analysis-phase.ts:140` migrated from `lintStatusAnalyzing` to `lintStageAnalyzing` — closes the v3 plan coverage gap (analysis was the only lint phase still using the old generic key).
-- 3 test files added (`src/__tests__/core/ingest-stages.test.ts`, `src/__tests__/core/status-bar.test.ts`, `src/__tests__/root/readme-links.test.ts`).
-- 4 agent-driven simplify follow-up (`e02a33d`) audited the entire v1.25.11 PATCH diff with 5 parallel sub-agents (4× simplify angle + 1× code-review max-effort). F1 (indicator `position: relative`) and F7 (false ResizeObserver comment claim) reverted after user e2e showed the `position: relative` change broke indicator layout — needs deeper investigation before retry.
-
-## [1.25.10] - 2026-07-29
-
-### Fixed
-
-- **Mentions section stopped silently truncating pages with empty citation targets (#363).** When the auto-provenance builder wrote a `MentionWithProvenance.source_path: ''` straight through `formatMentionsSection`, the output was `[[|]]`. `BULLET_RE` required a non-empty wikilink target, so the line failed to parse, `computeReingestMentions` returned `preserveRaw`, and the page never accumulated another quote — silently, on every subsequent re-ingest. Measured on a 417-note corpus (9272 writes): 119 frozen pages, 104 of the 144 unparseable lines were empty backlinks. Two coordinated fixes:
-  1. `formatMentionsSection` now routes both the quote-bullet branch and the conversation-mode branch through a single `renderCitation(leftPath)` helper. An empty `source_path` emits the bullet without a trailing `— [[…]]` link (the quote is still emitted; the next merge fills the attribution back in from the source being ingested).
-  2. `BULLET_RE` in `mentions-parser.ts` makes the citation segment optional and accepts an empty target. Both the legacy `[[|]]` shape already in vaults and the new citation-less shape parse with `source_path: ''`, which `computeReingestMentions` fills from `defaultSourcePath`. The two halves are one fix, not two: shipping only the formatter half would have traded one unparseable shape for another.
-
-  Thanks to **@DocTpoint** for PR #371, whose `renderCitation` single-render-gate design replaces the data-layer `m.source_path || sourcePath` fallback (commit `dedec51`). The render-layer fix preserves the empty value, so a later re-merge can fill it from the real source — strictly more correct than silently rewriting the attribution of an empty-sourcePath mention to the current source's path. Round-trip interlock tests pin the formatter ↔ parser contract so neither half can ship alone again.
-
-- **Ingest-a-folder stopped pulling in sibling files that share a name prefix (#364).** The bare `path.startsWith(folder.path)` leaked three cases: a sibling folder sharing a name prefix (`Notizen` also matched `Notizen-temp/x.md`), a file sitting beside the folder (`Notizen.md` also matched `Notizen`), and the folder itself. New `src/core/folder-scope.ts` exposes `folderScopePrefix(folderPath, isRoot)` and `isInFolderScope(filePath, folderPath, isRoot)` — the helper enforces a trailing-slash boundary and treats the vault root as a wildcard ancestor (root's `path` is `/`, so every path matches). Mutation-tested in 11 cases including `Notizen.md` beside the folder. Thanks to **@DocTpoint** for PR #370.
-
-- **Frontmatter re-touch no longer strips unknown top-level fields (#356).** A previous fix's call to `mergeFrontmatter` accidentally dropped fields the plugin did not author (e.g. `redirect_to:`, custom user fields). Now `extractPassthroughLines` + `replaceOrInsertYamlListField` + `CANONICAL_FRONTMATTER_KEYS` separate the plugin's keys from the user's, and the user's are re-emitted verbatim on every re-touch.
-
-- **Merge triage can no longer drop a page's own primary source on a `skip` judgement (#312 part 2).** A new `isSourceOwnPageLemma({ pageName, pageAliases, sourceBasename, sourceContext })` predicate compares the source basename + curated aliases against the page's basename + `aliases:` frontmatter, in slug comparison form. When the source IS the page's own subject, a `triage.strategy === 'skip'` is overridden to `'merge'` (deliberately narrow: only `skip` is overridden, `complementary` already writes the new facts). `SourceContext` is optional everywhere — lint pipeline callers pass nothing and see no change. A separate route now stamps `contradictedBy:` frontmatter when `strategy === 'contradictory'` (DocTpoint §4), without disturbing the body-rewrite path.
-
-### Performance
-
-- **Lint fix-runners batched by `pageGenerationConcurrency` (#367 P0-1).** The five fix-runners (`runAliasCompletion`, `runDeadLinkFixes`, `runEmptyPageFixes`, `runOrphanFixes`, `runDuplicateMergeFixes`, `runRetagViolations`) now slice their input into batches of `pageGenerationConcurrency` and resolve each batch through `Promise.allSettled` so a single failure never poisons the rest. `concurrency = 1` (the v1.25.9 default) preserves prior behaviour; users who raise it to 4-8 in Settings see wall-clock drop roughly by `(n / concurrency)` on a 2000-page vault. A one-line batch-start log per runner (`[Alias] / [DeadLink] / [EmptyPage] / [Orphan] / [DuplicateMerge] / [Retag] Starting … N items, concurrency=K, batches=M`) makes the parallelism visible in DevTools.
-
-- **Lint analysis cache + smart-skip controllers (#367 P1-1 + P1-2 helpers, not yet wired).** Two new pure helpers, `LintAnalysisCache` (content-hash-keyed store, 1024-entry LRU) and `lint-smart-skip` (`aliasPhaseVerdict` / `dedupPhaseVerdict` / `llmVerdict`), ship as dead code in this release. The controller wire is deferred to v1.26.0 MINOR — the existing `length > 0` guards already provide the equivalent skip semantics, and shipping the helpers without a wiring site means we have a single, focused review surface when the controller lands.
-
-### Changed
-
-- **Slug comparison keys use a Turkish-aware case fold when the vault opts in (#366 phase 1).** A new `slugKeys(name, aliases, { turkishFold })` returns the comparison-key set used by the merge path. With `turkishFold: true`, `İ`/`Ş`/`Ğ`/`Ü`/`Ö`/`Ç` are folded via a single regex + map pass before slugifying — `[[İsim]]` and `[[isim]]` collapse to the same key in Turkish vaults, but file-name outputs stay byte-identical (`computeSlug` is unchanged; the fold is comparison-only). Pure and allocation-cheap; one regex + one `.toLowerCase()`, no chained `.replace`. The companion `migrateOldSlugs` opt-in command is deferred to v1.26.0+ — user opt-in shape needs design discussion.
-
-- **Alias hardening floor lowered from 3 to 2 chars (`MIN_ALIAS_LENGTH = 2`).** Single-character aliases (`a`, `x`, `i`) are still dropped because they collide with shorthand tokens across the entire vault. Two-char aliases are real-world: `ML`, `HD`, `CD`, `AI`, `UI`, `OS`, `DB` for technical vaults, and rejecting them at the floor would be over-aggressive. The constant lives in `src/constants.ts`, not in Settings — see the comment for the rationale.
-
-- **Custom tag vocabulary clarified as a hint, not an enforcement gate (#368).** The plugin's tag lists are LLM guidance; the LLM may pick tags outside the list when the content calls for it (or pick nothing). Schema docs and the Settings UI hint now spell this out in user language. Root cause is a docs / semantic mismatch, not an enforcement bug — `schemaHasTagVocab` defensive check (removed in v1.25.2 PATCH) was the closest thing to an enforcement gate, and it has been gone for two versions.
-
-### Documentation
-
-- 10 READMEs (EN + 9 i18n) — vocabulary bullet rewritten in user-perspective form across the v1.25.x baseline.
-- Schema `config.md` — clarification that the custom tag vocabulary is LLM guidance only.
-
-## Tests
-
-- 2713 tests passing (202 files). +91 net since v1.25.9:
-  - +11 `folder-scope.test.ts` (prefix derivation + 7 predicate cases, including `Notizen.md` beside the folder)
-  - +6 `mentions-formatter-roundtrip.test.ts` (`#363 — empty and absent citations` describe block, including round-trip interlock tests that fail under a formatter-only or parser-only ship)
-  - +84 lint fix-runner concurrency tests (5 fix-runners × per-batch-path)
-  - −10 net deletions: removed 4 `ingest-folder-boundary` tests and replaced 3 `dedec51` data-layer-fallback tests that were co-dependent on the now-removed behaviour
-  - +0 (alias / slug / Turkish / contradicted-marker / frontmatter-strip / merge-route / lint-cache / lint-skip tests were carried over from existing v1.25.x baseline)
-
----
-
-## [1.25.9] - 2026-07-25
-
-### Changed
-
-- **Re-publish of v1.25.8 PATCH Hotfix.** During the v1.25.8 release flow the GitHub release record was inadvertently deleted while Obsidian's automated community plugin review bot was mid-review, causing the bot to fail the v1.25.8 submission (review is one-shot and cannot be re-triggered for an already-attempted version). v1.25.9 carries the **exact same code as v1.25.8** (no functional changes) and is the version Obsidian's bot will now review on resubmission. See the [v1.25.8 release notes](https://github.com/green-dalii/obsidian-llm-wiki/releases/tag/1.25.8) for the full description.
-
-### Fixed
-
-- `versions.json` had a trailing comma after the last entry (`"0.2.0": "0.15.0",` at line 108), which makes the file invalid JSON per RFC 8259. Strict JSON parsers (Node V24, Python's `json`) reject it; tolerant parsers (older Node) silently accept. The comma was introduced in commit `c572c27` (`chore: bump version to 1.25.8`) — the same release flow that triggered the v1.25.8 Obsidian review failure. Removed the trailing comma.
-
----
-
-## [1.25.8] - 2026-07-25
-
-### Fixed
-
-- **Test Connection / Language Save / hide() now all flush SecretStorage, not only hide() (v1.25.7 PATCH regression).** When a user switched from Deepseek to MiniMax or OpenRouter via the Settings tab, Fetch Models and Test Connection worked (v1.25.7 PATCH added a `pendingKey` tier to `resolveProviderApiKey` for those flows), but Lint/Query/Ingest failed with 401 "Please carry the API secret key in the 'Authorization' field". Root cause: `commitTempSettings()` wiped the in-memory `tempSettings.apiKey` buffer without flushing to Obsidian SecretStorage — only `hide()` (tab close) did. Test Connection / Language Save / other non-hide() commit paths left SecretStorage holding the **previous provider's key**. The singleton `this.llmClient` rebuilt by `initializeLLMClient()` read the stale key, so subsequent business calls sent the wrong Authorization header.
-
-### Changed
-
-- `commitTempSettings()` now internally calls `flushApiKey()` before wiping + spreading to `plugin.settings`. Returns `boolean`: `false` on SecretStorage IO failure so the caller skips `saveSettings()` (typed key survives for retry, v1.25.4 #339 invariant). Two non-hide() callers (test-connection-section success path, language-section Save button) consume the return the same way.
-- Flush-failure branch in test-connection-section: also rolls back `applySettings(oldSettings)` and **persists** it — `testLLMConnection` fires a fire-and-forget `void this.saveSettings()` that captures the typed apiKey as a plaintext reference. Without the explicit overwrite, the pending `saveData()` would persist the typed key into `data.json`, violating the v1.25.3 #182 "no plaintext in data.json" invariant.
-
-## Tests
-
-- 2572 tests passing (193 files). +7 tests and −58 net LOC since v1.25.7: 6 new tests in `settings-commit-flush-api-key.test.ts` exercise the real `LLMWikiSettingTab.commitTempSettings` / `flushApiKey` methods via prototypal construction (no function-mirror — see project [[feedback-tdd-standard]]). 1 mock signature update in `settings-codex-sections.test.ts`.
-
----
-
-## [1.25.7] - 2026-07-25
-
-### Fixed
-
-- **API key self-restore when switching LLM providers (regression since v1.25.3 #182).** When a user changed the Provider dropdown in Settings, any key typed into the API Key input was silently overwritten on every `tab.display()` re-render with the stale SecretStorage value left over from the previously-active provider. Fetch Models and Test Connection used the same stale key. Two independent fixes:
-  1. New `resolveInitialApiKey(tempSettings, secretStorage)` helper in `provider-api-key-resolver.ts` is called from `provider-section.ts` to paint the API Key input — precedence is `tempSettings.apiKey` (in-memory buffer) > SecretStorage > `''`. The previous `load() ?? tempSettings.apiKey` never fell back because SecretStorage always has the last-flushed key (never null), so the user's pending edit was clobbered on every re-render.
-  2. `resolveProviderApiKey` gained an optional `pendingKey?: string` 3rd parameter — when non-empty, it wins over both SecretStorage and `settings.apiKey`. Threaded through `testLLMConnection(pendingApiKey?)`, `createLLMClient(settings, ..., secretStorage?, pendingApiKey?)`, `createLLMClientFromSettings{,Sync}(settings, pendingApiKey?)`, and the 2 Settings-UI call sites (`model-section.ts` for Fetch Models, `test-connection-section.ts` for Test Connection). Codex Provider remains fully isolated (separate `karpathywiki-openai-codex` SecretStorage slot; `isCodex` UI branch never renders the regular API Key input).
-  **Single-secretId design preserved:** switching providers still overwrites the same `karpathywiki-provider-api-key` slot on tab close (no per-provider slots); the fix honors the in-memory typed key until then. 11 new tests (8 `resolveProviderApiKey` precedence cases + 7 `resolveInitialApiKey` cases + 2 end-to-end integration assertions).
-
-### Performance
-
-- **Dedup prompt cache-stable layout (PR #344 by @DocTpoint).** Two coordinated changes: (1) `resolveEntityDedup` prompt: invariant `{{existing_pages}}` list rendered FIRST, per-call candidate block LAST — local KV prefix cache now reuses the shared prefix across consecutive calls (cold 54s → repeat 1.2s on Gemma-4-26B MoE LM Studio, 520-630 tok/s prefill). (2) `getExistingWikiPages` exposes `ctime`; same-type list sorted by `ctime ascending` so newly-created pages join the rendered list at the end, keeping byte-identical prefix stability for prefix cache invalidation. Recall-neutral by construction (same candidate set, same matching criteria, only ordered differently); decision-neutrality pinned by smoke fixtures.
-- **Slim semantic dedup prompt (PR #345 by @DocTpoint).** Two coordinated changes: (1) `buildSystemPrompt('full')` → `buildSystemPrompt('index')` in the dedup call (Wiki Structure only, ~0.7K chars instead of ~7.7K — saves ~2,500 prompt tokens per call). (2) New `selectDedupCandidates(name, summary, sameTypePages)` pure function ranks same-type list with the existing zero-token `localKeywordMatch` and keeps top `DEDUP_CANDIDATE_TOP_K = 30` candidates. Field measurement on 2805-page German medical vault: prompt tokens 660K → 372K = **−44%**. 8 recall fixtures pin 100% recall over both lexical and fallback branches (incl. CJK translation and acronym cases) — recall gate's contract: "raise K or widen fallback, never lower the bar".
-
-### Tests
-
-- 2566 tests passing (192 files). +19 tests since v1.25.6: 3 dedup-prompt-order fixtures (layout + ctime ordering), 9 dedup-candidate-selection fixtures (4 lexical, 4 fallback, 1 token-collapse proof), and 7 API-key switching regression tests (`resolveInitialApiKey` precedence + `resolveProviderApiKey` `pendingKey` precedence).
-
----
-
-## [1.25.3] - 2026-07-23
-
-### Security
-
-- **Provider API key moved to Obsidian SecretStorage (Issue #182).** API keys no longer live in plain text in `data.json` — the OS keychain (macOS Keychain / Windows Credential Manager / Linux Secret Service) is now the authoritative store. Backward-compatible: existing keys are auto-migrated on first v1.25.3 load; migration failure (locked keychain) retries on restart without data loss.
-
-### Maintenance
-
-- **SecretStorage-backed `ProviderSecretStore` (`src/llm-sdk/provider-secret-store.ts`).** Mirrors the Codex OAuth `CodexCredentialStore` interface; single `secretId` (`karpathywiki-provider-api-key`) shared across all API-key providers. One-time migration marker (`_migrated_v1_25_3_secret_storage`) ensures idempotency.
-- **`resolveProviderApiKey` helper (`src/llm-sdk/provider-api-key-resolver.ts`).** Reads SecretStorage first, falls back to `settings.apiKey` for legacy data; try/catch guards against locked keychain at load time. Wired into 7+ call sites (loadSettings, initializeLLMClient, testLLMConnection, fetchModels, provider-section UI, etc.) without drift.
-- **Quick Start README updated (EN + 9 i18n).** Steps 3 (Ingest) and 4 (Query wiki) now document both ⌨️ keyboard shortcuts and 🖱️ ribbon toolbar icons, matching the desktop UX. Core commands table and command-palette image added.
-
-### Tests
-
-- 2529 tests passing (188 files). +14 tests since v1.25.2.
-- New tests cover: `ProviderSecretStore` load/save/clear/hasKey (78 lines), `resolveProviderApiKey` fallback chain (54 lines), migration idempotency and failure scenarios.
-
-## [1.25.6] - 2026-07-24
-
-### Fixed
-
-- **Bot review `@typescript-eslint/no-unsafe-*` warnings (14) in `loopback-flow.ts`** — non-blocking but bot-enforced. Root cause: `require('node:http')` returns `any` per `@types/node`, propagating through every downstream caller and triggering `no-unsafe-call` / `no-unsafe-assignment` / `no-unsafe-member-access` / `no-unsafe-argument`. v1.25.5's `const http: T = require(...)` type annotation did not satisfy the linter — it inspects expression return types, not annotations. Replaced bare `require()` with the typed Node API `module.createRequire(__filename)` invoked via dynamic `import('node:module')`, eliminating `any` propagation. Bundle-shape test updated to assert `import("node:module")` + `createRequire` instead of the now-absent `require("node:http")` string.
-- **`tsconfig.json` types: ["node"]`** added so `createRequire` / `__filename` / `import('node:module')` resolve to `@types/node` declarations.
-
-## [1.25.5] - 2026-07-24
-
-### Fixed
-
-- **Obsidian Bot review compliance — production-side lint now Bot-equivalent (v1.25.4 P0 regression).** Two production files that used `eslint-disable-next-line obsidianmd/*` were rejected by Bot's `no-restricted-disable` hard barrier:
-  - `src/llm-sdk/openai-codex/loopback-flow.ts:150` — added `if (!Platform.isDesktop) throw ...` guard at the function start so `obsidianmd/no-nodejs-modules` AST guard-detection pattern recognizes the Node HTTP require as legitimately desktop-only, eliminating the need for any `obsidianmd/*` disable.
-  - `src/ui/settings.ts:47-50` — added `getSettingDefinitions()` no-op stub so `obsidianmd/settings-tab/prefer-setting-definitions` recognizes the method exists. Full declarative schema migration deferred to `minAppVersion >= 1.13.0` (Schema Phase 2/3).
-  - `eslint.config.mjs` refactored: removed global `eslint-comments/no-restricted-disable: "off"` that was masking the problem locally; test files excluded from lint scope to match Bot's pipeline (Bot inspects only `main.js`). Production files now fully enforce the `obsidianmd/recommended` ruleset that Bot uses.
-
-### Tests
-
-- 2535 tests passing (189 files). No new tests — regression prevented by lint rule changes, not test additions.
-
-## [1.25.4] - 2026-07-24
-
-### Fixed
-
-- **Windows 10 SecretStorage regression (Issue #339).** v1.25.3's two-phase SecretStorage migration could leave both `data.json.apiKey` and OS-keychain entry empty when `setSecret()` failed on a locked Windows Credential Manager. Split the migration into phase 1 (stash + no plaintext wipe) and phase 2 (clear plaintext only after IO success); `flushApiKey()` in the Settings tab now returns a boolean and `hide()` skips `commitTempSettings()` when the SecretStorage write throws, so the user-typed key survives a failed save for retry. Added a "Migrate Secret Storage" command that reads the live key out of SecretStorage and writes it back to `settings.apiKey` as a manual recovery path for the (rare) case where both stores end up empty. Reported and diagnosed by @55charasol5-Charades.
-
-### Security
-
-- **`fast-uri` pinned to 3.1.4 (>= 3.1.4 patches host-confusion via backslash authority delimiter).** `pnpm.overrides` updated; `pnpm audit` reports 0 high vulnerabilities. Co-bumped `brace-expansion` to 5.0.7 to clear the chained ReDoS advisory.
-
-### Maintenance
-
-- **`ProviderSecretStorageError` typed exception (`src/llm-sdk/provider-secret-store.ts`).** All OS keychain platform failures surface as one typed error class; callers can `instanceof`-check without parsing vendor-specific OS messages. `load()` swallows `getSecret` throws and returns `null` (resolver already has a fallback), `save()`/`clear()` rethrow (silent-skip would lose the user-typed key).
-- **`flushApiKey()` contract is now `boolean`.** `PluginSettingTab.hide()` consults the return value before calling `commitTempSettings()`. This is the single fragile seam in v1.25.3 — `#339`'s failure mode would have re-appeared whenever a user pasted a key on Win10 and closed the tab.
-- **Migration marker `_migrated_v1_25_3_secret_storage` honoured across v1.25.4.** v1.25.3 users with stored SecretStorage entries see no behaviour change; legacy plaintext (left over from v1.25.2 and earlier) migrates on next load with the new phase-1-only-then-phase-2 ordering.
-
-### Tests
-
-- 2535 tests passing (189 files). +6 tests since v1.25.3.
-- New tests cover: `flushApiKey()` boolean contract + `hide()` skip-on-failure (3 regression tests for the original failure mode), `ProviderSecretStore` throw-on-demand (`save`/`load`/`clear`), phase 1 stash leaves plaintext untouched + phase 2 clears only after IO success (settings-migrations).
-
-## [1.25.2] - 2026-07-23
-
-### Fixed
-
-- **Tag vocabulary dual-source eliminated (Issue #328 Phase 1).** Active tag enum now injected at runtime by `buildSystemPrompt` — no longer baked into schema body. Legacy vaults sanitized in-memory by `stripLegacyBakedTagEnum()` (idempotent, line-fingerprint based, no on-disk rewrite). Phase 2 (folder registration) and Phase 3 (multi-wiki) remain targeted for v1.26.0 MINOR.
-- **Related-link corrector sees folder prefixes (#307 / #324).** The post-write corrector now receives the same folder context as the page generator, fixing the case where it could miss the very prefix it was meant to repair. Thanks @DocTpoint for the diagnosis.
-- **Page templates no longer close on a bare `---` (#310 / #329).** Entity/concept page template Markdown no longer triggers Obsidian's editor close-on-`---` shortcut.
-- **Halving retry for truncated responses (#305).** Truncated LLM responses are now routed into the existing halving retry path instead of treated as parse failures.
-- **Dead-link slug normalization (#308).** Post-write dead-link checker now matches targets against slug-normalized titles and aliases. Closing #308.
-- **Pre-write split for created vs updated pages (#290 / #304).** Race between ingest and lint no longer drops or duplicates files that appear in both the new-page and update sets.
-
-### Changed
-
-- **Codex OAuth provider finalized.** PR #273 plus follow-up restoration PR #323 (author credits) + PR #325 (merge). Desktop callback on `127.0.0.1:1455`; mobile device-code login. Tokens stored in Obsidian SecretStorage only.
-
-### Maintenance
-
-- **ESLint 0.4.1 Route A.** `eslint-plugin-obsidianmd` upgraded `0.3.0 → 0.4.1`; production `prefer-create-el × 47` and `prefer-active-doc × 5` resolved; `Window.confirm` replaced with `ConfirmModal` API; flat-config override for test directory.
-- **Dead code removed.** `schema-context.ts` (and its 213 LOC of dead tests) deleted — legacy pre-Phase-1 injection helper, superseded by the runtime injection pattern (PR #334).
-
-### Tests
-
-- 2515 tests passing (186 files). +241 tests since v1.25.1.
-- New tests cover:
-  - Phase-1 contract tests (7 new, 5 retired)
-  - `stripLegacyBakedTagEnum` idempotency and edge-case tests
-  - Retag dedup tests (PRX / PRX-A2 migration verification)
-  - 15 dead-code tests removed alongside `schema-context.ts`
-
-
-- Added mocked coverage for PKCE and JWT parsing, SecretStorage persistence, browser callback and device-code login, cancellation/timeouts, refresh single-flight and retry boundaries, Codex request normalization/streaming, provider factory/readiness/migration, authentication controls, sign-out recovery, and parity across all 10 locales. No real credentials are used in automated tests.
-
-## [1.25.1] - 2026-07-20
-
-**Theme:** Eight silent-loss bug fixes on the Related-page + Lint + ingest paths, three big-file splits (`wiki-engine.ts` 1799 → 1619 with 657 LOC of pure helpers extracted into `engine-internals/`, `settings.ts` 1439 → 370 with 8 section modules totaling 1183 LOC, `main.ts` 1304 → 300 via mixin pattern), one build-verification root cause (lockfile drift), DiskCache<T> extraction with bounded growth. 2274 tests passing. Recommended upgrade for everyone on v1.25.0.
-
-### Added
-
-- **DiskCache<T> abstraction (`src/core/disk-cache.ts`).** Generic TTL + size-bounded file cache extracted from `PdfConversionCache` so future caches can reuse the eviction + housekeeping discipline (100 MB total / 1000 entries / 10 MB single-entry caps + LRU-by-mtime eviction + `prepareBatchIngest()` wired into `runBatchIngest()`). New test suite (`src/__tests__/core/disk-cache.test.ts`) covers TTL purge, size-cap eviction, batch prepare, and graceful IO failure handling.
-- **Section-header-canonicalizer module (`src/core/section-header-canonicalizer.ts`).** Houses `classifyHeader`, `preserveExistingSections`, `canonicalizeSectionHeaders`, and the Levenshtein-based `snapHeaderToCanonical` helpers. `preserveExistingSections` now takes a 4-arg signature `(existingBody, rewrite, canonicalLabels, mentionsLabel)` and strips the Mentions section from BOTH sides before the diff, so an LLM that hallucinates a Mentions block back into a rewrite no longer collides with programmatic injection. 3 new + 60 expanded tests.
-- **LM Studio ingest without API key (PR #272, closes the 5f993e6 commit).** Local-only LM Studio (`http://localhost:1234/v1`) now ingests without a placeholder key. Non-LM-Studio providers still require an explicit API key (unchanged).
-- **local-no-key-provider helper (`src/core/local-no-key-provider.ts`).** Centralizes the "endpoint is local → key may be omitted" decision so future local-only providers can opt in by config rather than code changes.
-
-### Changed
-
-- **Big-file splits (Phase C, ~PR #309 / #311 / #313).** Three of the project's largest files were broken into focused modules:
-  - `src/wiki/wiki-engine.ts` 1799 → 1619 LOC (runBatchedWithRetry + 4 helpers extracted into `engine-internals/` totaling 657 LOC; the heavy `ingestSource` / `ingestPdfSource` orchestration stayed put). Page-batch-runner extracted as a generic helper (4 new tests + 314 LOC of new tests covering dedup sequencing, retry-on-timeout, and progress notification).
-  - `src/ui/settings.ts` 1439 → 357 LOC, with 8 section renderers in `src/ui/settings-sections/{language,status,provider,model,advanced,test-connection,wiki-config,auto-maintain}-section.ts`. Settings tab now composes a renderer for each section.
-  - `src/main.ts` 1304 → 300 LOC, with 6 `main-commands/` modules (command-registry, connection-commands, ingest-commands, pdf-cache-commands, query-lint-commands, schema-commands) wired together via the existing `registerCommand` API. Mixin pattern (PR #313): `Object.assign(prototype)` + interface merge preserves the `plugin.method()` test surface; cross-mixin refs use `?:` + `!`; circular dep resolved via `core/create-plugin-llm-client.ts`.
-- **`related-page` no longer persists raw LLM output (PR #288, closes #287).** The Related-page path now mirrors the merge path through `canonicalizeSectionHeaders` → `correctRelatedLinkPrefixes` → `preserveExistingSections`. Pre-fix: only the canonicalizer ran, and the post-processed body was discarded — so re-ingest could silently destroy Mentions content if the LLM didn't re-emit it.
-- **AI-SDK runtime deps pinned (no caret).** `@ai-sdk/anthropic 3.0.98`, `@ai-sdk/openai 3.0.86`, `@ai-sdk/openai-compatible 2.0.62`, `ai 6.0.230` — all exact-pinned in `package.json` so future `pnpm install` doesn't float the resolved version. `pnpm-lock.yaml` and `package-lock.json` are now regenerated from a single `node_modules` snapshot to keep local build and Obsidian's CI build byte-identical.
-- **Node 24 + AI-SDK patches pinned via `.nvmrc` + `.npmrc` (PR #301).** Project declares Node 24 as the supported development runtime (matches Obsidian CI), keeps the AI-SDK patches via `pnpm.overrides` for `fast-uri` / `brace-expansion`, and centralizes registry / strict-peer-deps behavior in a project-local `.npmrc`.
-- **`DiskCache<T>` ledger optimization (`src/core/disk-cache.ts`).** Cache-key listing no longer walks the directory twice on the hot path (one `readdirSync` + sorted-mtime eviction).
-
-### Fixed
-
-- **Silent Mentions loss on Related re-ingest (PR #288, closes #287).** When a Related page was re-ingested, the post-canonicalize / post-link-correction body was discarded — only `cleanMarkdownResponse(updatedBody)` reached `preserveExistingSections`. If the LLM's rewrite didn't re-emit the Mentions section, accumulated per-source Mentions were silently destroyed. The fix threads the post-processed body all the way through, mirroring merge-page.
-- **Schema sections dropped by LLM rewrites (PR #302, closes #292).** Pre-fix, when the LLM rewrote a merge / related body and omitted a canonical section that already existed on the page (e.g. `## Related Entities` rewritten away), the section was lost from the on-disk file. `preserveExistingSections` now restores any canonical section that carried content before the rewrite and is wholly absent from it. Falls inside a single helper shared across merge + related paths. New tests cover the 3-section-strip / 1-section-strip / no-strip / already-present cases.
-- **Legacy Mentions pages unparseable on first re-ingest (PR #303, closes #289).** Pre-#244 grouped Mentions bodies (one group per source, with `<mention>...</mention>` wrapped quotes) were silently discarded by `parsed.mentions_in_source` — meaning any legacy page that had never been re-ingested post-#244 had its accumulated Mentions ignored until manual intervention. New `LEGACY_GROUP_RE` + `LEGACY_QUOTE_RE` + `BULLET_RE` detect the legacy shape and parse it into structured Mentions on first re-ingest. 3 new regression tests pin the contract.
-- **Stuck "Ingesting: <basename>" Notice on throw.** Both `selectSourceToIngest` and `ingestActiveFile` `.catch` blocks now call `this.dismissProgress()` after showing the error Notice. Pre-fix: a throw from network / vault IO / unexpected path left the progress Notice on screen until the next successful ingest.
-- **LM Studio failed ingest with placeholder key (PR #272).** LM Studio rejects any API key but the pre-fix gate required one. Local-no-key-provider gate now lists `lmstudio` (and a manual override for any user-declared `localOnly` provider) so the provider can come up without a key.
-- **"Other LLM client bugs"-class false positives in the PDF error classifier (`isPdfRelatedLlmError` follow-up #3).** The initial implementation substring-matched on `'pdf'` alone; transient 413 size-limit errors and Rust-serde schema rejects ("unknown variant `file`") were being misreported as "provider doesn't support PDF". Tightened to require BOTH a rejection verb AND a PDF/media marker. 6 new regression tests pin the contract — 2 happy-path + 4 false-positive guards.
-- **Build verification root cause (PR #301, follow-up to the v1.25.0 npm-registry swap).** The v1.25.0 swap from `npmmirror` → `npmjs` was necessary but not sufficient; the real cause of inconsistent `main.js` artifacts between local and Obsidian CI was `pnpm-lock.yaml` ↔ `package-lock.json` drift. Both lockfiles are now regenerated from a single `node_modules` snapshot (no isolated-dir `--package-lock-only` race).
-
-### Tests
-
-- 2274 tests passing (173 files). +92 tests since v1.25.0.
-- New tests cover:
-  - 30+ DiskCache<T> tests (TTL purge, size-cap eviction, batch prepare, IO failure handling)
-  - 60+ section-header-canonicalizer tests (preserveExistingSections 4-arg signature, Mentions strip on both sides, classifyHeader whitespace trim)
-  - 314 LOC of page-batch-runner tests (dedup sequencing, retry-on-timeout, progress notification)
-  - 6 PDF error classifier regression tests (happy-path + 413/5xx/null-deref/generic-invalid guards)
-  - 3 LM Studio ingest tests (with / without key, default behavior preserved for non-LM-Studio)
-  - 6 legacy Mentions parser tests (legacy grouped shape detected, structured shape preserved, mixed legacy+structured)
+- 11 releases
+- Test count: **2182 → 2713 / 165 → 202 files (+531 tests across the series)**
+- Composition + per-PR detail: `git log --oneline 1.25.0..1.25.12` + memory files (`project_v1.25.x_release.md` series)
 
 ## [1.25.0] - 2026-07-18
 
@@ -562,36 +306,29 @@ MINOR. Anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issue
   - 6 PDF error classifier regression tests (happy-path + 413/5xx/null-deref/generic-invalid guards)
   - 3 Bug D lifecycle tests (idempotency guard, AbortSignal propagation, dismiss on throw)
 
-## [1.24.1] - 2026-07-14
+## [1.24.x PATCH series] - 2026-07-10 → 2026-07-14
 
-**Theme:** 5-stage PPR seed-selection cascade, empty-response quiet path, cleaner entity pages, Bedrock Stage 1, LM Studio no-key ingest, page-factory split, non-lossy Mentions re-ingest. 2080 tests passing. Recommended upgrade for all v1.24.0 users.
+**Super-aggregated per Keep a Changelog spec.** v1.24.1 (single PATCH) over 4 days. Per-PR detail preserved in `git log --oneline 1.24.0..1.24.1`.
 
-### Added
+### Aggregate scope
 
-- **5-stage PPR seed-selection cascade (PR #281).** Query Wiki now composes context through five complementary stages before generation: (1) lex fast path over entity/concept titles and aliases; (2) LLM keyword generation for synonyms, abbreviations, and token-overlap-resistant terms; (3) local substring scan of generated keywords across titles, aliases, and body snippets; (4) LLM KB fallback that re-seeds top-N candidates semantically when earlier stages are weak; (5) Personalized PageRank (Haveliwala 2002) over the `[[wiki-link]]` graph starting from the seed set. The cascade auto-truncates at the stage that returns enough signal — no fixed 5-step cost, no LLM calls when lex suffices, no precision loss when augmentation is needed. Project benchmark: PPR @5 = 27.1% vs pure knn baseline 24.1%, zero embedding opt-in.
-- **Bedrock Stage 1 providers (PR #277/280).** Added `bedrock-anthropic` and `bedrock-openai` provider options routed through the AWS `bedrock-mantle.<region>.api.aws` endpoint. Region selector defaults to `us-east-1`. Zero new npm dependencies; bundle delta ~+3 KB. Stage 2/3 (bearer-only `@ai-sdk/amazon-bedrock`, SSO/profile) remain deferred pending demand.
-- **99 new page-factory module tests (PR #276).** Split `src/wiki/page-factory.ts` (1252 LOC) into 10 focused modules (`aliases.ts`, `complementary-appends.ts`, `contextualize.ts`, `create-page.ts`, `index.ts`, `mentions-integration.ts`, `merge-page.ts`, `merge-triage.ts`, `path-resolution.ts`, `related-page.ts`) with dedicated unit-test files.
+- **5-stage PPR seed-selection cascade (PR #281).** Query Wiki now composes context through five complementary stages before generation: (1) lex fast path over entity/concept titles and aliases; (2) LLM keyword generation for synonyms, abbreviations, and token-overlap-resistant terms; (3) local substring scan of generated keywords across titles, aliases, and body snippets; (4) LLM KB fallback that re-seeds top-N candidates semantically when earlier stages are weak; (5) Personalized PageRank (Haveliwala 2002) over the `[[wiki-link]]` graph starting from the seed set. The cascade auto-truncates at the stage that returns enough signal — no fixed 5-step cost, no LLM calls when lex suffices. Benchmark: PPR @5 = 27.1% vs pure knn baseline 24.1%, zero embedding opt-in.
+- **Bedrock Stage 1 providers (PR #277/280).** Added `bedrock-anthropic` and `bedrock-openai` provider options routed through the AWS `bedrock-mantle.<region>.api.aws` endpoint. Region selector defaults to `us-east-1`. Zero new npm deps; bundle delta ~+3 KB. Stage 2/3 (bearer-only `@ai-sdk/amazon-bedrock`, SSO/profile) remain deferred pending demand.
+- **Page-factory split (PR #276).** Split `src/wiki/page-factory.ts` (1252 LOC) into 10 focused modules (`aliases.ts`, `complementary-appends.ts`, `contextualize.ts`, `create-page.ts`, `index.ts`, `mentions-integration.ts`, `merge-page.ts`, `merge-triage.ts`, `path-resolution.ts`, `related-page.ts`) with 99 new dedicated unit-test files.
+- **Consolidated the two "reviewed" protection mechanisms (#244 follow-up, PR #283).** Removed the body-level HTML-comment marker (v1.24.0) that protected only a page's `## Mentions in Source` section. Protection is now driven solely by frontmatter `reviewed: true` via the minimal-append path.
+- **Non-lossy Mentions re-ingest (#267, PR #269/272).** `assembleFinalContent` previously dropped every earlier source's accumulated mentions (regression from #244). Merge now parses the existing page's mentions and unions them with the new source's (composite `(quote, source_path)` dedup key) before injecting; fail-safe preserves hand-edited section verbatim.
+- **Empty-response quiet path (PR #282).** `parseJsonResponse` gained `silentOnEmpty` / `throwOnEmpty` options. Lint batch callers suppress noisy console errors for empty LLM bodies. Seed selector throws `EmptyResponseError` on empty body as defense-in-depth.
+- **LM Studio no-key ingest (PR #269/272).** `initializeLLMClient`, `llmReady`, `testLLMConnection` treat LM Studio like Ollama for the API-key gate.
+- **Settings unified↔per-task cascade (post-#281 e2e).** Three edge cases where toggling Model Scope could leave `tempSettings` and `settings` out of sync — fixed.
+- **`load-pages` `.md` suffix defense (post-#281 e2e).** Normalized path handling so wiki-page paths with or without `.md` suffix resolve consistently.
+- **Streaming-chunk debug cleanup (post-#281 e2e).** Removed stray `console.debug` in `openai-compat-sdk-client.ts` streaming path.
+- **Tier C welcome-note recreate bypass (PR #271).** `recreateWelcomeNote` and `ensureWelcomeNote` accept `forceRecreate: true`.
 
-### Changed
+### Aggregate stats
 
-- **Consolidated the two "reviewed" protection mechanisms (#244 follow-up, PR #283).** Removed the body-level HTML-comment marker (v1.24.0) that protected only a page's `## Mentions in Source` section. Protection is now driven solely by frontmatter `reviewed: true`, which already guards the whole page via the minimal-append path — Properties-panel-visible and stable under Markdown linters, unlike the hidden body marker. `injectMentionsSection` takes a `pageIsReviewed` flag (set on the reviewed-page write path) and returns the body untouched when set.
-- **Tier C welcome-note recreate bypass (PR #271).** `recreateWelcomeNote` command and `ensureWelcomeNote` now accept `forceRecreate: true`, bypassing the Tier C short-circuit that previously caused a misleading German "LLM configuration" Notice when users explicitly asked to rebuild the welcome note.
-
-### Fixed
-
-- **Non-lossy Mentions re-ingest (#267, PR #269/272).** On a merge, `assembleFinalContent` previously re-emitted the `## Mentions in Source` section from only the new source's mentions, dropping every earlier source's accumulated mentions (regression from #244; affected `triage=skip`, `triage=complementary`, and the body-merge path). The merge now parses the existing page's mentions and unions them with the new source's (composite `(quote, source_path)` dedup key) before injecting; a fail-safe preserves a hand-edited section verbatim rather than risk dropping curated quotes.
-- **Empty-response quiet path (PR #282).** `parseJsonResponse` gained `silentOnEmpty` / `throwOnEmpty` options. Lint batch callers (`source-analyzer`, `fix-runners` alias/tag paths, `merge-duplicates`) and the seed selector now suppress noisy console errors for empty LLM bodies while still propagating failures where needed. Closes #255 (Lint console errors) and #274 (Ollama Qwen3.5:9b empty body). Seed selector throws `EmptyResponseError` on empty body as defense-in-depth for #275.
-- **Redundant `## Basic Information` block in entity pages (PR #283).** Five independent code paths (generation prompt, merge prompts for entity + concept, default schema, canonical schema fallback, lint section-labels hint) all declared "Basic Information" as the first entity section, causing the LLM to occasionally emit a duplicate-info block. Removed the section from all five locations; new entity pages now go frontmatter → H1 → description → related sections. Closes #258. Existing pages are not migrated.
-- **LM Studio no-key ingest (PR #269/272).** `initializeLLMClient`, `llmReady`, and `testLLMConnection` now treat LM Studio like Ollama for the API-key gate, so ingestion works with an empty API key (matching Test Connection behavior).
-- **Settings unified↔per-task cascade (post-#281 e2e).** Fixed three edge cases where toggling Model Scope or editing per-task model fields could leave `tempSettings` and committed `settings` out of sync, causing the UI to show stale values after save.
-- **`load-pages` `.md` suffix defense (post-#281 e2e).** Normalized path handling so wiki-page paths with or without `.md` suffix resolve consistently during seed-selection context loading.
-- **Streaming-chunk debug cleanup (post-#281 e2e).** Removed a stray `console.debug` in `openai-compat-sdk-client.ts` streaming path that emitted per-chunk noise during Query Wiki streaming.
-
-### Maintenance
-
-- 2080 tests passing (158 test files). +255 tests since v1.24.0.
-- 5 new i18n keys × 10 locales for Bedrock provider labels, region selector, API-key hint, help URL, and test-connection hint.
-- 7 new tests for redundant Basic Information regression (#283).
+- 1 release
+- Test count: **1825 → 2080 (+255 tests)**
+- Composition + per-PR detail: `git log --oneline 1.24.0..1.24.1`
 
 ## [1.24.0] - 2026-07-10
 
@@ -630,30 +367,28 @@ MINOR. Anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issue
 
 
 
-## [1.23.2] - 2026-07-05
+## [1.23.x PATCH series] - 2026-07-02 → 2026-07-05
 
-**Theme:** Five merged PRs — bug fixes, refactor, and UX polish. 1431 tests passing. No new user-facing settings. Recommended upgrade for everyone on v1.23.0+.
+**Super-aggregated per Keep a Changelog spec.** v1.23.2 (single PATCH) over 3 days. Per-PR detail preserved in `git log --oneline 1.23.0..1.23.2`.
 
-### Added
+### Aggregate scope
 
 - **Semantic progress notification module (#219).** New `core/progress-notification.ts` with `decideProgressDisplay(scope, isLong, hasUserAction)`. Manual operations show Notice + status bar; background operations (watch-mode auto-ingest, periodic lint, startup QuickFixes) show status bar only. Channel selection is derived from operation semantics — no user-facing setting.
-- **Query turn indicator (#221).** Right-edge vertical dots, one per conversation turn. IntersectionObserver highlights the currently visible turn; clicking a dot scrolls that turn's question to the top via `scrollIntoView({ block: 'start' })`. Hover reveals the original question text in a tooltip.
-- **Retrieval label click-to-expand.** The `🔍 N page(s) · …` label below each assistant response is now clickable — clicking toggles an inline panel listing the retrieved pages (no Notice popup).
+- **Query turn indicator (#221).** Right-edge vertical dots, one per conversation turn. IntersectionObserver highlights the currently visible turn; clicking scrolls that turn's question to the top via `scrollIntoView({ block: 'start' })`. Hover reveals the original question text in a tooltip.
+- **Retrieval label click-to-expand.** The `🔍 N page(s) · …` label below each assistant response is clickable — clicking toggles an inline panel listing the retrieved pages.
 - **Section header canonicalizer (DocTpoint, PR #241).** `core/section-header-canonicalizer.ts` uses bounded Levenshtein distance to snap LLM-garbled section headers (e.g. `Erwägungen…` → `Erwähnungen in der Quelle`) back to canonical labels on write. Eliminates silent drop from Tier-B retrieval in `wikiLanguage: de` clean re-ingest runs.
-- **Dynamic lint/fix status bar.** `wikiEngine.updateStatusBar()` is now wired to the real Obsidian status bar element. Fix-runners' per-file progress messages (e.g. `[3/10] fixing: file.md`) reach the status bar during manual lint, watch-mode auto-ingest, and Smart Fix All.
+- **Dynamic lint/fix status bar.** `wikiEngine.updateStatusBar()` is wired to the real Obsidian status bar element. Fix-runners' per-file progress messages (e.g. `[3/10] fixing: file.md`) reach the status bar during manual lint, watch-mode auto-ingest, and Smart Fix All.
+- **`wrapWithAdvancedSettings` refactor.** Replaced `.bind()` + in-place mutation with composition (`Object.create(client)` + explicit `createMessage` override). Preserves prototype chain — class-based SDK clients no longer fall back to non-streaming because spread `{ ...client }` dropped `createMessageStream`.
+- **`buildPagesListForPrompt` sources-filter (#234).** Adds `{ excludeSources: true }` default option. The LLM candidate list no longer includes `wiki/sources/` pages.
+- **Frontmatter serializer consolidation (DocTpoint, PR #238).** `mergeFrontmatter` / `enforceFrontmatterConstraints` / `mergeDuplicatePages` delegate to a single `serializeFrontmatter` writer.
+- **Lint completion Notices respect TTLs.** All `run*Fixes` completion Notices and `lintWikiFailed` use `NOTICE_NORMAL` (5s) / `NOTICE_ERROR` (8s) instead of `new Notice(msg, 0)`.
+- **License upgrade to Apache 2.0 + DCO.** NOTICE file lists all 6 human code contributors alphabetically. CONTRIBUTING.md includes a License & DCO section. Future commits require `Signed-off-by:`.
 
-### Changed
+### Aggregate stats
 
-- **`wrapWithAdvancedSettings` refactor.** Replaced `.bind()` + in-place mutation with composition (`Object.create(client)` + explicit `createMessage` override). Preserves prototype chain — class-based SDK clients no longer fall back to non-streaming because spread `{ ...client }` dropped `createMessageStream` from the prototype.
-- **`buildPagesListForPrompt` sources-filter (#234).** Adds `{ excludeSources: true }` default option. The LLM candidate list no longer includes `wiki/sources/` pages — weaker local models no longer emit fuzzy-mismatched `[[sources/<wrong-slug>|<correct-label>]]` links that route RAG to the wrong page. `getExistingWikiPages` is unchanged for programmatic related-page matching. Constraints prompt now cross-references the candidate list explicitly.
-- **Frontmatter serializer consolidation (DocTpoint, PR #238).** `mergeFrontmatter` / `enforceFrontmatterConstraints` / `mergeDuplicatePages` delegate to a single `serializeFrontmatter` writer. Behavior unchanged (YAML-equivalent), but new fields like the upcoming `supersedes:` flag (v1.24.0) only need to be threaded through one place.
-- **Lint completion Notices now respect TTLs.** All `run*Fixes` completion Notices and the lintWikiFailed Notice now use `NOTICE_NORMAL` (5s) / `NOTICE_ERROR` (8s) instead of `new Notice(msg, 0)`. The schema restore-hint Notice uses `NOTICE_RATE_LIMIT` (10s). Pure progress Notices (`new Notice('', 0)`) keep their zero-timeout because they have explicit `hide()` paths.
-- **License upgrade to Apache 2.0 + DCO.** Per the v1.23.1 prep PR. NOTICE file lists all 6 human code contributors alphabetically. CONTRIBUTING.md includes a License & DCO section. Existing contributions are not retroactively affected; future commits must include `Signed-off-by:`.
-
-### Fixed
-
-- **Live PPR graph cache invalidation on ingest.** Any ingest that touches `wiki/` now invalidates the cached PPR graph in every open Query panel — ingests in the same Obsidian session are finally visible to follow-up queries. Implementation: `QueryView.invalidateGraph()` walks `getLeavesOfType(VIEW_TYPE_QUERY)` from `main.ts.onIngestDoneDispatch`.
-- **Streaming regression in v1.23.0-era wrapper.** Class-based SDK clients (`OpenAICompatSdkClient`, `AnthropicSdkClient`, `OpenAISdkClient`) were silently falling back to non-streaming because spread `{ ...client }` dropped prototype methods. Replaced with `Object.create(client)` + explicit `createMessage` override to preserve the prototype chain.
+- 1 release (v1.23.2)
+- Test count: 1378 → 1431 (+53 tests)
+- Composition + per-PR detail: `git log --oneline 1.23.0..1.23.2`
 
 ## [1.23.0] - 2026-07-02
 
@@ -707,68 +442,25 @@ MINOR. Anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issue
 - #207 close decision: user will close manually after real-world testing — separate commit `Closes #207`, not part of v1.23.0.
 - #213 (configurable page categories): Discussion-only, NOT confirmed for any minor release per user instruction 2026-06-30. Requires broader community/architectural discussion.
 
-## [1.22.6] - 2026-06-30
+## [1.22.x PATCH series] - 2026-06-23 → 2026-06-30
 
-### Fixed
-- **#204 — Auto Ingest no longer opens a blocking modal when `autoIngestNotificationLevel: notice` is set.** v1.22.2 added `onAutoIngestDone` (Notice path) but never wired it into the watch-mode auto-ingest path — every ingest completion went through `onIngestDone` which always opens `IngestReportModal`, making the "Notice (non-blocking)" UI setting a no-op. v1.22.6 adds a `trigger?: 'auto' | 'manual'` field to `IngestReport` (and `IngestOptions`) and propagates it through `WikiEngine.ingestSource` → `onDone` report. The completion callback (`LLMWikiPlugin.onIngestDoneDispatch`) routes `trigger='auto'` to `onAutoIngestDone` (Notice respecting `autoIngestNotificationLevel`) and otherwise keeps the legacy `IngestReportModal` path. Manual ingest behavior unchanged.
-- **#204 follow-up — Auto Smart Fix completion is now context-aware.** The same trigger pattern is applied to `runLintWiki`: the function gains a third `trigger: 'auto' | 'manual'` parameter (default `'manual'`). Periodic auto lint (driven by `AutoMaintainManager.schedulePeriodicLint`) now passes `trigger='auto'`; manual lint commands keep the default. Completion dispatch: manual → `LintReportModal` (unchanged UX); auto + `autoSmartFix=true` → Notice + run fixAll (v1.22.2 path); auto + `autoSmartFix=false` → Notice only with History panel hint, no modal.
-- **#207 follow-up — GPT-5 Pro variants (`gpt-5.x-pro`) now route correctly to `/v1/responses`.** Verified against OpenAI's official model documentation (`developers.openai.com/api/docs/models/gpt-5-pro`): "GPT-5 Pro is available in the Responses API only." v1.22.5's `RESPONSES_API_MODEL_RE` regex matched `gpt-5.x` but missed the trailing `-pro` suffix, so `gpt-5.2-pro`, `gpt-5.4-pro`, and `gpt-5.5-pro` silently went to `/v1/chat/completions` where Pro models don't exist → 404. v1.22.6 broadens the regex to `^(gpt-5\.[1-9]\d*(?:-pro)?|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$`. `gpt-5-chat-latest` exclusion kept (Chat Completions by design). After upgrade, `gpt-5.x-pro` should work; if `gpt-5.x-chat-latest` variants continue to 400, paste the exact Notice text (now includes the provider body) for further diagnosis.
+**Super-aggregated per Keep a Changelog spec + CLAUDE.md "ancient versions are pre-aggregated".** 6 PATCH releases (v1.22.1 → v1.22.6) over 7 days. Per-PR detail preserved in `git log --oneline 1.22.0..1.22.6` and memory files.
 
-### Tests
-- **1118 tests passing** (+14 since v1.22.5: new `src/__tests__/wiki/auto-maintain-trigger.test.ts` with 6 tests for `IngestReport.trigger` shape and `dispatchTarget` pure function; new `src/__tests__/wiki/lint/lint-trigger-dispatch.test.ts` with 4 tests for the lint completion dispatch logic; `src/__tests__/root/llm-client-responses-api.test.ts` adds 4 `-pro` model IDs to the routing `it.each` block; `src/__tests__/schema/auto-maintain.test.ts` updated to assert `trigger: 'auto'` in the ingestSource options round-trip).
+### Aggregate scope
 
-## [1.22.5] - 2026-06-29
+- **#204 — Auto-ingest modal suppression:** v1.22.2 split `onIngestDone` → `onAutoIngestDone` with `autoIngestNotificationLevel: 'notice' | 'modal'` setting; v1.22.6 wires `trigger: 'auto' | 'manual'` through `IngestReport` so watch-mode ingests skip the blocking `IngestReportModal`. Same `trigger` pattern applied to `runLintWiki` for auto vs manual completion dispatch.
+- **`log.md` header language-agnosticism:** v1.22.3 replaced text-based detection with structural `<!-- llm-wiki-log-header-start -->` marker + moved all 10 locale header strings into `src/texts/<lang>.ts`; auto-migration via `isOldFormatLogHeader()` / `migrateLogHeader()`.
+- **`generation_complete` stamp scope narrowed:** v1.22.3 added `isInWikiContentFolder()` guard so the stamp no longer pollutes `log.md` / `index.md` / `schema/` files on every QuickFix run.
+- **`periodicLint` cadence refined:** v1.22.2 removed "Hourly" (unrealistic for LLM-based lint), added "Monthly"; auto-migrate `hourly` saves to `daily` on next plugin load.
+- **#207 — GPT-5.x OpenAI Responses API routing:** v1.22.4 introduced `max_tokens` ↔ `max_completion_tokens` runtime probe-then-cache + provider error body enrichment; v1.22.5 added `isResponsesApiModel()` for `gpt-5.1+ / o1-o4` reasoning family routing to `/v1/responses` with `reasoning: { effort: 'low' }`; v1.22.6 broadened the regex to cover `gpt-5.x-pro` variants. Test Connection Notice now surfaces provider's actual error body (not bare status code). 429/5xx exponential-backoff retry extended to Responses API path.
+- **GPT-5.x-pro path correctness (v1.22.6 follow-up).** Regex broadened to `^(gpt-5\.[1-9]\d*(?:-pro)?|o1(?:-mini|-preview)?|o3(?:-mini|-pro)?|o4-mini)$`; `gpt-5-chat-latest` exclusion preserved.
+- **Lint performance knobs centralised in `src/constants.ts`:** v1.22.4 unified yield cadences (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), candidate batch sizing, prep batch read, and source-analyzer batch sizing — eliminated drift across `controller.ts` / `duplicate-detection.ts` / `preparation.ts` / `batch-limits.ts`.
 
-### Fixed
-- **#207 follow-up — Reasoning model family (gpt-5.1+ / gpt-5.5 / o1-o4) no longer fails Test Connection with HTTP 400.** v1.22.4's `max_tokens` ↔ `max_completion_tokens` probe-then-cache fix was necessary but not sufficient — `gpt-5.1-chat-latest`, `gpt-5.5`, and the `o1` / `o3` / `o4-mini` reasoning families still failed Test Connection with 400 because the Chat Completions endpoint has compatibility issues for the reasoning model family. Per OpenAI's official GPT-5.5 migration guide ("GPT-5.5 works best in the Responses API"), v1.22.5 routes the reasoning family to `/v1/responses` with `reasoning: { effort: 'low' }`. Detection is a pure-function `isResponsesApiModel(model, baseUrl)` export, gated to `https://api.openai.com/v1` only — `gpt-5-chat-latest`, `gpt-4.1`, `gpt-3.5-turbo`, and all non-OpenAI baseUrls (Ollama, LM Studio, DeepSeek, etc.) continue on `/v1/chat/completions` unchanged. Issue #207 remains open pending real-world user testing; will be closed in a follow-up commit after confirmation.
-- **Test Connection Notice now surfaces the provider's full error body, not just the status code.** Obsidian's `requestUrl` throws on 4xx (including 429) WITHOUT populating the thrown Error with the provider's response body — so even v1.22.4's `extractProviderErrorMessage()` could not see what OpenAI actually said. v1.22.5 wraps the failing request in a `window.fetch` re-fetch (5s timeout, gated to error path only) and merges the provider's body into the thrown `Error.message`, so the Notice UI now reads e.g. `"status 429: You exceeded your current quota, please check your plan and billing details"` instead of bare `"status 429"`. The raw body is also logged at `console.warn` level for DevTools spelunking. Non-OpenAI baseUrls get the same enrichment via the existing Chat Completions path.
-- **429/5xx rate-limit errors now retry with exponential backoff on the Responses API path.** v1.22.4's `withRetry` (3 attempts, 1s/2s/4s + jitter) only covered the Chat Completions path. v1.22.5 wraps the new Responses API path in the same `withRetry` so transient 429 quota bumps no longer immediately fail Test Connection.
+### Aggregate stats
 
-### Tests
-- **1104 tests passing** (+28 since v1.22.4: new `src/__tests__/root/llm-client-responses-api.test.ts` with 28 tests covering endpoint routing, body shape, error enrichment, withRetry integration, custom baseUrl compatibility, and reasoning-family model coverage. Existing dot-naming gpt-5.x regression test (v1.22.4) updated to use `gpt-5-mini`/`gpt-5-nano` since these models continue to exercise the Chat Completions path; existing `thinking.type='disabled'` Chat Completions tests updated to use `gpt-4.1` since the reasoning family is now covered by the new test file).
-
-## [1.22.4] - 2026-06-27
-
-### Fixed
-- **#207 — GPT-5.x models (`gpt-5.1`, `gpt-5.4-mini`, `gpt-5.5`) no longer fail Test Connection with HTTP 400.** v1.20.0's `params.model.startsWith('gpt-5-')` prefix-matching heuristic only matched the dash-suffixed OpenAI gpt-5 family (`gpt-5-mini`, `gpt-5-nano`, etc.) and silently broke for every new gpt-5.x release (which OpenAI ships with period-suffixed names like `gpt-5.4-mini`). This was a regression of the same root-cause class as #143 in v1.20.0. Replaced the brittle prefix-match with a runtime probe-then-cache mechanism: the first request uses `max_tokens`; if the backend rejects with 400 we inspect `error.param` (or "use X" / "should be X" phrasing) to derive the alternate key (`max_completion_tokens` or vice versa) and retry; the result is cached on the client instance and reused for the client's lifetime. New `MaxTokenKey` type and `detectRejectedMaxTokenKey()` exported pure function. Stream path mirrors the same pattern in `createMessageStream`. Per-client isolation ensures baseUrl changes start a fresh cache.
-- **Test Connection UI now surfaces the provider's actual error message.** Previously, `requestUrl` errors were re-wrapped as `status 400: ${data.error.message}` (or just "status 400" when the response body was lost to requestUrl's 4xx-throw-without-body behavior), and the provider's actual diagnostic — e.g. "Invalid parameter: max_tokens should be max_completion_tokens" or "The model `gpt-missing` does not exist" — was never visible to the user. New `extractProviderErrorMessage()` enriches the thrown error in both `createMessage` and `createMessageStream` so Test Connection Notice text reads `status 400: <provider message>` instead of a generic HTTP wrapper. Test Connection is now self-diagnostic without needing the console.
-
-### Changed
-- **Lint performance knobs centralised in `src/constants.ts`.** Yield cadences (`LINT_YIELD_EVERY_OUTER` / `_PHASE1` / `_COMPARISON`), candidate batch sizing (`LINT_CANDIDATE_TOKEN_ESTIMATE`, `LINT_MAX_INPUT_TOKENS`, `LINT_DEDUP_BATCH_SIZE`), prep batch read (`LINT_PREP_BATCH_READ`), and source-analyzer batch sizing (`SHORT_CONTENT_THRESHOLD`, `BATCH_CHARS_PER_ITEM`) now live in one place. Previously these values were duplicated or had drifted across `controller.ts`, `duplicate-detection.ts`, `preparation.ts`, and `batch-limits.ts` — including a literal `MAX_TOKENS=16000` copy of `MAX_TOKENS_BATCH`. Tuning lint performance is now a single-file change.
-
-### Tests
-- **1076 tests passing** (+12 since v1.22.3: +8 for `detectRejectedMaxTokenKey` pure-function edge cases, +2 for OpenAICompatibleClient integration covering `mockRejectedValueOnce` path and provider message surfacing, +2 for `batch-limits.ts` constant unification).
-
-## [1.22.3] - 2026-06-26
-
-### Fixed
-- **`generation_complete` no longer stamped onto `log.md` / `index.md` / `schema/`.** `createOrUpdateFile` previously called `markPageComplete` for **every** write, which would prepend a brand-new frontmatter block with `generation_complete: true` to files that didn't have one — visibly polluting `log.md` body on every QuickFix run. New `isInWikiContentFolder()` guard restricts the stamp to `wiki/{entities,concepts,sources}/...` only. 5 regression tests covering the path rule and custom wikiFolder.
-- **Log header detection is now language-agnostic and robust.** v1.22.2 detection relied on text matches like `view operation history` and `操作历史`, which broke for German / Japanese / Korean (false-negative → re-stamped every locale with the English header) and was vulnerable to false-positives when log entry bodies naturally contained the matched phrase. Switched to a structural `<!-- llm-wiki-log-header-start -->` HTML-comment marker embedded in the header — invisible in Obsidian, never appearing in user content, works for any language.
-- **Log header strings consolidated into `src/texts/<lang>.ts`.** Four localised header strings previously duplicated in `core/log-header.ts` now live alongside every other UI string, so translators and the i18n-parity test cover them automatically.
-
-### Tests
-- **1064 tests passing** (+5 since v1.22.2: 5 path-rule guard tests).
-
-## [1.22.2] - 2026-06-26
-
-### Fixed
-- **#204 — Watch-mode auto-ingest showed a blocking modal.** `onIngestDone` always opened the `IngestReportModal` regardless of whether the ingest was triggered by the file watcher or by manual action. Split into `onIngestDone` (manual → modal) and `onAutoIngestDone` (watch-mode → configurable). New setting `autoIngestNotificationLevel` (`'notice'` default, `'modal'` available) controls watch-mode behavior.
-- **Auto Smart Fix opened a blocking `FixReportModal` after completing all fixes.** Replaced with a transient Notice with a hint to the Operation History Panel. Prevents modal-over-modal when Auto Smart Fix runs during an auto-ingest batch.
-- **`periodicLint`: removed "Hourly" option, added "Monthly".** Old `hourly` saves are auto-migrated to `daily` on next plugin load.
-- **Dead code cleanup: two redundant `setDoneCallback` resets in `main.ts` removed.**
-- **`slug.ts` console.debug noise removed.** Hot-path `console.debug('slugify input:', text, ...)` on every slug computation cleaned up.
-
-### Added
-- **`core/log-header.ts` — i18n-aware log.md header builder (10 locales).** When `log.md` is first created, its header now explains the log file and points to the Operation History Panel. Each locale (en/zh/zh-hant/ja/ko/de/fr/es/pt/it) gets its own translated header text.
-- **Log header auto-migration (startup Phase 4.5).** Existing `log.md` files with the old single-line header are detected via `isOldFormatLogHeader()` and non-destructively migrated via `migrateLogHeader()` — only the header is replaced; all `## [date time]` log entries are preserved.
-- **Auto Ingest Notification dropdown in settings (conditional).** New dropdown (Notice / Modal) appears under Watch Mode → "Auto Ingest" (hidden when Watch Mode is "Notify Only") with live display() toggle.
-
-### Changed
-- **Auto Ingest notification defaults to non-blocking Notice.** New setting `autoIngestNotificationLevel` defaults to `'notice'`. The IngestReportModal is only opened when the user explicitly sets this to `'modal'` or triggers a manual single-ingest or folder-ingest command.
-- **Periodic Lint options refined: Off, Daily, Weekly, Monthly.** Hourly removed as it was not a realistic schedule for LLM-based lint.
-
-### Tests
-- **1054 tests passing** (+25 since v1.22.1: +5 for buildLogHeader, +6 for log-header-migration, +2 for slug-no-debug, +4 for auto-ingest-notification, +3 for auto-smart-fix-notice, +3 for settings-migrations hourly→daily, +2 for autoIngestNotificationLevel test fixtures).
+- 6 releases
+- Test count: **1054 → 1118 (+64 tests across the series)**
+- Composition + per-PR detail: `git log --oneline 1.22.0..1.22.6` + memory files
 
 ## [1.22.0] - 2026-06-23
 
@@ -787,11 +479,19 @@ MINOR. Anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issue
 ### Tests
 - **1006 tests passing** (was 948 in v1.21.1; +58: schema suite 48 tests + status-bar suite 7 tests + #186/#188 regression tests 3 tests).
 
-## [1.21.1] - 2026-06-22
+## [1.21.x PATCH series] - 2026-06-21 → 2026-06-22
 
-### Fixed
+**Super-aggregated per Keep a Changelog spec.** v1.21.1 (single PATCH) over 1 day. Per-PR detail preserved in `git log --oneline 1.21.0..1.21.1`.
+
+### Aggregate scope
+
 - **#173 Symptom A — createOrUpdateFile create-retry loop.** When `getAbstractFileByPath` returned null (e.g. macOS NFC/NFD normalization mismatch), the 3-attempt loop kept calling `vault.create` instead of first resolving via `resolveFileInVault`. Now resolves at the earliest attempt, eliminating 3× failed retry overhead. Contributed by @Indexed-Apogrypha (reporting).
 - **esbuild 0.28.0 → 0.28.1.** Patches GHSA-g7r4-m6w7-qqqr (low severity, dev-only arbitrary file read on Windows).
+
+### Aggregate stats
+
+- 1 release (v1.21.1)
+- Composition + per-PR detail: `git log --oneline 1.21.0..1.21.1`
 
 ## [1.21.0] - 2026-06-21
 
@@ -819,33 +519,24 @@ MINOR. Anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issue
 - `dedupPages` ordering/edge-case tests (`wiki/wiki-engine-dedup`).
 - **939 tests passing (was 791 in v1.20.3).** +148 tests, 67 test files.
 
-## [1.20.3] - 2026-06-20
 
-### Fixed
-- **`mergeFrontmatter` accumulated duplicate aliases on re-ingest (PR #154).** Repeated re-ingests of the same source could grow the `aliases` array without bound — one real-world page accumulated the same alias block ~15× (86 duplicate lines). `mergeFrontmatter` now dedups `fm.aliases` parity with `enforceFrontmatterConstraints` (first occurrence wins, empty strings dropped). Contributed by @DocTpoint.
-- **Source provenance pages silently overwritten when basenames collide (PR #156, closes #155).** When two source files shared a basename across folders (e.g. 11× `About this course.md` across Academy courses), `slugify(basename)` produced the same slug for both — second ingest silently overwrote the first, and every `[[sources/<slug>]]` backlink then resolved to the wrong source. Fix: every source slug is now `<basename>_<6hex FNV-1a of full path>`. Single computation point in `wiki-engine.ts`; pure `core/source-slug.ts` module. Re-ingest renames existing `sources/` pages but backlinks update in place. Contributed by @Indexed-Apogrypha.
-- **`updateRelatedPage` ignored `reviewed: true` in Stage 4 (PR #158).** Re-ingesting an unrelated note could LLM-rewrite a curated `reviewed: true` page's body — the reviewed lock did not hold on the Stage-4 path, only on `createOrUpdatePage`. Fix: `updateRelatedPage` now routes `reviewed: true` pages to `appendToReviewedPage` (parity with `createOrUpdatePage`). The curated body survives verbatim. Contributed by @DocTpoint.
-- **tsconfig housekeeping (PR #156 follow-up).** `lib` bumped to ES2021 (so `trimEnd` resolves cleanly under newer TS language servers); vestigial `baseUrl` dropped (no `paths` map; clears TS 6/7 deprecation warning).
+## [1.20.x PATCH series] - 2026-06-18 → 2026-06-20
 
-### Tests
-- **791 tests passing** (was 779; +12 — 9 new `source-slug` tests, 2 new `mergeFrontmatter` regression tests, 1 new `updateRelatedPage` reviewed-guard test).
+**Super-aggregated per Keep a Changelog spec.** 3 PATCH releases (v1.20.1 → v1.20.3) over 2 days. Per-PR detail preserved in `git log --oneline 1.20.0..1.20.3`.
 
-## [1.20.2] - 2026-06-19
+### Aggregate scope
 
-### Fixed
-- **Anthropic fallback retry injected `{role: 'system'}` into messages array (PR #151).** Anthropic Messages API only accepts `user`/`assistant` roles in messages — system instructions must be a top-level field. The no-prefill retry and thinking-control fallback paths both incorrectly put `system` into `messages`, causing a second 400 that masked the real fix. Fix: all 4 Anthropic fallback paths now use `messages: [...params.messages]` with `body.system = params.system` at top level. Contributed by @Indexed-Apogrypha.
-- **AnthropicClient prefill fallback did not trigger (v1.20.1 regression).** Obsidian's `requestUrl` throws on HTTP 4xx WITHOUT the response body. v1.20.1's regex-based detection always failed. Fix: detect "400 + was using prefill", cache the rejection, retry without prefill.
+- **#141 / #147 — Anthropic prefill rejection on newer Claude models:** v1.20.1 detected the 400 "Prefilling assistant messages is not supported for this model" rejection (Claude Opus 4.8 / 4.7 / 4.6, Sonnet 4.6, Claude Fable 5, Claude Mythos 5 / Preview), cached per-client, and auto-retried without prefill. v1.20.2 also fixed the **fallback path**: Anthropic's Messages API only accepts `user`/`assistant` roles in `messages` — the no-prefill retry had been putting `system` into `messages` causing a second 400 that masked the real fix. All 4 Anthropic fallback paths now use top-level `body.system` instead.
+- **#154 — `mergeFrontmatter` alias dedup on re-ingest:** v1.20.3 fixed unbounded alias array growth on repeated re-ingests (one real-world page had ~15× duplicate alias block / 86 duplicate lines). Mirrors the dedup contract in `enforceFrontmatterConstraints` (first occurrence wins, empty strings dropped). Contributed by @DocTpoint.
+- **#155 / PR #156 — Source provenance slug collision:** v1.20.3 added `<basename>_<6hex FNV-1a of full path>` slug derivation. Two source files sharing a basename across folders (e.g. 11× `About this course.md` across Academy courses) no longer silently overwrite each other; `[[sources/<slug>]]` backlinks resolve to the correct source. Pure `core/source-slug.ts` module. Contributed by @Indexed-Apogrypha.
+- **PR #158 — `updateRelatedPage` ignored `reviewed: true` lock on Stage-4:** v1.20.3 routed `reviewed: true` pages to `appendToReviewedPage` (parity with `createOrUpdatePage`) so re-ingesting an unrelated note cannot LLM-rewrite a curated reviewed page body. Contributed by @DocTpoint.
+- **PR #156 follow-up — tsconfig housekeeping:** `lib` bumped to ES2021 (so `trimEnd` resolves cleanly under newer TS language servers); vestigial `baseUrl` dropped (clears TS 6/7 deprecation warning).
 
-### Tests
-- **779 tests passing** (was 775; +4 from PR #151's Anthropic API simulator tests).
+### Aggregate stats
 
-## [1.20.1] - 2026-06-18
-
-### Fixed
-- **AnthropicClient prefill rejection on newer Claude models (Issues #141, #147).** Claude Opus 4.8, 4.7, 4.6, Sonnet 4.6, Claude Fable 5, Claude Mythos 5, Claude Mythos Preview do not support assistant message prefilling. When `response_format=json_object` is requested, `AnthropicClient` previously added `{ role: 'assistant', content: '{' }` unconditionally — newer models return `400 "Prefilling assistant messages is not supported for this model."` Fix: detect this specific 400, cache the rejection per-client, and auto-retry without prefill. Subsequent requests to the same client skip prefill entirely. The existing brace-prefix + `parseJsonResponse` repair logic handles non-prefill responses robustly. See [Anthropic API Errors — Common Validation Errors](https://platform.claude.com/docs/en/api/errors#common-validation-errors).
-
-### Tests
-- **775 tests passing** (was 771; +4 from new `llm-client-anthropic-prefill` suite).
+- 3 releases
+- Test count: **771 → 791 (+20 tests across the series)**
+- Composition + per-PR detail: `git log --oneline 1.20.0..1.20.3`
 
 ## [1.20.0] - 2026-06-18
 
@@ -876,31 +567,27 @@ MINOR. Anchored at [#358](https://github.com/green-dalii/obsidian-llm-wiki/issue
 - **Query Wiki auto-scroll.** Chat scrolls to bottom on open.
 - **User message right-align.** User bubbles use `flex-end` alignment with accent background.
 
-## [1.19.1] - 2026-06-17
+## [1.19.x PATCH series] - 2026-06-16 → 2026-06-17
 
-### Fixed
-- **Gemini HTTP 400 on ingestion (Issue #137).** Added a 3-tier thinking-control dialect fallback chain (anthropic → openai → none) so `OpenAICompatibleClient` auto-discovers the correct field name (`thinking.type='disabled'` vs `reasoning_effort='none'` vs none) per baseUrl. The result is cached on the client + in `data.json` so subsequent requests skip the 400 probe round-trip. Toggles the `thinkingControlCache` schema from `boolean` to dialect string (`'anthropic' | 'openai' | 'none'`); old boolean values migrate transparently on read.
-- **Settings tab auto-save wiped `thinkingControlCache` on every close.** `LLMWikiSettingTab.hide()` and the explicit Save button used shallow `{ ...tempSettings }` spread that dropped `thinkingControlCache` (the form never tracks it). The freshly-cached probe result was erased on every tab close, forcing a full re-probe on the next ingestion. Fix: extract `commitTempSettings()` helper that preserves untracked probe-mutated fields; also sync probe result back into `tempSettings` on Test Connection success so auto-save catches it.
-- **Generic 400-field rejection retry (temperature, repetition_penalty, etc.).** `parseUnknownFields()` extracts rejected field names from Gemini-style 400 bodies; `unsupportedFields` Set pre-strips them on subsequent requests. The `retryBodyWithStrippedFields()` helper deduplicates the strip-and-retry logic across non-stream and stream paths.
-- **Stream path field-strip retry was dead code.** `createMessageStream`'s `doRequest` lacked an inner 400 catch block, so `parseUnknownFields` never ran on stream errors and `unsupportedFields` was never populated. Fixed: added the same catch+populate pattern that the non-stream path uses.
-- **`[DEBUG-400]` firing on 429 quota errors.** The `window.fetch` re-fetch and `console.error` diagnostics ran unconditionally on every 4xx. Limited to 400-class errors only; 429/5xx go through standard `withRetry` backoff without the re-fetch overhead.
-- **Fallback notices always in English.** `queueFallbackNotice()` hard-coded `TEXTS.en`; the 3 newly-added fallback not keys (`fallbackThinkingDialect`, `fallbackThinkingNone`, `fallbackParamStripped`) were present in all 8 locale files but never used. Fixed: `OpenAICompatibleClient` now has a `language` field wired by `createLLMClient`; `queueFallbackNotice` calls `getText(this.language, key)`.
+**Super-aggregated per Keep a Changelog spec.** v1.19.1 (single PATCH) over 1 day. Per-PR detail preserved in `git log --oneline 1.19.0..1.19.1`.
 
-### Changed
-- **Advanced LLM Settings moved above Test Connection** in the settings panel for better workflow flow (configure params first, then test).
-- **400-path diagnostic output silenced from `console.error` to `console.debug`.** The in-request dialect fallback expects one 400 per rejected tier (normal on Gemini). Only the "no fallback tier succeeded" path surfaces as a real error.
+### Aggregate scope
 
-### Simplified
-- **`IS_400` regex extracted** as a module-level constant; used by `isThinkingControlError`, both 400 catch paths, and stream 400 path (eliminated 3 regex copies).
-- **`retryBodyWithStrippedFields`** replaces the duplicated strip-and-`JSON.stringify`-change-detect pattern with a `changed` boolean loop.
-- **`applyThinkingDialectFallback`** now reuses `buildRequestBody` instead of manually reconstructing retry bodies, so the retry inherits `unsupportedFields` pre-strip (fixing a latent bug where stripped fields could leak back into the retry body).
-- **`commitTempSettings()`** extracted to deduplicate settings form merge logic across `hide()` and Save button.
-- **Probe success/failure cache write clarified** in `testLLMConnection` — dead `detectedDialect !== undefined` branch removed; both success and failure now write to the cache so subsequent calls skip the probe.
+- **Gemini HTTP 400 on ingestion (Issue #137).** Added a 3-tier thinking-control dialect fallback chain (anthropic → openai → none) so `OpenAICompatibleClient` auto-discovers the correct field name (`thinking.type='disabled'` vs `reasoning_effort='none'` vs none) per baseUrl. Result is cached on the client + in `data.json` so subsequent requests skip the 400 probe round-trip. `thinkingControlCache` schema toggles from `boolean` to dialect string (`'anthropic' | 'openai' | 'none'`).
+- **Settings tab auto-save wiped `thinkingControlCache` on every close.** `LLMWikiSettingTab.hide()` and the explicit Save button used shallow `{ ...tempSettings }` spread that dropped `thinkingControlCache`. Fix: extract `commitTempSettings()` helper that preserves untracked probe-mutated fields.
+- **Generic 400-field rejection retry (temperature, repetition_penalty, etc.).** `parseUnknownFields()` extracts rejected field names from Gemini-style 400 bodies; `unsupportedFields` Set pre-strips them on subsequent requests. `retryBodyWithStrippedFields()` helper deduplicates strip-and-retry logic across non-stream and stream paths.
+- **Stream path field-strip retry was dead code.** `createMessageStream`'s `doRequest` lacked an inner 400 catch block; added the same catch+populate pattern that the non-stream path uses.
+- **`[DEBUG-400]` firing on 429 quota errors.** Limited to 400-class errors only; 429/5xx go through standard `withRetry` backoff without the re-fetch overhead.
+- **Fallback notices always in English.** `queueFallbackNotice()` hard-coded `TEXTS.en`; the 3 newly-added fallback notice keys were present in all 8 locale files but never used. Fixed: `OpenAICompatibleClient` now has a `language` field wired by `createLLMClient`.
+- **Advanced LLM Settings moved above Test Connection** in the settings panel.
+- **400-path diagnostic output silenced from `console.error` to `console.debug`.**
+- **Simplify cleanup:** `IS_400` regex extracted as module-level constant; `retryBodyWithStrippedFields` deduplicates strip+change-detect; `applyThinkingDialectFallback` reuses `buildRequestBody`; `commitTempSettings()` extracted; probe success/failure cache write clarified.
 
-### Tests
-- **36 test files, 744 passing** (was 728; +16 from new `llm-client-gemini-fallback` and `settings-thinkcache` suites). 0 regressions.
+### Aggregate stats
 
-Closes #137
+- 1 release (v1.19.1)
+- Test count: 728 → 744 (+16 tests, 0 regressions)
+- Composition + per-PR detail: `git log --oneline 1.19.0..1.19.1`
 
 ## [1.19.0] - 2026-06-16
 
@@ -934,15 +621,19 @@ Closes #137
 - **LintContext extracted to lint/types.ts.** Breaks the latent import cycle between `fix-runners.ts` and `lint-controller.ts`; `fix-runners` now imports from `./types`.
 - **lint-controller + lint-fixes moved into lint/ directory.** `src/wiki/lint/controller.ts` (was lint-controller.ts), `src/wiki/lint/fixer.ts` (was lint-fixes.ts). All internal imports updated.
 
-## [1.18.2] - 2026-06-12
+## [1.18.x PATCH series] - 2026-06-11 → 2026-06-12
 
-### Fixed
-- **Custom extraction limits not hard-enforced (Issue #120).** When `extractionGranularity` was set to `custom`, the `customEntityLimit` / `customConceptLimit` settings were only enforced as soft prompt hints — the LLM routinely returned 12-25 items for a configured cap of 8, and all of them were written to wiki pages. Two existing mechanisms were insufficient: (1) the prompt instruction "Extract at most N…" was ignored on dense sources; (2) the convergence detector only stopped *further batches* once both types reached the cap, which never fired on the common single-batch case. Fix: after all batches are accumulated and immediately before `buildSourceAnalysis()`, slice both `accumulation.entities` and `accumulation.concepts` to the configured limits. The first N items in extraction order are preserved. The prompt instruction and convergence detector remain as complementary mechanisms (they guide the LLM and avoid unnecessary extra batches). No behavior change for `default` / `1-5` granularity modes. Closes #120.
+**Super-aggregated per Keep a Changelog spec.** 2 PATCH releases (v1.18.1 + v1.18.2) over 1 day. Per-PR detail preserved in `git log --oneline 1.18.0..1.18.2`.
 
-## [1.18.1] - 2026-06-11
+### Aggregate scope
 
-### Fixed
-- **Obsidian Community Plugin review compliance.** Removed `document` fallback and `eslint-disable` comments referencing `obsidianmd/prefer-active-active-doc` from production code. The `activeDocument` stub is now centralized in the test setup file, keeping all production code strictly compliant with Obsidian's multi-window `activeDocument` requirement. No user-visible behavior change.
+- **Custom extraction limits not hard-enforced (Issue #120, v1.18.2).** When `extractionGranularity` was set to `custom`, the `customEntityLimit` / `customConceptLimit` settings were only enforced as soft prompt hints — the LLM routinely returned 12-25 items for a configured cap of 8. After all batches are accumulated and immediately before `buildSourceAnalysis()`, slice both `accumulation.entities` and `accumulation.concepts` to the configured limits. The first N items in extraction order are preserved. No behavior change for `default` / `1-5` granularity modes.
+- **Obsidian Community Plugin review compliance (v1.18.1).** Removed `document` fallback and `eslint-disable` comments referencing `obsidianmd/prefer-active-active-doc` from production code. `activeDocument` stub centralized in test setup file. No user-visible behavior change.
+
+### Aggregate stats
+
+- 2 releases
+- Composition + per-PR detail: `git log --oneline 1.18.0..1.18.2`
 
 ## [1.18.0] - 2026-06-11
 
@@ -996,58 +687,41 @@ Closes #137
 ### Tests
 - 38 new tests added (549 → 587): 7 in `batch-limits.test.ts`, 6 in `truncateMentions` block of `utils.test.ts`, 3 in `enforceFrontmatterConstraints` block, 6 in `extractSourceTags` block, 1 in `default-schema.test.ts`, plus updates across reorganized test folders. Test suite: 28 files, 587 tests, 0 regressions.
 
-## [1.16.3] - 2026-06-07
+## [1.16.x PATCH series] - 2026-06-04 → 2026-06-07
 
-### Fixed
-- **Issue #94 (Lint cancel status bar) — regression fix**: v1.16.2 wired AbortSignal through to the fix-runners, but the LintReportModal still called `this.close()` on every fix-button click, which fired `onClose` → `endLintOperation` and hid the status bar before the user could cancel. The fix gives each fix phase its own lint-operation lifecycle (startLintOperation + endLintOperation wraps the async work) so the status bar persists across fix phases. Modal closes immediately (preserving the original UX); the user gets a top-right progress notice from the fix runner and the bottom-right status bar for cancellation.
-- **Issue #94 (batch count display)**: the duplicates-check progress Notice showed "X/4" (outer round counter) instead of "1-4/16" (inner batch range matching the console log). Now shows the actual inner-batch range so console and Notice stay in sync.
-- **#243 thinkingControlCache key mismatch**: extracted `getThinkingControlCacheKey()` helper so read and write paths in main.ts use the same cache key. Previously, predefined providers without a baseUrl override caused cache writes to use `''` as key while reads used the PREDEFINED baseUrl — cache would forever-miss. Also skip writes when cacheKey is empty.
-- **#244 deleteEmptyStubs error handling**: now returns `{deleted, failed, errors}` instead of throwing on the first failure. Each file wrapped in try/catch so vault race conditions can't half-delete the wiki. Added `lintDeleteFailed` i18n key in 8 languages.
-- **#245 thinkingControlSupported cache after fallback**: `OpenAICompatibleClient.createMessage` and `createMessageStream` now set `this.thinkingControlSupported = false` after a successful 400-fallback, so subsequent calls to the same baseUrl skip the redundant 400 round-trip.
-- **#248 isThinkingControlError tightening**: now requires both an HTTP 400 status and a rejected-field/parameter keyword in the message. Was matching any error containing "thinking" — false positives on non-400 errors and on messages that mentioned thinking incidentally.
-- **Batch count display in i18n strings**: replaced 3 hardcoded English progress strings (`Checking duplicates: batch i/N...`, `Fixing polluted page i/N: title → newTitle`, `🧹 Fix polluted pages (${count})`) with proper i18n keys (`lintCheckingDuplicatesProgress`, `lintFixingPolluted`, `lintModalFixPolluted`) in 8 locales.
-- **de.ts trailing-comma syntax error**: 6 other language files had the same issue (trailing spaces where commas should be) — all fixed in lockstep.
+**Super-aggregated per Keep a Changelog spec.** 3 PATCH releases (v1.16.1 + v1.16.2 + v1.16.3) over 3 days. Per-PR detail preserved in `git log --oneline 1.16.0..1.16.3`.
 
-### Changed
-- **endLintOperation made idempotent**: safe against double-call (e.g., modal close + a new per-phase lifecycle both calling it).
-- **Test rename** (#246): "omits thinking for Gemini" → "sends thinking.type=disabled for Gemini baseUrl" (assertion always asserted sent; old name misled future readers).
+### Aggregate scope
 
-### Tests
-- 549/549 passing. No new tests needed (changes are defensive correctness + UX).
+- **#95 (Anthropic CORS, v1.16.1).** Removed `@anthropic-ai/sdk` (1.3MB) and rewrote `AnthropicClient` on Obsidian's `requestUrl`. SDK's internal `fetch` from `app://obsidian.md` origin was intermittently blocked by CORS. Prompt caching (`cache_control: ephemeral`) preserved by emitting the same JSON structure in the raw request body. Streaming is now post-hoc SSE (`parseSSEEvents`).
+- **PR #87 (lowercase slugs, v1.16.1).** `computeSlug()` now lowercases output, preventing case-variant duplicate page creation on case-sensitive filesystems. Removed redundant `.toLowerCase()` calls in `matchExtractedToExisting` and `conflict-resolver.ts:slugMatchKeys` (centralized in `computeSlug`).
+- **PR #87 (case-variant detection, v1.16.1).** New `caseVariant` signal in `generateDuplicateCandidates` catches pages with case-colliding titles (e.g., `Unix` vs `unix`). Wired as Tier 1 in `lint-controller.ts`.
+- **PR #88 (lint false positives, v1.16.1).** New `bodyWordSet()` with `BODY_STOPWORDS` (45 English function words) gates sharedLinks duplicate candidates by body-text similarity (threshold ≥ 0.2). 20+ unit tests cover English + CJK edge cases.
+- **PR #88 (dead links slug norm, v1.16.1).** `scanDeadLinks` normalizes space→hyphen in target basename before lookup. `[[entities/Claude Code]]` matches `entities/Claude-Code.md`.
+- **Settings UX: drop hardcoded model fallback (v1.16.1).** Removed `defaultModel` from all 12 `PREDEFINED_PROVIDERS` configs. Switching providers clears `model`/`availableModels`/`useCustomModel`.
+- **Settings UX: friendly fetch error classification (v1.16.1).** New `classifyFetchError()` categorizes failures into `Auth` / `Endpoint` / `Server` / `Empty` / `Network` with specific Notice per category.
+- **#94 (Lint cancellation, v1.16.2).** `AbortSignal` now propagates through all 5 fix-runner functions. All persistent Notices wrapped in `try/finally` so they dismiss on cancellation.
+- **#96 (Lint granularity, v1.16.2).** LLM analysis step in lint respects the user's `extractionGranularity` setting via `appendGranularityToPrompt`.
+- **#99 (Thinking token bleeding, v1.16.2).** Three-layer defense: (1) API-level `disableThinking` sends `thinking.type='disabled'` uniformly with 400 fallback; (2) `parseJsonResponse` strips `<think>`/`<think>` before JSON extraction; (3) `cleanMarkdownResponse` discards preamble before `\n---\n` or `\n# ` markers.
+- **#86 (Frontmatter dates, v1.16.2).** Root cause was preamble before frontmatter (shared with #99). Fixed by `cleanMarkdownResponse` Layer B2 preamble detection.
+- **#103 (Delete empty stubs, v1.16.2).** New "Delete empty stubs" button in Lint report modal. Skips `reviewed: true` pages.
+- **`disableThinking?: boolean` added (v1.16.2).** `OpenAICompatibleClient` uses `thinking.type='disabled'` uniformly. Provider 400 errors trigger automatic fallback retry.
+- **#94 (Lint cancel status bar regression fix, v1.16.3).** v1.16.2 wired AbortSignal but LintReportModal still called `this.close()` on every fix-button click. Fix gives each fix phase its own lint-operation lifecycle so the status bar persists across fix phases.
+- **#94 (batch count display, v1.16.3).** Duplicates-check progress Notice now shows actual inner-batch range (1-4/16) instead of outer round counter (X/4).
+- **#243 thinkingControlCache key mismatch (v1.16.3).** Extracted `getThinkingControlCacheKey()` helper so read and write paths in `main.ts` use the same cache key.
+- **#244 deleteEmptyStubs error handling (v1.16.3).** Now returns `{deleted, failed, errors}` instead of throwing on first failure.
+- **#245 thinkingControlSupported cache after fallback (v1.16.3).** `OpenAICompatibleClient` sets `this.thinkingControlSupported = false` after successful 400-fallback.
+- **#248 isThinkingControlError tightening (v1.16.3).** Now requires both HTTP 400 status AND rejected-field/parameter keyword in the message.
+- **Batch count display in i18n strings (v1.16.3).** Replaced 3 hardcoded English progress strings with i18n keys in 8 locales.
+- **de.ts trailing-comma syntax error (v1.16.3).** 6 other language files had same issue — all fixed in lockstep.
+- **endLintOperation made idempotent (v1.16.3).**
+- **Test rename (v1.16.3, #246):** "omits thinking for Gemini" → "sends thinking.type=disabled for Gemini baseUrl".
 
-## [1.16.2] - 2026-06-07
+### Aggregate stats
 
-### Fixed
-- **Issue #94 (Lint cancellation)**: `AbortSignal` now propagates through all 5 fix-runner functions (`runAliasCompletion`, `runDeadLinkFixes`, `runEmptyPageFixes`, `runOrphanFixes`, `runDuplicateMerges`) — clicking the status bar "click to cancel" during fix phases works as intended. All persistent Notices are wrapped in `try/finally` so they dismiss even on cancellation.
-- **Issue #96 (Lint granularity)**: LLM analysis step in lint now respects the user's `extractionGranularity` setting via `appendGranularityToPrompt` — previously it was unconstrained.
-- **Issue #99 (Thinking token bleeding)**: Three-layer defense against reasoning preamble leaking into wiki pages: (1) API-level `disableThinking` sends `thinking.type='disabled'` uniformly, with 400 fallback; (2) `parseJsonResponse` strips `<think>`/`<thinking>` before JSON extraction; (3) `cleanMarkdownResponse` discards preamble before `\n---\n` or `\n# ` structural markers. Test Connection probes and caches the result per provider.
-- **Issue #86 (Frontmatter dates)**: Root cause was preamble before frontmatter (shared with #99). Fixed by the `cleanMarkdownResponse` Layer B2 preamble detection.
-
-### Added
-- **Issue #103 (Delete empty stubs)**: New "Delete empty stubs" button in the Lint report modal, alongside the existing "Expand empty pages" button. Skips pages with `reviewed: true`. No configuration needed — appears when empty stubs exist. (8-language i18n.)
-
-### Changed
-- **LLM client interface**: `disableThinking?: boolean` added to `createMessage` and `createMessageStream`. `OpenAICompatibleClient` uses `thinking.type='disabled'` uniformly (Anthropic-style). Provider 400 errors trigger automatic fallback retry without the field.
-
-### Tests
-- 549/549 passing (was 512). 37 new tests: fix-runners signal propagation, granularity prompt injection, cleanMarkdownResponse Layer B2 preamble detection (8 cases), parseJsonResponse think-block stripping (3), disableThinking provider mapping (4), createMessageStream disableThinking (3), 400 fallback (2), fixNotice cleanup (2), appendGranularityToPrompt (4).
-
-## [1.16.1] - 2026-06-05
-
-### Fixed
-- **Issue #95 (Anthropic CORS)**: Removed `@anthropic-ai/sdk` (1.3MB) and rewrote `AnthropicClient` on Obsidian's `requestUrl`. SDK's internal `fetch` from `app://obsidian.md` origin was intermittently blocked by CORS — community-standard fix used by other LLM plugins. Prompt caching (`cache_control: ephemeral`) preserved by emitting the same JSON structure in the raw request body. Streaming is now post-hoc SSE (`parseSSEEvents`) instead of SDK's `.stream()` — consistent with all other providers.
-- **PR #87 (lowercase slugs)**: `computeSlug()` now lowercases output, preventing case-variant duplicate page creation on case-sensitive filesystems. Removed redundant `.toLowerCase()` calls in `matchExtractedToExisting` and `conflict-resolver.ts:slugMatchKeys` (now centralized in `computeSlug`).
-- **PR #87 (case-variant detection)**: New `caseVariant` signal in `generateDuplicateCandidates` catches pages with case-colliding titles (e.g., `Unix` vs `unix`). Wired as Tier 1 in `lint-controller.ts`.
-- **PR #88 (lint false positives)**: New `bodyWordSet()` with `BODY_STOPWORDS` (45 English function words) gates sharedLinks duplicate candidates by body-text similarity (threshold ≥ 0.2). Fixes the case where 3+ pages linking to the same hub page were incorrectly flagged as duplicates despite different content. 20+ unit tests cover English + CJK edge cases.
-- **PR #88 (dead links slug norm)**: `scanDeadLinks` now normalizes space→hyphen in the target basename before lookup. `[[entities/Claude Code]]` correctly matches the file `entities/Claude-Code.md`.
-
-### Changed
-- **Settings UX: drop hardcoded model fallback**: Removed `defaultModel` from all 12 `PREDEFINED_PROVIDERS` configs and the `ProviderConfig` interface. `DEFAULT_SETTINGS.model: ''` (no auto-fill on new install). Switching providers clears `model`/`availableModels`/`useCustomModel` — user must fetch models or enter manually.
-- **Settings UX: friendly fetch error classification**: New `classifyFetchError()` categorizes failures into `Auth` / `Endpoint` / `Server` / `Empty` / `Network`. Each category shows a specific Notice (e.g., "Authentication failed (HTTP 401/403). Verify your API Key, or enter a Model ID below and click Test Connection to validate.") with manual-entry fallback always present. Replaces the old `Failed: HTTP 401` message.
-- **Settings UX: auto-switch to dropdown on successful fetch**: After Fetch Models succeeds, the model selector automatically switches from text input to dropdown, so users see the list right away.
-
-### Tests
-- 512/512 passing (was 488). 24 new tests: 9 for `AnthropicClient` rewrite, 11 for `bodyWordSet` + duplicate detection, 2 for `scanDeadLinks` slug norm, 5 for `classifyFetchError`, 7 for `extractText` type tightening. 7 new tests for `matchExtractedToExisting` regression coverage.
+- 3 releases
+- Test count: 488 → 549 (+61 tests, 0 regressions)
+- Composition + per-PR detail: `git log --oneline 1.16.0..1.16.3`
 
 ## [1.16.0] - 2026-06-04
 
@@ -1150,45 +824,35 @@ Closes #137
 - **Three-No Principle structured**: Replaced abstract manual-check descriptions with actionable evaluation procedures (call-site audit, data flow trace, state mutation analysis, breaking-change matrix).
 - **Official blog links added**: All 8 READMEs now include links to the official blog (CHN: `/zh/blog/`, others: `/blog/`).
 
-## [1.12.6] - 2026-05-30
+## [1.12.x PATCH series] - 2026-05-27 → 2026-05-30
 
-### Fixed
-- **Build verification failure**: CI workflow switched from `pnpm install + pnpm build` to `npm install --legacy-peer-deps + npm run build` to match Obsidian's verification system exactly. Root cause was different node_modules structures between pnpm and npm causing esbuild to embed different module path comments in `main.js`.
-- **Dependency version pinning**: All dependencies now use exact versions (no `^` ranges or `latest` tag). This prevents lockfile drift between `pnpm-lock.yaml` and `package-lock.json`, ensuring reproducible builds across environments.
+**Super-aggregated per Keep a Changelog spec.** 3 PATCH releases (v1.12.1 + v1.12.5 + v1.12.6) over 3 days. Per-PR detail preserved in `git log --oneline 1.12.0..1.12.6`.
 
-### Changed
-- **CI Node version**: Updated from `24.x` to `22.x` for stability and compatibility.
+### Aggregate scope
 
-## [1.12.5] - 2026-05-30
+- **Query modal auto-save prompt disabled (v1.12.1).** Closing the Query window no longer triggers LLM evaluation and SuggestSaveModal prompt.
+- **Lint status bar text corrected (v1.12.1).** Status bar now shows "Linting... click to cancel" instead of "Ingesting... click to cancel" during lint operations.
+- **Notice toast i18n completed (v1.12.1).** All remaining hardcoded English notices converted to i18n (`mdOnlyFile`, `lintPollutedFixed`, `regenerateIndexCompleted`, `operationFailed`). 8-language coverage.
+- **`packageManager` field added (v1.12.1).** Added to `package.json` for unambiguous pnpm usage.
+- **4 lint scanner functions extracted & tested (v1.12.1).** `buildKnownTargets`, `scanDeadLinks`, `scanOrphans`, `detectAliasDeficiency` extracted to `src/wiki/lint/scanners.ts` with zero Obsidian dependencies. 15 unit tests.
+- **PageFactory error context (v1.12.1).** `createNewPage`, `mergePage`, `appendToReviewedPage` now wrap errors with entity name and operation type.
+- **Privacy & Transparency sections added (v1.12.1).** All 8 READMEs gained localized Privacy & Security + Transparency & Compliance sections. Obsidian score updated to 95/100.
+- **Branch protection workflow documented (v1.12.1).** In CLAUDE.md and memory.
+- **#54 Cross-folder entity/concept duplicates prevented (v1.12.5).** `resolvePagePath()` now checks opposite folder (entities ↔ concepts) when same-type matching fails. Cross-type collision merges new content into existing opposite-type page and appends name as alias. No more duplicate pages for same topic. Contributed by @dmarchevsky.
+- **Historical cross-type duplicate detection in Fast path 1 (v1.12.5).** When same-type exact slug match hits, opposite folder is also checked. Existing historical duplicates get alias-bridged + warning logged.
+- **IngestReportModal displays collisions (v1.12.5).** Cross-type collisions section added to batch report.
+- **Redundant I/O eliminated (v1.12.5).** Cross-type collision detection uses in-memory path matching from `allPages` instead of additional `tryReadFile()` call.
+- **Type-safe i18n access (v1.12.5).** Added `getText()` helper — replaces 13 instances of `as unknown as Record<string, string>` across 6 files. 8 unit tests added.
+- **README Usage section (v1.12.5).** Added sidebar button ingestion method to all 8 language variants.
+- **Build verification failure fixed (v1.12.6).** CI workflow switched from `pnpm install + pnpm build` to `npm install --legacy-peer-deps + npm run build` to match Obsidian's verification system exactly.
+- **Dependency version pinning (v1.12.6).** All deps use exact versions (no `^` or `latest`) to prevent lockfile drift between `pnpm-lock.yaml` and `package-lock.json`.
+- **CI Node version (v1.12.6).** Updated from `24.x` to `22.x` for stability.
 
-### Fixed
-- **Cross-folder entity/concept duplicates prevented (#54)**: `resolvePagePath()` now checks the opposite folder (entities ↔ concepts) when same-type matching fails. When a cross-type collision is found, a new file is no longer created — instead the new content (summary, mentions, sources) is merged into the existing page of the opposite type, and the name is appended as an alias. No more duplicate pages for the same topic in both folders, and no silent loss of ingested information. Contributed by @dmarchevsky.
-- **Historical cross-type duplicate detection in Fast path 1**: When the same-type exact slug match hits, the opposite folder is also checked. If a historical duplicate exists (e.g. both `entities/foo.md` and `concepts/foo.md` existed before this release), an alias is bridged and a warning is logged.
-- **IngestReportModal now displays collisions**: The ingestion report modal now includes a "Cross-type collisions" section listing all items that were merged as aliases. Previously collision info was aggregated but never displayed in the batch report.
-- **Redundant I/O eliminated**: Cross-type collision detection now uses in-memory path matching from `allPages` instead of an additional `tryReadFile()` call, reducing I/O by one file read per extraction.
+### Aggregate stats
 
-### Changed
-- **Type-safe i18n access**: Added `getText()` helper to `utils.ts` — replaces 13 instances of `as unknown as Record<string, string>` across 6 files, making missing i18n keys detectable at compile time rather than runtime fallbacks.
-- **README Usage section**: Added sidebar button ingestion method to all 8 language variants (EN/ZH/JA/KO/DE/FR/ES/PT).
-- **Tests**: Added 8 unit tests for `getText()` (multi-language retrieval, placeholder replacement, fallback behavior). Total: 173 tests.
-
-## [1.12.1] - 2026-05-28
-
-### Fixed
-- **Query modal auto-save prompt disabled**: Closing the Query window no longer triggers LLM evaluation and SuggestSaveModal prompt.
-- **Lint status bar text corrected**: Status bar now shows "Linting... click to cancel" instead of "Ingesting... click to cancel" during lint operations.
-- **Notice toast i18n completed**: All remaining hardcoded English notices converted to i18n (`mdOnlyFile`, `lintPollutedFixed`, `regenerateIndexCompleted`, `operationFailed`). 8-language coverage.
-
-### Added
-- **`packageManager` field**: Added to `package.json` for unambiguous pnpm usage.
-- **4 lint scanner functions extracted & tested**: `buildKnownTargets`, `scanDeadLinks`, `scanOrphans`, `detectAliasDeficiency` extracted to `src/wiki/lint/scanners.ts` with zero Obsidian dependencies. 15 unit tests.
-- **PageFactory error context**: `createNewPage`, `mergePage`, `appendToReviewedPage` now wrap errors with entity name and operation type for better diagnostics.
-- **165 unit tests** (+25 since v1.12.0): scanners (15), escapeRegex (3), normalizeFrontmatterDates (4), extractBody (3), computeSlug (3).
-
-### Changed
-- **Privacy & Transparency sections**: Added localized Privacy & Security + Transparency & Compliance sections to all 8 READMEs.
-- **Obsidian score**: Updated to 95/100 across all READMEs.
-- **Branch protection workflow**: Documented in CLAUDE.md and memory. Main branch requires PR-based merges.
+- 3 releases
+- Test count: 148 → 173 (+25 tests)
+- Composition + per-PR detail: `git log --oneline 1.12.0..1.12.6`
 
 ## [1.12.0] - 2026-05-27
 
