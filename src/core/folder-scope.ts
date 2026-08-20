@@ -75,3 +75,30 @@ export function isExcludedFromSourcePicker(
     isAtOrInFolderScope(path, configDir, false)
   );
 }
+
+/**
+ * Whether a file may be COLLECTED as an ingest source, given the folder the
+ * user chose. Combines the folder boundary with the picker's exclusion rule.
+ *
+ * Issue #502 — the folder picker applies `isExcludedFromSourcePicker` to the
+ * folders it offers, which hides `wiki/`. It also offers the vault root, and
+ * root scope accepts every path, so choosing the root put `wiki/` back: the
+ * plugin ingested its own generated pages as source material. Both halves are
+ * deliberate and separately tested; only their composition was missing a rule.
+ *
+ * The two file pickers (`FileSuggestModal`, `MultiFileSuggestModal`) already
+ * filter the FILES they offer this way. This is the same rule for the folder
+ * path, so all three entry points now agree on what counts as a source.
+ */
+export function isIngestableSource(
+  filePath: string,
+  folderPath: string,
+  isRoot: boolean,
+  wikiFolder: string,
+  configDir: string
+): boolean {
+  return (
+    isInFolderScope(filePath, folderPath, isRoot) &&
+    !isExcludedFromSourcePicker(filePath, wikiFolder, configDir)
+  );
+}

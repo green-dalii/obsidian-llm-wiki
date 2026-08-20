@@ -25,7 +25,7 @@ import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
 import { slugify } from '../core/slug';
 import { parseFrontmatter } from '../core/frontmatter';
-import { isInFolderScope } from '../core/folder-scope';
+import { isIngestableSource } from '../core/folder-scope';
 import { COMPATIBLE_SOURCE_EXTENSIONS, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 import { FileSuggestModal, FolderSuggestModal, MultiFileSuggestModal, IngestReportModal } from '../ui/modals';
 import { ProgressScope } from '../core/progress-notification';
@@ -145,7 +145,13 @@ export const ingestCommands = {
       // file-sitting-beside-the-folder, the folder itself).
       const files = this.app.vault.getFiles()
         .filter(f => allowedExts.includes(f.extension.toLowerCase()))
-        .filter(f => isInFolderScope(f.path, folder.path, folder.isRoot()));
+        .filter(f => isIngestableSource(
+          f.path,
+          folder.path,
+          folder.isRoot(),
+          this.settings.wikiFolder,
+          this.app.vault.configDir,
+        ));
 
       if (files.length === 0) {
         const msg = TEXTS[this.settings.language].selectFolderNoMdFiles.replace('{path}', folder.path);

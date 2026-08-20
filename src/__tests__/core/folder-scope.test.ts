@@ -4,6 +4,7 @@ import {
   isInFolderScope,
   isAtOrInFolderScope,
   isExcludedFromSourcePicker,
+  isIngestableSource,
 } from '../../core/folder-scope';
 
 describe('folderScopePrefix', () => {
@@ -118,5 +119,45 @@ describe('isExcludedFromSourcePicker', () => {
 
   it('keeps the vault root selectable', () => {
     expect(isExcludedFromSourcePicker('/', 'wiki', '.obsidian')).toBe(false);
+  });
+});
+
+// Issue #502 — the two rules above are each correct on their own, and the
+// two tests directly above pin them: the vault root stays selectable, and
+// root scope accepts every path. Composed at the folder-ingest call site
+// they cancel the picker's own boundary — choosing the root reinstates the
+// `wiki/` folder the picker deliberately refuses to offer, and the plugin
+// ingests its own generated pages as source material.
+//
+// `FileSuggestModal` and `MultiFileSuggestModal` already apply the picker
+// rule to the FILES they offer. `FolderSuggestModal` applies it to the
+// FOLDERS it offers, and the collection step that follows applied nothing.
+// This function is that missing file-level rule, in the same module as the
+// other three.
+describe('isIngestableSource', () => {
+  it('collects an ordinary source file inside the chosen folder', () => {
+    expect(isIngestableSource('Notizen/a.md', 'Notizen', false, 'wiki', '.obsidian')).toBe(true);
+  });
+
+  it('collects an ordinary source file when the vault root is chosen', () => {
+    expect(isIngestableSource('Notizen/a.md', '/', true, 'wiki', '.obsidian')).toBe(true);
+    expect(isIngestableSource('a.md', '/', true, 'wiki', '.obsidian')).toBe(true);
+  });
+
+  it('does not reinstate the wiki folder when the vault root is chosen', () => {
+    // Both premises hold and are pinned above ...
+    expect(isExcludedFromSourcePicker('wiki/entities/x.md', 'wiki', '.obsidian')).toBe(true);
+    expect(isInFolderScope('wiki/entities/x.md', '/', true)).toBe(true);
+    // ... so the collection step has to combine them.
+    expect(isIngestableSource('wiki/entities/x.md', '/', true, 'wiki', '.obsidian')).toBe(false);
+  });
+
+  it('keeps the folder boundary it inherits from isInFolderScope', () => {
+    expect(isIngestableSource('Notizen-temp/a.md', 'Notizen', false, 'wiki', '.obsidian')).toBe(false);
+    expect(isIngestableSource('Notizen.md', 'Notizen', false, 'wiki', '.obsidian')).toBe(false);
+  });
+
+  it('keeps a sibling folder sharing the wiki name prefix', () => {
+    expect(isIngestableSource('wiki-archive/x.md', '/', true, 'wiki', '.obsidian')).toBe(true);
   });
 });
