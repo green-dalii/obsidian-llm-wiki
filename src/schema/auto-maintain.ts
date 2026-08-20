@@ -14,6 +14,7 @@ import { resolveModelForTask } from '../core/model-resolver';
 import { isLocalNoKeyProvider } from '../core/local-no-key-provider';
 import { resolveProviderApiKey } from '../llm-sdk/provider-api-key-resolver';
 import type { LLMClient } from '../types';
+import { isIngestableSource } from '../core/folder-scope';
 
 export class AutoMaintainManager {
   private app: App;
@@ -103,11 +104,25 @@ export class AutoMaintainManager {
   }
 
   // Check if a path falls within any watched folder
+  // Issue #505 — the watched-folder picker is the same FolderSuggestModal
+  // the ingest command uses, so the vault root is offered and stored as `/`.
+  // The previous hand-rolled comparison asked `path.startsWith('/')`, which no
+  // Obsidian vault path satisfies: the entry was displayed but matched nothing.
+  //
+  // Delegating to the shared rule fixes that and brings the picker's own
+  // exclusion along, which the root case needs — otherwise a repaired root
+  // would watch `wiki/` and feed the plugin its own generated pages (#502).
   private isWatched(path: string): boolean {
     if (this.settings.watchedFolders.length === 0) return false;
     return this.settings.watchedFolders.some(folder => {
-      const prefix = folder.endsWith('/') ? folder : `${folder}/`;
-      return path.startsWith(prefix);
+      const trimmed = folder.replace(/\/+$/, '');
+      return isIngestableSource(
+        path,
+        trimmed,
+        trimmed.length === 0,
+        this.settings.wikiFolder,
+        this.app.vault.configDir,
+      );
     });
   }
 

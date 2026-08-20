@@ -26,10 +26,12 @@ function makeManager(ingestSource: IngestFn, createBatchContext: BatchCtxFn) {
     autoWatchMode: 'auto',
     autoWatchDebounceMs: 0,
     watchedFolders: ['inbox'],
+    wikiFolder: 'wiki',
   } as unknown as LLMWikiSettings;
 
   const wikiEngine = { createBatchContext, ingestSource } as unknown as WikiEngine;
-  const app = {} as unknown as ConstructorParameters<typeof AutoMaintainManager>[0];
+  // isWatched() consults the shared exclusion rule, which needs the config dir.
+  const app = { vault: { configDir: '.obsidian' } } as unknown as ConstructorParameters<typeof AutoMaintainManager>[0];
   const plugin = {} as unknown as ConstructorParameters<typeof AutoMaintainManager>[3];
 
   return new AutoMaintainManager(app, settings, wikiEngine, plugin);
@@ -168,5 +170,57 @@ describe('AutoMaintainManager.assessWelcomeNeed — sync tier decision (v1.23.0)
     const result = (mgr as unknown as WelcomeAssessor).assessWelcomeNeed();
     // Direct value, not a Promise.
     expect(result).not.toHaveProperty('then');
+  });
+});
+
+// Issue #505 — the watched-folder picker is the same `FolderSuggestModal`
+// the ingest command uses, so it offers the vault root. Choosing it stores `/`
+// and `isWatched` compared `path.startsWith('/')` — no Obsidian vault path
+// begins with a slash, so the entry matched nothing. The settings list showed
+// `/` while the watcher silently watched nothing.
+//
+// Sibling of #502: the same picker, the same root entry, the same missing
+// exclusion rule underneath. Root has to mean "the whole vault, minus what the
+// picker refuses" here too, or a repaired root would watch the plugin's own
+// generated pages.
+describe('AutoMaintainManager.isWatched — the vault root', () => {
+  type WatchProbe = { isWatched: (path: string) => boolean };
+
+  function managerWatching(folders: string[]) {
+    const settings = {
+      language: 'en',
+      autoWatchMode: 'auto',
+      autoWatchDebounceMs: 0,
+      watchedFolders: folders,
+      wikiFolder: 'wiki',
+    } as unknown as LLMWikiSettings;
+    const app = { vault: { configDir: '.obsidian' } } as unknown as ConstructorParameters<typeof AutoMaintainManager>[0];
+    const wikiEngine = {} as unknown as WikiEngine;
+    const plugin = {} as unknown as ConstructorParameters<typeof AutoMaintainManager>[3];
+    return new AutoMaintainManager(app, settings, wikiEngine, plugin) as unknown as WatchProbe;
+  }
+
+  it('watches ordinary vault files when the root is the watched folder', () => {
+    const mgr = managerWatching(['/']);
+    expect(mgr.isWatched('Notizen/a.md')).toBe(true);
+    expect(mgr.isWatched('a.md')).toBe(true);
+  });
+
+  it('does not watch the wiki folder when the root is watched', () => {
+    const mgr = managerWatching(['/']);
+    expect(mgr.isWatched('wiki/entities/x.md')).toBe(false);
+  });
+
+  it('watches nothing when no folder is configured', () => {
+    expect(managerWatching([]).isWatched('Notizen/a.md')).toBe(false);
+  });
+
+  it('keeps a named folder anchored, with or without a trailing slash', () => {
+    for (const stored of ['inbox', 'inbox/']) {
+      const mgr = managerWatching([stored]);
+      expect(mgr.isWatched('inbox/a.md')).toBe(true);
+      expect(mgr.isWatched('inbox-archive/a.md')).toBe(false);
+      expect(mgr.isWatched('inbox.md')).toBe(false);
+    }
   });
 });
