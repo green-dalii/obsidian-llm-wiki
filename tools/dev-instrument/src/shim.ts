@@ -1,34 +1,34 @@
-// Stand-in for the `obsidian` module when the plugin runs under plain Node.
-// The bundler aliases every `from 'obsidian'` import — plugin code and this
-// CLI alike — to this file, so `instanceof TFile` keeps working across the
-// boundary.
+// UPSTREAM DEV-ONLY INSTRUMENT — `obsidian` module shim.
 //
-// Only the surface the ingest path actually touches is implemented. Anything
-// that needs a real Obsidian window throws on construction rather than
-// pretending to work.
+// Stands in for the `obsidian` npm package when the engine runs under
+// plain Node. esbuild aliases every `from 'obsidian'` import (engine
+// code AND this instrument) to this file so `instanceof TFile` keeps
+// working across the boundary.
+//
+// No `node:*` static imports in this file (per `obsidianmd/no-nodejs-modules`).
+// The legacy `node:http`/`node:https` requestUrl uses dynamic `await import()`
+// guarded by Platform.isDesktop. The legacy Notice class is dropped — the
+// engine ingest path never calls Notice, and the `console.log` calls inside
+// triggered `obsidianmd/rule-custom-message` (no-console) Warnings.
 
-/**
- * Obsidian's path normalizer: backslashes become slashes, runs of slashes
- * collapse, leading/trailing slashes are dropped, and the result is NFC so
- * it compares equal to filenames read back from disk.
- */
-export function normalizePath(path: string): string {
-  const collapsed = path
-    .replace(/[\\/]+/g, '/')
-    .replace(/^\/+/, '')
-    .replace(/\/+$/, '')
-    .normalize('NFC');
-  return collapsed === '' ? '/' : collapsed;
-}
-
-/**
- * The plugin only ever uses `App` as a type. Keeping the members opaque here
- * avoids a cycle with the vault module, which is the thing that supplies them.
- */
 export interface App {
   vault: unknown;
   metadataCache: unknown;
   fileManager: unknown;
+}
+
+/**
+ * Obsidian's path normalizer: backslashes → slashes, runs of slashes
+ * collapse, leading/trailing slashes drop, NFC so it compares equal to
+ * filenames read back from disk.
+ */
+export function normalizePath(path: string): string {
+  const normalized = path
+  .replace(/[\\/]+/g, '/')
+  .replace(/^\/+/, '')
+  .replace(/\/+$/, '')
+  .normalize('NFC');
+  return normalized === '' ? '/' : normalized;
 }
 
 export class TAbstractFile {
@@ -40,7 +40,7 @@ export class TAbstractFile {
 export class TFile extends TAbstractFile {
   basename = '';
   extension = '';
-  stat: { ctime: number; mtime: number; size: number } = { ctime: 0, mtime: 0, size: 0 };
+  stat = { ctime: 0, mtime: 0, size: 0 };
 }
 
 export class TFolder extends TAbstractFile {
@@ -50,23 +50,16 @@ export class TFolder extends TAbstractFile {
   }
 }
 
-/** Obsidian's toast. In the CLI it is a line on stdout. */
-export class Notice {
-  private message: string;
-  constructor(message: string, _timeout?: number) {
-    this.message = message;
-    console.log(`[Notice] ${message}`);
-  }
-  setMessage(message: string): void {
-    this.message = message;
-    console.log(`[Notice] ${message}`);
-  }
-  hide(): void { /* nothing to dismiss on a terminal */ }
-  getMessage(): string {
-    return this.message;
-  }
-}
-
+/**
+ * Platform shim. The CLI is a Node program, so the legacy desktop guard is
+ * invariant documentation (per `feedback_obsidianmd_no_nodejs_guard_detection`):
+ * every dynamic `node:*` import sits inside `if (!Platform.isDesktop) throw`
+ * and the guard never fires at runtime because we hardcode isDesktop=true.
+ *
+ * `isMobile: false` is also invariant — the engine's mobile-guard paths see
+ * this and route through the desktop code paths, which is what we want for
+ * the headless instrument.
+ */
 export const Platform = {
   isMacOS: process.platform === 'darwin',
   isWin: process.platform === 'win32',
@@ -95,29 +88,20 @@ export interface RequestUrlResponse {
 }
 
 /**
- * Obsidian's HTTP client, backed by `node:http` / `node:https`.
+ * requestUrl — Obsidian's HTTP client. Backed by node:http / node:https
+ * via dynamic import. The dynamic-import guard pattern matches
+ * `src/llm-sdk/openai-codex/loopback-flow.ts` (Bot AST exemption).
  *
- * The plugin's `obsidianFetchBridge` hard-depends on this for every local
- * base URL, and it reads `status` / `headers` / `text` as eagerly-resolved
- * properties — not as methods — so the body is buffered here.
- *
- * Not Node's global `fetch`: that applies undici's default `headersTimeout`
- * of 300 s. A non-streamed completion sends no response headers until the
- * whole answer is ready, so any single LLM call that needs more than five
- * minutes fails with a bare `fetch failed` — measured twice at 301 s with a
- * 12B model on LM Studio and an 82 000-character extraction prompt. Obsidian's
- * real `requestUrl` goes through Electron's `net` and has no such ceiling, so
- * the shim would be stricter than the host it stands in for, on exactly the
- * configuration this CLI exists to serve. `node:http` has no default timeout,
- * which restores the host's behaviour without adding a dependency (undici's
- * own API is not reachable from a plain Node install).
+ * Uses node:http directly (rather than global `fetch` / undici) because
+ * undici applies a 300s headersTimeout that fires on long-running LLM
+ * calls before they return headers (issue #417, measured at 301 s with a
+ * 12B LM Studio model and an 82 000-character extraction prompt).
+ * Obsidian's real requestUrl uses Electron's `net` which has no such
+ * ceiling. node:http has no default timeout, restoring the host's behaviour
+ * without adding a dependency (undici's own API is not reachable from a
+ * plain Node install).
  */
 export async function requestUrl(param: RequestUrlParam): Promise<RequestUrlResponse> {
-  // Function-start early-exit guard — satisfies `obsidianmd/no-nodejs-modules`
-  // AST guard-detection for the dynamic `node:https`/`node:http` imports below
-  // (mirrors src/llm-sdk/openai-codex/loopback-flow.ts). The CLI's own Platform
-  // shim hardcodes `isDesktop: true`, so this never throws at runtime; it
-  // declares the invariant "this code is desktop-only" that the rule requires.
   if (!Platform.isDesktop) throw new Error('requestUrl (node:http) is desktop-only');
 
   const url = new URL(param.url);
@@ -173,7 +157,6 @@ export async function requestUrl(param: RequestUrlParam): Promise<RequestUrlResp
       try {
         return JSON.parse(text) as unknown;
       } catch (e) {
-        // Obsidian's real `requestUrl().json` throws on bad JSON. Match it.
         throw new Error(`Request URL response is not valid JSON: ${(e as Error).message}`);
       }
     },
@@ -184,13 +167,13 @@ export async function requestUrl(param: RequestUrlParam): Promise<RequestUrlResp
 function uiUnavailable(className: string): never {
   throw new Error(
     `${className} belongs to the Obsidian UI and has no Node equivalent. ` +
-    'The ingest CLI must not reach this code path.'
+    'The dev instrument must not reach this code path.'
   );
 }
 
 export class Component {
-  load(): void { /* no lifecycle in the CLI */ }
-  unload(): void { /* no lifecycle in the CLI */ }
+  load(): void { /* no lifecycle in the instrument */ }
+  unload(): void { /* no lifecycle in the instrument */ }
 }
 
 export class BaseComponent {

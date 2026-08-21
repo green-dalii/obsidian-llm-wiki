@@ -1,0 +1,15 @@
+{
+  "_comment": "TypeScript config for the UPSTREAM DEV-ONLY INSTRUMENT (issue #507).",
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "module": "ESNext",
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../src/__tests__/tools/dev-instrument/**/*.ts"
+  ],
+  "exclude": []
+}

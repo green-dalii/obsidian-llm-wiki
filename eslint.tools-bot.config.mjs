@@ -58,7 +58,10 @@ export default [
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        project: "./tools/llm-wiki-cli/tsconfig.json",
+        // Both tsconfigs cover the tools/ tree during the v1.27.0 MINOR
+        // migration window. After tools/llm-wiki-cli/ is deleted, drop the
+        // legacy reference (PR of issue #507 Phase 4 demote).
+        project: ["./tools/dev-instrument/tsconfig.json"],
       },
       globals: NODE_GLOBALS,
     },
@@ -67,6 +70,16 @@ export default [
     },
     rules: {
       ...tsplugin.configs.recommended.rules,
+    },
+  },
+  // .mjs entry files use a separate config — no TypeScript context (they
+  // are bundled output / pure ESM JavaScript), but still get the Node
+  // globals so `process` / `Buffer` / `URL` etc. don't show up as
+  // `no-undef` noise.
+  {
+    files: ["tools/**/*.mjs"],
+    languageOptions: {
+      globals: NODE_GLOBALS,
     },
   },
 ];
