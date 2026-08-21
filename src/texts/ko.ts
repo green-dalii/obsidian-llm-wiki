@@ -169,6 +169,7 @@ export const KO_TEXTS = {
 
     // Errors
     errorNoApiKey: 'API 키를 먼저 설정하세요',
+    errorNoModel: '먼저 모델을 선택하세요 — [모델 가져오기]를 클릭하거나 Model ID를 직접 입력하세요',
     llmNotReady: 'LLM이 구성되지 않았습니다. 설정 → Karpathy LLM Wiki에서 제공자를 구성하고 모델을 가져온 후 연결 테스트를 통과하세요.',
     errorFetchFailed: '실패: {}',
 

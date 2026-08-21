@@ -6,6 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import LLMWikiPlugin from '../../main';
+import { TEXTS } from '../../texts';
 
 // Mock the create-llm-client module so testLLMConnection doesn't
 // try to dynamically import AI-SDK packages (which would fail in
@@ -261,5 +262,110 @@ describe('testLLMConnection — per-task model probes (#208)', () => {
     expect(createMessage).toHaveBeenCalledTimes(2);
     expect((createMessage.mock.calls[0][0] as { model: string }).model).toBe('gpt-4.1-mini'); // ingest succeeded
     expect((createMessage.mock.calls[1][0] as { model: string }).model).toBe('gpt-4o-mini'); // lint failed
+  });
+});
+
+// Issue #517: a model that was never selected must fail locally with the
+// "pick a model" message. Before the guard, `settings.model === ''` went on
+// the wire as `"model": ""`; OpenRouter answers HTTP 502 `Invalid URL:`,
+// the AI SDK retries it 3x, and testLLMConnection reported that verbatim —
+// so a missing model read as a broken Base URL.
+describe('testLLMConnection — blank model gate (#517)', () => {
+  const mockApp = {
+    vault: {
+      getAbstractFileByPath: vi.fn().mockReturnValue(null),
+      getMarkdownFiles: vi.fn().mockReturnValue([]),
+      read: vi.fn().mockResolvedValue(''),
+    },
+  };
+  const mockManifest = {
+    id: 'test-plugin',
+    name: 'Test',
+    version: '1.0.0',
+    minAppVersion: '0.15.0',
+  };
+
+  /** Fresh-install OpenRouter config: provider + key set, model not chosen. */
+  function makePlugin(overrides: Record<string, unknown>) {
+    const plugin = new LLMWikiPlugin(mockApp as never, mockManifest as never);
+    (plugin as unknown as Record<string, unknown>).settings = {
+      provider: 'openrouter',
+      apiKey: 'sk-or-test',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      model: '',
+      language: 'en',
+      wikiFolder: 'wiki',
+      llmReady: false,
+      maxTokensPerCall: 0,
+      autoIngestNotificationLevel: 'notice',
+      autoWatchSources: false,
+      startupCheck: false,
+      slugCase: 'preserve',
+      ...overrides,
+    };
+    return plugin;
+  }
+
+  async function mockClient() {
+    const { createLLMClientFromSettingsSync } = await import('../../llm-sdk/create-llm-client');
+    const createMessage = vi.fn().mockResolvedValue('ok');
+    vi.mocked(createLLMClientFromSettingsSync).mockReturnValue({
+      createMessage,
+      createMessageStream: vi.fn(),
+      listModels: vi.fn().mockResolvedValue([]),
+    });
+    return createMessage;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('unified mode: an empty model fails without touching the network', async () => {
+    const createMessage = await mockClient();
+    const result = await makePlugin({}).testLLMConnection();
+    expect(result.success).toBe(false);
+    expect(result.message).toBe(TEXTS.en.errorNoModel);
+    expect(createMessage).not.toHaveBeenCalled();
+  });
+
+  it('unified mode: a whitespace-only model is also blank', async () => {
+    const createMessage = await mockClient();
+    const result = await makePlugin({ model: '   ' }).testLLMConnection();
+    expect(result.success).toBe(false);
+    expect(result.message).toBe(TEXTS.en.errorNoModel);
+    expect(createMessage).not.toHaveBeenCalled();
+  });
+
+  it('per-task mode: one unresolvable task aborts before any probe runs', async () => {
+    const createMessage = await mockClient();
+    // ingest + lint resolve; query falls back to settings.model, which is
+    // blank. The guard runs before the loop, so even the two valid probes
+    // must not be issued.
+    const result = await makePlugin({
+      usePerTaskModels: true,
+      ingestModel: 'openai/gpt-4o-mini',
+      lintModel: 'openai/gpt-4o-mini',
+      queryModel: '',
+    }).testLLMConnection();
+    expect(result.success).toBe(false);
+    expect(result.message).toBe(TEXTS.en.errorNoModel);
+    expect(createMessage).not.toHaveBeenCalled();
+  });
+
+  it('a selected model still probes normally', async () => {
+    const createMessage = await mockClient();
+    const result = await makePlugin({ model: 'openai/gpt-4o-mini' }).testLLMConnection();
+    expect(result.success).toBe(true);
+    expect(createMessage).toHaveBeenCalledTimes(1);
+    expect((createMessage.mock.calls[0][0] as { model: string }).model).toBe('openai/gpt-4o-mini');
+  });
+
+  it('the API key gate still wins over the model gate', async () => {
+    const createMessage = await mockClient();
+    const result = await makePlugin({ apiKey: '', model: '' }).testLLMConnection();
+    expect(result.success).toBe(false);
+    expect(result.message).toBe(TEXTS.en.errorNoApiKey);
+    expect(createMessage).not.toHaveBeenCalled();
   });
 });

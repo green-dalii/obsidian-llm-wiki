@@ -169,6 +169,7 @@ export const JA_TEXTS = {
 
     // Errors
     errorNoApiKey: 'まずAPI Keyを設定してください',
+    errorNoModel: 'まずモデルを選択してください — 「モデルを取得」をクリック、または Model ID を手動入力',
     llmNotReady: 'LLMが設定されていません。設定 → Karpathy LLM Wiki でプロバイダーを設定し、モデルを取得して接続テストに合格してください。',
     errorFetchFailed: '失敗：{}',
 

@@ -184,6 +184,7 @@ export const EN_TEXTS = {
 
     // Errors
     errorNoApiKey: 'Please configure API Key first',
+    errorNoModel: 'Please select a model first — click Fetch Models, or enter a Model ID manually',
     llmNotReady: 'LLM is not configured. Please go to Settings → Karpathy LLM Wiki to configure your provider, fetch available models, and pass the connection test.',
     errorFetchFailed: 'Failed: {}',
 

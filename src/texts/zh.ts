@@ -169,6 +169,7 @@ export const ZH_TEXTS = {
 
     // 错误
     errorNoApiKey: '请先配置 API Key',
+    errorNoModel: '请先选择模型 — 点击"获取模型列表"，或手动输入 Model ID',
     llmNotReady: 'LLM 尚未配置。请前往 设置 → Karpathy LLM Wiki 完成 Provider 配置、获取模型列表并通过连接测试。',
     errorFetchFailed: '获取失败：{}',
 

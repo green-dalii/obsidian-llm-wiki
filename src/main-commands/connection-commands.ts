@@ -85,6 +85,17 @@ export const connectionCommands = {
 
     console.debug('[testLLMConnection] probe plan:', probePlan.map(p => `${p.label}=${p.model}`).join(', '));
 
+    // A blank model still goes on the wire as `"model": ""`, and the
+    // provider answers with its own routing error: OpenRouter returns
+    // HTTP 502 `Invalid URL:`, which the AI SDK retries three times and
+    // the catch below then reports verbatim — so a model that was never
+    // selected reads as a broken Base URL. `model` has no default
+    // (DEFAULT_SETTINGS.model is ''), so this is the state of every
+    // fresh install: pick the provider, paste the key, press the button.
+    if (probePlan.some(probe => (probe.model ?? '').trim() === '')) {
+      return { success: false, message: t.errorNoModel };
+    }
+
     try {
       const testClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version, this.app.secretStorage, pendingApiKey);
 

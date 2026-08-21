@@ -169,6 +169,7 @@ export const ZH_HANT_TEXTS = {
 
     // 错误
     errorNoApiKey: '請先配置 API Key',
+    errorNoModel: '請先選擇模型 — 點擊「獲取模型列表」，或手動輸入 Model ID',
     llmNotReady: 'LLM 尚未配置。請前往 設定 → Karpathy LLM Wiki 完成 Provider 配置、獲取模型列表並透過連線測試。',
     errorFetchFailed: '獲取失敗：{}',
 

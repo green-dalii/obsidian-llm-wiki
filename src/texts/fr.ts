@@ -170,6 +170,7 @@ export const FR_TEXTS = {
 
     // Errors
     errorNoApiKey: 'Veuillez d\'abord configurer la clé API',
+    errorNoModel: 'Veuillez d\'abord sélectionner un modèle — cliquez sur « Récupérer les modèles » ou saisissez un Model ID manuellement',
     llmNotReady: 'LLM non configuré. Allez dans Paramètres → Karpathy LLM Wiki pour configurer votre fournisseur et réussir le test de connexion.',
     errorFetchFailed: 'Échec : {}',
 
