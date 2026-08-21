@@ -120,6 +120,26 @@ export function applySettingsMigrations(
     settings._migrated_v1_25_3_secret_storage = true;
   }
 
+  // v1.27.0 MINOR #404 follow-up: rename `pdfConversionBackend` →
+  // `markdownConversionBackend`. Preserve the existing value so a user who
+  // already selected MinerU does not silently fall back to native on the
+  // first load after the upgrade. Pure: read from `savedRecord`, write to
+  // `settings`, delete the legacy field. Idempotent via the migration gate.
+  if (savedData && !settings._migrated_v1_27_0_markdown_conversion_backend) {
+    // Read via `untrustedSettings` rather than `savedRecord` because the
+    // legacy field was removed from the LLMWikiSettings interface — a
+    // typed read would yield `Property 'pdfConversionBackend' does not
+    // exist on type 'Partial<LLMWikiSettings>'`. The legacy name is the
+    // whole point of this migration.
+    const legacy = untrustedSettings.pdfConversionBackend;
+    if (legacy === 'native' || legacy === 'mineru') {
+      settings.markdownConversionBackend = legacy;
+    }
+    delete untrustedSettings.pdfConversionBackend;
+    settings._migrated_v1_27_0_markdown_conversion_backend = true;
+    applied.push('v1.27.0-markdown-conversion-backend');
+  }
+
   return { settings, applied };
 }
 

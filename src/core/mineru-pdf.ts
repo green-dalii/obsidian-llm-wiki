@@ -120,17 +120,25 @@ export async function convertPdfWithMineru(ctx: PdfConversionContext): Promise<C
     throw new MineruPdfError('MinerU accepts PDF files up to 200 MB.');
   }
 
+  // MinerU model version: hardcoded to 'vlm' (PR #404 default; 'pipeline'
+  // and 'MinerU-HTML' are exposed by the API but the vlm model is the
+  // recommended path per https://mineru.net/apiManage/docs). When the
+  // surface area is clear, this becomes a settings field; for now keeping
+  // it inline is consistent with PR #404's existing cache-key shape
+  // (`:mineru:vlm:v1`) so existing users do not invalidate cache.
+  const modelVersion = 'vlm';
+
   const sourceHash = await sha256Bytes(bytes, ctx.subtle);
   const cache = createPdfCache(ctx.app);
   const cacheKey = await hashCacheKey(
-    `${sourceHash}:mineru:vlm:v1`,
+    `${sourceHash}:mineru:${modelVersion}:v1`,
     ctx.subtle,
   );
   const cached = await cache.get(cacheKey);
   if (cached) return cached;
 
   const deadline = Date.now() + MINERU_TIMEOUT_MS;
-  const lease = await requestUpload(token, ctx.pdfFile.name, deadline, ctx.abortSignal);
+  const lease = await requestUpload(token, ctx.pdfFile.name, modelVersion, deadline, ctx.abortSignal);
   ctx.onMineruPhase?.('uploading');
   await uploadPdf(lease.uploadUrl, bytes, deadline, ctx.abortSignal);
   ctx.onMineruPhase?.('waiting');
@@ -146,7 +154,7 @@ export async function convertPdfWithMineru(ctx: PdfConversionContext): Promise<C
     markdown,
     metadata: {
       convertedAt: new Date().toISOString(),
-      converter: 'mineru/vlm',
+      converter: `mineru/${modelVersion}`,
     },
   };
   await cache.set(cacheKey, entry);
@@ -156,12 +164,13 @@ export async function convertPdfWithMineru(ctx: PdfConversionContext): Promise<C
 async function requestUpload(
   token: string,
   filename: string,
+  modelVersion: 'vlm',
   deadline: number,
   signal?: AbortSignal,
 ): Promise<{ taskId: string; uploadUrl: string }> {
   const envelope = await mineruRequest(token, '/file-urls/batch', {
     method: 'POST',
-    body: JSON.stringify({ files: [{ name: filename }], model_version: 'vlm' }),
+    body: JSON.stringify({ files: [{ name: filename }], model_version: modelVersion }),
   }, deadline, signal);
   const taskId = stringValue(envelope.data?.batch_id);
   const uploadUrl = Array.isArray(envelope.data?.file_urls)

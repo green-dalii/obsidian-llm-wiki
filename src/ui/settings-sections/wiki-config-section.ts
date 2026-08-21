@@ -55,14 +55,14 @@ export function renderWikiConfigSection(tab: LLMWikiSettingTab, containerEl: HTM
 
   let mineruTokenSetting: Setting | null = null;
   new Setting(containerEl)
-    .setName(tab.getText('pdfConversionBackendName'))
-    .setDesc(tab.getText('pdfConversionBackendDesc'))
+    .setName(tab.getText('markdownConversionBackendName'))
+    .setDesc(tab.getText('markdownConversionBackendDesc'))
     .addDropdown(dropdown => dropdown
-      .addOption('native', tab.getText('pdfConversionBackendNative'))
-      .addOption('mineru', tab.getText('pdfConversionBackendMineru'))
-      .setValue(tempSettings.pdfConversionBackend ?? 'native')
+      .addOption('native', tab.getText('markdownConversionBackendNative'))
+      .addOption('mineru', tab.getText('markdownConversionBackendMineru'))
+      .setValue(tempSettings.markdownConversionBackend ?? 'native')
       .onChange(value => {
-        tempSettings.pdfConversionBackend = value as 'native' | 'mineru';
+        tempSettings.markdownConversionBackend = value as 'native' | 'mineru';
         setSettingsVisible([mineruTokenSetting], value === 'mineru');
       }));
 
@@ -76,7 +76,7 @@ export function renderWikiConfigSection(tab: LLMWikiSettingTab, containerEl: HTM
         .onChange(value => { tab.app.secretStorage.setSecret(MINERU_API_TOKEN_SECRET_ID, value.trim()); });
       text.inputEl.type = 'password';
     });
-  setSettingsVisible([mineruTokenSetting], tempSettings.pdfConversionBackend === 'mineru');
+  setSettingsVisible([mineruTokenSetting], tempSettings.markdownConversionBackend === 'mineru');
   // Granularity + custom limits
   let customEntitySetting: Setting | null = null;
   let customConceptSetting: Setting | null = null;

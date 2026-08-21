@@ -51,7 +51,7 @@ describe('MinerU settings', () => {
     const getSecret = vi.fn(() => 'stored-token');
     const setSecret = vi.fn();
     const tab = {
-      tempSettings: { ...DEFAULT_SETTINGS, pdfConversionBackend: 'mineru' },
+      tempSettings: { ...DEFAULT_SETTINGS, markdownConversionBackend: 'mineru' },
       app: { secretStorage: { getSecret, setSecret } },
       getText: (key: string) => key,
     } as unknown as LLMWikiSettingTab;

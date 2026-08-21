@@ -27,7 +27,7 @@ import { convertPdfWithMineru, extractMineruMarkdown } from '../../core/mineru-p
 function context(overrides: Record<string, unknown> = {}) {
   return {
     app: { vault: { adapter: { readBinary: vi.fn(async () => new Uint8Array([1, 2, 3])) } } } as never,
-    settings: { provider: 'anthropic', apiKey: '', model: '', pdfConversionBackend: 'mineru' as const },
+    settings: { provider: 'anthropic', apiKey: '', model: '', markdownConversionBackend: 'mineru' as const },
     mineruApiToken: 'token',
     pdfFile: { path: 'paper.pdf', name: 'paper.pdf' } as never,
     llmClient: { createMessage: vi.fn() },

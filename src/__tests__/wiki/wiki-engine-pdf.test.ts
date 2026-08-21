@@ -151,7 +151,7 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
     });
     const h = createWikiEngineHarness({
       settings: {
-        pdfConversionBackend: 'mineru',
+        markdownConversionBackend: 'mineru',
       },
       llmResponses: [JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] })],
     });
@@ -516,7 +516,7 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
 
     it('handles MinerU AbortError and clears the PDF ingestion lifecycle', async () => {
       mockedConvert.mockRejectedValueOnce(new DOMException('cancelled', 'AbortError'));
-      const h = createWikiEngineHarness({ settings: { pdfConversionBackend: 'mineru' } });
+      const h = createWikiEngineHarness({ settings: { markdownConversionBackend: 'mineru' } });
       Object.assign(h.engine['app'], {
         secretStorage: { getSecret: vi.fn(() => 'secret-token') },
       });

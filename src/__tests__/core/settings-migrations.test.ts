@@ -183,3 +183,62 @@ describe('applySettingsMigrations (v1.23.0 — startupCheckNoticeLevel)', () => 
     expect(applied).not.toContain('v1.23.0-startup-notice');
   });
 });
+
+describe('applySettingsMigrations (v1.27.0 MINOR — #404 follow-up: rename pdfConversionBackend → markdownConversionBackend)', () => {
+  it('preserves a legacy pdfConversionBackend="mineru" choice (seamless upgrade for existing MinerU users)', () => {
+    // v1.27.0 MINOR: the setting was renamed. A user who already selected
+    // MinerU before the upgrade MUST keep their selection — silently
+    // falling back to native would re-introduce native-PDF-only routing
+    // for files they had explicitly chosen to route through MinerU.
+    // Cast to the legacy shape because the field was removed from
+    // LLMWikiSettings — this test is the proof that the migration handles
+    // an in-the-wild pre-rename data.json correctly.
+    const savedData = { pdfConversionBackend: 'mineru' } as unknown as Partial<import('../../types').LLMWikiSettings>;
+    const { settings, applied } = applySettingsMigrations(savedData);
+
+    expect(settings.markdownConversionBackend).toBe('mineru');
+    expect(settings._migrated_v1_27_0_markdown_conversion_backend).toBe(true);
+    expect(applied).toContain('v1.27.0-markdown-conversion-backend');
+  });
+
+  it('preserves a legacy pdfConversionBackend="native" choice (no behavior change for the default path)', () => {
+    const savedData = { pdfConversionBackend: 'native' } as unknown as Partial<import('../../types').LLMWikiSettings>;
+    const { settings, applied } = applySettingsMigrations(savedData);
+
+    expect(settings.markdownConversionBackend).toBe('native');
+    expect(applied).toContain('v1.27.0-markdown-conversion-backend');
+  });
+
+  it('drops an unrecognized legacy value and falls back to the default "native"', () => {
+    // Pre-fix risk: a corrupted data.json with an unexpected value would
+    // have crashed the migration. Post-fix: skip the unknown value, the
+    // default 'native' (DEFAULT_SETTINGS.markdownConversionBackend) wins.
+    const savedData = { pdfConversionBackend: 'experimental' } as unknown as Partial<import('../../types').LLMWikiSettings>;
+    const { settings, applied } = applySettingsMigrations(savedData);
+
+    expect(settings.markdownConversionBackend).toBe('native');
+    expect(applied).toContain('v1.27.0-markdown-conversion-backend');
+  });
+
+  it('does not re-migrate on subsequent loads (idempotent via the marker)', () => {
+    const savedData = { pdfConversionBackend: 'mineru' } as unknown as Partial<import('../../types').LLMWikiSettings>;
+    const firstPass = applySettingsMigrations(savedData);
+    // Simulate a second load: the user's data.json now has the marker and
+    // the NEW field name. The legacy `pdfConversionBackend` is gone.
+    const secondPass = applySettingsMigrations(firstPass.settings);
+
+    expect(secondPass.settings.markdownConversionBackend).toBe('mineru');
+    expect(secondPass.applied).not.toContain('v1.27.0-markdown-conversion-backend');
+  });
+
+  it('does not migrate users who never had the legacy field (brand-new install)', () => {
+    const { settings, applied } = applySettingsMigrations({});
+
+    // The marker is still set (so future loads skip), but no value
+    // migration happened — the default 'native' from DEFAULT_SETTINGS
+    // stands.
+    expect(settings.markdownConversionBackend).toBe('native');
+    expect(settings._migrated_v1_27_0_markdown_conversion_backend).toBe(true);
+    expect(applied).toContain('v1.27.0-markdown-conversion-backend');
+  });
+});

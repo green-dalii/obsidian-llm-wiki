@@ -58,7 +58,7 @@ export interface PdfConversionContext {
     baseUrl?: string;
     model: string;
     forcePdfSupport?: boolean;
-    pdfConversionBackend?: 'native' | 'mineru';
+    markdownConversionBackend?: 'native' | 'mineru';
     [k: string]: unknown;
   };
   /** Resolved at the WikiEngine boundary from Obsidian SecretStorage. */
@@ -121,7 +121,7 @@ export class EncryptedPdfError extends Error {
  * propagates LLM errors verbatim.
  */
 export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<ConversionResult> {
-  if (ctx.settings.pdfConversionBackend === 'mineru') {
+  if (ctx.settings.markdownConversionBackend === 'mineru') {
     return convertPdfWithMineru(ctx);
   }
   const { app, settings, pdfFile, llmClient, resolveModelForTask, subtle } = ctx;

@@ -691,9 +691,9 @@ export class WikiEngine {
           baseUrl: this.settings.baseUrl,
           model: this.settings.model,
           forcePdfSupport: this.settings.forcePdfSupport,
-          pdfConversionBackend: this.settings.pdfConversionBackend,
+          markdownConversionBackend: this.settings.markdownConversionBackend,
         },
-        ...(this.settings.pdfConversionBackend === 'mineru'
+        ...(this.settings.markdownConversionBackend === 'mineru'
           ? { mineruApiToken: this.app.secretStorage.getSecret(MINERU_API_TOKEN_SECRET_ID) ?? '' }
           : {}),
         onMineruPhase: phase => {
@@ -779,10 +779,15 @@ export class WikiEngine {
     // LLM-converted markdown — no pollution detection needed; (b) writing
     // through createOrUpdateFile would fire onFileWrite + invalidatePageCaches,
     // which could trigger auto-ingest cascades if the source folder is watched.
+    //
+    // v1.27.0 MINOR #404 follow-up: hoist `sidecarPath` so the
+    // MinerU-completion Notice below can name it when writePdfMarkdownToVault
+    // is on. The path is computed unconditionally; the write stays gated on
+    // the user opt-in toggle.
+    const dir = file.parent?.path ?? '';
+    const rawPath = dir ? `${dir}/${file.basename}.pdf.md` : `${file.basename}.pdf.md`;
+    const sidecarPath = normalizePath(rawPath);
     if (this.settings.writePdfMarkdownToVault === true) {
-      const dir = file.parent?.path ?? '';
-      const rawPath = dir ? `${dir}/${file.basename}.pdf.md` : `${file.basename}.pdf.md`;
-      const sidecarPath = normalizePath(rawPath);
       const existing = this.app.vault.getAbstractFileByPath(sidecarPath);
       // v1.25.11 PATCH #169: sidecar-write stage mirror. Fires only when
       // the user has opted in via writePdfMarkdownToVault. ADD-only
@@ -793,6 +798,24 @@ export class WikiEngine {
       } else {
         await this.app.vault.create(sidecarPath, conversionResult.markdown);
       }
+    }
+
+    // v1.27.0 MINOR #404 follow-up: Toast the user when MinerU finishes.
+    // Native provider conversions emit progress through `onProgress` and the
+    // status bar mirror; MinerU is the longer-running path (upload + wait +
+    // download) and users explicitly asked for a completion signal. When the
+    // sidecar is on, the Toast names the saved path so users know where to
+    // find the artifact. Fires only for the MinerU backend — native keeps
+    // its existing progress surface untouched.
+    if (this.settings.markdownConversionBackend === 'mineru') {
+      const msgKey = this.settings.writePdfMarkdownToVault === true
+        ? 'mineruConversionCompleteSaved'
+        : 'mineruConversionComplete';
+      const tmpl = getText(this.settings.language, msgKey);
+      const msg = tmpl
+        .replace('{path}', sidecarPath)
+        .replace('{filename}', file.basename);
+      new Notice(msg, NOTICE_NORMAL);
     }
 
     // Re-enter the standard ingest path with the converted markdown as a
