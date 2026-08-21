@@ -11,6 +11,27 @@
 // engine ingest path never calls Notice, and the `console.log` calls inside
 // triggered `obsidianmd/rule-custom-message` (no-console) Warnings.
 
+/**
+ * Install minimal Obsidian window/activeWindow globals that production
+ * engine code references (`window.setTimeout(...)`, `activeWindow.foo`).
+ * Node 22+ has `setTimeout` directly on globalThis, just not under the
+ * `window` alias. Without this shim the bundled engine throws
+ * ReferenceError on the first SDK stream-yield (e.g.
+ * `src/wiki/wiki-engine.ts:1241` apiDelay, `wiki-engine.ts:1480` retry,
+ * `src/llm-sdk/*-sdk-client.ts` setTimeout(0) yields).
+ *
+ * Replaces `tools/llm-wiki-cli/src/node-globals.ts:18-22` (deleted in the
+ * v1.27.0 MINOR migration per issue #507). 3 `obsidianmd/no-global-this`
+ * warnings remain (one per `globalThis` identifier), matching the legacy
+ * baseline — accepted-structural per CLAUDE.md "Bot compliance invariant".
+ */
+function installObsidianGlobals(): void {
+  const g = globalThis as Record<string, unknown>;
+  g.window = globalThis;
+  g.activeWindow = globalThis;
+}
+installObsidianGlobals();
+
 export interface App {
   vault: unknown;
   metadataCache: unknown;

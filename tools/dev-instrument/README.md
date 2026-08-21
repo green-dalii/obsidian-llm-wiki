@@ -9,8 +9,9 @@ via `npx karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> 
 
 Runs the real `WikiEngine.ingestSource` against a vault on disk with no
 Obsidian runtime, and prints per-task token + wall-clock accounting via
-`withUsageAccounting` (the source of the 979s → 365s → 151s evidence in
-CLAUDE.md §"Force-disable thinking").
+`withTokenTracking` (tokens) + the shared `recordTaskUsage` accumulator
+in `src/core/llm-task-usage.ts` (calls + millis). This is the source of
+the 979s → 365s → 151s evidence in CLAUDE.md §"Force-disable thinking".
 
 ## Usage
 
@@ -37,9 +38,9 @@ warnings) by v1.26.4 — static `node:*` imports, `console.log` output
 interface, `globalThis` shim, hardcoded `.obsidian` literal.
 
 This instrument eliminates every Bot finding while keeping the measurement
-primitive (`withUsageAccounting`) intact. It is the upstream-dev escape
-hatch for engine contributors who need to validate per-task real-LLM
-cost without waiting for sibling repo sync.
+primitive (`withTokenTracking` + shared `recordTaskUsage`) intact. It is
+the upstream-dev escape hatch for engine contributors who need to validate
+per-task real-LLM cost without waiting for sibling repo sync.
 
 ## Bot compliance
 
@@ -61,9 +62,9 @@ tools/dev-instrument/
 ├── tsconfig.json                   # ESNext + moduleResolution bundler
 ├── .gitignore                      # ignores dist/
 ├── src/
-│   ├── engine-runner.ts            # runIngest + withUsageAccounting + printTimeByStep
+│   ├── engine-runner.ts            # runIngest + main + withTokenTracking + printSummary
 │   ├── vault-fs.ts                 # NodeVault — Obsidian App shim against real fs
-│   └── shim.ts                     # TFile / TFolder / Platform / requestUrl
+│   └── shim.ts                     # TFile / TFolder / Platform / requestUrl / installObsidianGlobals
 └── dist/                           # gitignored — esbuild bundle output
     └── run-instrument.mjs
 ```

@@ -41,8 +41,27 @@ async function loadSettings(vaultRoot: string): Promise<LLMWikiSettings> {
   const { nodePath, nodeFs } = await loadNodeModules();
   const configDir = process.env.OBSIDIAN_CONFIG_DIR ?? DEFAULT_CONFIG_DIR;
   const dataPath = nodePath.join(vaultRoot, configDir, 'plugins', PLUGIN_ID, 'data.json');
-  const raw = nodeFs.readFileSync(dataPath, 'utf8');
-  const savedData = JSON.parse(raw) as Partial<LLMWikiSettings> | null;
+  let raw: string;
+  try {
+    raw = nodeFs.readFileSync(dataPath, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(
+        `Plugin data not found at ${dataPath}.\n` +
+        `Open the vault in Obsidian once and run the plugin to write data.json, then re-run the instrument.`,
+      );
+    }
+    throw err;
+  }
+  let savedData: Partial<LLMWikiSettings> | null;
+  try {
+    savedData = JSON.parse(raw) as Partial<LLMWikiSettings> | null;
+  } catch (err) {
+    throw new Error(
+      `Plugin data at ${dataPath} is not valid JSON: ${(err as Error).message}\n` +
+      `The file exists but cannot be parsed. Inspect it manually or re-create it via the Obsidian settings tab.`,
+    );
+  }
   const { settings } = applySettingsMigrations(savedData);
   return settings;
 }
@@ -59,24 +78,59 @@ async function resolveApiKey(provider: string): Promise<string> {
 }
 
 /**
- * Wraps the LLMClient to total up input/output tokens. Call counts and
- * millis come from the shared `recordTaskUsage` accumulator
- * (`src/core/llm-task-usage.ts`, wired by `wrapWithAdvancedSettings`), so
- * this wrapper only needs to read `meta.usage` from the onFinish hook.
+ * Wraps the LLMClient to total up input/output tokens across all three
+ * LLMClient methods (`createMessage`, `createMessageWithOutput`,
+ * `createMessageStream`). Per v1.26.3 PATCH Phase B expanded-scope
+ * migration, the engine routes the vast majority of its calls through
+ * `callLlm` → `createMessageWithOutput` (`src/core/llm-dispatch.ts:55-63`);
+ * wrapping only `createMessage` would silently under-report tokens for
+ * every modern client (Anthropic / OpenAI / OpenAI-compat).
+ *
+ * Call counts and millis come from the shared `recordTaskUsage`
+ * accumulator (`src/core/llm-task-usage.ts`, wired by
+ * `wrapWithAdvancedSettings`), so this wrapper only needs to read
+ * `meta.usage` from the onFinish hook.
  */
-function withTokenTracking(client: LLMClient, totals: { in: number; out: number }): LLMClient {
-  const w = Object.create(client) as LLMClient;
-  w.createMessage = params => {
-    const done = client.createMessage({
-      ...params,
-      onFinish: meta => {
-        totals.in += meta.usage?.inputTokens ?? 0;
-        totals.out += meta.usage?.outputTokens ?? 0;
-        params.onFinish?.(meta);
-      },
-    });
-    return done;
+// Minimal shape: every LLMClient method has a params object with an
+// optional onFinish callback. We splice our own onFinish that increments
+// totals and delegates to the caller's onFinish.
+interface LLMFinishMeta {
+  usage?: { inputTokens?: number; outputTokens?: number };
+}
+interface LLMCallParams {
+  onFinish?: (meta: LLMFinishMeta) => void;
+}
+
+function spliceOnFinish<P extends LLMCallParams>(
+  params: P,
+  totals: { in: number; out: number },
+): P {
+  const callerOnFinish = params.onFinish;
+  return {
+    ...params,
+    onFinish: meta => {
+      totals.in += meta.usage?.inputTokens ?? 0;
+      totals.out += meta.usage?.outputTokens ?? 0;
+      callerOnFinish?.(meta);
+    },
   };
+}
+
+function withTokenTracking(client: LLMClient, totals: { in: number; out: number }): LLMClient {
+  // Bind to `client` first so methods don't lose `this` binding
+  // (the `unbound-method` Bot rule rejects detached method references).
+  const createMessage = client.createMessage.bind(client);
+  const createMessageWithOutput = client.createMessageWithOutput?.bind(client);
+  const createMessageStream = client.createMessageStream?.bind(client);
+
+  const w = Object.create(client) as LLMClient;
+  w.createMessage = params => createMessage(spliceOnFinish(params, totals));
+  if (createMessageWithOutput) {
+    w.createMessageWithOutput = params => createMessageWithOutput(spliceOnFinish(params, totals));
+  }
+  if (createMessageStream) {
+    w.createMessageStream = params => createMessageStream(spliceOnFinish(params, totals));
+  }
   return w;
 }
 
