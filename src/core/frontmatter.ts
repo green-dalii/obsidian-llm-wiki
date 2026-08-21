@@ -578,7 +578,6 @@ export function enforceFrontmatterConstraints(
   const today = new Date().toISOString().split('T')[0];
 
   const lines = fmText.split('\n');
-  const newLines: string[] = [];
   let collectedTags: string[] = [];
   let foundType = false;
   let foundTags = false;
@@ -637,23 +636,17 @@ export function enforceFrontmatterConstraints(
         j++;
       }
       if (j > i + 1) i = j - 1;
-    } else if (!line.startsWith('- ')) {
-      newLines.push(line);
     }
   }
 
-  // Non-canonical fields (unknown keys) are passed through verbatim, preserving
-  // prior enforce behavior. newLines already excludes type/tags/aliases/created/
-  // updated and list items by construction; the filter is defensive.
-  //
-  // `sources:` is canonical but block-style is multi-line — its header line
-  // lands in newLines while its `- ` entries are dropped by the skip above,
-  // leaving a header with no entries. Exclude it here and re-emit the parsed
-  // array via serializeFrontmatter (mirrors extractPassthroughLines, which
-  // also treats sources as known). See #438 B.
-  const passthroughLines = newLines.filter(line =>
-    !line.startsWith('type:') && !line.startsWith('tags:') && !line.startsWith('aliases:') &&
-    !line.startsWith('created:') && !line.startsWith('updated:') && !line.startsWith('sources:'));
+  // Non-canonical fields (unknown keys) are passed through verbatim — the same
+  // helper and the same semantics as mergeFrontmatter and the array helpers
+  // (#356 follow-up). The loop above used to collect them itself, but it trims
+  // every line and skips every `- ` item, so a block-form list under an unknown
+  // key came back as its header alone. `sources:` is canonical and is re-emitted
+  // from the parsed array below (see #438 B); `extractPassthroughLines` already
+  // treats it as known.
+  const passthroughLines = extractPassthroughLines(content);
 
   // Preserve existing provenance (block OR flow form) across the rewrite.
   // parseFrontmatter handles both and strips quoting, matching the shape

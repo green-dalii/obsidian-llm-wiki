@@ -942,4 +942,40 @@ related_links:
     expect(result).toContain('  - "[[Foo]]"');
     expect(result).toContain('  - "[[Bar]]"');
   });
+  it('enforceFrontmatterConstraints preserves an unknown scalar field', () => {
+    // Control for the block-list case below: the single-line shape has been
+    // carried since the #356 follow-up and must stay byte-identical.
+    const content = `---
+type: concept
+tags: [a]
+redirect_to: "[[canonical]]"
+parent_org: Acme
+---
+
+# Body`;
+    const result = enforceFrontmatterConstraints(content, 'concept');
+    expect(result).toContain('redirect_to: "[[canonical]]"');
+    expect(result).toContain('parent_org: Acme');
+  });
+
+  it('enforceFrontmatterConstraints preserves an unknown list field (YAML block form)', () => {
+    // Same page shape as the array-helper case above, through the constraints
+    // pass. Before the fix the pass kept the header line and dropped every
+    // `- ` entry beneath it, so a user-owned block list came back as a bare
+    // `related_links:` — the key survived, its value did not.
+    const content = `---
+type: concept
+tags: [a]
+related_links:
+  - "[[Foo]]"
+  - "[[Bar]]"
+---
+
+# Body`;
+    const result = enforceFrontmatterConstraints(content, 'concept');
+    expect(result).toContain('related_links:');
+    expect(result).toContain('  - "[[Foo]]"');
+    expect(result).toContain('  - "[[Bar]]"');
+    expect(parseFrontmatter(result)?.related_links).toEqual(['[[Foo]]', '[[Bar]]']);
+  });
 });
