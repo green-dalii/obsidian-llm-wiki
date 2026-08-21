@@ -18,6 +18,11 @@
 // - Per-task tokens still tracked here (the shared accumulator only counts
 //   calls and millis, not tokens). Wrapper is now a thin onFinish hook.
 // - printSummary collapsed from 18 process.stdout.write calls to one.
+// - Measurement arms (`WIKI_THINKING_MODE` / `WIKI_TEMP` / `WIKI_TOP_P`)
+//   arrive via env (positional-only CLI cannot express them); applied to
+//   `settings` before snapshotting so per-step metrics reflect the arm, and
+//   echoed in the `[cli]` header so the log names which arm produced the
+//   table that follows (Issue #507 DocTpoint comment).
 import { Platform } from './shim';
 import { DEFAULT_CONFIG_DIR, PLUGIN_ID } from './shim';
 import { loadNodeModules, createVaultApp, type VaultWriteRecord } from './vault-fs';
@@ -225,6 +230,26 @@ export async function runIngest(vaultRoot: string, sourcePath: string): Promise<
   const settings = await loadSettings(vaultRoot);
   settings.apiKey = await resolveApiKey(settings.provider);
 
+  // Measurement arms — env-only (positional CLI cannot express them). Three
+  // conditional lines per DocTpoint (Issue #507 comment 2): the arms are
+  // applied to settings before snapshotting so per-step metrics reflect the
+  // arm, and echoed in the `[cli]` header so the log names which arm produced
+  // the table that follows. `data-json` is a deliberate no-op (use whatever
+  // data.json says); `plugin-off` / `server-default` express an opinion.
+  const thinkingMode = process.env.WIKI_THINKING_MODE;
+  if (thinkingMode === 'plugin-off') settings.disableThinking = true;
+  else if (thinkingMode === 'server-default') settings.disableThinking = false;
+  const armTemp = process.env.WIKI_TEMP;
+  if (armTemp !== undefined) {
+    const n = Number(armTemp);
+    if (!Number.isNaN(n)) settings.extractionTemperature = n;
+  }
+  const armTopP = process.env.WIKI_TOP_P;
+  if (armTopP !== undefined) {
+    const n = Number(armTopP);
+    if (!Number.isNaN(n)) settings.extractionTopP = n;
+  }
+
   const app = await createVaultApp(vaultRoot);
   const sourceFile = resolveSourceFile(app, sourcePath);
 
@@ -251,7 +276,8 @@ export async function runIngest(vaultRoot: string, sourcePath: string): Promise<
   process.stdout.write(
     `[cli] vault=${vaultRoot}\n` +
     `[cli] source=${sourceFile.path}\n` +
-    `[cli] provider=${settings.provider} model=${settings.model} baseUrl=${settings.baseUrl}\n`,
+    `[cli] provider=${settings.provider} model=${settings.model} baseUrl=${settings.baseUrl}\n` +
+    `[cli] thinking-mode=${thinkingMode ?? 'unset'} temp=${settings.extractionTemperature ?? 'server default'} top-p=${settings.extractionTopP ?? 'server default'}\n`,
   );
 
   const taskUsageBefore = snapshotTaskUsage();
@@ -273,7 +299,12 @@ export async function main(argv: string[]): Promise<void> {
   const [vault, source] = argv;
   if (!vault || !source) {
     process.stdout.write(
-      `Usage: ./run-instrument.mjs <vault> <source> [WIKI_API_KEY=sk-...]\n\n` +
+      `Usage: ./run-instrument.mjs <vault> <source>\n` +
+      `  Positional: <vault> <source> (in-vault path to the note to ingest).\n` +
+      `  Env arms: WIKI_API_KEY (required for non-local providers)\n` +
+      `            WIKI_THINKING_MODE=data-json|plugin-off|server-default\n` +
+      `            WIKI_TEMP=<number>  WIKI_TOP_P=<number>\n` +
+      `            OBSIDIAN_CONFIG_DIR (override .obsidian default)\n\n` +
       `This is the UPSTREAM DEV-ONLY INSTRUMENT — production CLI is:\n` +
       `  npx karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>\n` +
       `See https://github.com/green-dalii/obsidian-llm-wiki-cli\n`,

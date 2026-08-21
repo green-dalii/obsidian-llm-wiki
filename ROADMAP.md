@@ -2,9 +2,11 @@
 
 > Feature planning and improvement proposals
 
-**Latest shipped:** v1.26.4 PATCH (2026-08-19). See [CHANGELOG.md §1.26.4](./CHANGELOG.md#1264---2026-08-19) for the canonical composition record. | **Updated:** 2026-08-19
+**Latest shipped:** v1.26.4 PATCH (2026-08-19). See [CHANGELOG.md §1.26.4](./CHANGELOG.md#1264---2026-08-19) for the canonical composition record. | **Updated:** 2026-08-21
 
 **v1.26.5 PATCH CANCELLED 2026-08-19** — folded into v1.27.0 MINOR to amortize release-cycle overhead (per user direction).
+
+**v1.27.0 MINOR Phase4 (CLI demote) — branch ready 2026-08-21**: branch `feat/cli-demote-v1.27.0` (3 commits: `e5c269e` + `3870ef2` + `3a6dfaa`) eliminates 49 of ~52 Obsidian Bot errors via migration `tools/llm-wiki-cli/` → `tools/dev-instrument/` (UPSTREAM DEV-ONLY INSTRUMENT). Awaiting `gh pr create` + Bot pre-review per issue #507. Legacy snapshot at `legacy/cli-v1.26.4-snapshot`.
 
 ## Process notes
 
