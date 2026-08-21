@@ -2,7 +2,7 @@ import { EngineContext } from '../../types';
 import { PROMPTS } from '../../prompts';
 import { TOKENS_LINT_PAGE_FIX, WIKI_SUBFOLDERS } from '../../constants';
 import { buildSystemPrompt } from '../system-prompts';
-import { parseFrontmatter, enforceFrontmatterConstraints, serializeFrontmatter } from '../../core/frontmatter';
+import { parseFrontmatter, enforceFrontmatterConstraints, serializeFrontmatter, extractPassthroughLines } from '../../core/frontmatter';
 import { parseJsonResponse } from '../../core/json';
 import { reassertH1 } from '../../core/section-header-canonicalizer';
 import { cleanMarkdownResponse } from '../../core/markdown';
@@ -156,7 +156,12 @@ export async function mergeDuplicatePages(
       reviewed: targetFm?.reviewed,
       aliases: dedupedAliases,
     },
-    { tagStyle: 'block' }
+    // Issue #356 parity: every other frontmatter writer passes unknown
+    // top-level fields through; this one re-serialized from the parsed object
+    // alone, so a duplicate merge dropped every user-owned field of the
+    // surviving page (`redirect_to:`, `parent_org:`, ...). Same helper, same
+    // semantics as mergeFrontmatter: the survivor's lines, verbatim.
+    { tagStyle: 'block', passthroughLines: extractPassthroughLines(targetContent) }
   ) + '\n\n' + mergedBody;
   const pageType = targetPath.includes(`/${WIKI_SUBFOLDERS.entities}/`)
     ? 'entity'
