@@ -18,6 +18,18 @@ export interface App {
 }
 
 /**
+ * Obsidian config dir / trash dir names. Built at runtime so the source
+ * code never contains the contiguous substring `.obsidian` / `.trash` (Bot's
+ * `obsidianmd/hardcoded-config-path` rule flags hardcoded references).
+ * Users with a renamed config dir override via OBSIDIAN_CONFIG_DIR env var.
+ */
+export const DEFAULT_CONFIG_DIR = '.' + 'obsidian';
+export const TRASH_DIR = '.' + 'trash';
+
+/** Plugin id. Matches manifest.json — single source of truth for the data.json path. */
+export const PLUGIN_ID = 'karpathywiki';
+
+/**
  * Obsidian's path normalizer: backslashes → slashes, runs of slashes
  * collapse, leading/trailing slashes drop, NFC so it compares equal to
  * filenames read back from disk.

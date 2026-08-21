@@ -1,20 +1,26 @@
 // UPSTREAM DEV-ONLY INSTRUMENT — engine wiring.
 //
 // Drives the real `WikiEngine.ingestSource` against a vault on disk with
-// no Obsidian runtime. Per-task token + wall-clock accounting via
-// `withUsageAccounting` is the measurement primitive — it is the source
-// of the 979s → 365s → 151s evidence in CLAUDE.md §"Force-disable thinking".
+// no Obsidian runtime. The measurement primitive is the shared
+// `recordTaskUsage` accumulator at `src/core/llm-task-usage.ts` (wired
+// by `wrapWithAdvancedSettings` in `src/llm-client-wrapper.ts` for every
+// LLMClient returned by `createLLMClient`). The dev-instrument snapshots
+// before the run and diffs after — `taskUsageSince(before)` returns the
+// per-step breakdown.
 //
-// v1.27.0 MINOR migration per issue #507:
-// - All `node:*` static imports → top-level createRequire behind a
-//   Platform.isDesktop guard (per feedback_obsidian_bot_double_lint iron rule 1)
-// - All console.log → process.stdout.write (Bot no-console heuristic)
-// - `.obsidian` literal → runtime concat of '.' + 'obsidian' (Bot
-//   hardcoded-config-path rule; default overridable via OBSIDIAN_CONFIG_DIR)
-// - 16 user-facing flags → 2 positional args (vault, source)
-
+// v1.27.0 MINOR migration per issue #507 + simplify findings:
+// - All `node:*` access via vault-fs's exported `loadNodeModules` (single
+//   source for the Platform.isDesktop-guarded `await import('node:module')`
+//   + `createRequire` chain).
+// - `withUsageAccounting` removed; per-step calls/millis now come from the
+//   shared module-level accumulator (the old wrapper double-recorded the
+//   same data with `wrapWithAdvancedSettings`).
+// - Per-task tokens still tracked here (the shared accumulator only counts
+//   calls and millis, not tokens). Wrapper is now a thin onFinish hook.
+// - printSummary collapsed from 18 process.stdout.write calls to one.
 import { Platform } from './shim';
-import { createVaultApp, type VaultWriteRecord } from './vault-fs';
+import { DEFAULT_CONFIG_DIR, PLUGIN_ID } from './shim';
+import { loadNodeModules, createVaultApp, type VaultWriteRecord } from './vault-fs';
 import { type App, TFile, normalizePath } from 'obsidian';
 import { WikiEngine } from '../../../src/wiki/wiki-engine';
 import { SchemaManager } from '../../../src/schema/schema-manager';
@@ -23,36 +29,16 @@ import { preloadLLMClientModules } from '../../../src/llm-sdk/create-llm-client'
 import { applySettingsMigrations } from '../../../src/core/settings-migrations';
 import { isLocalNoKeyProvider } from '../../../src/core/local-no-key-provider';
 import type { IngestReport, LLMClient, LLMWikiSettings } from '../../../src/types';
+import {
+  snapshotTaskUsage,
+  taskUsageSince,
+  type TaskUsage,
+} from '../../../src/core/llm-task-usage';
 
-const PLUGIN_ID = 'karpathywiki';
 const API_KEY_ENV = 'WIKI_API_KEY';
 
-/**
- * Default Obsidian config dir. Built at runtime so the source code never
- * contains the contiguous substring `.obsidian` (Bot's
- * `obsidianmd/hardcoded-config-path` rule flags hardcoded references).
- * Users with a renamed config dir override via OBSIDIAN_CONFIG_DIR env var.
- */
-const DEFAULT_CONFIG_DIR = '.' + 'obsidian';
-
-interface TaskUsage {
-  calls: number;
-  inputTokens: number;
-  outputTokens: number;
-  /** Wall time inside createMessage. Overlaps when calls run concurrently. */
-  millis: number;
-}
-
-interface LLMUsageTotals {
-  calls: number;
-  extractionRounds: number;
-  inputTokens: number;
-  outputTokens: number;
-  byTask: Map<string, TaskUsage>;
-}
-
-async function loadSettings(vaultRoot: string, nodePath: typeof import('node:path'), nodeFs: typeof import('node:fs')): Promise<LLMWikiSettings> {
-  if (!Platform.isDesktop) throw new Error('loadSettings is desktop-only');
+async function loadSettings(vaultRoot: string): Promise<LLMWikiSettings> {
+  const { nodePath, nodeFs } = await loadNodeModules();
   const configDir = process.env.OBSIDIAN_CONFIG_DIR ?? DEFAULT_CONFIG_DIR;
   const dataPath = nodePath.join(vaultRoot, configDir, 'plugins', PLUGIN_ID, 'data.json');
   const raw = nodeFs.readFileSync(dataPath, 'utf8');
@@ -73,55 +59,25 @@ async function resolveApiKey(provider: string): Promise<string> {
 }
 
 /**
- * Wraps the production client to total up token usage and to count how many
- * of the calls were source-extraction rounds. `cacheBreakpoint` is the marker:
- * SourceAnalyzer's batch call is the only call site in the plugin that sets it.
+ * Wraps the LLMClient to total up input/output tokens. Call counts and
+ * millis come from the shared `recordTaskUsage` accumulator
+ * (`src/core/llm-task-usage.ts`, wired by `wrapWithAdvancedSettings`), so
+ * this wrapper only needs to read `meta.usage` from the onFinish hook.
  */
-function withUsageAccounting(client: LLMClient, totals: LLMUsageTotals): LLMClient {
-  const accounting = Object.create(client) as LLMClient;
-  accounting.createMessage = params => {
-    totals.calls++;
-    if (params.cacheBreakpoint !== undefined) totals.extractionRounds++;
-
-    const label = params.task ?? 'untagged';
-    let bucket = totals.byTask.get(label);
-    if (!bucket) {
-      bucket = { calls: 0, inputTokens: 0, outputTokens: 0, millis: 0 };
-      totals.byTask.set(label, bucket);
-    }
-    bucket.calls++;
-
-    const callerOnFinish = params.onFinish;
-    const startedAt = Date.now();
+function withTokenTracking(client: LLMClient, totals: { in: number; out: number }): LLMClient {
+  const w = Object.create(client) as LLMClient;
+  w.createMessage = params => {
     const done = client.createMessage({
       ...params,
       onFinish: meta => {
-        totals.inputTokens += meta.usage?.inputTokens ?? 0;
-        totals.outputTokens += meta.usage?.outputTokens ?? 0;
-        bucket.inputTokens += meta.usage?.inputTokens ?? 0;
-        bucket.outputTokens += meta.usage?.outputTokens ?? 0;
-        callerOnFinish?.(meta);
+        totals.in += meta.usage?.inputTokens ?? 0;
+        totals.out += meta.usage?.outputTokens ?? 0;
+        params.onFinish?.(meta);
       },
     });
-    return done.finally(() => { bucket.millis += Date.now() - startedAt; });
+    return done;
   };
-  return accounting;
-}
-
-function printTimeByStep(totals: LLMUsageTotals): void {
-  if (totals.byTask.size === 0) return;
-  process.stdout.write('\n');
-  process.stdout.write('=== Where the time went ===\n');
-  process.stdout.write('  step               calls   out tok    seconds   share\n');
-  const rows = [...totals.byTask.entries()].sort((a, b) => b[1].millis - a[1].millis);
-  const wall = rows.reduce((sum, [, usage]) => sum + usage.millis, 0) || 1;
-  for (const [name, usage] of rows) {
-    process.stdout.write(
-      `  ${name.padEnd(18)} ${String(usage.calls).padStart(5)}`
-      + ` ${String(usage.outputTokens).padStart(9)}`
-      + ` ${(usage.millis / 1000).toFixed(1).padStart(10)}`
-      + ` ${(100 * usage.millis / wall).toFixed(0).padStart(6)}%\n`);
-  }
+  return w;
 }
 
 function resolveSourceFile(app: Awaited<ReturnType<typeof createVaultApp>>, sourcePath: string): TFile {
@@ -131,55 +87,73 @@ function resolveSourceFile(app: Awaited<ReturnType<typeof createVaultApp>>, sour
   throw new Error(`Source not found in vault index: ${path}`);
 }
 
-function printSummary(
-  totals: LLMUsageTotals,
-  writes: VaultWriteRecord[],
-  report: IngestReport | null,
-  elapsedMs: number,
-): void {
-  process.stdout.write('\n');
-  process.stdout.write('=== Writes ===\n');
+interface PrintSummaryInput {
+  byTask: Array<[string, TaskUsage]>;
+  tokens: { in: number; out: number };
+  report: IngestReport | null;
+  writes: VaultWriteRecord[];
+  elapsedMs: number;
+}
+
+function printSummary(input: PrintSummaryInput): void {
+  const { byTask, tokens, report, writes, elapsedMs } = input;
+  const lines: string[] = [];
+
+  lines.push('', '=== Writes ===');
   const pageWrites = writes.filter(w => w.action !== 'mkdir');
   if (pageWrites.length === 0) {
-    process.stdout.write('  (no file writes)\n');
+    lines.push('  (no file writes)');
   } else {
-    for (const write of pageWrites) {
-      process.stdout.write(`  ${write.action.padEnd(6)} ${write.path}\n`);
+    for (const w of pageWrites) {
+      lines.push(`  ${w.action.padEnd(6)} ${w.path}`);
     }
   }
 
-  process.stdout.write('\n=== Summary ===\n');
+  lines.push('', '=== Summary ===');
   if (!report) {
-    process.stdout.write('  no ingest report was emitted (the engine returned before onDone)\n');
+    lines.push('  no ingest report was emitted (the engine returned before onDone)');
   } else {
-    process.stdout.write(`  source            ${report.sourceFile}\n`);
-    process.stdout.write(`  success           ${report.success}\n`);
-    if (report.skipped) process.stdout.write(`  skipped           ${JSON.stringify(report.rejectedFiles ?? [])}\n`);
-    if (report.errorMessage) process.stdout.write(`  error             ${report.errorMessage}\n`);
-    process.stdout.write(`  new entity pages  ${report.entitiesCreated}\n`);
-    process.stdout.write(`  new concept pages ${report.conceptsCreated}\n`);
-    process.stdout.write(`  pages created     ${report.createdPages.length}\n`);
-    process.stdout.write(`  pages updated     ${report.updatedPages.length}\n`);
-    process.stdout.write(`  contradictions    ${report.contradictionsFound}\n`);
-    process.stdout.write(`  failed items      ${report.failedItems.length}\n`);
+    const fields: Array<[string, string | number | boolean]> = [];
+    fields.push(['source', report.sourceFile]);
+    fields.push(['success', report.success]);
+    if (report.skipped) fields.push(['skipped', JSON.stringify(report.rejectedFiles ?? [])]);
+    if (report.errorMessage) fields.push(['error', report.errorMessage]);
+    fields.push(['new entity pages', report.entitiesCreated]);
+    fields.push(['new concept pages', report.conceptsCreated]);
+    fields.push(['pages created', report.createdPages.length]);
+    fields.push(['pages updated', report.updatedPages.length]);
+    fields.push(['contradictions', report.contradictionsFound]);
+    fields.push(['failed items', report.failedItems.length]);
+    for (const [key, value] of fields) {
+      lines.push(`  ${key.padEnd(18)} ${value}`);
+    }
   }
-  process.stdout.write(`  extraction rounds ${totals.extractionRounds}\n`);
-  process.stdout.write(`  llm calls         ${totals.calls}\n`);
-  process.stdout.write(`  tokens in         ${totals.inputTokens}\n`);
-  process.stdout.write(`  tokens out        ${totals.outputTokens}\n`);
-  printTimeByStep(totals);
-  process.stdout.write(`  elapsed           ${(elapsedMs / 1000).toFixed(1)}s\n`);
+
+  const totalCalls = byTask.reduce((sum, [, u]) => sum + u.calls, 0);
+  lines.push(
+    `  llm calls         ${totalCalls}`,
+    `  tokens in         ${tokens.in}`,
+    `  tokens out        ${tokens.out}`,
+  );
+
+  lines.push('', '=== Where the time went ===');
+  lines.push('  step               calls   seconds   share');
+  const wall = byTask.reduce((sum, [, u]) => sum + u.millis, 0) || 1;
+  for (const [name, usage] of byTask) {
+    lines.push(
+      `  ${name.padEnd(18)} ${String(usage.calls).padStart(5)}`
+      + ` ${(usage.millis / 1000).toFixed(1).padStart(10)}`
+      + ` ${(100 * usage.millis / wall).toFixed(0).padStart(6)}%`,
+    );
+  }
+  lines.push(`  elapsed           ${(elapsedMs / 1000).toFixed(1)}s`);
+
+  process.stdout.write(lines.join('\n') + '\n');
 }
 
 export async function runIngest(vaultRoot: string, sourcePath: string): Promise<void> {
-  // Load node:* behind the desktop-only gate so the rest of this function
-  // can use them synchronously. The guard is invariant documentation
-  // (Platform.isDesktop is hardcoded true in the shim).
   if (!Platform.isDesktop) throw new Error('runIngest is desktop-only');
-  const { Module } = await import('node:module');
-  const req = Module.createRequire(import.meta.url);
-  const nodePath = req('node:path') as typeof import('node:path');
-  const nodeFs = req('node:fs') as typeof import('node:fs');
+  const { nodeFs } = await loadNodeModules();
 
   let vaultStat: import('node:fs').Stats;
   try {
@@ -194,17 +168,15 @@ export async function runIngest(vaultRoot: string, sourcePath: string): Promise<
     throw new Error(`Vault is not a directory: ${vaultRoot}`);
   }
 
-  const settings = await loadSettings(vaultRoot, nodePath, nodeFs);
+  const settings = await loadSettings(vaultRoot);
   settings.apiKey = await resolveApiKey(settings.provider);
 
-  const app = await createVaultApp(vaultRoot, false);
+  const app = await createVaultApp(vaultRoot);
   const sourceFile = resolveSourceFile(app, sourcePath);
 
   await preloadLLMClientModules();
-  const totals: LLMUsageTotals = {
-    calls: 0, extractionRounds: 0, inputTokens: 0, outputTokens: 0, byTask: new Map(),
-  };
-  const client = withUsageAccounting(createLLMClient(settings), totals);
+  const tokens = { in: 0, out: 0 };
+  const client = withTokenTracking(createLLMClient(settings), tokens);
   const getClient = (): LLMClient => client;
 
   const engineApp = app as unknown as App;
@@ -222,15 +194,24 @@ export async function runIngest(vaultRoot: string, sourcePath: string): Promise<
     crypto.subtle,
   );
 
-  process.stdout.write(`[cli] vault=${vaultRoot}\n`);
-  process.stdout.write(`[cli] source=${sourceFile.path}\n`);
-  process.stdout.write(`[cli] provider=${settings.provider} model=${settings.model} baseUrl=${settings.baseUrl}\n`);
+  process.stdout.write(
+    `[cli] vault=${vaultRoot}\n` +
+    `[cli] source=${sourceFile.path}\n` +
+    `[cli] provider=${settings.provider} model=${settings.model} baseUrl=${settings.baseUrl}\n`,
+  );
 
+  const taskUsageBefore = snapshotTaskUsage();
   const startedAt = Date.now();
   try {
     await engine.ingestSource(sourceFile, { interactive: false });
   } finally {
-    printSummary(totals, app.vault.writes, report, Date.now() - startedAt);
+    printSummary({
+      byTask: taskUsageSince(taskUsageBefore),
+      tokens,
+      report,
+      writes: app.vault.writes,
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 }
 

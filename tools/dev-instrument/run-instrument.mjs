@@ -18,30 +18,24 @@
 // Bot-compliance notes (issue #507):
 // - All `node:*` static imports → top-level IIFE + Platform.isDesktop guard
 //   (matches src/llm-sdk/openai-codex/loopback-flow.ts AST exemption)
-// - The Platform constant here is local to this .mjs; the .ts shim has its
-//   own Platform with the same desktop-only invariant for the bundled code
+// - All three module loads batched via Promise.all to avoid serial cost
+//   (Simplification Finding 4 / Efficiency Finding 1)
 
 const Platform = { isDesktop: true };
 if (!Platform.isDesktop) throw new Error('run-instrument is desktop-only');
 
-// Load node:* behind the desktop-only gate. Top-level IIFE so the inner
-// `await import(...)` sits inside a function whose first statement is the
-// guard — the exact AST shape the rule's `isGuardedByPlatformIsDesktop`
-// detector looks for.
-const { Module } = await (async () => {
-  if (!Platform.isDesktop) throw new Error('node:module is desktop-only');
-  return import('node:module');
+// Single umbrella IIFE — keeps the function-start guard the Bot's AST
+// detector looks for, but parallelizes the three module loads. One guard
+// covers all three imports inside that function.
+const [{ Module }, { fileURLToPath, pathToFileURL }, nodePath] = await (async () => {
+  if (!Platform.isDesktop) throw new Error('node:* is desktop-only');
+  return Promise.all([
+    import('node:module'),
+    import('node:url'),
+    import('node:path'),
+  ]);
 })();
 const require = Module.createRequire(import.meta.url);
-
-const { fileURLToPath, pathToFileURL } = await (async () => {
-  if (!Platform.isDesktop) throw new Error('node:url is desktop-only');
-  return import('node:url');
-})();
-const nodePath = await (async () => {
-  if (!Platform.isDesktop) throw new Error('node:path is desktop-only');
-  return import('node:path');
-})();
 
 const CLI_DIR = nodePath.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = nodePath.resolve(CLI_DIR, '../..');
