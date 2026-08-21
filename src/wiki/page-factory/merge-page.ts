@@ -42,6 +42,7 @@ import {
 } from '../../core/section-header-canonicalizer';
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { mergeFrontmatter, parseFrontmatter } from '../../core/frontmatter';
+import { incomingTypeTag } from '../../core/tag-vocab';
 import { appendContradictedByMarker } from '../../core/contradicted-marker';
 import { injectMentionsSection } from '../../core/mentions-injector';
 import { renderTemplate } from '../../core/template-renderer';
@@ -94,7 +95,7 @@ export async function mergePage(
     const { frontmatter, body: existingBody } = mergeFrontmatter(
       existingContent,
       sourceSlug ? `sources/${sourceSlug}` : sourceFile.path,
-      info.type ? [info.type] : undefined,
+      incomingTypeTag(ctx.settings, pageType, info.type),
     );
 
     // Issue #312 part 2 — deterministic, no LLM: is this source the page's own
@@ -287,10 +288,12 @@ export async function appendToReviewedPage(
   try {
     // 1. Programmatic frontmatter merge
     // Issue #155: record the canonical source PAGE link (disambiguated slug).
+    // The page declares its own kind; this function takes no `pageType`.
+    const pageKind = parseFrontmatter(existingContent)?.type === 'concept' ? 'concept' : 'entity';
     const { frontmatter, body: existingBody } = mergeFrontmatter(
       existingContent,
       sourceSlug ? `sources/${sourceSlug}` : sourceFile.path,
-      info.type ? [info.type] : undefined,
+      incomingTypeTag(ctx.settings, pageKind, info.type),
     );
 
     // 2. Minimal LLM check for genuinely new content.

@@ -18,6 +18,25 @@ export function getActiveConceptTags(settings: LLMWikiSettings): string[] {
   return [...VALID_CONCEPT_TAGS];
 }
 
+/**
+ * The type a source extracted, as a tag that may be merged into an existing
+ * page — or nothing, when the active vocabulary does not admit it.
+ *
+ * With the default vocabulary the two coincide: `VALID_ENTITY_TAGS` IS the
+ * `EntityInfo['type']` enum, so the extracted type is always a member. With a
+ * custom vocabulary it is not, and writing it into `tags:` anyway would put a
+ * value there that `runRetagViolations` exists to remove.
+ */
+export function incomingTypeTag(
+  settings: LLMWikiSettings,
+  kind: 'entity' | 'concept',
+  type: string | undefined
+): string[] | undefined {
+  if (!type) return undefined;
+  const active = kind === 'entity' ? getActiveEntityTags(settings) : getActiveConceptTags(settings);
+  return active.includes(type) ? [type] : undefined;
+}
+
 export function getActiveSourceTags(settings: LLMWikiSettings): string[] {
   return [...VALID_SOURCE_TAGS];
 }

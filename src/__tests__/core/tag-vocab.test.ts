@@ -4,6 +4,7 @@ import {
   getActiveConceptTags,
   getActiveSourceTags,
   normalizeVocabularyCsv,
+  incomingTypeTag,
 } from '../../core/tag-vocab';
 import { LLMWikiSettings } from '../../types';
 
@@ -143,5 +144,38 @@ describe('getActiveSourceTags (Issue #85 v7)', () => {
     expect(tags).not.toContain('Medical_Arzneimittel');
     expect(tags).not.toContain('Kardiologie');
     expect(tags).toContain('paper');
+  });
+});
+
+describe('incomingTypeTag', () => {
+  const dflt = { tagVocabularyMode: 'default' } as LLMWikiSettings;
+  const custom = {
+    tagVocabularyMode: 'custom',
+    customEntityTags: 'Biochemie, Erkrankung, Arzneimittel',
+    customConceptTags: 'Biochemie, Physiologie',
+  } as LLMWikiSettings;
+
+  it('passes the extracted type through under the default vocabulary', () => {
+    expect(incomingTypeTag(dflt, 'entity', 'person')).toEqual(['person']);
+    expect(incomingTypeTag(dflt, 'concept', 'theory')).toEqual(['theory']);
+  });
+
+  it('withholds the type when a custom vocabulary does not contain it', () => {
+    expect(incomingTypeTag(custom, 'entity', 'other')).toBeUndefined();
+    expect(incomingTypeTag(custom, 'concept', 'phenomenon')).toBeUndefined();
+  });
+
+  it('passes a type a custom vocabulary happens to contain', () => {
+    expect(incomingTypeTag(custom, 'entity', 'Erkrankung')).toEqual(['Erkrankung']);
+  });
+
+  it('reads the vocabulary of the kind it was asked about', () => {
+    // `Erkrankung` is in the entity list only.
+    expect(incomingTypeTag(custom, 'concept', 'Erkrankung')).toBeUndefined();
+  });
+
+  it('returns nothing for a missing type', () => {
+    expect(incomingTypeTag(dflt, 'entity', undefined)).toBeUndefined();
+    expect(incomingTypeTag(dflt, 'entity', '')).toBeUndefined();
   });
 });
