@@ -20,7 +20,7 @@
 import { WIKI_SUBFOLDERS, TOKENS_DEDUP_RESOLUTION, DEDUP_CANDIDATE_TOP_K } from '../../constants';
 import { slugify } from '../../core/slug';
 import { ConflictResolver } from '../../core/conflict-resolver';
-import { localKeywordMatch } from '../../core/index-search';
+import { selectCandidateWindow } from '../../core/candidate-window';
 import { getExistingWikiPages } from '../lint/get-existing-pages';
 import { PROMPTS } from '../../prompts';
 import { parseJsonResult } from '../../core/json';
@@ -36,47 +36,32 @@ export interface DedupCandidatePage {
   path: string;
   title: string;
   aliases?: string[];
+  /** The page's prose, lower-cased — ranks the window by what the page says. */
+  text?: string;
 }
 
 /**
  * Pre-filter the same-type page list before it is rendered into the
- * semantic dedup prompt. The full list grows with the vault and made the
- * call prefill-bound (~40K prompt tokens for a 16-token answer), so only
- * the top-K lexically ranked candidates are kept.
+ * semantic dedup prompt: the top-K of the shared candidate window
+ * (`core/candidate-window.ts`), ranked on title, aliases AND the page's own
+ * prose against the candidate's name and summary.
  *
- * Recall guard (binding): the fallback to the FULL list is gated on the
- * candidate's NAME alone, not on the ranked result. Summary tokens are
- * ranking signal only — incidental substrings ("in" ⊂ "institute") make
- * the ranked list non-empty for almost any query on a large vault, so a
- * ranked-list-empty check would never fire and the translation/initialism
- * case ("MIT" vs "Massachusetts Institute of Technology", "Tsinghua
- * University" vs "清华大学") would silently lose its true duplicate. A
- * missed duplicate becomes a duplicate page, so that rare case pays the
- * old full-list cost instead of risking correctness.
- *
- * The name is additionally matched with hyphens/underscores split so
- * compound candidates share tokens with reordered variants
- * ("Diabetes-mellitus-Typ-2" ↔ "Typ-2-Diabetes").
+ * This used to fall back to the FULL same-type list whenever the name shared
+ * no token with any title — "recall over cost", on the reasoning that a
+ * missed duplicate becomes a duplicate page. Measured, the fallback fired on
+ * 61 % of entity candidates (41 % of concepts) at ~40K prompt tokens each,
+ * and the model found a synonym's target in that list 0 of 18 times while it
+ * found the same targets 9 of 9 times in a 30-entry window that contained
+ * them. The list held the target; it did not deliver it. The prose signal is
+ * what moves the target into the window: 42 % of hidden-alias trials against
+ * 25 % for the name gate, and 7 of 10 synonym cases against 2 of 10.
  */
 export function selectDedupCandidates(
   name: string,
   summary: string,
   sameTypePages: DedupCandidatePage[],
 ): DedupCandidatePage[] {
-  const normalized = sameTypePages.map(p => ({
-    path: p.path,
-    title: p.title,
-    aliases: p.aliases ?? [],
-  }));
-  const nameQuery = `${name} ${name.split(/[-_]+/).join(' ')}`;
-  const nameHits = localKeywordMatch(nameQuery, normalized);
-  if (nameHits.length === 0) return sameTypePages;
-  const ranked = localKeywordMatch(`${nameQuery} ${summary.substring(0, 300)}`, normalized);
-  const byPath = new Map(sameTypePages.map(p => [p.path, p]));
-  return ranked
-    .slice(0, DEDUP_CANDIDATE_TOP_K)
-    .map(r => byPath.get(r.path))
-    .filter((p): p is DedupCandidatePage => p !== undefined);
+  return selectCandidateWindow({ name, context: summary }, sameTypePages, DEDUP_CANDIDATE_TOP_K);
 }
 
 /** Mirrors the subset of PageCreationResult we return. */

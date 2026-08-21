@@ -190,14 +190,35 @@ export const TOKENS_DEDUP_RESOLUTION = 3000;
 export const TOKENS_LEMMA_CLASSIFY = 2000;
 
 /**
- * Max candidate pages shown to the LLM in the semantic dedup prompt.
- * The full same-type list grows with the vault (~77K chars at ~1285
- * entities) and the call is prefill-bound; the top-K keyword pre-filter
- * keeps the prompt flat. When the candidate's name shares no token with
- * any page (translations, initialisms) the full list is sent instead —
- * recall over cost. Raise K rather than weaken that fallback.
+ * Pages a prompt shows the model when it asks "which existing page is this?"
+ * — the semantic dedup and Fix Dead Links draw from the same ranked window
+ * (`core/candidate-window.ts`). The full list grew with the vault (~77K
+ * chars at ~1285 entities) and, measured at a local 26B, the model did not
+ * find a synonym's target in it (0 of 18) while it found the same targets
+ * 9 of 9 times in a 30-entry window that contained them. The window is
+ * always K pages: there is no fallback to the full list, because the list
+ * was never where recall came from.
  */
-export const DEDUP_CANDIDATE_TOP_K = 30;
+export const CANDIDATE_WINDOW_TOP_K = 30;
+
+/** Kept for the dedup call sites and tests that name the window by its first use. */
+export const DEDUP_CANDIDATE_TOP_K = CANDIDATE_WINDOW_TOP_K;
+
+/**
+ * How much of a page's prose the window ranks against — read once per page
+ * in `getExistingWikiPages`, lower-cased, cut here. 2,000 characters is what
+ * the measurement scanned; the first paragraph of a page carries most of
+ * the words its aliases will be described with.
+ */
+export const CANDIDATE_WINDOW_TEXT_CHARS = 2000;
+
+/**
+ * A context keyword found on more than this share of the pool's pages is
+ * dropped before scoring. On any vault those are the function words of its
+ * language ("werden", "through"); the cap replaces a stop list that would
+ * have to know the language.
+ */
+export const CANDIDATE_WINDOW_DF_CAP = 0.5;
 
 /**
  * v1.24.0 #216 — max tokens for the merge triage pre-flight classification.

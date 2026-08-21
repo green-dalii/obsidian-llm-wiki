@@ -1,11 +1,12 @@
 import { App } from 'obsidian';
-import { parseFrontmatter } from '../../core/frontmatter';
+import { parseFrontmatter, extractBody } from '../../core/frontmatter';
+import { CANDIDATE_WINDOW_TEXT_CHARS } from '../../constants';
 import { isInFolderScope } from '../../core/folder-scope';
 
 export async function getExistingWikiPages(
   app: App,
   wikiFolder: string
-): Promise<Array<{ path: string; title: string; wikiLink: string; aliases?: string[]; tags?: string[]; ctime?: number }>> {
+): Promise<Array<{ path: string; title: string; wikiLink: string; aliases?: string[]; tags?: string[]; ctime?: number; text?: string }>> {
   const wikiFiles = app.vault
     .getMarkdownFiles()
     .filter(
@@ -17,7 +18,7 @@ export async function getExistingWikiPages(
         !f.path.includes('/contradictions/')
     );
 
-  const pages: Array<{ path: string; title: string; wikiLink: string; aliases?: string[]; tags?: string[]; ctime?: number }> = [];
+  const pages: Array<{ path: string; title: string; wikiLink: string; aliases?: string[]; tags?: string[]; ctime?: number; text?: string }> = [];
   for (const f of wikiFiles) {
     const relPath = f.path.replace(wikiFolder + '/', '').replace('.md', '');
     const content = await app.vault.read(f);
@@ -50,6 +51,12 @@ export async function getExistingWikiPages(
       // page. Read here because the frontmatter is already parsed.
       tags: Array.isArray(fm?.tags) ? fm.tags : undefined,
       ctime: f.stat?.ctime,
+      // The page's prose, for the candidate window (`core/candidate-window.ts`).
+      // The file is already read here to parse its frontmatter; keeping a
+      // bounded, lower-cased slice of the body costs no second read and lets
+      // the dedup and dead-link prompts rank pages by what they say, not only
+      // by what they are called.
+      text: extractBody(content).toLowerCase().slice(0, CANDIDATE_WINDOW_TEXT_CHARS),
     });
   }
   return pages;

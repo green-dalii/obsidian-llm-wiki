@@ -3,25 +3,27 @@
 // The semantic dedup call used to ship EVERY same-type page to the LLM. On a
 // real vault (~1285 entities) that is ~77K chars ≈ 40K prompt tokens for a
 // yes/no answer worth 16 completion tokens. The pre-filter ranks candidates
-// with the zero-token lexical matcher and sends only the top K.
+// with zero-token matching and sends only the top K.
 //
 // The risk this file guards: a pre-filter that drops the TRUE duplicate
 // creates a duplicate page — a correctness bug, and in a from-scratch rebuild
-// it happens at scale. So the criterion is RECALL = 100% over every fixture
-// pair: for each (new candidate, true existing target), the target MUST be in
-// the selected set. A failure means raise K or widen the fallback — never
-// lower the bar.
+// it happens at scale. So the criterion is RECALL over every fixture pair:
+// for each (new candidate, true existing target), the target MUST be in the
+// selected set.
 //
-// Both branches are covered:
-//   - lexical branch: shared tokens exist → top-K must contain the target
-//   - fallback branch: zero lexical overlap (translations, initialisms) → the
-//     full list is returned, so the target is trivially retained
+// What changed with the candidate window (`core/candidate-window.ts`): the
+// zero-overlap case no longer returns the full list. Measured at a local 26B,
+// the full list held the target and the model found it 0 of 18 times; the
+// recall that list appeared to protect was never delivered. Instead the
+// window ranks on the page's own PROSE as well — a translation or initialism
+// whose expansion the page spells out is found that way — and the window is
+// always K pages, zero-signal pages filling the tail in pool order.
 
 import { describe, it, expect } from 'vitest';
 import { selectDedupCandidates } from '../../../wiki/page-factory/path-resolution';
 import { DEDUP_CANDIDATE_TOP_K } from '../../../constants';
 
-interface Page { path: string; title: string; aliases?: string[] }
+interface Page { path: string; title: string; aliases?: string[]; text?: string }
 
 function page(title: string, aliases?: string[]): Page {
   return { path: `wiki/entities/${title}.md`, title, aliases };
@@ -80,24 +82,35 @@ describe('selectDedupCandidates — lexical branch keeps the true duplicate', ()
   });
 });
 
-describe('selectDedupCandidates — zero-overlap fallback returns the full list', () => {
-  it('retains "Massachusetts Institute of Technology" for the candidate "MIT"', () => {
-    // Pins the NAME-gated fallback: the summary token "in" incidentally
-    // substring-matches "Indiana" and "Institute", so a fallback gated on
-    // the ranked list being empty would take the lexical branch here and
-    // rank on summary noise. The name "MIT" matches nothing → full list.
-    const target = page('Massachusetts Institute of Technology');
-    const pages = [page('Stanford'), page('Indiana University'), target, page('ETH Zürich')];
+describe('selectDedupCandidates — zero name overlap: the prose finds what the title cannot', () => {
+  it('finds "Massachusetts Institute of Technology" for "MIT" through the page text, ahead of 40 distractors', () => {
+    // The name "MIT" matches no title. The candidate's summary says
+    // "Cambridge" and "Forschungsuniversität"; only the target page says
+    // both in its prose. Before the window this case sent the full list.
+    const target: Page = {
+      ...page('Massachusetts Institute of Technology'),
+      text: 'private forschungsuniversität in cambridge, massachusetts, gegründet 1861.',
+    };
+    const distractors = Array.from({ length: 40 }, (_, i) => ({
+      ...page(`Hochschule-${i}`),
+      text: `staatliche hochschule nummer ${i} mit technischem schwerpunkt.`,
+    }));
+    const pages = [...distractors.slice(0, 20), target, ...distractors.slice(20)];
     const selected = selectDedupCandidates(
       'MIT',
       'Private Forschungsuniversität in Cambridge.',
       pages,
     );
-    expect(selected).toEqual(pages);
-    expect(selected.map(p => p.path)).toContain(target.path);
+    expect(selected.length).toBe(DEDUP_CANDIDATE_TOP_K);
+    expect(selected[0].path).toBe(target.path);
   });
 
-  it('retains the Chinese page 清华大学 for the candidate "Tsinghua University"', () => {
+  it('keeps the Chinese page 清华大学 in the window for "Tsinghua University" when the pool is small', () => {
+    // Across scripts there is no lexical signal at all. The window does not
+    // pretend otherwise: with nothing to rank on, pages keep pool order and
+    // the whole pool fits into K. (On a pool larger than K this target is out
+    // of reach of any lexical window — and was out of reach of the full list
+    // too, measured 0 of 18.)
     const target = page('清华大学');
     const pages = [page('北京大学'), target, page('复旦大学')];
     const selected = selectDedupCandidates(
@@ -106,7 +119,15 @@ describe('selectDedupCandidates — zero-overlap fallback returns the full list'
       pages,
     );
     expect(selected).toEqual(pages);
-    expect(selected.map(p => p.path)).toContain(target.path);
+  });
+
+  it('never returns more than K, even when nothing scores', () => {
+    const pages = Array.from({ length: 100 }, (_, i) => page(`Seite-${i}`));
+    const selected = selectDedupCandidates('Zzzz', 'Qqqq.', pages);
+    expect(selected.length).toBe(DEDUP_CANDIDATE_TOP_K);
+    // Zero-signal pages fill in pool order, so the prefix stays stable
+    // across calls (the KV-prefix cache depends on it).
+    expect(selected.map(p => p.path)).toEqual(pages.slice(0, DEDUP_CANDIDATE_TOP_K).map(p => p.path));
   });
 
   it('returns the input unchanged when there are no pages at all', () => {

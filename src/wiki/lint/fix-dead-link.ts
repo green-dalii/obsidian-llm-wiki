@@ -1,6 +1,6 @@
 import { EngineContext } from '../../types';
 import { PROMPTS } from '../../prompts';
-import { TOKENS_LINT_PAGE_FIX, WIKI_SUBFOLDERS } from '../../constants';
+import { TOKENS_LINT_PAGE_FIX, WIKI_SUBFOLDERS, CANDIDATE_WINDOW_TOP_K } from '../../constants';
 import { buildSystemPrompt } from '../system-prompts';
 import { renderTemplate } from '../../core/template-renderer';
 import { parseJsonResponse } from '../../core/json';
@@ -12,7 +12,11 @@ import {
   replaceDeadLink,
 } from '../../core/dead-link-detector';
 import { getExistingWikiPages } from './get-existing-pages';
+import { selectCandidateWindow, contextAround } from '../../core/candidate-window';
 import { FixDeadLinkSchema, type FixDeadLink } from '../../llm-sdk/output-schemas';
+
+/** Characters to each side of the dead link that describe what it points to (300 in all, the dedup summary length). */
+const DEAD_LINK_CONTEXT_RADIUS = 150;
 
 const PLURAL_MAP: Record<string, string> = {
   entity: WIKI_SUBFOLDERS.entities,
@@ -128,12 +132,19 @@ export async function fixDeadLink(
   }
 
   // ---- LLM path: semantic matching with alias-aware prompt ----
-  const pagesList = existingPages
-    .filter(p => {
-      const bn = p.title || '';
-      const hasPollutedBasename = /^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/.test(bn);
-      return !hasPollutedBasename;
-    })
+  // The pages the model sees are the shared candidate window
+  // (`core/candidate-window.ts`), ranked against the link's target name and
+  // the text around the link. Before this the list was every page in vault
+  // iteration order, cut at 3,000 rendered characters — on a 2,800-page wiki
+  // an arbitrary 2–3 % that the prompt then searched for "semantic
+  // similarity", and the target's presence in it was a matter of file order.
+  const pool = existingPages.filter(p => {
+    const bn = p.title || '';
+    const hasPollutedBasename = /^(entities|concepts|sources)([^\s\-_a-zA-Z0-9])/.test(bn);
+    return !hasPollutedBasename;
+  });
+  const linkContext = contextAround(sourceContent, [`[[${targetName}`, targetBasename], DEAD_LINK_CONTEXT_RADIUS);
+  const pagesList = selectCandidateWindow({ name: targetBasename, context: linkContext }, pool, CANDIDATE_WINDOW_TOP_K)
     .map(p => {
       const aliasSuffix = p.aliases?.length ? ` \`aliases: ${p.aliases.join(', ')}\`` : '';
       return `- ${p.wikiLink}${aliasSuffix}`;
@@ -142,7 +153,7 @@ export async function fixDeadLink(
   const prompt = renderTemplate(PROMPTS.fixDeadLink, {
     source_content: sourceContent.substring(0, 2000),
     target_name: targetName,
-    existing_pages: pagesList.substring(0, 3000),
+    existing_pages: pagesList,
   });
 
   const client = ctx.getClient();
