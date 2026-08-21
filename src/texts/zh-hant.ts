@@ -677,6 +677,9 @@ export const ZH_HANT_TEXTS = {
     reingestConfirmNo: '跳過',
     lintDedupIncludeSourcesName: '在去重中包含來源',
     lintDedupIncludeSourcesDesc: '預設開啟。開啟後，內文相同的來源在 lint 階段會被標記為重複。若你的來源語料產生過多誤報，可關閉此選項。',
+    // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
+    skipMentionOnlyCandidatesName: '跳過來源僅提及的候選',
+    skipMentionOnlyCandidatesDesc: '預設關閉。開啟後，擷取出的實體或概念若其名稱未出現在筆記內文中（完全未出現，或僅出現在括號、列舉或簡短清單項目中），將不產生頁面、不再呼叫模型，並從其他候選的相關清單中移除。適用於具有詞邊界設定檔的 Wiki 語言（德語已量測；英語、法語、西班牙語、葡萄牙語、荷蘭語為估計）；其他語言在擷取時會提示一次無法套用。若你的庫是術語表風格或筆記以要點為主、希望每個被點名的術語都成為頁面，請保持關閉。',
     lintDedupSectionHeading: '去重偵測',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): 通用 Toast 文案，
     // 復用於所有 LLM 業務路徑。{count} 是觸發重試的批次數量。注意：

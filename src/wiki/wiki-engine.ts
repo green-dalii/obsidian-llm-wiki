@@ -32,6 +32,8 @@ import type { SourceRejection } from '../core/source-requirements';
 // v1.25.1 Phase C-PR1: detectRateLimitFailures is invoked exclusively by runBatchedWithRetry (engine-internals/page-batch-runner.ts).
 import { formatRateLimitNotice } from '../core/rate-limit';
 import { extractSourceTags } from '../core/arrays';
+import { gateCandidates } from '../core/candidate-gate';
+import { getSourceLanguage, isCrossLanguage } from '../core/source-language';
 import { cleanMarkdownResponse } from '../core/markdown';
 import { SchemaManager, SchemaTask } from '../schema/schema-manager';
 import {
@@ -910,6 +912,35 @@ export class WikiEngine {
       console.debug('Analysis result:', JSON.stringify(analysis, null, 2));
 
       this.checkCancelled();
+
+      // Issue #514: a candidate the source only mentions gets no page. Decided
+      // from the text before any page is planned — a name the note never says,
+      // or says only in parentheses / enumerations / short list items, gets no
+      // page and no further call; its mentions in the other candidates'
+      // related_* lists go with it so the gate never manufactures a dead link.
+      // Thresholds in code (candidate-gate.ts). Opt-in: it changes which pages
+      // an ingest writes. Keyed on the wiki language (the names' language); a
+      // note that declares a different `language:` carries translated names
+      // and is not gated; a wiki language without a profile is reported, not
+      // silently skipped — the user turned this on.
+      if (this.settings.skipMentionOnlyCandidates === true) {
+        const wikiLang = this.settings.wikiLanguage || 'en';
+        const sourceLang = getSourceLanguage(file, this.app);
+        const translated = sourceLang !== null && isCrossLanguage(sourceLang, wikiLang);
+        if (!translated) {
+          const gated = gateCandidates(analysis, extractBody(opts?.contentOverride ?? await this.app.vault.read(file)), wikiLang);
+          if (!gated.applied) {
+            console.debug(`[candidate-gate] ${file.path}: no language profile for "${wikiLang}" — gate not applied`);
+            this.onProgress?.(`Candidate gate: no language profile for "${wikiLang}" — not applied`);
+          } else if (gated.dropped.length > 0) {
+            const list = gated.dropped.map(d => `${d.name} (${d.kind}, ${d.verdict})`).join('; ');
+            console.warn(`[candidate-gate] ${file.path}: dropped ${gated.dropped.length} of ${analysis.entities.length + analysis.concepts.length} candidates — ${list}`);
+            this.onProgress?.(`Candidate gate: ${gated.dropped.length} dropped — ${list}`);
+            analysis.entities = gated.entities;
+            analysis.concepts = gated.concepts;
+          }
+        }
+      }
 
       const totalSteps = 1 + analysis.entities.length + analysis.concepts.length + analysis.related_pages.length + 2;
       let step = 1;

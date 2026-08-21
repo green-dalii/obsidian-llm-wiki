@@ -432,6 +432,19 @@ export interface LLMWikiSettings {
    */
   lintDedupIncludeSources?: boolean;
 
+  /**
+   * Issue #514: when on, an extracted entity or concept whose name the note
+   * does not carry in running text — absent, or present only inside
+   * parentheses, enumerations or short list items — gets no page and no
+   * further model call, and its name is pruned from the other candidates'
+   * related_* lists. Decided by `core/candidate-gate.ts` from the text alone,
+   * keyed on `wikiLanguage` (the language the page names are written in);
+   * for a wiki language without a profile the gate reports once per ingest
+   * that it cannot apply. Off by default: it changes which pages an ingest
+   * writes, so it is the user's choice, not an upgrade's.
+   */
+  skipMentionOnlyCandidates?: boolean;
+
   // Issue #75: cap max_tokens per LLM call. 0 = no cap.
   // Recommended for local models with small context windows.
   maxTokensPerCall: number;
@@ -1191,6 +1204,8 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // own the default; the filter reads `settings.lintDedupIncludeSources
   // !== false` so a missing key is treated as on).
   lintDedupIncludeSources: undefined,
+  // Issue #514: off by default — fewer pages is a behaviour change, opt in.
+  skipMentionOnlyCandidates: false,
   // Issue #111: default to 'lower' for backwards compatibility.
   slugCase: 'lower',
   // v1.24.0 #251: persistent user-supplied instructions appended to the

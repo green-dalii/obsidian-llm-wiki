@@ -62,6 +62,8 @@ export function renderAdvancedSettingsSection(tab: LLMWikiSettingTab, containerE
           // by default; reset to default-on when this panel closes so a
           // hidden setting never keeps a no-UI-affordance value.
           tempSettings.lintDedupIncludeSources = undefined;
+          // Issue #514: the gate is opt-in; a closed panel means off.
+          tempSettings.skipMentionOnlyCandidates = false;
         }
         tab.display();
       }));
@@ -136,6 +138,16 @@ export function renderAdvancedSettingsSection(tab: LLMWikiSettingTab, containerE
     .addToggle(toggle => toggle
       .setValue(tempSettings.createWelcomeNote)
       .onChange((value) => { tempSettings.createWelcomeNote = value; }));
+
+  // Issue #514: skip candidates the source only mentions. An ingest policy
+  // (which pages get written), not an LLM sampling parameter — so it sits in
+  // this panel, not in the LLM Advanced section. Off by default.
+  new Setting(containerEl)
+    .setName(tab.getText('skipMentionOnlyCandidatesName'))
+    .setDesc(tab.getText('skipMentionOnlyCandidatesDesc'))
+    .addToggle(toggle => toggle
+      .setValue(tempSettings.skipMentionOnlyCandidates === true)
+      .onChange((value) => { tempSettings.skipMentionOnlyCandidates = value; }));
 
   // ─── v1.26.0 (#382 item 1, Batch 2): Duplicate detection sub-group ───
   // Sub-heading separates the 3 dedup threshold inputs + 1 dedup scope

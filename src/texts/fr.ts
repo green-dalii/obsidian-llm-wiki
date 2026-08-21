@@ -681,6 +681,9 @@ export const FR_TEXTS = {
     reingestConfirmNo: 'Ignorer',
     lintDedupIncludeSourcesName: 'Inclure les sources dans la déduplication',
     lintDedupIncludeSourcesDesc: 'Activé par défaut. Quand activé, les sources avec un corps identique sont signalées comme doublons pendant le lint. Désactivez si votre corpus de sources génère des faux positifs.',
+    // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
+    skipMentionOnlyCandidatesName: 'Ignorer les candidats que la source ne fait que mentionner',
+    skipMentionOnlyCandidatesDesc: 'Désactivé par défaut. Quand activé, une entité ou un concept extrait dont le nom n’apparaît pas dans le texte courant de la note — absent, ou seulement entre parenthèses, dans des énumérations ou de courts éléments de liste — ne reçoit ni page ni appel supplémentaire au modèle, et est retiré des listes de pages liées des autres candidats. Fonctionne pour les langues de wiki disposant d’un profil de frontières de mots (allemand mesuré ; anglais, français, espagnol, portugais, néerlandais estimés) ; pour les autres, l’ingestion signale une fois qu’elle ne peut pas s’appliquer. Laissez désactivé pour les coffres de type glossaire ou les notes en puces où chaque terme nommé doit devenir une page.',
     lintDedupSectionHeading: 'Déduplication',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): formulation générique,
     // réutilisable pour tous les chemins métier LLM. {count} est le

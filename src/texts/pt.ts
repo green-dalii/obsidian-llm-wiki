@@ -486,6 +486,9 @@ export const PT_TEXTS = {
     reingestConfirmNo: 'Ignorar',
     lintDedupIncludeSourcesName: 'Incluir fontes na deduplicação',
     lintDedupIncludeSourcesDesc: 'Ativado por padrão. Quando ativado, fontes com corpos idênticos são sinalizadas como duplicatas durante o lint. Desative se o seu corpus de fontes gerar falsos positivos.',
+    // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
+    skipMentionOnlyCandidatesName: 'Ignorar candidatos que a fonte apenas menciona',
+    skipMentionOnlyCandidatesDesc: 'Desativado por padrão. Quando ativado, uma entidade ou conceito extraído cujo nome não aparece no texto corrido da nota — ausente, ou apenas entre parênteses, enumerações ou itens de lista curtos — não recebe página nem mais chamadas ao modelo, e é removido das listas de relacionados dos outros candidatos. Funciona para idiomas de wiki com perfil de limites de palavra (alemão medido; inglês, francês, espanhol, português, neerlandês estimados); para outros idiomas a ingestão informa uma vez que não pode ser aplicada. Deixe desativado em vaults tipo glossário ou notas em tópicos onde cada termo citado deva virar página.',
     lintDedupSectionHeading: 'Deduplicação',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): texto genérico,
     // reutilizável para todas as rotas de negócio LLM. {count} é o
