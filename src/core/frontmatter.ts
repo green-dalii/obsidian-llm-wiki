@@ -459,9 +459,29 @@ export function serializeFrontmatter(
   return lines.join('\n');
 }
 
+/**
+ * Union the tags a page already carries with the ones the incoming source
+ * proposes, first occurrence wins. `sources:` next to it is a union already;
+ * `tags:` was not, so on every merge after the first the incoming term was
+ * computed and dropped and the stored tag stayed a function of which source
+ * arrived first. Omitting `incoming` keeps the previous behaviour byte for
+ * byte, so a caller that has no incoming tags is unaffected.
+ */
+function unionTags(existing: unknown, incoming?: string[]): string[] {
+  // The existing values are carried verbatim — the parser types them loosely,
+  // and filtering here would silently drop a tag shape this function is not
+  // the right place to judge.
+  const merged: string[] = Array.isArray(existing) ? [...(existing as string[])] : [];
+  for (const tag of incoming ?? []) {
+    if (tag && !merged.includes(tag)) merged.push(tag);
+  }
+  return merged;
+}
+
 export function mergeFrontmatter(
   existingContent: string,
-  newSourcePath: string
+  newSourcePath: string,
+  incomingTags?: string[]
 ): { frontmatter: string; body: string; wasMerged: boolean } {
   const fm = parseFrontmatter(existingContent);
   const body = extractBody(existingContent);
@@ -506,7 +526,7 @@ export function mergeFrontmatter(
       created,
       updated,
       sources: mergedSources,
-      tags: Array.isArray(fm.tags) ? fm.tags : [],
+      tags: unionTags(fm.tags, incomingTags),
       reviewed: fm.reviewed,
       aliases: Array.isArray(fm.aliases) ? fm.aliases : undefined,
     },

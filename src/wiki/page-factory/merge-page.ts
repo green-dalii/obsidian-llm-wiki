@@ -94,6 +94,7 @@ export async function mergePage(
     const { frontmatter, body: existingBody } = mergeFrontmatter(
       existingContent,
       sourceSlug ? `sources/${sourceSlug}` : sourceFile.path,
+      info.type ? [info.type] : undefined,
     );
 
     // Issue #312 part 2 — deterministic, no LLM: is this source the page's own
@@ -289,6 +290,7 @@ export async function appendToReviewedPage(
     const { frontmatter, body: existingBody } = mergeFrontmatter(
       existingContent,
       sourceSlug ? `sources/${sourceSlug}` : sourceFile.path,
+      info.type ? [info.type] : undefined,
     );
 
     // 2. Minimal LLM check for genuinely new content.

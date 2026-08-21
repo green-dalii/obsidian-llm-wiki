@@ -653,6 +653,62 @@ Body
     expect(result.frontmatter).toContain('- "Foo"');
     expect(result.frontmatter).not.toContain('- ""');
   });
+
+  // Incoming tags: `sources:` was a union and `tags:` was not, so the stored
+  // tag was decided by whichever source reached the page first.
+  const tagged = '---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags:\n  - person\n---\n\nBody';
+
+  it('is byte-identical when no incoming tags are passed', () => {
+    const withArg = mergeFrontmatter(tagged, 'sources/new', undefined);
+    const without = mergeFrontmatter(tagged, 'sources/new');
+    expect(withArg.frontmatter).toBe(without.frontmatter);
+    expect(without.frontmatter).toContain('- "person"');
+  });
+
+  it('unions an incoming tag with the ones the page already carries', () => {
+    const result = mergeFrontmatter(tagged, 'sources/new', ['organization']);
+    expect(result.frontmatter).toContain('- "person"');
+    expect(result.frontmatter).toContain('- "organization"');
+  });
+
+  it('keeps the existing tag first, so the order does not depend on the merge', () => {
+    const result = mergeFrontmatter(tagged, 'sources/new', ['organization']);
+    expect(result.frontmatter.indexOf('- "person"'))
+      .toBeLessThan(result.frontmatter.indexOf('- "organization"'));
+  });
+
+  it('does not repeat an incoming tag the page already has', () => {
+    const result = mergeFrontmatter(tagged, 'sources/new', ['person']);
+    expect((result.frontmatter.match(/- "person"/g) || []).length).toBe(1);
+  });
+
+  it('drops empty incoming tags', () => {
+    const result = mergeFrontmatter(tagged, 'sources/new', ['']);
+    expect(result.frontmatter).toContain('- "person"');
+    expect(result.frontmatter).not.toContain('- \n');
+  });
+
+  it('adopts the incoming tag when the page carries none', () => {
+    const untagged = '---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\nBody';
+    const result = mergeFrontmatter(untagged, 'sources/new', ['method']);
+    expect(result.frontmatter).toContain('- "method"');
+  });
+
+  it('a page reached by two sources in either order ends with the same tags', () => {
+    const base = '---\ntype: entity\ncreated: 2026-01-01\nupdated: 2026-01-01\n---\n\nBody';
+    const aThenB = mergeFrontmatter(
+      `${mergeFrontmatter(base, 'sources/a', ['person']).frontmatter}\n\nBody`,
+      'sources/b', ['organization']).frontmatter;
+    const bThenA = mergeFrontmatter(
+      `${mergeFrontmatter(base, 'sources/b', ['organization']).frontmatter}\n\nBody`,
+      'sources/a', ['person']).frontmatter;
+    const tagsOf = (fm: string) => {
+      const block = /\ntags:\n((?: {2}- .*\n)*)/.exec(`${fm}\n`)?.[1] ?? '';
+      return (block.match(/- "([^"]+)"/g) || []).sort();
+    };
+    expect(tagsOf(aThenB)).toEqual(tagsOf(bThenA));
+    expect(tagsOf(aThenB)).toEqual(['- "organization"', '- "person"']);
+  });
 });
 
 describe('preserveFrontmatterReviewTag', () => {
