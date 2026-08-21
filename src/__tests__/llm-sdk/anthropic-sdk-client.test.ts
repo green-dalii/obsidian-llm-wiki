@@ -438,7 +438,11 @@ describe('AnthropicSdkClient', () => {
       ['GLM-Anthropic', 'https://api.glm.ai/v1/anthropic'],
       ['DeepSeek Anthropic-compat', 'https://api.deepseek.com/anthropic'],
       ['MiniMax-Anthropic', 'https://api.MiniMax.chat/anthropic'],
-      ['OpenRouter Anthropic', 'https://openrouter.ai/api/v1/anthropic'],
+      // OpenRouter's Anthropic skin is /api/v1/messages, and createAnthropic
+      // appends only /messages — so /api/v1 is the baseURL a user must enter.
+      // /api/v1/anthropic 404s; the docs' /api (for clients that add /v1
+      // themselves) returns the HTML site page, not JSON.
+      ['OpenRouter Anthropic', 'https://openrouter.ai/api/v1'],
     ])('forwards %s baseURL unchanged to createAnthropic', async (_name, baseURL) => {
       const client = new AnthropicSdkClient({ apiKey: 'sk-ant-test', baseURL });
       await client.createMessage({
