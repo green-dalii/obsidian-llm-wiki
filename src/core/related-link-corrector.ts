@@ -50,7 +50,6 @@ export function correctRelatedLinkPrefixes(
   relatedConcepts: string[] | undefined,
   relatedEntitiesLabel: string,
   relatedConceptsLabel: string,
-  preserveCase: boolean,
   vaultIndex?: { wikiFolder: string; pages: ExistingPageRef[] },
 ): string {
   // Full-vault name → path index. Titles outrank aliases: a title is the page's
@@ -63,9 +62,12 @@ export function correctRelatedLinkPrefixes(
   // than `scanDeadLinks`, which judges over `knownTargetsLower`: a model writing
   // "mediterrane Ernährung" for the page "Mediterrane-Ernährung" would miss the
   // index here and be stamped into a dead link that the scanner would have
-  // accepted unchanged. `preserveCase` is left alone on the pre-existing
-  // `folderBySlug` path below, which keys both sides the same way and is not
-  // part of this change.
+  // accepted unchanged. The typed-list map (`folderBySlug` below) keys the same
+  // way: it used to take `preserveCase` from the caller, which kept both of its
+  // sides consistent with each other but let the lookup miss whenever the typed
+  // list and the link differed only in spelling — "Mediterrane Ernährung" in
+  // the list, `[[mediterrane ernährung]]` in the body — so the section won over
+  // the known type. No caller passes `preserveCase` any more.
   const pathByTitle = new Map<string, string>();
   const pathByAlias = new Map<string, string>();
   const ambiguousTitles = new Set<string>();
@@ -115,7 +117,7 @@ export function correctRelatedLinkPrefixes(
   const ambiguous = new Set<string>();
   const index = (names: string[] | undefined, folder: 'entities' | 'concepts') => {
     for (const n of names ?? []) {
-      const s = slugify(n, preserveCase);
+      const s = slugify(n, false);
       if (!s) continue;
       const prev = folderBySlug.get(s);
       if (prev && prev !== folder) { ambiguous.add(s); continue; }
@@ -168,7 +170,7 @@ export function correctRelatedLinkPrefixes(
       // Known type wins over section; otherwise the section dictates the folder
       // (within "Related Concepts" every link is a concept, etc.). This also
       // self-heals stale links carried through a merge from the existing body.
-      const s = slugify(target, preserveCase);
+      const s = slugify(target, false);
       const correct = (!ambiguous.has(s) && folderBySlug.get(s)) || current;
       // A prefixed link keeps its shape; a bare link gains a display so the
       // rendered text stays the name rather than the path we just added.

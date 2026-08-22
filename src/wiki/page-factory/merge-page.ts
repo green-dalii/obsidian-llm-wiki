@@ -223,7 +223,6 @@ export async function mergePage(
       info.related_concepts,
       labels.related_entities,
       labels.related_concepts,
-      ctx.settings.slugCase === 'preserve',
       // #482 stage 2: the merge prompt no longer carries a page list, so the
       // link targets are resolved here — against every page, not a window.
       { wikiFolder: ctx.settings.wikiFolder, pages: await getExistingWikiPages(ctx.app as never, ctx.settings.wikiFolder) },
