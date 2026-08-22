@@ -6,7 +6,7 @@
 // how aliases get added, deduplicated, or rewritten into the frontmatter.
 
 import { describe, it, expect, vi } from 'vitest';
-import { appendAliases, type AliasesContext } from '../../../wiki/page-factory/aliases';
+import { appendAliases, resolveMinAliasLength, type AliasesContext } from '../../../wiki/page-factory/aliases';
 
 function makeContext(initial: Record<string, string>): AliasesContext & {
   written: Map<string, string>;
@@ -130,5 +130,30 @@ describe('appendAliases — edge cases', () => {
     const written = ctx.written.get(PAGE)!;
     expect(written).toContain('# Vigilanz');
     expect(written).toContain('Body text.');
+  });
+});
+
+describe('appendAliases — minAliasLength setting', () => {
+  it('applies the setting as the alias floor', async () => {
+    const ctx = { ...makeContext({ [PAGE]: makePage(['existing']) }), settings: { minAliasLength: 3 } };
+    await appendAliases(ctx, PAGE, ['ML', 'Überwachung']);
+    const written = ctx.written.get(PAGE)!;
+    expect(written).toContain('  - "Überwachung"');
+    expect(written).not.toContain('  - "ML"');
+  });
+
+  it('keeps the v1.25.10 floor of 2 when the setting is absent', async () => {
+    const ctx = makeContext({ [PAGE]: makePage(['existing']) });
+    await appendAliases(ctx, PAGE, ['ML']);
+    expect(ctx.written.get(PAGE)!).toContain('  - "ML"');
+  });
+
+  it('resolveMinAliasLength falls back to the constant outside the accepted range', () => {
+    expect(resolveMinAliasLength(undefined)).toBe(2);
+    expect(resolveMinAliasLength({})).toBe(2);
+    expect(resolveMinAliasLength({ minAliasLength: 3 })).toBe(3);
+    expect(resolveMinAliasLength({ minAliasLength: 1 })).toBe(2);
+    expect(resolveMinAliasLength({ minAliasLength: 7 })).toBe(2);
+    expect(resolveMinAliasLength({ minAliasLength: 2.5 })).toBe(2);
   });
 });

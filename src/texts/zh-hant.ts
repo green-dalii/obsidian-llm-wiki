@@ -85,6 +85,10 @@ export const ZH_HANT_TEXTS = {
     slugCaseDesc: '控制生成的 Wiki 檔名是否轉為小寫。對於大小寫有語義的語言（如德語名詞），建議選擇“保留”。',
     slugCaseLower: '小寫（預設）',
     slugCasePreserve: '保留大小寫',
+    // Minimum alias length (Advanced settings, next to slug case).
+    minAliasLengthName: '別名最小長度',
+    minAliasLengthDesc: '短於此長度的別名（去除首尾空白後）不會寫入 wiki 頁面。預設值 2 保留兩字母縮寫（ML、AI、UI）；若庫中累積了僅大小寫不同的兩字母別名（Cr/CR），可調到 3。範圍 2–6。',
+    minAliasLengthClamped: '數值超出範圍（2–6），已設為 {}',
 
     // 模型选择
     modelSection: '模型選擇',

@@ -454,6 +454,14 @@ export interface LLMWikiSettings {
   slugCase: 'lower' | 'preserve';
 
   /**
+   * Minimum length (chars, after trim) of an alias the plugin writes to a
+   * wiki page. Undefined → MIN_ALIAS_LENGTH (2), i.e. the v1.25.10 floor;
+   * a vault that collects two-letter aliases differing only in case can
+   * raise it. Accepted range MIN_ALIAS_LENGTH_MIN..MIN_ALIAS_LENGTH_MAX.
+   */
+  minAliasLength?: number;
+
+  /**
    * v1.24.0 #251: persistent user-supplied instructions appended to the
    * Query Wiki system prompt. Empty string or undefined = feature off
    * (backward compatible). Scoped strictly to Query Wiki chat; no other

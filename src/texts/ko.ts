@@ -85,6 +85,10 @@ export const KO_TEXTS = {
     slugCaseDesc: '생성되는 Wiki 파일명을 소문자로 변환할지 제어합니다. 대소문자가 의미 있는 언어(예: 독일어 명사)는 "유지" 권장.',
     slugCaseLower: '소문자(기본값)',
     slugCasePreserve: '대소문자 유지',
+    // Minimum alias length (Advanced settings, next to slug case).
+    minAliasLengthName: '별칭 최소 길이',
+    minAliasLengthDesc: '이보다 짧은 별칭(공백 제거 후)은 위키 페이지에 기록되지 않습니다. 기본값 2는 두 글자 약어(ML, AI, UI)를 유지합니다. 대소문자만 다른 두 글자 별칭(Cr/CR)이 쌓이는 볼트라면 3으로 올리세요. 범위 2–6.',
+    minAliasLengthClamped: '값이 범위(2–6)를 벗어나 {}(으)로 설정되었습니다',
 
     // Model Selection
     modelSection: '모델 선택',

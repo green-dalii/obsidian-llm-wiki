@@ -89,6 +89,10 @@ export const EN_TEXTS = {
     slugCaseDesc: 'Controls whether generated wiki filenames are lowercased. "Preserve" is recommended for languages where lowercase changes meaning (e.g. German nouns).',
     slugCaseLower: 'Lowercase (default)',
     slugCasePreserve: 'Preserve case',
+    // Minimum alias length (Advanced settings, next to slug case).
+    minAliasLengthName: 'Minimum alias length',
+    minAliasLengthDesc: 'Aliases shorter than this (after trimming) are not written to wiki pages. Default 2 keeps two-letter abbreviations (ML, AI, UI) usable; raise to 3 if your vault collects two-letter aliases that differ only in case (Cr/CR). Range 2–6.',
+    minAliasLengthClamped: 'Value outside range (2–6), set to {}',
 
     // Model Selection
     modelSection: 'Model Selection',

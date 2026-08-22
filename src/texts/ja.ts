@@ -85,6 +85,10 @@ export const JA_TEXTS = {
     slugCaseDesc: '生成される Wiki ファイル名を小文字化するかどうかを制御します。大文字小文字に意味のある言語（ドイツ語の名詞など）では「保持」を推奨。',
     slugCaseLower: '小文字（デフォルト）',
     slugCasePreserve: '大文字小文字を保持',
+    // Minimum alias length (Advanced settings, next to slug case).
+    minAliasLengthName: 'エイリアスの最小文字数',
+    minAliasLengthDesc: 'これより短いエイリアス（前後の空白を除く）は Wiki ページに書き込まれません。既定値 2 では 2 文字の略語（ML、AI、UI）が使えます。大文字小文字だけが異なる 2 文字のエイリアス（Cr/CR）が溜まる場合は 3 に上げてください。範囲 2–6。',
+    minAliasLengthClamped: '値が範囲外（2–6）のため {} に設定しました',
 
     // Model Selection
     modelSection: 'モデル選択',
