@@ -145,6 +145,22 @@ describe('isUrlError', () => {
     const err = new Error('status 404: Not Found');
     expect(isUrlError(err)).toBe(true);
   });
+
+  it('does not retry OpenRouter model 404 as a URL error', () => {
+    const err = Object.assign(
+      new Error('status 404: No endpoints found for openrouter/retired-model'),
+      { statusCode: 404 },
+    );
+    const responseBodyErr = Object.assign(
+      new Error('Provider returned error 404'),
+      {
+        statusCode: 404,
+        responseBody: '{"error":{"message":"No endpoints found for openrouter/retired-model"}}',
+      },
+    );
+    expect(isUrlError(err)).toBe(false);
+    expect(isUrlError(responseBodyErr)).toBe(false);
+  });
 });
 
 describe('resolveBaseUrlWithFallback', () => {

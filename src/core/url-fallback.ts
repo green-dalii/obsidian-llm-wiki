@@ -128,7 +128,10 @@ export function invalidateCache(userUrl?: string): void {
 export function isUrlError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
 
-  const err = error as Error & { statusCode?: number };
+  const err = error as Error & { statusCode?: number; responseBody?: string };
+  if (isModelNotFound404(err)) {
+    return false;
+  }
   if (typeof err.statusCode === 'number') {
     return err.statusCode === 404;
   }
@@ -136,6 +139,11 @@ export function isUrlError(error: unknown): boolean {
   // Fallback: parse "status 404: ..." pattern from error.message
   // (set by mapAiSdkError for APICallError thrown from AI-SDK).
   return /status\s+404\b/.test(error.message);
+}
+
+function isModelNotFound404(error: Error & { responseBody?: string }): boolean {
+  return /no endpoints found for\b/i.test(error.message)
+    || /no endpoints found for\b/i.test(error.responseBody ?? '');
 }
 
 // ─── Orchestrator ────────────────────────────────────────────────────
