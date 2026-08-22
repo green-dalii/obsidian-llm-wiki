@@ -12,7 +12,7 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
     // The related entity exists in the vault but outside the MAX_PAGES window, so the
     // model could not see its path and guessed the most salient prefix — sources/.
     const c = ['## Related Entities', '- [[sources/Hippocampus|Hippocampus]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, ['Hippocampus'], [], ENT, CON, true);
+    const r = correctRelatedLinkPrefixes(c, ['Hippocampus'], [], ENT, CON);
     expect(r).toContain('[[entities/Hippocampus|Hippocampus]]');
   });
 
@@ -21,7 +21,7 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
     // ingest: the sibling does not exist when the prompt is built, so no list size could
     // contain it. Raising MAX_PAGES can't reach it; the section type alone fixes the guess.
     const c = ['## Related Entities', '- [[sources/Schlaf|Schlaf]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, ['Schlaf'], [], ENT, CON, true);
+    const r = correctRelatedLinkPrefixes(c, ['Schlaf'], [], ENT, CON);
     expect(r).toContain('[[entities/Schlaf|Schlaf]]');
   });
 
@@ -47,7 +47,7 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
   ].join('\n');
 
   const out = correctRelatedLinkPrefixes(
-    page, ['Hippocampus', 'Schlaf'], ['Gedächtnis', 'Abruf'], ENT, CON, true,
+    page, ['Hippocampus', 'Schlaf'], ['Gedächtnis', 'Abruf'], ENT, CON,
   );
 
   it('re-types sources/-prefixed related concepts to concepts/', () => {
@@ -66,17 +66,26 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
   it('does not touch prose links outside the Related sections', () => {
     expect(out).toContain('[[sources/Langzeitgedächtnis|Langzeitgedächtnis]]');
   });
+  it('keys the typed-list map case-folded (slug.ts comparison contract), so a link spelled differently from the typed list is still re-typed', () => {
+    // The typed list says "Mediterrane Ernährung" is an entity; the model wrote
+    // the link in lowercase inside the concepts section. With the map keyed
+    // `slugify(x, preserveCase)` the two spellings got different keys under
+    // slugCase 'preserve', the lookup missed, and the section (concepts) won.
+    const c = ['## Related Concepts', '- [[mediterrane ernährung]]'].join('\n');
+    const r = correctRelatedLinkPrefixes(c, ['Mediterrane Ernährung'], [], ENT, CON);
+    expect(r).toContain('[[entities/mediterrane ernährung|mediterrane ernährung]]');
+  });
   it('resolves an ambiguous name (in both lists) via the section context', () => {
     // In the Related Concepts section, the concept reading is meant.
     const amb = ['## Related Concepts', '- [[sources/X|X]]'].join('\n');
-    expect(correctRelatedLinkPrefixes(amb, ['X'], ['X'], ENT, CON, true)).toContain('[[concepts/X|X]]');
+    expect(correctRelatedLinkPrefixes(amb, ['X'], ['X'], ENT, CON)).toContain('[[concepts/X|X]]');
   });
   it('section dictates the folder even when the link is not in the current related lists (self-heals merge-carried stale links)', () => {
     // [[sources/Gedächtnis]] carried through a merge from the existing body, with
     // "Gedächtnis" NOT in this ingest's related lists. Section-driven correction still
     // fixes it; the name-map alone would not.
     const c = '## Related Concepts\n- [[sources/Gedächtnis|Gedächtnis]]\n## Related Entities\n- [[sources/Hippocampus|Hippocampus]]';
-    const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, true);
+    const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON);
     expect(r).toContain('[[concepts/Gedächtnis|Gedächtnis]]');
     expect(r).toContain('[[entities/Hippocampus|Hippocampus]]');
   });
@@ -88,13 +97,13 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
       '- [[sources/Gedächtnis|Gedächtnis]]',
     ].join('\n');
     const r = correctRelatedLinkPrefixes(
-      merged, [], ['Gedächtnis'], 'Verwandte Entitäten', 'Verwandte Konzepte', true,
+      merged, [], ['Gedächtnis'], 'Verwandte Entitäten', 'Verwandte Konzepte',
     );
     expect(r).toContain('[[concepts/Gedächtnis|Gedächtnis]]');
   });
   it('matches inflection/spacing variants via slug (space vs hyphen)', () => {
     const c = '## Related Concepts\n- [[sources/Exekutive-Funktionen|Exekutive Funktionen]]';
-    const r = correctRelatedLinkPrefixes(c, [], ['Exekutive Funktionen'], ENT, CON, true);
+    const r = correctRelatedLinkPrefixes(c, [], ['Exekutive Funktionen'], ENT, CON);
     expect(r).toContain('[[concepts/Exekutive-Funktionen|Exekutive Funktionen]]');
   });
 
@@ -104,13 +113,13 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
   describe('wrong-prefix links (#307)', () => {
     it('rewrites singular entity/ to entities/', () => {
       const c = '## Related Entities\n- [[entity/Hippocampus|Hippocampus]]';
-      const r = correctRelatedLinkPrefixes(c, ['Hippocampus'], [], ENT, CON, true);
+      const r = correctRelatedLinkPrefixes(c, ['Hippocampus'], [], ENT, CON);
       expect(r).toContain('- [[entities/Hippocampus|Hippocampus]]');
     });
 
     it('rewrites singular concept/ to concepts/', () => {
       const c = '## Related Concepts\n- [[concept/Abruf|Abruf]]';
-      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON, true);
+      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON);
       expect(r).toContain('- [[concepts/Abruf|Abruf]]');
     });
 
@@ -120,13 +129,13 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
       // and still wrong; folderBySlug knows the type and wins over both the written
       // prefix and the section.
       const c = '## Related Concepts\n- [[concept/Kardiogener-Schock|Kardiogener Schock]]';
-      const r = correctRelatedLinkPrefixes(c, ['Kardiogener Schock'], [], ENT, CON, true);
+      const r = correctRelatedLinkPrefixes(c, ['Kardiogener Schock'], [], ENT, CON);
       expect(r).toContain('- [[entities/Kardiogener-Schock|Kardiogener Schock]]');
     });
 
     it('falls back to the section folder when the name is in neither related list', () => {
       const c = '## Related Entities\n- [[concept/Unbekannt|Unbekannt]]';
-      const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, true);
+      const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON);
       expect(r).toContain('- [[entities/Unbekannt|Unbekannt]]');
     });
 
@@ -141,7 +150,7 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
         '- [[Biochemie/Glykolyse|Glykolyse]]',
       ].join('\n');
       const r = correctRelatedLinkPrefixes(
-        c, ['Metformin', 'CRP'], ['Glykolyse'], ENT, CON, true,
+        c, ['Metformin', 'CRP'], ['Glykolyse'], ENT, CON,
       );
       expect(r).toBe(c);
     });
@@ -156,20 +165,20 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
         '> **Source: [[sources/Gedächtnis|Gedächtnis]]**',
       ].join('\n');
       const r = correctRelatedLinkPrefixes(
-        c, ['Hippocampus'], ['Abruf'], ENT, CON, true,
+        c, ['Hippocampus'], ['Abruf'], ENT, CON,
       );
       expect(r).toBe(c);
     });
 
     it('does not rewrite a wrong-prefix link outside the Related sections', () => {
       const c = '## Description\nProse about [[concept/Abruf|Abruf]].';
-      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON, true);
+      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON);
       expect(r).toBe(c);
     });
 
     it('rewrites a bare singular link without a display alias', () => {
       const c = '## Related Concepts\n- [[concept/Abruf]]';
-      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON, true);
+      const r = correctRelatedLinkPrefixes(c, [], ['Abruf'], ENT, CON);
       expect(r).toContain('- [[concepts/Abruf]]');
     });
 
@@ -182,7 +191,7 @@ describe('correctRelatedLinkPrefixes (root-cause fix for sources/-prefixed relat
     // and forces a deliberate decision (broaden the regex OR fix the prompt).
     it('is case-sensitive on the folder prefix (a capitalized "Entity/" is NOT rewritten)', () => {
       const c = '## Related Entities\n- [[Entity/Hippocampus|Hippocampus]]';
-      const r = correctRelatedLinkPrefixes(c, ['Hippocampus'], [], ENT, CON, true);
+      const r = correctRelatedLinkPrefixes(c, ['Hippocampus'], [], ENT, CON);
       expect(r).toBe(c);
     });
   });
@@ -199,7 +208,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
 
   it('resolves a bare link to the page that exists, wherever it sits in the vault', () => {
     const c = ['## Related Concepts', '- [[Insulinresistenz]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, [], ['Insulinresistenz'], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, [], ['Insulinresistenz'], ENT, CON, vault([
       { path: 'wiki/concepts/Insulinresistenz.md', title: 'Insulinresistenz' },
     ]));
     expect(r).toContain('[[concepts/Insulinresistenz|Insulinresistenz]]');
@@ -209,7 +218,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
     // The name in the prose is an alias; the page carries another title. Only a
     // full-vault alias index can connect them.
     const c = ['## Related Entities', '- [[E433]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, vault([
       { path: 'wiki/entities/Polysorbate.md', title: 'Polysorbate', aliases: ['E433'] },
     ]));
     expect(r).toContain('[[entities/Polysorbate|E433]]');
@@ -217,7 +226,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
 
   it('refuses an alias claimed by two pages and falls back to the typed list (#446)', () => {
     const c = ['## Related Entities', '- [[E433]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, vault([
       { path: 'wiki/entities/Polysorbate.md', title: 'Polysorbate', aliases: ['E433'] },
       { path: 'wiki/entities/Polysorbat-80.md', title: 'Polysorbat-80', aliases: ['E433'] },
     ]));
@@ -226,7 +235,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
 
   it('prefers a page title over another page holding the name as an alias', () => {
     const c = ['## Related Concepts', '- [[Autophagie]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, vault([
       { path: 'wiki/concepts/Zellreinigung.md', title: 'Zellreinigung', aliases: ['Autophagie'] },
       { path: 'wiki/concepts/Autophagie.md', title: 'Autophagie' },
     ]));
@@ -240,7 +249,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
     // over `knownTargetsLower` — would have accepted it untouched. The index is
     // a comparison, so it folds case (slug.ts contract).
     const c = ['## Related Concepts', '- [[mediterrane Ernährung]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, vault([
       { path: 'wiki/concepts/Mediterrane-Ernährung.md', title: 'Mediterrane-Ernährung' },
     ]));
     expect(r).toContain('[[concepts/Mediterrane-Ernährung|mediterrane Ernährung]]');
@@ -248,7 +257,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
 
   it('folds case on curated aliases too', () => {
     const c = ['## Related Entities', '- [[vitamin d]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, [], [], ENT, CON, vault([
       { path: 'wiki/entities/Cholecalciferol.md', title: 'Cholecalciferol', aliases: ['Vitamin D'] },
     ]));
     expect(r).toContain('[[entities/Cholecalciferol|vitamin d]]');
@@ -256,7 +265,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
 
   it('never resolves onto a sources/ page (#234 invariant, new home)', () => {
     const c = ['## Related Entities', '- [[Gedächtnis]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, ['Gedächtnis'], [], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, ['Gedächtnis'], [], ENT, CON, vault([
       { path: 'wiki/sources/Gedächtnis.md', title: 'Gedächtnis' },
     ]));
     expect(r).not.toContain('sources/Gedächtnis');
@@ -265,13 +274,13 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
 
   it('leaves a name the vault does not know to the stub path, folder from the typed list', () => {
     const c = ['## Related Concepts', '- [[Noch-Nicht-Da]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, [], ['Noch-Nicht-Da'], ENT, CON, true, vault([]));
+    const r = correctRelatedLinkPrefixes(c, [], ['Noch-Nicht-Da'], ENT, CON, vault([]));
     expect(r).toContain('[[concepts/Noch-Nicht-Da|Noch-Nicht-Da]]');
   });
 
   it('rewrites a mis-prefixed link to the real path instead of only re-typing it', () => {
     const c = ['## Related Entities', '- [[sources/E433|E433]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, ['E433'], [], ENT, CON, vault([
       { path: 'wiki/entities/Polysorbate.md', title: 'Polysorbate', aliases: ['E433'] },
     ]));
     expect(r).toContain('[[entities/Polysorbate|E433]]');
@@ -279,7 +288,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
 
   it('leaves an already-correct link byte-identical', () => {
     const c = ['## Related Concepts', '- [[concepts/Autophagie|Autophagie]]'].join('\n');
-    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, vault([
       { path: 'wiki/concepts/Autophagie.md', title: 'Autophagie' },
     ]));
     expect(r).toBe(c);
@@ -292,7 +301,7 @@ describe('correctRelatedLinkPrefixes — full-vault resolution (#482)', () => {
       '## Description',
       'Prose mentioning [[Autophagie]] in passing.',
     ].join('\n');
-    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, true, vault([
+    const r = correctRelatedLinkPrefixes(c, [], ['Autophagie'], ENT, CON, vault([
       { path: 'wiki/concepts/Autophagie.md', title: 'Autophagie' },
     ]));
     expect(r).toBe(c);
