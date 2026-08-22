@@ -225,7 +225,9 @@ export class LLMWikiPlugin extends Plugin {
         }
         delete legacyMineru.mineruApiToken;
         delete legacyMineru.mineruTaskTimeoutMinutes;
-        await this.saveData(this.settings);
+        // No saveData() here: the line below (`applied.length > 0 && !migrationWriteFailed`)
+        // handles persistence for the whole loadSettings pass. Adding a second write would
+        // serialize data.json twice on every upgrade that triggers the MinerU migration.
       } catch (error) {
         console.error('[main.loadSettings] Failed to migrate MinerU token to SecretStorage:', error);
       }

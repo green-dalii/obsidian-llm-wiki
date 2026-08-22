@@ -22,7 +22,7 @@ vi.mock('../../core/pdf-cache', async () => {
 });
 
 import { convertPdfToMarkdown } from '../../core/pdf-converter';
-import { convertPdfWithMineru, extractMineruMarkdown } from '../../core/mineru-pdf';
+import { convertPdfWithMineru, extractMineruMarkdown } from '../../core/mineru-converter';
 
 function context(overrides: Record<string, unknown> = {}) {
   return {

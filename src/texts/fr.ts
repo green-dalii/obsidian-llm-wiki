@@ -665,7 +665,7 @@ export const FR_TEXTS = {
     sourceRejectedType: '⏭️ « {filename} » n\'est pas un type de fichier pris en charge — ignoré. Seules les notes texte (.md, .txt, etc.) peuvent être ingérées.',
     sourceRejectedDuplicate: '⏭️ « {filename} » ignoré — son contenu est déjà dans le wiki.',
     pdfReadingInProgress: 'Lecture du PDF : {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ « {filename} » ignoré — votre provider ou modèle actuel n\'accepte pas les PDF. Changez de provider ou activez « Forcer le support PDF » dans Settings → LLM Configuration → Advanced, puis réessayez.',
+    sourceRejectedPdfUnsupported: '⏭️ « {filename} » ignoré — votre provider ou modèle actuel n\'accepte pas les PDF. Changez de provider, activez « Forcer le support PDF » dans Settings → LLM Configuration → Advanced, puis réessayez, ou basculez le backend de conversion Markdown sur MinerU (prend aussi en charge les images et les documents Office).',
     clearPdfCacheCommand: 'Vider le cache de conversion PDF',
     pdfCacheCleared: 'Cache PDF vidé ({count} entrées supprimées).',
     // v1.25.0 PR3: Advanced PDF settings
@@ -673,7 +673,7 @@ export const FR_TEXTS = {
     forcePdfSupportDesc: 'Désactivé par défaut. Activez cette option si votre fournisseur ne figure pas dans la liste native mais peut quand même traiter les PDF. Lorsqu\'elle est activée, le PDF est envoyé à votre fournisseur actuel ; en cas de rejet, un message vous en informe. Les fournisseurs PDF natifs (Anthropic / OpenAI / Bedrock) n\'ont pas besoin de cette option.',
     writePdfMarkdownToVaultName: 'Écrire le Markdown converti dans le Vault',
     markdownConversionBackendName: 'Backend de conversion Markdown',
-    markdownConversionBackendDesc: 'Utilisez la prise en charge native PDF/images de votre fournisseur, ou l’API en ligne MinerU (qui gère aussi les documents Office).',
+    markdownConversionBackendDesc: 'Utilisez la prise en charge native PDF de votre fournisseur (portée limitée, tous les fournisseurs/modèles ne gèrent pas le PDF, consomme des tokens LLM). MinerU est un service en ligne — rapide, gratuit jusqu\'au quota quotidien, accepte PDF/images/Office — mais nécessite un jeton API (à saisir dans le champ ci-dessous).',
     markdownConversionBackendNative: 'Prise en charge PDF/images du fournisseur',
     markdownConversionBackendMineru: 'API MinerU en ligne',
     mineruApiTokenName: 'Jeton API MinerU',
@@ -682,8 +682,8 @@ export const FR_TEXTS = {
     mineruUploadingInProgress: 'Envoi du PDF vers MinerU : {filename}',
     mineruWaitingInProgress: 'En attente de la conversion MinerU : {filename}',
     mineruDownloadingInProgress: 'Téléchargement du résultat MinerU : {filename}',
-    mineruConversionComplete: 'Conversion MinerU terminée : {filename}',
-    mineruConversionCompleteSaved: 'Conversion MinerU terminée — écrit dans {path} : {filename}',
+    markdownConversionComplete: 'Conversion terminée : {filename}',
+    markdownConversionCompleteSaved: 'Conversion terminée — écrit dans {path} : {filename}',
     writePdfMarkdownToVaultDesc: 'Désactivé par défaut. Lorsqu’il est actif, le résultat de chaque conversion PDF est écrit dans un fichier « <basename>.pdf.md » à côté du PDF source. Lorsqu’il est désactivé (architecture cache seule), les résultats restent uniquement dans le cache du plugin et ne laissent aucun artefact dans votre Vault.',
 
     ingestRejectedSummary: '{count} fichier(s) ignoré(s) (vide, doublon ou type non pris en charge).',

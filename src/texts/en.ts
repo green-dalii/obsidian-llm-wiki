@@ -722,7 +722,7 @@ export const EN_TEXTS = {
     sourceRejectedDuplicate: '⏭️ "{filename}" skipped — its content is already in the wiki.',
     // v1.25.0 PDF Level 1 (cache-only architecture)
     pdfReadingInProgress: 'Reading PDF: {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ "{filename}" skipped — your current provider or model doesn\'t accept PDF input. Switch provider, or open Settings → LLM Configuration → Advanced and turn on "Force PDF support" to try anyway.',
+    sourceRejectedPdfUnsupported: '⏭️ "{filename}" skipped — your current provider or model doesn\'t accept PDF input. Switch provider, open Settings → LLM Configuration → Advanced and turn on "Force PDF support" to try anyway, or switch the Markdown conversion backend to MinerU (also handles images and Office documents).',
     clearPdfCacheCommand: 'Clear PDF conversion cache',
     pdfCacheCleared: 'PDF cache cleared ({count} entries removed).',
     // v1.25.0 PR3: Advanced PDF settings
@@ -731,7 +731,7 @@ export const EN_TEXTS = {
     writePdfMarkdownToVaultName: 'Write converted Markdown to Vault',
     writePdfMarkdownToVaultDesc: 'Off by default. When on, each PDF conversion result is written to a "<basename>.pdf.md" file next to the source PDF. When off (cache-only architecture), results live only in the plugin cache and leave no artifacts in your Vault.',
     markdownConversionBackendName: 'Markdown conversion backend',
-    markdownConversionBackendDesc: 'Use your provider\'s native PDF/image support, or the MinerU online API (also handles Office documents).',
+    markdownConversionBackendDesc: 'Native uses your provider\'s built-in PDF support (limited scope, not every provider/model handles PDF, costs LLM tokens). MinerU is an online service — fast, free up to the daily quota, accepts PDF/images/Office — but requires an API token (set it in the field below).',
     markdownConversionBackendNative: 'Provider PDF/image support',
     markdownConversionBackendMineru: 'MinerU online API',
     mineruApiTokenName: 'MinerU API token',
@@ -740,8 +740,8 @@ export const EN_TEXTS = {
     mineruUploadingInProgress: 'Uploading PDF to MinerU: {filename}',
     mineruWaitingInProgress: 'Waiting for MinerU conversion: {filename}',
     mineruDownloadingInProgress: 'Downloading MinerU result: {filename}',
-    mineruConversionComplete: 'MinerU conversion complete: {filename}',
-    mineruConversionCompleteSaved: 'MinerU conversion complete — written to {path}: {filename}',
+    markdownConversionComplete: 'Conversion complete: {filename}',
+    markdownConversionCompleteSaved: 'Conversion complete — written to {path}: {filename}',
     ingestRejectedSummary: '{count} file(s) skipped (empty, duplicate, or unsupported type).',
     reingestConfirmTitle: 'Re-ingest this file?',
     reingestConfirmBody: 'The content of "{filename}" is already in the wiki. Re-ingest it anyway?',

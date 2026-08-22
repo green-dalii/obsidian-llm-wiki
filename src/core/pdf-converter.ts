@@ -45,7 +45,7 @@ import {
 } from '../constants';
 import { PDF_PROMPTS } from '../wiki/prompts/pdf';
 import type { LLMClient } from '../types';
-import { convertPdfWithMineru } from './mineru-pdf';
+import { convertPdfWithMineru } from './mineru-converter';
 
 // --- public types ---
 

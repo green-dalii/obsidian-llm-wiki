@@ -669,7 +669,7 @@ export const ZH_TEXTS = {
     sourceRejectedType: '⏭️ "{filename}" 不是受支持的文件类型，已跳过。仅可提取文本笔记（如 .md、.txt）。',
     sourceRejectedDuplicate: '⏭️ "{filename}" 已跳过——其内容已存在于 Wiki 中。',
     pdfReadingInProgress: '正在读取 PDF: {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」已跳过——当前 provider 或模型不支持 PDF 输入。可在 Settings → LLM Configuration → Advanced 中切换 provider，或打开「强制启用 PDF 支持」再试一次。',
+    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」已跳过——当前 provider 或模型不支持 PDF 输入。可在 Settings → LLM Configuration → Advanced 中切换 provider，或打开「强制启用 PDF 支持」再试一次，或切换 Markdown 转换后端为 MinerU（同时支持图片和 Office 文档）。',
     clearPdfCacheCommand: '清除 PDF 转换缓存',
     pdfCacheCleared: 'PDF 缓存已清除（{count} 个条目已移除）。',
     // v1.25.0 PR3: Advanced PDF settings
@@ -678,7 +678,7 @@ export const ZH_TEXTS = {
     writePdfMarkdownToVaultName: '将转换后的 Markdown 写入 Vault',
     writePdfMarkdownToVaultDesc: '默认关闭。开启后，每次 PDF 转换的结果会写入源 PDF 旁边的 “<原名>.pdf.md” 文件。关闭时，转换结果仅保存在插件缓存，不在你的 Vault 中留下实现产物。',
     markdownConversionBackendName: 'Markdown 转换后端',
-    markdownConversionBackendDesc: '使用 provider 原生的 PDF/图片 支持，或在线 MinerU API（同时也支持 Office 文档）。',
+    markdownConversionBackendDesc: 'Native 使用 provider 自带的 PDF 支持（范围有限，并非所有 provider/model 都支持 PDF，消耗 LLM tokens）。MinerU 是在线服务——速度快、按日配额免费、支持 PDF/图片/Office——但需要 API Token（在下方字段填写）。',
     markdownConversionBackendNative: 'Provider PDF/图片 支持',
     markdownConversionBackendMineru: 'MinerU 在线 API',
     mineruApiTokenName: 'MinerU API Token',
@@ -687,8 +687,8 @@ export const ZH_TEXTS = {
     mineruUploadingInProgress: '正在上传 PDF 到 MinerU：{filename}',
     mineruWaitingInProgress: '正在等待 MinerU 解析：{filename}',
     mineruDownloadingInProgress: '正在下载 MinerU 解析结果：{filename}',
-    mineruConversionComplete: 'MinerU 转换完成：{filename}',
-    mineruConversionCompleteSaved: 'MinerU 转换完成 — 已写入 {path}：{filename}',
+    markdownConversionComplete: '转换完成：{filename}',
+    markdownConversionCompleteSaved: '转换完成 — 已写入 {path}：{filename}',
 
     ingestRejectedSummary: '已跳过 {count} 个文件（空文件、重复或不支持的类型）。',
     reingestConfirmTitle: '重新提取该文件？',

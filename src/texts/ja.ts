@@ -661,7 +661,7 @@ export const JA_TEXTS = {
     sourceRejectedType: '⏭️ 「{filename}」はサポートされていないファイル形式のためスキップしました。取り込めるのはテキストノート（.md、.txt など）のみです。',
     sourceRejectedDuplicate: '⏭️ 「{filename}」をスキップしました — 内容はすでにWikiに存在します。',
     pdfReadingInProgress: 'PDF を読み込み中: {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」をスキップしました — 現在の provider またはモデルは PDF 入力に対応していません。Settings → LLM Configuration → Advanced で provider を切り替えるか、「PDF サポートを強制」をオンにして再試行してください。',
+    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」をスキップしました — 現在の provider またはモデルは PDF 入力に対応していません。Settings → LLM Configuration → Advanced で provider を切り替えるか、「PDF サポートを強制」をオンにして再試行するか、Markdown 変換バックエンドを MinerU に切り替えてください（画像と Office ドキュメントも対応）。',
     clearPdfCacheCommand: 'PDF 変換キャッシュをクリア',
     pdfCacheCleared: 'PDF キャッシュをクリアしました（{count} 件のエントリを削除）。',
     // v1.25.0 PR3: Advanced PDF settings
@@ -669,7 +669,7 @@ export const JA_TEXTS = {
     forcePdfSupportDesc: 'デフォルトはオフ。プロバイダーがネイティブ対応リストにないものの PDF を処理できる場合は、このスイッチをオンにして試すことができます。オンにすると PDF が現在のプロバイダーに送られ、拒否された場合は通知で案内されます。ネイティブ PDF プロバイダー（Anthropic / OpenAI / Bedrock）では不要です。',
     writePdfMarkdownToVaultName: '変換後の Markdown を Vault に書き込む',
     markdownConversionBackendName: 'Markdown 変換バックエンド',
-    markdownConversionBackendDesc: 'プロバイダー本来の PDF/画像 サポート、またはオンライン MinerU API（Office ドキュメントも対応）を使用します。',
+    markdownConversionBackendDesc: 'Native はプロバイダーの組み込み PDF サポートを使用します（範囲が限られ、すべてのプロバイダー/モデルが PDF に対応するわけではなく、LLM トークンを消費します）。MinerU はオンラインサービスで、高速・日次クォータまで無料・PDF/画像/Office に対応しますが、API トークンが必要です（下のフィールドに設定）。',
     markdownConversionBackendNative: 'プロバイダーの PDF/画像 対応',
     markdownConversionBackendMineru: 'MinerU オンライン API',
     mineruApiTokenName: 'MinerU API トークン',
@@ -678,8 +678,8 @@ export const JA_TEXTS = {
     mineruUploadingInProgress: 'PDF を MinerU にアップロード中: {filename}',
     mineruWaitingInProgress: 'MinerU の変換を待機中: {filename}',
     mineruDownloadingInProgress: 'MinerU の結果をダウンロード中: {filename}',
-    mineruConversionComplete: 'MinerU 変換完了: {filename}',
-    mineruConversionCompleteSaved: 'MinerU 変換完了 — {path} に書き込みました: {filename}',
+    markdownConversionComplete: '変換完了: {filename}',
+    markdownConversionCompleteSaved: '変換完了 — {path} に書き込みました: {filename}',
     writePdfMarkdownToVaultDesc: 'デフォルトはオフ。オンの場合、各 PDF 変換結果は元の PDF の隣に「<basename>.pdf.md」ファイルとして書き込まれます。オフの場合（キャッシュ専用アーキテクチャ）、結果はプラグインのキャッシュ内のみに存在し、Vault に実装アーティファクトを残しません。',
 
     ingestRejectedSummary: '{count} 個のファイルをスキップしました（空・重複・非対応形式）。',

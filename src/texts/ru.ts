@@ -703,7 +703,7 @@ export const RU_TEXTS = {
     sourceRejectedDuplicate: '⏭️ «{filename}» пропущено — его содержимое уже в Wiki.',
     // v1.25.0 PDF Level 1 (cache-only architecture)
     pdfReadingInProgress: 'Чтение PDF: {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ «{filename}» пропущено — ваш текущий провайдер или модель не принимает PDF-вход. Переключите провайдера или откройте Настройки → Конфигурация LLM → Расширенные и включите «Force PDF support», чтобы попробовать всё равно.',
+    sourceRejectedPdfUnsupported: '⏭️ «{filename}» пропущено — ваш текущий провайдер или модель не принимает PDF-вход. Переключите провайдера или откройте Настройки → Конфигурация LLM → Расширенные и включите «Force PDF support», чтобы попробовать всё равно, или переключите бэкенд конвертации Markdown на MinerU (также обрабатывает изображения и документы Office).',
     clearPdfCacheCommand: 'Очистить кэш конвертации PDF',
     pdfCacheCleared: 'Кэш PDF очищен ({count} записей удалено).',
     // v1.25.0 PR3: расширенные настройки PDF
@@ -712,7 +712,7 @@ export const RU_TEXTS = {
     writePdfMarkdownToVaultName: 'Записать конвертированный Markdown в хранилище',
     writePdfMarkdownToVaultDesc: 'Выкл по умолчанию. Когда вкл, каждый результат конвертации PDF записывается в файл «<basename>.pdf.md» рядом с исходным PDF. Когда выкл (архитектура только-кэш), результаты живут только в кэше плагина и не оставляют артефактов в вашем хранилище.',
     markdownConversionBackendName: 'Способ конвертации Markdown',
-    markdownConversionBackendDesc: 'Используйте встроенную поддержку PDF/изображений вашего провайдера или онлайн API MinerU (также обрабатывает документы Office).',
+    markdownConversionBackendDesc: 'Используйте встроенную поддержку PDF вашего провайдера (ограниченная область применения, не все провайдеры/модели работают с PDF, расходует токены LLM). MinerU — это онлайн-сервис — быстрый, бесплатный до дневной квоты, принимает PDF/изображения/Office — но требует токен API (укажите его в поле ниже).',
     markdownConversionBackendNative: 'Поддержка PDF/изображений провайдером',
     markdownConversionBackendMineru: 'Онлайн API MinerU',
     mineruApiTokenName: 'Токен API MinerU',
@@ -721,8 +721,8 @@ export const RU_TEXTS = {
     mineruUploadingInProgress: 'Загрузка PDF в MinerU: {filename}',
     mineruWaitingInProgress: 'Ожидание конвертации MinerU: {filename}',
     mineruDownloadingInProgress: 'Загрузка результата MinerU: {filename}',
-    mineruConversionComplete: 'Конвертация MinerU завершена: {filename}',
-    mineruConversionCompleteSaved: 'Конвертация MinerU завершена — записано в {path}: {filename}',
+    markdownConversionComplete: 'Конвертация завершена: {filename}',
+    markdownConversionCompleteSaved: 'Конвертация завершена — записано в {path}: {filename}',
     ingestRejectedSummary: '{count} файл(ов) пропущено (пусто, дубликат или неподдерживаемый тип).',
     reingestConfirmTitle: 'Повторно импортировать этот файл?',
     reingestConfirmBody: 'Содержимое «{filename}» уже в Wiki. Повторно импортировать?',

@@ -29,6 +29,22 @@ export class MineruPdfError extends Error {
   }
 }
 
+// Simplification #7: phase → i18n-key lookup. Replaces the nested ternary
+// that wiki-engine.ts used to inline, and gives exhaustiveness checks a
+// hook if a future MinerU API state is added (TS will flag the missing
+// case at the lookup site).
+//
+// The value is local; we export the type so callers can build their own
+// lookups if they need a different i18n mapping later (e.g. a future
+// HTML ingest that wants different progress strings).
+export type MineruPhase = 'uploading' | 'waiting' | 'downloading';
+
+export const MINERU_PHASE_KEY = {
+  uploading: 'mineruUploadingInProgress',
+  waiting: 'mineruWaitingInProgress',
+  downloading: 'mineruDownloadingInProgress',
+} as const satisfies Record<MineruPhase, string>;
+
 export function extractMineruMarkdown(zipBytes: Uint8Array): string {
   let fileCount = 0;
   let markdownCount = 0;
@@ -111,13 +127,21 @@ function validateRemoteUrl(value: string): string {
 export async function convertPdfWithMineru(ctx: PdfConversionContext): Promise<ConversionResult> {
   const token = ctx.mineruApiToken?.trim();
   if (!token) throw new MineruPdfError('A MinerU API token is required.');
-  if (ctx.pdfFile.stat?.size > MINERU_MAX_PDF_BYTES) {
-    throw new MineruPdfError('MinerU accepts PDF files up to 200 MB.');
+
+  // Fast-fail against the file's cached `stat.size` before paying the
+  // IO of `readBinary`. The byte-length check below is the authoritative
+  // guard (and runs for both fast-fail-miss and cache-hit-miss paths);
+  // the stat check is the no-IO path for files we've already cataloged.
+  // Two checks, one shared message — defined as a constant so the wording
+  // stays in lockstep if the MinerU limit changes.
+  const oversizedMessage = 'MinerU accepts files up to 200 MB.';
+  if (ctx.pdfFile.stat?.size !== undefined && ctx.pdfFile.stat.size > MINERU_MAX_PDF_BYTES) {
+    throw new MineruPdfError(oversizedMessage);
   }
 
   const bytes = new Uint8Array(await ctx.app.vault.adapter.readBinary(ctx.pdfFile.path));
   if (bytes.byteLength > MINERU_MAX_PDF_BYTES) {
-    throw new MineruPdfError('MinerU accepts PDF files up to 200 MB.');
+    throw new MineruPdfError(oversizedMessage);
   }
 
   // MinerU model version: hardcoded to 'vlm' (PR #404 default; 'pipeline'

@@ -19,7 +19,7 @@ import { TFile, TFolder } from 'obsidian';
 import { createWikiEngineHarness, wikiPagesWritten } from '../__support__/wiki-engine-harness';
 import * as pdfConverter from '../../core/pdf-converter';
 import { convertPdfToMarkdown } from '../../core/pdf-converter';
-import { MineruPdfError } from '../../core/mineru-pdf';
+import { MineruPdfError } from '../../core/mineru-converter';
 
 // Mock pdf-converter so we don't need real PDF bytes / SubtleCrypto / LLM call.
 // Tests assert on WikiEngine's integration with the converter's return value.
@@ -602,5 +602,101 @@ describe('WikiEngine.ingestSource — PDF cache-only branch (#PR2 redo)', () => 
       // converter call it was unsubscribed-from-cancel.
       expect(receivedAbortSignal!.aborted).toBe(false);
     });
+  });
+});
+
+//  v1.27.0 MINOR #404 follow-up — Altitude #1 (multi-format routing) +
+//  Altitude #3 (duration-based completion Notice). These tests guard the
+//  new routing decision and the duration threshold; they sit alongside
+//  the PDF-cache-only tests above.
+describe('WikiEngine.ingestSource — Altitude #1 multi-format routing (#404 follow-up)', () => {
+  // Reset the shared `mockedConvert` mock between these tests — the
+  // PDF-cache-only describe block above has its own beforeEach that does
+  // not reach across block boundaries, so the multi-format tests need to
+  // reset state themselves to keep assertions independent.
+  beforeEach(() => {
+    mockedConvert.mockReset();
+  });
+
+  function pngFile(path = 'sources/diagram.png'): TFile {
+    const name = path.split('/').pop() ?? 'diagram.png';
+    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+    const file = Object.assign(new TFile(), {
+      path, name, basename: 'diagram', extension: 'png',
+    });
+    if (dir) {
+      const folder = new TFolder();
+      folder.path = dir;
+      (file as unknown as { parent: TFolder }).parent = folder;
+    }
+    return file;
+  }
+
+  function docxFile(path = 'sources/report.docx'): TFile {
+    const name = path.split('/').pop() ?? 'report.docx';
+    const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+    const file = Object.assign(new TFile(), {
+      path, name, basename: 'report', extension: 'docx',
+    });
+    if (dir) {
+      const folder = new TFolder();
+      folder.path = dir;
+      (file as unknown as { parent: TFolder }).parent = folder;
+    }
+    return file;
+  }
+
+  it('routes a .png to the conversion path when backend === "mineru"', async () => {
+    mockedConvert.mockResolvedValueOnce({
+      markdown: '# Diagram\n\nbody',
+      metadata: { convertedAt: '2026-08-22T00:00:00Z', converter: 'mineru/vlm' },
+    });
+    const h = createWikiEngineHarness({
+      settings: { markdownConversionBackend: 'mineru' },
+      llmResponses: [JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] })],
+    });
+    Object.assign(h.engine['app'], {
+      secretStorage: { getSecret: vi.fn(() => 'secret-token') },
+    });
+
+    await h.engine.ingestSource(pngFile('sources/diagram.png'));
+
+    // The conversion path was taken — `convertPdfToMarkdown` was called
+    // with the PNG file (despite the parameter name `pdfFile`, the
+    // underlying field is just a TFile).
+    expect(mockedConvert).toHaveBeenCalledTimes(1);
+    const call = mockedConvert.mock.calls[0]?.[0] as { pdfFile?: { path?: string } };
+    expect(call?.pdfFile?.path).toBe('sources/diagram.png');
+  });
+
+  it('routes a .docx to the conversion path when backend === "mineru"', async () => {
+    mockedConvert.mockResolvedValueOnce({
+      markdown: '# Report\n\nbody',
+      metadata: { convertedAt: '2026-08-22T00:00:00Z', converter: 'mineru/vlm' },
+    });
+    const h = createWikiEngineHarness({
+      settings: { markdownConversionBackend: 'mineru' },
+      llmResponses: [JSON.stringify({ source_title: 'P', summary: 's', entities: [], concepts: [] })],
+    });
+    Object.assign(h.engine['app'], {
+      secretStorage: { getSecret: vi.fn(() => 'secret-token') },
+    });
+
+    await h.engine.ingestSource(docxFile('sources/report.docx'));
+
+    expect(mockedConvert).toHaveBeenCalledTimes(1);
+    const call = mockedConvert.mock.calls[0]?.[0] as { pdfFile?: { path?: string } };
+    expect(call?.pdfFile?.path).toBe('sources/report.docx');
+  });
+
+  it('does NOT route a .png to conversion when backend === "native" (native is PDF-only)', async () => {
+    // Native backend has no image input support. The .png should fall
+    // through to the standard text-ingest path, which calls vault.read
+    // (returns the file's content — empty in this test fixture).
+    const h = createWikiEngineHarness();
+    await h.engine.ingestSource(pngFile('sources/diagram.png'));
+
+    // Conversion was NOT invoked.
+    expect(mockedConvert).not.toHaveBeenCalled();
   });
 });

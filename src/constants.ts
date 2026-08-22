@@ -31,6 +31,19 @@ export const WIKI_SUBFOLDERS = {
  */
 export const COMPATIBLE_SOURCE_EXTENSIONS = ['md', 'markdown', 'txt', 'text', 'pdf'] as const;
 
+/**
+ * File extensions (lowercase, no dot) that route through the markdown
+ * conversion path when `markdownConversionBackend === 'mineru'`. Per the
+ * MinerU API (https://mineru.net/apiManage/docs), the Precise parser
+ * accepts PDF + images (png/jpg/jpeg/jp2/webp/gif/bmp) + Office docs
+ * (doc/docx/ppt/pptx/xls/xlsx). The native backend still only accepts
+ * PDF — see `wiki-engine.ts:888` for the routing decision.
+ */
+export const MINERU_CONVERSION_EXTENSIONS = [
+  'pdf', 'png', 'jpg', 'jpeg', 'jp2', 'webp', 'gif', 'bmp',
+  'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+] as const;
+
 // ============================================================================
 // Lint & Performance Thresholds
 // ============================================================================

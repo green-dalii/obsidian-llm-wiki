@@ -470,7 +470,7 @@ export const KO_TEXTS = {
     sourceRejectedType: '⏭️ 「{filename}」은(는) 지원되지 않는 파일 형식이라 건너뛰었습니다. 텍스트 노트(.md, .txt 등)만 가져올 수 있습니다.',
     sourceRejectedDuplicate: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 내용이 이미 위키에 있습니다.',
     pdfReadingInProgress: 'PDF 읽는 중: {filename}',
-    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 현재 provider 또는 모델이 PDF 입력을 지원하지 않습니다. Settings → LLM Configuration → Advanced에서 provider를 변경하거나 「PDF 지원 강제」를 켜고 다시 시도하세요.',
+    sourceRejectedPdfUnsupported: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 현재 provider 또는 모델이 PDF 입력을 지원하지 않습니다. Settings → LLM Configuration → Advanced에서 provider를 변경하거나 「PDF 지원 강제」를 켜고 다시 시도하거나, Markdown 변환 백엔드를 MinerU로 전환하세요(이미지 및 Office 문서도 지원).',
     clearPdfCacheCommand: 'PDF 변환 캐시 지우기',
     pdfCacheCleared: 'PDF 캐시를 지웠습니다({count}개 항목 제거됨).',
     // v1.25.0 PR3: Advanced PDF settings
@@ -478,7 +478,7 @@ export const KO_TEXTS = {
     forcePdfSupportDesc: '기본값은 꺼짐. provider가 네이티브 지원 목록에 없지만 PDF를 처리할 수 있다면, 이 스위치를 켜서 시도해 볼 수 있습니다. 켜면 PDF가 현재 provider로 전송되며, 거부되면 알림으로 안내됩니다. 네이티브 PDF provider(Anthropic / OpenAI / Bedrock)는 이 설정이 필요 없습니다.',
     writePdfMarkdownToVaultName: '변환된 Markdown을 Vault에 기록',
     markdownConversionBackendName: 'Markdown 변환 백엔드',
-    markdownConversionBackendDesc: '제공업체의 기본 PDF/이미지 지원을 사용하거나 온라인 MinerU API(Office 문서도 지원)를 사용하세요.',
+    markdownConversionBackendDesc: 'Native는 제공업체의 내장 PDF 지원을 사용합니다(범위가 제한적이며 모든 제공업체/모델이 PDF를 처리하는 것은 아니며 LLM 토큰을 소비합니다). MinerU는 온라인 서비스로 — 빠르고, 일일 할당량까지 무료이며, PDF/이미지/Office를 지원합니다 — 하지만 API 토큰이 필요합니다(아래 필드에 설정).',
     markdownConversionBackendNative: '제공업체 PDF/이미지 지원',
     markdownConversionBackendMineru: 'MinerU 온라인 API',
     mineruApiTokenName: 'MinerU API 토큰',
@@ -487,8 +487,8 @@ export const KO_TEXTS = {
     mineruUploadingInProgress: 'MinerU에 PDF 업로드 중: {filename}',
     mineruWaitingInProgress: 'MinerU 변환 대기 중: {filename}',
     mineruDownloadingInProgress: 'MinerU 결과 다운로드 중: {filename}',
-    mineruConversionComplete: 'MinerU 변환 완료: {filename}',
-    mineruConversionCompleteSaved: 'MinerU 변환 완료 — {path}에 저장됨: {filename}',
+    markdownConversionComplete: '변환 완료: {filename}',
+    markdownConversionCompleteSaved: '변환 완료 — {path}에 저장됨: {filename}',
     writePdfMarkdownToVaultDesc: '기본값은 꺼짐. 켜면 각 PDF 변환 결과가 원본 PDF 옆에 「<basename>.pdf.md」 파일로 기록됩니다. 꺼져 있으면(캐시 전용 아키텍처) 결과는 플러그인 캐시에만 남고 Vault에는 구현 아티팩트를 남기지 않습니다.',
 
     ingestRejectedSummary: '{count}개 파일을 건너뛰었습니다(비어 있음, 중복 또는 미지원 형식).',
