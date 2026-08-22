@@ -5,6 +5,7 @@ import {
   getActiveSourceTags,
   normalizeVocabularyCsv,
   incomingTypeTag,
+  foldToVocabulary,
 } from '../../core/tag-vocab';
 import { LLMWikiSettings } from '../../types';
 
@@ -177,5 +178,34 @@ describe('incomingTypeTag', () => {
   it('returns nothing for a missing type', () => {
     expect(incomingTypeTag(dflt, 'entity', undefined)).toBeUndefined();
     expect(incomingTypeTag(dflt, 'entity', '')).toBeUndefined();
+  });
+});
+
+describe('foldToVocabulary (Issue #527)', () => {
+  const vocab = ['Biochemie', 'Erkrankung', 'Prävention', 'Entzündungsprozesse'];
+
+  it('returns the exact term unchanged', () => {
+    expect(foldToVocabulary('Biochemie', vocab)).toBe('Biochemie');
+  });
+
+  it('folds case onto the vocabulary spelling', () => {
+    expect(foldToVocabulary('biochemie', vocab)).toBe('Biochemie');
+    expect(foldToVocabulary('ERKRANKUNG', vocab)).toBe('Erkrankung');
+  });
+
+  it('folds diacritics both ways', () => {
+    expect(foldToVocabulary('Pravention', vocab)).toBe('Prävention');
+    expect(foldToVocabulary('Entzundungsprozesse', vocab)).toBe('Entzündungsprozesse');
+  });
+
+  it('does not fold plural or inflection — that is the model\'s call', () => {
+    expect(foldToVocabulary('Erkrankungen', vocab)).toBeNull();
+    expect(foldToVocabulary('Biochemisch', vocab)).toBeNull();
+  });
+
+  it('returns null for the built-in taxonomy under a custom vocabulary, and for blanks', () => {
+    expect(foldToVocabulary('person', vocab)).toBeNull();
+    expect(foldToVocabulary('other', vocab)).toBeNull();
+    expect(foldToVocabulary('   ', vocab)).toBeNull();
   });
 });

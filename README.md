@@ -165,7 +165,7 @@ That's it. The plugin modifies nothing in your original notes — only creates n
 - **🏷️ Mandatory aliases** — every page ships with at least one alias (translation, abbreviation, variant) so cross-language duplicate detection works.
 - **🔄 Tiered duplicate detection** — Tier 1 (direct name match: cross-language, abbreviation, high-similarity titles) is always verified; Tier 2 (shared links, medium similarity) fills remaining token budget.
 - **🧩 Smart merge & contradiction state** — duplicates merge while preserving aliases; contradictions are flagged with source attribution; `reviewed: true` pages are protected from overwrite.
-- **🎨 Custom tag vocabulary** — define your own entity-type and concept-type tag lists in Settings → Wiki → Tag Vocabulary → *Custom*. The vocabulary is a **schema injection hint** for the LLM, not a write-time enforcement gate — small/local models may still drift, and the Lint diagnostic surfaces those pages so you can fix them. (Schema enforcement is being designed for v1.27.0+; see the design anchor.)
+- **🎨 Custom tag vocabulary** — define your own entity-type and concept-type tag lists in Settings → Wiki → Tag Vocabulary → *Custom*. The vocabulary is a **schema injection hint** for the LLM, not a wire-level enforcement gate — small/local models still drift (measured: about one item in ten comes back with the model's built-in taxonomy). Since Issue #527 the ingest folds such a type onto the vocabulary (case, diacritics) or asks the model once more with the item's own summary before the page is written; whatever still slips through is surfaced by the Lint diagnostic so you can fix it. (Schema enforcement is being designed for v1.27.0+; see the design anchor.)
 
 ### 📄 PDF ingest (v1.25.0+)
 

@@ -19,7 +19,7 @@ import { renderTemplate } from '../core/template-renderer';
 import { matchExtractedToExisting } from '../core/index-search';
 import { coerceToArray } from '../core/arrays';
 import { isBlankSource } from '../core/frontmatter';
-import { MAX_TOKENS_BATCH, TOKENS_PER_ITEM_BUDGET, TOKENS_LEMMA_CLASSIFY, SOURCE_ANALYZER_RETRY_MULTIPLIER } from '../constants';
+import { MAX_TOKENS_BATCH, TOKENS_PER_ITEM_BUDGET, TOKENS_LEMMA_CLASSIFY, TOKENS_TYPE_REPAIR, SOURCE_ANALYZER_RETRY_MULTIPLIER } from '../constants';
 import { getExistingWikiPages } from './lint/get-existing-pages';
 import { getGranularityInstruction } from './system-prompts';
 import { resolveModelForTask } from '../core/model-resolver';
@@ -28,8 +28,8 @@ import { calculateBatchLimits, adjustBatchSizeForResponse, getCustomTypeCaps } f
 import { detectConvergence, checkCumulativeLimits, checkEmptyBatch, formatConvergenceStatus } from '../core/convergence-detector';
 import { createEmptyAccumulation, mergeBatchResults, buildSourceAnalysis, calculateBatchStats } from '../core/batch-merger';
 import { decideSourceLemma } from '../core/source-lemma';
-import { getActiveEntityTags, getActiveConceptTags } from '../core/tag-vocab';
-import { SourceAnalysisLLMSchema, LemmaClassifyLLMSchema } from '../llm-sdk/output-schemas';
+import { getActiveEntityTags, getActiveConceptTags, foldToVocabulary } from '../core/tag-vocab';
+import { SourceAnalysisLLMSchema, LemmaClassifyLLMSchema, TypeRepairLLMSchema } from '../llm-sdk/output-schemas';
 import { callLlm } from '../core/llm-dispatch';
 
 // ── Batch response normalization ─────────────────────────────────
@@ -716,6 +716,13 @@ export class SourceAnalyzer {
     // lists, and fails safe — any doubt leaves the analysis untouched.
     await this.ensureSourceLemma(analysis, file.basename, sourceNoteAliases);
 
+    // Issue #527 — the vocabulary is a prompt hint and the schema enforces
+    // nothing, so about one item in ten arrives with a type the active
+    // vocabulary does not admit. Resolve that here, while the source's own
+    // words are still at hand, instead of letting the page be born as a lint
+    // violation that retag later decides from the page's own prose.
+    await this.repairTypesAgainstVocabulary(analysis);
+
     console.debug('=== Iterative extraction complete ===');
     console.debug('  - Total batches:', finalBatchNum);
     console.debug('  - Entities count:', accumulation.entities.length);
@@ -820,6 +827,108 @@ export class SourceAnalyzer {
       ? getActiveEntityTags(this.ctx.settings)
       : getActiveConceptTags(this.ctx.settings);
     return tags[0] ?? 'other';
+  }
+
+  /**
+   * Issue #527 — bring every extracted `type` into the active vocabulary.
+   *
+   * Measured on a 34-term custom vocabulary (1 555 extraction responses):
+   * 88 % of items arrive with a vocabulary term, 10 % with the built-in
+   * taxonomy the model knows from training (`person`, `theory`, `method` —
+   * the prompt told it not to), 2 % with a near-miss spelling. Downstream the
+   * value becomes `tags: [...]` on the new page, `enforceFrontmatterConstraints`
+   * keeps it, `scanTagViolations` reports it, and `runRetagViolations` — hand
+   * triggered — decides the final tag from 400 characters of the page's own
+   * prose. The source's summary, which is what the type was extracted from,
+   * never reaches that decision.
+   *
+   * Two steps, both fail-safe. A deterministic fold (case, diacritics) first;
+   * for what the fold cannot place, one short call with the item's own summary
+   * and the vocabulary — the retag question, asked at intake with the source's
+   * words. Any doubt (parse failure, answer outside the vocabulary, call error)
+   * leaves the item as extracted, which is exactly today's behaviour.
+   */
+  private async repairTypesAgainstVocabulary(analysis: SourceAnalysis): Promise<void> {
+    const entityVocab = getActiveEntityTags(this.ctx.settings);
+    const conceptVocab = getActiveConceptTags(this.ctx.settings);
+    // The literal unions on EntityInfo/ConceptInfo predate custom
+    // vocabularies; writing a vocabulary term through a string-typed view is
+    // what the lemma path does too (`as 'other'` at firstActiveTag's call).
+    type Typed = { name: string; type: string; summary: string };
+    const work: Array<{ item: Typed; kind: 'entity' | 'concept'; vocab: string[] }> = [
+      ...analysis.entities.map(e => ({ item: e, kind: 'entity' as const, vocab: entityVocab })),
+      ...analysis.concepts.map(c => ({ item: c, kind: 'concept' as const, vocab: conceptVocab })),
+    ];
+    const pending: typeof work = [];
+    for (const w of work) {
+      const raw = typeof w.item.type === 'string' ? w.item.type : '';
+      if (w.vocab.includes(raw)) continue;
+      const folded = foldToVocabulary(raw, w.vocab);
+      if (folded) {
+        console.debug(`[Type repair] "${w.item.name}": ${raw} → ${folded} (fold)`);
+        w.item.type = folded;
+        continue;
+      }
+      pending.push(w);
+    }
+    if (pending.length === 0) return;
+    await Promise.all(pending.map(async w => {
+      const raw = typeof w.item.type === 'string' ? w.item.type : '';
+      const repaired = await this.askTypeFromVocabulary(w.kind, w.item.name, raw, w.item.summary, w.vocab);
+      if (repaired) {
+        console.debug(`[Type repair] "${w.item.name}": ${raw} → ${repaired} (model)`);
+        w.item.type = repaired;
+      } else {
+        console.debug(`[Type repair] "${w.item.name}": kept "${raw}" (no vocabulary answer)`);
+      }
+    }));
+  }
+
+  /**
+   * One short call: which term of the active vocabulary fits this item? Null
+   * on any doubt — the caller then keeps the extracted value. Mirrors
+   * `classifyLemmaType` below in shape (typed-output path, same budget).
+   */
+  private async askTypeFromVocabulary(
+    kind: 'entity' | 'concept',
+    name: string,
+    extractedType: string,
+    summary: string,
+    vocab: readonly string[],
+  ): Promise<string | null> {
+    const client = this.ctx.getClient();
+    if (!client) return null;
+
+    const prompt = `The extraction gave the ${kind} "${name}" the type "${extractedType}", which is not in the active tag vocabulary.
+
+Summary of the source describing it:
+${summary}
+
+Allowed types (pick exactly one): ${vocab.join(', ')}
+
+Respond with this JSON object and nothing else: {"type": "<one of the allowed types>"}`;
+
+    const system = await this.ctx.buildSystemPrompt('analyze');
+    try {
+      const repairArgs = {
+        task: 'type-repair' as const,
+        model: resolveModelForTask(this.ctx.settings, 'ingest'),
+        max_tokens: TOKENS_TYPE_REPAIR,
+        system,
+        messages: [{ role: 'user' as const, content: prompt }],
+        response_format: { type: 'json_object' as const, schema: TypeRepairLLMSchema },
+        ...(this.ctx.settings.disableThinking ? { enableThinking: false } : {}),
+      };
+      const response = await callLlm(client, repairArgs);
+      const parsed = (await parseJsonResponse(response, undefined, { silentOnEmpty: true })) as { type?: unknown } | null;
+      const answer = typeof parsed?.type === 'string' ? foldToVocabulary(parsed.type, vocab) : null;
+      if (answer) return answer;
+      console.debug(`[Type repair] unusable answer for "${name}": ${JSON.stringify(parsed)}`);
+      return null;
+    } catch (err) {
+      console.warn('[Type repair] call failed:', err);
+      return null;
+    }
   }
 
   /**
