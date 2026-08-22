@@ -31,6 +31,7 @@ import { decideSourceLemma } from '../core/source-lemma';
 import { getActiveEntityTags, getActiveConceptTags } from '../core/tag-vocab';
 import { SourceAnalysisLLMSchema, LemmaClassifyLLMSchema } from '../llm-sdk/output-schemas';
 import { callLlm } from '../core/llm-dispatch';
+import { findRepetitionLoop } from '../core/repetition-loop';
 
 // ── Batch response normalization ─────────────────────────────────
 // LLMs often return irregular JSON: omitted empty arrays, non-array truthy
@@ -419,6 +420,27 @@ export class SourceAnalyzer {
             .replace('{current}', String(batchNum + 1))
         );
 
+        // Issue #524: a degenerate repetition loop is the one signal that
+        // tells a damaged batch from a short one. Under grammar-constrained
+        // decoding the loop can end in `finish_reason: stop` with schema-valid
+        // JSON around it — a handful of items, the loop inside a string — and
+        // every guard below (empty-batch, halving on `length`, JSON repair)
+        // accepts that as a successful batch. Treat it like truncation: halve
+        // and retry while the budget allows; otherwise parse what arrived and
+        // say so. The debug line carries finish reason and reasoning tokens
+        // so a user can read the regime off the log (#524).
+        const loop = findRepetitionLoop(response);
+        const reasoningStr = finish.usage?.reasoningTokens !== undefined ? ` reasoning_tokens=${finish.usage.reasoningTokens}` : '';
+        console.debug(`[Batch ${batchNum + 1}] finish=${finish.reason}${reasoningStr}${loop ? ` repetition_loop=${loop.length} chars (unit "${loop.unit}")` : ''}`);
+        if (loop) {
+          console.warn(`[Batch ${batchNum + 1}] Repetition loop in response (${loop.length} chars repeating "${loop.unit}") — treating the batch as damaged (Issue #524)`);
+          if (halveBatchAndRetry(`[Batch ${batchNum + 1}]`, 'repetition loop')) {
+            batchNum--;
+            continue;
+          }
+          console.warn(`[Batch ${batchNum + 1}] No retry budget left for the damaged batch; parsing what arrived`);
+        }
+
         // Issue #305 follow-up: on a truncated response (finish_reason=length)
         // the JSON is *incomplete*, not malformed, and a syntax-repair pass
         // costs another retryCap-sized call re-hitting the same limit
@@ -547,6 +569,10 @@ export class SourceAnalyzer {
           if (!norm.sourceTitle) {
             console.debug('Round 1 missing source_title, falling back to filename:', file.basename);
           }
+          // Issue #524: the later batches log their item counts via
+          // calculateBatchStats; the first one did not, and it is the batch
+          // whose yield says most about the response regime.
+          console.debug(`[Batch 1] items: entities=${norm.entities.length} concepts=${norm.concepts.length} (batch_size=${currentBatchSize})`);
           firstBatchData = norm;
           accumulation.contradictions = norm.contradictions;
           accumulation.relatedPages = norm.relatedPages;

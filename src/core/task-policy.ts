@@ -13,10 +13,11 @@
 // that it can be measured: an arm of a comparison run is a policy string, not
 // a patch and a rebuild.
 //
-// Default is "change nothing". An unset policy resolves to `default` on both
-// axes, which means the OutputModeProber picks the mode exactly as before and
-// the caller's own `enableThinking` argument is passed through untouched.
-// `src/__tests__/core/task-policy.test.ts` pins that.
+// Default is "change nothing" for every step except the two named in
+// `BUILTIN_TASK_POLICIES` (Issue #524): an unset policy resolves to `default`
+// on both axes, which means the OutputModeProber picks the mode exactly as
+// before and the caller's own `enableThinking` argument is passed through
+// untouched. `src/__tests__/core/task-policy.test.ts` pins that.
 
 import type { OutputMode } from '../llm-sdk/output-mode-prober';
 
@@ -73,20 +74,47 @@ export const TASK_POLICY_WILDCARD = '*';
 
 export type TaskPolicyMap = Readonly<Record<string, TaskPolicy>>;
 
+const TEXT_MODE_STEP: TaskPolicy = Object.freeze({ outputMode: 'text_prompt', thinking: 'default' });
+
+/**
+ * Built-in baseline, below anything the user sets (Issue #524).
+ *
+ * `extract` and `extract-retry` run in `text_prompt`: no `response_format`
+ * on the wire, the JSON-enforcement prefix in the system prompt instead.
+ * Measured on LM Studio / gemma-4-26b with the real pipeline request, the
+ * extraction under `json_schema` degraded in 3 of 3 draws — twice silently,
+ * as schema-valid JSON with 4–5 items where text mode returned 17–30 — and
+ * the server logs of one vault show 14 repetition loops in 125 schema-mode
+ * extraction calls against 9 in 2,368 text-mode ones. Before 1.26.3 every
+ * user ran extraction in text mode; this restores that wire shape for the
+ * one long-output generative step and leaves the short judgement calls
+ * (lemma-classify, merge-triage, the dedup pair) on the prober's default.
+ *
+ * Thinking stays `default` on purpose: the call site's `disableThinking`
+ * argument passes through exactly as it did before 1.26.3. A user entry for
+ * the task, or a `*` wildcard, wins over this baseline.
+ */
+export const BUILTIN_TASK_POLICIES: TaskPolicyMap = Object.freeze({
+  'extract': TEXT_MODE_STEP,
+  'extract-retry': TEXT_MODE_STEP,
+});
+
 /**
  * The policy for one `task` label, or the default when none applies.
  *
- * Lookup order is specific → wildcard → default, so `*=text:on` can set a
- * baseline for a whole run and a single `extract=schema:off` entry can hold
- * one step out of it.
+ * Lookup order is user-specific → user wildcard → built-in baseline →
+ * default, so `*=text:on` can set a baseline for a whole run, a single
+ * `extract=schema:off` entry can hold one step out of it, and either of them
+ * overrides `BUILTIN_TASK_POLICIES`.
  */
 export function resolveTaskPolicy(
   policies: TaskPolicyMap | undefined,
   task: string | undefined,
 ): TaskPolicy {
-  if (!policies) return DEFAULT_TASK_POLICY;
-  if (task && policies[task]) return policies[task];
-  return policies[TASK_POLICY_WILDCARD] ?? DEFAULT_TASK_POLICY;
+  if (task && policies?.[task]) return policies[task];
+  if (policies?.[TASK_POLICY_WILDCARD]) return policies[TASK_POLICY_WILDCARD];
+  if (task && BUILTIN_TASK_POLICIES[task]) return BUILTIN_TASK_POLICIES[task];
+  return DEFAULT_TASK_POLICY;
 }
 
 const MODE_ALIASES: Readonly<Record<string, TaskOutputMode>> = {

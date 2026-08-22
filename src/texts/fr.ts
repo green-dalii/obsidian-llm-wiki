@@ -551,6 +551,8 @@ export const FR_TEXTS = {
     showAdvancedSettingsDesc: 'Activez pour afficher les réglages avancés ci-dessous. Désactiver les masque et les rétablit aux valeurs par défaut.',
     disableThinkingName: 'Désactiver le raisonnement',
     disableThinkingDesc: 'Désactive l\'affichage de la chaîne de pensée/du raisonnement dans la réponse. Désactivé par défaut — le modèle décide lui-même d\'afficher ou non son raisonnement, ce qui donne généralement la meilleure réponse. Activez-le uniquement si votre fournisseur insère du texte de raisonnement brut dans la réponse et que vous souhaitez une réponse propre.',
+    taskPoliciesName: 'Mode de sortie et raisonnement par étape',
+    taskPoliciesDesc: 'Une entrée par étape du pipeline, `etape=mode:raisonnement`, séparées par des virgules — p. ex. `extract=text:off`. Modes : `-` (inchangé), `schema`, `json`, `text` ; raisonnement : `-`, `off`, `on`, `low`, `medium`, `high`. Laisser vide pour la base intégrée (extraction en mode texte). Une entrée illisible n\'est pas enregistrée.',
     // Issue #137 : Notes de compatibilité (courtes ; pas de liste de fournisseurs)
     extractionTemperatureName: 'Température d\'extraction',
     extractionTemperatureDesc: 'Contrôle si le modèle est plutôt conservateur ou créatif lors de l\'écriture de pages entity/concept. Valeurs basses = plus déterministe et fidèle ; valeurs hautes = plus varié. La plupart des utilisateurs laissent ce champ vide.',

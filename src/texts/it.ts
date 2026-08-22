@@ -602,6 +602,8 @@ export const IT_TEXTS = {
     showAdvancedSettingsDesc: 'Attiva per mostrare le impostazioni avanzate qui sotto. Disattivandole vengono nascoste e riportate ai valori predefiniti.',
     disableThinkingName: 'Disabilita ragionamento',
     disableThinkingDesc: 'Disattiva la catena di pensiero/ragionamento nella risposta del modello. Spento per impostazione predefinita — il modello decide se mostrare il ragionamento, il che di solito dà la risposta migliore. Attivalo solo se il tuo provider inserisce testo di ragionamento grezzo nella risposta e desideri una risposta pulita.',
+    taskPoliciesName: 'Modalità di output e ragionamento per passo',
+    taskPoliciesDesc: 'Una voce per passo della pipeline, `passo=modo:ragionamento`, separate da virgole — ad es. `extract=text:off`. Modi: `-` (invariato), `schema`, `json`, `text`; ragionamento: `-`, `off`, `on`, `low`, `medium`, `high`. Lasciare vuoto per la base integrata (estrazione in modalità testo). Una voce illeggibile non viene salvata.',
     // Issue #137: suggerimenti di compatibilità per le impostazioni avanzate (tenuti brevi; nessuna
     // lista di provider per evitare oneri di manutenzione quando i provider cambiano).
     extractionTemperatureName: 'Temperatura estrazione',
