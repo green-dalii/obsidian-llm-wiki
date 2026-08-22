@@ -2,11 +2,11 @@
 
 > Feature planning and improvement proposals
 
-**Latest shipped:** v1.26.4 PATCH (2026-08-19). See [CHANGELOG.md §1.26.4](./CHANGELOG.md#1264---2026-08-19) for the canonical composition record. | **Updated:** 2026-08-21
+**Latest shipped:** v1.26.4 PATCH (2026-08-19). See [CHANGELOG.md §1.26.4](./CHANGELOG.md#1264---2026-08-19) for the canonical composition record. | **Updated:** 2026-08-22
 
 **v1.26.5 PATCH CANCELLED 2026-08-19** — folded into v1.27.0 MINOR to amortize release-cycle overhead (per user direction).
 
-**v1.27.0 MINOR Phase4 (CLI demote) — branch ready 2026-08-21**: branch `feat/cli-demote-v1.27.0` (3 commits: `e5c269e` + `3870ef2` + `3a6dfaa`) eliminates 49 of ~52 Obsidian Bot errors via migration `tools/llm-wiki-cli/` → `tools/dev-instrument/` (UPSTREAM DEV-ONLY INSTRUMENT). Awaiting `gh pr create` + Bot pre-review per issue #507. Legacy snapshot at `legacy/cli-v1.26.4-snapshot`.
+**v1.27.0 MINOR Phase4 (CLI demote) — MERGED 2026-08-22**: PR #511 (`002da74`, closes #507) migrates `tools/llm-wiki-cli/` → `tools/dev-instrument/` (UPSTREAM DEV-ONLY INSTRUMENT, engine contributors only), eliminating 49 of ~52 Obsidian Bot errors. Two review rounds by @DocTpoint (round-2 blocking finding produced the shim-bundle smoke test now in Gate 1); legacy snapshot at `legacy/cli-v1.26.4-snapshot`. One-cycle deprecation notice ships in the v1.27.0 release notes.
 
 ## Process notes
 
@@ -40,6 +40,25 @@ Process standards live in [CLAUDE.md §"🛡️ Six-Gate Quality Closure"](./CLA
 | **#306** | Compact slug list dominated prompt (2026-07-19 measurement, 67K/77%) | **Stale — resolved by v1.26.4 PATCH #482** (slug catalog removed from `source-analyzer.ts:273-280`). Close as completed-in-v1.26.4 |
 | **#404** (PR) | feat: add MinerU online PDF conversion backend | @XEurekaX — merged 2026-08-22 (`769e7bb`); ships with v1.27.0 |
 | **#498** (PR) | docs(notice): bring the @DocTpoint attribution line up to v1.26.4 | Ship with MINOR |
+
+### Community wave 2026-08-21/22 (triaged, ships with v1.27.0)
+
+All reviewed + approved 2026-08-22; merge order: #513+#523 (compose) → #510 → #520/#521 (independent) → #516/#518 (CI pending) → #508.
+
+| PR | Issue | What | Note |
+|----|-------|------|------|
+| **#513** | #512 | duplicate-merge passthrough (#356 parity) | Composes with #523 |
+| **#523** | #522 | constraints pass block-form passthrough (#356 parity) | Closes the parity chain with #513 |
+| **#510** | #509 | `mergeFrontmatter` unions incoming type tags | **Decision 2026-08-22: keep union** (order-invariance; `incomingTypeTag` guards custom vocab); custom-vocab tag gap to be filed separately by @DocTpoint |
+| **#520** | #519 | one ranked candidate window for dedup + dead-link prompts | Measured: full-list fallback recall nominal (0/18), cost real (~40K tokens × 61% candidates). Gate-4 accepted: ~2KB text/page retained (~5.6MB peak @2.8K pages) |
+| **#521** | #514 | opt-in candidate gate (`skipMentionOnlyCandidates`, default off) | Only `de` profile measured; zh/ja char thresholds unmeasured — maintainer follow-up on a Chinese vault |
+| **#516** | #515 | OpenRouter Anthropic baseURL fixture fix | Test-only; GLM/z.ai rows in same table still need account-holding verification |
+| **#518** | #517 | blank-model guard in Test Connection (+11 locales) | Adjacent findings → follow-up issues (see below) |
+| **#508** | — | CHANGELOG upgrade note for #504 `/` entries | Rides `[Unreleased]` into v1.27.0 |
+
+Deferred: **#503** (`userIgnoreFilters`) → research track — decision recorded: `vault.getConfig` behind a narrow typed interface; blocked on pinning Obsidian's ignore-matching semantics.
+
+Follow-ups to file (not yet opened): anavalo's two adjacent findings from #517 (`isUrlError` treats model-404 as URL fault → wasted fallback round trip; `getModelFilter` drops every OpenRouter id containing `:` — ~79/419 models incl. all `:free` variants invisible).
 
 ### Other follow-ups
 
