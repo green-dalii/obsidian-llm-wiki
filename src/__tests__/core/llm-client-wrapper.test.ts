@@ -177,12 +177,30 @@ describe('wrapWithAdvancedSettings — typed-output path (createMessageWithOutpu
 // site passes `disableThinking` unconditionally while the policy names one
 // step deliberately.
 describe('wrapWithAdvancedSettings — per-task policy (#481)', () => {
-  it('adds nothing when no policy is configured', () => {
-    for (const task of ['extract', 'page-generate', 'merge-triage', undefined]) {
+  it('adds nothing when no policy is configured — for the steps without a built-in baseline', () => {
+    for (const task of ['page-generate', 'merge-triage', 'lemma-classify', undefined]) {
       const body = sent({}, task === undefined ? {} : { task });
       expect(body).not.toHaveProperty('outputModeOverride');
       expect(body).not.toHaveProperty('enableThinking');
     }
+  });
+
+  // Issue #524: the built-in baseline reaches the wire through the same seam.
+  // Only the output mode moves; the thinking axis is left to the call site.
+  it('pins extract and extract-retry to text_prompt with no policy configured (#524)', () => {
+    for (const task of ['extract', 'extract-retry']) {
+      const body = sent({}, { task });
+      expect(body.outputModeOverride).toBe('text_prompt');
+      expect(body).not.toHaveProperty('enableThinking');
+    }
+  });
+
+  it('lets a configured policy move extract back onto the schema (#524)', () => {
+    const body = sent(
+      { taskPolicies: { extract: { outputMode: 'json_schema', thinking: 'default' } } },
+      { task: 'extract' },
+    );
+    expect(body.outputModeOverride).toBe('json_schema');
   });
 
   it('adds nothing to a step the policy does not name', () => {

@@ -6,6 +6,7 @@
  *
  *   - Advanced Settings Mode dropdown (default / custom)
  *   - Disable Thinking toggle (only in custom mode)
+ *   - Per-step output mode / thinking spec (Issue #524, only in custom mode)
  *   - Three temperature / repetition penalty number inputs
  *   - Force PDF Support toggle (v1.25.0 PR3 universal escape hatch)
  *
@@ -27,7 +28,8 @@
  *
  * Invariants preserved:
  *   - Switching Advanced to default mode resets disableThinking +
- *     all 3 temperature/penalty fields + forcePdfSupport to defaults.
+ *     all 3 temperature/penalty fields + taskPolicies + forcePdfSupport
+ *     to defaults.
  *   - Switching Advanced to default does NOT touch writePdfMarkdownToVault
  *     (that field lives in Wiki Configuration, v1.25.0 PR3).
  *   - forcePdfSupport toggle renders ONLY for non-native providers
@@ -41,6 +43,7 @@ import { Setting } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
 import { NATIVE_PDF_PROVIDER_IDS } from '../../constants';
 import { renderNumberInput } from './shared-inputs';
+import { formatTaskPolicyMap, parseTaskPolicySpec } from '../../core/task-policy';
 
 export function renderAdvancedSection(tab: LLMWikiSettingTab, containerEl: HTMLElement): void {
   const { tempSettings } = tab;
@@ -63,6 +66,9 @@ export function renderAdvancedSection(tab: LLMWikiSettingTab, containerEl: HTMLE
             tempSettings.extractionTemperature = undefined;
             tempSettings.chatTemperature = undefined;
             tempSettings.repetitionPenalty = undefined;
+            // Issue #524: the per-step policy is rendered only inside this
+            // block, same reasoning as forcePdfSupport below.
+            tempSettings.taskPolicies = undefined;
             // v1.25.0 PR3: reset forcePdfSupport - it's rendered only inside
             // the Advanced block, so hiding the block without resetting
             // the value would leave users with a no-UI-affordance setting.
@@ -92,6 +98,36 @@ export function renderAdvancedSection(tab: LLMWikiSettingTab, containerEl: HTMLE
       .onChange((value) => {
         tempSettings.disableThinking = value;
       }));
+
+  // Issue #524: per-step output mode / thinking (src/core/task-policy.ts).
+  // The field existed since #490 but only data.json reached it; without a
+  // control no user could move a step off the built-in baseline or back
+  // onto the schema. Spec format `step=mode[:thinking]`, comma-separated,
+  // e.g. `extract=text:off`. Blank = built-in baseline. An unreadable spec
+  // is reported on the input and not saved, so the last good value stands.
+  new Setting(containerEl)
+    .setName(tab.getText('taskPoliciesName'))
+    .setDesc(tab.getText('taskPoliciesDesc'))
+    .addText(text => {
+      text
+        .setPlaceholder('Example: extract=text:off')
+        .setValue(tempSettings.taskPolicies ? formatTaskPolicyMap(tempSettings.taskPolicies) : '')
+        .onChange((value) => {
+          const trimmed = value.trim();
+          if (trimmed === '') {
+            tempSettings.taskPolicies = undefined;
+            text.inputEl.setCustomValidity('');
+            return;
+          }
+          try {
+            tempSettings.taskPolicies = parseTaskPolicySpec(trimmed);
+            text.inputEl.setCustomValidity('');
+          } catch (err) {
+            text.inputEl.setCustomValidity(err instanceof Error ? err.message : String(err));
+            text.inputEl.reportValidity();
+          }
+        });
+    });
 
   // Three temperature / repetition penalty inputs. Shared number-input
   // helper from ./shared-inputs (also used by Auto Maintenance for the
