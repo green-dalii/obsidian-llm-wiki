@@ -7,9 +7,15 @@
 //
 // No `node:*` static imports in this file (per `obsidianmd/no-nodejs-modules`).
 // The legacy `node:http`/`node:https` requestUrl uses dynamic `await import()`
-// guarded by Platform.isDesktop. The legacy Notice class is dropped — the
-// engine ingest path never calls Notice, and the `console.log` calls inside
-// triggered `obsidianmd/rule-custom-message` (no-console) Warnings.
+// guarded by Platform.isDesktop.
+//
+// Notice IS provided (restored after PR #511 review): the engine imports the
+// binding at module level (`src/wiki/wiki-engine.ts:5`) and constructs it on
+// the abort / PDF / rate-limit branches even though the headless ingest path
+// never fires it — esbuild fails the whole bundle on the missing export, so
+// "the engine never calls it" does not keep the instrument runnable. The body
+// writes through process.stdout.write; the legacy console.log form triggered
+// `obsidianmd/rule-custom-message` (no-console) Warnings.
 
 /**
  * Install minimal Obsidian window/activeWindow globals that production
@@ -194,6 +200,28 @@ export async function requestUrl(param: RequestUrlParam): Promise<RequestUrlResp
       }
     },
   };
+}
+
+/**
+ * Notice — Obsidian's transient toast. Headless stand-in logs to stdout.
+ * Same shape as the legacy CLI's class (constructor message + optional
+ * timeout, setMessage, hide, getMessage) so engine call sites compile and
+ * run unchanged; the timeout argument is meaningless on a terminal.
+ */
+export class Notice {
+  private message: string;
+  constructor(message: string, _timeout?: number) {
+    this.message = message;
+    process.stdout.write(`[Notice] ${message}\n`);
+  }
+  setMessage(message: string): void {
+    this.message = message;
+    process.stdout.write(`[Notice] ${message}\n`);
+  }
+  hide(): void { /* nothing to dismiss on a terminal */ }
+  getMessage(): string {
+    return this.message;
+  }
 }
 
 /** Every UI class the plugin's import graph may pull in but the CLI never renders. */

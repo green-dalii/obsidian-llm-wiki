@@ -22,10 +22,12 @@
 //   arrive via env (positional-only CLI cannot express them); applied to
 //   `settings` before snapshotting so per-step metrics reflect the arm, and
 //   echoed in the `[cli]` header so the log names which arm produced the
-//   table that follows (Issue #507 DocTpoint comment).
+//   table that follows (Issue #507 DocTpoint comment). Unknown values throw
+//   (`measurement-arms.ts`) — the header must never name an unapplied arm.
 import { Platform } from './shim';
 import { DEFAULT_CONFIG_DIR, PLUGIN_ID } from './shim';
 import { loadNodeModules, createVaultApp, type VaultWriteRecord } from './vault-fs';
+import { applyMeasurementArms } from './measurement-arms';
 import { type App, TFile, normalizePath } from 'obsidian';
 import { WikiEngine } from '../../../src/wiki/wiki-engine';
 import { SchemaManager } from '../../../src/schema/schema-manager';
@@ -33,6 +35,7 @@ import { createLLMClient } from '../../../src/core/create-plugin-llm-client';
 import { preloadLLMClientModules } from '../../../src/llm-sdk/create-llm-client';
 import { applySettingsMigrations } from '../../../src/core/settings-migrations';
 import { isLocalNoKeyProvider } from '../../../src/core/local-no-key-provider';
+import { formatTaskPolicyMap, resolveTaskPolicy, type TaskPolicyMap } from '../../../src/core/task-policy';
 import type { IngestReport, LLMClient, LLMWikiSettings } from '../../../src/types';
 import {
   snapshotTaskUsage,
@@ -152,10 +155,12 @@ interface PrintSummaryInput {
   report: IngestReport | null;
   writes: VaultWriteRecord[];
   elapsedMs: number;
+  /** data.json per-step policies (#490) — resolved per row below. */
+  policies?: TaskPolicyMap;
 }
 
 function printSummary(input: PrintSummaryInput): void {
-  const { byTask, tokens, report, writes, elapsedMs } = input;
+  const { byTask, tokens, report, writes, elapsedMs, policies } = input;
   const lines: string[] = [];
 
   lines.push('', '=== Writes ===');
@@ -196,13 +201,18 @@ function printSummary(input: PrintSummaryInput): void {
   );
 
   lines.push('', '=== Where the time went ===');
-  lines.push('  step               calls   seconds   share');
+  // mode / think = the policy each step RESOLVED (specific → wildcard →
+  // default), so a run with data.json taskPolicies (#490) is distinguishable
+  // from an identical one without them (PR #511 review, DocTpoint finding 3).
+  lines.push('  step               calls   seconds   share  mode         think');
   const wall = byTask.reduce((sum, [, u]) => sum + u.millis, 0) || 1;
   for (const [name, usage] of byTask) {
+    const policy = resolveTaskPolicy(policies, name);
     lines.push(
       `  ${name.padEnd(18)} ${String(usage.calls).padStart(5)}`
       + ` ${(usage.millis / 1000).toFixed(1).padStart(10)}`
-      + ` ${(100 * usage.millis / wall).toFixed(0).padStart(6)}%`,
+      + ` ${(100 * usage.millis / wall).toFixed(0).padStart(6)}%`
+      + ` ${policy.outputMode.padEnd(12)} ${policy.thinking}`,
     );
   }
   lines.push(`  elapsed           ${(elapsedMs / 1000).toFixed(1)}s`);
@@ -230,25 +240,14 @@ export async function runIngest(vaultRoot: string, sourcePath: string): Promise<
   const settings = await loadSettings(vaultRoot);
   settings.apiKey = await resolveApiKey(settings.provider);
 
-  // Measurement arms — env-only (positional CLI cannot express them). Three
-  // conditional lines per DocTpoint (Issue #507 comment 2): the arms are
-  // applied to settings before snapshotting so per-step metrics reflect the
-  // arm, and echoed in the `[cli]` header so the log names which arm produced
-  // the table that follows. `data-json` is a deliberate no-op (use whatever
-  // data.json says); `plugin-off` / `server-default` express an opinion.
+  // Measurement arms — env-only (positional CLI cannot express them); applied
+  // to settings before snapshotting so per-step metrics reflect the arm, and
+  // echoed in the `[cli]` header so the log names which arm produced the
+  // table that follows (Issue #507 DocTpoint comment 2). Unknown values THROW
+  // rather than no-op — an arm must never silently not-run while its header
+  // claims it did (PR #511 review, DocTpoint finding 3).
   const thinkingMode = process.env.WIKI_THINKING_MODE;
-  if (thinkingMode === 'plugin-off') settings.disableThinking = true;
-  else if (thinkingMode === 'server-default') settings.disableThinking = false;
-  const armTemp = process.env.WIKI_TEMP;
-  if (armTemp !== undefined) {
-    const n = Number(armTemp);
-    if (!Number.isNaN(n)) settings.extractionTemperature = n;
-  }
-  const armTopP = process.env.WIKI_TOP_P;
-  if (armTopP !== undefined) {
-    const n = Number(armTopP);
-    if (!Number.isNaN(n)) settings.extractionTopP = n;
-  }
+  applyMeasurementArms(settings, process.env);
 
   const app = await createVaultApp(vaultRoot);
   const sourceFile = resolveSourceFile(app, sourcePath);
@@ -273,11 +272,21 @@ export async function runIngest(vaultRoot: string, sourcePath: string): Promise<
     crypto.subtle,
   );
 
+  // Header names the EFFECTIVE state, not the raw env: `thinking-arm` is what
+  // was requested, `disable-thinking` is what the engine will do, and
+  // `task-policies` is the data.json per-step map (#490) — two runs that
+  // differ only in data.json must not produce identical headers (PR #511
+  // review, DocTpoint finding 3).
+  const policiesText = settings.taskPolicies && Object.keys(settings.taskPolicies).length > 0
+    ? formatTaskPolicyMap(settings.taskPolicies)
+    : '-';
   process.stdout.write(
     `[cli] vault=${vaultRoot}\n` +
     `[cli] source=${sourceFile.path}\n` +
     `[cli] provider=${settings.provider} model=${settings.model} baseUrl=${settings.baseUrl}\n` +
-    `[cli] thinking-mode=${thinkingMode ?? 'unset'} temp=${settings.extractionTemperature ?? 'server default'} top-p=${settings.extractionTopP ?? 'server default'}\n`,
+    `[cli] thinking-arm=${thinkingMode ?? 'unset'} disable-thinking=${settings.disableThinking}\n` +
+    `[cli] temp=${settings.extractionTemperature ?? 'server default'} top-p=${settings.extractionTopP ?? 'server default'}\n` +
+    `[cli] task-policies=${policiesText}\n`,
   );
 
   const taskUsageBefore = snapshotTaskUsage();
@@ -291,6 +300,7 @@ export async function runIngest(vaultRoot: string, sourcePath: string): Promise<
       report,
       writes: app.vault.writes,
       elapsedMs: Date.now() - startedAt,
+      policies: settings.taskPolicies,
     });
   }
 }

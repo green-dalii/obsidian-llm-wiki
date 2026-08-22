@@ -58,9 +58,9 @@ export default [
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        // Both tsconfigs cover the tools/ tree during the v1.27.0 MINOR
-        // migration window. After tools/llm-wiki-cli/ is deleted, drop the
-        // legacy reference (PR of issue #507 Phase 4 demote).
+        // tools/dev-instrument/tsconfig.json is the type context for the
+        // whole tools/ tree since the legacy tools/llm-wiki-cli/ deletion
+        // (issue #507 Phase 4 demote, PR #511).
         project: ["./tools/dev-instrument/tsconfig.json"],
       },
       globals: NODE_GLOBALS,
@@ -81,5 +81,12 @@ export default [
     languageOptions: {
       globals: NODE_GLOBALS,
     },
+  },
+  // esbuild output (run-instrument.mjs's dist/, plus the bundle smoke test's
+  // dist/test-bundle.mjs) — build artifacts, gitignored, never source. The
+  // shim-bundle test regenerates one on every Gate 1 run, so without this
+  // ignore the scan would report hundreds of findings against bundled code.
+  {
+    ignores: ["tools/dev-instrument/dist/**"],
   },
 ];

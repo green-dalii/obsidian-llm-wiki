@@ -6,9 +6,10 @@
 // Production CLI is `npx karpathywiki-cli` from the sibling repo
 // `green-dalii/obsidian-llm-wiki-cli` v0.1.0+.
 //
-// Usage:
-//   ./run-instrument.mjs <vault> <source> [WIKI_API_KEY=sk-...] \
-//     [OBSIDIAN_CONFIG_DIR=.obsidian]
+// Usage (env assignments MUST precede the command — shell grammar):
+//   WIKI_API_KEY=sk-... node tools/dev-instrument/run-instrument.mjs <vault> <source>
+// Optional arms: WIKI_THINKING_MODE=data-json|plugin-off|server-default
+//                WIKI_TEMP=<number>  WIKI_TOP_P=<number>  OBSIDIAN_CONFIG_DIR=...
 //
 // Bundles `src/engine-runner.ts` with esbuild and writes the result to
 // dist/run-instrument.mjs, then imports it. The dist/ output is gitignored

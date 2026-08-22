@@ -71,7 +71,11 @@ export class NodeVault {
   readonly writes: VaultWriteRecord[] = [];
 
   private readonly root: string;
-  private readonly configDir: string;
+  // Public on purpose: engine-side code reads `app.vault.configDir` through
+  // structural typing (`getPdfCacheDir` in `src/core/pdf-cache.ts`) — the
+  // legacy adapter kept it public for exactly that reason (PR #511 review,
+  // DocTpoint finding: the private field only "worked" behind an `as` cast).
+  readonly configDir: string;
   private readonly skippedDirs: Set<string>;
   private readonly modules: NodeModules;
   private readonly files = new Map<string, TFile>();

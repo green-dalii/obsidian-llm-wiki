@@ -16,18 +16,41 @@ the 979s → 365s → 151s evidence in CLAUDE.md §"Force-disable thinking".
 ## Usage
 
 ```bash
-node tools/dev-instrument/run-instrument.mjs <vault> <source> \
-  [WIKI_API_KEY=sk-...] \
-  [OBSIDIAN_CONFIG_DIR=.obsidian]
+WIKI_API_KEY=sk-... node tools/dev-instrument/run-instrument.mjs <vault> <source>
 ```
+
+Environment assignments MUST precede the command — that is shell grammar,
+not a style choice; `[WIKI_API_KEY=...]` placed after the positionals does
+not set anything in any shell (PR #511 review).
 
 - `<vault>` — absolute path to an Obsidian vault
 - `<source>` — path (relative to vault) of a single source note
 - `WIKI_API_KEY` — provider API key; required for non-local providers
+
+### Measurement arms (optional, env-only)
+
+The positional-only CLI cannot express these, so they arrive via env —
+always **before** the command:
+
+```bash
+WIKI_API_KEY=sk-... WIKI_THINKING_MODE=plugin-off WIKI_TEMP=0.7 WIKI_TOP_P=0.9 \
+  node tools/dev-instrument/run-instrument.mjs <vault> <source>
+```
+
+- `WIKI_THINKING_MODE` — `data-json` (default: use whatever data.json says) |
+  `plugin-off` (force `disableThinking: true`) | `server-default` (force it
+  off). Unknown values fail fast instead of silently no-opping.
+- `WIKI_TEMP` / `WIKI_TOP_P` — override the extraction sampling settings for
+  this run. Non-numeric values fail fast.
 - `OBSIDIAN_CONFIG_DIR` — Obsidian config directory name; defaults to
   `.obsidian` (built at runtime as `'.' + 'obsidian'` to avoid the
   `obsidianmd/hardcoded-config-path` Bot rule). Users with a renamed
   config dir must set this env var.
+
+Arms are applied to `settings` before the snapshot and echoed in the
+`[cli]` header together with the effective state (`disable-thinking`) and
+the data.json per-step policy map (`task-policies`, #490), so a log names
+the arm that produced its numbers.
 
 ## Why it exists
 

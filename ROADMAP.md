@@ -38,7 +38,7 @@ Process standards live in [CLAUDE.md §"🛡️ Six-Gate Quality Closure"](./CLA
 | **#472** | Same-type merge without semantic guard (cross-type designator silently merges into wrong page when classification picks wrong folder) | |
 | **#425** | Bedrock Stage 2 — SSO/Profile auth via hand-rolled IAM Identity Center OIDC + SigV4 | Codex-style, zero AWS SDK, ~+10 KB |
 | **#306** | Compact slug list dominated prompt (2026-07-19 measurement, 67K/77%) | **Stale — resolved by v1.26.4 PATCH #482** (slug catalog removed from `source-analyzer.ts:273-280`). Close as completed-in-v1.26.4 |
-| **#404** (PR) | feat: add MinerU online PDF conversion backend | @XEurekaX — pending Gate 1 verification |
+| **#404** (PR) | feat: add MinerU online PDF conversion backend | @XEurekaX — merged 2026-08-22 (`769e7bb`); ships with v1.27.0 |
 | **#498** (PR) | docs(notice): bring the @DocTpoint attribution line up to v1.26.4 | Ship with MINOR |
 
 ### Other follow-ups
@@ -53,7 +53,7 @@ Process standards live in [CLAUDE.md §"🛡️ Six-Gate Quality Closure"](./CLA
 
 | Item | Issue | Note |
 |------|-------|------|
-| **CLI repo split** — `tools/llm-wiki-cli/` → standalone sibling repo `green-dalii/obsidian-llm-wiki-cli` | (see SPEC v2.0) | 4-phase migration (Boot → Coexist → Deprecate → Demote). Phase 1 (Boot) lands in v1.26.x window per [[project_v1_27_0_cli_split_planning]]; Phase 4 (Demote) at v1.28.0 keeps in-tree `tools/` as dev-only test harness |
+| **CLI repo split** — `tools/llm-wiki-cli/` → standalone sibling repo `green-dalii/obsidian-llm-wiki-cli` | (see SPEC v2.0) | 4-phase migration (Boot → Coexist → Deprecate → Demote). Phase 1 (Boot) landed in the v1.26.x window; **Phase 4 (Demote) ships in v1.27.0 via PR #511** — in-tree CLI replaced by `tools/dev-instrument/` (UPSTREAM DEV-ONLY INSTRUMENT, engine contributors only); sibling repo remains the user-facing CLI |
 | Per-type registration via Settings (#328 Phase 2) | #358 item 1 | Strongly coupled to cross-type dedup |
 | User-extensible typed edges (frontmatter `relations:`) | #358 item 2 / #285 | Community pending |
 | Bidirectional frontmatter (`derived_from` + `wiki_pages`) | #358 item 3 / #220 | Source-revision awareness is the foundation |
