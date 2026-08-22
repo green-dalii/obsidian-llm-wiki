@@ -10,6 +10,8 @@
 //   WIKI_API_KEY=sk-... node tools/dev-instrument/run-instrument.mjs <vault> <source>
 // Optional arms: WIKI_THINKING_MODE=data-json|plugin-off|server-default
 //                WIKI_TEMP=<number>  WIKI_TOP_P=<number>  OBSIDIAN_CONFIG_DIR=...
+// Exit code (src/exit-code.ts): 0 = the engine reported success · 1 = it
+// reported failure, emitted no report, or the run threw · 2 = usage.
 //
 // Bundles `src/engine-runner.ts` with esbuild and writes the result to
 // dist/run-instrument.mjs, then imports it. The dist/ output is gitignored
@@ -72,7 +74,7 @@ await esbuild.build({
 
 const { main } = await import(pathToFileURL(OUT_PATH).href);
 try {
-  await main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2));
 } catch (error) {
   process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
   process.exitCode = 1;

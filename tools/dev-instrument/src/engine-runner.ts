@@ -24,10 +24,14 @@
 //   echoed in the `[cli]` header so the log names which arm produced the
 //   table that follows (Issue #507 DocTpoint comment). Unknown values throw
 //   (`measurement-arms.ts`) — the header must never name an unapplied arm.
+// - The process exit code follows the ingest report (`exit-code.ts`): 0 when
+//   the engine reports success, 1 when it reports failure / emits no report /
+//   throws, 2 when the positionals are missing (Issue #417 secondary).
 import { Platform } from './shim';
 import { DEFAULT_CONFIG_DIR, PLUGIN_ID } from './shim';
 import { loadNodeModules, createVaultApp, type VaultWriteRecord } from './vault-fs';
 import { applyMeasurementArms } from './measurement-arms';
+import { EXIT_USAGE, exitCodeForReport } from './exit-code';
 import { type App, TFile, normalizePath } from 'obsidian';
 import { WikiEngine } from '../../../src/wiki/wiki-engine';
 import { SchemaManager } from '../../../src/schema/schema-manager';
@@ -220,7 +224,7 @@ function printSummary(input: PrintSummaryInput): void {
   process.stdout.write(lines.join('\n') + '\n');
 }
 
-export async function runIngest(vaultRoot: string, sourcePath: string): Promise<void> {
+export async function runIngest(vaultRoot: string, sourcePath: string): Promise<IngestReport | null> {
   if (!Platform.isDesktop) throw new Error('runIngest is desktop-only');
   const { nodeFs } = await loadNodeModules();
 
@@ -303,12 +307,13 @@ export async function runIngest(vaultRoot: string, sourcePath: string): Promise<
       policies: settings.taskPolicies,
     });
   }
+  return report;
 }
 
-export async function main(argv: string[]): Promise<void> {
+export async function main(argv: string[]): Promise<number> {
   const [vault, source] = argv;
   if (!vault || !source) {
-    process.stdout.write(
+    process.stderr.write(
       `Usage: ./run-instrument.mjs <vault> <source>\n` +
       `  Positional: <vault> <source> (in-vault path to the note to ingest).\n` +
       `  Env arms: WIKI_API_KEY (required for non-local providers)\n` +
@@ -319,7 +324,8 @@ export async function main(argv: string[]): Promise<void> {
       `  npx karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>\n` +
       `See https://github.com/green-dalii/obsidian-llm-wiki-cli\n`,
     );
-    return;
+    return EXIT_USAGE;
   }
-  return runIngest(vault, source);
+  const report = await runIngest(vault, source);
+  return exitCodeForReport(report);
 }

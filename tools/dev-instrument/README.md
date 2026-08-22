@@ -52,6 +52,21 @@ Arms are applied to `settings` before the snapshot and echoed in the
 the data.json per-step policy map (`task-policies`, #490), so a log names
 the arm that produced its numbers.
 
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | the engine's ingest report says `success: true`. A requirements-gate skip (empty file, unsupported type, duplicate) is reported by the engine as success + `skipped` and stays `0`; the `=== Summary ===` block names the skip |
+| `1` | the report says `success: false`, the engine returned without a report, or the run threw before the engine got the file (missing vault, unreadable `data.json`, unknown measurement arm, missing API key, source not in the vault index) |
+| `2` | `<vault> <source>` not given — usage goes to stderr, nothing to stdout |
+
+The code is derived from the report the engine hands `onDone`
+(`src/exit-code.ts`), not from whether something threw:
+`WikiEngine.ingestSource` happens to rethrow after reporting failure today,
+but the contract must not hang on that (Issue #417 secondary, split out of
+PR #418). Scripts branch on `$?`; the summary still prints `success` for
+humans.
+
 ## Why it exists
 
 The Obsidian marketplace review bot scans the whole repo `.ts` tree (per
@@ -86,6 +101,7 @@ tools/dev-instrument/
 ├── .gitignore                      # ignores dist/
 ├── src/
 │   ├── engine-runner.ts            # runIngest + main + withTokenTracking + printSummary
+│   ├── exit-code.ts                # exit contract: report → 0 / 1, missing positionals → 2
 │   ├── vault-fs.ts                 # NodeVault — Obsidian App shim against real fs
 │   └── shim.ts                     # TFile / TFolder / Platform / requestUrl / installObsidianGlobals
 └── dist/                           # gitignored — esbuild bundle output
