@@ -321,3 +321,42 @@ function findH1(body: string): { text: string; start: number; end: number } | nu
 
   return null;
 }
+
+/**
+ * Drop any `## …` section whose header is not a known schema label — the
+ * complement of canonicalizeSectionHeaders. The generation prompt appends the
+ * active tag vocabulary as an `## Active Tag Vocabulary` block (system-prompts
+ * `appendTagVocabularyToPrompt`); a local model copies that prompt scaffolding
+ * verbatim into its output, so it lands as a body section on the finished page.
+ * Observed in ~36% of pages on the S37 rebuild — the canonicalizer leaves it
+ * untouched because it snaps nothing (distance to every label ≫ MAX_DISTANCE).
+ *
+ * The schema, not the model, decides which sections exist, so re-assert that
+ * after generation: a section is kept only when its header snaps to a canonical
+ * label (exact or near-miss), and dropped otherwise. Run AFTER
+ * canonicalizeSectionHeaders so genuine near-misses are already repaired and
+ * only true foreign sections remain. Content before the first `##` (frontmatter,
+ * H1, lead paragraph) is untouched. Pure, O(lines × labels).
+ *
+ * Safe on the generation paths only (createNewPage / mergePage / updateRelatedPage);
+ * reviewed pages route through appendToReviewedPage and never reach here, so no
+ * hand-curated section is ever at risk.
+ */
+export function stripUnknownSections(content: string, canonicalLabels: string[]): string {
+  const out: string[] = [];
+  let dropping = false;
+  for (const line of content.split('\n')) {
+    const m = /^##\s+(.+?)\s*$/.exec(line);
+    if (m) {
+      dropping = snapHeaderToCanonical(m[1], canonicalLabels) === null;
+      if (dropping) {
+        // Trim the blank lines that trailed the previous kept section so the
+        // removal leaves no widening gap.
+        while (out.length && out[out.length - 1].trim() === '') out.pop();
+        continue;
+      }
+    }
+    if (!dropping) out.push(line);
+  }
+  return out.join('\n');
+}

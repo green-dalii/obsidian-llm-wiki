@@ -4,6 +4,7 @@ import {
   classifyHeader,
   preserveExistingSections,
   reassertH1,
+  stripUnknownSections,
 } from '../../core/section-header-canonicalizer';
 
 describe('canonicalizeSectionHeaders (deterministic repair of LLM-garbled section headers)', () => {
@@ -307,5 +308,98 @@ describe('reassertH1 (the title is not the model\'s call)', () => {
     const existing = '# Sulforaphan\n\n## Beschreibung\nAlt';
     const rewrite = 'Lead.\n\n---\n\n# Sulforaphan-Dosierung\n\nNeu';
     expect(reassertH1(existing, rewrite)).toBe('Lead.\n\n---\n\n# Sulforaphan\n\nNeu');
+  });
+});
+
+describe('stripUnknownSections (drop prompt-scaffolding sections the model copied into the body)', () => {
+  const DE = [
+    'Grundlegende Informationen', 'Beschreibung', 'Verwandte Inhalte',
+    'Erwähnungen in der Quelle', 'Neue Informationen', 'Definition',
+    'Hauptmerkmale', 'Anwendungen', 'Verwandte Konzepte', 'Verwandte Entitäten',
+    'Quelle', 'Kerninhalt', 'Wichtige Entitäten', 'Wichtige Konzepte',
+    'Hauptpunkte', 'Aufgelöste Widersprüche', 'Neue Behauptung',
+    'Bestehendes Wissen', 'Lösungsvorschlag', 'Quellseite',
+    'Verwandte Seiten', 'Aktualisiert',
+  ];
+
+  // The real S37 leak: the tag-vocabulary block copied verbatim from the prompt.
+  it('drops the ## Active Tag Vocabulary block and keeps everything schema-valid', () => {
+    const body = [
+      '# NF-κB-Signalweg',
+      '',
+      '## Beschreibung',
+      'NF-κB ist ein Master-Regulator der Inflammation.',
+      '',
+      '## Active Tag Vocabulary (Issue #85 — user-controlled)',
+      '',
+      'When assigning `type`, you MUST use one of the following allowed values.',
+      '- Erkrankung',
+      '- Pharmakologie',
+      '',
+      '## Verwandte Konzepte',
+      '- [[concepts/Inflammation|Inflammation]]',
+      '',
+      '## Erwähnungen in der Quelle',
+      '- "NF-κB – Master-Regulator" — [[Notizen/Biochemie|Biochemie]]',
+    ].join('\n');
+
+    const r = stripUnknownSections(body, DE);
+    expect(r).not.toContain('Active Tag Vocabulary');
+    expect(r).not.toContain('MUST use one of the following');
+    expect(r).not.toContain('- Erkrankung');
+    // Every schema section survives, in order, with its content.
+    expect(r).toContain('## Beschreibung');
+    expect(r).toContain('Master-Regulator der Inflammation');
+    expect(r).toContain('## Verwandte Konzepte');
+    expect(r).toContain('- [[concepts/Inflammation|Inflammation]]');
+    expect(r).toContain('## Erwähnungen in der Quelle');
+    expect(r).toContain('[[Notizen/Biochemie|Biochemie]]');
+    // H1 and lead structure untouched.
+    expect(r).toContain('# NF-κB-Signalweg');
+  });
+
+  it('keeps a concept page intact (Definition/Hauptmerkmale/Anwendungen are valid labels)', () => {
+    const body = [
+      '## Definition', 'Autophagie ist ein Abbauprozess.',
+      '', '## Hauptmerkmale', '- Zelluläre Homöostase',
+      '', '## Anwendungen', 'Prävention neurodegenerativer Prozesse.',
+      '', '## Verwandte Konzepte', '- [[concepts/Mitophagie|Mitophagie]]',
+    ].join('\n');
+    expect(stripUnknownSections(body, DE)).toBe(body);
+  });
+
+  it('is a no-op when every section is a known label', () => {
+    const body = '## Beschreibung\nText.\n\n## Erwähnungen in der Quelle\n- "x" — [[Notizen/A|A]]';
+    expect(stripUnknownSections(body, DE)).toBe(body);
+  });
+
+  it('leaves frontmatter and the lead paragraph before the first ## untouched', () => {
+    const body = [
+      '---', 'type: entity', '---', '', '# Titel', '', 'Einleitungstext ohne Header.',
+      '', '## Fremde Sektion', 'Müll.',
+    ].join('\n');
+    const r = stripUnknownSections(body, DE);
+    expect(r).toContain('type: entity');
+    expect(r).toContain('# Titel');
+    expect(r).toContain('Einleitungstext ohne Header.');
+    expect(r).not.toContain('## Fremde Sektion');
+    expect(r).not.toContain('Müll.');
+  });
+
+  it('does not widen the gap — no run of 3+ blank lines where a section was removed', () => {
+    const body = '## Beschreibung\nText.\n\n## Weg\nMüll.\n\n## Verwandte Konzepte\n- [[concepts/X|X]]';
+    const r = stripUnknownSections(body, DE);
+    expect(r).not.toMatch(/\n\n\n/);
+    expect(r).toContain('## Beschreibung');
+    expect(r).toContain('## Verwandte Konzepte');
+  });
+
+  it('still snaps near-miss headers via the canonicalizer, only strips true foreigners', () => {
+    // canonicalize first (repairs the garble), then strip (removes the foreigner).
+    const body = '## Erwägungen in der Quelle\n- "x" — [[Notizen/A|A]]\n\n## Active Tag Vocabulary\nMüll.';
+    const canon = canonicalizeSectionHeaders(body, DE);
+    const r = stripUnknownSections(canon, DE);
+    expect(r).toContain('## Erwähnungen in der Quelle');
+    expect(r).not.toContain('Active Tag Vocabulary');
   });
 });

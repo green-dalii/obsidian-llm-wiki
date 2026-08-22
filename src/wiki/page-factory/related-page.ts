@@ -26,6 +26,7 @@ import {
   canonicalizeSectionHeaders,
   preserveExistingSections,
   reassertH1,
+  stripUnknownSections,
 } from '../../core/section-header-canonicalizer';
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { getSectionLabels } from '../system-prompts';
@@ -142,8 +143,9 @@ export async function updateRelatedPage(
   // stayed garbled — and Tier-B retrieval matches labels exactly — while a
   // `sources/`-mis-prefixed link in a Related section was never re-typed.
   const canonicalizedBody = canonicalizeSectionHeaders(cleanedBody, Object.values(labels));
+  const prunedBody = stripUnknownSections(canonicalizedBody, Object.values(labels));
   const correctedBody = correctRelatedLinkPrefixes(
-    canonicalizedBody,
+    prunedBody,
     newInfo.related_entities,
     newInfo.related_concepts,
     labels.related_entities,
