@@ -52,7 +52,7 @@ import { fixPollutedSources } from '../core/sources-normalizer';
 // v1.25.1 Phase C-PR1: buildLogHeader moved into LogWriter.
 import { UNIVERSAL_LINK_CONSTRAINTS } from './prompts/constraints';
 import { SourceAnalyzer } from './source-analyzer';
-import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, NOTICE_SHORT, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS, MINERU_API_TOKEN_SECRET_ID, MINERU_CONVERSION_EXTENSIONS } from '../constants';
+import { TOKENS_PAGE_GENERATION, NOTICE_ABORT, NOTICE_RATE_LIMIT, NOTICE_NORMAL, NOTICE_SHORT, PAGES_CACHE_TTL_MS, COMPATIBLE_SOURCE_EXTENSIONS, MINERU_API_TOKEN_SECRET_ID, MINERU_CONVERSION_EXTENSIONS, MINERU_MAX_PDF_MB, MINERU_MAX_PDF_PAGES } from '../constants';
 import { PageFactory } from './page-factory';
 import { ConversationIngestor, ConversationOrchestration, formatConversation, ConversationHistory } from './conversation-ingest';
 import type { Graph } from '../core/build-graph';
@@ -539,10 +539,12 @@ export class WikiEngine {
    * mapping, users would see the generic "empty content" Notice for a PDF
    * their provider can't handle — the dedicated i18n key would be orphaned.
    */
-  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' | 'sourceRejectedPdfUnsupported' {
+  private rejectionNoticeKey(reason: SourceRejection['reason']): 'sourceRejectedEmpty' | 'sourceRejectedType' | 'sourceRejectedDuplicate' | 'sourceRejectedPdfUnsupported' | 'mineruPageLimitRejected' | 'mineruSizeLimitRejected' {
     if (reason === 'incompatible-type') return 'sourceRejectedType';
     if (reason === 'duplicate') return 'sourceRejectedDuplicate';
     if (reason === 'unsupported-pdf') return 'sourceRejectedPdfUnsupported';
+    if (reason === 'mineru-page-limit') return 'mineruPageLimitRejected';
+    if (reason === 'mineru-size-limit') return 'mineruSizeLimitRejected';
     return 'sourceRejectedEmpty';
   }
 
@@ -552,10 +554,13 @@ export class WikiEngine {
     // Interactive (single-file) ingest shows a Notice; folder/watcher stay quiet
     // (the batch summary / console covers them) to avoid Notice spam.
     if (opts?.interactive) {
-      new Notice(
-        getText(this.settings.language, this.rejectionNoticeKey(rejection.reason)).replace('{filename}', file.basename),
-        NOTICE_NORMAL
-      );
+      // {filename} is always available; rejection.params supplies extras
+      // (e.g. the MinerU limit behind `{limit}`) so new rejections don't
+      // need per-key plumbing here.
+      const params: Record<string, string> = { filename: file.basename, ...rejection.params };
+      const msg = getText(this.settings.language, this.rejectionNoticeKey(rejection.reason))
+        .replace(/\{(\w+)\}/g, (match, key: string) => params[key] ?? match);
+      new Notice(msg, NOTICE_NORMAL);
     }
     this.onDone?.({
       sourceFile: file.path,
@@ -728,6 +733,22 @@ export class WikiEngine {
       }
       if (error instanceof EncryptedPdfError) {
         this.reportSkip(file, { reason: 'unsupported-pdf', detail: error.message }, opts);
+        return;
+      }
+      if (error instanceof MineruPdfError && error.code !== undefined) {
+        // Coded MinerU limit rejections (server-side page cap, client-side
+        // size cap) are expected source rejections, not runtime failures —
+        // route them through the standard skip pipeline: localized Notice
+        // (interactive), console.warn with the raw server message, onDone
+        // report so folder batches count them and continue. Uncoded
+        // MineruPdfErrors (HTTP failures, timeouts, invalid URLs) keep the
+        // throw semantics below.
+        const isPageLimit = error.code === 'page-limit';
+        this.reportSkip(file, {
+          reason: isPageLimit ? 'mineru-page-limit' : 'mineru-size-limit',
+          detail: error.message,
+          params: { limit: String(isPageLimit ? MINERU_MAX_PDF_PAGES : MINERU_MAX_PDF_MB) },
+        }, opts);
         return;
       }
       if (error instanceof MineruPdfError) {

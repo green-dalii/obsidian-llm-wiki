@@ -122,7 +122,12 @@ export const NATIVE_PDF_PROVIDER_IDS = [
 /** MinerU online API endpoints and bounded conversion resources. */
 export const MINERU_API_BASE_URL = 'https://mineru.net/api/v4';
 export const MINERU_API_TOKEN_SECRET_ID = 'karpathywiki-mineru-api-token';
-export const MINERU_MAX_PDF_BYTES = 200 * 1024 * 1024;
+export const MINERU_MAX_PDF_MB = 200;
+export const MINERU_MAX_PDF_BYTES = MINERU_MAX_PDF_MB * 1024 * 1024;
+/** Server-enforced page cap (err_msg "number of pages exceeds limit"). No
+ *  client-side pre-check possible without a PDF parser — surfaced via the
+ *  coded-rejection skip pipeline in wiki-engine.ts. */
+export const MINERU_MAX_PDF_PAGES = 200;
 export const MINERU_MAX_ZIP_BYTES = 256 * 1024 * 1024;
 export const MINERU_MAX_ARCHIVE_FILES = 10_000;
 export const MINERU_POLL_INTERVAL_MS = 3000;

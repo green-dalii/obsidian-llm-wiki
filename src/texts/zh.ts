@@ -466,6 +466,9 @@ export const ZH_TEXTS = {
     rejectionReasonEmpty: '空内容',
     rejectionReasonType: '不支持的类型',
     rejectionReasonDuplicate: '重复内容',
+    rejectionReasonPdfUnsupported: '提供商无法读取 PDF',
+    rejectionReasonMineruPageLimit: '超过 MinerU 页数上限',
+    rejectionReasonMineruSizeLimit: '超过 MinerU 大小上限',
     ingestReportFailedGuidance: '这些条目未能自动创建。您可手动创建对应页面，或降低提取颗粒度后重新摄入源文件。',
 
     // 命令名称（sentence case 遵循 Obsidian Bot 规则）
@@ -689,6 +692,8 @@ export const ZH_TEXTS = {
     mineruDownloadingInProgress: '正在下载 MinerU 解析结果：{filename}',
     markdownConversionComplete: '转换完成：{filename}',
     markdownConversionCompleteSaved: '转换完成 — 已写入 {path}：{filename}',
+    mineruPageLimitRejected: '{filename} 超过 MinerU 的 {limit} 页上限，请拆分文件后重试',
+    mineruSizeLimitRejected: '{filename} 超过 MinerU 的 {limit} MB 大小上限',
 
     ingestRejectedSummary: '已跳过 {count} 个文件（空文件、重复或不支持的类型）。',
     reingestConfirmTitle: '重新提取该文件？',

@@ -22,7 +22,7 @@ vi.mock('../../core/pdf-cache', async () => {
 });
 
 import { convertPdfToMarkdown } from '../../core/pdf-converter';
-import { convertPdfWithMineru, extractMineruMarkdown } from '../../core/mineru-converter';
+import { MineruPdfError, convertPdfWithMineru, extractMineruMarkdown } from '../../core/mineru-converter';
 
 function context(overrides: Record<string, unknown> = {}) {
   return {
@@ -176,6 +176,48 @@ describe('extractMineruMarkdown', () => {
     });
 
     await expect(convertPdfWithMineru(context())).rejects.toThrow(/quota exceeded/);
+  });
+
+  it('codes a server-side page-limit failure for localized display', async () => {
+    mockLeaseAndUpload();
+    requestUrlMock.mockResolvedValueOnce({
+      status: 200,
+      json: {
+        code: 0,
+        data: {
+          extract_result: [{
+            state: 'failed',
+            err_msg: 'number of pages exceeds limit (200 pages), please split the file and try again',
+          }],
+        },
+      },
+    });
+
+    const error = await convertPdfWithMineru(context()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MineruPdfError);
+    expect((error as MineruPdfError).code).toBe('page-limit');
+  });
+
+  it('leaves unknown server-side failures uncoded (raw pass-through)', async () => {
+    mockLeaseAndUpload();
+    requestUrlMock.mockResolvedValueOnce({
+      status: 200,
+      json: { code: 0, data: { extract_result: [{ state: 'failed', err_msg: 'quota exceeded' }] } },
+    });
+
+    const error = await convertPdfWithMineru(context()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MineruPdfError);
+    expect((error as MineruPdfError).code).toBeUndefined();
+  });
+
+  it('codes the client-side size rejection for localized display', async () => {
+    const ctx = context({
+      pdfFile: { path: 'large.pdf', name: 'large.pdf', stat: { size: 200 * 1024 * 1024 + 1 } },
+    });
+
+    const error = await convertPdfWithMineru(ctx).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(MineruPdfError);
+    expect((error as MineruPdfError).code).toBe('size-limit');
   });
 
   it('fails fast on an unknown MinerU task state', async () => {

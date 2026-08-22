@@ -22,10 +22,20 @@ interface MineruEnvelope {
   data?: Record<string, unknown>;
 }
 
+/**
+ * Machine-readable classification for known limit failures. Coded errors
+ * are *expected* source rejections (file over a MinerU cap) and route
+ * through the engine's skip pipeline with a localized Notice; uncoded
+ * errors are unexpected failures and keep the throw semantics.
+ */
+export type MineruErrorCode = 'page-limit' | 'size-limit';
+
 export class MineruPdfError extends Error {
-  constructor(message: string) {
+  readonly code?: MineruErrorCode;
+  constructor(message: string, code?: MineruErrorCode) {
     super(message);
     this.name = 'MineruPdfError';
+    if (code !== undefined) this.code = code;
   }
 }
 
@@ -136,12 +146,12 @@ export async function convertPdfWithMineru(ctx: PdfConversionContext): Promise<C
   // stays in lockstep if the MinerU limit changes.
   const oversizedMessage = 'MinerU accepts files up to 200 MB.';
   if (ctx.pdfFile.stat?.size !== undefined && ctx.pdfFile.stat.size > MINERU_MAX_PDF_BYTES) {
-    throw new MineruPdfError(oversizedMessage);
+    throw new MineruPdfError(oversizedMessage, 'size-limit');
   }
 
   const bytes = new Uint8Array(await ctx.app.vault.adapter.readBinary(ctx.pdfFile.path));
   if (bytes.byteLength > MINERU_MAX_PDF_BYTES) {
-    throw new MineruPdfError(oversizedMessage);
+    throw new MineruPdfError(oversizedMessage, 'size-limit');
   }
 
   // MinerU model version: hardcoded to 'vlm' (PR #404 default; 'pipeline'
@@ -245,7 +255,10 @@ async function waitForResult(
       if (!zipUrl) throw new MineruPdfError('MinerU returned no result archive URL.');
       return validateRemoteUrl(zipUrl);
     }
-    if (state === 'failed') throw new MineruPdfError(stringValue(record?.err_msg) ?? 'MinerU conversion failed.');
+    if (state === 'failed') {
+      const errMsg = stringValue(record?.err_msg);
+      throw new MineruPdfError(errMsg ?? 'MinerU conversion failed.', classifyMineruFailure(errMsg));
+    }
     if (!state || !['waiting-file', 'pending', 'running', 'converting'].includes(state)) {
       throw new MineruPdfError('MinerU returned an invalid task status.');
     }
@@ -293,6 +306,18 @@ async function mineruRequest(
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Map a server-side task-failure message to a limit code so the engine can
+ * show a localized rejection instead of the raw English err_msg. Only the
+ * observed page-cap phrasing is classified — unknown messages stay uncoded
+ * and keep the pass-through error semantics.
+ */
+function classifyMineruFailure(message: string | undefined): MineruErrorCode | undefined {
+  if (!message) return undefined;
+  if (/pages?\s+exceeds\s+limit/i.test(message)) return 'page-limit';
+  return undefined;
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

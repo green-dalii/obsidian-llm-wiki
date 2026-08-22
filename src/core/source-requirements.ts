@@ -13,12 +13,16 @@
 
 import { isBlankSource } from './frontmatter';
 
-export type RejectionReason = 'empty' | 'incompatible-type' | 'duplicate' | 'injection' | 'unsupported-pdf';
+export type RejectionReason = 'empty' | 'incompatible-type' | 'duplicate' | 'injection' | 'unsupported-pdf' | 'mineru-page-limit' | 'mineru-size-limit';
 
 export interface SourceRejection {
   reason: RejectionReason;
   /** Optional human-readable specifics for logs/UI (e.g. the offending extension). */
   detail?: string;
+  /** Extra i18n placeholder substitutions beyond {filename} (e.g. the
+   *  MinerU limit value behind `{limit}`), applied by the engine's skip
+   *  Notice. Keys map to `placeholder name → display string`. */
+  params?: Record<string, string>;
 }
 
 export interface ContentCheckInput {

@@ -466,6 +466,9 @@ export const KO_TEXTS = {
     rejectionReasonEmpty: '비어 있음',
     rejectionReasonType: '지원되지 않는 형식',
     rejectionReasonDuplicate: '중복 콘텐츠',
+    rejectionReasonPdfUnsupported: '공급자가 PDF를 읽을 수 없음',
+    rejectionReasonMineruPageLimit: 'MinerU 페이지 제한 초과',
+    rejectionReasonMineruSizeLimit: 'MinerU 크기 제한 초과',
     sourceRejectedEmpty: '⏭️ 「{filename}」에 가져올 내용이 없어 건너뛰었습니다. 비어 있거나 프론트매터만 있는 노트는 위키 페이지를 만들지 않습니다.',
     sourceRejectedType: '⏭️ 「{filename}」은(는) 지원되지 않는 파일 형식이라 건너뛰었습니다. 텍스트 노트(.md, .txt 등)만 가져올 수 있습니다.',
     sourceRejectedDuplicate: '⏭️ 「{filename}」을(를) 건너뛰었습니다 — 내용이 이미 위키에 있습니다.',
@@ -489,6 +492,8 @@ export const KO_TEXTS = {
     mineruDownloadingInProgress: 'MinerU 결과 다운로드 중: {filename}',
     markdownConversionComplete: '변환 완료: {filename}',
     markdownConversionCompleteSaved: '변환 완료 — {path}에 저장됨: {filename}',
+    mineruPageLimitRejected: '{filename}이(가) MinerU의 {limit}페이지 제한을 초과했습니다 — 파일을 분할한 후 다시 시도하세요',
+    mineruSizeLimitRejected: '{filename}이(가) MinerU의 {limit}MB 크기 제한을 초과했습니다',
     writePdfMarkdownToVaultDesc: '기본값은 꺼짐. 켜면 각 PDF 변환 결과가 원본 PDF 옆에 「<basename>.pdf.md」 파일로 기록됩니다. 꺼져 있으면(캐시 전용 아키텍처) 결과는 플러그인 캐시에만 남고 Vault에는 구현 아티팩트를 남기지 않습니다.',
 
     ingestRejectedSummary: '{count}개 파일을 건너뛰었습니다(비어 있음, 중복 또는 미지원 형식).',

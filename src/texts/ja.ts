@@ -464,6 +464,9 @@ export const JA_TEXTS = {
     rejectionReasonEmpty: '空',
     rejectionReasonType: '非対応の形式',
     rejectionReasonDuplicate: '重複コンテンツ',
+    rejectionReasonPdfUnsupported: 'プロバイダーが PDF を読み取れません',
+    rejectionReasonMineruPageLimit: 'MinerU のページ数上限を超過',
+    rejectionReasonMineruSizeLimit: 'MinerU のサイズ上限を超過',
     ingestReportFailedGuidance: 'これらの項目は自動作成できませんでした。対応するページを手動で作成するか、抽出粒度を下げてソースファイルを再取り込みしてください。',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
@@ -680,6 +683,8 @@ export const JA_TEXTS = {
     mineruDownloadingInProgress: 'MinerU の結果をダウンロード中: {filename}',
     markdownConversionComplete: '変換完了: {filename}',
     markdownConversionCompleteSaved: '変換完了 — {path} に書き込みました: {filename}',
+    mineruPageLimitRejected: '{filename} は MinerU の {limit} ページ上限を超えています。ファイルを分割して再試行してください',
+    mineruSizeLimitRejected: '{filename} は MinerU の {limit} MB サイズ上限を超えています',
     writePdfMarkdownToVaultDesc: 'デフォルトはオフ。オンの場合、各 PDF 変換結果は元の PDF の隣に「<basename>.pdf.md」ファイルとして書き込まれます。オフの場合（キャッシュ専用アーキテクチャ）、結果はプラグインのキャッシュ内のみに存在し、Vault に実装アーティファクトを残しません。',
 
     ingestRejectedSummary: '{count} 個のファイルをスキップしました（空・重複・非対応形式）。',

@@ -466,6 +466,9 @@ export const DE_TEXTS = {
     rejectionReasonEmpty: 'leer',
     rejectionReasonType: 'nicht unterstützter Typ',
     rejectionReasonDuplicate: 'doppelter Inhalt',
+    rejectionReasonPdfUnsupported: 'Anbieter kann PDF nicht lesen',
+    rejectionReasonMineruPageLimit: 'überschreitet das MinerU-Seitenlimit',
+    rejectionReasonMineruSizeLimit: 'überschreitet das MinerU-Größenlimit',
     sourceRejectedEmpty: '⏭️ „{filename}" hat keinen Inhalt zum Einlesen — übersprungen. Leere oder nur aus Frontmatter bestehende Notizen erzeugen keine Wiki-Seiten.',
     sourceRejectedType: '⏭️ „{filename}" ist kein unterstützter Dateityp — übersprungen. Nur Textnotizen (z. B. .md, .txt) können eingelesen werden.',
     sourceRejectedDuplicate: '⏭️ „{filename}" übersprungen — der Inhalt ist bereits im Wiki vorhanden.',
@@ -489,6 +492,8 @@ export const DE_TEXTS = {
     mineruDownloadingInProgress: 'MinerU-Ergebnis wird heruntergeladen: {filename}',
     markdownConversionComplete: 'Konvertierung abgeschlossen: {filename}',
     markdownConversionCompleteSaved: 'Konvertierung abgeschlossen — geschrieben nach {path}: {filename}',
+    mineruPageLimitRejected: '{filename} überschreitet das Limit von {limit} Seiten bei MinerU — bitte die Datei aufteilen und erneut versuchen',
+    mineruSizeLimitRejected: '{filename} überschreitet das Größenlimit von {limit} MB bei MinerU',
     writePdfMarkdownToVaultDesc: 'Standardmäßig aus. Wenn aktiv, wird das Ergebnis jeder PDF-Konvertierung in eine „<basename>.pdf.md"-Datei neben dem Quell-PDF geschrieben. Wenn aus (nur-Cache-Architektur), bleiben Ergebnisse nur im Plugin-Cache und hinterlassen keine Artefakte in deinem Vault.',
 
     ingestRejectedSummary: '{count} Datei(en) übersprungen (leer, doppelt oder nicht unterstützter Typ).',

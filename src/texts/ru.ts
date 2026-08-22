@@ -492,6 +492,9 @@ export const RU_TEXTS = {
     rejectionReasonEmpty: 'пусто',
     rejectionReasonType: 'неподдерживаемый тип',
     rejectionReasonDuplicate: 'дублирующееся содержимое',
+    rejectionReasonPdfUnsupported: 'провайдер не может прочитать PDF',
+    rejectionReasonMineruPageLimit: 'превышает лимит страниц MinerU',
+    rejectionReasonMineruSizeLimit: 'превышает лимит размера MinerU',
     ingestReportFailedGuidance: 'Эти элементы не удалось создать автоматически. Вы можете вручную создать соответствующие страницы или снизить гранулярность извлечения и повторно импортировать исходный файл.',
 
     // Имена команд (предложный регистр по правилу 1 Obsidian Bot)
@@ -723,6 +726,8 @@ export const RU_TEXTS = {
     mineruDownloadingInProgress: 'Загрузка результата MinerU: {filename}',
     markdownConversionComplete: 'Конвертация завершена: {filename}',
     markdownConversionCompleteSaved: 'Конвертация завершена — записано в {path}: {filename}',
+    mineruPageLimitRejected: '{filename} превышает лимит MinerU в {limit} страниц — разделите файл и повторите попытку',
+    mineruSizeLimitRejected: '{filename} превышает лимит размера MinerU в {limit} МБ',
     ingestRejectedSummary: '{count} файл(ов) пропущено (пусто, дубликат или неподдерживаемый тип).',
     reingestConfirmTitle: 'Повторно импортировать этот файл?',
     reingestConfirmBody: 'Содержимое «{filename}» уже в Wiki. Повторно импортировать?',

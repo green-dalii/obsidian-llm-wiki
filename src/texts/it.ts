@@ -475,6 +475,9 @@ export const IT_TEXTS = {
     rejectionReasonEmpty: 'vuoto',
     rejectionReasonType: 'tipo non supportato',
     rejectionReasonDuplicate: 'contenuto duplicato',
+    rejectionReasonPdfUnsupported: 'il provider non può leggere il PDF',
+    rejectionReasonMineruPageLimit: 'supera il limite di pagine di MinerU',
+    rejectionReasonMineruSizeLimit: 'supera il limite dimensionale di MinerU',
     sourceRejectedEmpty: '⏭️ "{filename}" non ha contenuto da acquisire — saltato. Le note vuote o con solo frontmatter non creano pagine wiki.',
     sourceRejectedType: '⏭️ "{filename}" non è un tipo di file supportato — saltato. Possono essere acquisite solo note di testo (.md, .txt, ecc.).',
     sourceRejectedDuplicate: '⏭️ "{filename}" saltato — il suo contenuto è già nel wiki.',
@@ -498,6 +501,8 @@ export const IT_TEXTS = {
     mineruDownloadingInProgress: 'Download del risultato MinerU: {filename}',
     markdownConversionComplete: 'Conversione completata: {filename}',
     markdownConversionCompleteSaved: 'Conversione completata — scritto in {path}: {filename}',
+    mineruPageLimitRejected: '{filename} supera il limite di {limit} pagine di MinerU — dividi il file e riprova',
+    mineruSizeLimitRejected: '{filename} supera il limite dimensionale di {limit} MB di MinerU',
     writePdfMarkdownToVaultDesc: 'Disattivato per impostazione predefinita. Quando attivo, il risultato di ogni conversione PDF viene scritto in un file « <basename>.pdf.md » accanto al PDF sorgente. Quando disattivato (architettura solo cache), i risultati vivono solo nella cache del plugin e non lasciano artefatti nel tuo Vault.',
 
     ingestRejectedSummary: '{count} file saltati (vuoti, duplicati o di tipo non supportato).',

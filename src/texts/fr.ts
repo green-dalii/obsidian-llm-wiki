@@ -467,6 +467,9 @@ export const FR_TEXTS = {
     rejectionReasonEmpty: 'vide',
     rejectionReasonType: 'type non pris en charge',
     rejectionReasonDuplicate: 'contenu en double',
+    rejectionReasonPdfUnsupported: 'le fournisseur ne peut pas lire le PDF',
+    rejectionReasonMineruPageLimit: 'dépasse la limite de pages de MinerU',
+    rejectionReasonMineruSizeLimit: 'dépasse la limite de taille de MinerU',
     ingestReportFailedGuidance: "Ces éléments n'ont pas pu être créés automatiquement. Vous pouvez créer manuellement les pages correspondantes, ou réduire la granularité d'extraction et réimporter le fichier source.",
 
     // Command Names (sentence case per Obsidian Bot rule 1)
@@ -684,6 +687,8 @@ export const FR_TEXTS = {
     mineruDownloadingInProgress: 'Téléchargement du résultat MinerU : {filename}',
     markdownConversionComplete: 'Conversion terminée : {filename}',
     markdownConversionCompleteSaved: 'Conversion terminée — écrit dans {path} : {filename}',
+    mineruPageLimitRejected: '{filename} dépasse la limite de {limit} pages de MinerU — divisez le fichier et réessayez',
+    mineruSizeLimitRejected: '{filename} dépasse la limite de taille de {limit} Mo de MinerU',
     writePdfMarkdownToVaultDesc: 'Désactivé par défaut. Lorsqu’il est actif, le résultat de chaque conversion PDF est écrit dans un fichier « <basename>.pdf.md » à côté du PDF source. Lorsqu’il est désactivé (architecture cache seule), les résultats restent uniquement dans le cache du plugin et ne laissent aucun artefact dans votre Vault.',
 
     ingestRejectedSummary: '{count} fichier(s) ignoré(s) (vide, doublon ou type non pris en charge).',

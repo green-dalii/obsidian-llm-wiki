@@ -489,6 +489,9 @@ export const EN_TEXTS = {
     rejectionReasonEmpty: 'empty',
     rejectionReasonType: 'unsupported type',
     rejectionReasonDuplicate: 'duplicate content',
+    rejectionReasonPdfUnsupported: 'provider cannot read PDF',
+    rejectionReasonMineruPageLimit: 'exceeds MinerU page limit',
+    rejectionReasonMineruSizeLimit: 'exceeds MinerU size limit',
     ingestReportFailedGuidance: 'These items could not be automatically created. You can manually create the corresponding pages, or lower the extraction granularity and re-ingest the source file.',
 
     // Command Names (sentence case per Obsidian Bot rule 1)
@@ -742,6 +745,8 @@ export const EN_TEXTS = {
     mineruDownloadingInProgress: 'Downloading MinerU result: {filename}',
     markdownConversionComplete: 'Conversion complete: {filename}',
     markdownConversionCompleteSaved: 'Conversion complete — written to {path}: {filename}',
+    mineruPageLimitRejected: '{filename} exceeds MinerU\'s {limit}-page limit — split the file and retry',
+    mineruSizeLimitRejected: '{filename} exceeds MinerU\'s {limit} MB size limit',
     ingestRejectedSummary: '{count} file(s) skipped (empty, duplicate, or unsupported type).',
     reingestConfirmTitle: 'Re-ingest this file?',
     reingestConfirmBody: 'The content of "{filename}" is already in the wiki. Re-ingest it anyway?',

@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { TFile, TFolder } from 'obsidian';
+import { Notice, TFile, TFolder } from 'obsidian';
 import { createWikiEngineHarness, wikiPagesWritten } from '../__support__/wiki-engine-harness';
 import * as pdfConverter from '../../core/pdf-converter';
 import { convertPdfToMarkdown } from '../../core/pdf-converter';
@@ -698,5 +698,51 @@ describe('WikiEngine.ingestSource — Altitude #1 multi-format routing (#404 fol
 
     // Conversion was NOT invoked.
     expect(mockedConvert).not.toHaveBeenCalled();
+  });
+});
+
+// #404 UX follow-up — MinerU limit rejections (server-side page cap,
+// client-side size cap) arrive as MineruPdfError with a machine-readable
+// `code`. The engine must route coded errors through the reportSkip
+// pipeline (localized Notice + skip report, batch continues) instead of
+// re-throwing the raw English server message to the command-layer Toast.
+describe('WikiEngine.ingestSource — coded MinerU limit rejections (#404 UX follow-up)', () => {
+  const NoticeMock = Notice as unknown as { instances: Array<{ message: string; hidden: boolean }> };
+
+  beforeEach(() => {
+    mockedConvert.mockReset();
+    NoticeMock.instances.length = 0;
+  });
+
+  it('skips with reason=mineru-page-limit and a localized Notice on a coded page-limit error', async () => {
+    mockedConvert.mockRejectedValueOnce(
+      new MineruPdfError('number of pages exceeds limit (200 pages), please split the file and try again', 'page-limit'),
+    );
+    const h = createWikiEngineHarness();
+
+    await h.engine.ingestSource(pdfFile('sources/big.pdf'), { interactive: true });
+
+    // No wiki pages; reported as a skip with the new reason.
+    expect(wikiPagesWritten(h.writtenPaths)).toEqual([]);
+    expect(h.reports.at(-1)?.skipped).toBe(true);
+    expect(h.reports.at(-1)?.rejectedFiles?.[0]?.reason).toBe('mineru-page-limit');
+    // Localized Notice with the limit substituted — raw server English
+    // must NOT surface in the UI.
+    const messages = NoticeMock.instances.map(n => n.message);
+    expect(messages.some(m => /200-page limit/.test(m))).toBe(true);
+    expect(messages.some(m => m.includes('{limit}'))).toBe(false);
+    expect(messages.some(m => m.includes('please split the file'))).toBe(false);
+  });
+
+  it('skips with reason=mineru-size-limit and a localized Notice on a coded size-limit error', async () => {
+    mockedConvert.mockRejectedValueOnce(new MineruPdfError('MinerU accepts files up to 200 MB.', 'size-limit'));
+    const h = createWikiEngineHarness();
+
+    await h.engine.ingestSource(pdfFile('sources/big.pdf'), { interactive: true });
+
+    expect(h.reports.at(-1)?.rejectedFiles?.[0]?.reason).toBe('mineru-size-limit');
+    const messages = NoticeMock.instances.map(n => n.message);
+    expect(messages.some(m => /200 MB/.test(m))).toBe(true);
+    expect(messages.some(m => m.includes('{limit}'))).toBe(false);
   });
 });

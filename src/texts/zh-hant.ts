@@ -464,6 +464,9 @@ export const ZH_HANT_TEXTS = {
     rejectionReasonEmpty: '空內容',
     rejectionReasonType: '不支援的型別',
     rejectionReasonDuplicate: '重複內容',
+    rejectionReasonPdfUnsupported: '供應商無法讀取 PDF',
+    rejectionReasonMineruPageLimit: '超過 MinerU 頁數上限',
+    rejectionReasonMineruSizeLimit: '超過 MinerU 大小上限',
     ingestReportFailedGuidance: '這些條目未能自動建立。您可手動建立對應頁面，或降低提取顆粒度後重新攝入原始檔。',
 
     // 命令名称（sentence case 遵循 Obsidian Bot 规则）
@@ -680,6 +683,8 @@ export const ZH_HANT_TEXTS = {
     mineruDownloadingInProgress: '正在下載 MinerU 解析結果：{filename}',
     markdownConversionComplete: '轉換完成：{filename}',
     markdownConversionCompleteSaved: '轉換完成 — 已寫入 {path}：{filename}',
+    mineruPageLimitRejected: '{filename} 超過 MinerU 的 {limit} 頁上限，請拆分檔案後重試',
+    mineruSizeLimitRejected: '{filename} 超過 MinerU 的 {limit} MB 大小上限',
     writePdfMarkdownToVaultDesc: '預設關閉。開啟後，每次 PDF 轉換的結果會寫入源 PDF 旁邊的「<原名>.pdf.md」檔案。關閉時，轉換結果僅儲存在插件快取，不在你的 Vault 中留下實作產物。',
 
     ingestRejectedSummary: '已跳過 {count} 個檔案（空檔案、重複或不支援的型別）。',
