@@ -225,6 +225,22 @@ describe('filterRedundantAliases', () => {
     expect(result).toEqual([]);
   });
 
+  it('compares NFC-normalised: a decomposed basename from disk and a composed alias are the same name', () => {
+    // macOS hands out NFD filenames ("A" + COMBINING DIAERESIS); the model writes
+    // the composed "Ä". Bare toLowerCase() keeps them apart and the alias would
+    // be kept as if it were new.
+    const decomposedPath = 'wiki/entities/' + 'A\u0308rzte'.normalize('NFD') + '.md';
+    const result = filterRedundantAliases(decomposedPath, ['Ärzte', 'Mediziner']);
+    expect(result).toEqual(['Mediziner']);
+  });
+
+  it('cross-page uniqueness folds İ/i the same way slugKeys does', () => {
+    // toLowerCase() maps İ to i + COMBINING DOT ABOVE, so "İstanbul" and
+    // "istanbul" would pass the gate as two aliases.
+    const result = filterRedundantAliases('wiki/entities/new-page.md', ['istanbul'], ['İstanbul']);
+    expect(result).toEqual([]);
+  });
+
   it('omitting the cross-page argument preserves v1.25.9 behaviour (backward-compat)', () => {
     // No third argument — should not throw, must still apply filename + batch dedup.
     const result = filterRedundantAliases('wiki/entities/vigilanz.md', ['Vigilanz']);
@@ -308,6 +324,14 @@ describe('slugKeys with turkishFold (Issue #366)', () => {
     const b = slugKeys('şehir', [], { turkishFold: true });
     expect([...a][0]).toBe('şehir');
     expect([...b][0]).toBe('şehir');
+  });
+
+  it('NFC-normalises before keying, with and without the fold', () => {
+    const nfc = 'Doğa'.normalize('NFC');
+    const nfd = 'Doğa'.normalize('NFD');
+    expect(nfc).not.toBe(nfd); // the inputs really differ
+    expect([...slugKeys(nfd)]).toEqual([...slugKeys(nfc)]);
+    expect([...slugKeys(nfd, [], { turkishFold: true })]).toEqual([...slugKeys(nfc, [], { turkishFold: true })]);
   });
 
   it('omitting opts preserves the v1.25.9 behaviour (backward-compat)', () => {
