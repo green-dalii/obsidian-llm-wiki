@@ -32,8 +32,9 @@
  * close — it is a permanent first-run behavior, only its UI home moved.
  */
 
-import { Setting } from 'obsidian';
+import { Notice, Setting } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
+import { MIN_ALIAS_LENGTH, MIN_ALIAS_LENGTH_MIN, MIN_ALIAS_LENGTH_MAX, NOTICE_SHORT } from '../../constants';
 import { renderNumberInput } from './shared-inputs';
 
 export function renderAdvancedSettingsSection(tab: LLMWikiSettingTab, containerEl: HTMLElement): void {
@@ -127,6 +128,31 @@ export function renderAdvancedSettingsSection(tab: LLMWikiSettingTab, containerE
       dropdown.onChange((value: string) => {
         tempSettings.slugCase = value as 'lower' | 'preserve';
       });
+    });
+
+  // Minimum alias length. The v1.25.10 floor (MIN_ALIAS_LENGTH = 2) stays the
+  // default; this lets a vault that surfaces two-letter clutter raise it
+  // without a code edit. A naming-policy choice, so it sits next to slug case.
+  new Setting(containerEl)
+    .setName(tab.getText('minAliasLengthName'))
+    .setDesc(tab.getText('minAliasLengthDesc'))
+    .addText(text => {
+      text
+        .setPlaceholder(String(MIN_ALIAS_LENGTH))
+        .setValue(String(tempSettings.minAliasLength ?? MIN_ALIAS_LENGTH))
+        .onChange((value) => {
+          const parsed = parseInt(value, 10);
+          if (isNaN(parsed)) {
+            tempSettings.minAliasLength = undefined;
+            return;
+          }
+          const clamped = Math.min(MIN_ALIAS_LENGTH_MAX, Math.max(MIN_ALIAS_LENGTH_MIN, parsed));
+          if (clamped !== parsed) {
+            text.setValue(String(clamped));
+            new Notice(tab.getText('minAliasLengthClamped').replace('{}', String(clamped)), NOTICE_SHORT);
+          }
+          tempSettings.minAliasLength = clamped === MIN_ALIAS_LENGTH ? undefined : clamped;
+        });
     });
 
   // First-run Welcome note toggle (moved from Auto Maintenance in v1.26.0)

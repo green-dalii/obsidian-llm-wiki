@@ -793,8 +793,12 @@ export const BATCH_CHARS_PER_ITEM = 600;
  * and rejecting them at the floor would be over-aggressive. Raise to
  * 3 only if a specific vault surfaces alias clutter.
  *
- * Not exposed as a Settings field in v1.25.10. The constant lives
- * here so future per-vault tuning is a one-line edit, not a search
- * across the codebase.
+ * Default of the `minAliasLength` setting (Settings → Advanced), which
+ * overrides it per vault; the constant stays the fallback for callers
+ * that carry no settings. Bounds below are what the setting accepts:
+ * one-character aliases stay out, and above six the floor starts to
+ * drop real names.
  */
 export const MIN_ALIAS_LENGTH = 2;
+export const MIN_ALIAS_LENGTH_MIN = 2;
+export const MIN_ALIAS_LENGTH_MAX = 6;

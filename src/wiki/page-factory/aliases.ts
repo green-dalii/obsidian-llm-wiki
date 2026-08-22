@@ -13,6 +13,8 @@
 //     fresh block before the closing `---`.
 
 import { filterRedundantAliases } from '../../core/slug';
+import { MIN_ALIAS_LENGTH, MIN_ALIAS_LENGTH_MIN, MIN_ALIAS_LENGTH_MAX } from '../../constants';
+import type { LLMWikiSettings } from '../../types';
 import { parseFrontmatter } from '../../core/frontmatter';
 
 /**
@@ -23,6 +25,19 @@ import { parseFrontmatter } from '../../core/frontmatter';
 export interface AliasesContext {
   tryReadFile: (path: string) => Promise<string | null>;
   createOrUpdateFile: (path: string, content: string) => Promise<void>;
+  /** Optional: only `minAliasLength` is read here. Absent → MIN_ALIAS_LENGTH. */
+  settings?: Pick<LLMWikiSettings, 'minAliasLength'>;
+}
+
+/**
+ * The alias floor this context applies: the `minAliasLength` setting when it
+ * is an integer inside the accepted range, the constant otherwise.
+ */
+export function resolveMinAliasLength(settings?: Pick<LLMWikiSettings, 'minAliasLength'>): number {
+  const v = settings?.minAliasLength;
+  return Number.isInteger(v) && (v as number) >= MIN_ALIAS_LENGTH_MIN && (v as number) <= MIN_ALIAS_LENGTH_MAX
+    ? (v as number)
+    : MIN_ALIAS_LENGTH;
 }
 
 /**
@@ -47,7 +62,7 @@ export async function appendAliases(
   // Drop aliases that already equal the page's filename (case-insensitive),
   // e.g. adding "Vigilanz" to vigilanz.md. Common on cross-type collisions
   // where the colliding name is identical to the existing page's name.
-  const candidates = filterRedundantAliases(pagePath, newAliases);
+  const candidates = filterRedundantAliases(pagePath, newAliases, undefined, resolveMinAliasLength(ctx.settings));
   if (candidates.length === 0) return;
 
   const fm = parseFrontmatter(content);

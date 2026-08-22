@@ -85,6 +85,10 @@ export const PT_TEXTS = {
     slugCaseDesc: "Controla se os nomes de arquivo Wiki gerados são convertidos para minúsculas. Recomenda-se 'Preservar' para idiomas onde maiúsculas são significativas (ex. substantivos alemães).",
     slugCaseLower: 'Minúsculas (padrão)',
     slugCasePreserve: 'Preservar capitalização',
+    // Minimum alias length (Advanced settings, next to slug case).
+    minAliasLengthName: 'Comprimento mínimo de alias',
+    minAliasLengthDesc: 'Aliases mais curtos (após remover espaços) não são escritos nas páginas do wiki. O valor 2 mantém abreviações de duas letras (ML, IA, UI) utilizáveis; aumente para 3 se o seu cofre acumula aliases de duas letras que diferem apenas em maiúsculas (Cr/CR). Intervalo 2–6.',
+    minAliasLengthClamped: 'Valor fora do intervalo (2–6), definido para {}',
 
     // Model Selection
     modelSection: 'Seleção de modelo',

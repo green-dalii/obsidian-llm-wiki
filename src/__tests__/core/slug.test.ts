@@ -204,6 +204,15 @@ describe('filterRedundantAliases', () => {
     expect(result).toEqual(['ML']);
   });
 
+  it('honours a caller-supplied floor (minAliasLength setting) on the candidate and cross-page keys', () => {
+    // Floor 3: the two-letter alias is out, the three-letter one stays; a
+    // two-letter cross-page alias no longer blocks anything either.
+    const result = filterRedundantAliases('wiki/entities/chrom.md', ['Cr', 'CrO', 'Chromium'], ['cr', 'cro'], 3);
+    expect(result).toEqual(['Chromium']);
+    // Same input without the argument: v1.25.10 behaviour (floor 2) unchanged.
+    expect(filterRedundantAliases('wiki/entities/chrom.md', ['Cr', 'CrO', 'Chromium'])).toEqual(['Cr', 'CrO', 'Chromium']);
+  });
+
   it('drops aliases that already exist on other pages (cross-page uniqueness)', () => {
     // "Vigilanz" is already an alias on another page — adding it to this
     // page would create a wikilink ambiguity. Pass them via the third arg.

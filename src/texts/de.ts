@@ -85,6 +85,10 @@ export const DE_TEXTS = {
     slugCaseDesc: "Legt fest, ob generierte Wiki-Dateinamen kleingeschrieben werden. 'Beibehalten' empfohlen fuer Sprachen, in denen Gross-/Kleinschreibung bedeutungsrelevant ist (z. B. deutsche Substantive).",
     slugCaseLower: 'Kleinschreibung (Standard)',
     slugCasePreserve: 'Schreibweise beibehalten',
+    // Minimum alias length (Advanced settings, next to slug case).
+    minAliasLengthName: 'Minimale Alias-Länge',
+    minAliasLengthDesc: 'Aliase, die kürzer sind (nach Trimmen), werden nicht in Wiki-Seiten geschrieben. Standard 2 hält zweibuchstabige Abkürzungen (ML, KI, UI) nutzbar; auf 3 erhöhen, wenn der Vault zweibuchstabige Aliase sammelt, die sich nur in der Schreibung unterscheiden (Cr/CR). Bereich 2–6.',
+    minAliasLengthClamped: 'Wert außerhalb des Bereichs (2–6), auf {} gesetzt',
 
     // Model Selection
     modelSection: 'Modellauswahl',

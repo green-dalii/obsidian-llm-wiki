@@ -85,6 +85,10 @@ export const FR_TEXTS = {
     slugCaseDesc: "Contrôle si les noms de fichiers Wiki générés sont mis en minuscules. 'Conserver' recommandé pour les langues où la casse est significative (ex. noms allemands).",
     slugCaseLower: 'Minuscules (défaut)',
     slugCasePreserve: 'Conserver la casse',
+    // Minimum alias length (Advanced settings, next to slug case).
+    minAliasLengthName: 'Longueur minimale des alias',
+    minAliasLengthDesc: 'Les alias plus courts (après suppression des espaces) ne sont pas écrits dans les pages du wiki. La valeur 2 garde les abréviations à deux lettres (ML, IA, UI) utilisables ; passez à 3 si votre coffre accumule des alias à deux lettres qui ne diffèrent que par la casse (Cr/CR). Plage 2–6.',
+    minAliasLengthClamped: 'Valeur hors plage (2–6), réglée sur {}',
 
     // Model Selection
     modelSection: 'Sélection du modèle',
