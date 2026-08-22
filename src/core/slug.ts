@@ -81,7 +81,11 @@ export function slugKeys(
   const fold = opts.turkishFold === true;
   for (const raw of [name, ...aliases]) {
     if (typeof raw !== 'string') continue;
-    const trimmed = raw.trim();
+    // NFC first: a name read back from disk may be decomposed (macOS hands
+    // out NFD filenames) while the model writes composed text, and
+    // `computeSlug` compares code points — without this the two forms of
+    // one umlaut are two keys. The file-naming path is untouched.
+    const trimmed = raw.trim().normalize('NFC');
     if (trimmed.length === 0) continue;
     // Fold BEFORE slugifying so that `[[İsim]]` and `[[isim]]` collapse
     // to the same comparison key inside a Turkish vault. ASCII `I`
@@ -123,20 +127,30 @@ export function slugKeys(
 //
 // The constant itself lives in `src/constants.ts` so it can be
 // tuned centrally without grepping the codebase.
+//
+// The comparison key is NFC-normalised and folded like `slugKeys` (not bare
+// `toLowerCase()`): a page basename that came back from disk decomposed and
+// a composed alias from the model must meet, and `İstanbul`/`istanbul` must
+// be one alias, not two — `toLowerCase()` turns `İ` into `i` + COMBINING DOT
+// ABOVE, so without the fold the uniqueness gate never fires on that pair.
+function aliasKey(raw: string): string {
+  return turkishCaseFold(raw.trim().normalize('NFC'));
+}
+
 export function filterRedundantAliases(
   pagePath: string,
   candidateAliases: string[],
   existingAliasesAcrossPages?: readonly string[],
 ): string[] {
   const fileName = pagePath.split('/').pop() || '';
-  const fileKey = fileName.replace(/\.md$/i, '').trim().toLowerCase();
+  const fileKey = aliasKey(fileName.replace(/\.md$/i, ''));
   const crossPageKeys = new Set<string>();
   if (existingAliasesAcrossPages) {
     for (const raw of existingAliasesAcrossPages) {
       if (typeof raw !== 'string') continue;
       const trimmed = raw.trim();
       if (trimmed.length >= MIN_ALIAS_LENGTH) {
-        crossPageKeys.add(trimmed.toLowerCase());
+        crossPageKeys.add(aliasKey(trimmed));
       }
     }
   }
@@ -145,7 +159,7 @@ export function filterRedundantAliases(
     if (typeof alias !== 'string') return false;
     const trimmed = alias.trim();
     if (trimmed.length < MIN_ALIAS_LENGTH) return false;
-    const key = trimmed.toLowerCase();
+    const key = aliasKey(trimmed);
     if (key === fileKey) return false; // already resolves to this file — redundant
     if (crossPageKeys.has(key)) return false; // already used on another page — wikilink ambiguity
     if (seen.has(key)) return false; // duplicate within the batch (case-insensitive)
