@@ -23,6 +23,7 @@ import {
   QueryViewValueSchema,
   SourceAnalysisLLMSchema,
   LemmaClassifyLLMSchema,
+  TypeRepairLLMSchema,
   ConversationDedupStatusLLMSchema,
   DedupResultLLMSchema,
   SchemaSuggestionLLMSchema,
@@ -368,6 +369,16 @@ describe('output-schemas (Phase B expanded scope)', () => {
     });
     it('rejects missing kind (required)', () => {
       expect(() => LemmaClassifyLLMSchema.parse({})).toThrow();
+    });
+  });
+
+  describe('TypeRepairLLMSchema (Issue #527)', () => {
+    it('parses {type: <term>} and passes through any string (widening — caller folds onto the vocabulary)', () => {
+      expect(TypeRepairLLMSchema.parse({ type: 'Biochemie' }).type).toBe('Biochemie');
+      expect(TypeRepairLLMSchema.parse({ type: 'person' }).type).toBe('person');
+    });
+    it('rejects missing type (required)', () => {
+      expect(() => TypeRepairLLMSchema.parse({})).toThrow();
     });
   });
 

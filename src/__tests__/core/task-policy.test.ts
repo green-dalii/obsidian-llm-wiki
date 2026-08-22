@@ -21,7 +21,7 @@ import {
 
 // Every `task:` label a production call site passes today.
 const TASK_LABELS = [
-  'extract', 'extract-retry', 'lemma-classify', 'merge-triage', 'merge-body',
+  'extract', 'extract-retry', 'lemma-classify', 'type-repair', 'merge-triage', 'merge-body',
   'reviewed-append', 'related-page', 'complementary', 'page-generate',
   'source-page', 'pdf-convert', 'dedup', 'conversation-extract',
   'conversation-extract-retry', 'conversation-page', 'conversation-save-dedup',
