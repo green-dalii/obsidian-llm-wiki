@@ -551,6 +551,8 @@ export const ZH_HANT_TEXTS = {
     showAdvancedSettingsDesc: '開啟後顯示下方的高階設定；關閉後會隱藏這些設定並重設為預設值。',
     disableThinkingName: '關閉思考',
     disableThinkingDesc: '關閉模型回應中的思維鏈/推理過程輸出。預設關閉 —— 由模型自己決定是否顯示推理，這樣通常能得到最好的回答。只有當你的提供商把原始推理文字塞進回應、而你希望得到一個乾淨的答案時，才打開它。',
+    taskPoliciesName: '按步驟設定輸出模式與思考',
+    taskPoliciesDesc: '每個流程步驟一項，格式 `步驟=模式:思考`，以逗號分隔，例如 `extract=text:off`。模式：`-`（不變）、`schema`、`json`、`text`；思考：`-`、`off`、`on`、`low`、`medium`、`high`。留空使用內建基準（擷取步驟為文字模式）。無法解析的條目不會儲存。',
     // Issue #137: 兼容性提示（简短；不列举 provider，避免维护负担）
     extractionTemperatureName: '提取溫度',
     extractionTemperatureDesc: '控制模型在寫實體/概念頁時是偏嚴謹還是偏創意。數值越低越確定、越忠於原文；數值越高變化越多。大多數使用者留空即可。',

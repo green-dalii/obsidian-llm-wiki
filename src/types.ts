@@ -336,10 +336,11 @@ export interface LLMWikiSettings {
   disableThinking?: boolean;
 
   // Issue #481: per-step output mode and thinking. Unset — the default, and
-  // what every existing data.json has — means every step behaves exactly as
-  // before; see src/core/task-policy.ts. Deliberately not exposed in the UI:
-  // the settings worth offering are the ones a measurement has picked out, and
-  // this field is what makes that measurement possible.
+  // what every existing data.json has — resolves to the built-in baseline in
+  // src/core/task-policy.ts (Issue #524: `extract` / `extract-retry` in text
+  // mode, every other step as before). Exposed in the LLM Advanced section
+  // since #524, because the measurement it was built for has picked out one
+  // step — and a baseline nobody can move is not a baseline.
   taskPolicies?: TaskPolicyMap;
 
   // Advanced settings mode — 'default' hides the toggles/inputs; 'custom'

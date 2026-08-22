@@ -461,3 +461,51 @@ describe('SourceAnalyzer — typed-output migration (#443 expanded scope)', () =
     expect(repairArgs.response_format?.schema).toBeDefined();
   });
 });
+// Issue #524: a repetition loop in the response is treated like truncation.
+// Under grammar-constrained decoding the loop can end in finish_reason=stop
+// with schema-valid JSON around it — a handful of items, the loop inside a
+// string — and every other guard accepts that as a successful batch. The
+// analyzer must halve and retry instead of merging the damaged batch.
+describe('SourceAnalyzer — repetition loop guard (#524)', () => {
+  const LOOPED = JSON.stringify({
+    source_title: 'Test',
+    summary: 'A test.',
+    entities: [{ name: 'Damaged', type: 'other', summary: 'Sauerteig ' + 'Sauerteig, '.repeat(60), mentions_in_source: ['x'] }],
+    concepts: [],
+  });
+  const CLEAN = JSON.stringify({
+    source_title: 'Test',
+    summary: 'A test.',
+    entities: [{ name: 'Intact', type: 'other', summary: 'fine', mentions_in_source: ['Content here.'] }],
+    concepts: [{ name: 'Idea', type: 'other', summary: 'fine', mentions_in_source: ['Content here.'] }],
+  });
+  const LONG_NOTE = '# Test\n' + 'Content here. '.repeat(400);
+
+  it('halves and retries when the first batch carries a loop, and keeps the clean retry', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const a = mockAnalyze({ [TEST_PATH]: LONG_NOTE }, [LOOPED, CLEAN, '{"kind": "entity"}', '{"kind": "concept"}']);
+      const result = await run(a, TEST_PATH);
+      expect(result).not.toBeNull();
+      const names = [...result!.entities.map(e => e.name), ...result!.concepts.map(c => c.name)];
+      expect(names).toContain('Intact');
+      expect(names).not.toContain('Damaged');
+      expect(warn.mock.calls.some(c => String(c[0]).includes('Repetition loop'))).toBe(true);
+      expect(warn.mock.calls.some(c => String(c[0]).includes('repetition loop'))).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('leaves a clean first batch alone', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const a = mockAnalyze({ [TEST_PATH]: LONG_NOTE }, [CLEAN, '{"kind": "entity"}', '{"kind": "concept"}']);
+      const result = await run(a, TEST_PATH);
+      expect(result).not.toBeNull();
+      expect(warn.mock.calls.some(c => String(c[0]).includes('Repetition loop'))).toBe(false);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

@@ -558,6 +558,8 @@ export const ZH_TEXTS = {
     showAdvancedSettingsDesc: '开启后显示下方的高级设置；关闭后会隐藏这些设置并将其重置为默认值。',
     disableThinkingName: '禁用思考',
     disableThinkingDesc: '关闭模型响应中的思维链/推理过程输出。默认关闭 —— 由模型自己决定是否显示推理，这样通常能得到最好的回答。只有当你的提供商把原始推理文本塞进回复、而你希望得到一个干净的答案时，才打开它。',
+    taskPoliciesName: '按步骤设置输出模式与思考',
+    taskPoliciesDesc: '每个流水线步骤一项，格式 `步骤=模式:思考`，逗号分隔，例如 `extract=text:off`。模式：`-`（不变）、`schema`、`json`、`text`；思考：`-`、`off`、`on`、`low`、`medium`、`high`。留空使用内置基线（抽取步骤为文本模式）。无法解析的条目不会保存。',
     // Issue #137: 兼容性提示（简短；不列举 provider，避免维护负担）
     extractionTemperatureName: '提取温度',
     extractionTemperatureDesc: '控制模型在写实体/概念页时是偏严谨还是偏创意。数值越低越确定、越忠于原文；数值越高变化越多。大多数用户留空即可。',

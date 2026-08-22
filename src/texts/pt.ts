@@ -597,6 +597,8 @@ export const PT_TEXTS = {
     showAdvancedSettingsDesc: 'Ative para mostrar as configurações avançadas abaixo. Desativar oculta-as e redefine-as para os valores padrão.',
     disableThinkingName: 'Desabilitar pensamento',
     disableThinkingDesc: 'Desativa a cadeia de pensamento/raciocínio na resposta do modelo. Desativado por predefinição — o modelo decide se mostra raciocínio, o que geralmente dá a melhor resposta. Ative apenas se o seu provedor inserir texto de raciocínio bruto na resposta e você quiser uma resposta limpa.',
+    taskPoliciesName: 'Modo de saída e raciocínio por etapa',
+    taskPoliciesDesc: 'Uma entrada por etapa do pipeline, `etapa=modo:raciocinio`, separadas por vírgulas — p. ex. `extract=text:off`. Modos: `-` (inalterado), `schema`, `json`, `text`; raciocínio: `-`, `off`, `on`, `low`, `medium`, `high`. Deixe em branco para a base integrada (extração em modo texto). Uma entrada ilegível não é guardada.',
     // Issue #137: Avisos de compatibilidade (breves; sem lista de provedores)
     extractionTemperatureName: 'Temperatura de extração',
     extractionTemperatureDesc: 'Controla se o modelo é mais conservador ou criativo ao escrever páginas entity/concept. Valores baixos = mais determinístico e fiel; valores altos = mais variado. A maioria dos usuários deixa vazio.',

@@ -29,9 +29,14 @@ const TASK_LABELS = [
   'lint-tag-fix', 'query-view-evaluate', 'schema-suggest', 'welcome-translate',
 ];
 
+// Issue #524: the two steps with a built-in baseline. Every other step is
+// still "change nothing".
+const BUILTIN_TEXT_STEPS = ['extract', 'extract-retry'];
+const UNTOUCHED_LABELS = TASK_LABELS.filter(t => !BUILTIN_TEXT_STEPS.includes(t));
+
 describe('resolveTaskPolicy — the default path is untouched', () => {
-  it('resolves every known task to the default when no policy is set', () => {
-    for (const task of TASK_LABELS) {
+  it('resolves every known task without a built-in baseline to the default when no policy is set', () => {
+    for (const task of UNTOUCHED_LABELS) {
       expect(resolveTaskPolicy(undefined, task)).toEqual(DEFAULT_TASK_POLICY);
       expect(resolveTaskPolicy({}, task)).toEqual(DEFAULT_TASK_POLICY);
     }
@@ -47,8 +52,50 @@ describe('resolveTaskPolicy — the default path is untouched', () => {
     const policies = parseTaskPolicySpec('extract=text:on');
     expect(resolveTaskPolicy(policies, 'extract'))
       .toEqual({ outputMode: 'text_prompt', thinking: 'on' });
-    for (const task of TASK_LABELS.filter(t => t !== 'extract')) {
+    for (const task of UNTOUCHED_LABELS.filter(t => t !== 'extract')) {
       expect(resolveTaskPolicy(policies, task)).toEqual(DEFAULT_TASK_POLICY);
+    }
+  });
+});
+
+// Issue #524: the built-in baseline. Extraction under `json_schema` degraded
+// on LM Studio / gemma-4-26b in 3 of 3 replays of the real request, twice
+// silently; the server logs show 14 loops in 125 schema-mode extraction calls
+// against 9 in 2,368 text-mode ones. The baseline puts the one long-output
+// step back on the wire shape every user had before 1.26.3, and nothing
+// else moves. A user entry or a wildcard must still win — the field is what
+// makes the comparison run possible.
+describe('resolveTaskPolicy — built-in baseline (#524)', () => {
+  it('pins extract and extract-retry to text mode when no policy is set', () => {
+    for (const task of BUILTIN_TEXT_STEPS) {
+      expect(resolveTaskPolicy(undefined, task)).toEqual({ outputMode: 'text_prompt', thinking: 'default' });
+      expect(resolveTaskPolicy({}, task)).toEqual({ outputMode: 'text_prompt', thinking: 'default' });
+    }
+  });
+
+  it('keeps the baseline for the steps a policy does not name', () => {
+    const policies = parseTaskPolicySpec('merge-triage=text:on');
+    for (const task of BUILTIN_TEXT_STEPS) {
+      expect(resolveTaskPolicy(policies, task)).toEqual({ outputMode: 'text_prompt', thinking: 'default' });
+    }
+  });
+
+  it('lets a user entry move the step back onto the schema', () => {
+    const policies = parseTaskPolicySpec('extract=schema:off');
+    expect(resolveTaskPolicy(policies, 'extract')).toEqual({ outputMode: 'json_schema', thinking: 'off' });
+    expect(resolveTaskPolicy(policies, 'extract-retry')).toEqual({ outputMode: 'text_prompt', thinking: 'default' });
+  });
+
+  it('lets a wildcard win over the baseline', () => {
+    const policies = parseTaskPolicySpec('*=schema:-');
+    for (const task of BUILTIN_TEXT_STEPS) {
+      expect(resolveTaskPolicy(policies, task)).toEqual({ outputMode: 'json_schema', thinking: 'default' });
+    }
+  });
+
+  it('does not touch the thinking axis', () => {
+    for (const task of BUILTIN_TEXT_STEPS) {
+      expect(resolveTaskPolicy(undefined, task).thinking).toBe('default');
     }
   });
 });

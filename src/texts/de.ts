@@ -599,6 +599,8 @@ export const DE_TEXTS = {
     showAdvancedSettingsDesc: 'Aktivieren, um die erweiterten Einstellungen unten anzuzeigen. Beim Deaktivieren werden sie ausgeblendet und auf die Standardwerte zurückgesetzt.',
     disableThinkingName: 'Thinking deaktivieren',
     disableThinkingDesc: 'Schaltet die Gedankenkette/Denkprozess-Ausgabe des Modells aus. Standardmäßig aus — das Modell entscheidet selbst, ob es Reasoning anzeigt, was in der Regel die beste Antwort ergibt. Schalten Sie dies nur ein, wenn Ihr Anbieter rohen Reasoning-Text in die Antwort einstreut und Sie eine saubere Antwort wünschen.',
+    taskPoliciesName: 'Ausgabemodus und Reasoning je Schritt',
+    taskPoliciesDesc: 'Ein Eintrag je Pipeline-Schritt, `schritt=modus:reasoning`, durch Komma getrennt — z. B. `extract=text:off`. Modi: `-` (unverändert), `schema`, `json`, `text`; Reasoning: `-`, `off`, `on`, `low`, `medium`, `high`. Leer = eingebaute Vorgabe (Extraktion im Textmodus). Ein unlesbarer Eintrag wird nicht gespeichert.',
     // Issue #137: Kompatibilitätshinweise (kurz gehalten; keine Provider-Liste)
     extractionTemperatureName: 'Extraktionstemperatur',
     extractionTemperatureDesc: 'Steuert, ob das Modell beim Schreiben von Entity-/Concept-Seiten eher konservativ oder kreativ vorgeht. Niedrigere Werte = deterministischer und originalgetreuer; höhere Werte = abwechslungsreicher. Die meisten Benutzer lassen dies leer.',
