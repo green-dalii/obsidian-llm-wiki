@@ -217,6 +217,14 @@ export const TOKENS_DEDUP_RESOLUTION = 3000;
 export const TOKENS_LEMMA_CLASSIFY = 2000;
 
 /**
+ * Issue #527 — token budget for the intake type repair
+ * (`SourceAnalyzer.askTypeFromVocabulary`): one vocabulary term as a
+ * one-field JSON object, same short-answer / thinking-preamble pattern as
+ * the lemma classification above, so the same budget.
+ */
+export const TOKENS_TYPE_REPAIR = TOKENS_LEMMA_CLASSIFY;
+
+/**
  * Pages a prompt shows the model when it asks "which existing page is this?"
  * — the semantic dedup and Fix Dead Links draw from the same ranked window
  * (`core/candidate-window.ts`). The full list grew with the vault (~77K

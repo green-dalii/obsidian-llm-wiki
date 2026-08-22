@@ -41,6 +41,23 @@ export function getActiveSourceTags(settings: LLMWikiSettings): string[] {
   return [...VALID_SOURCE_TAGS];
 }
 
+/**
+ * Issue #527 — deterministic fold of a model-emitted type onto the active
+ * vocabulary: exact match, then case-insensitive, then diacritic-insensitive.
+ * Returns the vocabulary's own spelling, or null when nothing matches.
+ * Plural and inflection are deliberately not folded: `Aminosäuren` is not
+ * `Aminosäure` by any rule this function could state safely across the
+ * languages a vocabulary may be written in — those go to the model.
+ */
+export function foldToVocabulary(value: string, vocab: readonly string[]): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  if (vocab.includes(v)) return v;
+  const key = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const k = key(v);
+  return vocab.find(t => key(t) === k) ?? null;
+}
+
 export function normalizeVocabularyCsv(csv: string): string {
   if (!csv) return '';
   const seen = new Set<string>();

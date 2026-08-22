@@ -231,6 +231,18 @@ export const LemmaClassifyLLMSchema = z.object({
 export type LemmaClassifyLLM = z.infer<typeof LemmaClassifyLLMSchema>;
 
 /**
+ * source-analyzer.ts type-repair (Issue #527) — "which term of the active
+ * vocabulary fits this extracted item?" Same widening pattern as
+ * `LemmaClassifyLLMSchema`: `type` is required on the wire, the caller
+ * folds the answer onto the vocabulary and keeps the extracted value when
+ * the answer is not in it.
+ */
+export const TypeRepairLLMSchema = z.object({
+  type: z.string(),
+}).passthrough();
+export type TypeRepairLLM = z.infer<typeof TypeRepairLLMSchema>;
+
+/**
  * conversation-ingest.ts save-dedup — "is this conversation
  * entirely new, a partial overlap, or a full match against existing
  * wiki pages?" Existing cast: `{ status?: string }`. Status is
