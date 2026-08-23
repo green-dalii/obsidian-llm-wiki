@@ -41,24 +41,38 @@ Process standards live in [CLAUDE.md §"🛡️ Six-Gate Quality Closure"](./CLA
 | **#404** (PR) | feat: add MinerU online PDF conversion backend | @XEurekaX — merged 2026-08-22 (`769e7bb`); ships with v1.27.0 |
 | **#498** (PR) | docs(notice): bring the @DocTpoint attribution line up to v1.26.4 | Ship with MINOR |
 
-### Community wave 2026-08-21/22 (triaged, ships with v1.27.0)
+### Community wave 1 — 2026-08-21/22 (ALL MERGED)
 
-All reviewed + approved 2026-08-22; merge order: #513+#523 (compose) → #510 → #520/#521 (independent) → #516/#518 (CI pending) → #508.
+8 PRs reviewed, approved and squash-merged 2026-08-22/23; all linked issues auto-closed.
 
 | PR | Issue | What | Note |
 |----|-------|------|------|
-| **#513** | #512 | duplicate-merge passthrough (#356 parity) | Composes with #523 |
-| **#523** | #522 | constraints pass block-form passthrough (#356 parity) | Closes the parity chain with #513 |
-| **#510** | #509 | `mergeFrontmatter` unions incoming type tags | **Decision 2026-08-22: keep union** (order-invariance; `incomingTypeTag` guards custom vocab); custom-vocab tag gap to be filed separately by @DocTpoint |
-| **#520** | #519 | one ranked candidate window for dedup + dead-link prompts | Measured: full-list fallback recall nominal (0/18), cost real (~40K tokens × 61% candidates). Gate-4 accepted: ~2KB text/page retained (~5.6MB peak @2.8K pages) |
-| **#521** | #514 | opt-in candidate gate (`skipMentionOnlyCandidates`, default off) | Only `de` profile measured; zh/ja char thresholds unmeasured — maintainer follow-up on a Chinese vault |
-| **#516** | #515 | OpenRouter Anthropic baseURL fixture fix | Test-only; GLM/z.ai rows in same table still need account-holding verification |
-| **#518** | #517 | blank-model guard in Test Connection (+11 locales) | Adjacent findings → follow-up issues (see below) |
+| **#513** | #512 | duplicate-merge passthrough (#356 parity) | Merged with #523 as one batch |
+| **#523** | #522 | constraints pass block-form passthrough (#356 parity) | Closes the parity chain |
+| **#510** | #509 | `mergeFrontmatter` unions incoming type tags | **Decision: keep union** (order-invariance; `incomingTypeTag` guards custom vocab) |
+| **#520** | #519 | one ranked candidate window for dedup + dead-link prompts | Full-list fallback recall was nominal (0/18), cost real (~40K tokens × 61% candidates). Gate-4 accepted: ~2KB text/page (~5.6MB peak @2.8K pages) |
+| **#521** | #514 | opt-in candidate gate (`skipMentionOnlyCandidates`, default off) | Only `de` profile measured; zh/ja thresholds unmeasured — maintainer follow-up on a Chinese vault |
+| **#516** | #515 | OpenRouter Anthropic baseURL fixture fix | Test-only; GLM/z.ai rows still need account-holding verification |
+| **#518** | #517 | blank-model guard in Test Connection (+11 locales) | First-time-fork CI needed run approval (`actions/runs/{id}/approve`) |
 | **#508** | — | CHANGELOG upgrade note for #504 `/` entries | Rides `[Unreleased]` into v1.27.0 |
 
 Deferred: **#503** (`userIgnoreFilters`) → research track — decision recorded: `vault.getConfig` behind a narrow typed interface; blocked on pinning Obsidian's ignore-matching semantics.
 
-Follow-ups to file (not yet opened): anavalo's two adjacent findings from #517 (`isUrlError` treats model-404 as URL fault → wasted fallback round trip; `getModelFilter` drops every OpenRouter id containing `:` — ~79/419 models incl. all `:free` variants invisible).
+Follow-ups filed from #517 adjacent findings: **#533** (`isUrlError` treats model-404 as URL fault → wasted fallback round trip), **#534** (`getModelFilter` drops every OpenRouter id containing `:` — ~79/419 models incl. all `:free` variants invisible).
+
+### Community wave 2 — 2026-08-22 (triaged 2026-08-23, awaiting review + merge go)
+
+7 PRs by @DocTpoint + issues #527/#524; all labeled + milestoned v1.27.0 MINOR.
+
+| PR | Issue | What | Note |
+|----|-------|------|------|
+| **#525** | #524 | extract defaults to text mode + repetition-loop guard + taskPolicies UI | ⚠️ Author requests PATCH (silent extraction content loss on schema-constrained local backends affects all 1.26.3+ users); maintainer leans v1.27.0 MINOR — decision open. Workaround in #524 |
+| **#528** | #527 | type repair at intake (fold → one short call) | Custom-vocab gap promised at #510, delivered issue+fix together; new `type-repair` task label |
+| **#526** | — | dev-instrument exit codes 0/1/2 | The follow-up set aside at PR #418; usage→stderr, skip stays 0 |
+| **#529** | #258 class | `stripUnknownSections` on generation paths | Deterministic guard vs invented sections; reviewed pages bypass |
+| **#530** | #366 phase 2 | NFC + Turkish fold on alias comparison keys | File-naming path untouched |
+| **#531** | — | `folderBySlug` keyed on comparison slug | Completes the #484 comparison contract in that function |
+| **#532** | — | `minAliasLength` setting (default 2, range 2..6) | Solves `Cr`/`CR` fold collisions without a code edit |
 
 ### Other follow-ups
 
