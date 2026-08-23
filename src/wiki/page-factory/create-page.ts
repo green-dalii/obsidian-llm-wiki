@@ -221,7 +221,9 @@ export async function createNewPage(
     // Issue #388: no `preserveCreated` — this page is being created, so there is
     // no prior file and no real creation date to preserve. Anything `created:`
     // in the model's reply says about the past is invented by construction.
-    const enforcedContent = enforceFrontmatterConstraints(cleanedContent, pageType, ctx.settings);
+    // The path is passed so an alias that merely repeats the page's own filename
+    // is dropped — same rule as `appendAliases`, other writer of the field.
+    const enforcedContent = enforceFrontmatterConstraints(cleanedContent, pageType, ctx.settings, { pagePath: path });
     const labels = getSectionLabels(ctx.settings);
     // Re-assert the known section labels before the link corrector runs, so a
     // garbled `## Verwandte …` header still resolves its section for prefix

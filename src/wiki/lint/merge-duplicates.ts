@@ -174,6 +174,7 @@ export async function mergeDuplicatePages(
   // rather than relying on it surviving a round trip through the serializer.
   const enforced = enforceFrontmatterConstraints(newContent, pageType, ctx.settings, {
     preserveCreated: targetFm?.created,
+    pagePath: targetPath,
   });
   await ctx.createOrUpdateFile(targetPath, enforced);
 

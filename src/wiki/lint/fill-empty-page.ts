@@ -98,6 +98,7 @@ export async function fillEmptyPage(
   // wrote one, is a transcription at best.
   const enforced = enforceFrontmatterConstraints(withDates, pageTypeSingular, ctx.settings, {
     preserveCreated: parseFrontmatter(content)?.created,
+    pagePath,
   });
 
   await ctx.createOrUpdateFile(pagePath, enforced);

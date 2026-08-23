@@ -1035,3 +1035,43 @@ related_links:
     expect(parseFrontmatter(result)?.related_links).toEqual(['[[Foo]]', '[[Bar]]']);
   });
 });
+
+describe('enforceFrontmatterConstraints — aliases that repeat the page filename (create path)', () => {
+  // The model writes the frontmatter of a new page itself, and it routinely
+  // lists the page's own name among the aliases. `appendAliases` already
+  // refuses exactly that via `filterRedundantAliases`; this pass is the other
+  // writer of the same field and has to apply the same rule when it knows the
+  // page path. Without a path (legacy callers) nothing changes.
+  const page = (aliases: string) => `---\ntype: entity\ntags:\n  - other\naliases:\n${aliases}---\n\n## Description\nBody.\n`;
+
+  it('drops an alias equal to the page basename when pagePath is given', () => {
+    const out = enforceFrontmatterConstraints(page('  - "CD44"\n'), 'entity', undefined, {
+      pagePath: 'wiki/entities/CD44.md',
+    });
+    expect(out).not.toMatch(/aliases:/);
+    expect(out).toContain('## Description\nBody.');
+  });
+
+  it('compares case-insensitively, like filterRedundantAliases', () => {
+    const out = enforceFrontmatterConstraints(page('  - "cd44"\n'), 'entity', undefined, {
+      pagePath: 'wiki/entities/CD44.md',
+    });
+    expect(out).not.toMatch(/aliases:/);
+  });
+
+  it('keeps every alias that is not the basename — including the space-variant of it', () => {
+    const out = enforceFrontmatterConstraints(
+      page('  - "Interleukin-10"\n  - "IL-10"\n  - "Interleukin 10"\n'),
+      'entity',
+      undefined,
+      { pagePath: 'wiki/entities/Interleukin-10.md' },
+    );
+    expect(out).toMatch(/aliases:\n  - "IL-10"\n  - "Interleukin 10"\n/);
+    expect(out).not.toMatch(/- "Interleukin-10"/);
+  });
+
+  it('leaves the list untouched when no pagePath is passed (legacy callers)', () => {
+    const out = enforceFrontmatterConstraints(page('  - "CD44"\n'), 'entity');
+    expect(out).toMatch(/aliases:\n  - "CD44"\n/);
+  });
+});

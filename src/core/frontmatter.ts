@@ -1,5 +1,6 @@
 import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, VALID_SOURCE_TAGS, LLMWikiSettings } from '../types';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from './tag-vocab';
+import { filterRedundantAliases } from './slug';
 
 export interface FrontmatterData {
   reviewed?: boolean;
@@ -566,6 +567,19 @@ export interface FrontmatterDateOptions {
   preserveCreated?: string;
 }
 
+export interface EnforceFrontmatterOptions extends FrontmatterDateOptions {
+  /**
+   * Vault path of the page the block is being written to. When given, an
+   * alias that only repeats the page's own basename (case-insensitive) is
+   * dropped — the same rule `appendAliases` applies via
+   * `filterRedundantAliases`, so both writers of `aliases:` agree. The
+   * generation paths hand this function the model's reply, and the model
+   * routinely lists the page name among the aliases. Omitted by callers
+   * that do not know the path; nothing changes for them.
+   */
+  pagePath?: string;
+}
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function resolveCreated(options: FrontmatterDateOptions | undefined, today: string): string {
@@ -577,7 +591,7 @@ export function enforceFrontmatterConstraints(
   content: string,
   pageType: 'entity' | 'concept' | 'source',
   settings?: LLMWikiSettings,
-  options?: FrontmatterDateOptions
+  options?: EnforceFrontmatterOptions
 ): string {
   if (!content.startsWith('---')) return content;
 
@@ -710,6 +724,12 @@ export function enforceFrontmatterConstraints(
     }
   }
 
+  // Self-pointing aliases (alias === page basename) are dropped here when the
+  // caller knows the path — see EnforceFrontmatterOptions.pagePath.
+  const aliases = options?.pagePath
+    ? filterRedundantAliases(options.pagePath, collectedAliases)
+    : collectedAliases;
+
   const frontmatter = serializeFrontmatter(
     {
       type: foundType ? pageType : undefined,
@@ -717,7 +737,7 @@ export function enforceFrontmatterConstraints(
       updated: today,
       sources: Array.isArray(preservedSources) && preservedSources.length > 0 ? preservedSources : undefined,
       tags: dedupedTags,
-      aliases: (foundAliases || collectedAliases.length > 0) ? collectedAliases : undefined,
+      aliases: (foundAliases || aliases.length > 0) ? aliases : undefined,
     },
     { passthroughLines, tagStyle: 'inline', emitEmptyTags: hasTags }
   );

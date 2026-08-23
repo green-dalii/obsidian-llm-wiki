@@ -451,3 +451,37 @@ describe('createNewPage — created: provenance (Issue #388)', () => {
     expect(written).not.toContain('2024-11-03');
   });
 });
+
+describe('createNewPage — an alias that repeats the page filename is not persisted', () => {
+  // Same rule as `appendAliases` (`filterRedundantAliases`): the page's own
+  // name is a self-pointing alias. The model lists it routinely on the create
+  // path; the generated frontmatter goes through `enforceFrontmatterConstraints`,
+  // which now receives the page path and applies the rule there.
+  const LLM_PAGE_WITH_SELF_ALIAS = `---
+type: entity
+tags:
+  - other
+aliases:
+  - "Foo"
+  - "Foo bar"
+  - "FB"
+---
+
+## Description
+Body.`;
+
+  it('writes the other aliases and drops the one equal to the basename', async () => {
+    const ctx = makeCtx({ llmResponse: LLM_PAGE_WITH_SELF_ALIAS });
+    await createNewPage(
+      ctx,
+      createMockEntity({ name: 'Foo' }),
+      'entity',
+      { path: 'notes/article.md', basename: 'article.md' },
+      [],
+      'wiki/entities/Foo.md',
+    );
+    const written = ctx.written.get('wiki/entities/Foo.md')!;
+    expect(written).toMatch(/aliases:\n  - "Foo bar"\n  - "FB"\n/);
+    expect(written).not.toMatch(/- "Foo"\n/);
+  });
+});
