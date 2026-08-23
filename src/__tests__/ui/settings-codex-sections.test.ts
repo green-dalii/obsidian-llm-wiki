@@ -5,7 +5,13 @@ import { renderModelSection } from '../../ui/settings-sections/model-section';
 import { renderTestConnectionSection } from '../../ui/settings-sections/test-connection-section';
 import type { LLMWikiSettingTab } from '../../ui/settings';
 
-const { buttonClicks, settingNames } = vi.hoisted(() => ({ buttonClicks: [] as Array<() => unknown>, settingNames: [] as string[] }));
+const { buttonClicks, fetchModelsMock, settingNames } = vi.hoisted(() => ({
+  buttonClicks: [] as Array<() => unknown>,
+  fetchModelsMock: vi.fn(),
+  settingNames: [] as string[],
+}));
+
+vi.mock('../../core/url-fallback', () => ({ fetchModelsWithFallback: fetchModelsMock }));
 
 vi.mock('obsidian', () => {
   class ControlMock {
@@ -40,13 +46,14 @@ function createTab(): LLMWikiSettingTab {
   const modelFields: Array<{ allowCustom?: boolean }> = [];
   return {
     tempSettings: { ...DEFAULT_SETTINGS, provider: 'openai-codex', model: 'gpt-5.5' },
-    plugin: { codexAuthManager: { hasCredential: () => false } },
+    plugin: { app: { secretStorage: null }, codexAuthManager: { hasCredential: () => false } },
     codexAuthBusy: false,
     codexDevicePrompt: null,
     getText: (key: string) => key,
     getTextDynamic: (key: string) => key,
     display: vi.fn(),
     renderModelField: (_container: HTMLElement, _field: string, options: { allowCustom?: boolean }) => { modelFields.push(options); },
+    setFieldValue: vi.fn(),
     cascadeUnifiedModelChange: vi.fn(),
     prefillPerTaskFromUnified: vi.fn(),
     markLLMConfigStale: vi.fn(),
@@ -61,7 +68,11 @@ function createTab(): LLMWikiSettingTab {
 }
 
 describe('Codex settings section integration', () => {
-  beforeEach(() => { buttonClicks.length = 0; settingNames.length = 0; });
+  beforeEach(() => {
+    buttonClicks.length = 0;
+    fetchModelsMock.mockReset();
+    settingNames.length = 0;
+  });
   it('renders OAuth controls instead of an API key field', () => {
     renderProviderSection(createTab(), {} as HTMLElement);
     expect(settingNames).toContain('codexAuthName');
@@ -107,5 +118,48 @@ describe('Codex settings section integration', () => {
     renderTestConnectionSection(tab, {} as HTMLElement);
     await buttonClicks[0]();
     expect(tab.plugin.settings).toMatchObject({ provider: 'openai', model: 'gpt-4.1', availableModels: ['gpt-4.1'], openAICodexModels: [{ slug: 'codex-model' }], openAICodexModelsFetchedAt: 123 });
+  });
+
+  it.each([
+    {
+      name: 'keeps OpenRouter variants',
+      provider: 'openrouter',
+      models: ['openai/gpt-4o-mini', 'liquid/lfm-2.5-2.6b:free', 'google/gemini-3.7-flash:batch'],
+      expected: ['google/gemini-3.7-flash:batch', 'liquid/lfm-2.5-2.6b:free', 'openai/gpt-4o-mini'],
+    },
+    {
+      name: 'preserves current Ollama filtering',
+      provider: 'ollama',
+      models: ['llama3.2', 'llama3.2:latest', 'library/llama3.2'],
+      expected: ['llama3.2', 'llama3.2:latest'],
+    },
+    {
+      name: 'preserves current LM Studio filtering',
+      provider: 'lmstudio',
+      models: ['qwen2.5', 'qwen2.5:latest', 'qwen/qwen2.5'],
+      expected: ['qwen2.5'],
+    },
+  ])('$name', async ({ provider, models, expected }) => {
+    fetchModelsMock.mockResolvedValue(models);
+    const tab = createTab();
+    tab.tempSettings.provider = provider;
+    tab.tempSettings.apiKey = 'test-key';
+
+    renderModelSection(tab, {} as HTMLElement);
+    await buttonClicks[0]();
+
+    expect(tab.tempSettings.availableModels).toEqual(expected);
+  });
+
+  it('drops malformed OpenRouter model IDs', async () => {
+    fetchModelsMock.mockResolvedValue(['openai/gpt-4o-mini', null] as unknown as string[]);
+    const tab = createTab();
+    tab.tempSettings.provider = 'openrouter';
+    tab.tempSettings.apiKey = 'test-key';
+
+    renderModelSection(tab, {} as HTMLElement);
+    await buttonClicks[0]();
+
+    expect(tab.tempSettings.availableModels).toEqual(['openai/gpt-4o-mini']);
   });
 });

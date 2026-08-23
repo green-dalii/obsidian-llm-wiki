@@ -74,9 +74,9 @@ export function renderModelSection(tab: LLMWikiSettingTab, containerEl: HTMLElem
           const apiKey = isOllama ? 'ollama' : effectiveApiKey;
           const baseUrl = tempSettings.baseUrl?.trim() || providerConfig?.baseUrl || undefined;
 
-          // Smart filter based on provider: OpenRouter allows '/', Ollama allows ':'
+          // OpenRouter uses ':' for catalog variants such as ':free', so keep every valid string ID.
           const getModelFilter = (provider: string) => {
-            if (provider === 'openrouter') return (id: string) => !id.includes(':');
+            if (provider === 'openrouter') return (id: string) => typeof id === 'string';
             else if (provider === 'ollama') return (id: string) => !id.includes('/');
             else return (id: string) => !id.includes(':') && !id.includes('/');
           };
