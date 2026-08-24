@@ -14,32 +14,24 @@ Process standards live in [CLAUDE.md §"🛡️ Six-Gate Quality Closure"](./CLA
 
 ---
 
-## v1.27.0 MINOR — P0/P1 batch (revenue-critical + cleanups)
+## v1.27.0 MINOR — remaining scope after milestone ROI reallocation
 
-**Folded from cancelled v1.26.5 PATCH** to ship alongside MINOR design track. PR-by-PR details in [[project_v1_27_0_minor_scope]].
+**Decision 2026-08-25:** MINOR keeps only high-value/important items; low-priority hygiene deferred to the new **`v1.27.x PATCH`** milestone; design-track umbrellas moved to research. **#425 is implemented first** per user direction.
 
-### P0 (revenue-critical)
+### Remaining work (execution order)
 
-| Issue | Title | Note |
-|-------|-------|------|
-| **#493** | `{{batch_context}}` marker guard | PR #497 (DocTpoint, `fix/493-empty-prefix-guard`) — ship-ready fix + wire-shape test |
-| **#491 + #496a** | TASK_SECTIONS doesn't pass Mentions Format / Source Page Template / Extraction Rules / Aliases / Frontmatter Rules / Linking Rules / Merge & Accumulation Rules to ingest/generation/merge | Co-design (overlap) |
-| **#485** | Fix Dead Links lacks "leave it" outcome (always creates stub) | LLM JSON schema `leave_it` enum |
-| **#496b** | Source-page prompt rewrite — require `Entity & Concept cross-references` (pure wikilinks, no verbatim text) instead of routing `mentions_in_source` into sources | **Rejects** @rexplx's original proposal of routing `mentions_in_source` via `injectMentionsSection` — violates source-note read-only + three-layer division of labour |
-| **#496c** | `mentions_in_source: .optional()` → required + warning-on-omission (no retry to avoid fabrication) | |
+| Order | Issue | What | Note |
+|-------|-------|------|------|
+| 1 | **#425** | Bedrock Stage 2 — SSO/profile auth via hand-rolled IAM Identity Center OIDC + SigV4 → bedrock-mantle | Zero AWS SDK, ~+10–15 KB; includes Stage-1 fix for the sync-factory `bedrockRegion` forwarding bug |
+| 2 | **#485** | Fix Dead Links lacks "leave_it" outcome (always creates stub) | Small LLM JSON-schema enum addition |
+| 3 | micro-batch | #525 scan follow-ups: codex-client `outputModeOverride` honoring, exhaustion-arm test, hardcoded-EN placeholder i18n | Closes shipped-PR loose ends so release notes stay accurate |
+| 4 | **#506** | NoOutputGeneratedError reasoning recovery + translation thinking-disable | Reliability across all typed-output paths |
+| 5 | **#501** | package-lock.json missing the brace-expansion pin (npm ignores pnpm.overrides) | Release chore, audit HIGH→0 |
+| 6 | **#491 + #496** | TASK_SECTIONS co-design — five default-schema sections reach ingest/generation/merge; source-page verbatim quotes rewrite | Largest item. **Slider rule:** if it would delay the tag after #425 lands, slides to v1.28.0 rather than holding the release |
 
-### P1 (ship alongside P0)
+Completed from the original P0/P1 batch: #493 (PR #497 wire-contract test) · #472 (PR #499 designator fix) · MinerU #404 (`769e7bb`) · #498 attribution docs · #306 stale-resolved by v1.26.4 #482.
 
-| Issue | Title | Note |
-|-------|-------|------|
-| **#469** | `createMessageStream` interface needs `task` label field | |
-| **#468** | Anthropic `createMessageStream` lacks cacheBreakpoint parity | Co-ship with PR #497 wire-shape test (mirror contract to streaming path) |
-| **#467** | `setUnifiedModel` single setter (replaces removed commit-time cascade; refactor 3 direct-write sites) | |
-| **#472** | Same-type merge without semantic guard (cross-type designator silently merges into wrong page when classification picks wrong folder) | |
-| **#425** | Bedrock Stage 2 — SSO/Profile auth via hand-rolled IAM Identity Center OIDC + SigV4 | Codex-style, zero AWS SDK, ~+10 KB |
-| **#306** | Compact slug list dominated prompt (2026-07-19 measurement, 67K/77%) | **Stale — resolved by v1.26.4 PATCH #482** (slug catalog removed from `source-analyzer.ts:273-280`). Close as completed-in-v1.26.4 |
-| **#404** (PR) | feat: add MinerU online PDF conversion backend | @XEurekaX — merged 2026-08-22 (`769e7bb`); ships with v1.27.0 |
-| **#498** (PR) | docs(notice): bring the @DocTpoint attribution line up to v1.26.4 | Ship with MINOR |
+Moved out (2026-08-25): **#469 / #468 / #467** (streaming-interface trio) and the review-thread debts (**alias-floor unification** #537×#532, **bounded type-repair fan-out** #528, **zh/ja candidate-gate measurement** #521) → `v1.27.x PATCH` · **#220 / #358 / #330** → `v1.27.0+ research`.
 
 ### Community wave 1 — 2026-08-21/22 (ALL MERGED)
 
