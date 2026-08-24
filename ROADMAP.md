@@ -60,19 +60,24 @@ Deferred: **#503** (`userIgnoreFilters`) → research track — decision recorde
 
 Follow-ups filed from #517 adjacent findings: **#533** (`isUrlError` treats model-404 as URL fault → wasted fallback round trip), **#534** (`getModelFilter` drops every OpenRouter id containing `:` — ~79/419 models incl. all `:free` variants invisible).
 
-### Community wave 2 — 2026-08-22 (triaged 2026-08-23, awaiting review + merge go)
+### Community wave 2 + 3 — 2026-08-22/23 (ALL MERGED 2026-08-24)
 
-7 PRs by @DocTpoint + issues #527/#524; all labeled + milestoned v1.27.0 MINOR.
+10 PRs reviewed, approved and squash-merged 2026-08-24; linked issues #527/#536/#533/#534 auto-closed. Batches: #529 → #531 → #530 → #535 → #537 → #526, then conflict-rebases (#532 slug.ts vs #530; #538/#528 CHANGELOG anchors) pushed back to fork branches per `update-branch` flow.
 
 | PR | Issue | What | Note |
 |----|-------|------|------|
-| **#525** | #524 | extract defaults to text mode + repetition-loop guard + taskPolicies UI | ⚠️ Author requests PATCH (silent extraction content loss on schema-constrained local backends affects all 1.26.3+ users); maintainer leans v1.27.0 MINOR — decision open. Workaround in #524 |
-| **#528** | #527 | type repair at intake (fold → one short call) | Custom-vocab gap promised at #510, delivered issue+fix together; new `type-repair` task label |
-| **#526** | — | dev-instrument exit codes 0/1/2 | The follow-up set aside at PR #418; usage→stderr, skip stays 0 |
-| **#529** | #258 class | `stripUnknownSections` on generation paths | Deterministic guard vs invented sections; reviewed pages bypass |
-| **#530** | #366 phase 2 | NFC + Turkish fold on alias comparison keys | File-naming path untouched |
-| **#531** | — | `folderBySlug` keyed on comparison slug | Completes the #484 comparison contract in that function |
-| **#532** | — | `minAliasLength` setting (default 2, range 2..6) | Solves `Cr`/`CR` fold collisions without a code edit |
+| **#525** | #524 | extract defaults to text mode + repetition-loop guard + taskPolicies UI | **HELD at merge gate** — global text baseline (no provider split) converged with maintainer; awaiting final go. Max-effort scan not run on this one |
+| **#528** | #527 | type repair at intake (fold → one short call) | Merged after CLEAN max-effort review; follow-ups noted: unbounded repair fan-out (chunk to 2–4), buildSystemPrompt doc nuance |
+| **#526** | #417s | dev-instrument exit codes 0/1/2 | Report-driven contract; usage→stderr |
+| **#529** | #258 class | `stripUnknownSections` on generation paths | Reviewed pages bypass |
+| **#530** | #366 p2 | NFC + Turkish fold on alias comparison keys | File-naming untouched |
+| **#531** | #484 | `folderBySlug` keyed on comparison slug | `preserveCase` param removed |
+| **#532** | — | `minAliasLength` setting (default 2, range 2..6) | Follow-up: route enforceFrontmatterConstraints floor through resolveMinAliasLength so all alias writers agree |
+| **#537** | #536 | drop self-named aliases on create path | Same filterRedundantAliases gate as appendAliases |
+| **#535** | #533 | OpenRouter model-404 no longer a URL fault | First-time fork CI run approved via API |
+| **#538** | #534 | OpenRouter `:` variants visible (~79 models) | External @pttydou; colon-split consumers verified absent |
+
+Open follow-ups from review threads: alias-floor unification (#537×#532), bounded type-repair concurrency (#528), zh/ja candidate-gate measurement (#521 debt).
 
 ### Other follow-ups
 
