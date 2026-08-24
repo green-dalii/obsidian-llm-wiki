@@ -38,6 +38,10 @@ export function createLLMClient(
     providerApiKeySecretId: settings.providerApiKeySecretId,
     secretStorage: secretStorage ?? null,
     baseUrl: settings.baseUrl,
+    // #425 prerequisite fix: forward the region so sync-path Bedrock
+    // calls honor the user's dropdown instead of silently landing on
+    // BEDROCK_DEFAULT_REGION. Stage 2 (SSO/SigV4 scope) depends on it.
+    bedrockRegion: settings.bedrockRegion,
     codexAuth,
     codexVersion,
     codexQuotaMessage: getText(settings.language, 'codexAuthQuota'),
