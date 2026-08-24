@@ -165,6 +165,8 @@ export const EN_TEXTS = {
     testConnectionFailed: 'Connection failed',
     testConnectionProvider: 'Provider: ',
     codexAuthRequired: 'Sign in to ChatGPT Plan before testing the connection.',
+    bedrockSsoRequired: 'Run AWS SSO sign-in (Settings → Bedrock) before testing the connection.',
+    bedrockIamRequired: 'Enter your IAM access keys (Settings → Bedrock) before testing the connection.',
     errorUnknown: 'Unknown error',
 
     // Issue #137: LLM fallback notices (shown when thinking-dialect

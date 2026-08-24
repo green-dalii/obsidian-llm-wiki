@@ -369,3 +369,86 @@ describe('testLLMConnection — blank model gate (#517)', () => {
     expect(createMessage).not.toHaveBeenCalled();
   });
 });
+
+// #425 Bedrock Stage 2 — the auth-mode gate replaces the API-key gate
+// when a bedrock-* provider runs in sso/iam mode.
+describe('testLLMConnection — Bedrock SSO/IAM gate (#425)', () => {
+  const mockApp2 = {
+    vault: {
+      getAbstractFileByPath: vi.fn().mockReturnValue(null),
+      getMarkdownFiles: vi.fn().mockReturnValue([]),
+      read: vi.fn().mockResolvedValue(''),
+    },
+  };
+  const mockManifest = {
+    id: 'test-plugin',
+    name: 'Test',
+    version: '1.0.0',
+    minAppVersion: '0.15.0',
+  };
+
+  async function mockClient() {
+    const { createLLMClientFromSettingsSync } = await import('../../llm-sdk/create-llm-client');
+    const createMessage = vi.fn().mockResolvedValue('ok');
+    vi.mocked(createLLMClientFromSettingsSync).mockReturnValue({
+      createMessage,
+      createMessageStream: vi.fn(),
+      listModels: vi.fn().mockResolvedValue([]),
+    });
+    return createMessage;
+  }
+
+  function bedrockPlugin(authMethod: 'sso' | 'iam', extra: Record<string, unknown> = {}): LLMWikiPlugin {
+    const plugin = new LLMWikiPlugin(mockApp2 as never, mockManifest as never);
+    (plugin as unknown as Record<string, unknown>).settings = {
+      provider: 'bedrock-anthropic',
+      apiKey: '',
+      model: 'anthropic.claude-3-5-sonnet',
+      language: 'en',
+      wikiFolder: 'wiki',
+      llmReady: false,
+      maxTokensPerCall: 0,
+      autoIngestNotificationLevel: 'notice',
+      autoWatchSources: false,
+      startupCheck: false,
+      slugCase: 'preserve',
+      bedrockRegion: 'us-east-1',
+      bedrockAuthMethod: authMethod,
+    };
+    (plugin as unknown as Record<string, unknown>).bedrockAuthManager = {
+      hasSsoToken: () => extra.hasSsoToken === true,
+      hasIamKeys: () => extra.hasIamKeys === true,
+    };
+    return plugin;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sso mode without a token stops with a run-SSO-login message, not an API-key error', async () => {
+    const result = await bedrockPlugin('sso').testLLMConnection();
+    expect(result.success).toBe(false);
+    expect(result.message).toBe(TEXTS.en.bedrockSsoRequired);
+  });
+
+  it('sso mode WITH a signed-in token proceeds past every key gate', async () => {
+    const createMessage = await mockClient();
+    const result = await bedrockPlugin('sso', { hasSsoToken: true }).testLLMConnection();
+    expect(result.success).toBe(true);
+    expect(createMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('iam mode without keys stops with an enter-keys message', async () => {
+    const result = await bedrockPlugin('iam').testLLMConnection();
+    expect(result.success).toBe(false);
+    expect(result.message).toBe(TEXTS.en.bedrockIamRequired);
+  });
+
+  it('iam mode with keys saved proceeds normally', async () => {
+    const createMessage = await mockClient();
+    const result = await bedrockPlugin('iam', { hasIamKeys: true }).testLLMConnection();
+    expect(result.success).toBe(true);
+    expect(createMessage).toHaveBeenCalledTimes(1);
+  });
+});

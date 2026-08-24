@@ -143,6 +143,8 @@ export const JA_TEXTS = {
     testConnectionFailed: '接続失敗',
     testConnectionProvider: 'プロバイダー：',
     codexAuthRequired: '接続をテストする前にChatGPTプランへサインインしてください。',
+    bedrockSsoRequired: '接続をテストする前に、設定 → Bedrock で AWS SSO サインインを実行してください。',
+    bedrockIamRequired: '接続をテストする前に、設定 → Bedrock で IAM アクセスキーを入力してください。',
     errorUnknown: '不明なエラー',
     savedNotice: '設定を保存しました！',
 

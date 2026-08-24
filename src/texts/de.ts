@@ -143,6 +143,8 @@ export const DE_TEXTS = {
     testConnectionFailed: 'Verbindung fehlgeschlagen',
     testConnectionProvider: 'Anbieter: ',
     codexAuthRequired: 'Melden Sie sich vor dem Verbindungstest bei ChatGPT Plan an.',
+    bedrockSsoRequired: 'Führen Sie vor dem Verbindungstest die AWS-SSO-Anmeldung durch (Einstellungen → Bedrock).',
+    bedrockIamRequired: 'Geben Sie vor dem Verbindungstest Ihre IAM-Zugriffsschlüssel ein (Einstellungen → Bedrock).',
     errorUnknown: 'Unbekannter Fehler',
     savedNotice: 'Einstellungen gespeichert!',
 

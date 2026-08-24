@@ -163,6 +163,8 @@ export const IT_TEXTS = {
     testConnectionFailed: 'Connessione fallita',
     testConnectionProvider: 'Provider: ',
     codexAuthRequired: 'Accedi al piano ChatGPT prima di verificare la connessione.',
+    bedrockSsoRequired: 'Accedi con AWS SSO (Impostazioni → Bedrock) prima di verificare la connessione.',
+    bedrockIamRequired: 'Inserisci le tue chiavi di accesso IAM (Impostazioni → Bedrock) prima di verificare la connessione.',
     errorUnknown: 'Errore sconosciuto',
 
     // Issue #137: avvisi di fallback LLM (mostrati quando avviene un

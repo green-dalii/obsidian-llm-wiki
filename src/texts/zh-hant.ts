@@ -143,6 +143,8 @@ export const ZH_HANT_TEXTS = {
     testConnectionFailed: '連線失敗',
     testConnectionProvider: '提供商：',
     codexAuthRequired: '測試連線前，請先登入 ChatGPT 方案。',
+    bedrockSsoRequired: '測試連線前，請先在 設定 → Bedrock 中完成 AWS SSO 登入。',
+    bedrockIamRequired: '測試連線前，請先在 設定 → Bedrock 中輸入您的 IAM 存取金鑰。',
     errorUnknown: '未知錯誤',
     savedNotice: '設定已儲存！',
 

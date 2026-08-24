@@ -143,6 +143,8 @@ export const FR_TEXTS = {
     testConnectionFailed: 'Connexion échouée',
     testConnectionProvider: 'Fournisseur : ',
     codexAuthRequired: 'Connectez-vous au forfait ChatGPT avant de tester la connexion.',
+    bedrockSsoRequired: 'Connectez-vous via AWS SSO (Paramètres → Bedrock) avant de tester la connexion.',
+    bedrockIamRequired: "Saisissez vos clés d'accès IAM (Paramètres → Bedrock) avant de tester la connexion.",
     errorUnknown: 'Erreur inconnue',
     savedNotice: 'Paramètres enregistrés !',
 

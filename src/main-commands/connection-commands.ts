@@ -41,6 +41,8 @@ export interface ConnectionCommandsHost {
   llmClient: LLMClient | null;
   wikiEngine: import('../wiki/wiki-engine').WikiEngine;
   codexAuthManager: CodexAuthManager | null;
+  /** #425 Bedrock Stage 2 — plugin-owned credential orchestrator. */
+  bedrockAuthManager: import('../llm-sdk/bedrock-sso/credential-manager').BedrockAuthManager | null;
   manifest: { version: string };
   initializeLLMClient(): void;
   saveSettings(): Promise<void>;
@@ -64,11 +66,28 @@ export const connectionCommands = {
     if (this.settings.provider === 'openai-codex' && this.codexAuthManager?.hasCredential() !== true) {
       return { success: false, message: t.codexAuthRequired };
     }
+    // #425 Bedrock Stage 2: in sso/iam modes AWS credentials replace the
+    // bearer key, so the credential-presence gate runs BEFORE the
+    // API-key gate and never surfaces a misleading missing-key error.
+    if (this.settings.provider.startsWith('bedrock-') && (this.settings.bedrockAuthMethod ?? 'api-key') !== 'api-key') {
+      const method = this.settings.bedrockAuthMethod!;
+      if (method === 'sso' && this.bedrockAuthManager?.hasSsoToken() !== true) {
+        return { success: false, message: t.bedrockSsoRequired };
+      }
+      if (method === 'iam' && this.bedrockAuthManager?.hasIamKeys() !== true) {
+        return { success: false, message: t.bedrockIamRequired };
+      }
+    }
     // v1.25.7 PATCH: accept an optional pendingApiKey so the Test
     // Connection button can forward the in-memory typed key from
     // tab.tempSettings.apiKey, bypassing the stale SecretStorage value.
     // Production callers (initializeLLMClient etc.) pass undefined.
-    if (providerRequiresApiKey(this.settings.provider) && !resolveProviderApiKey(
+    // #425 Stage 2: in bedrock sso/iam modes AWS credentials sign every
+    // request, so the bearer-key gate is skipped entirely (mirrors the
+    // factory's resolver bypass).
+    const usesBedrockAwsCredentials = this.settings.provider.startsWith('bedrock-')
+      && (this.settings.bedrockAuthMethod ?? 'api-key') !== 'api-key';
+    if (!usesBedrockAwsCredentials && providerRequiresApiKey(this.settings.provider) && !resolveProviderApiKey(
       { apiKey: this.settings.apiKey, providerApiKeySecretId: this.settings.providerApiKeySecretId },
       this.app.secretStorage,
       pendingApiKey,
@@ -97,7 +116,7 @@ export const connectionCommands = {
     }
 
     try {
-      const testClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version, this.app.secretStorage, pendingApiKey);
+      const testClient = createLLMClient(this.settings, this.codexAuthManager ?? undefined, this.manifest.version, this.app.secretStorage, pendingApiKey, this.bedrockAuthManager ?? undefined);
 
       for (const probe of probePlan) {
         const attempted = new Set<string>();

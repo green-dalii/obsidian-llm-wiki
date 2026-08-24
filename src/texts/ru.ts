@@ -169,6 +169,8 @@ export const RU_TEXTS = {
     testConnectionFailed: 'Подключение не удалось',
     testConnectionProvider: 'Провайдер: ',
     codexAuthRequired: 'Войдите в ChatGPT Plan перед проверкой подключения.',
+    bedrockSsoRequired: 'Перед проверкой подключения выполните вход через AWS SSO (Настройки → Bedrock).',
+    bedrockIamRequired: 'Перед проверкой подключения введите ключи доступа IAM (Настройки → Bedrock).',
     errorUnknown: 'Неизвестная ошибка',
 
     // Issue #137: уведомления LLM-fallback (показываются, когда во время запроса

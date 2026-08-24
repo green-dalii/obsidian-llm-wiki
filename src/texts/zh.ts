@@ -143,6 +143,8 @@ export const ZH_TEXTS = {
     testConnectionFailed: '连接失败',
     testConnectionProvider: '提供商：',
     codexAuthRequired: '测试连接前，请先登录 ChatGPT 套餐。',
+    bedrockSsoRequired: '测试连接前，请先在 设置 → Bedrock 中完成 AWS SSO 登录。',
+    bedrockIamRequired: '测试连接前，请先在 设置 → Bedrock 中输入您的 IAM 访问密钥。',
     errorUnknown: '未知错误',
     savedNotice: '设置已保存！',
 

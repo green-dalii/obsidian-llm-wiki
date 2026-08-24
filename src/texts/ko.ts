@@ -143,6 +143,8 @@ export const KO_TEXTS = {
     testConnectionFailed: '연결 실패',
     testConnectionProvider: 'Provider: ',
     codexAuthRequired: '연결을 테스트하기 전에 ChatGPT 플랜에 로그인하세요.',
+    bedrockSsoRequired: '연결을 테스트하기 전에 설정 → Bedrock에서 AWS SSO 로그인을 먼저 실행하세요.',
+    bedrockIamRequired: '연결을 테스트하기 전에 설정 → Bedrock에서 IAM 액세스 키를 먼저 입력하세요.',
     errorUnknown: '알 수 없는 오류',
     savedNotice: '설정이 저장되었습니다!',
 
