@@ -26,10 +26,20 @@
 export interface RepetitionLoop {
   unit: string;
   length: number;
+  /**
+   * The repeated unit as it actually occurs, untrimmed. `unit` is shortened
+   * for log lines, so it is a display string and must never be used to look
+   * the unit up anywhere — a unit longer than 40 characters would then never
+   * be found. Callers that compare against real text use this (#525 review).
+   */
+  rawUnit: string;
 }
 
 /** Default minimum length of the repeated run, in characters. */
 export const REPETITION_LOOP_MIN_CHARS = 200;
+
+/** How often the unit must occur for `LOOP_RE` to match: itself plus `\1{3,}`. */
+export const REPETITION_LOOP_MIN_REPEATS = 4;
 
 // Lazy unit so the shortest repeating unit is found first; `\1{3,}` means
 // the unit occurs at least four times in a row. `[\s\S]` lets a unit span
@@ -52,8 +62,37 @@ export function findRepetitionLoop(
     const unit = m[1];
     if (run.length < minTotalChars || !HAS_ALNUM_RE.test(unit)) continue;
     if (!best || run.length > best.length) {
-      best = { unit: unit.length > 40 ? `${unit.slice(0, 40)}…` : unit, length: run.length };
+      best = {
+        unit: unit.length > 40 ? `${unit.slice(0, 40)}…` : unit,
+        length: run.length,
+        rawUnit: unit,
+      };
     }
   }
   return best;
+}
+
+/**
+ * True when the note the batch was extracted from repeats the loop's unit at
+ * least as often as the detector demands — the model echoing a refrain the
+ * source actually contains, rather than decoding degeneracy (#525 review).
+ *
+ * Why this matters: the damaged-batch response is halve-and-retry, and halving
+ * changes how many items are asked for, never the note. A loop the note itself
+ * carries is therefore reproduced by every retry, so the budget is spent on a
+ * certainty.
+ *
+ * Why "repeats it four times" and not "contains it once", which is the cheaper
+ * reading: the two errors are not symmetric. Skipping the retry on a batch that
+ * really is damaged costs items silently; spending it on a source-borne loop
+ * costs one call. So the test has to be the conservative one, and a unit that
+ * appears once in a long note is no evidence at all — `Vitamin D, ` occurs in
+ * half the vault and would suppress the retry for every genuine loop built from
+ * it. A unit the note states four times is a refrain.
+ */
+export function isSourceBorneLoop(loop: RepetitionLoop, sourceText: string): boolean {
+  if (!loop.rawUnit) return false;
+  // split() counts non-overlapping occurrences, which is the conservative
+  // direction: it can undercount a self-overlapping unit, never overcount.
+  return sourceText.split(loop.rawUnit).length - 1 >= REPETITION_LOOP_MIN_REPEATS;
 }

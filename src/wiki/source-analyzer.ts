@@ -31,7 +31,7 @@ import { decideSourceLemma } from '../core/source-lemma';
 import { getActiveEntityTags, getActiveConceptTags, foldToVocabulary } from '../core/tag-vocab';
 import { SourceAnalysisLLMSchema, LemmaClassifyLLMSchema, TypeRepairLLMSchema } from '../llm-sdk/output-schemas';
 import { callLlm } from '../core/llm-dispatch';
-import { findRepetitionLoop } from '../core/repetition-loop';
+import { findRepetitionLoop, isSourceBorneLoop, REPETITION_LOOP_MIN_REPEATS } from '../core/repetition-loop';
 
 // ── Batch response normalization ─────────────────────────────────
 // LLMs often return irregular JSON: omitted empty arrays, non-array truthy
@@ -432,7 +432,15 @@ export class SourceAnalyzer {
         const loop = findRepetitionLoop(response);
         const reasoningStr = finish.usage?.reasoningTokens !== undefined ? ` reasoning_tokens=${finish.usage.reasoningTokens}` : '';
         console.debug(`[Batch ${batchNum + 1}] finish=${finish.reason}${reasoningStr}${loop ? ` repetition_loop=${loop.length} chars (unit "${loop.unit}")` : ''}`);
-        if (loop) {
+        // #525 review: a note that repeats a phrase itself — a refrain, a
+        // tabulated column, a quoted chorus — produces a faithful echo that
+        // looks exactly like degeneracy here. Halving changes how many items
+        // are asked for, never the note, so the retry is spent on a certainty
+        // and the same batch is merged afterwards anyway. Check the note
+        // before spending it.
+        if (loop && isSourceBorneLoop(loop, content)) {
+          console.debug(`[Batch ${batchNum + 1}] Repetition loop mirrors the source note (unit "${loop.unit}" occurs there ${REPETITION_LOOP_MIN_REPEATS}+ times) — echo, not damage; no retry spent`);
+        } else if (loop) {
           console.warn(`[Batch ${batchNum + 1}] Repetition loop in response (${loop.length} chars repeating "${loop.unit}") — treating the batch as damaged (Issue #524)`);
           if (halveBatchAndRetry(`[Batch ${batchNum + 1}]`, 'repetition loop')) {
             batchNum--;

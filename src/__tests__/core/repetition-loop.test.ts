@@ -6,7 +6,7 @@
 // a row, cover the minimum length, and contain a letter or digit.
 
 import { describe, it, expect } from 'vitest';
-import { findRepetitionLoop, REPETITION_LOOP_MIN_CHARS } from '../../core/repetition-loop';
+import { findRepetitionLoop, isSourceBorneLoop, REPETITION_LOOP_MIN_CHARS } from '../../core/repetition-loop';
 
 const CLEAN_BATCH = JSON.stringify({
   source_title: 'Sleep apnea',
@@ -83,5 +83,50 @@ describe('findRepetitionLoop', () => {
     const found = findRepetitionLoop(unit.repeat(6));
     expect(found).not.toBeNull();
     expect(found!.unit.length).toBeLessThanOrEqual(41);
+  });
+
+  it('carries the untrimmed unit alongside the trimmed one', () => {
+    const unit = 'x'.repeat(30) + ' y'.repeat(30) + ' ';
+    const text = unit.repeat(6);
+    const found = findRepetitionLoop(text);
+    // The match may start mid-unit, so the raw unit is a rotation of `unit`
+    // rather than `unit` itself — same length, and still a unit the text
+    // actually repeats, which is all the source lookup needs.
+    expect(found!.rawUnit).toHaveLength(unit.length);
+    expect(found!.unit).toMatch(/…$/);
+    expect(text.split(found!.rawUnit).length - 1).toBeGreaterThanOrEqual(4);
+  });
+});
+
+// #525 review: halving changes how many items are asked for, never the note,
+// so a loop the note itself carries is reproduced by every retry.
+describe('isSourceBorneLoop', () => {
+  const REFRAIN = 'Und täglich grüßt das Murmeltier. ';
+
+  it('recognises a refrain the note states at least four times', () => {
+    const loop = findRepetitionLoop(REFRAIN.repeat(10))!;
+    const note = (REFRAIN + 'Dazwischen anderer Text. ').repeat(6);
+    expect(isSourceBorneLoop(loop, note)).toBe(true);
+  });
+
+  it('does not fire on a unit the note merely mentions once', () => {
+    const loop = findRepetitionLoop(REFRAIN.repeat(10))!;
+    expect(isSourceBorneLoop(loop, `Ein Satz. ${REFRAIN} Noch ein Satz.`)).toBe(false);
+  });
+
+  it('does not fire on a unit the note never contains', () => {
+    const loop = findRepetitionLoop('Sauerteig, '.repeat(40))!;
+    expect(isSourceBorneLoop(loop, 'Ein Text über Ferritin und Eisen.')).toBe(false);
+  });
+
+  // The trap this exists to avoid: `unit` is shortened for log lines, so a
+  // unit over 40 characters would never be found in the note if the lookup
+  // used it. The check has to read `rawUnit`.
+  it('finds a refrain longer than the log-trimmed unit', () => {
+    const long = 'Die Wiederholung ist der Kern dieses langen Refrains im Text. ';
+    expect(long.length).toBeGreaterThan(41);
+    const loop = findRepetitionLoop(long.repeat(8))!;
+    expect(loop.unit).toContain('…');
+    expect(isSourceBorneLoop(loop, long.repeat(5))).toBe(true);
   });
 });

@@ -8,6 +8,7 @@ import { CODEX_MODELS } from './openai-codex/constants';
 import { normalizeCodexRequest } from './openai-codex/request-adapter';
 import { wrapReasoningContent } from '../core/markdown';
 import { extractReasoningText } from './finish-reason';
+import { forcedTextPromptSystem } from './json-prompt-prefix';
 
 type CodexAuth = Pick<CodexAuthManager, 'getAccess' | 'refreshAfterUnauthorized'>;
 type CodexFetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -117,11 +118,22 @@ export class OpenAICodexSdkClient implements LLMClient {
   // The pairing invariant still holds: a preset is the pair, and sending half
   // of one is the failure this code path exists to absorb — it now does so by
   // stripping both, not by forwarding both.
+  // Issue #524 follow-up (#525 review): a per-task policy that pins
+  // `text_prompt` has to reach this client too. Before, `outputModeOverride`
+  // was simply not read here, so `extract` stayed in JSON-output mode on the
+  // Codex provider while every other provider honoured the built-in pin — the
+  // one step whose wire shape the whole issue was about. `Output.json()` is
+  // the SDK's own structured-output path, so leaving it on also routes the
+  // reply around the plugin's JSON repair; pinning text mode means dropping it
+  // and carrying the JSON instruction in the system prompt instead, exactly as
+  // the openai-compat client does.
   async createMessage(params: Parameters<LLMClient['createMessage']>[0]): Promise<string> {
     const model = this.getModel(params.model, this.streamFetchImpl);
+    const forcedText = params.outputModeOverride === 'text_prompt';
+    const system = forcedTextPromptSystem(params.system, params.response_format, params.outputModeOverride);
     try {
       let streamError: unknown;
-      const result = streamText({ model, ...(params.system ? { system: params.system } : {}), messages: params.messages.map((message) => ({ role: message.role, content: message.content })), maxOutputTokens: params.max_tokens, ...(params.temperature !== undefined ? { temperature: params.temperature } : {}), ...(params.top_p !== undefined ? { topP: params.top_p } : {}), ...(params.response_format?.type === 'json_object' ? { output: Output.json() } : {}), providerOptions: this.providerOptions(params.enableThinking), maxRetries: 0, onError: ({ error }) => { streamError = error; } });
+      const result = streamText({ model, ...(system ? { system } : {}), messages: params.messages.map((message) => ({ role: message.role, content: message.content })), maxOutputTokens: params.max_tokens, ...(params.temperature !== undefined ? { temperature: params.temperature } : {}), ...(params.top_p !== undefined ? { topP: params.top_p } : {}), ...(!forcedText && params.response_format?.type === 'json_object' ? { output: Output.json() } : {}), providerOptions: this.providerOptions(params.enableThinking), maxRetries: 0, onError: ({ error }) => { streamError = error; } });
       let text = '';
       for await (const chunk of result.textStream) text += chunk;
       if (streamError !== undefined) throw streamError instanceof Error ? streamError : new Error(typeof streamError === 'string' ? streamError : 'Codex stream failed');

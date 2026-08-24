@@ -110,7 +110,7 @@ export function renderAdvancedSection(tab: LLMWikiSettingTab, containerEl: HTMLE
     .setDesc(tab.getText('taskPoliciesDesc'))
     .addText(text => {
       text
-        .setPlaceholder('Example: extract=text:off')
+        .setPlaceholder(tab.getText('taskPoliciesPlaceholder'))
         .setValue(tempSettings.taskPolicies ? formatTaskPolicyMap(tempSettings.taskPolicies) : '')
         .onChange((value) => {
           const trimmed = value.trim();

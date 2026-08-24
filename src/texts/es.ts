@@ -597,6 +597,7 @@ export const ES_TEXTS = {
     showAdvancedSettingsDesc: 'Activar para mostrar los ajustes avanzados abajo. Al desactivar, se ocultan y se restablecen a sus valores predeterminados.',
     disableThinkingName: 'Deshabilitar pensamiento',
     disableThinkingDesc: 'Desactiva la cadena de pensamiento/razonamiento en la respuesta del modelo. Desactivado por defecto — el modelo decide si mostrar razonamiento, lo que suele dar la mejor respuesta. Actívalo solo si tu proveedor inserta texto de razonamiento bruto en la respuesta y quieres una respuesta limpia.',
+    taskPoliciesPlaceholder: 'Ejemplo: extract=text:off',
     taskPoliciesName: 'Modo de salida y razonamiento por paso',
     taskPoliciesDesc: 'Una entrada por paso del pipeline, `paso=modo:razonamiento`, separadas por comas — p. ej. `extract=text:off`. Modos: `-` (sin cambio), `schema`, `json`, `text`; razonamiento: `-`, `off`, `on`, `low`, `medium`, `high`. Dejar en blanco para la base integrada (extracción en modo texto). Una entrada ilegible no se guarda.',
     // Issue #137: Notas de compatibilidad (breves; sin lista de proveedores)

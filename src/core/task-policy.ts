@@ -151,7 +151,18 @@ const THINKING_ALIASES: Readonly<Record<string, TaskThinking>> = {
  * Throws on anything it does not understand rather than skipping it. A
  * silently ignored entry would mean an arm that did not run what its own
  * manifest says it ran, and the manifest is the only record of which arm a
- * number came from.
+ * number came from. For the same reason a task named twice is an error and
+ * not a last-one-wins (#525 review): `extract=text,extract=schema` states two
+ * arms, and picking one of them quietly is exactly the manifest lie above.
+ *
+ * The task NAME is deliberately not validated (#525 review, the "or document"
+ * branch). There is no registry to validate against: every label is a string
+ * literal at its own call site (`task: 'merge-triage'`), so a list here would
+ * be a second copy that drifts the moment a step is added or renamed — and a
+ * stale list would reject a policy for a step that does exist, which is worse
+ * than the typo it would catch. An unknown name is inert: `resolveTaskPolicy`
+ * only ever looks up labels the pipeline passes, so a misspelled entry simply
+ * never matches. Give the labels one home and this becomes a two-line check.
  */
 export function parseTaskPolicySpec(spec: string): TaskPolicyMap {
   const policies: Record<string, TaskPolicy> = {};
@@ -165,6 +176,9 @@ export function parseTaskPolicySpec(spec: string): TaskPolicyMap {
     const task = entry.slice(0, eq).trim();
     if (task === '') {
       throw new Error(`task policy: empty task name in "${entry}"`);
+    }
+    if (Object.prototype.hasOwnProperty.call(policies, task)) {
+      throw new Error(`task policy: "${task}" is set twice; keep one entry per task`);
     }
     const [rawMode = '', rawThinking = '-'] = entry.slice(eq + 1).trim().split(':');
     const outputMode = MODE_ALIASES[rawMode.trim()];

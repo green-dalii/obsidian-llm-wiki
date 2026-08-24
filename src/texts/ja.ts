@@ -552,6 +552,7 @@ export const JA_TEXTS = {
     showAdvancedSettingsDesc: 'オンにすると下に高度な設定が表示されます。オフにすると非表示になり、デフォルト値にリセットされます。',
     disableThinkingName: '思考を無効にする',
     disableThinkingDesc: 'モデル応答の思考過程/推論テキスト出力をオフにします。デフォルトはオフで、モデルが推論を表示するかを自分で決めるため、それが通常最も良い回答になります。プロバイダーが生の推論テキストを応答に混ぜてしまい、きれいな答えが欲しい場合にのみオンにしてください。',
+    taskPoliciesPlaceholder: '例: extract=text:off',
     taskPoliciesName: 'ステップごとの出力モードと思考',
     taskPoliciesDesc: 'パイプラインの各ステップにつき 1 項目、`step=mode:thinking` 形式でカンマ区切り（例: `extract=text:off`）。モード: `-`（変更なし）、`schema`、`json`、`text`。思考: `-`、`off`、`on`、`low`、`medium`、`high`。空欄なら組み込みの既定（抽出はテキストモード）。解析できない項目は保存されません。',
     // Issue #137: 互換性に関する注意事項（簡潔；プロバイダ一覧は省略）

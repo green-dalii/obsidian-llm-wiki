@@ -42,7 +42,7 @@ import { OutputModeProber, type OutputMode } from './output-mode-prober';
 import { assertNotReasoningOnly, normalizeUsage, reportFinish, extractReasoningText } from './finish-reason';
 import { buildSamplingArgs } from './sampling-args';
 import { buildOutputArgs } from './output-args';
-import { JSON_ENFORCEMENT_SYSTEM_PREFIX } from './json-prompt-prefix';
+import { JSON_ENFORCEMENT_SYSTEM_PREFIX, forcedTextPromptSystem } from './json-prompt-prefix';
 import { prependReasoningForParse, wrapReasoningContent } from '../core/markdown';
 import { isPlaceholderJsonText } from '../core/json';
 
@@ -81,26 +81,6 @@ export { repetitionPenaltyWireField };
 function readOutput<T>(result: { output?: unknown }, mode: OutputMode): T | undefined {
   if (mode === 'text_prompt') return undefined;
   return result.output as T | undefined;
-}
-
-/**
- * Issue #481: when a per-task policy pins `text_prompt`, no `response_format`
- * reaches the wire, so the only thing left telling the model to answer in JSON
- * is the prompt. The 400-driven demotion paths below add
- * `JSON_ENFORCEMENT_SYSTEM_PREFIX` when they fall to that tier; a pinned mode
- * has no such retry to hang it on, so it is added up front instead.
- *
- * Only when the caller actually wanted JSON. A prose step pinned to
- * `text_prompt` passes no `response_format`, and prefixing its system prompt
- * with a JSON instruction would corrupt the very output being measured.
- */
-function forcedTextPromptSystem(
-  system: string | undefined,
-  responseFormat: unknown,
-  outputModeOverride: OutputMode | undefined,
-): string | undefined {
-  if (outputModeOverride !== 'text_prompt' || !responseFormat) return system;
-  return system ? `${JSON_ENFORCEMENT_SYSTEM_PREFIX}\n\n${system}` : JSON_ENFORCEMENT_SYSTEM_PREFIX;
 }
 
 export class OpenAICompatSdkClient implements LLMClient {

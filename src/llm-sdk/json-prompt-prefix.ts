@@ -32,7 +32,33 @@
 //   5. Forbids markdown fences (```json ... ``` is the second-most
 //      common unconstrained-output failure mode)
 
+import type { OutputMode } from './output-mode-prober';
+
 export const JSON_ENFORCEMENT_SYSTEM_PREFIX =
   'CRITICAL: Your reply MUST be a single valid JSON object. ' +
   'No markdown fences. No trailing commentary. ' +
   'Every [ array and { object must be closed exactly once. ';
+
+/**
+ * Issue #481: when a per-task policy pins `text_prompt`, no `response_format`
+ * reaches the wire, so the only thing left telling the model to answer in JSON
+ * is the prompt. The 400-driven demotion paths add
+ * `JSON_ENFORCEMENT_SYSTEM_PREFIX` when they fall to that tier; a pinned mode
+ * has no such retry to hang it on, so it is added up front instead.
+ *
+ * Only when the caller actually wanted JSON. A prose step pinned to
+ * `text_prompt` passes no `response_format`, and prefixing its system prompt
+ * with a JSON instruction would corrupt the very output being measured.
+ *
+ * Lives here rather than in one client because every client that can honour a
+ * pinned mode needs the identical rule — the #525 review found the Codex path
+ * silently keeping JSON output because it had no access to this helper.
+ */
+export function forcedTextPromptSystem(
+  system: string | undefined,
+  responseFormat: unknown,
+  outputModeOverride: OutputMode | undefined,
+): string | undefined {
+  if (outputModeOverride !== 'text_prompt' || !responseFormat) return system;
+  return system ? `${JSON_ENFORCEMENT_SYSTEM_PREFIX}\n\n${system}` : JSON_ENFORCEMENT_SYSTEM_PREFIX;
+}

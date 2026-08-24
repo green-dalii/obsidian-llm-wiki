@@ -8,6 +8,14 @@ function streamingResponse(chunks: string[]): Response {
   return new Response(`${events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')}data: [DONE]\n\n`, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
 }
 
+// The Responses wire carries the system prompt as the leading `developer`
+// entry of `input`, not as a top-level field.
+function developerMessage(body: Record<string, unknown>): string {
+  const input = body.input as { role: string; content: unknown }[] | undefined;
+  const developer = input?.find(entry => entry.role === 'developer');
+  return typeof developer?.content === 'string' ? developer.content : '';
+}
+
 describe('OpenAICodexSdkClient', () => {
   it('uses the required streaming transport for non-streaming callers', async () => {
     const auth = fakeAuthManager();
@@ -60,6 +68,50 @@ describe('OpenAICodexSdkClient', () => {
     await expect(client.createMessage({ ...messageParams(), response_format: { type: 'json_object' } })).resolves.toBe('{"ok":true}');
     expect(requestBody.text).toEqual({ format: { type: 'json_object' } });
   });
+  // #525 review: the per-step policy from #524 pins `extract` to text mode,
+  // but this client never read `outputModeOverride` — so the one provider
+  // that routes through it kept the JSON output shape the issue was about,
+  // and `Output.json()` also routes the reply around the plugin's own JSON
+  // repair. Pinned text mode must drop the format and carry the instruction
+  // in the system prompt instead, as the openai-compat client does.
+  it('honours a text_prompt pin: no JSON format on the wire, enforcement in the system prompt', async () => {
+    const auth = fakeAuthManager();
+    let requestBody: Record<string, unknown> = {};
+    const fetchFn = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (typeof init?.body !== 'string') throw new Error('Expected a string body');
+      requestBody = JSON.parse(init.body) as Record<string, unknown>;
+      return streamingResponse(['{"ok":true}']);
+    });
+    const client = new OpenAICodexSdkClient({ auth, fetch: fetchFn, streamFetch: fetchFn, sessionId: () => 'session-pin', version: '1.24.1' });
+    await expect(client.createMessage({
+      ...messageParams(),
+      system: 'You extract entities.',
+      response_format: { type: 'json_object' },
+      outputModeOverride: 'text_prompt',
+    })).resolves.toBe('{"ok":true}');
+    expect(requestBody.text).toBeUndefined();
+    expect(developerMessage(requestBody)).toContain('single valid JSON object');
+    expect(developerMessage(requestBody)).toContain('You extract entities.');
+  });
+
+  it('leaves the JSON format alone when no mode is pinned', async () => {
+    const auth = fakeAuthManager();
+    let requestBody: Record<string, unknown> = {};
+    const fetchFn = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (typeof init?.body !== 'string') throw new Error('Expected a string body');
+      requestBody = JSON.parse(init.body) as Record<string, unknown>;
+      return streamingResponse(['{"ok":true}']);
+    });
+    const client = new OpenAICodexSdkClient({ auth, fetch: fetchFn, streamFetch: fetchFn, sessionId: () => 'session-unpinned', version: '1.24.1' });
+    await expect(client.createMessage({
+      ...messageParams(),
+      system: 'You extract entities.',
+      response_format: { type: 'json_object' },
+    })).resolves.toBe('{"ok":true}');
+    expect(requestBody.text).toEqual({ format: { type: 'json_object' } });
+    expect(developerMessage(requestBody)).not.toContain('single valid JSON object');
+  });
+
   it('forwards only streamed text chunks and returns their concatenation', async () => {
     const auth = fakeAuthManager();
     const fetchFn = vi.fn(async () => streamingResponse(['hel', 'lo']));

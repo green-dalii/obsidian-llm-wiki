@@ -169,6 +169,24 @@ describe('parseTaskPolicySpec — bounded thinking', () => {
       .toThrow(/expected one of -, off, on, low, medium, high/);
   });
 
+  // #525 review: last-one-wins was silent, and this module's whole point is
+  // that a spec is the record of which arm a number came from. Two entries
+  // for one task state two arms; picking one quietly is the manifest lie the
+  // parser refuses everywhere else.
+  it('rejects a task set twice instead of letting the last entry win', () => {
+    expect(() => parseTaskPolicySpec('extract=text:on,extract=schema:off'))
+      .toThrow(/"extract" is set twice/);
+  });
+
+  it('rejects a repeated wildcard too', () => {
+    expect(() => parseTaskPolicySpec('*=text,*=schema')).toThrow(/set twice/);
+  });
+
+  it('still accepts different tasks that share a mode', () => {
+    const policies = parseTaskPolicySpec('extract=text:on,merge-triage=text:on');
+    expect(Object.keys(policies)).toEqual(['extract', 'merge-triage']);
+  });
+
   it('reports an effort only for the levels that name one', () => {
     expect(thinkingEffort('low')).toBe('low');
     expect(thinkingEffort('high')).toBe('high');

@@ -508,4 +508,78 @@ describe('SourceAnalyzer — repetition loop guard (#524)', () => {
       warn.mockRestore();
     }
   });
+
+  // #525 review: the exhaustion arm had no coverage. Only one halve is
+  // available per batch (`canHalveBatch` is false once `retryingBatch` is
+  // set), so a loop that survives the retry reaches the end of the guard.
+  // What happens then is the safety property users actually rely on: the
+  // batch is parsed and merged rather than dropped, and the log says so. A
+  // future change that turned this into `return null` would lose the whole
+  // source on one damaged batch without a single test going red.
+  it('parses and merges the damaged batch once the halve budget is spent, and says so', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const a = mockAnalyze({ [TEST_PATH]: LONG_NOTE }, [LOOPED, LOOPED, '{"kind": "entity"}', '{"kind": "concept"}']);
+      const result = await run(a, TEST_PATH);
+      expect(result).not.toBeNull();
+      expect(result!.entities.map(e => e.name)).toContain('Damaged');
+      expect(warn.mock.calls.some(c => String(c[0]).includes('No retry budget left'))).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+// #525 review: a note that repeats a phrase itself produces a faithful echo
+// that the detector cannot tell from degeneracy. Halving changes how many
+// items are asked for, never the note, so the retry is spent on a certainty
+// and the same batch is merged afterwards anyway.
+describe('SourceAnalyzer — source-borne repetition (#525 review)', () => {
+  const REFRAIN = 'Und täglich grüßt das Murmeltier. ';
+  // The note itself states the refrain far more often than the detector's
+  // four-repeat threshold, which is what makes the echo faithful.
+  const REFRAIN_NOTE = '# Refrain\n' + (REFRAIN + 'Dazwischen steht anderer Text. ').repeat(30);
+  const ECHO = JSON.stringify({
+    source_title: 'Refrain',
+    summary: 'A refrain.',
+    entities: [{ name: 'Murmeltier', type: 'other', summary: REFRAIN.repeat(20), mentions_in_source: ['Und täglich grüßt das Murmeltier.'] }],
+    concepts: [],
+  });
+
+  it('does not spend the retry when the note repeats the loop unit itself', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    try {
+      const a = mockAnalyze({ [TEST_PATH]: REFRAIN_NOTE }, [ECHO, '{"kind": "entity"}', '{"kind": "concept"}']);
+      const result = await run(a, TEST_PATH);
+      expect(result).not.toBeNull();
+      expect(result!.entities.map(e => e.name)).toContain('Murmeltier');
+      // Pin that a loop WAS detected and classified as an echo — without this
+      // the test would also pass if the detector had simply found nothing.
+      expect(debug.mock.calls.some(c => String(c[0]).includes('mirrors the source note'))).toBe(true);
+      expect(warn.mock.calls.some(c => String(c[0]).includes('treating the batch as damaged'))).toBe(false);
+      expect(warn.mock.calls.some(c => String(c[0]).includes('halving batch size'))).toBe(false);
+    } finally {
+      warn.mockRestore();
+      debug.mockRestore();
+    }
+  });
+
+  it('still treats a loop the note does not contain as damage', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const foreign = JSON.stringify({
+        source_title: 'Refrain',
+        summary: 'A refrain.',
+        entities: [{ name: 'Damaged', type: 'other', summary: 'Sauerteig, '.repeat(60), mentions_in_source: ['x'] }],
+        concepts: [],
+      });
+      const a = mockAnalyze({ [TEST_PATH]: REFRAIN_NOTE }, [foreign, ECHO, '{"kind": "entity"}', '{"kind": "concept"}']);
+      const result = await run(a, TEST_PATH);
+      expect(result).not.toBeNull();
+      expect(warn.mock.calls.some(c => String(c[0]).includes('treating the batch as damaged'))).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });

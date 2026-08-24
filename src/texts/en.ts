@@ -606,6 +606,7 @@ export const EN_TEXTS = {
     showAdvancedSettingsDesc: 'Turn on to reveal advanced settings below. Turning off hides them and resets them to defaults.',
     disableThinkingName: 'Disable thinking',
     disableThinkingDesc: 'Turn off the model\'s chain-of-thought / reasoning output in its response. Default off — the model decides whether to show reasoning, and that usually gives the best answer. Turn this on only if your provider dumps raw reasoning text into the response and you want a clean answer.',
+    taskPoliciesPlaceholder: 'Example: extract=text:off',
     taskPoliciesName: 'Per-step output mode and thinking',
     taskPoliciesDesc: 'One entry per pipeline step, `step=mode:thinking`, comma-separated — e.g. `extract=text:off`. Modes: `-` (leave), `schema`, `json`, `text`; thinking: `-`, `off`, `on`, `low`, `medium`, `high`. Leave blank for the built-in baseline (extraction in text mode). An entry that cannot be read is not saved.',
     // Issue #137: compatibility hints for advanced settings (kept short; no
