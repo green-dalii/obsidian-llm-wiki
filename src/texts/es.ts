@@ -171,6 +171,8 @@ export const ES_TEXTS = {
     bedrockIamSecretDesc: 'Se guarda solo en el almacenamiento de secretos de este dispositivo, nunca en data.json',
     bedrockIamSessionTokenName: 'Token de sesión (opcional)',
     bedrockIamSessionTokenDesc: 'Solo es necesario para credenciales temporales (STS)',
+    bedrockIamClearButton: 'Borrar claves IAM guardadas',
+    bedrockIamSaveFailed: 'Error al guardar las claves IAM: {}',
     errorUnknown: 'Error desconocido',
     savedNotice: '¡Configuración guardada!',
 

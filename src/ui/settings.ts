@@ -23,7 +23,7 @@ import { copyCodexDeviceCode, runCodexDeviceAuth, runCodexModelRefresh, runCodex
 import { copyBedrockUserCode, runBedrockDeviceAuth, runBedrockSignOut, type BedrockDevicePrompt } from './bedrock-auth-controls';
 import { applyCodexModelPolicy } from '../core/openai-codex-model-policy';
 import type { CodexDevicePrompt } from './openai-codex-auth-controls';
-import { NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
+import { BEDROCK_DEFAULT_REGION, NOTICE_NORMAL, NOTICE_ERROR } from '../constants';
 import { ProviderSecretStore } from '../llm-sdk/provider-secret-store';
 
 // v1.25.5: getSettingDefinitions() implemented as a no-op stub for
@@ -99,8 +99,11 @@ export class LLMWikiSettingTab extends PluginSettingTab {
   hide(): void {
     // #425: IAM key buffers flush BEFORE the change check — they never
     // touch tempSettings, so without this they would be dropped on a
-    // no-op close even though the user typed keys.
-    const iamFlushSucceeded = this.flushBedrockIamKeys();
+    // no-op close even though the user typed keys. Gated to iam mode so
+    // keys typed then ABANDONED (mode switched away) are not persisted.
+    if ((this.tempSettings.bedrockAuthMethod ?? 'api-key') === 'iam') {
+      this.flushBedrockIamKeys();
+    }
     const hasChanges = JSON.stringify(this.tempSettings) !== JSON.stringify(this.plugin.settings);
     if (hasChanges) {
       // commitTempSettings owns the flush; skip saveSettings on failure
@@ -110,24 +113,25 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       void this.plugin.saveSettings();
       console.debug('Settings auto-saved on tab close');
     }
-    void iamFlushSucceeded;
   }
 
   /**
    * #425 Bedrock Stage 2: flush typed static IAM keys into SecretStorage
-   * once per edit session (mirrors flushApiKey semantics). Only writes
+   * once per edit session (mirrors flushApiKey discipline). Only writes
    * when the user actually entered both required fields; partial input
-   * is kept in memory for retry. Returns true when there was nothing to
-   * write or the write succeeded.
+   * is kept in memory for retry. Returns void because the buffers are
+   * wiped ONLY after setSecret returns — there is no commit step whose
+   * skipping this return value would need to gate (the #339 hazard of
+   * wipe-before-IO-success cannot occur by construction; a test pins it).
    */
-  public flushBedrockIamKeys(): boolean {
+  public flushBedrockIamKeys(): void {
     const accessKeyId = this.bedrockIamKeyBuffer.trim();
     const secretAccessKey = this.bedrockIamSecretBuffer.trim();
-    if (accessKeyId.length === 0 && secretAccessKey.length === 0) return true;
+    if (accessKeyId.length === 0 && secretAccessKey.length === 0) return;
     if (accessKeyId.length === 0 || secretAccessKey.length === 0) {
       // Partial entry — keep buffers so the user can complete them.
       new Notice(this.getText('bedrockIamRequired'), NOTICE_ERROR);
-      return false;
+      return;
     }
     try {
       const sessionToken = this.bedrockIamSessionTokenBuffer.trim();
@@ -137,11 +141,9 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       this.bedrockIamKeyBuffer = '';
       this.bedrockIamSecretBuffer = '';
       this.bedrockIamSessionTokenBuffer = '';
-      return true;
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : 'Unknown error';
-      new Notice(this.getText('bedrockSsoFailed').replace('{}', detail), NOTICE_ERROR);
-      return false;
+      new Notice(this.getText('bedrockIamSaveFailed').replace('{}', detail), NOTICE_ERROR);
     }
   }
 
@@ -379,21 +381,14 @@ export class LLMWikiSettingTab extends PluginSettingTab {
     if (!manager || this.bedrockAuthBusy) return;
     const startUrl = (this.tempSettings.bedrockSsoStartUrl ?? '').trim();
     if (startUrl.length === 0) {
-      new Notice(this.getText('bedrockSsoStartUrlDesc'), NOTICE_ERROR);
+      new Notice(this.getText('bedrockSsoStartUrlName'), NOTICE_ERROR);
       return;
     }
     const signedInBefore = manager.hasSsoToken();
+    // DeviceLoginSession is structurally a BedrockDevicePrompt — pass
+    // the session through directly.
     await runBedrockDeviceAuth({
-      beginLogin: async () => {
-        const session = await manager.beginDeviceLogin(startUrl, this.tempSettings.bedrockRegion || 'us-east-1');
-        return {
-          userCode: session.userCode,
-          verificationUri: session.verificationUri,
-          verificationUriComplete: session.verificationUriComplete,
-          complete: session.complete,
-          cancel: () => session.cancel(),
-        };
-      },
+      beginLogin: () => manager.beginDeviceLogin(startUrl, this.tempSettings.bedrockRegion || BEDROCK_DEFAULT_REGION),
       openExternal: (url) => this.plugin.openExternal(url),
       setPrompt: (prompt) => { this.bedrockDevicePrompt = prompt; },
       showError: (error) => { new Notice(this.bedrockAuthError(error), NOTICE_ERROR); },

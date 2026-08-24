@@ -11,7 +11,8 @@
 
 import { BEDROCK_TEMP_CRED_SKEW_MS } from './constants';
 import { BedrockIamCredentialStore } from './credential-store';
-import { BedrockSsoCredentialStore, type SecretStorageLike } from './credential-store';
+import { BedrockSsoCredentialStore } from './credential-store';
+import type { SecretStorageLike } from '../openai-codex/types';
 import {
   completeDeviceAuthorization,
   registerClient,
@@ -82,6 +83,11 @@ export class BedrockAuthManager {
 
   saveIamKeys(keys: { accessKeyId: string; secretAccessKey: string; sessionToken?: string }): void {
     this.iamStore.save(keys);
+  }
+
+  /** Wipes ONLY the static IAM keys — the SSO token is untouched. */
+  clearIamKeys(): void {
+    this.iamStore.clear();
   }
 
   /**

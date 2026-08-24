@@ -96,6 +96,13 @@ async function raceWithBounds<T>(
   throwIfAborted(signal);
   let timer: number | undefined;
   let removeAbortListener = (): void => undefined;
+  // Contain the losing side: when the deadline/abort wins the race, the
+  // still-pending operation settles later on its own — a bare rejection
+  // here would register as an unhandled rejection.
+  const guarded = operation.then(
+    value => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
   const cancellation = new Promise<never>((_resolve, reject) => {
     const abort = (): void => reject(abortError());
     removeAbortListener = (): void => signal?.removeEventListener('abort', abort);
@@ -108,7 +115,9 @@ async function raceWithBounds<T>(
     timer = window.setTimeout(() => reject(new Error(timeoutMessage)), remainingMs);
   });
   try {
-    return await Promise.race([operation, cancellation]);
+    const raced = await Promise.race([guarded, cancellation]);
+    if (!raced.ok) throw raced.error;
+    return raced.value;
   } finally {
     if (timer !== undefined) window.clearTimeout(timer);
     removeAbortListener();

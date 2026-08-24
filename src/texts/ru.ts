@@ -197,6 +197,8 @@ export const RU_TEXTS = {
     bedrockIamSecretDesc: 'Хранится только в хранилище секретов этого устройства — никогда в data.json',
     bedrockIamSessionTokenName: 'Токен сессии (необязательно)',
     bedrockIamSessionTokenDesc: 'Требуется только для временных учётных данных (STS)',
+    bedrockIamClearButton: 'Очистить сохранённые ключи IAM',
+    bedrockIamSaveFailed: 'Не удалось сохранить ключи IAM: {}',
     errorUnknown: 'Неизвестная ошибка',
 
     // Issue #137: уведомления LLM-fallback (показываются, когда во время запроса

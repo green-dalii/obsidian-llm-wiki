@@ -171,6 +171,8 @@ export const ZH_TEXTS = {
     bedrockIamSecretDesc: '仅保存在本设备的密钥存储中，绝不会写入 data.json',
     bedrockIamSessionTokenName: '会话令牌（可选）',
     bedrockIamSessionTokenDesc: '仅临时凭据（STS）需要',
+    bedrockIamClearButton: '清除已保存的 IAM 密钥',
+    bedrockIamSaveFailed: 'IAM 密钥保存失败：{}',
     errorUnknown: '未知错误',
     savedNotice: '设置已保存！',
 

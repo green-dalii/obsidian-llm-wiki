@@ -27,8 +27,9 @@ import {
   type BedrockRegion,
 } from '../constants';
 import { resolveProviderApiKey } from './provider-api-key-resolver';
+import { usesBedrockAwsCredentials } from '../core/provider-auth';
 import type { ProviderSecretStorage } from './provider-secret-store';
-import { obsidianFetchBridge, type ObsidianFetchInit } from '../core/obsidian-fetch-bridge';
+import { obsidianFetchBridge, streamWithFallback, type ObsidianFetchInit } from '../core/obsidian-fetch-bridge';
 import { createSigV4SigningFetch } from './bedrock-sso/signing-fetch';
 import type { BedrockAuthManager } from './bedrock-sso/credential-manager';
 
@@ -114,22 +115,29 @@ function createBedrockClient(
   const region = resolveBedrockRegion(settings);
   const authMethod = settings.bedrockAuthMethod ?? 'api-key';
   let signingFetch: ((url: string, init?: ObsidianFetchInit) => Promise<Response>) | undefined;
+  let signingStreamFetch: ((url: string, init?: ObsidianFetchInit) => Promise<Response>) | undefined;
   if (authMethod !== 'api-key') {
     if (!settings.bedrockAuthManager) {
       throw new Error('Bedrock SSO/IAM auth requires the plugin-managed BedrockAuthManager');
     }
     const manager = settings.bedrockAuthManager;
-    signingFetch = createSigV4SigningFetch({
-      delegate: obsidianFetchBridge,
-      getCredentials: () => manager.getCredentials({
-        method: authMethod,
-        region,
-        accountId: settings.bedrockSsoAccountId,
-        roleName: settings.bedrockSsoRoleName,
-      }),
+    const getCredentials = () => manager.getCredentials({
+      method: authMethod,
+      region,
+      accountId: settings.bedrockSsoAccountId,
+      roleName: settings.bedrockSsoRoleName,
     });
+    // Two wrappers over the SAME credential source — one per seam — so
+    // the streaming seam keeps Stage-1 incremental delivery (sign, then
+    // hand off to streamWithFallback exactly like api-key mode) instead
+    // of degrading to single-chunk requestUrl responses.
+    signingFetch = createSigV4SigningFetch({ delegate: obsidianFetchBridge, getCredentials });
+    signingStreamFetch = createSigV4SigningFetch({ delegate: streamWithFallback, getCredentials });
   }
-  const authOverrides = signingFetch ? { fetch: signingFetch, streamFetch: signingFetch } : {};
+  const authOverrides = {
+    ...(signingFetch ? { fetch: signingFetch } : {}),
+    ...(signingStreamFetch ? { streamFetch: signingStreamFetch } : {}),
+  };
   if (protocol === 'anthropic') {
     return new providers.AnthropicSdkClient({
       apiKey,
@@ -145,15 +153,9 @@ function createBedrockClient(
   });
 }
 
-/**
- * #425 Stage 2 — true when the selected provider+mode signs requests
- * with AWS credentials instead of a bearer API key, so the shared
- * key resolver must be skipped entirely (no SecretStorage lookup of
- * the shared provider slot, no misleading "missing API key" errors).
- */
-function usesBedrockAwsCredentials(provider: string, settings: ProviderSettings): boolean {
-  return provider.startsWith('bedrock-') && (settings.bedrockAuthMethod ?? 'api-key') !== 'api-key';
-}
+// #425 Stage 2 — "signs with AWS credentials" predicate lives in
+// core/provider-auth.ts (single home, shared with the connection gate);
+// the key resolver below must be skipped when it holds.
 
 /**
  * Async factory used by callers that can await (Test Connection,
@@ -177,7 +179,7 @@ export async function createLLMClientFromSettings(
   // stale SecretStorage value. Production callers pass undefined.
   // #425 Stage 2: in bedrock sso/iam modes AWS credentials sign every
   // request, so no bearer key is resolved at all.
-  const apiKey = usesBedrockAwsCredentials(provider, settings) ? '' : resolveProviderApiKey(
+  const apiKey = usesBedrockAwsCredentials(provider, settings.bedrockAuthMethod) ? '' : resolveProviderApiKey(
     { apiKey: settings.apiKey, providerApiKeySecretId: settings.providerApiKeySecretId },
     settings.secretStorage ?? null,
     pendingApiKey,
@@ -296,7 +298,7 @@ export function createLLMClientFromSettingsSync(
   // stale SecretStorage value. Production callers pass undefined.
   // #425 Stage 2: in bedrock sso/iam modes AWS credentials sign every
   // request, so no bearer key is resolved at all.
-  const apiKey = usesBedrockAwsCredentials(provider, settings) ? '' : resolveProviderApiKey(
+  const apiKey = usesBedrockAwsCredentials(provider, settings.bedrockAuthMethod) ? '' : resolveProviderApiKey(
     { apiKey: settings.apiKey, providerApiKeySecretId: settings.providerApiKeySecretId },
     settings.secretStorage ?? null,
     pendingApiKey,

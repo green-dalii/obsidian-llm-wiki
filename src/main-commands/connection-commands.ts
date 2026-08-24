@@ -23,7 +23,7 @@ import type { LLMTask } from '../core/model-resolver';
 import { TEXTS } from '../texts';
 import { getText } from '../core/i18n';
 import { createLLMClient } from '../core/create-plugin-llm-client';
-import { providerRequiresApiKey } from '../core/provider-auth';
+import { providerRequiresApiKey, usesBedrockAwsCredentials } from '../core/provider-auth';
 import { resolveProviderApiKey } from '../llm-sdk/provider-api-key-resolver';
 import type { CodexAuthManager } from '../llm-sdk/openai-codex/auth-manager';
 import { applyCodexModelPolicy } from '../core/openai-codex-model-policy';
@@ -67,9 +67,11 @@ export const connectionCommands = {
       return { success: false, message: t.codexAuthRequired };
     }
     // #425 Bedrock Stage 2: in sso/iam modes AWS credentials replace the
-    // bearer key, so the credential-presence gate runs BEFORE the
-    // API-key gate and never surfaces a misleading missing-key error.
-    if (this.settings.provider.startsWith('bedrock-') && (this.settings.bedrockAuthMethod ?? 'api-key') !== 'api-key') {
+    // bearer key (single predicate in core/provider-auth), so the
+    // credential-presence gate runs BEFORE the API-key gate and never
+    // surfaces a misleading missing-key error.
+    const awsCredMode = usesBedrockAwsCredentials(this.settings.provider, this.settings.bedrockAuthMethod);
+    if (awsCredMode) {
       const method = this.settings.bedrockAuthMethod!;
       if (method === 'sso' && this.bedrockAuthManager?.hasSsoToken() !== true) {
         return { success: false, message: t.bedrockSsoRequired };
@@ -82,12 +84,7 @@ export const connectionCommands = {
     // Connection button can forward the in-memory typed key from
     // tab.tempSettings.apiKey, bypassing the stale SecretStorage value.
     // Production callers (initializeLLMClient etc.) pass undefined.
-    // #425 Stage 2: in bedrock sso/iam modes AWS credentials sign every
-    // request, so the bearer-key gate is skipped entirely (mirrors the
-    // factory's resolver bypass).
-    const usesBedrockAwsCredentials = this.settings.provider.startsWith('bedrock-')
-      && (this.settings.bedrockAuthMethod ?? 'api-key') !== 'api-key';
-    if (!usesBedrockAwsCredentials && providerRequiresApiKey(this.settings.provider) && !resolveProviderApiKey(
+    if (!awsCredMode && providerRequiresApiKey(this.settings.provider) && !resolveProviderApiKey(
       { apiKey: this.settings.apiKey, providerApiKeySecretId: this.settings.providerApiKeySecretId },
       this.app.secretStorage,
       pendingApiKey,

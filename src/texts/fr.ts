@@ -171,6 +171,8 @@ export const FR_TEXTS = {
     bedrockIamSecretDesc: "Stockée uniquement dans le coffre secret de cet appareil — jamais dans data.json",
     bedrockIamSessionTokenName: 'Jeton de session (facultatif)',
     bedrockIamSessionTokenDesc: 'Requis uniquement pour les informations d’identification temporaires (STS)',
+    bedrockIamClearButton: 'Effacer les clés IAM enregistrées',
+    bedrockIamSaveFailed: "Échec de l'enregistrement des clés IAM : {}",
     errorUnknown: 'Erreur inconnue',
     savedNotice: 'Paramètres enregistrés !',
 

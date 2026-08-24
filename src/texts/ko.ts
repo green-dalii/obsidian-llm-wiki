@@ -171,6 +171,8 @@ export const KO_TEXTS = {
     bedrockIamSecretDesc: '이 기기의 시크릿 저장소에만 저장되며 data.json에는 절대 기록되지 않습니다',
     bedrockIamSessionTokenName: '세션 토큰(선택)',
     bedrockIamSessionTokenDesc: '임시 자격 증명(STS)에만 필요합니다',
+    bedrockIamClearButton: '저장된 IAM 키 지우기',
+    bedrockIamSaveFailed: 'IAM 키 저장 실패: {}',
     errorUnknown: '알 수 없는 오류',
     savedNotice: '설정이 저장되었습니다!',
 

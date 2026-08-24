@@ -2,16 +2,26 @@ import { isLocalNoKeyProvider } from './local-no-key-provider';
 
 export const OPENAI_CODEX_PROVIDER_ID = 'openai-codex';
 
+/** #425 Bedrock Stage 2 — auth modes of the two bedrock-* providers. */
+export type BedrockAuthMethod = 'api-key' | 'sso' | 'iam';
+
+/**
+ * #425 — single predicate for "this provider+mode signs requests with
+ * AWS credentials instead of a bearer key". One home, four former
+ * spellings (factory, connection gate ×2, provider-auth gate).
+ */
+export function usesBedrockAwsCredentials(provider: string, authMethod: BedrockAuthMethod | undefined): boolean {
+  return provider.startsWith('bedrock-') && (authMethod ?? 'api-key') !== 'api-key';
+}
+
 export interface ProviderCredentialState {
   provider: string;
   apiKey: string;
   model: string;
   hasCodexCredential: boolean;
-  /**
-   * #425 Bedrock Stage 2 — auth mode of the active bedrock-* provider.
-   * Absent for every other provider (and for api-key mode).
-   */
-  bedrockAuthMethod?: 'api-key' | 'sso' | 'iam';
+  /** #425 Bedrock Stage 2 — auth mode of the active bedrock-* provider.
+   * Absent for every other provider (and for api-key mode). */
+  bedrockAuthMethod?: BedrockAuthMethod;
   /** #425 — true when an SSO token or IAM keys are actually present. */
   hasBedrockCredential?: boolean;
 }

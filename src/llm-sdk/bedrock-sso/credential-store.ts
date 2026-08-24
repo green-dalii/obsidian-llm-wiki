@@ -7,10 +7,9 @@
  * or Notices.
  */
 
-export interface SecretStorageLike {
-  getSecret(id: string): string | null;
-  setSecret(id: string, value: string): void;
-}
+// One-contract invariant (see provider-secret-store.ts): the storage
+// surface is codex's SecretStorageLike re-exported ecosystem-wide.
+import type { SecretStorageLike } from '../openai-codex/types';
 
 import type { BedrockIamKeys, BedrockSsoToken } from './types';
 

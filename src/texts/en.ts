@@ -193,6 +193,8 @@ export const EN_TEXTS = {
     bedrockIamSecretDesc: "Stored only in this device's secret storage — never in data.json",
     bedrockIamSessionTokenName: 'Session token (optional)',
     bedrockIamSessionTokenDesc: 'Required only for temporary credentials (STS)',
+    bedrockIamClearButton: 'Clear saved IAM keys',
+    bedrockIamSaveFailed: 'Failed to save IAM keys: {}',
     errorUnknown: 'Unknown error',
 
     // Issue #137: LLM fallback notices (shown when thinking-dialect

@@ -48,6 +48,10 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
   const isCodex = tempSettings.provider === 'openai-codex';
   const isBedrock = tempSettings.provider === 'bedrock-anthropic'
     || tempSettings.provider === 'bedrock-openai';
+  // #425: in sso/iam modes the bearer API-key field is inert (AWS
+  // credentials sign instead) — hiding it prevents "which one do I
+  // fill?" confusion.
+  const bedrockAwsCredMode = isBedrock && (tempSettings.bedrockAuthMethod ?? 'api-key') !== 'api-key';
 
   // LLM Provider (highest priority - must configure first).
   // v1.25.1 Phase C-PR2 fix: this heading was previously emitted from
@@ -100,7 +104,7 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
       new Setting(containerEl).setName(tab.getText('codexAuthDeviceInstructions').replace('{}', prompt.userCode)).setDesc(prompt.verificationUrl).addButton(button => button.setButtonText(tab.getText('codexAuthCopyCode')).onClick(() => { void tab.copyOpenAICodexDeviceCode(); })).addButton(button => button.setButtonText(tab.getText('cancelButton')).setWarning().onClick(() => { prompt.cancel(); }));
     }
     if (isSignedIn) tab.queueStaleCodexModelRefresh();
-  } else if (!isOllama && !isLmStudio) {
+  } else if (!isOllama && !isLmStudio && !bedrockAwsCredMode) {
     // v1.25.3 #182: read the key through the tested ProviderSecretStore
     // helper (matches Codex's codexAuthManager UX). The text component
     // is an in-memory buffer; the actual SecretStorage write happens
@@ -188,6 +192,7 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
     // #425 Bedrock Stage 2 — auth method + credential surfaces. Secrets
     // never live in settings: SSO runs a device login, IAM keys buffer
     // in-memory and flush to SecretStorage on tab close.
+    const currentAuthMethod = tempSettings.bedrockAuthMethod ?? 'api-key';
     new Setting(containerEl)
       .setName(tab.getText('bedrockAuthMethodName'))
       .setDesc(tab.getText('bedrockAuthMethodDesc'))
@@ -195,15 +200,23 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
         dropdown.addOption('api-key', tab.getText('bedrockAuthOptionApiKey'));
         dropdown.addOption('sso', tab.getText('bedrockAuthOptionSso'));
         dropdown.addOption('iam', tab.getText('bedrockAuthOptionIam'));
-        dropdown.setValue(tempSettings.bedrockAuthMethod ?? 'api-key');
+        dropdown.setValue(currentAuthMethod);
         dropdown.onChange((value) => {
+          const previous = tempSettings.bedrockAuthMethod ?? 'api-key';
           tempSettings.bedrockAuthMethod = value as LLMWikiSettings['bedrockAuthMethod'];
+          // Leaving iam mode abandons any half-typed key buffers — wipe
+          // them so a later tab close cannot persist abandoned secrets.
+          if (previous === 'iam' && value !== 'iam') {
+            tab.bedrockIamKeyBuffer = '';
+            tab.bedrockIamSecretBuffer = '';
+            tab.bedrockIamSessionTokenBuffer = '';
+          }
           tempSettings.llmReady = false;
           tab.display();
         });
       });
 
-    const bedrockAuthMethod = tempSettings.bedrockAuthMethod ?? 'api-key';
+    const bedrockAuthMethod = currentAuthMethod;
     if (bedrockAuthMethod === 'sso') {
       new Setting(containerEl)
         .setName(tab.getText('bedrockSsoStartUrlName'))
@@ -233,7 +246,7 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
           ? tab.getText('bedrockSsoStatusSignedIn').replace('{}', new Date(expiryMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
           : tab.getText('bedrockSsoStatusSignedOut');
       const authSetting = new Setting(containerEl)
-        .setName(tab.getText('bedrockAuthMethodName'))
+        .setName(tab.getText('bedrockAuthOptionSso'))
         .setDesc(status);
       if (ssoState.showLogin) authSetting.addButton(button => button.setButtonText(tab.getText('bedrockSsoLoginButton')).onClick(() => { void tab.loginBedrockSso(); }));
       if (ssoState.showSignOut) authSetting.addButton(button => button.setButtonText(tab.getText('bedrockSsoSignOutButton')).setWarning().onClick(() => { void tab.signOutBedrock(); }));
@@ -265,6 +278,17 @@ export function renderProviderSection(tab: LLMWikiSettingTab, containerEl: HTMLE
         .addText(text => text
           .setValue(tab.bedrockIamSessionTokenBuffer)
           .onChange((value) => { tab.bedrockIamSessionTokenBuffer = value; tempSettings.llmReady = false; }));
+      // Destructive-credential control for iam mode: without this there
+      // is no UI path to remove saved keys (sign-out lives in sso mode).
+      if (tab.plugin.bedrockAuthManager?.hasIamKeys() === true) {
+        new Setting(containerEl)
+          .setName(tab.getText('bedrockIamClearButton'))
+          .addButton(button => button.setButtonText(tab.getText('bedrockIamClearButton')).setWarning().onClick(() => {
+            tab.plugin.bedrockAuthManager?.clearIamKeys();
+            tempSettings.llmReady = false;
+            tab.display();
+          }));
+      }
     }
   }
 

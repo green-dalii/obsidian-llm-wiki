@@ -10,7 +10,11 @@
  */
 
 import { headersToObject, type ObsidianFetchInit } from '../../core/obsidian-fetch-bridge';
-import { BEDROCK_MANTLE_HOST_PATTERN, BEDROCK_MANTLE_SIGNING_SERVICE } from './constants';
+import {
+  BEDROCK_INCLUDE_CONTENT_SHA_HEADER,
+  BEDROCK_MANTLE_HOST_PATTERN,
+  BEDROCK_MANTLE_SIGNING_SERVICE,
+} from './constants';
 import { signRequest } from './sigv4';
 import type { BedrockCredentialsProvider } from './types';
 
@@ -68,6 +72,10 @@ export function createSigV4SigningFetch(
       sessionToken: credentials.sessionToken,
       region: regionMatch[1],
       service: BEDROCK_MANTLE_SIGNING_SERVICE,
+      // E2E toggle: if the endpoint demands x-amz-content-sha256, flip
+      // the constant — the header AND its SignedHeaders entry move
+      // atomically (see constants.ts).
+      includeContentShaHeader: BEDROCK_INCLUDE_CONTENT_SHA_HEADER,
       now: now(),
     });
 

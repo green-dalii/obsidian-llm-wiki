@@ -171,6 +171,8 @@ export const JA_TEXTS = {
     bedrockIamSecretDesc: 'このデバイスのシークレットストレージにのみ保存され、data.json には書き込まれません',
     bedrockIamSessionTokenName: 'セッショントークン（任意）',
     bedrockIamSessionTokenDesc: '一時的な認証情報（STS）の場合のみ必要です',
+    bedrockIamClearButton: '保存済み IAM キーをクリア',
+    bedrockIamSaveFailed: 'IAM キーの保存に失敗しました:{}',
     errorUnknown: '不明なエラー',
     savedNotice: '設定を保存しました！',
 

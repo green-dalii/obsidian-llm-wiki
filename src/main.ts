@@ -194,14 +194,17 @@ export class LLMWikiPlugin extends Plugin {
    * isProviderConfigured keeps legacy semantics there.
    */
   private bedrockCredentialPresence(): boolean | undefined {
+    // Manager not constructed yet (early loadSettings path): report
+    // unknown so legacy semantics apply rather than a false negative.
+    if (!this.bedrockAuthManager) return undefined;
     if (!this.settings.provider.startsWith('bedrock-')) return undefined;
     const method = this.settings.bedrockAuthMethod ?? 'api-key';
-    if (method === 'sso') return this.bedrockAuthManager?.hasSsoToken() === true;
-    if (method === 'iam') return this.bedrockAuthManager?.hasIamKeys() === true;
+    if (method === 'sso') return this.bedrockAuthManager.hasSsoToken() === true;
+    if (method === 'iam') return this.bedrockAuthManager.hasIamKeys() === true;
     return undefined;
- }
+  }
 
- async loadSettings() {
+  async loadSettings() {
     const savedData = await this.loadData() as Partial<LLMWikiSettings> | null;
     const { settings, applied } = applySettingsMigrations(savedData);
 

@@ -171,6 +171,8 @@ export const ZH_HANT_TEXTS = {
     bedrockIamSecretDesc: '僅儲存在本裝置的金鑰存放區中，絕不會寫入 data.json',
     bedrockIamSessionTokenName: '工作階段權杖（選填）',
     bedrockIamSessionTokenDesc: '僅臨時憑證（STS）需要',
+    bedrockIamClearButton: '清除已儲存的 IAM 金鑰',
+    bedrockIamSaveFailed: 'IAM 金鑰儲存失敗：{}',
     errorUnknown: '未知錯誤',
     savedNotice: '設定已儲存！',
 

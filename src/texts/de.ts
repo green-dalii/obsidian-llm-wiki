@@ -171,6 +171,8 @@ export const DE_TEXTS = {
     bedrockIamSecretDesc: 'Wird ausschließlich im Geheimspeicher dieses Geräts gespeichert — nie in data.json',
     bedrockIamSessionTokenName: 'Sitzungstoken (optional)',
     bedrockIamSessionTokenDesc: 'Nur für temporäre Anmeldeinformationen erforderlich (STS)',
+    bedrockIamClearButton: 'Gespeicherte IAM-Schlüssel löschen',
+    bedrockIamSaveFailed: 'Speichern der IAM-Schlüssel fehlgeschlagen: {}',
     errorUnknown: 'Unbekannter Fehler',
     savedNotice: 'Einstellungen gespeichert!',
 

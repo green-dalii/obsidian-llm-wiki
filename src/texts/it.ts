@@ -191,6 +191,8 @@ export const IT_TEXTS = {
     bedrockIamSecretDesc: 'Salvata solo nell\'archivio segreti di questo dispositivo — mai in data.json',
     bedrockIamSessionTokenName: 'Token di sessione (facoltativo)',
     bedrockIamSessionTokenDesc: 'Necessario solo per credenziali temporanee (STS)',
+    bedrockIamClearButton: 'Cancella chiavi IAM salvate',
+    bedrockIamSaveFailed: 'Salvataggio delle chiavi IAM non riuscito: {}',
     errorUnknown: 'Errore sconosciuto',
 
     // Issue #137: avvisi di fallback LLM (mostrati quando avviene un
