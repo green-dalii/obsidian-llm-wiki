@@ -149,8 +149,13 @@ describe('completeDeviceAuthorization — CreateToken polling', () => {
       const pending = completeDeviceAuthorization({
         fetchFn, region: REGION, registration, authorization, now: () => 0,
       });
+      // Attach the rejection expectation BEFORE advancing the clock:
+      // the promise settles inside advanceTimersByTimeAsync's microtask
+      // flush, and a late-attached catch would register as an unhandled
+      // rejection.
+      const assertion = expect(pending).rejects.toThrow(awsError);
       await vi.advanceTimersByTimeAsync(5000); // first poll interval elapses
-      await expect(pending).rejects.toThrow(awsError);
+      await assertion;
       expect(fetchFn).toHaveBeenCalledTimes(1); // no retry after a hard error
     }
   });
