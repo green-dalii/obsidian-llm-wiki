@@ -62,11 +62,11 @@ Follow-ups filed from #517 adjacent findings: **#533** (`isUrlError` treats mode
 
 ### Community wave 2 + 3 — 2026-08-22/23 (ALL MERGED 2026-08-24)
 
-10 PRs reviewed, approved and squash-merged 2026-08-24; linked issues #527/#536/#533/#534 auto-closed. Batches: #529 → #531 → #530 → #535 → #537 → #526, then conflict-rebases (#532 slug.ts vs #530; #538/#528 CHANGELOG anchors) pushed back to fork branches per `update-branch` flow.
+10 PRs reviewed, approved and squash-merged 2026-08-24 (`65ebdbd` closes the set); linked issues #527/#536/#533/#534/#524 auto-closed. Batches: #529 → #531 → #530 → #535 → #537 → #526, then conflict-rebases (#532 slug.ts vs #530; #538/#528 CHANGELOG anchors) pushed back to fork branches per `update-branch` flow.
 
 | PR | Issue | What | Note |
 |----|-------|------|------|
-| **#525** | #524 | extract defaults to text mode + repetition-loop guard + taskPolicies UI | **HELD at merge gate** — global text baseline (no provider split) converged with maintainer; awaiting final go. Max-effort scan not run on this one |
+| **#525** | #524 | extract defaults to text mode + repetition-loop guard + taskPolicies UI | Merged last after maintainer convergence on the global text baseline (no provider split — failure axis is model×backend, not local/cloud; opt-back = one taskPolicies entry). Max-effort scan: 0 blocking / 7 non-blocking (codex-client outputModeOverride gap is the notable one) |
 | **#528** | #527 | type repair at intake (fold → one short call) | Merged after CLEAN max-effort review; follow-ups noted: unbounded repair fan-out (chunk to 2–4), buildSystemPrompt doc nuance |
 | **#526** | #417s | dev-instrument exit codes 0/1/2 | Report-driven contract; usage→stderr |
 | **#529** | #258 class | `stripUnknownSections` on generation paths | Reviewed pages bypass |
@@ -77,7 +77,7 @@ Follow-ups filed from #517 adjacent findings: **#533** (`isUrlError` treats mode
 | **#535** | #533 | OpenRouter model-404 no longer a URL fault | First-time fork CI run approved via API |
 | **#538** | #534 | OpenRouter `:` variants visible (~79 models) | External @pttydou; colon-split consumers verified absent |
 
-Open follow-ups from review threads: alias-floor unification (#537×#532), bounded type-repair concurrency (#528), zh/ja candidate-gate measurement (#521 debt).
+Open follow-ups from review threads: alias-floor unification (#537×#532), bounded type-repair concurrency (#528), zh/ja candidate-gate measurement (#521 debt), plus from the #525 scan — codex-client `outputModeOverride` honoring (extract stays JSON-mode on that provider despite the builtin pin), source-borne loop pre-check before spending the halve-retry, exhaustion-arm test, hardcoded-EN placeholder i18n.
 
 ### Other follow-ups
 

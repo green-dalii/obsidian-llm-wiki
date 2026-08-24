@@ -277,7 +277,7 @@ Dead code (exported symbols with zero production importers) has a **half-life of
 ### ⚠️ Settings panel scope rule (v1.26.0 Batch 2 lesson)
 
 Two settings panels:
-1. **LLM Advanced section** (`src/ui/settings-sections/advanced-section.ts`, gated by `advancedSettingsMode`) — `temperature`, `repetitionPenalty`, `forcePdfSupport` ONLY.
+1. **LLM Advanced section** (`src/ui/settings-sections/advanced-section.ts`, gated by `advancedSettingsMode`) — `temperature`, `repetitionPenalty`, `forcePdfSupport`, `taskPolicies` (per-task output-mode/thinking spec, PR #525) ONLY.
 2. **Bottom "Advanced settings" panel** (`src/ui/settings-sections/advanced-settings-section.ts`, gated by `showAdvancedSettings`) — lint dedup thresholds, `maxConversationHistory`, `writePdfMarkdownToVault`, `slugCase`, `createWelcomeNote`, `lintDedupIncludeSources`, all per-source-file/UI/storage toggles.
 
 **Hard rule:** when adding a setting toggle, decide FIRST which scope. LLM Advanced = LLM sampling + provider overrides ONLY. Everything else → bottom panel. Post-mortem: [[feedback_settings_panel_naming_collision]].
