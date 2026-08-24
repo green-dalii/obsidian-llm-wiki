@@ -216,6 +216,8 @@ export interface LLMWikiSettings {
    * SecretStorage (`karpathywiki-bedrock-sso` / `-iam`) — never here.
    */
   bedrockAuthMethod?: 'api-key' | 'sso' | 'iam';
+  /** #425 — organization portal URL that starts the SSO device flow. */
+  bedrockSsoStartUrl?: string;
   /** #425 — target account id for GetRoleCredentials in SSO mode. */
   bedrockSsoAccountId?: string;
   /** #425 — role name to assume for GetRoleCredentials in SSO mode. */
@@ -1253,4 +1255,5 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // #425 Bedrock Stage 2 — default auth mode preserves the Stage-1
   // bearer wire shape for every existing user.
   bedrockAuthMethod: 'api-key',
+  bedrockSsoStartUrl: '',
 };

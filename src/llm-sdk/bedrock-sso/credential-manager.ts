@@ -185,4 +185,14 @@ export class BedrockAuthManager {
     this.iamStore.clear();
     this.tempCredCache.clear();
   }
+
+  /**
+   * Plugin-unload cleanup: drops in-memory state ONLY — the persisted
+   * SSO token and IAM keys survive so the user stays signed in across
+   * Obsidian restarts. Never confuse with signOut().
+   */
+  dispose(): void {
+    this.tempCredCache.clear();
+    this.inFlight.clear();
+  }
 }

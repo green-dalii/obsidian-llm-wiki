@@ -37,7 +37,13 @@ describe('getRoleCredentials', () => {
       },
     }));
     const creds = await getRoleCredentials(fetchFn, REGION, 'sso-token', '123456789012', 'PowerUserAccess');
-    expect(creds).toEqual({ accessKeyId: 'ASIA-test', secretAccessKey: 'sk-test', sessionToken: 'st-test' });
+    expect(creds).toEqual({
+      accessKeyId: 'ASIA-test',
+      secretAccessKey: 'sk-test',
+      sessionToken: 'st-test',
+      // Portal expiry carried through (epoch ms) for cache decisions.
+      expiration: 1756100000000,
+    });
     const [url, init] = fetchFn.mock.calls[0];
     expect(url).toBe(`${PORTAL}/federation/credentials?account_id=123456789012&role_name=PowerUserAccess`);
     expect(init.headers).toMatchObject({ 'x-amz-sso_bearer_token': 'sso-token' });
