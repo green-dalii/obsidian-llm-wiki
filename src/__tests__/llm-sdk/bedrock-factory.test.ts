@@ -16,6 +16,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { AnthropicSdkClient } from '../../llm-sdk/anthropic-sdk-client';
 import { OpenAICompatSdkClient } from '../../llm-sdk/openai-compat-sdk-client';
+import { obsidianFetchBridge, streamWithFallback } from '../../core/obsidian-fetch-bridge';
+import type { BedrockAuthManager } from '../../llm-sdk/bedrock-sso/credential-manager';
 import {
   createLLMClientFromSettings,
   createLLMClientFromSettingsSync,
@@ -29,6 +31,17 @@ function privateBaseURL(client: unknown): string | undefined {
   // accurate when the optional field is absent.
   const c = client as { baseURL?: unknown };
   return typeof c.baseURL === 'string' ? c.baseURL : undefined;
+}
+
+function privateField(client: unknown, name: string): unknown {
+  return (client as Record<string, unknown>)[name];
+}
+
+/** Minimal manager stand-in — wiring tests only need getCredentials. */
+function fakeManager(): BedrockAuthManager {
+  return {
+    getCredentials: async () => ({ accessKeyId: 'ASIA-test', secretAccessKey: 'sk-test' }),
+  } as unknown as BedrockAuthManager;
 }
 
 describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
@@ -107,6 +120,57 @@ describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
       // OpenAICompatSdkClient — confirm OpenAISdkClient is selected here.
       const { OpenAISdkClient } = await import('../../llm-sdk/openai-sdk-client');
       expect(client).toBeInstanceOf(OpenAISdkClient);
+    });
+  });
+
+  describe('Bedrock Stage 2 — auth-mode wiring (#425)', () => {
+    it('api-key mode (default) leaves both fetch seams untouched', async () => {
+      const client = await createLLMClientFromSettings({
+        provider: 'bedrock-anthropic',
+        apiKey: 'ABSK-test',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
+        bedrockRegion: 'us-east-1',
+      });
+      expect(privateField(client, 'fetchImpl')).toBe(obsidianFetchBridge);
+      expect(privateField(client, 'streamFetchImpl')).toBe(streamWithFallback);
+    });
+
+    it('sso mode injects a signing wrapper on BOTH seams and skips the key resolver', async () => {
+      const client = await createLLMClientFromSettings({
+        provider: 'bedrock-anthropic',
+        apiKey: '', // no bearer key — AWS credentials sign instead
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
+        bedrockRegion: 'eu-central-1',
+        bedrockAuthMethod: 'sso',
+        bedrockSsoAccountId: '123456789012',
+        bedrockSsoRoleName: 'PowerUserAccess',
+        bedrockAuthManager: fakeManager(),
+      });
+      expect(privateField(client, 'fetchImpl')).not.toBe(obsidianFetchBridge);
+      expect(privateField(client, 'streamFetchImpl')).not.toBe(streamWithFallback);
+    });
+
+    it('iam mode wires the same wrapper for the chat-completions protocol', async () => {
+      const client = await createLLMClientFromSettings({
+        provider: 'bedrock-openai',
+        apiKey: '',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
+        bedrockRegion: 'us-east-1',
+        bedrockAuthMethod: 'iam',
+        bedrockAuthManager: fakeManager(),
+      });
+      expect(client).toBeInstanceOf(OpenAICompatSdkClient);
+      expect(privateField(client, 'fetchImpl')).not.toBe(obsidianFetchBridge);
+      expect(privateField(client, 'streamFetchImpl')).not.toBe(streamWithFallback);
+    });
+
+    it('rejects sso/iam modes without the plugin-managed auth manager', async () => {
+      await expect(createLLMClientFromSettings({
+        provider: 'bedrock-anthropic',
+        apiKey: '',
+        providerApiKeySecretId: 'karpathywiki-provider-api-key',
+        bedrockAuthMethod: 'sso',
+      })).rejects.toThrow('BedrockAuthManager');
     });
   });
 });

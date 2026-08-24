@@ -17,6 +17,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createLLMClient } from '../../core/create-plugin-llm-client';
 import { createLLMClientFromSettingsSync } from '../../llm-sdk/create-llm-client';
+import type { BedrockAuthManager } from '../../llm-sdk/bedrock-sso/credential-manager';
 import type { LLMWikiSettings } from '../../types';
 
 vi.mock('../../llm-sdk/create-llm-client', () => ({
@@ -73,6 +74,32 @@ describe('createLLMClient — Bedrock region forwarding (#425 prerequisite)', ()
         codexVersion: 'test-version',
       }),
       'pending-key',
+    );
+  });
+
+  it('forwards the Stage-2 bedrock auth fields and manager (#425)', () => {
+    const manager = {} as BedrockAuthManager;
+    const settings = {
+      provider: 'bedrock-anthropic',
+      apiKey: '',
+      providerApiKeySecretId: 'karpathywiki-provider-api-key',
+      language: 'en',
+      bedrockRegion: 'us-east-1',
+      bedrockAuthMethod: 'sso',
+      bedrockSsoAccountId: '123456789012',
+      bedrockSsoRoleName: 'PowerUserAccess',
+    } as unknown as LLMWikiSettings;
+
+    createLLMClient(settings, undefined, undefined, null, undefined, manager);
+
+    expect(createLLMClientFromSettingsSync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bedrockAuthMethod: 'sso',
+        bedrockSsoAccountId: '123456789012',
+        bedrockSsoRoleName: 'PowerUserAccess',
+        bedrockAuthManager: manager,
+      }),
+      undefined,
     );
   });
 });

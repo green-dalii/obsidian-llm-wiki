@@ -15,6 +15,7 @@ import { wrapWithAdvancedSettings } from '../llm-client-wrapper';
 import { createLLMClientFromSettingsSync } from '../llm-sdk/create-llm-client';
 import { getText } from './i18n';
 import type { CodexAuthManager } from '../llm-sdk/openai-codex/auth-manager';
+import type { BedrockAuthManager } from '../llm-sdk/bedrock-sso/credential-manager';
 import type { ProviderSecretStorage } from '../llm-sdk/provider-secret-store';
 import type { LLMWikiSettings, LLMClient } from '../types';
 
@@ -31,6 +32,9 @@ export function createLLMClient(
   // in the Test Connection flow) so the freshly-typed key wins over the
   // stale SecretStorage value. Production callers pass undefined.
   pendingApiKey?: string,
+  // #425 Stage 2: plugin-owned Bedrock credential orchestrator, required
+  // when a bedrock-* provider runs in sso/iam auth mode.
+  bedrockAuth?: BedrockAuthManager,
 ): LLMClient {
   const client: LLMClient = createLLMClientFromSettingsSync({
     provider: settings.provider,
@@ -42,6 +46,10 @@ export function createLLMClient(
     // calls honor the user's dropdown instead of silently landing on
     // BEDROCK_DEFAULT_REGION. Stage 2 (SSO/SigV4 scope) depends on it.
     bedrockRegion: settings.bedrockRegion,
+    bedrockAuthMethod: settings.bedrockAuthMethod,
+    bedrockSsoAccountId: settings.bedrockSsoAccountId?.trim() || undefined,
+    bedrockSsoRoleName: settings.bedrockSsoRoleName?.trim() || undefined,
+    bedrockAuthManager: bedrockAuth,
     codexAuth,
     codexVersion,
     codexQuotaMessage: getText(settings.language, 'codexAuthQuota'),

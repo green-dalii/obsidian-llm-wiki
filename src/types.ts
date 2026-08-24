@@ -208,6 +208,18 @@ export interface LLMWikiSettings {
    * region string (e.g. "us-east-1"), not a URL component.
    */
   bedrockRegion?: string;
+  /**
+   * #425 Bedrock Stage 2 — auth mode for the two `bedrock-*` providers.
+   * Default `'api-key'` preserves Stage-1 bearer behavior byte-for-byte;
+   * `'sso'` signs with IAM Identity Center temporary credentials,
+   * `'iam'` with user-entered static keys. Secrets live ONLY in
+   * SecretStorage (`karpathywiki-bedrock-sso` / `-iam`) — never here.
+   */
+  bedrockAuthMethod?: 'api-key' | 'sso' | 'iam';
+  /** #425 — target account id for GetRoleCredentials in SSO mode. */
+  bedrockSsoAccountId?: string;
+  /** #425 — role name to assume for GetRoleCredentials in SSO mode. */
+  bedrockSsoRoleName?: string;
   useCustomWikiLanguage?: boolean;
   availableModels?: string[];
   useCustomModel?: boolean;
@@ -1238,4 +1250,7 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   // region (us-east-1). Only consulted when provider is one of the two
   // bedrock-* provider ids. Has no effect on other providers.
   bedrockRegion: 'us-east-1',
+  // #425 Bedrock Stage 2 — default auth mode preserves the Stage-1
+  // bearer wire shape for every existing user.
+  bedrockAuthMethod: 'api-key',
 };

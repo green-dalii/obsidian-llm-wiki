@@ -28,6 +28,9 @@ import {
 } from '../constants';
 import { resolveProviderApiKey } from './provider-api-key-resolver';
 import type { ProviderSecretStorage } from './provider-secret-store';
+import { obsidianFetchBridge, type ObsidianFetchInit } from '../core/obsidian-fetch-bridge';
+import { createSigV4SigningFetch } from './bedrock-sso/signing-fetch';
+import type { BedrockAuthManager } from './bedrock-sso/credential-manager';
 
 export interface ProviderSettings {
   provider: string;
@@ -56,6 +59,21 @@ export interface ProviderSettings {
   codexAuth?: CodexAuthManager;
   codexVersion?: string;
   codexQuotaMessage?: string;
+  /**
+   * #425 Bedrock Stage 2 — auth mode for the two `bedrock-*` provider
+   * ids. Default `'api-key'` = Stage-1 bearer, unchanged.
+   */
+  bedrockAuthMethod?: 'api-key' | 'sso' | 'iam';
+  /** #425 — target account id for GetRoleCredentials (SSO mode). */
+  bedrockSsoAccountId?: string;
+  /** #425 — role name to assume (SSO mode). */
+  bedrockSsoRoleName?: string;
+  /**
+   * #425 — plugin-owned credential orchestrator. Required when a
+   * `bedrock-*` provider runs in `'sso'` or `'iam'` mode; production
+   * hosts pass it next to codexAuth.
+   */
+  bedrockAuthManager?: BedrockAuthManager;
 }
 
 /**
@@ -72,8 +90,12 @@ function resolveBedrockRegion(settings: ProviderSettings): BedrockRegion {
  * v1.24.1 PATCH Bedrock Stage 1 — construct a Bedrock-backed LLM client
  * for either the Anthropic Messages protocol or the OpenAI Chat
  * Completions protocol. Both reuse existing SDK clients via the
- * region-scoped bedrock-mantle baseURL; bearer auth is wired by the
- * underlying SDK.
+ * region-scoped bedrock-mantle baseURL.
+ *
+ * #425 Stage 2: when `bedrockAuthMethod` is `'sso'`/`'iam'`, a SigV4
+ * signing wrapper replaces bearer auth on BOTH fetch seams (non-stream
+ * and streaming); the apiKey argument is then inert (''). The default
+ * `'api-key'` mode is byte-for-byte Stage 1.
  *
  * The class constructors are injected (rather than dynamic-imported)
  * so the same helper works for both the async factory (which does
@@ -90,17 +112,47 @@ function createBedrockClient(
   protocol: 'anthropic' | 'openai',
 ): LLMClient {
   const region = resolveBedrockRegion(settings);
+  const authMethod = settings.bedrockAuthMethod ?? 'api-key';
+  let signingFetch: ((url: string, init?: ObsidianFetchInit) => Promise<Response>) | undefined;
+  if (authMethod !== 'api-key') {
+    if (!settings.bedrockAuthManager) {
+      throw new Error('Bedrock SSO/IAM auth requires the plugin-managed BedrockAuthManager');
+    }
+    const manager = settings.bedrockAuthManager;
+    signingFetch = createSigV4SigningFetch({
+      delegate: obsidianFetchBridge,
+      getCredentials: () => manager.getCredentials({
+        method: authMethod,
+        region,
+        accountId: settings.bedrockSsoAccountId,
+        roleName: settings.bedrockSsoRoleName,
+      }),
+    });
+  }
+  const authOverrides = signingFetch ? { fetch: signingFetch, streamFetch: signingFetch } : {};
   if (protocol === 'anthropic') {
     return new providers.AnthropicSdkClient({
       apiKey,
       baseURL: bedrockMantleMessagesUrl(region),
+      ...authOverrides,
     });
   }
   return new providers.OpenAICompatSdkClient({
     apiKey,
     baseURL: bedrockMantleChatCompletionsUrl(region),
     provider: settings.provider,
+    ...authOverrides,
   });
+}
+
+/**
+ * #425 Stage 2 — true when the selected provider+mode signs requests
+ * with AWS credentials instead of a bearer API key, so the shared
+ * key resolver must be skipped entirely (no SecretStorage lookup of
+ * the shared provider slot, no misleading "missing API key" errors).
+ */
+function usesBedrockAwsCredentials(provider: string, settings: ProviderSettings): boolean {
+  return provider.startsWith('bedrock-') && (settings.bedrockAuthMethod ?? 'api-key') !== 'api-key';
 }
 
 /**
@@ -123,7 +175,9 @@ export async function createLLMClientFromSettings(
   // v1.25.7 PATCH: forward the optional pendingApiKey (tab.tempSettings.apiKey
   // in the Test Connection flow) so the freshly-typed key wins over the
   // stale SecretStorage value. Production callers pass undefined.
-  const apiKey = resolveProviderApiKey(
+  // #425 Stage 2: in bedrock sso/iam modes AWS credentials sign every
+  // request, so no bearer key is resolved at all.
+  const apiKey = usesBedrockAwsCredentials(provider, settings) ? '' : resolveProviderApiKey(
     { apiKey: settings.apiKey, providerApiKeySecretId: settings.providerApiKeySecretId },
     settings.secretStorage ?? null,
     pendingApiKey,
@@ -240,7 +294,9 @@ export function createLLMClientFromSettingsSync(
   // v1.25.7 PATCH: forward the optional pendingApiKey (tab.tempSettings.apiKey
   // in the Test Connection flow) so the freshly-typed key wins over the
   // stale SecretStorage value. Production callers pass undefined.
-  const apiKey = resolveProviderApiKey(
+  // #425 Stage 2: in bedrock sso/iam modes AWS credentials sign every
+  // request, so no bearer key is resolved at all.
+  const apiKey = usesBedrockAwsCredentials(provider, settings) ? '' : resolveProviderApiKey(
     { apiKey: settings.apiKey, providerApiKeySecretId: settings.providerApiKeySecretId },
     settings.secretStorage ?? null,
     pendingApiKey,
