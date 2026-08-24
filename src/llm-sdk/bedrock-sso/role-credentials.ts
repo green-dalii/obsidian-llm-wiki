@@ -85,10 +85,13 @@ export async function listAccounts(
   const response = await fetchFn(url, { headers: portalHeaders(ssoToken), signal });
   const value = await parsePortalResponse<{ accountList?: unknown }>(response, 'ListAccounts');
   return Array.isArray(value.accountList)
-    ? value.accountList.map(entry => ({
-        accountId: String((entry as Record<string, unknown>).accountId),
-        accountName: String((entry as Record<string, unknown>).accountName ?? ''),
-      }))
+    ? value.accountList.map(entry => {
+        const record = entry as Record<string, unknown>;
+        return {
+          accountId: typeof record.accountId === 'string' ? record.accountId : '',
+          accountName: typeof record.accountName === 'string' ? record.accountName : '',
+        };
+      })
     : [];
 }
 

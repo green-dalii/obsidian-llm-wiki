@@ -44,10 +44,8 @@ export interface DeviceLoginSession {
   cancel(): void;
 }
 
-interface CacheKey {
-  region: string;
-  accountId: string;
-  roleName: string;
+interface TempCredEntry extends BedrockCredentials {
+  cachedExpiry: number;
 }
 
 function cacheKeyOf(config: BedrockAuthConfig): string {
@@ -60,7 +58,7 @@ export class BedrockAuthManager {
   private readonly fetchFn: (url: string, init?: RequestInit) => Promise<Response>;
   private readonly now: () => number;
   /** Temporary credentials — memory only, keyed by account+role+region. */
-  private readonly tempCredCache = new Map<string, BedrockCredentials & { cachedExpiry: number }>();
+  private readonly tempCredCache = new Map<string, TempCredEntry>();
   private readonly inFlight = new Map<string, Promise<BedrockCredentials>>();
 
   constructor(options: BedrockAuthManagerOptions) {
