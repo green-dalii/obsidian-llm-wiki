@@ -26,6 +26,12 @@ export interface SigV4SigningInput {
   sessionToken?: string;
   region: string;
   service: string;
+  /**
+   * When true, adds x-amz-content-sha256 to the outgoing headers AND to
+   * SignedHeaders atomically. Mandatory only for S3; kept optional so
+   * the E2E toggle (BEDROCK_INCLUDE_CONTENT_SHA_HEADER) is one flag.
+   */
+  includeContentShaHeader?: boolean;
   /** Injectable clock (tests pin vectors to 20150830T123600Z). */
   now?: Date;
 }
@@ -45,7 +51,9 @@ export interface SigV4Result {
 const encoder = new TextEncoder();
 
 function assertCryptoSubtle(): SubtleCrypto {
-  const subtle = globalThis.crypto?.subtle;
+  // Bare `crypto` resolves to the current realm's Web Crypto — the same
+  // access shape the openai-codex module ships (auth-core.ts).
+  const subtle = crypto?.subtle;
   if (!subtle) {
     throw new Error('Web Crypto subtle is unavailable in this environment');
   }
@@ -114,6 +122,10 @@ export async function signRequest(input: SigV4SigningInput): Promise<SigV4Result
   const dateStamp = amzDate.slice(0, 8);
 
   const url = new URL(input.url);
+  // Canonical host: caller header wins, URL hostname is the fallback.
+  // Fetch APIs forbid setting a Host header, so wrapper callers never
+  // pass one — without this fallback the canonical request would carry
+  // an empty `host:` line and every real-world signature would mismatch.
   const host = (input.headers['host'] ?? url.hostname).toLowerCase();
   const canonicalUri = url.pathname === '' ? '/' : url.pathname;
 
@@ -131,22 +143,15 @@ export async function signRequest(input: SigV4SigningInput): Promise<SigV4Result
   for (const [key, value] of Object.entries(input.headers)) {
     normalized[key.toLowerCase()] = value.trim();
   }
+  normalized['host'] = host;
 
   const headersToAdd: Record<string, string> = { 'x-amz-date': amzDate };
   if (input.sessionToken) {
     headersToAdd['x-amz-security-token'] = input.sessionToken;
   }
-  Object.assign(normalized, headersToAdd);
 
-  const signedSet = new Set<string>(['host', 'x-amz-date']);
-  if (normalized['content-type'] !== undefined) signedSet.add('content-type');
-  const signedHeaders = Array.from(signedSet).sort().join(';');
-
-  const canonicalHeaders = Array.from(signedSet)
-    .sort()
-    .map(name => `${name}:${normalized[name] ?? ''}\n`)
-    .join('');
-
+  // Payload hash first: the optional x-amz-content-sha256 toggle needs
+  // it before the signed set is frozen into strings below.
   const payloadBytes =
     input.body === undefined
       ? new Uint8Array(0)
@@ -154,6 +159,23 @@ export async function signRequest(input: SigV4SigningInput): Promise<SigV4Result
         ? encoder.encode(input.body)
         : input.body;
   const payloadHash = await hashSha256Hex(payloadBytes);
+
+  if (input.includeContentShaHeader === true) {
+    headersToAdd['x-amz-content-sha256'] = payloadHash;
+  }
+  Object.assign(normalized, headersToAdd);
+
+  const signedSet = new Set<string>(['host', 'x-amz-date']);
+  if (normalized['content-type'] !== undefined) signedSet.add('content-type');
+  if (input.includeContentShaHeader === true) signedSet.add('x-amz-content-sha256');
+  // AWS requires signing x-amz-security-token whenever it is sent.
+  if (input.sessionToken) signedSet.add('x-amz-security-token');
+  const signedHeaders = Array.from(signedSet).sort().join(';');
+
+  const canonicalHeaders = Array.from(signedSet)
+    .sort()
+    .map(name => `${name}:${normalized[name] ?? ''}\n`)
+    .join('');
 
   const canonicalRequest = [
     input.method.toUpperCase(),

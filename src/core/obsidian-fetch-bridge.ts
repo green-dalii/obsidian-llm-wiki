@@ -39,8 +39,12 @@ export interface ObsidianFetchInit {
  * Convert a Fetch API HeadersInit to a plain object that `requestUrl`
  * understands. AI-SDK passes either a Headers instance, a plain object,
  * or an array of tuples.
+ *
+ * Exported since v1.27.0 (#425): the Bedrock SigV4 signing wrapper
+ * reuses this normalization so wrapped and unwrapped paths see
+ * identical header shapes.
  */
-function headersToObject(headers: HeadersInit | undefined): Record<string, string> {
+export function headersToObject(headers: HeadersInit | undefined): Record<string, string> {
   if (!headers) return {};
   if (headers instanceof Headers) {
     const obj: Record<string, string> = {};
