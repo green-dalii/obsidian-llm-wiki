@@ -9,6 +9,11 @@ export interface BedrockCredentials {
   accessKeyId: string;
   secretAccessKey: string;
   sessionToken?: string;
+  /**
+   * Epoch-ms expiry reported by GetRoleCredentials. Static IAM keys
+   * carry none; consumers treat absence as "valid until told otherwise".
+   */
+  expiration?: number;
 }
 
 /** Async credential source injected into the SigV4 signing wrapper. */

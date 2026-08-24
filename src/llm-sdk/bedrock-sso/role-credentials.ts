@@ -61,6 +61,11 @@ export async function getRoleCredentials(
   }
   const creds: BedrockCredentials = { accessKeyId: rc.accessKeyId, secretAccessKey: rc.secretAccessKey };
   if (typeof rc.sessionToken === 'string') creds.sessionToken = rc.sessionToken;
+  // Portal reports epoch MILLISECONDS; carry it through so the manager
+  // can cache against the REAL expiry instead of assuming one hour.
+  if (typeof rc.expiration === 'number' && Number.isFinite(rc.expiration)) {
+    creds.expiration = rc.expiration;
+  }
   return creds;
 }
 
