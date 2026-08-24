@@ -17,7 +17,7 @@ import {
   registerClient,
   startDeviceAuthorization,
 } from './sso-oidc';
-import { getRoleCredentials } from './role-credentials';
+import { getRoleCredentials, listAccountRoles, listAccounts } from './role-credentials';
 import { BedrockSsoExpiredError, type BedrockCredentials } from './types';
 
 export interface BedrockAuthManagerOptions {
@@ -178,6 +178,26 @@ export class BedrockAuthManager {
       });
     this.inFlight.set(key, exchange);
     return exchange;
+  }
+
+  /**
+   * Post-login discovery for the UI prefill: resolves ONLY when exactly
+   * one account and one role are visible to the token — any ambiguity
+   * returns null so manual entry stays authoritative. Never throws.
+   */
+  async discoverAccountRole(): Promise<{ accountId: string; roleName: string } | null> {
+    try {
+      const token = this.ssoStore.load();
+      if (!token || token.expiresAt - this.now() <= BEDROCK_TEMP_CRED_SKEW_MS) return null;
+      const accounts = await listAccounts(this.fetchFn, token.region, token.accessToken);
+      if (accounts.length !== 1) return null;
+      const roles = await listAccountRoles(this.fetchFn, token.region, token.accessToken, accounts[0].accountId);
+      if (roles.length !== 1) return null;
+      return { accountId: accounts[0].accountId, roleName: roles[0] };
+    } catch {
+      // Discovery is best-effort sugar; failures fall back to manual input.
+      return null;
+    }
   }
 
   signOut(): void {

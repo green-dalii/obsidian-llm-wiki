@@ -186,6 +186,7 @@ export const EN_TEXTS = {
     bedrockSsoUserCodeInstructions: 'AWS SSO code: {}. Open the link and approve access.',
     bedrockSsoCopyCode: 'Copy code',
     bedrockSsoFailed: 'AWS SSO sign-in failed: {}',
+    bedrockSsoDetectedPrefill: 'Detected account/role: {}',
     bedrockIamKeyName: 'Access key ID',
     bedrockIamKeyDesc: 'IAM access key identifier, e.g. AKIA… or ASIA…',
     bedrockIamSecretName: 'Secret access key',

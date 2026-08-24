@@ -182,4 +182,50 @@ describe('BedrockAuthManager — device login orchestration', () => {
     expect(manager.hasSsoToken()).toBe(false);
     expect(storage.get(BEDROCK_IAM_SECRET_ID)).toBe('');
   });
+
+  it('dispose drops in-memory caches but keeps the persisted token', () => {
+    const storage = memoryStorage();
+    storage.set(BEDROCK_SSO_SECRET_ID, JSON.stringify({
+      accessToken: 'sso-token', expiresAt: START + 8 * 3600_000, region: 'eu-central-1', startUrl: 'https://x/start',
+    }));
+    const { manager } = makeManager({ storage });
+    expect(manager.hasSsoToken()).toBe(true);
+    manager.dispose();
+    // Token survives restarts — dispose is memory-only.
+    expect(manager.hasSsoToken()).toBe(true);
+    expect(storage.get(BEDROCK_SSO_SECRET_ID)).not.toBe('');
+  });
+
+  it('discoverAccountRole prefills only when exactly one account AND one role exist', async () => {
+    const storage = memoryStorage();
+    storage.set(BEDROCK_SSO_SECRET_ID, JSON.stringify({
+      accessToken: 'sso-token', expiresAt: START + 8 * 3600_000, region: 'eu-central-1', startUrl: 'https://x/start',
+    }));
+    const fetchFn = vi.fn(async (url: string) => {
+      if (String(url).includes('/assignment/roles')) {
+        return jsonResponse({ roleList: [{ roleName: 'PowerUserAccess', accountId: '123456789012' }] });
+      }
+      return jsonResponse({ accountList: [{ accountId: '123456789012', accountName: 'prod' }] });
+    });
+    const { manager } = makeManager({ storage, fetchFn });
+    await expect(manager.discoverAccountRole()).resolves.toEqual({
+      accountId: '123456789012',
+      roleName: 'PowerUserAccess',
+    });
+
+    // Ambiguous: two roles → null.
+    const ambiguous = vi.fn(async (url: string) => {
+      if (String(url).includes('/assignment/roles')) {
+        return jsonResponse({ roleList: [{ roleName: 'r1', accountId: '1' }, { roleName: 'r2', accountId: '1' }] });
+      }
+      return jsonResponse({ accountList: [{ accountId: '1', accountName: 'x' }] });
+    });
+    const m2 = makeManager({ storage, fetchFn: ambiguous }).manager;
+    await expect(m2.discoverAccountRole()).resolves.toBeNull();
+
+    // Zero accounts → null.
+    const empty = vi.fn(async () => jsonResponse({ accountList: [] }));
+    const m3 = makeManager({ storage, fetchFn: empty }).manager;
+    await expect(m3.discoverAccountRole()).resolves.toBeNull();
+  });
 });

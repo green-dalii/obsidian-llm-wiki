@@ -164,6 +164,7 @@ export const ZH_TEXTS = {
     bedrockSsoUserCodeInstructions: 'AWS SSO 验证码：{}。请打开链接并批准访问。',
     bedrockSsoCopyCode: '复制验证码',
     bedrockSsoFailed: 'AWS SSO 登录失败：{}',
+    bedrockSsoDetectedPrefill: '检测到账户/角色：{}',
     bedrockIamKeyName: '访问密钥 ID',
     bedrockIamKeyDesc: 'IAM 访问密钥标识，例如 AKIA… 或 ASIA…',
     bedrockIamSecretName: '秘密访问密钥',

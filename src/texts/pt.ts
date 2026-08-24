@@ -164,6 +164,7 @@ export const PT_TEXTS = {
     bedrockSsoUserCodeInstructions: 'Código AWS SSO: {}. Abra a ligação e aprove o acesso.',
     bedrockSsoCopyCode: 'Copiar código',
     bedrockSsoFailed: 'Falha ao iniciar sessão com AWS SSO: {}',
+    bedrockSsoDetectedPrefill: 'Conta/função detetada: {}',
     bedrockIamKeyName: 'ID da chave de acesso',
     bedrockIamKeyDesc: 'Identificador da chave de acesso do IAM, por ex. AKIA… ou ASIA…',
     bedrockIamSecretName: 'Chave de acesso secreta',

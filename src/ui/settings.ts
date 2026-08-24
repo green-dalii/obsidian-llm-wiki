@@ -382,6 +382,7 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       new Notice(this.getText('bedrockSsoStartUrlDesc'), NOTICE_ERROR);
       return;
     }
+    const signedInBefore = manager.hasSsoToken();
     await runBedrockDeviceAuth({
       beginLogin: async () => {
         const session = await manager.beginDeviceLogin(startUrl, this.tempSettings.bedrockRegion || 'us-east-1');
@@ -400,6 +401,23 @@ export class LLMWikiSettingTab extends PluginSettingTab {
       setReady: (value) => { this.tempSettings.llmReady = value; },
       render: () => { this.display(); },
     });
+    // Post-login prefill (#425): when the token is fresh AND both
+    // fields are empty, ask the portal for the single visible account/
+    // role and fill them in. Ambiguous or failed discovery silently
+    // keeps manual entry authoritative.
+    if (!signedInBefore && manager.hasSsoToken()) {
+      const accountEmpty = (this.tempSettings.bedrockSsoAccountId ?? '').trim().length === 0;
+      const roleEmpty = (this.tempSettings.bedrockSsoRoleName ?? '').trim().length === 0;
+      if (accountEmpty && roleEmpty) {
+        const found = await manager.discoverAccountRole().catch(() => null);
+        if (found) {
+          this.tempSettings.bedrockSsoAccountId = found.accountId;
+          this.tempSettings.bedrockSsoRoleName = found.roleName;
+          new Notice(this.getText('bedrockSsoDetectedPrefill').replace('{}', `${found.accountId} / ${found.roleName}`), NOTICE_NORMAL);
+          this.display();
+        }
+      }
+    }
   }
 
   public async copyBedrockUserCode(): Promise<void> {

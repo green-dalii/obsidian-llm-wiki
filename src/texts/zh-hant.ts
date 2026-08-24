@@ -164,6 +164,7 @@ export const ZH_HANT_TEXTS = {
     bedrockSsoUserCodeInstructions: 'AWS SSO 驗證碼：{}。請開啟連結並核准存取。',
     bedrockSsoCopyCode: '複製驗證碼',
     bedrockSsoFailed: 'AWS SSO 登入失敗：{}',
+    bedrockSsoDetectedPrefill: '偵測到帳戶/角色：{}',
     bedrockIamKeyName: '存取金鑰 ID',
     bedrockIamKeyDesc: 'IAM 存取金鑰識別，例如 AKIA… 或 ASIA…',
     bedrockIamSecretName: '私密存取金鑰',

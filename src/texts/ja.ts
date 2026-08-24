@@ -164,6 +164,7 @@ export const JA_TEXTS = {
     bedrockSsoUserCodeInstructions: 'AWS SSO コード:{}。リンクを開いてアクセスを承認してください。',
     bedrockSsoCopyCode: 'コードをコピー',
     bedrockSsoFailed: 'AWS SSO サインインに失敗しました:{}',
+    bedrockSsoDetectedPrefill: 'アカウント/ロールを検出:{}',
     bedrockIamKeyName: 'アクセスキー ID',
     bedrockIamKeyDesc: 'IAM アクセスキーの識別子（例：AKIA…、ASIA…）',
     bedrockIamSecretName: 'シークレットアクセスキー',

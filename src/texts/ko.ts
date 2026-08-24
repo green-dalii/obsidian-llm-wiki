@@ -164,6 +164,7 @@ export const KO_TEXTS = {
     bedrockSsoUserCodeInstructions: 'AWS SSO 코드: {}. 링크를 열고 접근을 승인하세요.',
     bedrockSsoCopyCode: '코드 복사',
     bedrockSsoFailed: 'AWS SSO 로그인 실패: {}',
+    bedrockSsoDetectedPrefill: '감지된 계정/역할: {}',
     bedrockIamKeyName: '액세스 키 ID',
     bedrockIamKeyDesc: 'IAM 액세스 키 식별자(예: AKIA… 또는 ASIA…)',
     bedrockIamSecretName: '시크릿 액세스 키',

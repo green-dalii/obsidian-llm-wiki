@@ -190,6 +190,7 @@ export const RU_TEXTS = {
     bedrockSsoUserCodeInstructions: 'Код AWS SSO: {}. Откройте ссылку и подтвердите доступ.',
     bedrockSsoCopyCode: 'Скопировать код',
     bedrockSsoFailed: 'Не удалось войти через AWS SSO: {}',
+    bedrockSsoDetectedPrefill: 'Обнаружены аккаунт/роль: {}',
     bedrockIamKeyName: 'ID ключа доступа',
     bedrockIamKeyDesc: 'Идентификатор ключа доступа IAM, напр. AKIA… или ASIA…',
     bedrockIamSecretName: 'Секретный ключ доступа',

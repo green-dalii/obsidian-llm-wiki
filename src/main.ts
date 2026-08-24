@@ -187,7 +187,21 @@ export class LLMWikiPlugin extends Plugin {
     console.debug('LLM Wiki Plugin unloaded');
   }
 
-  async loadSettings() {
+  /**
+   * #425 Bedrock Stage 2 — AWS-credential presence for the active
+   * bedrock provider mode. Returns undefined when the active provider/
+   * mode doesn't use AWS credentials (non-bedrock or api-key mode), so
+   * isProviderConfigured keeps legacy semantics there.
+   */
+  private bedrockCredentialPresence(): boolean | undefined {
+    if (!this.settings.provider.startsWith('bedrock-')) return undefined;
+    const method = this.settings.bedrockAuthMethod ?? 'api-key';
+    if (method === 'sso') return this.bedrockAuthManager?.hasSsoToken() === true;
+    if (method === 'iam') return this.bedrockAuthManager?.hasIamKeys() === true;
+    return undefined;
+ }
+
+ async loadSettings() {
     const savedData = await this.loadData() as Partial<LLMWikiSettings> | null;
     const { settings, applied } = applySettingsMigrations(savedData);
 
@@ -277,7 +291,17 @@ export class LLMWikiPlugin extends Plugin {
         { apiKey: this.settings.apiKey, providerApiKeySecretId: this.settings.providerApiKeySecretId },
         this.app.secretStorage,
       );
-      const hasConfig = isProviderConfigured({ provider: this.settings.provider, apiKey: resolvedKey, model: this.settings.model, hasCodexCredential });
+      const bedrockPresence = this.bedrockCredentialPresence();
+      const hasConfig = isProviderConfigured({
+        provider: this.settings.provider,
+        apiKey: resolvedKey,
+        model: this.settings.model,
+        hasCodexCredential,
+        ...(bedrockPresence !== undefined && {
+          bedrockAuthMethod: this.settings.bedrockAuthMethod,
+          hasBedrockCredential: bedrockPresence,
+        }),
+      });
       this.settings.llmReady = hasConfig;
       if (hasConfig) {
         console.debug('loadSettings: existing user with config detected, llmReady = true');
@@ -333,7 +357,17 @@ export class LLMWikiPlugin extends Plugin {
       { apiKey: this.settings.apiKey, providerApiKeySecretId: this.settings.providerApiKeySecretId },
       this.app.secretStorage,
     );
-    if (!isProviderConfigured({ provider: this.settings.provider, apiKey: resolvedKey, model: this.settings.model, hasCodexCredential })) {
+    const bedrockPresence = this.bedrockCredentialPresence();
+    if (!isProviderConfigured({
+      provider: this.settings.provider,
+      apiKey: resolvedKey,
+      model: this.settings.model,
+      hasCodexCredential,
+      ...(bedrockPresence !== undefined && {
+        bedrockAuthMethod: this.settings.bedrockAuthMethod,
+        hasBedrockCredential: bedrockPresence,
+      }),
+    })) {
       this.llmClient = null;
       return;
     }
