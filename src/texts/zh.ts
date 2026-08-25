@@ -560,7 +560,7 @@ export const ZH_TEXTS = {
     disableThinkingDesc: '关闭模型响应中的思维链/推理过程输出。默认关闭 —— 由模型自己决定是否显示推理，这样通常能得到最好的回答。只有当你的提供商把原始推理文本塞进回复、而你希望得到一个干净的答案时，才打开它。',
     taskPoliciesPlaceholder: '示例：extract=text:off',
     taskPoliciesName: '按步骤设置输出模式与思考',
-    taskPoliciesDesc: '每个流水线步骤一项，格式 `步骤=模式:思考`，逗号分隔，例如 `extract=text:off`。模式：`-`（不变）、`schema`、`json`、`text`；思考：`-`、`off`、`on`、`low`、`medium`、`high`。留空使用内置基线（抽取步骤为文本模式）。无法解析的条目不会保存。',
+    taskPoliciesDesc: '每个流水线步骤一项，格式 `步骤=模式:思考`，逗号分隔，例如 `extract=text:off`。模式：`-`（不变）、`schema`、`json`、`text`；思考：`-`、`off`、`on`、`low`、`medium`、`high`。步骤名包括 extract、extract-retry、lemma-classify、merge-triage、dedup、page-generate、related-page、lint-dedup（拼错的名称不会匹配任何步骤）。留空使用内置基线（抽取步骤为文本模式）。无法解析的条目不会保存。',
     // Issue #137: 兼容性提示（简短；不列举 provider，避免维护负担）
     extractionTemperatureName: '提取温度',
     extractionTemperatureDesc: '控制模型在写实体/概念页时是偏严谨还是偏创意。数值越低越确定、越忠于原文；数值越高变化越多。大多数用户留空即可。',
@@ -713,6 +713,8 @@ export const ZH_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: '跳过来源仅提及的候选',
     skipMentionOnlyCandidatesDesc: '默认关闭。开启后，提取出的实体或概念若其名称未出现在笔记正文中（完全未出现，或仅出现在括号、枚举或简短列表项中），将不生成页面、不再调用模型，并从其他候选的相关列表中移除。适用于具有词边界配置的 Wiki 语言（德语已测量；英语、法语、西班牙语、葡萄牙语、荷兰语为估计）；其他语言在摄入时会提示一次无法应用。若你的库是术语表风格或笔记以要点为主、希望每个被点名的术语都成为页面，请保持关闭。',
+    createStubsForUnresolvableLinksName: '为无法解析的链接创建占位页',
+    createStubsForUnresolvableLinksDesc: '默认开启。当“修复断链”无法把链接解析到任何现有页面时，会写入一个空的占位页并把链接改指向它——绝不由 LLM 填充。关闭后此类链接保持原样：它们在每次 lint 报告中保持可见，直到有真实来源定义它们。',
     lintDedupSectionHeading: '去重检测',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): 通用 Toast 文案，
     // 复用于所有 LLM 业务路径（dedup / analysis / fix-runners /

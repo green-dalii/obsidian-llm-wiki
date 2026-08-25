@@ -456,6 +456,18 @@ export interface LLMWikiSettings {
    */
   skipMentionOnlyCandidates?: boolean;
 
+  /**
+   * Issue #485: whether Fix Dead Links writes an empty placeholder page when
+   * a link resolves to nothing (both branches — the model's create_stub
+   * answer and the deterministic fallback). On by default: that is the
+   * outcome every existing vault already gets, and #197's gate still
+   * guarantees such a stub is never LLM-expanded. When off, the link is
+   * left as it is and keeps surfacing in every lint report; a later ingest
+   * of a defining source creates the real page through normal channels and
+   * never needed the stub to exist.
+   */
+  createStubsForUnresolvableLinks?: boolean;
+
   // Issue #75: cap max_tokens per LLM call. 0 = no cap.
   // Recommended for local models with small context windows.
   maxTokensPerCall: number;
@@ -1226,6 +1238,10 @@ export const DEFAULT_SETTINGS: LLMWikiSettings = {
   lintDedupIncludeSources: undefined,
   // Issue #514: off by default — fewer pages is a behaviour change, opt in.
   skipMentionOnlyCandidates: false,
+  // Issue #485: on by default — stub creation is the existing outcome;
+  // turning it off is the user's choice. The use site also treats a
+  // missing key as on (`!== false`), matching lintDedupIncludeSources.
+  createStubsForUnresolvableLinks: true,
   // Issue #111: default to 'lower' for backwards compatibility.
   slugCase: 'lower',
   // v1.24.0 #251: persistent user-supplied instructions appended to the

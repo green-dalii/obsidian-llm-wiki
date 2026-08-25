@@ -557,7 +557,7 @@ export const FR_TEXTS = {
     disableThinkingDesc: 'Désactive l\'affichage de la chaîne de pensée/du raisonnement dans la réponse. Désactivé par défaut — le modèle décide lui-même d\'afficher ou non son raisonnement, ce qui donne généralement la meilleure réponse. Activez-le uniquement si votre fournisseur insère du texte de raisonnement brut dans la réponse et que vous souhaitez une réponse propre.',
     taskPoliciesPlaceholder: 'Exemple : extract=text:off',
     taskPoliciesName: 'Mode de sortie et raisonnement par étape',
-    taskPoliciesDesc: 'Une entrée par étape du pipeline, `etape=mode:raisonnement`, séparées par des virgules — p. ex. `extract=text:off`. Modes : `-` (inchangé), `schema`, `json`, `text` ; raisonnement : `-`, `off`, `on`, `low`, `medium`, `high`. Laisser vide pour la base intégrée (extraction en mode texte). Une entrée illisible n\'est pas enregistrée.',
+    taskPoliciesDesc: 'Une entrée par étape du pipeline, `etape=mode:raisonnement`, séparées par des virgules — p. ex. `extract=text:off`. Modes : `-` (inchangé), `schema`, `json`, `text` ; raisonnement : `-`, `off`, `on`, `low`, `medium`, `high`. Les noms d’étapes incluent extract, extract-retry, lemma-classify, merge-triage, dedup, page-generate, related-page, lint-dedup (un nom mal orthographié ne correspond à rien). Laisser vide pour la base intégrée (extraction en mode texte). Une entrée illisible n\'est pas enregistrée.',
     // Issue #137 : Notes de compatibilité (courtes ; pas de liste de fournisseurs)
     extractionTemperatureName: 'Température d\'extraction',
     extractionTemperatureDesc: 'Contrôle si le modèle est plutôt conservateur ou créatif lors de l\'écriture de pages entity/concept. Valeurs basses = plus déterministe et fidèle ; valeurs hautes = plus varié. La plupart des utilisateurs laissent ce champ vide.',
@@ -709,6 +709,8 @@ export const FR_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: 'Ignorer les candidats que la source ne fait que mentionner',
     skipMentionOnlyCandidatesDesc: 'Désactivé par défaut. Quand activé, une entité ou un concept extrait dont le nom n’apparaît pas dans le texte courant de la note — absent, ou seulement entre parenthèses, dans des énumérations ou de courts éléments de liste — ne reçoit ni page ni appel supplémentaire au modèle, et est retiré des listes de pages liées des autres candidats. Fonctionne pour les langues de wiki disposant d’un profil de frontières de mots (allemand mesuré ; anglais, français, espagnol, portugais, néerlandais estimés) ; pour les autres, l’ingestion signale une fois qu’elle ne peut pas s’appliquer. Laissez désactivé pour les coffres de type glossaire ou les notes en puces où chaque terme nommé doit devenir une page.',
+    createStubsForUnresolvableLinksName: 'Créer des pages talon pour les liens non résolus',
+    createStubsForUnresolvableLinksDesc: 'Activé par défaut. Quand « Réparer les liens cassés » ne peut résoudre un lien vers aucune page existante, il écrit une page talon vide et reprend le lien vers elle — jamais remplie par le LLM. Désactivez pour laisser ces liens intacts : ils restent visibles dans chaque rapport jusqu’à ce qu’une vraie source les définisse.',
     lintDedupSectionHeading: 'Déduplication',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): formulation générique,
     // réutilisable pour tous les chemins métier LLM. {count} est le

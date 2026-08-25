@@ -511,6 +511,8 @@ export const PT_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: 'Ignorar candidatos que a fonte apenas menciona',
     skipMentionOnlyCandidatesDesc: 'Desativado por padrão. Quando ativado, uma entidade ou conceito extraído cujo nome não aparece no texto corrido da nota — ausente, ou apenas entre parênteses, enumerações ou itens de lista curtos — não recebe página nem mais chamadas ao modelo, e é removido das listas de relacionados dos outros candidatos. Funciona para idiomas de wiki com perfil de limites de palavra (alemão medido; inglês, francês, espanhol, português, neerlandês estimados); para outros idiomas a ingestão informa uma vez que não pode ser aplicada. Deixe desativado em vaults tipo glossário ou notas em tópicos onde cada termo citado deva virar página.',
+    createStubsForUnresolvableLinksName: 'Criar páginas de stub para links não resolvidos',
+    createStubsForUnresolvableLinksDesc: 'Ativado por padrão. Quando «Corrigir links quebrados» não consegue resolver um link para nenhuma página existente, escreve uma página de marcador vazia e reaponta o link para ela — nunca preenchida pelo LLM. Desative para deixar esses links intactos: continuam visíveis em cada relatório até que uma fonte real os defina.',
     lintDedupSectionHeading: 'Deduplicação',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): texto genérico,
     // reutilizável para todas as rotas de negócio LLM. {count} é o
@@ -599,7 +601,7 @@ export const PT_TEXTS = {
     disableThinkingDesc: 'Desativa a cadeia de pensamento/raciocínio na resposta do modelo. Desativado por predefinição — o modelo decide se mostra raciocínio, o que geralmente dá a melhor resposta. Ative apenas se o seu provedor inserir texto de raciocínio bruto na resposta e você quiser uma resposta limpa.',
     taskPoliciesPlaceholder: 'Exemplo: extract=text:off',
     taskPoliciesName: 'Modo de saída e raciocínio por etapa',
-    taskPoliciesDesc: 'Uma entrada por etapa do pipeline, `etapa=modo:raciocinio`, separadas por vírgulas — p. ex. `extract=text:off`. Modos: `-` (inalterado), `schema`, `json`, `text`; raciocínio: `-`, `off`, `on`, `low`, `medium`, `high`. Deixe em branco para a base integrada (extração em modo texto). Uma entrada ilegível não é guardada.',
+    taskPoliciesDesc: 'Uma entrada por etapa do pipeline, `etapa=modo:raciocinio`, separadas por vírgulas — p. ex. `extract=text:off`. Modos: `-` (inalterado), `schema`, `json`, `text`; raciocínio: `-`, `off`, `on`, `low`, `medium`, `high`. Os nomes de etapa incluem extract, extract-retry, lemma-classify, merge-triage, dedup, page-generate, related-page, lint-dedup (um nome mal escrito não corresponde a nada). Deixe em branco para a base integrada (extração em modo texto). Uma entrada ilegível não é guardada.',
     // Issue #137: Avisos de compatibilidade (breves; sem lista de provedores)
     extractionTemperatureName: 'Temperatura de extração',
     extractionTemperatureDesc: 'Controla se o modelo é mais conservador ou criativo ao escrever páginas entity/concept. Valores baixos = mais determinístico e fiel; valores altos = mais variado. A maioria dos usuários deixa vazio.',

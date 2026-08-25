@@ -175,6 +175,17 @@ export function renderAdvancedSettingsSection(tab: LLMWikiSettingTab, containerE
       .setValue(tempSettings.skipMentionOnlyCandidates === true)
       .onChange((value) => { tempSettings.skipMentionOnlyCandidates = value; }));
 
+  // Issue #485: whether Fix Dead Links writes an empty placeholder page for
+  // an unresolvable link. A maintenance-write policy (which pages get
+  // created at all), not an LLM sampling parameter — same panel as its
+  // sibling #514 gate above. On by default (the existing outcome).
+  new Setting(containerEl)
+    .setName(tab.getText('createStubsForUnresolvableLinksName'))
+    .setDesc(tab.getText('createStubsForUnresolvableLinksDesc'))
+    .addToggle(toggle => toggle
+      .setValue(tempSettings.createStubsForUnresolvableLinks !== false)
+      .onChange((value) => { tempSettings.createStubsForUnresolvableLinks = value; }));
+
   // ─── v1.26.0 (#382 item 1, Batch 2): Duplicate detection sub-group ───
   // Sub-heading separates the 3 dedup threshold inputs + 1 dedup scope
   // toggle from the storage / naming / UX items above. Visual grouping

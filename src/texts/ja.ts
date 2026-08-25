@@ -554,7 +554,7 @@ export const JA_TEXTS = {
     disableThinkingDesc: 'モデル応答の思考過程/推論テキスト出力をオフにします。デフォルトはオフで、モデルが推論を表示するかを自分で決めるため、それが通常最も良い回答になります。プロバイダーが生の推論テキストを応答に混ぜてしまい、きれいな答えが欲しい場合にのみオンにしてください。',
     taskPoliciesPlaceholder: '例: extract=text:off',
     taskPoliciesName: 'ステップごとの出力モードと思考',
-    taskPoliciesDesc: 'パイプラインの各ステップにつき 1 項目、`step=mode:thinking` 形式でカンマ区切り（例: `extract=text:off`）。モード: `-`（変更なし）、`schema`、`json`、`text`。思考: `-`、`off`、`on`、`low`、`medium`、`high`。空欄なら組み込みの既定（抽出はテキストモード）。解析できない項目は保存されません。',
+    taskPoliciesDesc: 'パイプラインの各ステップにつき 1 項目、`step=mode:thinking` 形式でカンマ区切り（例: `extract=text:off`）。モード: `-`（変更なし）、`schema`、`json`、`text`。思考: `-`、`off`、`on`、`low`、`medium`、`high`。ステップ名には extract・extract-retry・lemma-classify・merge-triage・dedup・page-generate・related-page・lint-dedup などがあります（綴りを誤った名前は何にも一致しません）。空欄なら組み込みの既定（抽出はテキストモード）。解析できない項目は保存されません。',
     // Issue #137: 互換性に関する注意事項（簡潔；プロバイダ一覧は省略）
     extractionTemperatureName: '抽出温度',
     extractionTemperatureDesc: 'モデルがエンティティ/コンセプトページを書くときに、厳密さを優先するか創造性を優先するかを制御します。値が低いほど決定的で原文に忠実、値が高いほど変化に富みます。ほとんどのユーザーは空欄のままで問題ありません。',
@@ -705,6 +705,8 @@ export const JA_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: 'ソースが言及するだけの候補をスキップ',
     skipMentionOnlyCandidatesDesc: 'デフォルトでは無効。有効にすると、ノートの本文に名前が現れない抽出エンティティ・概念（存在しない、または括弧内・列挙・短い箇条書きのみ）はページを作成せず、追加のモデル呼び出しも行わず、他の候補の関連リストからも除外されます。単語境界プロファイルのある Wiki 言語で動作します（ドイツ語は測定済み、英・仏・西・葡・蘭語は推定）。その他の言語では、適用できないことを取り込み時に一度報告します。用語集型の保管庫や箇条書き中心のノートで、名前の挙がった語をすべてページにしたい場合は無効のままにしてください。',
+    createStubsForUnresolvableLinksName: '解決できないリンクのスタブページを作成',
+    createStubsForUnresolvableLinksDesc: 'デフォルトでは有効。リンク切れの修復がリンクをどの既存ページにも解決できないとき、空のプレースホルダーページを書き込み、リンクをそこへ向け直します（LLM による埋め立ては行いません）。無効にすると、そのようなリンクはそのまま残り、実際のソースが定義するまで毎回のレポートで表示され続けます。',
     lintDedupSectionHeading: '重複検出',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): 汎用的な文言、
     // すべての LLM 業務パスで再利用。{count} は再試行が必要だった

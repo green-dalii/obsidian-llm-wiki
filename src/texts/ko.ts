@@ -511,6 +511,8 @@ export const KO_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: '소스가 언급만 하는 후보 건너뛰기',
     skipMentionOnlyCandidatesDesc: '기본값은 꺼짐. 켜면 노트 본문에 이름이 나타나지 않는 추출 엔티티·개념(없거나 괄호·열거·짧은 목록 항목 안에만 있는 경우)은 페이지를 만들지 않고 추가 모델 호출도 하지 않으며, 다른 후보의 관련 목록에서도 제거됩니다. 단어 경계 프로필이 있는 위키 언어에서 동작합니다(독일어 측정됨; 영어·프랑스어·스페인어·포르투갈어·네덜란드어는 추정). 다른 언어에서는 적용할 수 없다고 수집 시 한 번 알립니다. 용어집형 볼트나 글머리 기호 위주의 노트에서 언급된 모든 용어를 페이지로 만들고 싶다면 꺼 두세요.',
+    createStubsForUnresolvableLinksName: '해결되지 않는 링크의 스텁 페이지 만들기',
+    createStubsForUnresolvableLinksDesc: '기본값은 켜짐. 깨진 링크 수정이 링크를 어떤 기존 페이지로도 해결하지 못하면 빈 자리 표시 페이지를 작성하고 링크를 그쪽으로 다시 연결합니다(LLM으로 채우지 않음). 끄면 이런 링크는 그대로 유지되어 실제 소스가 정의할 때까지 매번 보고서에 표시됩니다.',
     lintDedupSectionHeading: '중복 검사',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): 범용 문구, 모든 LLM
     // 비즈니스 경로에서 재사용 가능. {count}는 재시도가 필요했던 배치
@@ -603,7 +605,7 @@ export const KO_TEXTS = {
     disableThinkingDesc: '모델 응답의 사고 연쇄/추론 텍스트 출력을 끕니다. 기본값은 꺼져 있으며, 모델이 추론 표시 여부를 스스로 결정하는데, 이 경우가 보통 가장 좋은 답을 줍니다. 공급자가 응답에 원본 추론 텍스트를 섞어 넣고 깔끔한 답을 원할 때만 켜세요.',
     taskPoliciesPlaceholder: '예: extract=text:off',
     taskPoliciesName: '단계별 출력 모드와 사고',
-    taskPoliciesDesc: '파이프라인 단계마다 한 항목, `step=mode:thinking` 형식을 쉼표로 구분 — 예: `extract=text:off`. 모드: `-`(유지), `schema`, `json`, `text`; 사고: `-`, `off`, `on`, `low`, `medium`, `high`. 비워 두면 기본 설정(추출은 텍스트 모드). 해석할 수 없는 항목은 저장되지 않습니다.',
+    taskPoliciesDesc: '파이프라인 단계마다 한 항목, `step=mode:thinking` 형식을 쉼표로 구분 — 예: `extract=text:off`. 모드: `-`(유지), `schema`, `json`, `text`; 사고: `-`, `off`, `on`, `low`, `medium`, `high`. 단계 이름에는 extract, extract-retry, lemma-classify, merge-triage, dedup, page-generate, related-page, lint-dedup 등이 있습니다(잘못 입력한 이름은 아무것과도 일치하지 않음). 비워 두면 기본 설정(추출은 텍스트 모드). 해석할 수 없는 항목은 저장되지 않습니다.',
     // Issue #137: 호환성 안내 (간결하게; 공급자 목록 생략)
     extractionTemperatureName: '추출 온도',
     extractionTemperatureDesc: '모델이 entity/concept 페이지를 작성할 때 엄격함을 우선할지 창의성을 우선할지 제어합니다. 값이 낮을수록 결정적이고 원본에 충실하며, 값이 높을수록 변화가 많아집니다. 대부분의 사용자는 비워 둡니다.',

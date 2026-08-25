@@ -105,6 +105,22 @@ export function shouldFabricateStubForUnresolvableLink(_opts: {
   return false;
 }
 
+/**
+ * Issue #485: the second decision an unresolvable link faces. #197's gate
+ * above answers "may an LLM FILL the stub?" (never); this one answers
+ * "is the stub PAGE written at all?". Default ON — existing vaults keep the
+ * current outcome; `createStubsForUnresolvableLinks: false` opts out, and
+ * the link stays as it is, still surfacing in every lint report. Ingest
+ * never depended on a pre-existing stub to create the page, so nothing
+ * downstream changes. Kept as a single greppable switch for the same
+ * reason its sibling is: both creation sites route through here.
+ */
+export function shouldCreateStubForUnresolvableLink(
+  settings: Pick<EngineContext['settings'], 'createStubsForUnresolvableLinks'> | undefined,
+): boolean {
+  return settings?.createStubsForUnresolvableLinks !== false;
+}
+
 export async function fixDeadLink(
   ctx: EngineContext,
   sourcePath: string,
@@ -250,6 +266,13 @@ export async function fixDeadLink(
       return `safety-net corrected (alias match for stub): ${newLink}`;
     }
 
+    // #485: the leave-it outcome. Correction has already had its chance
+    // (pre-check + safety net above); past this point the only action is
+    // creating a page, and the user can decline that.
+    if (!shouldCreateStubForUnresolvableLink(ctx.settings)) {
+      return 'left as dead link (stub creation disabled by createStubsForUnresolvableLinks)';
+    }
+
     const stubType = result.stub_type || 'entity';
     const stubDir = PLURAL_MAP[stubType] || `${stubType}s`;
     const stubSlug = slugify(sanitizedTitle, ctx.settings.slugCase === 'preserve');
@@ -300,6 +323,10 @@ export async function fixDeadLink(
   }
 
   // No match — create an honest placeholder stub. Do NOT expand it via LLM.
+  // #485: same leave-it gate as the LLM create_stub branch above.
+  if (!shouldCreateStubForUnresolvableLink(ctx.settings)) {
+    return 'left as dead link (stub creation disabled by createStubsForUnresolvableLinks)';
+  }
 // #197: a dead link that doesn't resolve to any existing page is an honest
 // forward-reference. The user will eventually ingest a real source note that
 // defines the target, and at that point the normal ingest path (gated by

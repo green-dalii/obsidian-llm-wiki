@@ -520,6 +520,8 @@ export const IT_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: 'Salta i candidati che la fonte si limita a menzionare',
     skipMentionOnlyCandidatesDesc: 'Disattivo per impostazione predefinita. Quando attivo, un’entità o un concetto estratto il cui nome non compare nel testo corrente della nota — assente, o solo tra parentesi, in elenchi o in brevi voci puntate — non riceve alcuna pagina né ulteriori chiamate al modello, e viene rimosso dalle liste dei correlati degli altri candidati. Funziona per le lingue del wiki con un profilo di confini di parola (tedesco misurato; inglese, francese, spagnolo, portoghese, olandese stimati); per le altre lingue l’ingestione segnala una volta che non può applicarsi. Lascialo disattivo per vault di tipo glossario o note a punti elenco in cui ogni termine nominato deve diventare una pagina.',
+    createStubsForUnresolvableLinksName: 'Crea pagine segnaposto per i collegamenti irrisolti',
+    createStubsForUnresolvableLinksDesc: 'Attivo per impostazione predefinita. Quando «Correggi collegamenti interrotti» non riesce a risolvere un collegamento verso nessuna pagina esistente, scrive una pagina segnaposto vuota e reindirizza il collegamento verso di essa — mai riempita dal LLM. Disattivalo per lasciare intatti questi collegamenti: restano visibili in ogni rapporto finché una fonte reale li definisce.',
     lintDedupSectionHeading: 'Deduplicazione',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): testo generico,
     // riutilizzabile per tutti i percorsi LLM. {count} è il numero di
@@ -608,7 +610,7 @@ export const IT_TEXTS = {
     disableThinkingDesc: 'Disattiva la catena di pensiero/ragionamento nella risposta del modello. Spento per impostazione predefinita — il modello decide se mostrare il ragionamento, il che di solito dà la risposta migliore. Attivalo solo se il tuo provider inserisce testo di ragionamento grezzo nella risposta e desideri una risposta pulita.',
     taskPoliciesPlaceholder: 'Esempio: extract=text:off',
     taskPoliciesName: 'Modalità di output e ragionamento per passo',
-    taskPoliciesDesc: 'Una voce per passo della pipeline, `passo=modo:ragionamento`, separate da virgole — ad es. `extract=text:off`. Modi: `-` (invariato), `schema`, `json`, `text`; ragionamento: `-`, `off`, `on`, `low`, `medium`, `high`. Lasciare vuoto per la base integrata (estrazione in modalità testo). Una voce illeggibile non viene salvata.',
+    taskPoliciesDesc: 'Una voce per passo della pipeline, `passo=modo:ragionamento`, separate da virgole — ad es. `extract=text:off`. Modi: `-` (invariato), `schema`, `json`, `text`; ragionamento: `-`, `off`, `on`, `low`, `medium`, `high`. I nomi dei passi includono extract, extract-retry, lemma-classify, merge-triage, dedup, page-generate, related-page, lint-dedup (un nome sbagliato non corrisponde a nulla). Lasciare vuoto per la base integrata (estrazione in modalità testo). Una voce illeggibile non viene salvata.',
     // Issue #137: suggerimenti di compatibilità per le impostazioni avanzate (tenuti brevi; nessuna
     // lista di provider per evitare oneri di manutenzione quando i provider cambiano).
     extractionTemperatureName: 'Temperatura estrazione',

@@ -608,7 +608,7 @@ export const EN_TEXTS = {
     disableThinkingDesc: 'Turn off the model\'s chain-of-thought / reasoning output in its response. Default off — the model decides whether to show reasoning, and that usually gives the best answer. Turn this on only if your provider dumps raw reasoning text into the response and you want a clean answer.',
     taskPoliciesPlaceholder: 'Example: extract=text:off',
     taskPoliciesName: 'Per-step output mode and thinking',
-    taskPoliciesDesc: 'One entry per pipeline step, `step=mode:thinking`, comma-separated — e.g. `extract=text:off`. Modes: `-` (leave), `schema`, `json`, `text`; thinking: `-`, `off`, `on`, `low`, `medium`, `high`. Leave blank for the built-in baseline (extraction in text mode). An entry that cannot be read is not saved.',
+    taskPoliciesDesc: 'One entry per pipeline step, `step=mode:thinking`, comma-separated — e.g. `extract=text:off`. Modes: `-` (leave), `schema`, `json`, `text`; thinking: `-`, `off`, `on`, `low`, `medium`, `high`. Step names include extract, extract-retry, lemma-classify, merge-triage, dedup, page-generate, related-page, lint-dedup — a misspelled name matches nothing. Leave blank for the built-in baseline (extraction in text mode). An entry that cannot be read is not saved.',
     // Issue #137: compatibility hints for advanced settings (kept short; no
     // provider list to avoid maintenance burden when providers change).
     extractionTemperatureName: 'Extraction temperature',
@@ -768,6 +768,8 @@ export const EN_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: 'Skip candidates the source only mentions',
     skipMentionOnlyCandidatesDesc: 'Off by default. When on, an extracted entity or concept whose name does not appear in the note’s running text — absent, or only inside parentheses, enumerations or short list items — gets no page and no further model call, and is removed from the other candidates’ related lists. Works for wiki languages with a word-boundary profile (German measured; English, French, Spanish, Portuguese, Dutch estimated); for other languages the ingest reports once that it cannot apply. Leave off for glossary-style vaults or bullet-point notes where every named term should become a page.',
+    createStubsForUnresolvableLinksName: 'Create stub pages for unresolvable links',
+    createStubsForUnresolvableLinksDesc: 'On by default. When Fix Dead Links cannot resolve a link to any existing page, it writes an empty placeholder page and repoints the link at it — never LLM-filled. Turn this off to leave such links untouched: they stay visible in every lint report until a real source defines them.',
     // v1.26.0 (#382 item 1, Batch 2): sub-heading for the dedup
     // sub-group at the bottom of the "Advanced settings" panel.
     lintDedupSectionHeading: 'Duplicate detection',

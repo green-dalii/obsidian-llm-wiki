@@ -511,6 +511,8 @@ export const DE_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: 'Nur erwähnte Kandidaten überspringen',
     skipMentionOnlyCandidatesDesc: 'Standardmäßig aus. Wenn aktiv, bekommt eine extrahierte Entität oder ein Konzept, dessen Name im Fließtext der Notiz nicht vorkommt — gar nicht, oder nur in Klammern, Aufzählungen oder kurzen Listenpunkten — keine Seite und keinen weiteren Modellaufruf und wird aus den Verwandt-Listen der anderen Kandidaten entfernt. Gilt für Wiki-Sprachen mit Wortgrenzen-Profil (Deutsch gemessen; Englisch, Französisch, Spanisch, Portugiesisch, Niederländisch geschätzt); bei anderen Sprachen meldet der Ingest einmal, dass er nicht greifen kann. Aus lassen bei Glossar-Vaults oder Stichpunkt-Notizen, in denen jeder genannte Begriff eine Seite werden soll.',
+    createStubsForUnresolvableLinksName: 'Stub-Seiten für nicht auflösbare Links anlegen',
+    createStubsForUnresolvableLinksDesc: 'Standardmäßig an. Wenn „Defekte Links beheben“ einen Link zu keiner existierenden Seite auflösen kann, wird eine leere Platzhalterseite angelegt und der Link dorthin umgebogen — nie durch das LLM gefüllt. Ausschalten lässt solche Links unangetastet: Sie bleiben in jedem Bericht sichtbar, bis eine echte Quelle sie definiert.',
     lintDedupSectionHeading: 'Deduplizierung',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): generischer Wortlaut,
     // wiederverwendbar für alle LLM-Geschäftspfade. {count} ist die
@@ -601,7 +603,7 @@ export const DE_TEXTS = {
     disableThinkingDesc: 'Schaltet die Gedankenkette/Denkprozess-Ausgabe des Modells aus. Standardmäßig aus — das Modell entscheidet selbst, ob es Reasoning anzeigt, was in der Regel die beste Antwort ergibt. Schalten Sie dies nur ein, wenn Ihr Anbieter rohen Reasoning-Text in die Antwort einstreut und Sie eine saubere Antwort wünschen.',
     taskPoliciesPlaceholder: 'Beispiel: extract=text:off',
     taskPoliciesName: 'Ausgabemodus und Reasoning je Schritt',
-    taskPoliciesDesc: 'Ein Eintrag je Pipeline-Schritt, `schritt=modus:reasoning`, durch Komma getrennt — z. B. `extract=text:off`. Modi: `-` (unverändert), `schema`, `json`, `text`; Reasoning: `-`, `off`, `on`, `low`, `medium`, `high`. Leer = eingebaute Vorgabe (Extraktion im Textmodus). Ein unlesbarer Eintrag wird nicht gespeichert.',
+    taskPoliciesDesc: 'Ein Eintrag je Pipeline-Schritt, `schritt=modus:reasoning`, durch Komma getrennt — z. B. `extract=text:off`. Modi: `-` (unverändert), `schema`, `json`, `text`; Reasoning: `-`, `off`, `on`, `low`, `medium`, `high`. Schrittnamen sind u. a. extract, extract-retry, lemma-classify, merge-triage, dedup, page-generate, related-page, lint-dedup (ein verschriebener Name trifft nichts). Leer = eingebaute Vorgabe (Extraktion im Textmodus). Ein unlesbarer Eintrag wird nicht gespeichert.',
     // Issue #137: Kompatibilitätshinweise (kurz gehalten; keine Provider-Liste)
     extractionTemperatureName: 'Extraktionstemperatur',
     extractionTemperatureDesc: 'Steuert, ob das Modell beim Schreiben von Entity-/Concept-Seiten eher konservativ oder kreativ vorgeht. Niedrigere Werte = deterministischer und originalgetreuer; höhere Werte = abwechslungsreicher. Die meisten Benutzer lassen dies leer.',

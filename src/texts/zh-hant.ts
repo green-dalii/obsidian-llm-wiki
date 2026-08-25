@@ -553,7 +553,7 @@ export const ZH_HANT_TEXTS = {
     disableThinkingDesc: '關閉模型回應中的思維鏈/推理過程輸出。預設關閉 —— 由模型自己決定是否顯示推理，這樣通常能得到最好的回答。只有當你的提供商把原始推理文字塞進回應、而你希望得到一個乾淨的答案時，才打開它。',
     taskPoliciesPlaceholder: '範例：extract=text:off',
     taskPoliciesName: '按步驟設定輸出模式與思考',
-    taskPoliciesDesc: '每個流程步驟一項，格式 `步驟=模式:思考`，以逗號分隔，例如 `extract=text:off`。模式：`-`（不變）、`schema`、`json`、`text`；思考：`-`、`off`、`on`、`low`、`medium`、`high`。留空使用內建基準（擷取步驟為文字模式）。無法解析的條目不會儲存。',
+    taskPoliciesDesc: '每個流程步驟一項，格式 `步驟=模式:思考`，以逗號分隔，例如 `extract=text:off`。模式：`-`（不變）、`schema`、`json`、`text`；思考：`-`、`off`、`on`、`low`、`medium`、`high`。步驟名稱包括 extract、extract-retry、lemma-classify、merge-triage、dedup、page-generate、related-page、lint-dedup（拼錯的名稱不會比對到任何步驟）。留空使用內建基準（擷取步驟為文字模式）。無法解析的條目不會儲存。',
     // Issue #137: 兼容性提示（简短；不列举 provider，避免维护负担）
     extractionTemperatureName: '提取溫度',
     extractionTemperatureDesc: '控制模型在寫實體/概念頁時是偏嚴謹還是偏創意。數值越低越確定、越忠於原文；數值越高變化越多。大多數使用者留空即可。',
@@ -705,6 +705,8 @@ export const ZH_HANT_TEXTS = {
     // Issue #514: opt-in candidate gate (bottom Advanced settings panel).
     skipMentionOnlyCandidatesName: '跳過來源僅提及的候選',
     skipMentionOnlyCandidatesDesc: '預設關閉。開啟後，擷取出的實體或概念若其名稱未出現在筆記內文中（完全未出現，或僅出現在括號、列舉或簡短清單項目中），將不產生頁面、不再呼叫模型，並從其他候選的相關清單中移除。適用於具有詞邊界設定檔的 Wiki 語言（德語已量測；英語、法語、西班牙語、葡萄牙語、荷蘭語為估計）；其他語言在擷取時會提示一次無法套用。若你的庫是術語表風格或筆記以要點為主、希望每個被點名的術語都成為頁面，請保持關閉。',
+    createStubsForUnresolvableLinksName: '為無法解析的連結建立佔位頁',
+    createStubsForUnresolvableLinksDesc: '預設開啟。當「修復斷鏈」無法把連結解析到任何現有頁面時，會寫入一個空的佔位頁並把連結改指向它——絕不由 LLM 填充。關閉後此類連結保持原樣：它們在每次 lint 報告中保持可見，直到有真實來源定義它們。',
     lintDedupSectionHeading: '去重偵測',
     // v1.26.0 (#382 item 1, Batch 2 follow-up): 通用 Toast 文案，
     // 復用於所有 LLM 業務路徑。{count} 是觸發重試的批次數量。注意：
