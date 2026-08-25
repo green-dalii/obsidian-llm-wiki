@@ -363,7 +363,7 @@ export const DE_TEXTS = {
     // Extraction Settings
     extractionSectionTitle: 'Extraktion',
     extractionGranularityName: 'Extraktions-Granularität',
-    extractionGranularityDesc: 'Steuert Extraktionen pro Quelldatei. Höher = mehr Seiten/API-Verbrauch.\nFein: Tiefenanalyse. Standard: Tägliche Notizen. Grob: Schnelle Übersicht. Minimal: 100+ Dateien stapeln. Benutzerdefiniert: Eigene Limits (max 500).\nTipp: Verwenden Sie Minimal/Grob für Ordner mit vielen Dateien zur Zeit- und Kosteneinsparung.',
+    extractionGranularityDesc: 'Steuert Extraktionen pro Quelldatei. Höher = mehr Seiten/API-Verbrauch.\nFein: Tiefenanalyse. Standard: Tägliche Notizen. Grob: Schnelle Übersicht. Minimal: 100+ Dateien stapeln (begrenzt Posten je Quelle, ~3 — nicht die Detailtiefe). Benutzerdefiniert: Eigene Limits (max 500).\nTipp: Verwenden Sie Minimal/Grob für Ordner mit vielen Dateien zur Zeit- und Kosteneinsparung.',
     extractionGranularityFine: 'Fein — Tiefenanalyse (≤100 Elemente)',
     extractionGranularityStandard: 'Standard — Tägliche Notizen (≤50 Elemente)',
     extractionGranularityCoarse: 'Grob — Schnellübersicht (≤10 Elemente)',

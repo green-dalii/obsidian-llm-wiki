@@ -116,7 +116,9 @@ export async function runLintWiki(
     const graph = buildGraphFromContent(loadedPages, allPaths, ctx.settings.wikiFolder);
 
     // ---- Phase 2: Programmatic + source-IO checks ----
-    const findings: ProgrammaticFindings = runProgrammaticPhase(phaseCtx, {
+    // #496: async now — cited primary notes are read here so quote grounding
+    // runs against underlying documents, not generated summaries.
+    const findings: ProgrammaticFindings = await runProgrammaticPhase(phaseCtx, {
       wikiFiles: prep.wikiFiles,
       pageMap: prep.pageMap,
       knownTargets: prep.knownTargets,

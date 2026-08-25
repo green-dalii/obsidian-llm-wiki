@@ -361,7 +361,7 @@ export const JA_TEXTS = {
     // Extraction Settings
     extractionSectionTitle: '知識抽出',
     extractionGranularityName: '抽出粒度',
-    extractionGranularityDesc: 'ソースファイルごとの抽出数を制御。高いほどページ/API消費が増加。\n精细：深度分析（100個）。標準：日常ノート（50個）。粗め：概要把握（10個）。最小：100件以上一括処理（5個）。カスタム：独自設定（最大300個）。\n提示：ファイル数が多い場合は最小/粗めを使用し時間とコストを節約。',
+    extractionGranularityDesc: 'ソースファイルごとの抽出数を制御。高いほどページ/API消費が増加。\n精细：深度分析（100個）。標準：日常ノート（50個）。粗め：概要把握（10個）。最小：100件以上一括処理（ソースあたり約5件の上限。項目数の制限であり記述の詳細さではない）。カスタム：独自設定（最大300個）。\n提示：ファイル数が多い場合は最小/粗めを使用し時間とコストを節約。',
     extractionGranularityFine: '精细 — 深層分析（≤100件）',
     extractionGranularityStandard: '標準 — 日常ノート（≤50件）',
     extractionGranularityCoarse: '粗め — 概要（≤10件）',

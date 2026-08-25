@@ -363,7 +363,7 @@ export const PT_TEXTS = {
     // Extraction Settings
     extractionSectionTitle: 'Extração',
     extractionGranularityName: 'Granularidade da extração',
-    extractionGranularityDesc: 'Controla extrações por arquivo fonte. Maior = mais páginas/tokens API.\nFina: análise profunda. Padrão: notas diárias. Grosseira: visão rápida. Mínima: processamento 100+ arquivos. Personalizada: limites próprios (até 500).\nDica: Use Mínima/Grosseira para pastas com muitos arquivos para economizar tempo e custo.',
+    extractionGranularityDesc: 'Controla extrações por arquivo fonte. Maior = mais páginas/tokens API.\nFina: análise profunda. Padrão: notas diárias. Grosseira: visão rápida. Mínima: processamento 100+ arquivos (limita itens por fonte, ~3 — não o detalhe por item). Personalizada: limites próprios (até 500).\nDica: Use Mínima/Grosseira para pastas com muitos arquivos para economizar tempo e custo.',
     extractionGranularityFine: 'Fina — análise profunda (≤100 itens)',
     extractionGranularityStandard: 'Padrão — notas diárias (≤50 itens)',
     extractionGranularityCoarse: 'Grosseira — visão rápida (≤10 itens)',

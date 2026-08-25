@@ -22,6 +22,12 @@ export interface InjectMentionsOptions {
   /** Pass-through to the formatter. */
   conversationLabel?: string;
   /**
+   * Pass-through to the formatter — override of the 500-char total budget.
+   * Callers whose page's payload IS the quotes (the #496 source-page route)
+   * raise it; every other caller keeps the default.
+   */
+  maxChars?: number;
+  /**
    * When true, the page is reviewed (`reviewed: true` frontmatter) and its
    * existing Mentions section must not be overwritten — the injector returns
    * `body` unchanged. Set by the reviewed-page write path.
@@ -69,6 +75,7 @@ export function injectMentionsSection(
     {
       conversationMode: options.conversationMode,
       conversationLabel: options.conversationLabel,
+      maxChars: options.maxChars,
     },
   );
 

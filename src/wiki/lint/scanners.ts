@@ -246,6 +246,40 @@ function extractSourceBody(content: string): string {
  *
  * Returns a sorted list of ungrounded issues. No file IO, no LLM.
  */
+
+// Shared with collectCitedRawNoteTargets — same line shape the scanner parses.
+const MENTION_LINE_REGEX = /^[-*]\s+"([^"]+)"(?:\s*[—-]\s*\[\[([^\]]+)\]\])?\s*$/gm;
+
+/**
+ * Issue #496: unique primary-note paths cited from Mentions sections across
+ * the wiki — the targets the grounding scanner must be able to see. Wiki-
+ * internal `sources/` targets are skipped (the caller's map already holds
+ * those pages); raw vault paths are normalized to keep their `.md`.
+ */
+export function collectCitedRawNoteTargets(
+  pageMap: Map<string, ScannerPage>,
+  wikiFolder: string,
+  mentionsLabel: string = 'Mentions in Source',
+): string[] {
+  const targets = new Set<string>();
+  for (const [path, page] of pageMap) {
+    if (!path.startsWith(wikiFolder + '/')) continue;
+    const mentionsBlock = extractMentionsSection(page.content, mentionsLabel);
+    if (!mentionsBlock) continue;
+    MENTION_LINE_REGEX.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = MENTION_LINE_REGEX.exec(mentionsBlock)) !== null) {
+      const linkTarget = match[2]?.trim();
+      if (!linkTarget) continue;
+      const bareTarget = linkTarget.split('|')[0].trim();
+      if (bareTarget.startsWith('sources/') || bareTarget.startsWith(wikiFolder + '/sources/')) continue;
+      const { basePath, hasMd } = splitMdExtension(bareTarget);
+      targets.add(basePath + (hasMd ? '' : '.md'));
+    }
+  }
+  return [...targets];
+}
+
 export function scanQuoteGrounding(
   pageMap: Map<string, ScannerPage>,
   sourceMap: Map<string, ScannerPage>,

@@ -362,7 +362,7 @@ export const KO_TEXTS = {
     // Extraction Settings
     extractionSectionTitle: '추출',
     extractionGranularityName: '추출 세분화',
-    extractionGranularityDesc: '소스 파일당 추출 수 제어. 높을수록 페이지/API 소비 증가.\n세밀: 심층 분석. 표준: 일상 노트. 굵음: 빠른 개요. 최소: 100개 이상 일괄 처리. 사용자 지정: 자체 설정 (최대 300개).\n팁: 파일이 많은 폴더는 최소/굵음 사용으로 시간 및 비용 절감.',
+    extractionGranularityDesc: '소스 파일당 추출 수 제어. 높을수록 페이지/API 소비 증가.\n세밀: 심층 분석. 표준: 일상 노트. 굵음: 빠른 개요. 최소: 100개 이상 일괄 처리(소스당 약 3개 항목 제한 — 세부 정보가 아님). 사용자 지정: 자체 설정 (최대 300개).\n팁: 파일이 많은 폴더는 최소/굵음 사용으로 시간 및 비용 절감.',
     extractionGranularityFine: '세밀 — 심층 분석 (≤100개)',
     extractionGranularityStandard: '표준 — 일상 노트 (≤50개)',
     extractionGranularityCoarse: '굵음 — 빠른 개요 (≤10개)',

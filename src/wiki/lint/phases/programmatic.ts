@@ -1,6 +1,7 @@
-import { detectAliasDeficiency, scanOrphans, scanTagViolations, scanDeadLinks, scanQuoteGrounding, scanHubLinkDensity } from '../scanners';
+import { detectAliasDeficiency, scanOrphans, scanTagViolations, scanDeadLinks, scanQuoteGrounding, scanHubLinkDensity, collectCitedRawNoteTargets } from '../scanners';
 import { detectPollutedPages } from '../utils';
 import { getText } from '../../../core/i18n';
+import { getSectionLabels } from '../../system-prompts';
 import type { Graph } from '../../../core/monte-carlo-ppr';
 import { LintPhaseContext, ProgrammaticFindings, ScannerPage } from '../types';
 
@@ -27,10 +28,10 @@ export interface ProgrammaticInput {
  * emptyPages is initialized empty here; it gets populated in the LLM phase
  * after we know which pages are duplicate sources (to exclude from empty-page list).
  */
-export function runProgrammaticPhase(
+export async function runProgrammaticPhase(
   ctx: LintPhaseContext,
   input: ProgrammaticInput,
-): ProgrammaticFindings {
+): Promise<ProgrammaticFindings> {
   // 1. Alias deficiency
   const aliasDeficientPages = detectAliasDeficiency(input.wikiFiles, input.pageMap);
   console.debug(`lintWiki: ${aliasDeficientPages.length} entity/concept pages missing aliases`);
@@ -73,7 +74,29 @@ export function runProgrammaticPhase(
       sourceMap.set(path, page);
     }
   }
-  const ungroundedQuotes = scanQuoteGrounding(input.pageMap, sourceMap, ctx.settings.wikiFolder);
+  // Issue #496 (the issue's "unrequested finding", now load-bearing): Mentions
+  // citations point at PRIMARY source notes (#244 style), and the #496
+  // summary-page route cites them programmatically — a wiki-only map would
+  // flag every legitimately captured quote as ungrounded on re-lint, and
+  // grounding would run against generated summaries instead of underlying
+  // documents. Read each cited primary note once; unreadable notes stay out
+  // and their quotes keep being flagged (honest signal).
+  const mentionsLabel = getSectionLabels(ctx.settings).mentions_in_source;
+  for (const target of collectCitedRawNoteTargets(input.pageMap, ctx.settings.wikiFolder, mentionsLabel)) {
+    if (sourceMap.has(target)) continue;
+    try {
+      if (!ctx.app.vault.getAbstractFileByPath(target)) continue;
+      const content = await ctx.app.vault.read({ path: target });
+      sourceMap.set(target, {
+        path: target,
+        basename: target.split('/').pop()?.replace(/\.md$/, '') || target,
+        content,
+      });
+    } catch {
+      /* unreadable note — quote stays flagged */
+    }
+  }
+  const ungroundedQuotes = scanQuoteGrounding(input.pageMap, sourceMap, ctx.settings.wikiFolder, mentionsLabel);
   console.debug(`lintWiki: ${ungroundedQuotes.length} ungrounded quote(s)`);
 
   // 7. Hub link density (Issue #157 / #175, v1.23.0 P1-6) — detects hub

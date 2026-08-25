@@ -128,6 +128,11 @@ function errorToString(value: unknown): string {
 // (private to GraphCache). Removed from wiki-engine.ts to avoid duplicate export;
 // no external callers — see git grep before this change.
 
+// Issue #496: on a source page the Mentions section IS the payload, so its
+// total budget is raised above the formatter's 500-char default — the same
+// default that would otherwise ellipsize exactly what this route preserves.
+const SOURCE_PAGE_MENTIONS_MAX_CHARS = 2000;
+
 export class WikiEngine {
   private app: App;
   settings: LLMWikiSettings;
@@ -1384,7 +1389,6 @@ export class WikiEngine {
       normalizePath(`${this.settings.wikiFolder}/concepts`),
       normalizePath(`${this.settings.wikiFolder}/sources`)
     ];
-
     for (const folder of folders) {
       try {
         await this.app.vault.createFolder(folder);
@@ -1492,12 +1496,18 @@ export class WikiEngine {
     // a model that only ever saw content.substring(0, 500). Same programmatic
     // route as entity pages (#244); with nothing captured the injector also
     // strips any section the model wrote itself, because a quote built from
-    // a 500-character window is fabrication, not provenance.
+    // a 500-character window is fabrication, not provenance. The budget is
+    // raised: on a source page the quotes ARE the payload, and the default
+    // 500-char section cap would ellipsize exactly what this route exists
+    // to preserve.
     finalContent = injectMentionsSection(
       finalContent,
       analysis.mentions_in_source ?? [],
       file.path,
-      { sectionLabel: getSectionLabels(this.settings).mentions_in_source },
+      {
+        sectionLabel: getSectionLabels(this.settings).mentions_in_source,
+        maxChars: SOURCE_PAGE_MENTIONS_MAX_CHARS,
+      },
     );
 
     await this.createOrUpdateFile(path, finalContent);

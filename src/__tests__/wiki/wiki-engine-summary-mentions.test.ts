@@ -130,4 +130,27 @@ describe('WikiEngine.createSummaryPage — captured mentions routed into the sou
     expect(written).not.toContain('Mentions in Source');
     expect(written).toContain('Clean body.');
   });
+
+  it('renders quote-heavy captures beyond the formatter default budget (#496 — quotes are the payload)', async () => {
+    // Three quotes of ~200 chars each: the formatter's 500-char default
+    // would ellipsize the third. The source-page route raises the budget,
+    // so all three land verbatim.
+    const q = (n: number) =>
+      `Quote number ${n} is a long captured sentence repeated for length: ` +
+      'wissenschaftliche Untersuchung kognitiver Kontrolle und deren Grenzen. '.repeat(3).trim();
+    const quotes = [q(1), q(2), q(3)];
+    const h = harnessFor('## Zusammenfassung\n\nBody.');
+    const writtenPath = await h.engine.createSummaryPage(
+      sourceFile(),
+      makeAnalysis({ mentions_in_source: quotes }),
+      [],
+    );
+
+    const written = h.files.get(writtenPath);
+    expect(written).toBeDefined();
+    for (const quote of quotes) {
+      expect(written).toContain(`"${quote}`);
+      expect(written).not.toContain(`${quote.slice(0, 60)}..."`);
+    }
+  });
 });

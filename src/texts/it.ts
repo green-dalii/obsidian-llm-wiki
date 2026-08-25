@@ -372,7 +372,7 @@ export const IT_TEXTS = {
     // Impostazioni Estrazione
     extractionSectionTitle: 'Estrazione',
     extractionGranularityName: 'Granularità estrazione',
-    extractionGranularityDesc: 'Controlla le entità/concetti estratti per file sorgente. Più alto = più pagine, più token API.\nFine: analisi approfondita. Standard: note quotidiane. Grossolana: panoramica rapida. Minima: batch di oltre 100 file. Personalizzata: imposta i tuoi limiti (fino a 500).\nSuggerimento: usa Minima/Grossolana per cartelle con molti file per risparmiare tempo e costi.',
+    extractionGranularityDesc: 'Controlla le entità/concetti estratti per file sorgente. Più alto = più pagine, più token API.\nFine: analisi approfondita. Standard: note quotidiane. Grossolana: panoramica rapida. Minima: batch di oltre 100 file (limita le voci per sorgente, ~3 — non il dettaglio per voce). Personalizzata: imposta i tuoi limiti (fino a 500).\nSuggerimento: usa Minima/Grossolana per cartelle con molti file per risparmiare tempo e costi.',
     extractionGranularityFine: 'Fine — analisi approfondita (≤100 elementi)',
     extractionGranularityStandard: 'Standard — note quotidiane (≤50 elementi)',
     extractionGranularityCoarse: 'Grossolana — panoramica rapida (≤10 elementi)',
