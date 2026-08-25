@@ -6,7 +6,7 @@
 // contract, the list-vs-paragraph separator choice (#185 follow-up), and
 // the failed-group fallback to "## New Information ({{source}})".
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   escapeRegExp,
   findSectionInBody,
@@ -204,4 +204,57 @@ describe('applyComplementaryAppends — orchestrator', () => {
     );
     expect(out).toBe(body);
   });
+
+  // ==========================================================================
+  // E2E 2026-08-25: a reasoning model emitting visible <think> blocks leaked
+  // its full planning prose into the wiki body — this was the ONLY raw-prose
+  // consumer without think-stripping (every other writer goes through
+  // cleanMarkdownResponse or parseJsonResponse, both of which strip).
+  // ==========================================================================
+  it('strips <think> blocks from appended content (E2E leak regression)', async () => {
+    const ctx = makeCtx(makeClient([
+      '<think>The user wants me to append new facts. Let me check them against existing content...</think>\n\n**源代码仓库文件准备**: GitHub 代码仓库需包含 README、LICENSE 等文件。',
+    ]));
+    const body = '## 关键特征\nOld content.';
+    const out = await applyAppend(ctx, body, '关键特征');
+    expect(out).toContain('**源代码仓库文件准备**');
+    expect(out).not.toContain('<think>');
+    expect(out).not.toContain('The user wants me to append');
+    expect(out).toContain('Old content.');
+  });
+
+  it('recognises NO_NEW_CONTENT wrapped in a <think> block (same hole, second variant)', async () => {
+    const ctx = makeCtx(makeClient(['<think>Nothing new to add here.</think>NO_NEW_CONTENT']));
+    const body = '## Description\nOld content.';
+    const out = await applyAppend(ctx, body, 'Description');
+    expect(out).toBe(body);
+  });
+
+  it('pins enableThinking:false on the append call regardless of the global setting', async () => {
+    const createMessage = vi.fn(async (_p: Record<string, unknown>) => 'NO_NEW_CONTENT');
+    const ctx: ComplementaryContext = {
+      settings: { wikiFolder: 'wiki', wikiLanguage: 'en', disableThinking: false } as LLMWikiSettings,
+      getClient: () => ({ createMessage } as unknown as LLMClient),
+      buildSystemPrompt: async () => 'system',
+    };
+    await applyAppend(ctx, '## Description\nOld.', 'Description');
+    const calls = createMessage.mock.calls as unknown as Array<[Record<string, unknown>]>;
+    expect(calls[0]?.[0].enableThinking).toBe(false);
+  });
 });
+
+// Drives one complementary item through the orchestrator against a body that
+// carries the named heading.
+function applyAppend(
+  ctx: ComplementaryContext,
+  body: string,
+  targetSection: string,
+): Promise<string> {
+  return applyComplementaryAppends(
+    ctx,
+    [{ kind: 'complementary', content: 'fact', target_section: targetSection }],
+    body,
+    createMockEntity(),
+    { path: 'p.md', basename: 'p.md' },
+  );
+}

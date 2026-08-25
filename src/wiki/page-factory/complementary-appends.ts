@@ -24,6 +24,7 @@ import { TFile } from 'obsidian';
 import type { EntityInfo, ConceptInfo, LLMWikiSettings, LLMClient } from '../../types';
 import { TOKENS_COMPLEMENTARY_APPEND } from '../../constants';
 import { resolveModelForTask } from '../../core/model-resolver';
+import { stripThinkingBlocks } from '../../core/markdown';
 import { snapHeaderToCanonical } from '../../core/section-header-canonicalizer';
 import { getSectionLabels } from '../system-prompts';
 import { isListSection } from './contextualize';
@@ -241,9 +242,19 @@ export async function callPerSectionAppend(
       max_tokens: TOKENS_COMPLEMENTARY_APPEND,
       system: await ctx.buildSystemPrompt('merge'),
       messages: [{ role: 'user', content: appendPrompt }],
-      ...(ctx.settings.disableThinking ? { enableThinking: false } : {}),
+      // Per-call policy (mirrors welcome-translate, #506): appending a
+      // formatted fragment is a mechanical text task — reasoning here only
+      // adds latency, and on backends that emit visible <think> it used to
+      // leak verbatim into the wiki body (E2E 2026-08-25). Pinned
+      // unconditionally, not gated on settings.disableThinking.
+      enableThinking: false as const,
     });
-    const cleaned = response?.trim() ?? '';
+    // This is the one raw-prose writer that does NOT go through
+    // cleanMarkdownResponse (the fragment must not lose its head the way a
+    // full page would), so the thinking-block strip is applied directly —
+    // single home in core/markdown. Also makes a think-wrapped
+    // NO_NEW_CONTENT short-circuit correctly instead of splicing the block.
+    const cleaned = stripThinkingBlocks(response ?? '').trim();
     // Empty response (weak model or no new info to add) is equivalent to
     // NO_NEW_CONTENT — falling through here would let spliceAfterSection
     // inject a stray blank line with no content. Short-circuit so the

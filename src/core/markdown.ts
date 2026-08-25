@@ -1,10 +1,22 @@
+/**
+ * Remove visible reasoning blocks (<think>/<thinking>) from model output.
+ *
+ * Single home for the strip so every consumer of raw model prose shares one
+ * behavior — E2E 2026-08-25 found the complementary-append path writing the
+ * full planning prose into wiki bodies because it was the one writer that
+ * trimmed without stripping. cleanMarkdownResponse runs this first; raw-
+ * fragment consumers (append text, section splices) call it directly.
+ */
+export function stripThinkingBlocks(text: string): string {
+  return text
+    .replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '')
+    .replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking>/gi, '');
+}
+
 export function cleanMarkdownResponse(response: string): string {
   console.debug('cleanMarkdownResponse input length:', response.length);
 
-  let cleaned = response.trim();
-
-  cleaned = cleaned.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '');
-  cleaned = cleaned.replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking>/gi, '');
+  let cleaned = stripThinkingBlocks(response.trim());
 
   if (cleaned.indexOf('\n---\n') === -1) {
     const headerMatch = cleaned.match(/\n#{1,2} \S/);
