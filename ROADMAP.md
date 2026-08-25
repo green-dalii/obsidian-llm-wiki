@@ -22,9 +22,9 @@ Process standards live in [CLAUDE.md §"🛡️ Six-Gate Quality Closure"](./CLA
 
 | Order | Issue | What | Note |
 |-------|-------|------|------|
-| 1 | **#425** | Bedrock Stage 2 — SSO/profile auth via hand-rolled IAM Identity Center OIDC + SigV4 → bedrock-mantle | Zero AWS SDK, ~+10–15 KB; includes Stage-1 fix for the sync-factory `bedrockRegion` forwarding bug |
+| 1 | **#425** | Bedrock Stage 2 — SSO/profile auth via hand-rolled IAM Identity Center OIDC + SigV4 → bedrock-mantle | **IMPLEMENTED — PR #540 open, NOT merged** (15 commits, Gate 1 green, dual-subagent review applied). Zero AWS SDK, ~+10–15 KB; includes Stage-1 fix for the sync-factory `bedrockRegion` forwarding bug. Awaiting @dmsessions real-AWS E2E of the three isolated constants |
 | 2 | **#485** | Fix Dead Links lacks "leave_it" outcome (always creates stub) | Small LLM JSON-schema enum addition |
-| 3 | micro-batch | #525 scan follow-ups: codex-client `outputModeOverride` honoring, exhaustion-arm test, hardcoded-EN placeholder i18n | Closes shipped-PR loose ends so release notes stay accurate |
+| 3 | micro-batch | #525 scan follow-ups: codex-client `outputModeOverride` honoring, exhaustion arm, placeholder i18n | **PR #539 (DocTpoint, 2026-08-24) implements all six filed items — in review** |
 | 4 | **#506** | NoOutputGeneratedError reasoning recovery + translation thinking-disable | Reliability across all typed-output paths |
 | 5 | **#501** | package-lock.json missing the brace-expansion pin (npm ignores pnpm.overrides) | Release chore, audit HIGH→0 |
 | 6 | **#491 + #496** | TASK_SECTIONS co-design — five default-schema sections reach ingest/generation/merge; source-page verbatim quotes rewrite | Largest item. **Slider rule:** if it would delay the tag after #425 lands, slides to v1.28.0 rather than holding the release |
