@@ -36,6 +36,7 @@ import { extractSourceTags } from '../core/arrays';
 import { gateCandidates } from '../core/candidate-gate';
 import { getSourceLanguage, isCrossLanguage } from '../core/source-language';
 import { cleanMarkdownResponse } from '../core/markdown';
+import { injectMentionsSection } from '../core/mentions-injector';
 import { SchemaManager, SchemaTask } from '../schema/schema-manager';
 import {
   buildSystemPrompt,
@@ -1485,6 +1486,19 @@ export class WikiEngine {
         finalContent = withAliases;
       }
     }
+
+    // Issue #496 (Cause 2): the source page's Mentions section comes from
+    // what extraction already captured over the FULL source text — not from
+    // a model that only ever saw content.substring(0, 500). Same programmatic
+    // route as entity pages (#244); with nothing captured the injector also
+    // strips any section the model wrote itself, because a quote built from
+    // a 500-character window is fabrication, not provenance.
+    finalContent = injectMentionsSection(
+      finalContent,
+      analysis.mentions_in_source ?? [],
+      file.path,
+      { sectionLabel: getSectionLabels(this.settings).mentions_in_source },
+    );
 
     await this.createOrUpdateFile(path, finalContent);
     return path;

@@ -83,6 +83,17 @@ export interface SourceAnalysis {
    * pages — those follow the existing `info.aliases` path.
    */
   source_note_aliases?: string[];
+
+  /**
+   * Issue #496 — verbatim quotes aggregated across every extracted item
+   * (provenance `quote`s preferred over legacy strings; deduped by trimmed
+   * text). Populated by `buildSourceAnalysis`; consumed by
+   * `WikiEngine.createSummaryPage` so the generated sources/ page carries a
+   * Mentions section built from full-text captures instead of the model's
+   * 500-character window. Optional because hand-constructed analyses
+   * (tests, callers predating #496) legitimately omit it.
+   */
+  mentions_in_source?: string[];
 }
 
 export interface EntityInfo {

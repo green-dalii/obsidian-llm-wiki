@@ -247,6 +247,37 @@ export function buildSourceAnalysis(
   // the generated `sources/<slug>` frontmatter.
   sourceNoteAliases?: string[]
 ): SourceAnalysis {
+  // Issue #496 (Cause 2): aggregate every item's verbatim quotes into the
+  // top-level SourceAnalysis.mentions_in_source — the field existed on the
+  // type but was never populated, so the generated sources/<slug> page could
+  // not carry a Mentions section even with the delivery (#491) and injection
+  // routes in place. Provenance quotes win over legacy strings; the pool is
+  // deduped by trimmed text. All quotes came from this one source, so the
+  // page-level attribution (the source file) stays correct.
+  const seenQuotes = new Set<string>();
+  const sourceMentions: string[] = [];
+  let itemsWithMentions = 0;
+  for (const item of [...accumulation.entities, ...accumulation.concepts]) {
+    const quotes = item.mentions_with_provenance?.length
+      ? item.mentions_with_provenance.map((m) => m.quote ?? '')
+      : item.mentions_in_source ?? [];
+    let captured = false;
+    for (const q of quotes) {
+      const key = q.trim();
+      if (!key) continue;
+      captured = true;
+      if (!seenQuotes.has(key)) {
+        seenQuotes.add(key);
+        sourceMentions.push(q);
+      }
+    }
+    if (captured) itemsWithMentions++;
+  }
+  console.debug(
+    `[MENTIONS-CAPTURE] ${sourceMentions.length} verbatim quote(s) captured ` +
+    `across ${itemsWithMentions} of ${accumulation.entities.length + accumulation.concepts.length} extracted item(s)`,
+  );
+
   return {
     source_file: filePath,
     source_title: firstBatchData?.sourceTitle || fileBasename,
@@ -258,7 +289,8 @@ export function buildSourceAnalysis(
     key_points: accumulation.keyPoints,
     created_pages: [],
     updated_pages: [],
-    source_note_aliases: sourceNoteAliases
+    source_note_aliases: sourceNoteAliases,
+    mentions_in_source: sourceMentions,
   };
 }
 
