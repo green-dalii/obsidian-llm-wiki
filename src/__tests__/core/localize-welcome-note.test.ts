@@ -302,3 +302,56 @@ describe('localizeWelcomeNote — nested / preamble object fallback (code-review
     expect(result.body).toBe(CHINESE_TRANSLATED);
   });
 });
+
+describe('localizeWelcomeNote — thinking control (Issue #506)', () => {
+  // Translation is a text task: reasoning budget spent here is the root
+  // cause of the NoOutputGeneratedError onboarding symptom (#506). The
+  // call site pins enableThinking:false per [[feedback_force_disable_thinking_openai_compat_noop]] — Layer 1 of the four-layer doctrine.
+  it('passes enableThinking:false on the typed call', async () => {
+    const createMessageWithOutput = vi.fn().mockResolvedValue({
+      text: JSON.stringify({ translated: CHINESE_TRANSLATED }),
+      output: { translated: CHINESE_TRANSLATED },
+      outputMode: 'json_schema',
+      finishReason: 'stop',
+    });
+    await localizeWelcomeNote(makeArgs({
+      targetLanguage: 'zh',
+      llmClient: { createMessage: vi.fn(), createMessageWithOutput },
+    }));
+    const calls = createMessageWithOutput.mock.calls as unknown as Array<[Record<string, unknown>]>;
+    expect(calls[0]?.[0].enableThinking).toBe(false);
+  });
+
+  it('puts reasoning_effort:"none" on the wire for the welcome translation request', async () => {
+    // Full-pipeline proof: drive localizeWelcomeNote through a REAL
+    // OpenAICompatSdkClient with a captured fetch and assert the
+    // serialized request body. Mirrors openai-compat-request-body.test.ts.
+    let body: Record<string, unknown> = {};
+    const stub = vi.fn(async (_url: string, init?: { body?: unknown }) => {
+      body = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({
+        id: 'x', object: 'chat.completion', created: 0, model: 'm',
+        choices: [{
+          index: 0,
+          message: { role: 'assistant', content: JSON.stringify({ translated: CHINESE_TRANSLATED }) },
+          finish_reason: 'stop',
+        }],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
+    const { OpenAICompatSdkClient } = await import('../../llm-sdk/openai-compat-sdk-client');
+    const client = new OpenAICompatSdkClient({
+      apiKey: 'k', baseURL: 'http://localhost/v1', provider: 'custom',
+      fetch: stub as never,
+    });
+    const result = await localizeWelcomeNote(makeArgs({
+      targetLanguage: 'zh',
+      llmClient: client,
+      model: 'm',
+    }));
+
+    expect(body).toHaveProperty('reasoning_effort', 'none');
+    expect(result.ok).toBe(true);
+    expect(result.body).toBe(CHINESE_TRANSLATED);
+  });
+});

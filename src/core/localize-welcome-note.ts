@@ -148,6 +148,12 @@ export async function localizeWelcomeNote(args: LocalizeArgs): Promise<LocalizeR
       system,
       messages: [{ role: 'user' as const, content: englishBody }],
       response_format: { type: 'json_object' as const, schema: WelcomeTranslationLLMSchema },
+      // Issue #506: translation is a text task — reasoning budget spent
+      // here is the root cause of NoOutputGeneratedError on first-run
+      // onboarding (reasoning channel consumes maxOutputTokens, content
+      // stays empty). Layer 1 of the four-layer doctrine; the wire shape
+      // is pinned by the localize-welcome-note wire test.
+      enableThinking: false as const,
       // Note: no signal param in current LLMClient interface, but caller
       // can pass signal via signal on the request and we ignore at this
       // level. Future: plumb through AbortSignal once interface widens.

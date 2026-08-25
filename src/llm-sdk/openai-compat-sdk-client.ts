@@ -475,7 +475,9 @@ export class OpenAICompatSdkClient implements LLMClient {
       if (NoOutputGeneratedError.isInstance(err)) {
         console.debug(
           `[NO-OUTPUT-GENERATED] baseURL=${this.baseURL} model=${model} ` +
-          `model produced zero output across step retries — returning empty quiet path`,
+          `model produced zero output across step retries — returning empty quiet path ` +
+          `(hint: a reasoning model may have spent maxOutputTokens on the reasoning channel; ` +
+          `a per-step policy like \`<task>=text:off\` in the LLM Advanced settings can disable it)`,
         );
         reportFinish(onFinish, 'stop', undefined);
         return '';
@@ -867,6 +869,19 @@ export class OpenAICompatSdkClient implements LLMClient {
       `outputArgs=${JSON.stringify(outputArgs)}`,
     );
 
+    // Issue #506: NoOutputGeneratedError reaches this catch from two
+    // origins. (a) generateText rejects — stream flush without a terminal
+    // chunk; no result exists in scope and the class carries no
+    // `.response` to mine (constructor is {message, cause} only), so the
+    // reasoning channel is genuinely unreachable there. (b) generateText
+    // RESOLVED but nothing parsed into `output`, so the SDK's `.output`
+    // getter throws — at that point the composite text below has already
+    // been built from the reasoning channel. Hoisting it lets the catch
+    // return the real payload for caller-side repair instead of the
+    // empty quiet shape.
+    let recoveredText = '';
+    let recoveredUsage: LLMUsage | undefined;
+
     try {
       const languageModel = this.getProvider(model, this.fetchImpl);
       const { generateText } = await import('ai');
@@ -910,6 +925,8 @@ export class OpenAICompatSdkClient implements LLMClient {
         ? prependReasoningForParse(reasoningContent, result.text)
         : result.text;
       const usage = normalizeUsage(result.usage);
+      recoveredText = text;
+      recoveredUsage = usage;
       const output = readOutput<T>(result, currentMode);
       // Issue #470: same guard as the plain path, with one extra let-through —
       // a typed call that produced `output` delivered its answer even when the
@@ -1040,9 +1057,30 @@ export class OpenAICompatSdkClient implements LLMClient {
       // caller's parseJsonResponse can take its empty-input branch.
       // See the long comment in createMessage for the rationale.
       if (NoOutputGeneratedError.isInstance(err)) {
+        // Issue #506, origin (b): generateText resolved but the output
+        // getter threw — the composite text built from the reasoning
+        // channel is still in scope. Hand it to the caller's repair path
+        // (parseJsonResponse Layer 3) instead of discarding it.
+        if (recoveredText.trim() !== '') {
+          console.debug(
+            `[NO-OUTPUT-GENERATED] (typed) baseURL=${this.baseURL} model=${model} ` +
+            `no parseable output; returning ${recoveredText.length}-char composite ` +
+            `from the reasoning channel for caller-side repair`,
+          );
+          reportFinish(onFinish, 'stop', undefined);
+          return {
+            text: recoveredText,
+            output: undefined,
+            outputMode: currentMode,
+            finishReason: 'stop',
+            usage: recoveredUsage,
+          };
+        }
         console.debug(
           `[NO-OUTPUT-GENERATED] (typed) baseURL=${this.baseURL} model=${model} ` +
-          `model produced zero output across step retries — returning empty quiet path`,
+          `model produced zero output across step retries — returning empty quiet path ` +
+          `(hint: a reasoning model may have spent maxOutputTokens on the reasoning channel; ` +
+          `a per-step policy like \`<task>=text:off\` in the LLM Advanced settings can disable it)`,
         );
         reportFinish(onFinish, 'stop', undefined);
         return {
