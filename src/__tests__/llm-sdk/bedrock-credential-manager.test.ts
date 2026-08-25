@@ -58,6 +58,38 @@ describe('BedrockAuthManager — IAM dispatch', () => {
     await expect(manager.getCredentials({ method: 'iam', region: 'us-east-1' }))
       .rejects.toThrow('IAM access keys are not configured');
   });
+
+  it('memoizes IAM keys so SecretStorage is read once per load', async () => {
+    const storage = memoryStorage();
+    storage.set(BEDROCK_IAM_SECRET_ID, JSON.stringify({ accessKeyId: 'AKIA', secretAccessKey: 'sk' }));
+    let reads = 0;
+    const manager = new BedrockAuthManager({
+      ssoSecretId: BEDROCK_SSO_SECRET_ID,
+      iamSecretId: BEDROCK_IAM_SECRET_ID,
+      secretStorage: {
+        getSecret: (id: string) => {
+          if (id === BEDROCK_IAM_SECRET_ID) reads += 1;
+          return storage.get(id) ?? null;
+        },
+        setSecret: (id: string, value: string) => { storage.set(id, value); },
+      },
+      fetchFn: vi.fn(),
+      now: NOW,
+    });
+    await manager.getCredentials({ method: 'iam', region: 'us-east-1' });
+    await manager.getCredentials({ method: 'iam', region: 'us-east-1' });
+    await manager.getCredentials({ method: 'iam', region: 'ap-southeast-1' });
+    expect(reads).toBe(1); // two region configs, one store read
+    // saveIamKeys refreshes the mirror; clearIamKeys drops it.
+    manager.saveIamKeys({ accessKeyId: 'AKIA-2', secretAccessKey: 'sk-2' });
+    await expect(manager.getCredentials({ method: 'iam', region: 'us-east-1' }))
+      .resolves.toEqual({ accessKeyId: 'AKIA-2', secretAccessKey: 'sk-2' });
+    expect(reads).toBe(1);
+    manager.clearIamKeys();
+    await expect(manager.getCredentials({ method: 'iam', region: 'us-east-1' }))
+      .rejects.toThrow('not configured');
+    expect(reads).toBe(2);
+  });
 });
 
 describe('BedrockAuthManager — SSO dispatch and caching', () => {
@@ -139,6 +171,29 @@ describe('BedrockAuthManager — SSO dispatch and caching', () => {
     expect(b).toEqual(a);
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
+
+  it('keys the credential exchange on the stored SSO region, not the inference region', async () => {
+    const storage = memoryStorage();
+    seedSsoToken(storage, START + 8 * 3600_000); // IdC homed in eu-central-1
+    const fetchFn = portalSuccess();
+    const { manager } = makeManager({ storage, fetchFn });
+    // Inference runs in a different region than the Identity Center home.
+    await manager.getCredentials({ method: 'sso', region: 'us-west-2', accountId: '123456789012', roleName: 'PowerUserAccess' });
+    const [url] = fetchFn.mock.calls[0];
+    expect(String(url)).toContain('portal.sso.eu-central-1.amazonaws.com');
+    expect(String(url)).not.toContain('us-west-2');
+  });
+
+  it('shares the temp-credential cache across inference-region switches', async () => {
+    const storage = memoryStorage();
+    seedSsoToken(storage, START + 8 * 3600_000);
+    const fetchFn = portalSuccess();
+    const { manager } = makeManager({ storage, fetchFn });
+    const a = await manager.getCredentials({ method: 'sso', region: 'eu-central-1', accountId: '1', roleName: 'r' });
+    const b = await manager.getCredentials({ method: 'sso', region: 'us-west-2', accountId: '1', roleName: 'r' });
+    expect(b.accessKeyId).toBe(a.accessKeyId);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('BedrockAuthManager — device login orchestration', () => {
@@ -172,15 +227,18 @@ describe('BedrockAuthManager — device login orchestration', () => {
     }
   });
 
-  it('signOut clears both stores and the credential cache', async () => {
+  it('signOut clears the SSO store + credential cache but keeps IAM keys', async () => {
     const storage = memoryStorage();
     storage.set(BEDROCK_IAM_SECRET_ID, JSON.stringify({ accessKeyId: 'A', secretAccessKey: 'B' }));
     const { manager } = makeManager({ storage });
     expect(manager.hasIamKeys()).toBe(true);
     manager.signOut();
-    expect(manager.hasIamKeys()).toBe(false);
+    // The SSO section's Sign out is SSO-only — IAM is a separate auth path
+    // with its own Clear button, so destroying both would silently lock out
+    // a user who configured both modes (DocTpoint #540 review note).
+    expect(manager.hasIamKeys()).toBe(true);
     expect(manager.hasSsoToken()).toBe(false);
-    expect(storage.get(BEDROCK_IAM_SECRET_ID)).toBe('');
+    expect(storage.get(BEDROCK_IAM_SECRET_ID)).not.toBe('');
   });
 
   it('dispose drops in-memory caches but keeps the persisted token', () => {

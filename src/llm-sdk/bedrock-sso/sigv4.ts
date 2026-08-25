@@ -12,6 +12,11 @@
  * has one. AWS requires only host + x-amz-date (+ security token); the
  * conformance vector post-x-www-form-urlencoded proves content-type
  * participates correctly when we do sign it.
+ *
+ * Path canonicalization: `url.pathname` is used verbatim (the non-S3
+ * rule — no per-segment double-encoding). Correct for today's static
+ * bedrock-mantle paths; revisit if a path ever carries a `:`-style
+ * escaped segment.
  */
 
 export interface SigV4SigningInput {

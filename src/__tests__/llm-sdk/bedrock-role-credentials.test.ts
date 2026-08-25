@@ -80,6 +80,20 @@ describe('listAccounts / listAccountRoles (post-login prefill)', () => {
     expect(String(url)).toContain(`${PORTAL}/assignment/accounts`);
   });
 
+  it('drops account entries that lack a usable accountId', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({
+      accountList: [
+        { accountId: '123456789012', accountName: 'prod' },
+        { accountName: 'missing-id' },
+        { accountId: '', accountName: 'empty-id' },
+        'junk',
+      ],
+    }));
+    await expect(listAccounts(fetchFn, REGION, 'tok')).resolves.toEqual([
+      { accountId: '123456789012', accountName: 'prod' },
+    ]);
+  });
+
   it('parses the role list for one account', async () => {
     const fetchFn = vi.fn().mockResolvedValue(jsonResponse({
       roleList: [{ roleName: 'AdministratorAccess', accountId: '123456789012' }],

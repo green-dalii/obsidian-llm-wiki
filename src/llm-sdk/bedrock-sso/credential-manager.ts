@@ -19,7 +19,7 @@ import {
   startDeviceAuthorization,
 } from './sso-oidc';
 import { getRoleCredentials, listAccountRoles, listAccounts } from './role-credentials';
-import { BedrockSsoExpiredError, type BedrockCredentials } from './types';
+import { BedrockSsoExpiredError, type BedrockCredentials, type BedrockIamKeys } from './types';
 
 export interface BedrockAuthManagerOptions {
   ssoSecretId: string;
@@ -49,8 +49,8 @@ interface TempCredEntry extends BedrockCredentials {
   cachedExpiry: number;
 }
 
-function cacheKeyOf(config: BedrockAuthConfig): string {
-  return `${config.region}|${config.accountId ?? ''}|${config.roleName ?? ''}`;
+function cacheKeyOf(ssoRegion: string, config: BedrockAuthConfig): string {
+  return `${ssoRegion}|${config.accountId ?? ''}|${config.roleName ?? ''}`;
 }
 
 export class BedrockAuthManager {
@@ -61,6 +61,8 @@ export class BedrockAuthManager {
   /** Temporary credentials — memory only, keyed by account+role+region. */
   private readonly tempCredCache = new Map<string, TempCredEntry>();
   private readonly inFlight = new Map<string, Promise<BedrockCredentials>>();
+  /** Mirror of the IAM store — avoids a SecretStorage read per request. */
+  private iamKeyMirror: BedrockIamKeys | null = null;
 
   constructor(options: BedrockAuthManagerOptions) {
     this.ssoStore = new BedrockSsoCredentialStore(options.secretStorage, options.ssoSecretId);
@@ -83,11 +85,13 @@ export class BedrockAuthManager {
 
   saveIamKeys(keys: { accessKeyId: string; secretAccessKey: string; sessionToken?: string }): void {
     this.iamStore.save(keys);
+    this.iamKeyMirror = keys;
   }
 
   /** Wipes ONLY the static IAM keys — the SSO token is untouched. */
   clearIamKeys(): void {
     this.iamStore.clear();
+    this.iamKeyMirror = null;
   }
 
   /**
@@ -144,22 +148,34 @@ export class BedrockAuthManager {
       throw new Error('bedrockAuthMethod "api-key" never resolves AWS credentials');
     }
     if (config.method === 'iam') {
+      if (this.iamKeyMirror) return { ...this.iamKeyMirror };
       const keys = this.iamStore.load();
       if (!keys) throw new Error('IAM access keys are not configured — enter them in Settings');
-      return keys;
+      // Mirror after the first read so the Gate-4 invariant "SecretStorage
+      // reads only on auth actions" holds on this path too; saveIamKeys and
+      // clearIamKeys keep the mirror fresh.
+      this.iamKeyMirror = keys;
+      return { ...keys };
     }
 
     const token = this.ssoStore.load();
     if (!token || token.expiresAt - this.now() <= BEDROCK_TEMP_CRED_SKEW_MS) {
       throw new BedrockSsoExpiredError();
     }
+    // The credential exchange is homed in the Identity Center region
+    // (persisted on the token at login), NOT the inference region. IdC
+    // lives in exactly one region per org (AWS separates sso_region from
+    // region for this reason): keying on config.region would break any org
+    // whose IdC differs from its inference region, and a region-dropdown
+    // switch after login would surface as a misleading "SSO expired" (401).
+    const ssoRegion = token.region;
     const accountId = config.accountId ?? '';
     const roleName = config.roleName ?? '';
     if (accountId.length === 0 || roleName.length === 0) {
       throw new Error('AWS SSO needs an Account ID and Role Name in Settings');
     }
 
-    const key = cacheKeyOf(config);
+    const key = cacheKeyOf(ssoRegion, config);
     const cached = this.tempCredCache.get(key);
     if (cached && cached.cachedExpiry - this.now() > BEDROCK_TEMP_CRED_SKEW_MS) {
       return { ...cached };
@@ -168,7 +184,7 @@ export class BedrockAuthManager {
     if (existing) return existing;
 
     const exchange = getRoleCredentials(
-      this.fetchFn, config.region, token.accessToken, accountId, roleName,
+      this.fetchFn, ssoRegion, token.accessToken, accountId, roleName,
     )
       .then(creds => {
         // Cache against the portal-reported expiry when present,
@@ -206,9 +222,14 @@ export class BedrockAuthManager {
     }
   }
 
+  /**
+   * SSO sign-out (the Settings SSO-section button): wipes ONLY the SSO
+   * token and the temp-credential cache. Static IAM keys are a separate
+   * auth path with their own Clear button (clearIamKeys) — destroying them
+   * here would silently lock out a user who configured both modes.
+   */
   signOut(): void {
     this.ssoStore.clear();
-    this.iamStore.clear();
     this.tempCredCache.clear();
   }
 
@@ -220,5 +241,6 @@ export class BedrockAuthManager {
   dispose(): void {
     this.tempCredCache.clear();
     this.inFlight.clear();
+    this.iamKeyMirror = null;
   }
 }
