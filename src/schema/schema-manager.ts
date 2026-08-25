@@ -102,16 +102,32 @@ export function stripLegacyBakedTagEnum(body: string): string {
 // Re-export tag constants from types.ts for convenience
 export { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, DEFAULT_ENTITY_TAG, DEFAULT_CONCEPT_TAG };
 
+// Issue #491 (oversight reading): the delivery map previously named only six
+// of the eleven sections the default body writes, so five — Source Page
+// Template, Date Fields, Mentions Format, Content Rules, Multi-Source Merge
+// Rules — reached just the 'full' callers and never ingest, generation, or
+// merge, while the file tells the user "edit it freely". #328 Phase 1 made
+// this file pure user domain knowledge whose edits must take effect, so the
+// map now delivers each section where it is semantically owned:
+//
+//   - Content Rules (the VERBATIM/grounding layer) → analyze/entity/concept
+//   - Mentions Format                              → entity/concept/summary
+//   - Source Page Template                         → summary (wiki-engine's
+//     buildSystemPrompt('summary') is the site that writes sources/<slug>.md)
+//   - Multi-Source Merge Rules + Date Fields       → merge
+//
+// Date Fields' programmatic-fill half is engine fact (#328 layer 3); moving
+// it to runtime injection wholesale remains future work.
 const TASK_SECTIONS: Record<SchemaTask, string[]> = {
-  analyze: ['Wiki Structure', 'Classification Rules', 'Naming Conventions'],
-  summary: ['Wiki Structure', 'Classification Rules'],
-  entity: ['Entity Page Template', 'Naming Conventions', 'Classification Rules'],
-  concept: ['Concept Page Template', 'Naming Conventions', 'Classification Rules'],
+  analyze: ['Wiki Structure', 'Classification Rules', 'Naming Conventions', 'Content Rules'],
+  summary: ['Wiki Structure', 'Classification Rules', 'Source Page Template', 'Mentions Format'],
+  entity: ['Entity Page Template', 'Naming Conventions', 'Classification Rules', 'Mentions Format', 'Content Rules'],
+  concept: ['Concept Page Template', 'Naming Conventions', 'Classification Rules', 'Mentions Format', 'Content Rules'],
   related: ['Naming Conventions', 'Classification Rules'],
   conversation: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules'],
   index: ['Wiki Structure'],
   lint: ['Maintenance Policies'],
-  merge: ['Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules'],
+  merge: ['Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules', 'Multi-Source Merge Rules', 'Date Fields'],
   full: ['Wiki Structure', 'Entity Page Template', 'Concept Page Template', 'Naming Conventions', 'Classification Rules', 'Maintenance Policies'],
 };
 
