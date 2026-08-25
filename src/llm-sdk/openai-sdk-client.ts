@@ -372,6 +372,8 @@ export class OpenAISdkClient implements LLMClient {
     top_p?: number;
     repetition_penalty?: number;
     seed?: number;
+    /** Step label for per-task accounting (Issue #469). Not consumed here — interface conformance. */
+    task?: string;
   }): Promise<string> {
     const { model, max_tokens, system, messages, onChunk, temperature, top_p, repetition_penalty, seed, enableThinking } = params;
 

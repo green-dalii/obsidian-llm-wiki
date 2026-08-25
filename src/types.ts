@@ -879,6 +879,8 @@ export interface LLMClient {
     top_p?: number;
     seed?: number;
     repetition_penalty?: number;
+    /** Step label for per-task LLM accounting (Issue #469) — same contract as createMessage. */
+    task?: string;
     /** Issue: streamed answers were truncated silently — surface finish_reason. */
     onFinish?: (meta: LLMFinishMeta) => void;
   }): Promise<string>;

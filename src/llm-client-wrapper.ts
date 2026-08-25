@@ -111,11 +111,12 @@ export function wrapWithAdvancedSettings(
 
   // Issue #451: createMessageStream previously inherited verbatim via
   // Object.create, silently dropping advanced settings on the stream path.
-  // 'untagged' is hardcoded for task accounting — see Issue #469 for the
-  // follow-up to extend the interface with a task field.
+  // Issue #469: the interface now carries a task label, so the stream path
+  // accounts under the step like every other caller — Query Wiki streams
+  // under 'query-wiki' instead of a merged 'untagged' row.
   if (client.createMessageStream) {
-    wrapper.createMessageStream = (params) => withTaskAccounting(undefined, async () => {
-      logLlmCall(undefined, params.model, params.max_tokens, 'stream');
+    wrapper.createMessageStream = (params) => withTaskAccounting(params.task, async () => {
+      logLlmCall(params.task, params.model, params.max_tokens, 'stream');
       return client.createMessageStream!({
         ...params,
         ...injectAdvancedSettings(params, settings, capTokens),

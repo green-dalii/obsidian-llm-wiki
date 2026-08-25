@@ -284,6 +284,8 @@ export class AnthropicSdkClient implements LLMClient {
     // Anthropic is not repeatable no matter what the setting says — see the
     // note on `samplingSeed` in types.ts.
     repetition_penalty?: number;
+    /** Step label for per-task accounting (Issue #469). Not consumed here — forwarded for interface conformance. */
+    task?: string;
   }): Promise<string> {
     const { model, max_tokens, system, messages, onChunk, temperature, top_p, repetition_penalty, enableThinking } = params;
 

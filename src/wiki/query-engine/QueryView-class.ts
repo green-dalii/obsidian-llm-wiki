@@ -538,6 +538,10 @@ export class QueryView extends ItemView {
         try {
           fullResponse = await this.plugin.llmClient.createMessageStream({
             model: queryModel,
+            // Issue #469: the streamed chat answer is a known step — label it
+            // for per-task accounting (distinct from query-view-evaluate, the
+            // separate save-to-wiki judgement call at the top of this method).
+            task: 'query-wiki' as const,
             // Issue #75 cap applied here rather than inherited: QueryView pre-caps
             // so the value is explicit and the `maxTokensPerCall=0` case
             // (no wrapper cap) is still covered. Post-#451 the wrapper

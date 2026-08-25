@@ -115,6 +115,50 @@ describe('wrapWithAdvancedSettings — per-step accounting', () => {
     ).rejects.toThrow('boom');
     expect(new Map(taskUsageSince(before)).get('dedup')?.calls).toBe(1);
   });
+
+  describe('stream path (Issue #469)', () => {
+    const streamSettings = { maxTokensPerCall: 0 } as WrapperSettings;
+
+    function streamClientSpy() {
+      const calls: Array<Record<string, unknown>> = [];
+      const createMessageStream = vi.fn(async (params: Record<string, unknown>) => {
+        calls.push(params);
+        return '';
+      });
+      const client = { createMessageStream } as unknown as LLMClient;
+      return { client, calls };
+    }
+
+    it('records a labelled stream call under its task label, not untagged', async () => {
+      const { client } = streamClientSpy();
+      const before = snapshotTaskUsage();
+      await wrapWithAdvancedSettings(client, streamSettings)
+        .createMessageStream!({
+          ...CALL,
+          task: 'query-wiki',
+          onChunk: () => {},
+        });
+      expect(new Map(taskUsageSince(before)).get('query-wiki')?.calls).toBe(1);
+      expect(new Map(taskUsageSince(before)).get('untagged')?.calls).toBeUndefined();
+    });
+
+    it('records an unlabelled stream call under untagged (no fabricated suffix)', async () => {
+      const { client } = streamClientSpy();
+      const before = snapshotTaskUsage();
+      await wrapWithAdvancedSettings(client, streamSettings)
+        .createMessageStream!({ ...CALL, onChunk: () => {} });
+      expect(new Map(taskUsageSince(before)).get('untagged')?.calls).toBe(1);
+    });
+
+    it('forwards a caller-provided temperature with no silent drop on the stream path', async () => {
+      // QueryView passes chatTemperature itself; the wrapper must not
+      // overwrite it (mirrors the createMessage caller-wins contract).
+      const { client, calls } = streamClientSpy();
+      await wrapWithAdvancedSettings(client, streamSettings)
+        .createMessageStream!({ ...CALL, task: 'query-wiki', temperature: 0.7, onChunk: () => {} });
+      expect(calls[0]?.temperature).toBe(0.7);
+    });
+  });
 });
 
 // v1.26.3 PATCH Phase B (Issue #443): the typed-output variant must pass
