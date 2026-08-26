@@ -72,6 +72,28 @@ await esbuild.build({
   },
 });
 
+/**
+ * Install the `window` / `activeWindow` globals that production engine code
+ * expects (`window.setTimeout(...)` ×12 sites, `src/llm-sdk/*` setTimeout(0)
+ * yields). Node 22+ has `setTimeout` on the global object but not under the
+ * `window` alias, so without this the bundled engine throws ReferenceError on
+ * the first SDK stream-yield.
+ *
+ * Lives HERE, in the launcher, not in shim.ts: environment assembly is the
+ * launcher's job, and keeping the shim import-pure means importing it has no
+ * global side effects. It must run before the bundle import below — module
+ * evaluation order guarantees every engine module sees the aliases. The
+ * launcher is a `.mjs` file, outside the Obsidian review bot's `.ts` scan
+ * scope (and outside any Obsidian window — this is plain Node), which is
+ * where the `obsidianmd/no-global-this` rule's popout-window concern is moot.
+ */
+function installEngineGlobals() {
+  const g = globalThis;
+  g.window = g;
+  g.activeWindow = g;
+}
+installEngineGlobals();
+
 const { main } = await import(pathToFileURL(OUT_PATH).href);
 try {
   process.exitCode = await main(process.argv.slice(2));

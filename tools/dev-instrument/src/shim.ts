@@ -16,33 +16,12 @@
 // "the engine never calls it" does not keep the instrument runnable. The body
 // writes through process.stdout.write; the legacy console.log form triggered
 // `obsidianmd/rule-custom-message` (no-console) Warnings.
-
-/**
- * Install minimal Obsidian window/activeWindow globals that production
- * engine code references (`window.setTimeout(...)`, `activeWindow.foo`).
- * Node 22+ has `setTimeout` directly on the global object, just not under
- * the `window` alias. Without this shim the bundled engine throws
- * ReferenceError on the first SDK stream-yield (e.g.
- * `src/wiki/wiki-engine.ts:1241` apiDelay, `wiki-engine.ts:1480` retry,
- * `src/llm-sdk/*-sdk-client.ts` setTimeout(0) yields).
- *
- * Replaces `tools/llm-wiki-cli/src/node-globals.ts:18-22` (deleted in the
- * v1.27.0 MINOR migration per issue #507).
- *
- * The global object is reached through a local alias rather than a bare
- * `globalThis`: in Node they name the same object, and this instrument runs
- * under plain Node only — never inside an Obsidian (popout) window, which
- * is the ambiguity `obsidianmd/no-global-this` guards against.
- */
-function installObsidianGlobals(): void {
-  // Local binding so ESLint scope analysis resolves the identifier to a
-  // declaration instead of the banned global (rule passes declared names).
-  const nodeGlobalObject = globalThis;
-  const g = nodeGlobalObject as Record<string, unknown>;
-  g.window = nodeGlobalObject;
-  g.activeWindow = nodeGlobalObject;
-}
-installObsidianGlobals();
+//
+// The `window` / `activeWindow` globals that production engine code expects
+// are installed by the launcher (`run-instrument.mjs`, `installEngineGlobals`)
+// BEFORE importing the built bundle — not here. Keeping this module pure means
+// importing the shim has no global side effects; see run-instrument.mjs for
+// why the launcher is the right owner of environment assembly.
 
 export interface App {
   vault: unknown;

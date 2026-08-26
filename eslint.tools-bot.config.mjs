@@ -82,6 +82,21 @@ export default [
       globals: NODE_GLOBALS,
     },
   },
+  // Scan-scope alignment: the official review bot walks the repo `.ts` tree
+  // only — the `.mjs` launcher has never appeared in any official pre-review
+  // report. Turning just the `obsidianmd/*` rules off for `.mjs` mirrors that
+  // scope (local findings == official findings) while core ESLint rules and
+  // shared plugins (no-unsanitized etc.) still run on the launcher, keeping
+  // local-only signals visible.
+  {
+    files: ["tools/**/*.mjs"],
+    rules: Object.fromEntries(
+      obsidianmd.configs.recommended
+        .flatMap((c) => Object.keys(c.rules ?? {}))
+        .filter((ruleName) => ruleName.startsWith("obsidianmd/"))
+        .map((ruleName) => [ruleName, "off"]),
+    ),
+  },
   // esbuild output (run-instrument.mjs's dist/, plus the bundle smoke test's
   // dist/test-bundle.mjs) — build artifacts, gitignored, never source. The
   // shim-bundle test regenerates one on every Gate 1 run, so without this
