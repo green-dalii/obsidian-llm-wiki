@@ -881,6 +881,14 @@ export class OpenAICompatSdkClient implements LLMClient {
     // empty quiet shape.
     let recoveredText = '';
     let recoveredUsage: LLMUsage | undefined;
+    // DocTpoint review (PR #544): origin (b)'s true finish reason — typically
+    // `length` when reasoning burned the budget — must survive the recovery.
+    // The early reportFinish above already told the truth; a second
+    // ('stop', undefined) report in the catch would overwrite it
+    // (last-write-wins in consumers like source-analyzer), and the returned
+    // finishReason feeds length-keyed remedies that would never fire on a
+    // masked 'stop'.
+    let recoveredFinishReason: LLMFinishReason = 'stop';
 
     try {
       const languageModel = this.getProvider(model, this.fetchImpl);
@@ -927,6 +935,7 @@ export class OpenAICompatSdkClient implements LLMClient {
       const usage = normalizeUsage(result.usage);
       recoveredText = text;
       recoveredUsage = usage;
+      recoveredFinishReason = result.finishReason;
       const output = readOutput<T>(result, currentMode);
       // Issue #470: same guard as the plain path, with one extra let-through —
       // a typed call that produced `output` delivered its answer even when the
@@ -1067,12 +1076,14 @@ export class OpenAICompatSdkClient implements LLMClient {
             `no parseable output; returning ${recoveredText.length}-char composite ` +
             `from the reasoning channel for caller-side repair`,
           );
-          reportFinish(onFinish, 'stop', undefined);
+          // No second reportFinish here — the early one after generateText
+          // already delivered the true finishReason/usage (DocTpoint PR #544:
+          // last-write-wins consumers would otherwise see a masked 'stop').
           return {
             text: recoveredText,
             output: undefined,
             outputMode: currentMode,
-            finishReason: 'stop',
+            finishReason: recoveredFinishReason,
             usage: recoveredUsage,
           };
         }

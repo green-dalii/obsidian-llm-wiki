@@ -1680,6 +1680,50 @@ describe('OpenAICompatSdkClient', () => {
       expect(result.usage).toBeUndefined();
     });
 
+    it('recovery branch preserves the true finishReason and reports finish exactly once (#544)', async () => {
+      // DocTpoint PR #544 review: in origin (b) — generateText RESOLVED, the
+      // output getter then threw NoOutputGeneratedError — the early
+      // reportFinish already delivered the true finishReason (typically
+      // `length` when reasoning burned the budget). The recovery branch must
+      // not re-report ('stop', undefined): last-write-wins consumers like
+      // source-analyzer would see a masked 'stop', so length-keyed remedies
+      // never fire on a budget-truncated composite. The returned object must
+      // carry the hoisted reason too.
+      mockGenerateText.mockReset();
+      const resolved = {
+        ...makeResultWithReasoning('', 'truncated json from the reasoning channel'),
+        finishReason: 'length',
+      } as Awaited<ReturnType<typeof generateText>>;
+      // The output getter throws AFTER resolution — mirrors ai@6.0.230's
+      // readOutput path where Output.json() finds nothing parseable.
+      Object.defineProperty(resolved, 'output', {
+        get() { throw makeNoOutputError(); },
+        configurable: true,
+      });
+      mockGenerateText.mockResolvedValueOnce(resolved);
+
+      const onFinish = vi.fn();
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'https://api.deepseek.com/v1',
+        provider: 'deepseek',
+      });
+      const result = await client.createMessageWithOutput!({
+        model: 'deepseek-v4-flash',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: 'extract' }],
+        response_format: { type: 'json_object' },
+        onFinish,
+      });
+
+      expect(result.text).toContain('truncated json');
+      expect(result.output).toBeUndefined();
+      expect(result.finishReason).toBe('length');
+      expect(result.usage).toBeDefined();
+      expect(onFinish).toHaveBeenCalledTimes(1);
+      expect(onFinish.mock.calls[0][0].finishReason).toBe('length');
+    });
+
     it('does NOT trigger 3-tier demotion chain on NoOutputGeneratedError (different error class)', async () => {
       // The 3-tier chain runs on APICallError + statusCode===400.
       // NoOutputGeneratedError is AISDKError, not APICallError — same
