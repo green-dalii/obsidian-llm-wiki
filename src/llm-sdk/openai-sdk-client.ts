@@ -155,6 +155,7 @@ export class OpenAISdkClient implements LLMClient {
         // object but TypeScript can't narrow `unknown` → JSONValue
         // automatically. Cast at the boundary; runtime behavior is fine.
         providerOptions: this.buildProviderOptions({
+          model,
           enableThinking,
           repetitionPenalty: repetition_penalty,
           // Built here, discarded by the SDK. `createOpenAI()(modelId)` returns
@@ -193,6 +194,7 @@ export class OpenAISdkClient implements LLMClient {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           maxOutputTokens: max_tokens,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking,
             repetitionPenalty: repetition_penalty,
             responseFormat: response_format,
@@ -219,7 +221,7 @@ export class OpenAISdkClient implements LLMClient {
         err.statusCode === 400 &&
         enableThinking === false &&
         this.baseURL !== undefined &&
-        !this.reasoningStripProber.shouldStrip(this.baseURL) &&
+        !this.reasoningStripProber.shouldStrip(this.baseURL, model) &&
         ReasoningStripProber.isReasoningFieldError(err.message ?? '')
       ) {
         const retryLanguageModel = this.getProvider(model, this.fetchImpl);
@@ -230,6 +232,7 @@ export class OpenAISdkClient implements LLMClient {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           maxOutputTokens: max_tokens,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking: true,
             repetitionPenalty: repetition_penalty,
             responseFormat: response_format,
@@ -239,7 +242,7 @@ export class OpenAISdkClient implements LLMClient {
         // Retry succeeded — commit the cache decision now. If the
         // retry above throws, this line never runs and the cache is
         // untouched; the outer catch propagates the error.
-        this.reasoningStripProber.markStrip(this.baseURL);
+        this.reasoningStripProber.markStrip(this.baseURL, model);
         reportFinish(onFinish, result.finishReason, result.usage);
         return result.text;
       }
@@ -266,6 +269,8 @@ export class OpenAISdkClient implements LLMClient {
    * matches the v1.20.0 "provider-first thinking control" policy.
    */
   private buildProviderOptions(opts: {
+    /** Issue #551: the strip cache is keyed per (baseURL, model). */
+    model: string;
     enableThinking?: boolean;
     repetitionPenalty?: number;
     responseFormat?: { type: 'json_object' };
@@ -278,7 +283,7 @@ export class OpenAISdkClient implements LLMClient {
 
     if (
       opts.enableThinking === false &&
-      !(this.baseURL !== undefined && this.reasoningStripProber.shouldStrip(this.baseURL))
+      !(this.baseURL !== undefined && this.reasoningStripProber.shouldStrip(this.baseURL, opts.model))
     ) {
       // v1.26.0 Batch 6 + Bug-1 fix: switch from 'low' to 'none' for the
       // official OpenAI Responses path; gate on shouldStrip(baseURL).
@@ -394,6 +399,7 @@ export class OpenAISdkClient implements LLMClient {
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         maxOutputTokens: max_tokens,
         providerOptions: this.buildProviderOptions({
+          model,
           enableThinking,
           repetitionPenalty: repetition_penalty,
         }) as unknown as Parameters<typeof streamText>[0]['providerOptions'],
@@ -457,6 +463,7 @@ export class OpenAISdkClient implements LLMClient {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           maxOutputTokens: max_tokens,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof streamText>[0]['providerOptions'],
@@ -496,7 +503,7 @@ export class OpenAISdkClient implements LLMClient {
         err.statusCode === 400 &&
         enableThinking === false &&
         this.baseURL !== undefined &&
-        !this.reasoningStripProber.shouldStrip(this.baseURL) &&
+        !this.reasoningStripProber.shouldStrip(this.baseURL, model) &&
         ReasoningStripProber.isReasoningFieldError(err.message ?? '')
       ) {
         const retryLanguageModel = this.getProvider(model, this.streamFetchImpl);
@@ -507,6 +514,7 @@ export class OpenAISdkClient implements LLMClient {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           maxOutputTokens: max_tokens,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking: true,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof streamText>[0]['providerOptions'],
@@ -528,7 +536,7 @@ export class OpenAISdkClient implements LLMClient {
         } catch { /* no reasoning */ }
         // Bug-3: markStrip AFTER retry succeeds. If the stream throws,
         // the cache stays untouched and the outer catch propagates.
-        this.reasoningStripProber.markStrip(this.baseURL);
+        this.reasoningStripProber.markStrip(this.baseURL, model);
         if (reasoningContent) {
           fullText = wrapReasoningContent(reasoningContent, fullText);
         }

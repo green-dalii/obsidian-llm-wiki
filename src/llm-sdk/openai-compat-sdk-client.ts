@@ -233,7 +233,7 @@ export class OpenAICompatSdkClient implements LLMClient {
       // (max_tokens). On rejection we probe + cache + next request
       // uses the swapped key.
       transformRequestBody: (args: Record<string, unknown>) => {
-        const cached = this.tokenKeyProber.getCachedKey(this.baseURL);
+        const cached = this.tokenKeyProber.getCachedKey(this.baseURL, modelId);
         if (!cached) return args;
         if (cached === 'max_tokens') return args;
         // cached === 'max_completion_tokens'
@@ -336,6 +336,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         maxOutputTokens: max_tokens,
         ...outputArgs,
         providerOptions: this.buildProviderOptions({
+          model,
           enableThinking,
           reasoningEffort,
           repetitionPenalty: repetition_penalty,
@@ -503,6 +504,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           maxOutputTokens: max_tokens,
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking,
             reasoningEffort,
             repetitionPenalty: repetition_penalty,
@@ -555,7 +557,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         APICallError.isInstance(err) &&
         err.statusCode === 400 &&
         enableThinking === false &&
-        !this.reasoningStripProber.shouldStrip(this.baseURL) &&
+        !this.reasoningStripProber.shouldStrip(this.baseURL, model) &&
         ReasoningStripProber.isReasoningFieldError(err.responseBody ?? err.message ?? '')
       ) {
         // [DEBUG-LOG v1.26.3 E2E] reasoning-strip probe matched — the
@@ -587,6 +589,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           maxOutputTokens: max_tokens,
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking: true,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof generateText>[0]['providerOptions'],
@@ -595,7 +598,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         // Retry succeeded — commit the cache decision now. If the
         // retry above throws, this line never runs and the cache is
         // untouched; the outer catch propagates the error.
-        this.reasoningStripProber.markStrip(this.baseURL);
+        this.reasoningStripProber.markStrip(this.baseURL, model);
         console.debug(`[REASONING-STRIP-DEBUG] baseURL=${this.baseURL} cache committed (markStrip). Future calls on this baseURL will skip the probe.`);
         reportFinish(onFinish, result.finishReason, result.usage);
         return result.text;
@@ -721,6 +724,7 @@ export class OpenAICompatSdkClient implements LLMClient {
             maxOutputTokens: max_tokens,
             ...buildOutputArgs(response_format, demotedMode),
             providerOptions: this.buildProviderOptions({
+              model,
               enableThinking,
               reasoningEffort,
               repetitionPenalty: repetition_penalty,
@@ -770,10 +774,10 @@ export class OpenAICompatSdkClient implements LLMClient {
       // error message clearly names a reasoning-related field, or
       // `json_object` / `response_format`). Token-key is the broader
       // catch-all for any other 400.
-      if (APICallError.isInstance(err) && err.statusCode === 400 && !this.tokenKeyProber.getCachedKey(this.baseURL)) {
+      if (APICallError.isInstance(err) && err.statusCode === 400 && !this.tokenKeyProber.getCachedKey(this.baseURL, model)) {
         // The default wire format is `max_tokens`. If the gateway
         // rejected it, try `max_completion_tokens`.
-        this.tokenKeyProber.setCachedKey(this.baseURL, 'max_completion_tokens');
+        this.tokenKeyProber.setCachedKey(this.baseURL, model, 'max_completion_tokens');
         const retryLanguageModel = this.getProvider(model, this.fetchImpl);
         const { generateText } = await import('ai');
         const result = await generateText({
@@ -783,6 +787,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           maxOutputTokens: max_tokens,
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking,
             reasoningEffort,
             repetitionPenalty: repetition_penalty,
@@ -900,6 +905,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         maxOutputTokens: max_tokens,
         ...outputArgs,
         providerOptions: this.buildProviderOptions({
+          model,
           enableThinking,
           reasoningEffort,
           repetitionPenalty: repetition_penalty,
@@ -1020,6 +1026,7 @@ export class OpenAICompatSdkClient implements LLMClient {
                 maxOutputTokens: max_tokens,
                 ...buildOutputArgs(response_format, 'text_prompt'),
                 providerOptions: this.buildProviderOptions({
+                  model,
                   enableThinking,
                   reasoningEffort,
                   repetitionPenalty: repetition_penalty,
@@ -1120,6 +1127,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           maxOutputTokens: max_tokens,
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking,
             reasoningEffort,
             repetitionPenalty: repetition_penalty,
@@ -1180,6 +1188,7 @@ export class OpenAICompatSdkClient implements LLMClient {
               maxOutputTokens: max_tokens,
               ...buildOutputArgs(response_format, demotedMode),
               providerOptions: this.buildProviderOptions({
+                model,
                 enableThinking,
                 reasoningEffort,
                 repetitionPenalty: repetition_penalty,
@@ -1208,8 +1217,8 @@ export class OpenAICompatSdkClient implements LLMClient {
       }
 
       // Token-key probe (coarse any-400 fallback).
-      if (APICallError.isInstance(err) && err.statusCode === 400 && !this.tokenKeyProber.getCachedKey(this.baseURL)) {
-        this.tokenKeyProber.setCachedKey(this.baseURL, 'max_completion_tokens');
+      if (APICallError.isInstance(err) && err.statusCode === 400 && !this.tokenKeyProber.getCachedKey(this.baseURL, model)) {
+        this.tokenKeyProber.setCachedKey(this.baseURL, model, 'max_completion_tokens');
         const retryLanguageModel = this.getProvider(model, this.fetchImpl);
         const { generateText } = await import('ai');
         const result = await generateText({
@@ -1219,6 +1228,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           maxOutputTokens: max_tokens,
           ...outputArgs,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking,
             reasoningEffort,
             repetitionPenalty: repetition_penalty,
@@ -1269,6 +1279,8 @@ export class OpenAICompatSdkClient implements LLMClient {
    * full post-mortem.
    */
   private buildProviderOptions(opts: {
+    /** Issue #551: the strip cache is keyed per (baseURL, model). */
+    model: string;
     enableThinking?: boolean;
     reasoningEffort?: 'low' | 'medium' | 'high';
     repetitionPenalty?: number;
@@ -1280,9 +1292,9 @@ export class OpenAICompatSdkClient implements LLMClient {
     // takes precedence — asking for `low` and `none` at once is a contradiction
     // the policy layer cannot produce (`off` yields no effort) and that a call
     // site should not be able to smuggle in either.
-    if (opts.reasoningEffort && !this.reasoningStripProber.shouldStrip(this.baseURL)) {
+    if (opts.reasoningEffort && !this.reasoningStripProber.shouldStrip(this.baseURL, opts.model)) {
       openaiOpts.reasoningEffort = opts.reasoningEffort;
-    } else if (opts.enableThinking === false && !this.reasoningStripProber.shouldStrip(this.baseURL)) {
+    } else if (opts.enableThinking === false && !this.reasoningStripProber.shouldStrip(this.baseURL, opts.model)) {
       // v1.26.0 Batch 6: force-disable thinking via reasoningEffort.
       //
       // Prior mechanism (PR #410 / Batch 2) used `thinking.type: 'disabled'`
@@ -1440,6 +1452,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         // No effort here: the stream path carries no `task` label (#469), so
         // no per-step policy can be resolved for it.
         providerOptions: this.buildProviderOptions({
+          model,
           enableThinking,
           repetitionPenalty: repetition_penalty,
         }) as unknown as Parameters<typeof streamText>[0]['providerOptions'],
@@ -1515,6 +1528,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           maxOutputTokens: max_tokens,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof streamText>[0]['providerOptions'],
@@ -1555,7 +1569,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         APICallError.isInstance(err) &&
         err.statusCode === 400 &&
         enableThinking === false &&
-        !this.reasoningStripProber.shouldStrip(this.baseURL) &&
+        !this.reasoningStripProber.shouldStrip(this.baseURL, model) &&
         ReasoningStripProber.isReasoningFieldError(err.responseBody ?? err.message ?? '')
       ) {
         const retryLanguageModel = this.getProvider(model, this.streamFetchImpl);
@@ -1566,6 +1580,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           maxOutputTokens: max_tokens,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking: true,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof streamText>[0]['providerOptions'],
@@ -1584,7 +1599,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         // throws (network blip, transient 5xx), the cache is not
         // poisoned; the outer catch propagates the error and the
         // next call gets a fresh probe.
-        this.reasoningStripProber.markStrip(this.baseURL);
+        this.reasoningStripProber.markStrip(this.baseURL, model);
         if (reasoningContent) {
           fullText = wrapReasoningContent(reasoningContent, fullText);
         }
@@ -1594,8 +1609,8 @@ export class OpenAICompatSdkClient implements LLMClient {
       // v1.23.0 P1.5 follow-up: token-key probe-then-retry for streaming.
       // Same logic as createMessage — cache the alt key for this
       // baseURL and retry. No error-body inspection.
-      if (APICallError.isInstance(err) && err.statusCode === 400 && !this.tokenKeyProber.getCachedKey(this.baseURL)) {
-        this.tokenKeyProber.setCachedKey(this.baseURL, 'max_completion_tokens');
+      if (APICallError.isInstance(err) && err.statusCode === 400 && !this.tokenKeyProber.getCachedKey(this.baseURL, model)) {
+        this.tokenKeyProber.setCachedKey(this.baseURL, model, 'max_completion_tokens');
         const retryLanguageModel = this.getProvider(model, this.streamFetchImpl);
         const { streamText } = await import('ai');
         const result = streamText({
@@ -1604,6 +1619,7 @@ export class OpenAICompatSdkClient implements LLMClient {
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           maxOutputTokens: max_tokens,
           providerOptions: this.buildProviderOptions({
+            model,
             enableThinking,
             repetitionPenalty: repetition_penalty,
           }) as unknown as Parameters<typeof streamText>[0]['providerOptions'],

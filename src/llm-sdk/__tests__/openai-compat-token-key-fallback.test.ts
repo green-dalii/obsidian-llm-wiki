@@ -167,4 +167,48 @@ describe('OpenAICompatSdkClient — token-key fallback integration', () => {
     expect(result).toBe('other-ok');
     expect(mockGenerateText).toHaveBeenCalledTimes(1);
   });
+
+  it('lets a sibling model probe after another model populated the cache (#551)', async () => {
+    // mockReset (not clearAllMocks): the previous test leaves a consumed-
+    // once queue behind, and clearAllMocks does not drop queued
+    // implementations.
+    mockGenerateText.mockReset();
+    // Model A on the gateway rejects max_tokens: 400 → retry succeeds →
+    // the cache now holds a verdict for (baseURL, model-a).
+    mockGenerateText
+      .mockRejectedValueOnce(new APICallError({
+        message: 'status 400', statusCode: 400, responseBody: '{}',
+        responseHeaders: {}, url: 'https://gateway.example.com/v1/chat/completions',
+        requestBodyValues: {},
+      }))
+      .mockResolvedValueOnce({ text: 'a-ok' });
+
+    await client.createMessage({
+      model: 'model-a', max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+    expect(mockGenerateText).toHaveBeenCalledTimes(2);
+
+    // Model B on the SAME gateway also 400s on its first call. With the
+    // per-baseURL cache the retry guard `!getCachedKey(baseURL)` was
+    // already false — B's 400 was thrown and the repair path was
+    // permanently disabled for the whole gateway. Per (baseURL, model)
+    // B gets its own probe: retry fires and succeeds.
+    vi.clearAllMocks();
+    mockGenerateText
+      .mockRejectedValueOnce(new APICallError({
+        message: 'status 400', statusCode: 400, responseBody: '{}',
+        responseHeaders: {}, url: 'https://gateway.example.com/v1/chat/completions',
+        requestBodyValues: {},
+      }))
+      .mockResolvedValueOnce({ text: 'b-ok' });
+
+    const result = await client.createMessage({
+      model: 'model-b', max_tokens: 100,
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+
+    expect(result).toBe('b-ok');
+    expect(mockGenerateText).toHaveBeenCalledTimes(2);
+  });
 });

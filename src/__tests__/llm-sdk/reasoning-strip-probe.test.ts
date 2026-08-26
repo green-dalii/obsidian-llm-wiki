@@ -13,18 +13,29 @@ import { OutputModeProber } from '../../llm-sdk/output-mode-prober';
 // Batch 6: if the cache or the classifier ever drift, the tests fail.
 
 describe('ReasoningStripProber', () => {
-  it('starts empty for any baseURL', () => {
+  const MODEL = 'qwen3-30b';
+  const SIBLING = 'gemma-4-26b';
+
+  it('starts empty for any (baseURL, model)', () => {
     const prober = new ReasoningStripProber();
-    expect(prober.shouldStrip('https://api.deepseek.com/v1')).toBe(false);
-    expect(prober.shouldStrip('https://api.example.com/v1')).toBe(false);
+    expect(prober.shouldStrip('https://api.deepseek.com/v1', MODEL)).toBe(false);
+    expect(prober.shouldStrip('https://api.example.com/v1', MODEL)).toBe(false);
   });
 
-  it('markStrip + shouldStrip round-trip per baseURL', () => {
+  it('markStrip + shouldStrip round-trip per (baseURL, model)', () => {
     const prober = new ReasoningStripProber();
-    prober.markStrip('https://api.deepseek.com/v1');
-    expect(prober.shouldStrip('https://api.deepseek.com/v1')).toBe(true);
+    prober.markStrip('https://api.deepseek.com/v1', MODEL);
+    expect(prober.shouldStrip('https://api.deepseek.com/v1', MODEL)).toBe(true);
     // Different baseURL unaffected
-    expect(prober.shouldStrip('https://api.openai.com/v1')).toBe(false);
+    expect(prober.shouldStrip('https://api.openai.com/v1', MODEL)).toBe(false);
+  });
+
+  it('does not strip for a sibling model on the same gateway (#551)', () => {
+    // One backend behind the gateway rejects reasoning_effort, the
+    // sibling supports it — the sibling must keep the pass-through.
+    const prober = new ReasoningStripProber();
+    prober.markStrip('https://api.deepseek.com/v1', MODEL);
+    expect(prober.shouldStrip('https://api.deepseek.com/v1', SIBLING)).toBe(false);
   });
 
   // v1.26.0 Batch 6 review (PR #411 simplify 2026-08-05): the previous

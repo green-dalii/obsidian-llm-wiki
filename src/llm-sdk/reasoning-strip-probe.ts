@@ -77,11 +77,16 @@ const FIELD_MARKERS = [
  * ReasoningStripProber — per-client "should I strip reasoningEffort?"
  * cache.
  *
- * Cache keyed by baseURL because the same gateway typically uses the
- * same wire format across all models. Value is presence (true) — the
- * key itself is the signal — so a Set is the right primitive, not a
- * Map<string, true> (which would carry a dead second type parameter
- * and a dead `=== true` check on every read).
+ * Cache keyed by (baseURL, model) — Issue #551. The wire format is a
+ * property of the backend behind the model, not of the gateway URL: a
+ * per-model routing proxy or a multi-model LM Studio can host a backend
+ * that rejects `reasoning_effort` next to one that supports it, and the
+ * earlier per-baseURL key silently dropped the pass-through for the
+ * sibling that supports it. Same composite-key design as
+ * OutputModeProber. Value is presence (true) — the key itself is the
+ * signal — so a Set is the right primitive, not a Map<string, true>
+ * (which would carry a dead second type parameter and a dead `=== true`
+ * check on every read).
  *
  * v1.26.0 Batch 6 review (PR #411 simplify 2026-08-05): the previous
  * design also exposed an `invalidate(baseUrl?)` overload with zero
@@ -94,21 +99,26 @@ const FIELD_MARKERS = [
 export class ReasoningStripProber {
   private readonly cache = new Set<string>();
 
-  /**
-   * Read cached strip decision for a baseURL.
-   * `true` = we already learned this backend rejects reasoningEffort
-   * and the next call should omit it.
-   */
-  shouldStrip(baseUrl: string): boolean {
-    return this.cache.has(baseUrl);
+  /** Composite key: baseURL + model so sibling models share no state. */
+  private key(baseUrl: string, model: string): string {
+    return `${baseUrl}::${model}`;
   }
 
   /**
-   * Mark a baseURL as "strip reasoningEffort on future calls".
-   * Called after a 400 retry revealed the field was the cause.
+   * Read cached strip decision for a (baseURL, model) pair.
+   * `true` = we already learned this backend rejects reasoningEffort
+   * and the next call should omit it.
    */
-  markStrip(baseUrl: string): void {
-    this.cache.add(baseUrl);
+  shouldStrip(baseUrl: string, model: string): boolean {
+    return this.cache.has(this.key(baseUrl, model));
+  }
+
+  /**
+   * Mark a (baseURL, model) pair as "strip reasoningEffort on future
+   * calls". Called after a 400 retry revealed the field was the cause.
+   */
+  markStrip(baseUrl: string, model: string): void {
+    this.cache.add(this.key(baseUrl, model));
   }
 
   /**

@@ -32,31 +32,46 @@ export type TokenKey = 'max_tokens' | 'max_completion_tokens';
 /**
  * TokenKeyProber — per-client token-key cache.
  *
- * Cache keyed by baseURL (not model) because the same gateway
- * typically uses the same wire format across all models.
+ * Cache keyed by (baseURL, model) — Issue #551. The wire format is a
+ * property of the backend behind the model, not of the gateway URL: a
+ * per-model routing proxy (LiteLLM, one-api) or a multi-model LM Studio
+ * can host both answers behind one baseURL. The earlier per-baseURL key
+ * let one model's probe verdict rewrite every sibling's requests, and —
+ * because the 400-retry is gated on cache emptiness — permanently
+ * disabled the repair path for the whole gateway. Same composite-key
+ * design as OutputModeProber.
  */
 export class TokenKeyProber {
   private readonly cache: Map<string, TokenKey> = new Map();
 
-  /** Read cached key for a baseURL, or undefined if not yet probed. */
-  getCachedKey(baseUrl: string): TokenKey | undefined {
-    return this.cache.get(baseUrl);
+  /** Composite key: baseURL + model so sibling models share no state. */
+  private key(baseUrl: string, model: string): string {
+    return `${baseUrl}::${model}`;
   }
 
-  /** Write a probed/known-good key for a baseURL. */
-  setCachedKey(baseUrl: string, key: TokenKey): void {
-    this.cache.set(baseUrl, key);
+  /** Read cached key for a (baseURL, model) pair, or undefined if not yet probed. */
+  getCachedKey(baseUrl: string, model: string): TokenKey | undefined {
+    return this.cache.get(this.key(baseUrl, model));
+  }
+
+  /** Write a probed/known-good key for a (baseURL, model) pair. */
+  setCachedKey(baseUrl: string, model: string, key: TokenKey): void {
+    this.cache.set(this.key(baseUrl, model), key);
   }
 
   /**
    * Invalidate cached entries. Called when the user changes baseURL
    * or API key (re-probe on next request), or for unit tests.
+   * A bare baseURL clears every model probed behind it.
    */
   invalidate(baseUrl?: string): void {
     if (baseUrl === undefined) {
       this.cache.clear();
-    } else {
-      this.cache.delete(baseUrl);
+      return;
+    }
+    const prefix = `${baseUrl}::`;
+    for (const key of [...this.cache.keys()]) {
+      if (key.startsWith(prefix)) this.cache.delete(key);
     }
   }
 
