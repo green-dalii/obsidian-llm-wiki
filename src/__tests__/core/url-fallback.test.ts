@@ -230,8 +230,13 @@ describe('resolveBaseUrlWithFallback', () => {
       testFn,
     });
     const elapsed = Date.now() - start;
-    // 2 candidates tried after original fails: at least 2 × RETRY_DELAY_MS
-    expect(elapsed).toBeGreaterThanOrEqual(RETRY_DELAY_MS * 2);
+    // 2 candidates tried after original fails: at least 2 × RETRY_DELAY_MS.
+    // 30ms tolerance: libuv caches loop time (~1ms granularity), so on a
+    // loaded CI runner setTimeout(300) can resolve up to a few ms "early"
+    // against a freshly captured Date.now(). Removing either delay still
+    // fails by two orders of magnitude (a fired delay costs ~300ms;
+    // nothing else on this path takes measurable time).
+    expect(elapsed).toBeGreaterThanOrEqual(RETRY_DELAY_MS * 2 - 30);
     expect(testFn).toHaveBeenCalledTimes(3);
   });
 });
