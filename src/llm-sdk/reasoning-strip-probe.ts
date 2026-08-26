@@ -9,7 +9,7 @@ import { classifyFieldError } from './shared-rejection-verbs';
 // (two-marker pattern, mirrors the established
 // `[[isPdfRelatedLlmError]]` classifier in `src/wiki/wiki-engine.ts:587-608`),
 // strip the field from the next attempt, and retry exactly once. Cache
-// the per-baseURL "strip" decision so subsequent calls skip the probe.
+// the per-(baseURL, model) "strip" decision so subsequent calls skip the probe.
 //
 // Design (mirrors [[token-key-probe.ts]]):
 //
@@ -44,9 +44,13 @@ import { classifyFieldError } from './shared-rejection-verbs';
 //   - 401 (auth) / 429 (rate) / 5xx (server) have distinct status codes
 //     and are NOT covered here.
 //
-// Why per-baseURL not per-model:
-//   Same gateway → same wire format → same rejection behaviour. Model
-//   granularity would over-invalidate the cache.
+// Why per-(baseURL, model) — Issue #551:
+//   The wire format is a property of the backend behind the model, not
+//   of the gateway URL. A per-model routing proxy (LiteLLM, one-api)
+//   or a multi-model LM Studio can host a backend that rejects
+//   `reasoning_effort` next to one that supports it — the shared
+//   per-baseURL cache silently dropped the pass-through for the
+//   sibling that does. Same composite-key design as OutputModeProber.
 
 /**
  * Rejection verbs shared with OutputModeProber via

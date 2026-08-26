@@ -78,7 +78,7 @@ export class OpenAISdkClient implements LLMClient {
    * baseURLs (e.g. user-provided self-hosted) may reject
    * `reasoning_effort: 'none'` with HTTP 400. On 400 with a
    * reasoning-related field name in the error message, strip the field
-   * and retry exactly once. Per-baseURL cache prevents infinite loops.
+   * and retry exactly once. Per-(baseURL, model) cache prevents infinite loops.
    * Mirrors the [[ReasoningStripProber]] use in OpenAICompatSdkClient.
    */
   private readonly reasoningStripProber = new ReasoningStripProber();
@@ -286,10 +286,10 @@ export class OpenAISdkClient implements LLMClient {
       !(this.baseURL !== undefined && this.reasoningStripProber.shouldStrip(this.baseURL, opts.model))
     ) {
       // v1.26.0 Batch 6 + Bug-1 fix: switch from 'low' to 'none' for the
-      // official OpenAI Responses path; gate on shouldStrip(baseURL).
+      // official OpenAI Responses path; gate on shouldStrip((baseURL, model)).
       //
       // The shouldStrip guard prevents a regression spotted during
-      // code-review (Aug 2026): once Layer-3 marks a baseURL as
+      // code-review (Aug 2026): once Layer-3 marks a (baseURL, model) as
       // "strip" (because it 400'd on reasoning_effort), the next call
       // must NOT re-inject the field — otherwise the catch-block guard
       // `!shouldStrip` short-circuits and the reasoning-strip retry

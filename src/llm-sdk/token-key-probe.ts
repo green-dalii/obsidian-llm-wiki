@@ -10,7 +10,7 @@
 //   2. If the gateway returns HTTP 400, retry ONCE with the other
 //      token key (max_completion_tokens). No error-body inspection,
 //      no regex matching, no model-name hardcoding.
-//   3. If the retry succeeds, cache the working key for this baseURL
+//   3. If the retry succeeds, cache the working key for this (baseURL, model) pair
 //      so subsequent requests skip the probe.
 //   4. If the retry also fails, throw the *original* error. The
 //      extra HTTP call on the false-positive path is harmless
@@ -60,8 +60,8 @@ export class TokenKeyProber {
   }
 
   /**
-   * Invalidate cached entries. Called when the user changes baseURL
-   * or API key (re-probe on next request), or for unit tests.
+   * Invalidate cached entries. Test helper today — production re-probes
+   * by client reconstruction; or for unit tests.
    * A bare baseURL clears every model probed behind it.
    */
   invalidate(baseUrl?: string): void {

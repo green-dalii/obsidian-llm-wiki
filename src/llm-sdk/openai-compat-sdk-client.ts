@@ -103,7 +103,7 @@ export class OpenAICompatSdkClient implements LLMClient {
    * backends (Gemini-via-shim per #137) reject `reasoning_effort: 'none'`
    * with HTTP 400. On 400 with a reasoning-related field name in the
    * error message, we strip the field and retry exactly once; the
-   * strip decision is cached per baseURL so subsequent calls skip
+   * strip decision is cached per (baseURL, model) so subsequent calls skip
    * the probe. Mirrors the [[TokenKeyProber]] design.
    */
   private readonly reasoningStripProber = new ReasoningStripProber();
@@ -226,13 +226,17 @@ export class OpenAICompatSdkClient implements LLMClient {
       // cached on the instance in the constructor.
       supportsStructuredOutputs: this.supportsStructuredOutputs,
       // v1.23.0 P1.5 follow-up: token-key probe hook. Read the
-      // current cached key for this baseURL at request time — this
+      // current cached key for this (baseURL, model) at request time — this
       // closure captures `this` so each request consults the latest
       // probe result. If we have no cached entry, the transform is
       // a no-op and the request goes out with the AI-SDK default
       // (max_tokens). On rejection we probe + cache + next request
       // uses the swapped key.
       transformRequestBody: (args: Record<string, unknown>) => {
+        // Issue #551 follow-up: keyed per (baseURL, modelId). The URL-fallback
+        // probe uses synthetic 'gpt-4o-mini' (probeBaseURL) — its slot is
+        // never populated; no swap applied there (safe — the probe is a
+        // separate connectivity check, not a request that needs the token-key fix).
         const cached = this.tokenKeyProber.getCachedKey(this.baseURL, modelId);
         if (!cached) return args;
         if (cached === 'max_tokens') return args;
@@ -533,7 +537,7 @@ export class OpenAICompatSdkClient implements LLMClient {
       // strip must run first when the message clearly identifies the
       // reasoning field as the cause.
       //
-      // Guard: skip retry if we've already cached "strip" for this
+      // Guard: skip retry if we've already cached "strip" for this (baseURL, model)
       // baseURL — means the first retry already happened (and the
       // retry would either succeed or fail the same way).
       //
@@ -599,7 +603,7 @@ export class OpenAICompatSdkClient implements LLMClient {
         // retry above throws, this line never runs and the cache is
         // untouched; the outer catch propagates the error.
         this.reasoningStripProber.markStrip(this.baseURL, model);
-        console.debug(`[REASONING-STRIP-DEBUG] baseURL=${this.baseURL} cache committed (markStrip). Future calls on this baseURL will skip the probe.`);
+        console.debug(`[REASONING-STRIP-DEBUG] baseURL=${this.baseURL} cache committed (markStrip). Future calls on this (baseURL, model) will skip the probe.`);
         reportFinish(onFinish, result.finishReason, result.usage);
         return result.text;
       }
@@ -766,7 +770,7 @@ export class OpenAICompatSdkClient implements LLMClient {
       // of a false-positive retry is one extra HTTP call (<1s LAN).
       //
       // Guard: skip retry if we already have a cached key for this
-      // baseURL — means the first retry already happened (and failed),
+      // (baseURL, model) — means the first retry already happened (and failed),
       // so retrying again would loop.
       //
       // Runs AFTER the reasoning-strip + json-object-strip branches
@@ -1608,7 +1612,7 @@ export class OpenAICompatSdkClient implements LLMClient {
 
       // v1.23.0 P1.5 follow-up: token-key probe-then-retry for streaming.
       // Same logic as createMessage — cache the alt key for this
-      // baseURL and retry. No error-body inspection.
+      // (baseURL, model) and retry. No error-body inspection.
       if (APICallError.isInstance(err) && err.statusCode === 400 && !this.tokenKeyProber.getCachedKey(this.baseURL, model)) {
         this.tokenKeyProber.setCachedKey(this.baseURL, model, 'max_completion_tokens');
         const retryLanguageModel = this.getProvider(model, this.streamFetchImpl);
