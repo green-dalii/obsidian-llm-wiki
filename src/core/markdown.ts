@@ -8,9 +8,7 @@
  * fragment consumers (append text, section splices) call it directly.
  */
 export function stripThinkingBlocks(text: string): string {
-  return text
-    .replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, '')
-    .replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking>/gi, '');
+  return extractThinkingBlocks(text).visibleContent;
 }
 
 export function cleanMarkdownResponse(response: string): string {

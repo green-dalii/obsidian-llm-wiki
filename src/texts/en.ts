@@ -377,7 +377,7 @@ export const EN_TEXTS = {
     // Extraction Settings
     extractionSectionTitle: 'Extraction',
     extractionGranularityName: 'Extraction Granularity',
-    extractionGranularityDesc: 'Controls entities/concepts extracted per source file. Higher = more pages, more API tokens.\nFine: deep analysis. Standard: daily notes. Coarse: quick overview. Minimal: batch 100+ files (caps items per source, ~3 — not detail per item). Custom: set your own (up to 500).\nTip: Use Minimal/Coarse for folders with many files to save time and cost.',
+    extractionGranularityDesc: 'Controls entities/concepts extracted per source file. Higher = more pages, more API tokens.\nFine: deep analysis. Standard: daily notes. Coarse: quick overview. Minimal: batch 100+ files (caps items per source, ~5 — not detail per item). Custom: set your own (up to 500).\nTip: Use Minimal/Coarse for folders with many files to save time and cost.',
     extractionGranularityFine: 'Fine — deep analysis (≤100 items)',
     extractionGranularityStandard: 'Standard — daily notes (≤50 items)',
     extractionGranularityCoarse: 'Coarse — quick overview (≤10 items)',

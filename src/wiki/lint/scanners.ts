@@ -273,8 +273,8 @@ export function collectCitedRawNoteTargets(
       if (!linkTarget) continue;
       const bareTarget = linkTarget.split('|')[0].trim();
       if (bareTarget.startsWith('sources/') || bareTarget.startsWith(wikiFolder + '/sources/')) continue;
-      const { basePath, hasMd } = splitMdExtension(bareTarget);
-      targets.add(basePath + (hasMd ? '' : '.md'));
+      const { basePath } = splitMdExtension(bareTarget);
+      targets.add(basePath + '.md');
     }
   }
   return [...targets];
@@ -304,11 +304,9 @@ export function scanQuoteGrounding(
     const mentionsBlock = extractMentionsSection(page.content, mentionsLabel);
     if (!mentionsBlock) continue;
 
-    // Match lines like: - "quote text" — [[sources/slug]]
-    // or legacy:        - "quote text"
-    const lineRegex = /^[-*]\s+"([^"]+)"(?:\s*[—-]\s*\[\[([^\]]+)\]\])?\s*$/gm;
+    MENTION_LINE_REGEX.lastIndex = 0;
     let match: RegExpExecArray | null;
-    while ((match = lineRegex.exec(mentionsBlock)) !== null) {
+    while ((match = MENTION_LINE_REGEX.exec(mentionsBlock)) !== null) {
       const quote = match[1].trim();
       const linkTarget = match[2]?.trim();
 

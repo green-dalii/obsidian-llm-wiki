@@ -360,7 +360,7 @@ export const ZH_HANT_TEXTS = {
     // 知识提取
     extractionSectionTitle: '知識提取',
     extractionGranularityName: '提取顆粒度',
-    extractionGranularityDesc: '控制每篇原始檔提取的實體/概念數量。越高 = 生成頁面越多，API消耗越大。\n精細：單篇深度。標準：日常筆記。粗放：快速概覽。極簡：批次100+檔案（限制每篇條目數約3條，而非單條細節）。自定義：自行設定（最高300個）。\n提示：批次處理大量檔案時，建議使用極簡或粗放以節省時間和成本。',
+    extractionGranularityDesc: '控制每篇原始檔提取的實體/概念數量。越高 = 生成頁面越多，API消耗越大。\n精細：單篇深度。標準：日常筆記。粗放：快速概覽。極簡：批次100+檔案（限制每篇條目數約5條，而非單條細節）。自定義：自行設定（最高300個）。\n提示：批次處理大量檔案時，建議使用極簡或粗放以節省時間和成本。',
     extractionGranularityFine: '精細 — 單篇深度分析（≤100個）',
     extractionGranularityStandard: '標準 — 日常筆記（≤50個）',
     extractionGranularityCoarse: '粗放 — 快速概覽（≤10個）',

@@ -158,7 +158,7 @@ const GRANULARITY_INSTRUCTIONS: Record<ExtractionGranularity, string> = {
   fine: 'Extract ALL entities and concepts worth recording from the source, including those mentioned only once or tangentially.',
   standard: 'Extract important and moderately important entities and concepts from the source. Ignore minor items mentioned only in passing.',
   coarse: 'Extract only the most essential entities and concepts from the source — those without which the text cannot be understood. Quality over quantity.',
-  minimal: 'Extract only the most critical entities and concepts from the source — maximum 3 total items. Extreme selectivity for cost control.',
+  minimal: 'Extract only the most critical entities and concepts from the source — maximum 5 total items. Extreme selectivity for cost control.',
   custom: '', // placeholder — never used; getGranularityInstruction handles custom dynamically
 };
 

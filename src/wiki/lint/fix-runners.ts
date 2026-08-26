@@ -239,7 +239,7 @@ export async function runDeadLinkFixes(
         const sourcePath = `${ctx.settings.wikiFolder}/${dl.source}.md`;
         const result = await ctx.wikiEngine.fixDeadLink(sourcePath, dl.target);
         console.debug(`Dead link fix: ${dl.source} -> ${dl.target}: ${result}`);
-        if (!result.includes(t.lintFixNoAction)) {
+        if (!result.includes(t.lintFixNoAction) && !result.startsWith('left as dead link')) {
           return { source: dl.source, target: dl.target, result };
         }
         return null;

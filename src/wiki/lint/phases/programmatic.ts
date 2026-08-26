@@ -23,7 +23,7 @@ export interface ProgrammaticInput {
  *   3. tag violations (fast, no IO)
  *   4. polluted pages (fast, no IO)
  *   5. dead links (no extra IO — uses pageMap)
- *   6. quote grounding (reuses already-read source pages — no extra IO)
+ *   6. quote grounding (reuses already-read source pages + bounded read of cited raw notes)
  *
  * emptyPages is initialized empty here; it gets populated in the LLM phase
  * after we know which pages are duplicate sources (to exclude from empty-page list).
@@ -83,10 +83,16 @@ export async function runProgrammaticPhase(
   // and their quotes keep being flagged (honest signal).
   const mentionsLabel = getSectionLabels(ctx.settings).mentions_in_source;
   for (const target of collectCitedRawNoteTargets(input.pageMap, ctx.settings.wikiFolder, mentionsLabel)) {
-    if (sourceMap.has(target)) continue;
+    if (sourceMap.has(target) || input.pageMap.has(target)) continue;
+    // Blocker fix (DocTpoint review): hold the TFile — vault.read takes a
+    // TFile, not a plain { path: string }. The previous duck-typed object
+    // was caught by the per-note catch and silently swallowed if any
+    // Obsidian version stopped tolerating it, causing grounding to
+    // mis-flag legit verbatim quotes as ungrounded.
+    const abstract = ctx.app.vault.getAbstractFileByPath(target);
+    if (!abstract) continue;
     try {
-      if (!ctx.app.vault.getAbstractFileByPath(target)) continue;
-      const content = await ctx.app.vault.read({ path: target });
+      const content = await (ctx.app.vault as unknown as { read: (f: unknown) => Promise<string> }).read(abstract);
       sourceMap.set(target, {
         path: target,
         basename: target.split('/').pop()?.replace(/\.md$/, '') || target,
