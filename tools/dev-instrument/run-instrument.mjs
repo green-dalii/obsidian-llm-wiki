@@ -94,6 +94,7 @@ function installEngineGlobals() {
 }
 installEngineGlobals();
 
+// eslint-disable-next-line no-unsanitized/method -- OUT_PATH is a hardcoded local constant (tools/dev-instrument/dist/run-instrument.mjs), not user input; launcher is desktop-only and never runs inside Obsidian, so the dynamic-import sanitization concern does not apply
 const { main } = await import(pathToFileURL(OUT_PATH).href);
 try {
   process.exitCode = await main(process.argv.slice(2));

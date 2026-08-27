@@ -6,40 +6,30 @@ listed in alphabetical order by GitHub handle:
 
 - CCRRAY-DESIGN (Ray) — ChatGPT Plan (Codex OAuth) provider (PR #273)
 - Dima Marchevsky (dmarchevsky) — code contributions and review feedback
-- DocTpoint — ingest reliability fixes, #383 folder-boundary follow-up
-  analysis, source-slug = page-lemma deterministic merge (PR #357, #348),
-  vault-wide link retarget for `mergeDuplicates` (PR #392, #386),
-  `created:` provenance fix (PR #396, #388), headless-CLI request path on
-  `node:http` so a slow local model is not truncated (PR #418), H1
-  re-assertion after an LLM body rewrite and H1-by-position (PR #422, #437,
-  Issue #419, #435), the parse-failure result type that makes a broken
-  response distinguishable from an empty one (PR #436, #444, Issue #407),
-  order-independent resolution of ambiguous designators and the removal of
-  the alias latch on the ambiguous fallback (PR #471, #478, Issue #446),
-  runtime tag-vocabulary deferral in the empty-page lint prompt (PR #460,
-  Issue #459), run-scoped extraction catalog for prompt-cache stability
-  (PR #483, Issue #452), staged extraction payload so the ingest prompt is
-  a function of the note rather than of the vault (PR #484, Issue #482),
-  per-step output mode and thinking policy (PR #490, Issue #481),
-  restoration of the reasoning-only response guard dropped in the v1.23.0
-  AI-SDK migration (PR #488, Issue #470), section-shaped contradiction
-  clamp that restores withheld content (PR #492), and issue reports #403,
-  #407, #423, #424, #443, #446, #449, #452, #463, #470, #481, #482
-- eucher — headless ingest CLI implementation (PR #372,
-  `feat(tools): headless ingest CLI for running the engine under Node`),
-  CLI sampling/thinking controls, plugin source resolution,
-  per-step LLM call timing ledger (PR #409, `feat: name each LLM call by step,
-  and time the steps inside a phase`), and `repetitionPenalty` per-backend
-  dialect dispatch (PR #453, Issue #414: `repeat_penalty` for lmstudio/ollama,
-  `repetition_penalty` for kimi/openrouter/custom, dropped for anthropic/
-  deepseek/gemini/minimax/glm)
+- DocTpoint — ingest reliability across v1.25.x → v1.27.0: folder-boundary
+  analysis, source-slug merging, vault-wide link retarget, `created:`
+  provenance, headless-CLI slow-model path, H1 re-assertion, parse-failure
+  result type, ambiguous-designator resolution, runtime tag-vocabulary
+  deferral, run-scoped extraction catalog, staged extraction payload,
+  per-step output-mode + thinking policy, reasoning-only guard restoration,
+  section-shaped contradiction clamp, frontmatter parity chain,
+  ranked candidate window, opt-in candidate gate, text-mode extract
+  baseline + repetition-loop guard + taskPolicies UI, type repair at
+  intake, dev-instrument exit codes, `stripUnknownSections`, NFC +
+  Turkish-fold alias comparison, `folderBySlug`, `minAliasLength`,
+  drop self-named aliases, OpenRouter 404 fix, OpenRouter `:` variants,
+  and the #425 Bedrock Stage 2 design record. Per-PR / per-issue index
+  in [CHANGELOG.md](./CHANGELOG.md) §1.25.0 → §1.27.0.
+- eucher — headless ingest CLI under Node (PR #372), CLI sampling/thinking
+  controls, plugin source resolution, per-step LLM call timing ledger
+  (PR #409), and `repetitionPenalty` per-backend dialect dispatch (#414,
+  PR #453)
 - Franco Tampieri (FrancoTampieri) — code contributions
 - Greener-Dalii (green-dalii) — project maintainer and primary author
 - Hashim1999164 — wiki-folder-scope prefix fix (PR #384)
-- joffroy59 — `MAX_BATCH_DELAY_MS` ceiling raise (10000 ms,
-  restored to main via cherry-pick in PR #323)
+- joffroy59 — `MAX_BATCH_DELAY_MS` ceiling raise (10000 ms; cherry-pick PR #323)
 - Matthew Harper (Indexed-Apogrypha) — source-slug fingerprint,
-  pre-ingest requirements gate, Anthropic fallback fixes, and issue reports
+  pre-ingest requirements gate, Anthropic fallback fixes
 - Roman Kuzmin (rkuzmin) — LM Studio no-key ingest (PR #272, #339)
 - Younian (YounianC, xiaochuanlu) — ingest status bar and Query Wiki side panel
 

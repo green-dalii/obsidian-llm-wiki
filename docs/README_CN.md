@@ -1,3 +1,28 @@
+<!--
+SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本地化版本：
+- name: karpathy-llm-wiki-plugin-for-obsidian
+- type: 软件 / Obsidian 社区插件 / 知识库生成器 / RAG 替代方案
+- license: Apache-2.0
+- language: TypeScript
+- runtime: Obsidian >= 1.11.4 (桌面端 + 移动端)
+- dependencies: 零运行时依赖（Vercel AI SDK v6 已打包）
+- obsidian-plugin-id: karpathywiki
+- obsidian-marketplace: https://community.obsidian.md/plugins/karpathywiki
+- repo: https://github.com/green-dalii/obsidian-llm-wiki
+- sister-cli-repo: https://github.com/green-dalii/obsidian-llm-wiki-cli
+- docs: README.md + docs/README_<locale>.md（11 种语言）+ docs/MODEL-GUIDE.md + docs/PDF-OCR-GUIDE.md
+- first-published: 2025-09 (v0.1.0)
+- latest: v1.27.0（MINOR — Bedrock SSO/IAM、MinerU 多格式、源页原句引用、候选门、taskPolicies UI、Fix Dead Links leave-it；36 commits, 3677 tests）
+- last-updated: 2026-08-27
+- alternate-names: Karpathy LLM Wiki、LLM Wiki Obsidian、Obsidian wiki 插件、基于图谱的 RAG、无嵌入 RAG、Personalized PageRank 检索、多代理知识库、Obsidian 第二大脑
+- search-intents: "Obsidian 无嵌入 RAG", "Obsidian wiki 插件", "Personalized PageRank Obsidian", "基于图谱的笔记检索", "Karpathy LLM Wiki 实现", "Obsidian 知识库自动生成", "Obsidian 图谱视图 + AI", "Obsidian 第二大脑插件", "Obsidian 笔记链接图 AI", "Obsidian 11 语言插件", "Obsidian 13+ LLM 提供商插件", "无向量数据库 RAG", "Obsidian PDF 摄入 AI", "Obsidian Codex OAuth", "Obsidian Bedrock 插件", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian Word PPT Excel 导入", "Obsidian IAM 凭据"
+- features: 基于图谱的检索, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), 5 级种子选择级联, Tier 1/Tier 2 重复检测, 11 语言界面 + 11 语言 Wiki 输出（独立设置）, 13+ LLM 提供商（Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Kimi, GLM, MiniMax, Ollama, LM Studio, OpenRouter, Anthropic-兼容, Codex OAuth）, MinerU 多格式导入（PDF + 图像 + Office）, PDF 摄入（仅缓存、OCR 路径）, Lint 健康扫描, 一键智能修复, 源页原句引用, 摄入候选门, 按步骤任务策略 UI, Obsidian 图谱视图集成, 零嵌入零向量数据库架构, 本地优先模式
+- direct-competitors: nashsu/llm_wiki（Tauri 桌面应用）, SamurAIGPT/llm-wiki-agent（Claude Code 技能）, sdyckjq/llm-wiki-skill（Codex 技能）, atomicstrata/llm-wiki-compiler（Python 管线）
+- retrieval-benchmark: PPR @5 = 27.1% vs 纯 kNN 24.1%（项目自有语料，开源 LLM-wiki 领域唯一已发布数字）
+- author: green-dalii / Greener-Dalii (https://github.com/green-dalii)
+- canonical: https://github.com/green-dalii/obsidian-llm-wiki/blob/main/README.md
+-->
+
 ![llm_wiki_banner](assets/llm_wiki_banner.webp)
 
 # 🧠 Karpathy LLM Wiki — Obsidian 插件
@@ -145,14 +170,16 @@
 - **🏷️ 强制别名** — 每个页面至少包含一个别名（翻译、缩写、变体名），使跨语言重复检测得以工作。
 - **🔄 分级重复检测** — 第 1 级（直接名称匹配：跨语言、缩写、高相似度标题）全部验证；第 2 级（共享链接、中等相似度）填充剩余 token 预算。
 - **🧩 智能合并与矛盾状态** — 重复页面合并时保留别名；矛盾被标记并注明来源归属；`reviewed: true` 的页面受保护不被覆盖。
-- **🎨 自定义标签词汇表** — 在设置 → Wiki → 标签词汇表 → *自定义* 中定义自己的实体类型和概念类型标签列表。词表是注入 LLM 的提示（schema injection hint），不是写入时的强制闸门——小型/本地模型仍可能漂移，Lint 会报告这些页面以便修复。(Schema 强制校验在 v1.27.0+ 设计中。)
+- **🎨 自定义标签词汇表** — 在设置 → Wiki → 标签词汇表 → *自定义* 中定义自己的实体类型和概念类型标签列表。词表是注入 LLM 的提示（schema injection hint），不是写入时的强制闸门——小型/本地模型仍可能漂移，Lint 会报告这些页面以便修复。（已部分实施 — 详见下方 v1.27.0 新增特性。）
 
 ### 📄 PDF 摄入 (v1.25.0+)
 
 - **🔌 Provider 准入** — Anthropic、OpenAI 和 Bedrock 原生支持 PDF。对于任何其他 OpenAI/Anthropic 兼容端点，在设置 → LLM 配置 → 高级中开启 **Force PDF Support** 让插件尝试调用。关于 Apple Silicon 上的本地 OCR、第三方提取工具（MinerU、Docling、Mathpix、Adobe）及完整 PDF 摄入教程，见下方的 [PDF OCR 路径](#-pdf-ocr-路径) 和 [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)。
+- **🆕 MinerU 多格式后端 (v1.27.0, #404)** — 设置 → Wiki 配置 → Markdown Conversion Backend → *MinerU* 通过 [MinerU 的 Precise parser](https://mineru.net/apiManage/docs) 在插件内直接处理 PDF、图像（PNG/JPG/JPEG/JP2/WebP/GIF/BMP）和 Office 文档（DOC/DOCX/PPT/PPTX/XLS/XLSX）。API token 存储在 SecretStorage 中。服务器限制：每个 PDF 200 MB / 200 页，每个压缩包 256 MB / 10000 文件。是科学论文、扫描文档、以及需要保留版式的 Office 文件的最佳路径。
 - **🗄️ 有界缓存** — `.obsidian/plugins/karpathywiki/pdf-cache/` 按内容哈希 + 模型 + 转换器版本为键存储转换后的 Markdown。三层防御治理：总计 100 MB / 1000 条 / 单条 10 MB 上限，LRU-by-mtime 淘汰。
 - **📝 可选 vault sidecar** — 设置 → Wiki 配置 → Wiki 文件夹 → *将 PDF Markdown 写入 Vault* 在源 PDF 旁写入 `<basename>.pdf.md`（默认关闭——仅缓存模式）。
 - **🛡️ 逐字转录提示** — 带 `[illegible]` / `[figure: ...]` 反幻觉标记的 OCR 风格转换；小型本地模型的 markdown 围栏包裹在写入缓存前自动清洗。
+- **🔁 源页原句引用 (v1.27.0, #496)** — 每个生成的 `sources/<slug>.md` 页面现在携带一个 `Mentions in Source` 段，由提取阶段在每个实体/概念上抓取的原句引用直接拼接（模型已证明自己能看到的原文），因此源文档成了唯一一个能真实回溯到原始文本的 Wiki 页面。
 
 ### 📄 PDF OCR 路径
 
@@ -170,8 +197,11 @@
 - **🪟 右侧停靠侧边栏** — 查询 Wiki 在 Copilot 风格的右侧侧边栏（v1.22.1+）中打开，而非居中弹窗。
 - **🔍 Lint 健康扫描** — 一条命令检测：重复页、断链、空洞页、孤立页、缺失别名、矛盾。
 - **⚡ 一键智能修复** — 按因果关系顺序修复：补全别名 → 合并重复 → 修复断链 → 链接孤立页 → 扩充空洞页，附带各阶段报告。
+- **🆕 Fix Dead Links leave-it 结果 (v1.27.0, #485)** — 设置 → 高级 → *Create Stubs for Unresolvable Links*（默认开启）允许你选择退出空占位页：关闭后，断链会在每次 Lint 报告中保持可见，直到真正有源定义它，摄入则通过正常通道创建页面。#197 中的 never-LLM-expand 门未变 —— 新控件只决定占位页是否会被*写出*。
 - **📊 操作历史面板** — 可搜索、可筛选的 UI，查看历史摄入、Lint 报告和维护运行。
 - **🛡️ 摄入前置检查** — 空/空白/仅 frontmatter 的笔记在任何 LLM 调用前被拒绝；内容哈希去重捕获跨路径的相同文件。
+- **🆕 摄入候选门 (v1.27.0, #514 / PR #521)** — 可选开关（`skipMentionOnlyCandidates`，默认关闭，设置 → 高级）。对于语言已建立测量画像的源（de 已测量；en/fr/es/pt/nl/ko 用固定边界条件估计；zh/ja 字符脚本阈值未测量），那些只出现在括号/枚举/短列表项中的候选在消耗页面+去重+生成调用之前被剪除。跨语言笔记不进入此门；没有画像的 Wiki 语言每次摄入只报告一次且从不静默跳过。
+- **🆕 按步骤任务策略 (v1.27.0, #525 / #490)** — LLM 高级 → 任务策略字段接受 `step=mode:thinking` 条目（如 `extract=text:on,merge-triage=text:on`）。一个控制点同时管理 `extract` 文本模式钉住以及未来按步骤覆盖。内置基线在你未列出的步骤上保持不变。
 
 ### 🔒 隐私
 
@@ -356,7 +386,7 @@ CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<va
 | **Tencent Hunyuan** | Hy3 系列 | OpenAI 兼容；开放权重 MoE |
 | **Xiaomi MiMo** | MiMo V2.5 系列 | MIT 开源；统一低价 |
 | **Google Gemma** | Gemma 4 系列 | 开放权重；262K 上下文 |
-| **AWS Bedrock** | Anthropic + OpenAI 变种 | VPC / 合规路径 |
+| **AWS Bedrock** | Anthropic + OpenAI 变种 | VPC / 合规路径；**API key + SSO + IAM** (v1.27.0, #425) |
 | **ChatGPT Plan (Codex OAuth)** | Codex Responses API | 浏览器/设备代码登录；SecretStorage |
 | **本地：Ollama, LM Studio, OpenRouter, Anthropic 兼容** | 任何 OpenAI/Anthropic 协议模型 | 自定义 OpenAI 兼容 + Anthropic 兼容（Token Plan / Coding Plan）|
 
@@ -374,6 +404,16 @@ CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<va
 - **Anthropic**（及其 Bedrock 变种）—— 单独计费的 Anthropic Platform API Key。
 - **OpenAI** —— 单独计费的 OpenAI Platform API Key。
 - **ChatGPT Plan (Codex OAuth)** —— 实验性、独立的 Provider，在浏览器或设备代码登录后使用符合条件的 Codex 额度；可用性遵循 OpenAI Codex 身份验证和额度政策，而非计划名称。第三方 Codex 兼容功能，非 OpenAI 合作项目或通用 ChatGPT API。
+
+### AWS Bedrock —— 三种认证模式 (v1.27.0, #425)
+
+设置 → Provider → Bedrock（Anthropic / OpenAI）现在可在三种认证模式中选择其一；Provider 行随后只要求该模式真正需要的输入：
+
+- **API key** —— 原始的 Stage-1 bearer 路径；行为与 v1.26.4 逐字节一致，是已购买 Bedrock API key 的用户的推荐选项。
+- **SSO** —— IAM Identity Center 设备流。点击 *Sign in with AWS SSO*，在浏览器中粘贴验证 URL 码，插件通过 SecretStorage 中的 `karpathywiki-bedrock-sso` 接收 SSO token，交换为临时角色凭据，并用手写的 SigV4（不引入 AWS SDK）为每个请求签名。当 SSO 身份恰好暴露一个账户 ID 与角色名时会被自动检测；否则在 Provider 设置中手动输入。
+- **IAM** —— 静态 access key，用于没有 SSO 的环境（CI、定时批处理任务）。存储在 SecretStorage 中的 `karpathywiki-bedrock-iam`；内存缓存按 access-key 记忆结果以使 SigV4 签名保持在过期之内。
+
+三种模式共享同一套 Obsidian SecretStorage 规范（凭据不出现在 `data.json`、日志或文档中）以及同一套零 AWS SDK 的手写 OIDC + SigV4 路径。Bedrock region 与认证模式相互独立，在同一 Provider 行配置。
 
 > 📖 **完整选择表格**（云端 + 本地 + PDF OCR + Codex OAuth + 量化 + 硬件等级）→ [docs/MODEL-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/MODEL-GUIDE.md)
 

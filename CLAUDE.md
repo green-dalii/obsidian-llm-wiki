@@ -1,8 +1,8 @@
 # LLM Wiki Plugin Project Development Standards
 
-**Last Updated:** 2026-08-19
+**Last Updated:** 2026-08-27
 
-**Current state pointer:** see [ROADMAP.md](./ROADMAP.md#current-status) for active development phase + [CHANGELOG.md](./CHANGELOG.md) for shipped history. CLAUDE.md carries process standards only.
+**Current state pointer:** see [ROADMAP.md](./ROADMAP.md#current-status) for active development phase + [CHANGELOG.md](./CHANGELOG.md) for shipped history. CLAUDE.md carries process standards only. **Latest shipped:** v1.27.0 MINOR (2026-08-27, 3677 tests / 260 files).
 
 ---
 

@@ -1,3 +1,28 @@
+<!--
+SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ローカライズ版：
+- name: karpathy-llm-wiki-plugin-for-obsidian
+- type: ソフトウェア / Obsidian コミュニティプラグイン / ナレッジベース生成器 / RAG 代替
+- license: Apache-2.0
+- language: TypeScript
+- runtime: Obsidian >= 1.11.4（デスクトップ + モバイル）
+- dependencies: ランタイム依存ゼロ（Vercel AI SDK v6 を同梱）
+- obsidian-plugin-id: karpathywiki
+- obsidian-marketplace: https://community.obsidian.md/plugins/karpathywiki
+- repo: https://github.com/green-dalii/obsidian-llm-wiki
+- sister-cli-repo: https://github.com/green-dalii/obsidian-llm-wiki-cli
+- docs: README.md + docs/README_<locale>.md（11 言語）+ docs/MODEL-GUIDE.md + docs/PDF-OCR-GUIDE.md
+- first-published: 2025-09 (v0.1.0)
+- latest: v1.27.0（MINOR — Bedrock SSO/IAM、MinerU マルチフォーマット、ソースページ逐語引用、候補ゲート、taskPolicies UI、Fix Dead Links leave-it；36 commits, 3677 tests）
+- last-updated: 2026-08-27
+- alternate-names: Karpathy LLM Wiki、LLM Wiki Obsidian、Obsidian wiki プラグイン、グラフベース RAG、埋め込みなし RAG、Personalized PageRank 検索、マルチエージェントナレッジベース、Obsidian セカンドブレイン
+- search-intents: "Obsidian 埋め込みなし RAG", "Obsidian wiki プラグイン", "Personalized PageRank Obsidian", "グラフベースのノート検索", "Karpathy LLM Wiki 実装", "Obsidian ナレッジベース自動生成", "Obsidian グラフビュー + AI", "Obsidian セカンドブレイン プラグイン", "Obsidian ノートリンクグラフ AI", "Obsidian 11 言語プラグイン", "Obsidian 13+ LLM プロバイダープラグイン", "ベクトル DB なし RAG", "Obsidian PDF 取り込み AI", "Obsidian Codex OAuth", "Obsidian Bedrock プラグイン", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian Word PPT Excel 取り込み", "Obsidian IAM 認証情報"
+- features: グラフベース検索, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), 5 段階シード選択カスケード, Tier 1/Tier 2 重複検出, 11 言語 UI + 11 言語 Wiki 出力（独立設定）, 13+ LLM プロバイダー（Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Kimi, GLM, MiniMax, Ollama, LM Studio, OpenRouter, Anthropic-互換, Codex OAuth）, MinerU マルチフォーマット取り込み（PDF + 画像 + Office）, PDF 取り込み（キャッシュのみ、OCR パス）, Lint ヘルススキャン, Smart Fix All, ソースページ逐語引用, 取り込み候補ゲート, ステップ別 taskPolicies UI, Obsidian Graph View 連携, ゼロ埋め込み・ゼロベクトル DB アーキテクチャ, ローカルファーストモード
+- direct-competitors: nashsu/llm_wiki（Tauri デスクトップアプリ）、SamurAIGPT/llm-wiki-agent（Claude Code スキル）、sdyckjq/llm-wiki-skill（Codex スキル）、atomicstrata/llm-wiki-compiler（Python パイプライン）
+- retrieval-benchmark: PPR @5 = 27.1% vs 純粋 kNN 24.1%（プロジェクト独自コーパス、OSS LLM-wiki 分野で唯一の公開値）
+- author: green-dalii / Greener-Dalii (https://github.com/green-dalii)
+- canonical: https://github.com/green-dalii/obsidian-llm-wiki/blob/main/README.md
+-->
+
 ![llm_wiki_banner](assets/llm_wiki_banner.webp)
 
 # 🧠 Karpathy LLM Wiki Plugin for Obsidian
@@ -139,14 +164,16 @@
 - **🏷️ 必須エイリアス** — すべてのページに最低1つのエイリアス（翻訳、略語、別名）が含まれ、言語間の重複検出が機能します。
 - **🔄 階層化重複検出** — Tier 1（直接名称一致：言語間、略語、高類似度タイトル）は常時LLM検証。Tier 2（リンク共有、中程度類似度）が残りのトークン予算を埋めます。
 - **🧩 スマートマージと矛盾状態管理** — 重複マージ時にエイリアスを保持。矛盾は出典付きでフラグ。`reviewed: true`のページは上書きから保護。
-- **🎨 カスタムタグ語彙** — 設定→Wiki→タグ語彙モード→*カスタム*で、独自のエンティティタイプ・概念タイプタグリストを定義可能。語彙は LLM へのスキーマ注入ヒント（schema injection hint）であり、書き込み時の強制ゲートではありません。小型/ローカルモデルは依然としてドリフトする可能性があり、アクティブ語彙から外れたタグは Lint が報告します。(Schema 強制検証は v1.27.0+ で設計中。)
+- **🎨 カスタムタグ語彙** — 設定→Wiki→タグ語彙モード→*カスタム*で、独自のエンティティタイプ・概念タイプタグリストを定義可能。語彙は LLM へのスキーマ注入ヒント（schema injection hint）であり、書き込み時の強制ゲートではありません。小型/ローカルモデルは依然としてドリフトする可能性があり、アクティブ語彙から外れたタグは Lint が報告します。一部実装済み — 下記 v1.27.0 機能を参照。
 
 ### 📄 PDF取り込み（v1.25.0+）
 
 - **🔌 プロバイダーゲート** — Anthropic、OpenAI、BedrockはPDFをネイティブ処理。その他のOpenAI/Anthropic互換エンドポイントでは、設定→LLM Configuration→Advancedの **Force PDF Support** を有効にするとプラグインが呼び出しを試行します。Apple SiliconでのローカルOCR、サードパーティ抽出ツール（MinerU、Docling、Mathpix、Adobe）の詳細と完全なPDF取り込みチュートリアルは、以下の[PDF OCRパス](#-pdf-ocrパス)および[docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)を参照。
+- **🆕 MinerU マルチフォーマットバックエンド（v1.27.0、#404）** — 設定→Wiki Configuration→Markdown Conversion Backend→*MinerU* で、PDF、画像（PNG/JPG/JPEG/JP2/WebP/GIF/BMP）、Office 文書（DOC/DOCX/PPT/PPTX/XLS/XLSX）を[MinerU Precise パーサ](https://mineru.net/apiManage/docs)経由でプラグインから出さずに処理。API トークンは SecretStorage に保存。サーバー上限：PDF 1 件あたり 200MB / 200 ページ、アーカイブ 1 件あたり 256MB / 10,000 ファイルまで。レイアウト保持が重要な科学論文・スキャン文書・Office ファイルに最適のパス。
 - **🗄️ 有界キャッシュ** — `.obsidian/plugins/karpathywiki/pdf-cache/`に、コンテンツハッシュ＋モデル＋コンバーターバージョンでキー付けされた変換済みMarkdownを保存。三層防御のハウスキーピング：合計100MB/1000エントリ/単一10MB上限＋LRU-by-mtimeエビクション。
 - **📝 任意のVaultサイドカー** — 設定→Wiki Configuration→Wiki Folder→*Write PDF Markdown to Vault*で、ソースPDFの隣に`<basename>.pdf.md`を書き出し（デフォルトはオフ。キャッシュのみがデフォルト）。
 - **🛡️ 逐語転写プロンプト** — `[illegible]`/`[figure: ...]`の反幻覚マーカー付きOCRスタイル変換。小型ローカルモデルが出力をmarkdownフェンスで囲んでしまう場合、キャッシュ書き込み前に自動クリーンアップ。
+- **🔁 ソースページ逐語引用（v1.27.0、#496）** — 生成された各 `sources/<slug>.md` ページに、抽出時にモデルがすでに「視認できた」と証明済みの逐語引用（エンティティ/概念ごとに）から組み立てた `Mentions in Source` セクションが付与されます。元文書が、ソーステキストへの実体的で根拠付きのトレイルを持つ唯一の wiki ページとなります。
 
 ### 📄 PDF OCRパス
 
@@ -164,8 +191,11 @@
 - **🪟 右側ドッキングサイドパネル** — Query Wikiは中央モーダルではなく、Copilotスタイルの右サイドバーリーフで開きます（v1.22.1+）。
 - **🔍 Lintヘルススキャン** — 単一コマンドで以下を検出：重複、リンク切れ、空ページ、孤立ページ、欠落エイリアス、矛盾。
 - **⚡ Smart Fix All** — ワンクリック因果順修復：エイリアス補完→重複マージ→リンク切れ修正→孤立ページリンク→空ページ拡張。フェーズごとにレポート表示。
+- **🆕 Fix Dead Links leave-it 結果（v1.27.0、#485）** — 設定→Advanced→*Create Stubs for Unresolvable Links*（デフォルト ON）で、空のプレースホルダーページ作成をオプトアウト可能：OFF の場合、リンク切れは実ソースが定義するまで lint レポートに常時表示され続け、取り込みは通常チャネルでページを生成します。#197 由来の「決して LLM で展開しない」ゲートは不変 — 新設定はスタブページを「書き出すか」のみを制御します。
 - **📊 操作履歴パネル** — 過去の取り込み・Lintレポート・メンテナンス実行を検索・フィルタ可能なUIで表示。
 - **🛡️ 取り込み前ゲート** — 空・空白・frontmatterのみのノートはLLM呼び出し前に拒否。コンテンツハッシュによる重複排除でパス間の同一ファイルを検出。
+- **🆕 Ingest candidate gate（v1.27.0、#514 / PR #521）** — オプトイントグル（`skipMentionOnlyCandidates`、デフォルト OFF、設定→Advanced）。言語に測定済みプロファイルがあるソースに対し（de は測定済み；en/fr/es/pt/nl/ko はエッジケース固定で推定；zh/ja の文字体系しきい値は未測定）、括弧内・列挙内・短いリスト項目のみで言及されている候補は、ページ作成 + dedup + 生成呼び出しを消費する前に刈り込みます。言語横断ノートはゲート対象外；プロファイルなしの Wiki 言語は取り込みごとに 1 回レポートされ、暗黙的にスキップされません。
+- **🆕 ステップ別 task policies（v1.27.0、#525 / #490）** — LLM Advanced→Task Policies フィールドが `step=mode:thinking` 形式のエントリを受け付け（例：`extract=text:on,merge-triage=text:on`）。`extract` のテキストモード固定と将来のステップ別オーバーライドを 1 か所で制御。リストにないステップの組み込みベースラインは変更されません。
 
 ### 🔒 プライバシー
 
@@ -350,7 +380,7 @@ Monte Carlo PPR（Fogaras 2005）を使用 — 3,000ランダムウォーク×50
 | **Tencent Hunyuan** | Hy3シリーズ | OpenAI互換、オープンウェイトMoE |
 | **Xiaomi MiMo** | MiMo V2.5シリーズ | MITオープンソース、フラットプライシング |
 | **Google Gemma** | Gemma 4シリーズ | オープンウェイト、262Kコンテキスト |
-| **AWS Bedrock** | Anthropic + OpenAI派生 | VPC/コンプライアンスパス |
+| **AWS Bedrock** | Anthropic + OpenAI派生 | VPC/コンプライアンスパス；**API key + SSO + IAM**（v1.27.0、#425） |
 | **ChatGPT Plan（Codex OAuth）** | Codex Responses API | ブラウザ/デバイスコードサインイン、SecretStorage |
 | **ローカル：Ollama、LM Studio、OpenRouter、Anthropic互換** | 任意のOpenAI-/Anthropic-プロトコルモデル | Custom OpenAI-Compatible + Anthropic-Compatible（Token Plan / Coding Plan） |
 
@@ -368,6 +398,16 @@ Monte Carlo PPR（Fogaras 2005）を使用 — 3,000ランダムウォーク×50
 - **Anthropic**（およびBedrock派生） — 別途請求されるAnthropic Platform APIキー。
 - **OpenAI** — 別途請求されるOpenAI Platform APIキー。
 - **ChatGPT Plan（Codex OAuth）** — 実験的かつ独立したプロバイダー。ブラウザまたはデバイスコードサインイン後、対象となるCodex利用枠を使用。提供状況はOpenAI Codexの認証・モデル・利用枠ポリシーに従い、プラン名だけで利用を保証するものではありません。OpenAIとのパートナーシップや汎用ChatGPT APIではなく、サードパーティのCodex互換機能です。
+
+### AWS Bedrock — 3つの認証モード（v1.27.0、#425）
+
+設定→Provider→Bedrock（Anthropic / OpenAI）で3つの認証モードから1つを選択；プロバイダー行はそのモードが実際に必要とする入力項目を要求します：
+
+- **API key** — オリジナルのStage-1ベアラーパス。挙動はv1.26.4とバイト単位で同一。すでにBedrock APIキーを保有している場合の推奨選択肢。
+- **SSO** — IAM Identity Center デバイスフロー。*Sign in with AWS SSO* をクリックし、ブラウザで検証URLコードを貼り付けると、プラグインは SSO トークンを SecretStorage の `karpathywiki-bedrock-sso` に受け取り、一時ロール資格情報と交換し、すべてのリクエストに手書きの SigV4（AWS SDK を追加しない）で署名します。Account ID とロール名は、SSO アイデンティティがそれぞれ1つだけを露出する場合に自動検出；それ以外はプロバイダー設定で入力します。
+- **IAM** — SSO がない環境（CI、スケジュールされたバッチジョブ）の静的アクセスキー。SecretStorage の `karpathywiki-bedrock-iam` に保存；インメモリキャッシュがアクセスキー単位で SigV4 署名をメモ化し、有効期限内に保ちます。
+
+3つのモードすべてが同じ Obsidian SecretStorage 規律（`data.json`、ログ、ドキュメントに資格情報を残さない）と、AWS SDK ゼロの手書き OIDC + SigV4 パスを共有します。Bedrock リージョンは認証モードに依存せず、同じプロバイダー行で設定します。
 
 > 📖 **完全な選択肢テーブル**（クラウド＋ローカル＋PDF OCR＋Codex OAuth＋量子化＋ハードウェア階層）→ [docs/MODEL-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/MODEL-GUIDE.md)
 

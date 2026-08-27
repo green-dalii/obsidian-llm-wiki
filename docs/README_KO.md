@@ -1,3 +1,27 @@
+<!--
+SEO metadata (not user-visible, parsed by crawlers / LLMs):
+- name: karpathy-llm-wiki-plugin-for-obsidian
+- type: software / Obsidian community plugin / knowledge-base generator / RAG alternative
+- license: Apache-2.0
+- language: TypeScript
+- runtime: Obsidian >= 1.11.4 (desktop + mobile)
+- dependencies: zero runtime dependencies (Vercel AI SDK v6 bundled)
+- obsidian-plugin-id: karpathywiki
+- obsidian-marketplace: https://community.obsidian.md/plugins/karpathywiki
+- repo: https://github.com/green-dalii/obsidian-llm-wiki
+- sister-cli-repo: https://github.com/green-dalii/obsidian-llm-wiki-cli
+- docs: README.md + docs/README_<locale>.md (11 locales) + docs/MODEL-GUIDE.md + docs/PDF-OCR-GUIDE.md
+- first-published: 2025-09 (v0.1.0)
+- latest: v1.27.0 (MINOR — Bedrock SSO/IAM, MinerU multi-format, source-page quotes, candidate gate, taskPolicies UI, Fix Dead Links leave-it; 36 commits, 3677 tests)
+- last-updated: 2026-08-27
+- alternate-names: Karpathy LLM Wiki, LLM Wiki Obsidian, Obsidian wiki plugin, graph-based RAG, no-embedding RAG, Personalized PageRank retrieval, multi-agent knowledge base, Obsidian second brain
+- search-intents: "Obsidian RAG without embeddings", "Obsidian wiki plugin", "Personalized PageRank Obsidian", "graph-based note retrieval", "Karpathy LLM Wiki implementation", "Obsidian knowledge base auto-generation", "Obsidian graph view + AI", "Obsidian second brain plugin", "Obsidian note link graph AI", "Obsidian plugin 11 languages", "Obsidian plugin 13 LLM providers", "no-vector-DB RAG", "Obsidian PDF ingest AI", "Obsidian Codex OAuth", "Obsidian Bedrock plugin", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian Word PPT Excel ingest", "Obsidian IAM credentials"
+- features: graph-based retrieval, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), 5-stage seed-selection cascade, Tier 1/Tier 2 duplicate detection, 11-language UI + 11-language wiki output (independent), 13+ LLM providers (Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Kimi, GLM, MiniMax, Ollama, LM Studio, OpenRouter, Anthropic-Compatible, Codex OAuth), MinerU multi-format ingest (PDF + images + Office), PDF ingest (cache-only, OCR paths), lint health scan, Smart Fix All, source-page verbatim quotes, ingest candidate gate, per-step taskPolicies UI, Obsidian Graph View integration, zero-embedding zero-vector-DB architecture, local-first mode
+- direct-competitors: nashsu/llm_wiki (Tauri desktop app), SamurAIGPT/llm-wiki-agent (Claude Code skill), sdyckjq/llm-wiki-skill (Codex skill), atomicstrata/llm-wiki-compiler (Python pipeline)
+- readme-locale: ko
+- canonical-readme: https://github.com/green-dalii/obsidian-llm-wiki/blob/main/README.md
+-->
+
 ![llm_wiki_banner](assets/llm_wiki_banner.webp)
 
 # 🧠 Karpathy LLM Wiki — Obsidian 플러그인
@@ -139,14 +163,16 @@
 - **🏷️ 필수 Alias** — 생성된 각 페이지에 최소 1개의 alias(번역, 약어, 변형)를 포함하여 교차 언어 중복 감지가 작동합니다.
 - **🔄 계층형 중복 감지** — Tier 1 (직접 이름 일치: 교차 언어, 약어, 높은 유사도 제목)은 항상 검증됩니다. Tier 2 (공유 링크, 중간 유사도)는 남은 토큰 예산을 채웁니다.
 - **🧩 스마트 병합 및 모순 상태** — 중복 병합 시 alias 보존; 모순은 출처와 함께 표시; `reviewed: true` 페이지는 덮어쓰기에서 보호됩니다.
-- **🎨 사용자 정의 태그 어휘** — 설정 → Wiki → Tag Vocabulary → *Custom*에서 자체 Entity/Concept 타입 태그 목록을 정의할 수 있습니다. 어휘는 LLM에 주입되는 스키마 힌트(schema injection hint)일 뿐, 쓰기 시점 강제 게이트가 아니며 — 소형/로컬 모델은 여전히 어휘 밖으로 새어나갈 수 있고, Lint가 이를 보고합니다. (강제 검증은 v1.27.0+에서 설계 중.)
+- **🎨 사용자 정의 태그 어휘** — 설정 → Wiki → Tag Vocabulary → *Custom*에서 자체 Entity/Concept 타입 태그 목록을 정의할 수 있습니다. 어휘는 LLM에 주입되는 스키마 힌트(schema injection hint)일 뿐, 쓰기 시점 강제 게이트가 아니며 — 소형/로컬 모델은 여전히 어휘 밖으로 새어나갈 수 있고, Lint가 이를 보고합니다. **v1.27.0부터는 일부 구현됨** — 해당 타입을 어휘(대소문자, 발음 구별 기호)로 폴딩하거나 페이지 작성 전 자체 요약과 함께 모델에 한 번 더 묻습니다; 그래도 통과하는 항목은 Lint 진단에 표시되어 직접 수정할 수 있습니다. (강제 검증은 설계 중 — 아래 v1.27.0 기능 참조.)
 
-### 📄 PDF 수집 (v1.25.0+)
+### 📄 PDF 수집 (v1.25.0+, MinerU 백엔드 v1.27.0+)
 
 - **🔌 공급자 게이트** — Anthropic, OpenAI, Bedrock이 PDF를 네이티브로 처리합니다. 다른 OpenAI/Anthropic 호환 엔드포인트에서는 설정 → LLM Configuration → Advanced에서 **Force PDF Support**를 활성화하여 호출을 시도할 수 있습니다. Apple Silicon에서의 로컬 OCR, 서드파티 추출기(MinerU, Docling, Mathpix, Adobe), 전체 PDF 수집 워크스루에 대해서는 아래 [PDF OCR 경로](#-pdf-ocr-경로)와 [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)를 참조하세요.
+- **🆕 MinerU 멀티 포맷 백엔드 (v1.27.0, #404)** — 설정 → Wiki Configuration → Markdown Conversion Backend → *MinerU*를 선택하면 PDF, 이미지(PNG/JPG/JPEG/JP2/WebP/GIF/BMP), Office 문서(DOC/DOCX/PPT/PPTX/XLS/XLSX)를 플러그인 외부로 나가지 않고 [MinerU의 Precise 파서](https://mineru.net/apiManage/docs)로 라우팅합니다. API 토큰은 SecretStorage에 보관됩니다. 서버 한도: PDF당 200 MB / 200 페이지, 아카이브당 256 MB / 10,000 파일. 레이아웃 보존이 중요한 과학 논문, 스캔 문서, Office 파일에 가장 적합한 경로입니다.
 - **🗄️ 제한된 캐시** — `.obsidian/plugins/karpathywiki/pdf-cache/`에 변환된 Markdown을 저장하며, 콘텐츠 해시 + 모델 + converter version으로 키가 지정됩니다. 3계층 방어 하우스키핑: 총 100MB / 1000개 항목 / 단일 10MB 상한, LRU-by-mtime 축출.
 - **📝 선택적 볼트 사이드카** — 설정 → Wiki Configuration → Wiki Folder → *Write PDF Markdown to Vault*를 켜면 소스 PDF 옆에 `<basename>.pdf.md`를 작성합니다 (기본값 꺼짐 — 캐시 전용이 기본).
 - **🛡️ Verbatim 트랜스크립터 프롬프트** — OCR 스타일 변환, `[illegible]` / `[figure: ...]` 반환각 마커 포함; 소형 로컬 모델의 markdown 펜스 래핑은 캐시 쓰기 전에 자동 정리됩니다.
+- **🔁 소스 페이지 verbatim 인용 (v1.27.0, #496)** — 생성된 모든 `sources/<slug>.md` 페이지에 이제 추출 단계에서 캡처한 것과 동일한 verbatim 인용문으로 만든 `Mentions in Source` 섹션이 포함됩니다 (모델이 실제로 읽을 수 있다고 입증한 산문). 따라서 원본 문서는 소스 텍스트로 다시 추적 가능한 진짜 근거 흔적을 가진 유일한 wiki 페이지가 됩니다.
 
 ### 📄 PDF OCR 경로
 
@@ -164,8 +190,11 @@
 - **🪟 우측 도킹 사이드 패널** — Query Wiki가 중앙 팝업 대신 Copilot 스타일의 우측 사이드바 리프에서 열립니다 (v1.22.1+).
 - **🔍 Lint 상태 검사** — 단일 명령어로 감지: 중복, 데드 링크, 빈 페이지, 고아, 누락된 alias, 모순.
 - **⚡ Smart Fix All** — 원클릭 인과순서 수리: alias 채우기 → 중복 병합 → 데드 링크 수정 → 고아 연결 → 빈 페이지 확장, 단계별 보고서 포함.
+- **🆕 Fix Dead Links leave-it 결과 (v1.27.0, #485)** — 설정 → Advanced → *Create Stubs for Unresolvable Links* (기본 ON) 옵션으로 빈 placeholder 페이지 생성을 거부할 수 있습니다. 꺼두면 데드 링크가 실제 소스가 정의할 때까지 모든 lint 보고서에 그대로 남아 있고, 수집은 일반 채널을 통해 페이지를 만듭니다. #197의 "절대 LLM으로 확장하지 않음" 게이트는 변경되지 않습니다 — 새 컨트롤은 stub 페이지가 *작성되는지 여부*만 결정합니다.
 - **📊 작업 이력 패널** — 과거 수집, lint 보고서, 유지보수 실행을 검색 및 필터링 가능한 UI로 조회.
 - **🛡️ 사전 수집 게이트** — 빈/공백/frontmatter 전용 노트는 LLM 호출 전에 거부됨; 콘텐츠 해시 중복 제거가 경로 간 동일 파일을 감지합니다.
+- **🆕 수집 후보 게이트 (v1.27.0, #514 / PR #521)** — 옵트인 토글 (`skipMentionOnlyCandidates`, 기본 꺼짐, 설정 → Advanced). 측정된 언어 프로파일이 있는 소스에 대해 (de 측정됨; en/fr/es/pt/nl/ko는 고정된 엣지 케이스로 추정됨; zh/ja 문자 스크립트 임계값은 미측정) 괄호 / 열거 / 짧은 목록 항목 안에서만 언급된 후보는 페이지 + dedup + 생성 호출 비용이 발생하기 전에 가지치기됩니다. 크로스 언어 노드는 게이트되지 않으며; 프로파일이 없는 wiki 언어는 수집당 한 번 보고하고 절대 자동으로 건너뛰지 않습니다.
+- **🆕 단계별 task policies (v1.27.0, #525 / #490)** — LLM Advanced → Task Policies 필드가 `step=mode:thinking` 항목(예: `extract=text:on,merge-triage=text:on`)을 받습니다. `extract` text-mode 핀과 향후 모든 단계별 오버라이드를 위한 단일 컨트롤 지점. 나열하지 않은 단계의 기본 baseline은 그대로 유지됩니다.
 
 ### 🔒 개인정보
 
@@ -346,7 +375,7 @@ Monte Carlo PPR (Fogaras 2005)을 사용합니다 — 3,000개의 랜덤 워크 
 | **Tencent Hunyuan** | Hy3 시리즈 | OpenAI 호환; 오픈웨이트 MoE |
 | **Xiaomi MiMo** | MiMo V2.5 시리즈 | MIT 오픈소스; 플랫 가격 |
 | **Google Gemma** | Gemma 4 시리즈 | 오픈웨이트; 262K 컨텍스트 |
-| **AWS Bedrock** | Anthropic + OpenAI 변형 | VPC / 규정 준수 경로 |
+| **AWS Bedrock** | Anthropic + OpenAI 변형 | VPC / 규정 준수 경로; **API key + SSO + IAM** (v1.27.0, #425) |
 | **ChatGPT Plan (Codex OAuth)** | Codex Responses API | 브라우저/기기 코드 로그인; SecretStorage |
 | **로컬: Ollama, LM Studio, OpenRouter, Anthropic-Compatible** | 모든 OpenAI/Anthropic 프로토콜 모델 | Custom OpenAI-Compatible + Anthropic-Compatible (Token Plan / Coding Plan) |
 
@@ -364,6 +393,16 @@ Monte Carlo PPR (Fogaras 2005)을 사용합니다 — 3,000개의 랜덤 워크 
 - **Anthropic** (및 Bedrock 변형) — 별도 청구되는 Anthropic Platform API 키.
 - **OpenAI** — 별도 청구되는 OpenAI Platform API 키.
 - **ChatGPT Plan (Codex OAuth)** — 실험적, 별도 공급자로 브라우저 또는 기기 코드 로그인 후 적격 Codex 사용 한도를 사용합니다. 사용 가능 여부는 OpenAI Codex 인증 및 사용 한도 정책을 따르며, 플랜 이름으로 보장되지 않습니다. 서드파티 Codex 호환 기능이며, OpenAI 파트너십이나 범용 ChatGPT API가 아닙니다.
+
+### AWS Bedrock — 세 가지 인증 모드 (v1.27.0, #425)
+
+설정 → Provider → Bedrock (Anthropic / OpenAI)에서 이제 세 가지 인증 모드 중 하나를 선택합니다; provider 행은 해당 모드가 실제로 필요로 하는 입력 항목을 요청합니다:
+
+- **API key** — 기존 Stage-1 bearer 경로. 동작은 v1.26.4와 바이트 단위로 동일하며, 이미 Bedrock API 키를 지불하고 있는 사용자에게 권장됩니다.
+- **SSO** — IAM Identity Center device flow. *Sign in with AWS SSO* 클릭 후 브라우저에서 verification URL 코드를 붙여넣으면, 플러그인이 SecretStorage의 `karpathywiki-bedrock-sso`를 통해 SSO 토큰을 받고, 이를 임시 role 자격 증명으로 교환한 뒤, 모든 요청을 자체 구현한 SigV4 (AWS SDK 미추가)로 서명합니다. Account ID와 role 이름은 SSO identity가 각각 정확히 하나를 노출할 때 자동 감지됩니다; 그렇지 않으면 provider 설정에서 입력하세요.
+- **IAM** — SSO가 없는 환경 (CI, 예약된 배치 작업)을 위한 static access key. SecretStorage의 `karpathywiki-bedrock-iam`에 저장됨; in-memory 캐시는 SigV4 서명이 만료 내에 머무르도록 access-key별로 메모이즈합니다.
+
+세 모드 모두 동일한 Obsidian SecretStorage 규율(`data.json`, 로그, docs에 자격 증명 없음)과 동일한 zero-AWS-SDK 자체 구현 OIDC + SigV4 경로를 공유합니다. Bedrock region은 인증 모드와 독립적이며, 동일한 provider 행에서 설정됩니다.
 
 > 📖 **전체 선택 표** (클라우드 + 로컬 + PDF OCR + Codex OAuth + 양자화 + 하드웨어 계층) → [docs/MODEL-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/MODEL-GUIDE.md)
 

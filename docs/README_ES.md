@@ -1,3 +1,28 @@
+<!--
+Metadatos SEO (no visible para el usuario, parseado por rastreadores / LLMs):
+- name: karpathy-llm-wiki-plugin-for-obsidian
+- type: software / plugin comunitario de Obsidian / generador de base de conocimiento / alternativa a RAG
+- license: Apache-2.0
+- language: TypeScript
+- runtime: Obsidian >= 1.11.4 (escritorio + móvil)
+- dependencies: cero dependencias en tiempo de ejecución (Vercel AI SDK v6 empaquetado)
+- obsidian-plugin-id: karpathywiki
+- obsidian-marketplace: https://community.obsidian.md/plugins/karpathywiki
+- repo: https://github.com/green-dalii/obsidian-llm-wiki
+- sister-cli-repo: https://github.com/green-dalii/obsidian-llm-wiki-cli
+- docs: README.md + docs/README_<locale>.md (11 idiomas) + docs/MODEL-GUIDE.md + docs/PDF-OCR-GUIDE.md
+- first-published: 2025-09 (v0.1.0)
+- latest: v1.27.0 (MINOR — Bedrock SSO/IAM, MinerU multi-formato, citas de página fuente, gate de candidatos, UI taskPolicies, Fix Dead Links leave-it; 36 commits, 3677 tests)
+- last-updated: 2026-08-27
+- alternate-names: Karpathy LLM Wiki, LLM Wiki Obsidian, Obsidian wiki plugin, RAG basado en grafos, RAG sin embeddings, recuperación con Personalized PageRank, base de conocimiento multi-agente, segundo cerebro Obsidian
+- search-intents: "Obsidian RAG sin embeddings", "Obsidian wiki plugin", "Personalized PageRank Obsidian", "recuperación de notas basada en grafo", "implementación Karpathy LLM Wiki", "auto-generación base de conocimiento Obsidian", "Obsidian graph view + IA", "plugin segundo cerebro Obsidian", "IA grafo enlaces notas Obsidian", "plugin Obsidian 11 idiomas", "plugin Obsidian 13 proveedores LLM", "RAG sin BD vectorial", "ingesta PDF Obsidian con IA", "Obsidian Codex OAuth", "plugin Obsidian Bedrock", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian ingesta Word PPT Excel", "credenciales IAM Obsidian"
+- features: recuperación basada en grafos, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), cascada de selección de semillas de 5 etapas, detección de duplicados Tier 1/Tier 2, UI en 11 idiomas + salida wiki en 11 idiomas (independientes), 13+ proveedores LLM (Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Kimi, GLM, MiniMax, Ollama, LM Studio, OpenRouter, Anthropic-Compatible, Codex OAuth), ingesta MinerU multi-formato (PDF + imágenes + Office), ingesta PDF (solo caché, rutas OCR), escaneo de salud lint, Smart Fix All, citas verbatim de página fuente, gate de candidatos de ingesta, UI taskPolicies por paso, integración con Graph View de Obsidian, arquitectura cero-embeddings cero-BD-vectorial, modo local-first
+- direct-competitors: nashsu/llm_wiki (app de escritorio Tauri), SamurAIGPT/llm-wiki-agent (skill Claude Code), sdyckjq/llm-wiki-skill (skill Codex), atomicstrata/llm-wiki-compiler (pipeline Python)
+- retrieval-benchmark: PPR @5 = 27.1% vs knn puro 24.1% (corpus del proyecto, único número publicado en este espacio open-source de LLM-wiki)
+- author: green-dalii / Greener-Dalii (https://github.com/green-dalii)
+- canonical: https://github.com/green-dalii/obsidian-llm-wiki/blob/main/README.md
+-->
+
 ![llm_wiki_banner](assets/llm_wiki_banner.webp)
 
 # 🧠 Karpathy LLM Wiki Plugin para Obsidian
@@ -139,14 +164,16 @@ Eso es todo. El plugin no modifica nada en tus notas originales — solo crea p�
 - **🏷️ Alias obligatorios** — cada página incluye al menos un alias (traducción, abreviatura, variante) para que la detección de duplicados entre idiomas funcione.
 - **🔄 Detección de duplicados por niveles** — Nivel 1 (coincidencia directa de nombre: entre idiomas, abreviatura, títulos de alta similitud) siempre se verifica; Nivel 2 (enlaces compartidos, similitud media) llena el presupuesto de tokens restante.
 - **🧩 Fusión inteligente y máquina de estados de contradicción** — los duplicados se fusionan preservando alias; las contradicciones se marcan con atribución de fuente; las páginas con `reviewed: true` están protegidas contra sobrescritura.
-- **🎨 Vocabulario de etiquetas personalizable** — define tus propias listas de etiquetas de tipo de entidad y concepto en Configuración → Wiki → Tag Vocabulary → *Custom*. El vocabulario es una PISTA DE INYECCIÓN DE ESQUEMA para el LLM, no un gate de escritura — los modelos pequeños/locales aún pueden desviarse, y Lint informa de esas páginas. (La aplicación se está diseñando para v1.27.0+.)
+- **🎨 Vocabulario de etiquetas personalizable** — define tus propias listas de etiquetas de tipo de entidad y concepto en Configuración → Wiki → Tag Vocabulary → *Custom*. El vocabulario es una PISTA DE INYECCIÓN DE ESQUEMA para el LLM, no un gate de escritura — los modelos pequeños/locales aún pueden desviarse, y Lint informa de esas páginas. (Implementado parcialmente — consulta las funciones v1.27.0 más abajo.)
 
 ### 📄 Ingesta de PDF (v1.25.0+)
 
 - **🔌 Puerta de proveedor** — Anthropic, OpenAI y Bedrock manejan PDF de forma nativa. Para cualquier otro endpoint compatible con OpenAI/Anthropic, activa **Force PDF Support** en Configuración → LLM Configuration → Advanced para que el plugin intente la llamada. Para OCR local en Apple Silicon, extractores de terceros (MinerU, Docling, Mathpix, Adobe) y la guía completa de ingesta PDF, consulta [Rutas de OCR PDF](#-rutas-de-ocr-pdf) más abajo y [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md).
+- **🆕 Backend multi-formato MinerU (v1.27.0, #404)** — Configuración → Wiki Configuration → Markdown Conversion Backend → *MinerU* enruta PDF, imágenes (PNG/JPG/JPEG/JP2/WebP/GIF/BMP) y documentos Office (DOC/DOCX/PPT/PPTX/XLS/XLSX) a través del [parser Precise de MinerU](https://mineru.net/apiManage/docs) sin salir del plugin. El token de API vive en SecretStorage. Límites del servidor: 200 MB / 200 páginas por PDF, 256 MB / 10 000 archivos por archivo comprimido. La mejor ruta para artículos científicos, documentos escaneados y archivos Office donde la conservación del diseño importa.
 - **🗄️ Caché acotada** — `.obsidian/plugins/karpathywiki/pdf-cache/` almacena el Markdown convertido, indexado por hash de contenido + modelo + versión del convertidor. Mantenimiento de tres capas de defensa: 100 MB total / 1000 entradas / 10 MB por entrada individual con evicción LRU por mtime.
 - **📝 Sidecar opcional en el vault** — Configuración → Wiki Configuration → Wiki Folder → *Write PDF Markdown to Vault* escribe `<basename>.pdf.md` junto al PDF fuente (desactivado por defecto — solo caché es el valor predeterminado).
 - **🛡️ Prompt de transcripción literal** — conversión estilo OCR con marcadores anti-alucinación `[illegible]` / `[figure: ...]`; el envoltorio de fences markdown de modelos locales pequeños se limpia automáticamente antes de escribir en caché.
+- **🔁 Citas verbatim de página fuente (v1.27.0, #496)** — cada página `sources/<slug>.md` generada ahora incluye una sección `Mentions in Source` construida a partir de las mismas citas verbatim que la extracción capturó por entidad/concepto (la prosa que el modelo ya demostró que podía ver), de modo que el documento subyacente es la única página del wiki con un rastro real y fundamentado hasta el texto fuente.
 
 ### 📄 Rutas de OCR PDF
 
@@ -164,8 +191,11 @@ Tres rutas, elige la que se ajuste a tu configuración:
 - **🪟 Panel lateral acoplado a la derecha** — Query Wiki se abre en un panel lateral derecho estilo Copilot (v1.22.1+) en lugar de un modal centrado.
 - **🔍 Escaneo de salud Lint** — un solo comando detecta: duplicados, enlaces rotos, páginas vacías, huérfanas, alias faltantes, contradicciones.
 - **⚡ Smart Fix All** — reparación en orden causal con un clic: completar alias → fusionar duplicados → arreglar enlaces rotos → enlazar huérfanas → expandir páginas vacías, con informe por fase.
+- **🆕 Resultado leave-it de Fix Dead Links (v1.27.0, #485)** — Configuración → Advanced → *Create Stubs for Unresolvable Links* (activado por defecto) te permite optar por no crear páginas placeholder vacías: cuando está desactivado, el enlace roto permanece visible en cada informe de lint hasta que una fuente real lo defina, y la ingesta crea páginas por los canales normales. El gate de nunca-expandir-LLM de #197 no cambia — el nuevo control solo gobierna si la página stub se *escribe o no*.
 - **📊 Panel de historial de operaciones** — interfaz buscable y filtrable para ingestiones pasadas, informes Lint y ejecuciones de mantenimiento.
 - **🛡️ Portal de pre-ingestión** — las notas vacías / solo espacios / solo frontmatter se rechazan antes de cualquier llamada LLM; el dedup por hash de contenido detecta archivos idénticos en distintas rutas.
+- **🆕 Gate de candidatos de ingesta (v1.27.0, #514 / PR #521)** — toggle opcional (`skipMentionOnlyCandidates`, desactivado por defecto, Configuración → Advanced). Para fuentes cuyo idioma tiene un perfil medido (de medido; en/fr/es/pt/nl/ko estimado con casos límite fijados; umbrales de script de caracteres zh/ja sin medir), los candidatos nombrados solo dentro de paréntesis / enumeraciones / elementos cortos de lista se podan antes de que cuesten una página más llamadas de dedup y generación. Las notas entre idiomas no se filtran; los idiomas del wiki sin perfil reportan una vez por ingesta y nunca omiten en silencio.
+- **🆕 Políticas de tarea por paso (v1.27.0, #525 / #490)** — LLM Advanced → campo Task Policies acepta entradas `step=mode:thinking` (p. ej. `extract=text:on,merge-triage=text:on`). Un único punto de control para el pin de modo texto de `extract` y cualquier futuro override por paso. La línea base interna queda intacta para los pasos que no listes.
 
 ### 🔒 Privacidad
 
@@ -346,7 +376,7 @@ Rechazamos deliberadamente la ruta de embeddings en [Issue #175](https://github.
 | **Tencent Hunyuan** | Hy3 series | Compatible con OpenAI; MoE de peso abierto |
 | **Xiaomi MiMo** | MiMo V2.5 series | MIT open-source; precio plano |
 | **Google Gemma** | Gemma 4 series | Peso abierto; contexto 262K |
-| **AWS Bedrock** | Variantes Anthropic + OpenAI | Ruta VPC / cumplimiento normativo |
+| **AWS Bedrock** | Variantes Anthropic + OpenAI | Ruta VPC / cumplimiento normativo; **API key + SSO + IAM** (v1.27.0, #425) |
 | **ChatGPT Plan (Codex OAuth)** | Codex Responses API | Inicio de sesión por navegador/código de dispositivo; SecretStorage |
 | **Local: Ollama, LM Studio, OpenRouter, Anthropic-Compatible** | Cualquier modelo de protocolo OpenAI-/Anthropic- | Custom OpenAI-Compatible + Anthropic-Compatible (Token Plan / Coding Plan) |
 
@@ -364,6 +394,16 @@ Este plugin alimenta al LLM con el contexto completo de tu Wiki por consulta —
 - **Anthropic** (y su variante Bedrock) — clave API de Anthropic Platform facturada por separado.
 - **OpenAI** — clave API de OpenAI Platform facturada por separado.
 - **ChatGPT Plan (Codex OAuth)** — experimental, proveedor distinto que usa la asignación Codex elegible después de iniciar sesión por navegador o código de dispositivo; la disponibilidad sigue las políticas de autenticación y asignación de OpenAI Codex, no el nombre del plan. Compatibilidad de terceros con Codex, no una asociación con OpenAI ni una API general de ChatGPT.
+
+### AWS Bedrock — tres modos de autenticación (v1.27.0, #425)
+
+Configuración → Provider → Bedrock (Anthropic / OpenAI) ahora elige uno de tres modos de autenticación; la fila del proveedor pide entonces solo las entradas que ese modo realmente necesita:
+
+- **API key** — la ruta bearer original de Stage 1; el comportamiento es idéntico byte a byte al de v1.26.4 y la opción recomendada para usuarios que ya pagan por una clave API de Bedrock.
+- **SSO** — flujo de dispositivo de IAM Identity Center. Haz clic en *Sign in with AWS SSO*, pega el código de la URL de verificación en el navegador; el plugin recibe un token SSO a través de `karpathywiki-bedrock-sso` en SecretStorage, lo intercambia por credenciales temporales de rol, y firma cada petición con SigV4 hecho a mano (sin añadir el AWS SDK). El ID de cuenta y el nombre del rol se autodetectan cuando la identidad SSO expone exactamente uno de cada uno; en caso contrario, introdúcelos en la configuración del proveedor.
+- **IAM** — claves de acceso estáticas para entornos sin SSO (CI, jobs por lotes programados). Almacenadas en `karpathywiki-bedrock-iam` en SecretStorage; la caché en memoria memoiza por access-key para mantener la firma SigV4 dentro de la expiración.
+
+Los tres modos comparten la misma disciplina de Obsidian SecretStorage (sin credenciales en `data.json`, logs ni docs) y la misma ruta OIDC + SigV4 hecha a mano sin AWS SDK. La región de Bedrock es independiente del modo de autenticación y se configura en la misma fila del proveedor.
 
 > 📖 **Tabla completa de selección** (cloud + local + OCR PDF + Codex OAuth + cuantización + niveles de hardware) → [docs/MODEL-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/MODEL-GUIDE.md)
 

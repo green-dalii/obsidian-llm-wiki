@@ -2,11 +2,13 @@
 
 > Feature planning and improvement proposals
 
-**Latest shipped:** v1.26.4 PATCH (2026-08-19). See [CHANGELOG.md §1.26.4](./CHANGELOG.md#1264---2026-08-19) for the canonical composition record. | **Updated:** 2026-08-22
+**Latest shipped:** v1.27.0 MINOR (2026-08-27). See [CHANGELOG.md §1.27.0](./CHANGELOG.md#1270---2026-08-27) for the canonical composition record. | **Updated:** 2026-08-27
 
 **v1.26.5 PATCH CANCELLED 2026-08-19** — folded into v1.27.0 MINOR to amortize release-cycle overhead (per user direction).
 
 **v1.27.0 MINOR Phase4 (CLI demote) — MERGED 2026-08-22**: PR #511 (`002da74`, closes #507) migrates `tools/llm-wiki-cli/` → `tools/dev-instrument/` (UPSTREAM DEV-ONLY INSTRUMENT, engine contributors only), eliminating 49 of ~52 Obsidian Bot errors. Two review rounds by @DocTpoint (round-2 blocking finding produced the shim-bundle smoke test now in Gate 1); legacy snapshot at `legacy/cli-v1.26.4-snapshot`. One-cycle deprecation notice ships in the v1.27.0 release notes.
+
+**v1.27.0 MINOR — SHIPPED 2026-08-27**: 36 merge commits (181 files, +11197/-3158 LOC, 3677 tests). Bedrock SSO/IAM (#425, PR #540, awaiting account-holder real-AWS E2E of three constants), MinerU multi-format (#404), source-page verbatim quotes (#496), Fix Dead Links leave-it (#485), ingest candidate gate (#514), per-step taskPolicies UI (#525/#490), composite-key LLM probe caches (#551/#552/#553), and a community wave of frontmatter / alias / dedup correctness fixes (#502/#505/#509/#510/#512/#513/#515/#517/#518/#519/#520/#521/#522/#523/#524/#527/#528/#530/#531/#532/#533/#534/#535/#536/#537/#538). Plus release chore: #501 npm-side `overrides` pin closes the `npm audit HIGH=1` carry-over from v1.26.x. Plan-aligned slider rule honored — all six original MINOR items shipped, none slid to v1.28.0.
 
 ## Process notes
 

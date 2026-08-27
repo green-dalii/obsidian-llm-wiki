@@ -140,14 +140,16 @@
 - **🏷️ 強制頁面別名** — 每個頁面至少包含一個別名（翻譯、縮寫、變體名），讓跨語言重複檢測能夠運作。
 - **🔄 分級重複檢測** — Tier 1（直接名稱匹配：跨語言、縮寫、高相似度標題）全部驗證；Tier 2（共享鏈接、中等相似度）填補剩餘 token 預算。
 - **🧩 智慧合併與矛盾狀態** — 重複頁面合併時保留別名；矛盾標記來源歸屬；`reviewed: true` 頁面受保護不被覆蓋。
-- **🎨 自訂標籤詞彙** — 在設定 → Wiki → 標籤詞彙模式 → *自訂* 中定義自己的實體類型和概念類型標籤清單。詞彙表是注入 LLM 的提示（schema injection hint），不是寫入時的強制閘門——小型/本地模型仍可能漂移，Lint 會報告這些頁面以便修復。(Schema 強制校驗在 v1.27.0+ 設計中。)
+- **🎨 自訂標籤詞彙** — 在設定 → Wiki → 標籤詞彙模式 → *自訂* 中定義自己的實體類型和概念類型標籤清單。詞彙表是注入 LLM 的提示（schema injection hint），不是寫入時的強制閘門——小型/本地模型仍可能漂移，Lint 會報告這些頁面以便修復。（Schema 強制校驗已部分實施——詳見下方 v1.27.0 新功能。）
 
-### 📄 PDF 擷取 (v1.25.0+)
+### 📄 PDF 擷取 (v1.25.0+，MinerU 後端 v1.27.0+)
 
 - **🔌 Provider 准入** — Anthropic、OpenAI 和 Bedrock 原生支援 PDF。對於其他任何 OpenAI/Anthropic 相容端點，請在設定 → LLM Configuration → Advanced 中開啟 **Force PDF Support**，讓外掛嘗試呼叫。關於 Apple Silicon 上的本地 OCR、第三方提取器（MinerU、Docling、Mathpix、Adobe）以及完整的 PDF 攝入指南，請參閱下方 [PDF OCR 路徑](#-pdf-ocr-路徑) 和 [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)。
+- **🆕 MinerU 多格式後端 (v1.27.0, #404)** — 設定 → Wiki Configuration → Markdown Conversion Backend → *MinerU*，可將 PDF、圖片（PNG/JPG/JPEG/JP2/WebP/GIF/BMP）與 Office 文件（DOC/DOCX/PPT/PPTX/XLS/XLSX）交由 [MinerU 的 Precise 解析器](https://mineru.net/apiManage/docs) 處理，全程不需離開外掛。API token 儲存於 SecretStorage。伺服器上限：每份 PDF 200 MB / 200 頁，每個壓縮檔 256 MB / 10,000 個檔案。對於科學論文、掃描文件，以及重視版面保留的 Office 檔案，這是最佳路徑。
 - **🗄️ 有界快取** — `.obsidian/plugins/karpathywiki/pdf-cache/` 儲存以內容雜湊 + 模型 + converterVersion 為鍵值的轉換後 Markdown。三層防禦清理機制：總計 100 MB / 1000 條 / 單條 10 MB 上限，搭配 LRU-by-mtime 淘汰。
 - **📝 可選 vault sidecar** — 設定 → Wiki Configuration → Wiki Folder → *Write PDF Markdown to Vault* 在來源 PDF 旁寫入 `<basename>.pdf.md`（預設關閉 — 僅快取是預設行為）。
 - **🛡️ 逐字轉錄 Prompt** — OCR 風格的轉換，搭配 `[illegible]` / `[figure: ...]` 反幻覺標記；來自小型本地模型的 markdown 圍欄包裹會在寫入快取前自動清洗。
+- **🔁 來源頁逐字引文 (v1.27.0, #496)** — 每個產生的 `sources/<slug>.md` 頁面現在都會帶有一個 `Mentions in Source` 區段，內容取自提取階段為各實體/概念所擷取的同一批逐字引文（也就是模型已證實自己確實看見的原文），讓底層文件成為唯一一個能真正回溯到來源文本、有實據可循的 Wiki 頁面。
 
 ### 📄 PDF OCR 路徑
 
@@ -165,8 +167,11 @@
 - **🪟 右側停靠側邊欄** — 查詢 Wiki 以 Copilot 風格的右側 sidebar leaf 開啟（v1.22.1+），取代置中彈窗。
 - **🔍 Lint 健康掃描** — 單一指令即可檢測：重複頁面、斷鏈、空頁面、孤立頁面、缺失別名、矛盾。
 - **⚡ 一鍵智慧修復** — 按因果順序一鍵修復：補全別名 → 合併重複 → 修復斷鏈 → 鏈接孤立頁 → 擴充空頁面，附各階段執行報告。
+- **🆕 修復斷鏈的「保留不動」選項 (v1.27.0, #485)** — 設定 → Advanced → *Create Stubs for Unresolvable Links*（預設開啟）讓你可以不再產生空的佔位頁面：關閉後，斷鏈會持續出現在每一份 Lint 報告中，直到有真正的來源定義它為止，而頁面則透過正常管道在攝入時建立。#197 引入的「絕不由 LLM 擴寫」閘門維持不變——這個新開關只決定佔位頁面*是否要被寫出來*。
 - **📊 操作歷史面板** — 可搜尋、可篩選的 UI，瀏覽歷史攝入、Lint 報告和維護記錄。
 - **🛡️ 攝入前置檢查** — 空檔案/純空白/僅含 frontmatter 的筆記會在 LLM 呼叫前被拒絕；內容雜湊去重可識別跨路徑的相同檔案。
+- **🆕 攝入候選項閘門 (v1.27.0, #514 / PR #521)** — 需手動開啟的開關（`skipMentionOnlyCandidates`，預設關閉，位於 設定 → Advanced）。若來源語言已有實測輪廓（德文為實測；英/法/西/葡/荷/韓為估算並針對邊界情況做了固定處理；中文/日文的字符腳本門檻尚未實測），那些僅出現在括號、列舉或短列表項目中的候選項，會在耗費一個頁面外加去重與生成呼叫之前先被剪除。跨語言筆記不受此閘門限制；沒有語言輪廓的 Wiki 語言每次攝入僅回報一次，絕不靜默跳過。
+- **🆕 逐步驟任務策略 (v1.27.0, #525 / #490)** — LLM Advanced → Task Policies 欄位接受 `step=mode:thinking` 格式的條目（例如 `extract=text:on,merge-triage=text:on`）。這是 `extract` 文字模式固定設定，以及未來任何逐步驟覆寫的單一控制點。你沒有列出的步驟，其內建基準值維持不變。
 
 ### 🔒 隱私
 
@@ -349,7 +354,7 @@ CLI 複用你的外掛設定——沒有獨立的 CLI 設定介面。設定從 `
 | **Tencent Hunyuan** | Hy3 系列 | OpenAI 相容；開源權重 MoE |
 | **Xiaomi MiMo** | MiMo V2.5 系列 | MIT 開源；平價方案 |
 | **Google Gemma** | Gemma 4 系列 | 開源權重；262K 上下文 |
-| **AWS Bedrock** | Anthropic + OpenAI 變體 | VPC / 合規路徑 |
+| **AWS Bedrock** | Anthropic + OpenAI 變體 | VPC / 合規路徑；**API key + SSO + IAM**（v1.27.0, #425） |
 | **ChatGPT Plan (Codex OAuth)** | Codex Responses API | 瀏覽器/裝置代碼登入；SecretStorage |
 | **本地：Ollama、LM Studio、OpenRouter、Anthropic 相容** | 任何 OpenAI/Anthropic 協定模型 | Custom OpenAI-Compatible + Anthropic-Compatible（Token Plan / Coding Plan） |
 
@@ -367,6 +372,16 @@ CLI 複用你的外掛設定——沒有獨立的 CLI 設定介面。設定從 `
 - **Anthropic**（及其 Bedrock 變體）——單獨計費的 Anthropic Platform API Key。
 - **OpenAI**——單獨計費的 OpenAI Platform API Key。
 - **ChatGPT Plan (Codex OAuth)**——實驗性的獨立 Provider，在瀏覽器或裝置代碼登入後使用符合資格的 Codex 方案額度；可用性取決於 OpenAI Codex 的驗證和額度政策，而非僅憑方案名稱。這是第三方 Codex 相容功能，並非 OpenAI 合作項目或通用 ChatGPT API。
+
+### AWS Bedrock——三種驗證模式 (v1.27.0, #425)
+
+設定 → Provider → Bedrock（Anthropic / OpenAI）現在可從三種驗證模式中擇一；選定後，該 Provider 欄位只會索取該模式實際需要的輸入項：
+
+- **API key**——原本的 Stage-1 bearer 路徑；行為與 v1.26.4 逐位元組完全相同，也是已經在付費使用 Bedrock API key 的使用者的建議選項。
+- **SSO**——IAM Identity Center 裝置流程。點擊 *Sign in with AWS SSO*，在瀏覽器貼上驗證 URL 代碼，外掛便會透過 SecretStorage 中的 `karpathywiki-bedrock-sso` 取得 SSO token，將其換取為臨時角色憑證，並以自行實作的 SigV4 為每一次請求簽章（不引入 AWS SDK）。當 SSO 身分各只暴露一組時，帳號 ID 與角色名稱會自動偵測；否則請在 Provider 設定中手動填入。
+- **IAM**——供沒有 SSO 的環境（CI、排程批次作業）使用的靜態存取金鑰。儲存於 SecretStorage 中的 `karpathywiki-bedrock-iam`；記憶體內快取會依存取金鑰做記憶化，讓 SigV4 簽章維持在有效期限之內。
+
+三種模式共用同一套 Obsidian SecretStorage 紀律（憑證絕不出現在 `data.json`、日誌或文件中），也共用同一條零 AWS SDK、自行實作的 OIDC + SigV4 路徑。Bedrock 區域與驗證模式互相獨立，在同一個 Provider 欄位中設定。
 
 > 📖 **完整選擇表**（雲端 + 本地 + PDF OCR + Codex OAuth + 量化 + 硬體分級）→ [docs/MODEL-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/MODEL-GUIDE.md)
 

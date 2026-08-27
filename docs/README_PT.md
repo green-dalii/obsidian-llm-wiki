@@ -139,14 +139,16 @@ Você escreve notas. Elas ficam em pastas. Encontrar o que se relaciona com o qu
 - **🏷️ Aliases Obrigatórios** — Cada página gerada inclui pelo menos um alias (tradução, abreviatura, variante) para que a deteção de duplicados entre idiomas funcione.
 - **🔄 Deteção de Duplicados por Camadas** — Camada 1 (correspondência direta de nome: entre idiomas, abreviatura, títulos de alta similaridade) sempre verificada; Camada 2 (links compartilhados, similaridade média) preenche o orçamento de tokens restante.
 - **🧩 Fusão Inteligente e Estado de Contradição** — Duplicados são mesclados preservando aliases; contradições são sinalizadas com atribuição de fonte; páginas `reviewed: true` são protegidas contra sobrescrita.
-- **🎨 Vocabulário de Tags Personalizável** — Defina suas próprias listas de tags de tipo de entidade e conceito em Configurações → Wiki → Vocabulário de Tags → *Personalizado*. O vocabulário é uma DICA DE INJEÇÃO DE ESQUEMA para a LLM, não uma barreira de escrita — modelos pequenos/locais ainda podem derivar, e o Lint relata essas páginas. (Imposição sendo projetada para v1.27.0+.)
+- **🎨 Vocabulário de Tags Personalizável** — Defina suas próprias listas de tags de tipo de entidade e conceito em Configurações → Wiki → Vocabulário de Tags → *Personalizado*. O vocabulário é uma DICA DE INJEÇÃO DE ESQUEMA para a LLM, não uma barreira de escrita — modelos pequenos/locais ainda podem derivar, e o Lint relata essas páginas. (Implementado parcialmente — veja as funcionalidades v1.27.0 abaixo)
 
 ### 📄 Ingestão de PDF (v1.25.0+)
 
 - **🔌 Porta do Provedor** — Anthropic, OpenAI e Bedrock lidam com PDF nativamente. Para qualquer outro endpoint compatível com OpenAI/Anthropic, ative **Force PDF Support** em Configurações → Configuração LLM → Avançado para permitir que o plugin tente a chamada. Para OCR local no Apple Silicon, extratores de terceiros (MinerU, Docling, Mathpix, Adobe) e o tutorial completo de ingestão de PDF, veja [Caminhos OCR PDF](#-caminhos-ocr-pdf) abaixo e [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md).
+- **🆕 Backend multi-formato MinerU (v1.27.0, #404)** — Configurações → Configuração Wiki → Backend de Conversão Markdown → *MinerU* roteia PDF, imagens (PNG/JPG/JPEG/JP2/WebP/GIF/BMP) e documentos Office (DOC/DOCX/PPT/PPTX/XLS/XLSX) pelo [parser Precise do MinerU](https://mineru.net/apiManage/docs) sem sair do plugin. O token da API fica no SecretStorage. Limites do servidor: 200 MB / 200 páginas por PDF, 256 MB / 10 000 arquivos por arquivo. Melhor caminho para artigos científicos, documentos digitalizados e arquivos Office onde a preservação de layout importa.
 - **🗄️ Cache com Limites** — `.obsidian/plugins/karpathywiki/pdf-cache/` armazena Markdown convertido, indexado por hash de conteúdo + modelo + versão do conversor. Manutenção de três camadas de defesa: 100 MB total / 1000 entradas / 10 MB por entrada individual com evicção LRU por mtime.
 - **📝 Sidecar Opcional no Vault** — Configurações → Configuração Wiki → Pasta Wiki → *Write PDF Markdown to Vault* escreve `<basename>.pdf.md` ao lado do PDF fonte (desligado por padrão — apenas cache é o padrão).
 - **🛡️ Prompt de Transcrição Literal** — Conversão estilo OCR com marcadores `[illegible]` / `[figure: ...]` anti-alucinação; o encapsulamento em fences markdown de modelos locais pequenos é limpo automaticamente antes da escrita no cache.
+- **🔁 Citações verbatim na página de origem (v1.27.0, #496)** — cada página gerada `sources/<slug>.md` agora traz uma seção `Menções na Fonte` construída a partir das mesmas citações verbatim que a extração capturou por entidade/conceito (a prosa que o modelo provou que consegue ver); assim, o documento de origem é a única página wiki com um rastro real e fundamentado até o texto fonte.
 
 ### 📄 Caminhos OCR PDF
 
@@ -164,8 +166,11 @@ Três caminhos, escolha o que se adequa à sua configuração:
 - **🪟 Painel Lateral Acoplado à Direita** — Query Wiki abre numa leaf lateral direita estilo Copilot (v1.22.1+) em vez de um modal centralizado.
 - **🔍 Lint Health Scan** — Um comando captura: duplicados, links mortos, páginas vazias, órfãos, aliases ausentes, contradições.
 - **⚡ Smart Fix All** — Reparo em ordem causal com um clique: preencher aliases → mesclar duplicados → corrigir links mortos → vincular órfãos → expandir páginas vazias, com relatório por fase.
+- **🆕 Resultado «deixar como está» em Fix Dead Links (v1.27.0, #485)** — Configurações → Avançado → *Criar Stubs para Links Não-Resolvíveis* (ATIVADO por padrão) permite dispensar páginas-placeholder vazias: quando desligado, o link morto permanece visível em todo relatório de Lint até que uma fonte real o defina, e a ingestão cria páginas pelos canais normais. A barreira «nunca expandir via LLM» de #197 permanece intacta — o novo controle rege apenas se a página stub é *escrita de fato*.
 - **📊 Painel de Histórico de Operações** — UI pesquisável e filtrável para ingestões passadas, relatórios Lint e execuções de manutenção.
 - **🛡️ Porta de Pré-Ingestão** — Notas vazias / somente espaços em branco / somente frontmatter são rejeitadas antes de qualquer chamada LLM; a deduplicação por hash de conteúdo captura arquivos idênticos entre caminhos.
+- **🆕 Porta de candidatos de ingestão (v1.27.0, #514 / PR #521)** — toggle opcional (`skipMentionOnlyCandidates`, desligado por padrão, Configurações → Avançado). Para fontes cujo idioma tem perfil medido (de medido; en/fr/es/pt/nl/ko estimado com casos de fronteira fixados; zh/ja com limiares de script de caracteres não medidos), candidatos nomeados apenas entre parênteses / enumerações / itens curtos de lista são podados antes de custarem uma página mais dedup e chamadas de geração. Notas multilíngues não passam pela porta; idiomas de wiki sem perfil reportam uma vez por ingestão e nunca pulam silenciosamente.
+- **🆕 Políticas de tarefa por etapa (v1.27.0, #525 / #490)** — LLM Avançado → campo Task Policies aceita entradas `step=modo:thinking` (p.ex. `extract=text:on,merge-triage=text:on`). Um ponto único de controle para o pino de modo texto do `extract` e qualquer sobrescrita futura por etapa. O baseline embutido fica intocado para etapas que você não lista.
 
 ### 🔒 Privacidade
 
@@ -342,7 +347,7 @@ Rejeitamos deliberadamente o caminho de embedding na [Issue #175](https://github
 | **Tencent Hunyuan** | Hy3 series | Compatível com OpenAI; MoE de pesos abertos |
 | **Xiaomi MiMo** | MiMo V2.5 series | Open-source MIT; preço fixo |
 | **Google Gemma** | Gemma 4 series | Pesos abertos; 262K de contexto |
-| **AWS Bedrock** | Variantes Anthropic + OpenAI | Caminho VPC / conformidade |
+| **AWS Bedrock** | Variantes Anthropic + OpenAI | Caminho VPC / conformidade; **API key + SSO + IAM** (v1.27.0, #425) |
 | **ChatGPT Plan (Codex OAuth)** | Codex Responses API | Login por navegador/código de dispositivo; SecretStorage |
 | **Local: Ollama, LM Studio, OpenRouter, Anthropic-Compatible** | Qualquer modelo de protocolo OpenAI-/Anthropic | Custom OpenAI-Compatible + Anthropic-Compatible (Token Plan / Coding Plan) |
 
@@ -360,6 +365,16 @@ Este plugin alimenta o LLM com o contexto completo da sua Wiki por consulta — 
 - **Anthropic** (e sua variante Bedrock) — chave API Anthropic Platform com faturamento separado.
 - **OpenAI** — chave API OpenAI Platform com faturamento separado.
 - **ChatGPT Plan (Codex OAuth)** — experimental, provedor distinto que usa franquia Codex elegível após login por navegador ou código de dispositivo; a disponibilidade segue as políticas de autenticação e franquia da OpenAI Codex, não o nome do plano. Compatibilidade de terceiros com Codex, não uma parceria com a OpenAI ou uma API geral do ChatGPT.
+
+### AWS Bedrock — três modos de autenticação (v1.27.0, #425)
+
+Configurações → Provedor → Bedrock (Anthropic / OpenAI) agora escolhe um dos três modos de autenticação; a linha do provedor então pede apenas as entradas que aquele modo de fato precisa:
+
+- **API key** — o caminho bearer original do Estágio 1; o comportamento é byte a byte idêntico ao da v1.26.4 e é a escolha recomendada para quem já paga por uma chave API do Bedrock.
+- **SSO** — fluxo de dispositivo do IAM Identity Center. Clique em *Sign in with AWS SSO*, cole o código da URL de verificação no navegador; o plugin recebe um token SSO via `karpathywiki-bedrock-sso` no SecretStorage, troca-o por credenciais temporárias de role e assina cada requisição com SigV4 feito à mão (nenhum AWS SDK adicionado). O ID da conta e o nome da role são autodetectados quando a identidade SSO expõe exatamente um de cada; caso contrário, informe-os nas configurações do provedor.
+- **IAM** — chaves de acesso estáticas para ambientes sem SSO (CI, jobs agendados em lote). Armazenadas em `karpathywiki-bedrock-iam` no SecretStorage; o cache em memória memoiza por access-key para manter a assinatura SigV4 dentro da validade.
+
+Os três modos compartilham a mesma disciplina do Obsidian SecretStorage (nenhuma credencial em `data.json`, logs ou docs) e o mesmo caminho SigV4 + OIDC feito à mão, sem AWS SDK. A região do Bedrock é independente do modo de autenticação e é configurada na mesma linha do provedor.
 
 > 📖 **Tabela de escolha completa** (cloud + local + PDF OCR + Codex OAuth + quantização + tiers de hardware) → [docs/MODEL-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/MODEL-GUIDE.md)
 
