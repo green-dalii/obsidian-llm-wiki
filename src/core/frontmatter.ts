@@ -1,6 +1,6 @@
 import { VALID_ENTITY_TAGS, VALID_CONCEPT_TAGS, VALID_SOURCE_TAGS, LLMWikiSettings } from '../types';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from './tag-vocab';
-import { filterRedundantAliases } from './slug';
+import { filterRedundantAliases, resolveMinAliasLength } from './slug';
 
 export interface FrontmatterData {
   reviewed?: boolean;
@@ -727,7 +727,7 @@ export function enforceFrontmatterConstraints(
   // Self-pointing aliases (alias === page basename) are dropped here when the
   // caller knows the path — see EnforceFrontmatterOptions.pagePath.
   const aliases = options?.pagePath
-    ? filterRedundantAliases(options.pagePath, collectedAliases)
+    ? filterRedundantAliases(options.pagePath, collectedAliases, undefined, resolveMinAliasLength(settings))
     : collectedAliases;
 
   const frontmatter = serializeFrontmatter(

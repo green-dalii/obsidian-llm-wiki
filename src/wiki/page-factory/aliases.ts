@@ -12,10 +12,13 @@
 //   - Replaces the existing `aliases:` block if present, otherwise injects a
 //     fresh block before the closing `---`.
 
-import { filterRedundantAliases } from '../../core/slug';
-import { MIN_ALIAS_LENGTH, MIN_ALIAS_LENGTH_MIN, MIN_ALIAS_LENGTH_MAX } from '../../constants';
-import type { LLMWikiSettings } from '../../types';
+import { filterRedundantAliases, resolveMinAliasLength } from '../../core/slug';
 import { parseFrontmatter } from '../../core/frontmatter';
+
+// Moved to core/slug.ts so the create path (enforceFrontmatterConstraints)
+// resolves the same floor without importing from the page factory; re-exported
+// here so existing importers keep working.
+export { resolveMinAliasLength };
 
 /**
  * Minimal context contract required by `appendAliases`. The real
@@ -26,18 +29,7 @@ export interface AliasesContext {
   tryReadFile: (path: string) => Promise<string | null>;
   createOrUpdateFile: (path: string, content: string) => Promise<void>;
   /** Optional: only `minAliasLength` is read here. Absent → MIN_ALIAS_LENGTH. */
-  settings?: Pick<LLMWikiSettings, 'minAliasLength'>;
-}
-
-/**
- * The alias floor this context applies: the `minAliasLength` setting when it
- * is an integer inside the accepted range, the constant otherwise.
- */
-export function resolveMinAliasLength(settings?: Pick<LLMWikiSettings, 'minAliasLength'>): number {
-  const v = settings?.minAliasLength;
-  return Number.isInteger(v) && (v as number) >= MIN_ALIAS_LENGTH_MIN && (v as number) <= MIN_ALIAS_LENGTH_MAX
-    ? (v as number)
-    : MIN_ALIAS_LENGTH;
+  settings?: { minAliasLength?: number };
 }
 
 /**
@@ -55,6 +47,7 @@ export async function appendAliases(
   ctx: AliasesContext,
   pagePath: string,
   newAliases: string[],
+  existingAliasesAcrossPages?: readonly string[],
 ): Promise<void> {
   const content = await ctx.tryReadFile(pagePath);
   if (!content) return;
@@ -62,7 +55,7 @@ export async function appendAliases(
   // Drop aliases that already equal the page's filename (case-insensitive),
   // e.g. adding "Vigilanz" to vigilanz.md. Common on cross-type collisions
   // where the colliding name is identical to the existing page's name.
-  const candidates = filterRedundantAliases(pagePath, newAliases, undefined, resolveMinAliasLength(ctx.settings));
+  const candidates = filterRedundantAliases(pagePath, newAliases, existingAliasesAcrossPages, resolveMinAliasLength(ctx.settings));
   if (candidates.length === 0) return;
 
   const fm = parseFrontmatter(content);
@@ -93,4 +86,28 @@ export async function appendAliases(
   const newContent = `---${newFm}\n---${body}`;
   await ctx.createOrUpdateFile(pagePath, newContent);
   console.debug(`appendAliases: added ${toAdd.join(', ')} to ${pagePath}`);
+}
+/**
+ * The names another page may not claim again: every OTHER page's basename and
+ * aliases. Feeds `filterRedundantAliases`' cross-page gate (f9a680e), which was
+ * introduced for exactly this and never had a caller. Basenames are included
+ * alongside aliases because Obsidian resolves `[[X]]` to basenames first: an
+ * alias equal to another page's basename is shadowed and never carries a
+ * resolution.
+ */
+export function aliasClaimsFromPages(
+  pages: ReadonlyArray<{ path: string; title: string; aliases?: string[] }>,
+  excludePath: string,
+): string[] {
+  const claims: string[] = [];
+  for (const p of pages) {
+    if (p.path === excludePath) continue;
+    if (p.title) claims.push(p.title);
+    if (Array.isArray(p.aliases)) {
+      for (const a of p.aliases) {
+        if (typeof a === 'string' && a.trim()) claims.push(a);
+      }
+    }
+  }
+  return claims;
 }

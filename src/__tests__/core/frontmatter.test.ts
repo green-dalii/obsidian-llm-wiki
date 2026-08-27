@@ -432,6 +432,23 @@ describe('enforceFrontmatterConstraints', () => {
   });
 });
 
+describe('enforceFrontmatterConstraints: minAliasLength reaches the create path', () => {
+  const input = '---\ntype: entity\naliases: ["ML", "Maschinelles Lernen"]\n---\n\nBody';
+  const opts = { pagePath: 'wiki/entities/machine-learning.md' };
+
+  it('applies the settings floor to model-written aliases at page birth', () => {
+    const settings = { minAliasLength: 3 } as unknown as LLMWikiSettings;
+    const result = enforceFrontmatterConstraints(input, 'entity', settings, opts);
+    expect(result).toContain('Maschinelles Lernen');
+    expect(result).not.toContain('"ML"');
+  });
+
+  it('keeps the constant floor of 2 when the setting is absent', () => {
+    const result = enforceFrontmatterConstraints(input, 'entity', undefined, opts);
+    expect(result).toContain('"ML"');
+  });
+});
+
 describe('serializeFrontmatter', () => {
   it('emits fields in canonical order: type, created, updated, passthrough, sources, tags, reviewed, aliases', () => {
     const block = serializeFrontmatter(

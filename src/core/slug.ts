@@ -14,7 +14,7 @@ export function slugify(text: string, preserveCase = false): string {
 // preserveCase skips the final toLowerCase() for file creation (Issue #111).
 // All comparison/matching callers must NOT pass preserveCase so slugs stay
 // case-insensitively comparable regardless of the user's slugCase setting.
-import { MIN_ALIAS_LENGTH } from '../constants';
+import { MIN_ALIAS_LENGTH, MIN_ALIAS_LENGTH_MIN, MIN_ALIAS_LENGTH_MAX } from '../constants';
 
 export function computeSlug(text: string, preserveCase = false): string {
   if (!text || text.trim().length === 0) return 'untitled';
@@ -134,6 +134,21 @@ export function slugKeys(
 // ABOVE, so without the fold the uniqueness gate never fires on that pair.
 function aliasKey(raw: string): string {
   return turkishCaseFold(raw.trim().normalize('NFC'));
+}
+
+/**
+ * The alias floor a caller applies: the `minAliasLength` setting when it is an
+ * integer inside the accepted range, the `MIN_ALIAS_LENGTH` constant otherwise.
+ * Lives next to `filterRedundantAliases` so BOTH writers of `aliases:` (the
+ * append path and `enforceFrontmatterConstraints` on the create path) resolve
+ * the same floor from the same place — before this, only the append path read
+ * the setting and the create path silently fell back to the constant.
+ */
+export function resolveMinAliasLength(settings?: { minAliasLength?: number }): number {
+  const v = settings?.minAliasLength;
+  return Number.isInteger(v) && (v as number) >= MIN_ALIAS_LENGTH_MIN && (v as number) <= MIN_ALIAS_LENGTH_MAX
+    ? (v as number)
+    : MIN_ALIAS_LENGTH;
 }
 
 export function filterRedundantAliases(

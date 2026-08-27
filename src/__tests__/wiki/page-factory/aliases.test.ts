@@ -6,7 +6,7 @@
 // how aliases get added, deduplicated, or rewritten into the frontmatter.
 
 import { describe, it, expect, vi } from 'vitest';
-import { appendAliases, resolveMinAliasLength, type AliasesContext } from '../../../wiki/page-factory/aliases';
+import { aliasClaimsFromPages, appendAliases, resolveMinAliasLength, type AliasesContext } from '../../../wiki/page-factory/aliases';
 
 function makeContext(initial: Record<string, string>): AliasesContext & {
   written: Map<string, string>;
@@ -155,5 +155,50 @@ describe('appendAliases — minAliasLength setting', () => {
     expect(resolveMinAliasLength({ minAliasLength: 1 })).toBe(2);
     expect(resolveMinAliasLength({ minAliasLength: 7 })).toBe(2);
     expect(resolveMinAliasLength({ minAliasLength: 2.5 })).toBe(2);
+  });
+});
+
+describe('appendAliases — cross-page uniqueness gate', () => {
+  it('drops an alias another page already claims, keeps the rest', async () => {
+    const ctx = makeContext({ [PAGE]: makePage(['existing']) });
+    await appendAliases(ctx, PAGE, ['Wachheit', 'Aufmerksamkeit'], ['Aufmerksamkeit']);
+    const written = ctx.written.get(PAGE)!;
+    expect(written).toContain('  - "Wachheit"');
+    expect(written).not.toContain('  - "Aufmerksamkeit"');
+  });
+
+  it('matches claims case-insensitively', async () => {
+    const ctx = makeContext({ [PAGE]: makePage(['existing']) });
+    await appendAliases(ctx, PAGE, ['wachheit'], ['Wachheit']);
+    // every candidate collided — nothing to add, file untouched
+    expect(ctx.written.get(PAGE)!).toBe(makePage(['existing']));
+  });
+
+  it('without the claims argument behaves as before (no cross-page gate)', async () => {
+    const ctx = makeContext({ [PAGE]: makePage(['existing']) });
+    await appendAliases(ctx, PAGE, ['Aufmerksamkeit']);
+    expect(ctx.written.get(PAGE)!).toContain('  - "Aufmerksamkeit"');
+  });
+});
+
+describe('aliasClaimsFromPages', () => {
+  const pages = [
+    { path: 'wiki/entities/a.md', title: 'Alpha', aliases: ['A-Zeichen', ''] },
+    { path: 'wiki/entities/b.md', title: 'Beta', aliases: undefined },
+    { path: 'wiki/concepts/c.md', title: 'Gamma', aliases: ['Drittname'] },
+  ];
+
+  it('collects basenames and aliases of every OTHER page', () => {
+    const claims = aliasClaimsFromPages(pages, 'wiki/entities/b.md');
+    expect(claims).toContain('Alpha');
+    expect(claims).toContain('A-Zeichen');
+    expect(claims).toContain('Gamma');
+    expect(claims).toContain('Drittname');
+    expect(claims).not.toContain('Beta');
+  });
+
+  it('skips blank aliases', () => {
+    const claims = aliasClaimsFromPages(pages, 'wiki/concepts/c.md');
+    expect(claims).not.toContain('');
   });
 });

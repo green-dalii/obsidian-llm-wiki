@@ -27,7 +27,7 @@ import { parseJsonResult } from '../../core/json';
 import { normalizeLLMPath } from '../../core/prompt-builders';
 import { renderTemplate } from '../../core/template-renderer';
 import { resolveModelForTask } from '../../core/model-resolver';
-import { appendAliases, type AliasesContext } from './aliases';
+import { appendAliases, aliasClaimsFromPages, type AliasesContext } from './aliases';
 import { PathResolutionLLMSchema } from '../../llm-sdk/output-schemas';
 import { callLlm } from '../../core/llm-dispatch';
 
@@ -148,7 +148,11 @@ export async function resolvePagePath(
     const cr = resolver.resolve({ name, slug, pageType, tags });
 
     if (cr.action === 'merge') {
-      await appendAliases(ctx, cr.targetPath, [name]);
+      // f9a680e's cross-page gate, fed for the first time: `allPages` is
+      // already in scope, so the name is only appended when no OTHER page's
+      // basename or alias claims it — a duplicated claim would silently merge
+      // every future occurrence of the name into whichever page matches first.
+      await appendAliases(ctx, cr.targetPath, [name], aliasClaimsFromPages(allPages, cr.targetPath));
       return { path: cr.targetPath };
     }
 
@@ -259,8 +263,10 @@ export async function resolvePagePath(
     if (result.match && result.path) {
       const normalizedPath = normalizeLLMPath(result.path, ctx.settings.wikiFolder);
       console.debug(`Entity resolution: "${name}" matched existing page "${normalizedPath}"`);
-      // Append the new name as an alias to the existing page to prevent future duplicates
-      await appendAliases(ctx, normalizedPath, [name]);
+      // Append the new name as an alias to the existing page to prevent future
+      // duplicates — through the same cross-page gate as the deterministic
+      // merge above (`allPages` is still in scope here).
+      await appendAliases(ctx, normalizedPath, [name], aliasClaimsFromPages(allPages, normalizedPath));
       return { path: normalizedPath };
     }
   } catch (error) {
