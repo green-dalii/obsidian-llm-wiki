@@ -3,7 +3,9 @@
 // The extraction names candidates; this decides the clear cases before any
 // further call is spent on them. A candidate whose name never appears in the
 // source text, or appears only inside parentheses, enumerations or short list
-// items, gets no page — and is removed from the other candidates' related_*
+// items, gets no page — the brackets of link markup do not count as
+// parentheses, so a name the author wikilinked or hyperlinked is not an
+// aside — and is removed from the other candidates' related_*
 // lists so the gate never manufactures a dead link. Measured on a German
 // sample (10 notes, 115 candidates): 9.6 % absent, 19.1 % aside, 71.3 % prose
 // with the rules below (a first rule — plain substring, any sentence with two
@@ -184,11 +186,51 @@ function needleOf(name: string, profile: GateLanguageProfile): RegExp | null {
   return new RegExp(`(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])`, 'giu');
 }
 
+/** Link markup, whose brackets are syntax: `[[wikilink]]`, `![[embed]]`, `[text](url)`. */
+const LINK_RE = /!?\[\[[^\]\n]*\]\]|!?\[[^[\]\n]*\]\([^)\n]*\)/g;
+
+function linkSpans(text: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = [];
+  const re = new RegExp(LINK_RE.source, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) spans.push([m.index, m.index + m[0].length]);
+  return spans;
+}
+
+/**
+ * The bracket pairs that mark an aside — link markup excluded, because a name
+ * the author linked is the opposite of a passing mention.
+ *
+ * PAREN_RE matches the inner `[X]` of a `[[X]]` and both halves of
+ * `[text](url)`, so before this every wikilinked or hyperlinked name was
+ * classified `aside`: no page, and — through pruneDropped — no edge from any
+ * surviving page either. In an Obsidian vault that inverts the signal the
+ * gate is meant to read, since a wikilink is the most explicit statement a
+ * note makes about relevance.
+ *
+ * Excluding the span rather than rewriting the text keeps BOTH names of a
+ * piped link readable: `[[ACE-Hemmer|ACEi]]` names the thing twice, and a
+ * candidate may carry either. Collapsing a link to its display text instead
+ * turned 7 of 87 measured `aside` verdicts into `absent`.
+ *
+ * A parenthesis that merely CONTAINS a link stays an aside: `(e.g. [[X]])`
+ * reads as an aside without the brackets of the link too. Markup changes
+ * nothing in either direction. A bare bracketed citation carries no `(url)`
+ * and stays an aside as well.
+ *
+ * Measured on a German vault, 16 notes and 321 candidates: 32 verdicts move
+ * `aside` → `prose`, none the other way.
+ */
 function parenSpans(text: string): Array<[number, number]> {
+  const links = linkSpans(text);
   const spans: Array<[number, number]> = [];
   const re = new RegExp(PAREN_RE.source, 'g');
   let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) spans.push([m.index, m.index + m[0].length]);
+  while ((m = re.exec(text)) !== null) {
+    const start = m.index, end = start + m[0].length;
+    if (links.some(([a, b]) => start >= a && end <= b)) continue;
+    spans.push([start, end]);
+  }
   return spans;
 }
 

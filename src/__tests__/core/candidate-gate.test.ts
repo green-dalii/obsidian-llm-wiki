@@ -193,3 +193,44 @@ describe('estimated language profiles (unmeasured — the setting is opt-in)', (
     expect(classify(t, 'ハプトグロビン', P.ja)).toBe('prose');
   });
 });
+
+// Link markup is syntax, not an aside: PAREN_RE matches the inner `[X]` of a
+// `[[X]]` and both halves of `[text](url)`, so a name the author linked was
+// classified `aside` — the opposite of what a link means. Measured on a German
+// vault (16 notes, 321 candidates): 32 verdicts move `aside` → `prose`, none
+// the other way.
+describe('classifyCandidate — link markup is not a parenthesis', () => {
+  it('reads a wikilinked name as prose, not as an aside', () => {
+    const t = 'Die Kaskade läuft über [[NF-κB]] und endet in Zytokinfreisetzung.';
+    expect(classifyCandidate(t, 'NF-κB')).toBe('prose');
+  });
+
+  it('keeps BOTH names of a piped link readable', () => {
+    const t = 'Es wird bevorzugt vor [[ACE-Hemmer|ACEi]] eingesetzt und senkt die Mortalität.';
+    expect(classifyCandidate(t, 'ACE-Hemmer')).toBe('prose');
+    expect(classifyCandidate(t, 'ACEi')).toBe('prose');
+  });
+
+  it('treats a markdown link like the text it displays', () => {
+    const t = 'Der Wirkstoff steht auf der [WHO-Liste der essenziellen Medikamente](https://example.org/x).';
+    expect(classifyCandidate(t, 'WHO-Liste der essenziellen Medikamente')).toBe('prose');
+  });
+
+  it('reads an embed like a wikilink', () => {
+    const t = 'Die Abbildung ![[Mitochondrium]] zeigt den Aufbau im Detail und erklärt ihn.';
+    expect(classifyCandidate(t, 'Mitochondrium')).toBe('prose');
+  });
+
+  // The rule cuts both ways: markup changes nothing, so a parenthesis that
+  // merely CONTAINS a link is still a parenthesis.
+  it('leaves a real parenthesis an aside even when it holds a link', () => {
+    const t = 'Hormonelle Dysregulation (z. B. Leptin-Resistenz, [[Insulinresistenz]]) ist typisch.';
+    expect(classifyCandidate(t, 'Insulinresistenz')).toBe('aside');
+  });
+
+  // A citation in square brackets carries no `(url)` and stays an aside.
+  it('leaves a bare bracketed citation an aside', () => {
+    const t = 'Die Methodik folgt dem Standard [ATS Statement: Guidelines 2002].';
+    expect(classifyCandidate(t, 'ATS Statement: Guidelines 2002')).toBe('aside');
+  });
+});
