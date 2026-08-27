@@ -193,6 +193,60 @@ Distilled from 75 session-level feedback entries. Full text in
   open Issues/PRs before continuing any non-trivial change. Compaction
   erases decisions that look obvious only with full context. (`feedback_post_compact_rehydration`)
 
+### GitHub heuristics & review-event surfaces
+
+- **`Refs #N` semantic can auto-close issues on doc-only PRs.** 2026-07-14:
+  PR #278 (doc-only CLAUDE.md/ROADMAP.md) body said "to close #255" and
+  GitHub's heuristic closed #255 even though the PR had zero runtime change.
+  Use "tracked by" / "see" / "blocked by" in doc PR body text. Verify
+  issue state right after merge; `gh issue reopen N` if unexpectedly closed.
+  (`feedback_github_refs_heuristic_close`)
+- **Local lint is blind to whole-repo issues.** `pnpm lint` = `eslint src/`
+  only; Obsidian review Bot scans the entire repo `.ts` tree including
+  `tools/`. v1.26.1 shipped a blocking `unsafe-call` Error in
+  `tools/llm-wiki-cli/src/obsidian.ts` that local lint never saw. Run
+  `pnpm lint:tools-bot` before every release. (`feedback_obsidian_bot_tools_cli_warnings`)
+
+### CLI surface (post-PR #511 demote)
+
+- **`pnpm llm-wiki` script no longer exists.** PR #511 (v1.27.0) demoted
+  `tools/llm-wiki-cli/` → `tools/dev-instrument/` (dev-only measurement
+  instrument, NOT a user CLI). The `package.json` `bin` field was removed.
+  **User-facing CLI now lives in the sibling repo
+  [`green-dalii/obsidian-llm-wiki-cli`](https://github.com/green-dalii/obsidian-llm-wiki-cli)**
+  (`npm i -g karpathywiki-cli`). This repo's `tools/dev-instrument/` is for
+  engine contributors only — do not point users at it. (`project_v1_27_0_cli_demote_done`)
+
+### Engine invariants (engine contributors)
+
+- **Dedup halving was dead code.** v1.26.0 Batch 2: counter reset inside
+  the for-loop so concurrency halving never actually halved; `null` and
+  `{"duplicates":[]}` both routed to `[]` conflated truncation with success.
+  Fix PR #411 (Batches 6+7). Future LLM business paths need retry + backoff
+  + halving + log + Notice — extract `callLlmWithRetry<T>()` from
+  `runDedupPhase` before adding a 6th caller. (`feedback_dedup_phase_halving_dead_code`,
+  `feedback_dedup_phase_truncation_vs_empty_conflation`, `feedback_llm_retry_extraction`)
+- **`schema/config.md` MUST stay pure user-domain knowledge.** v1.26.0 Batch
+  1 (Issue #328) fixed the dual-source tag-vocab problem: schema file owns
+  user domain knowledge (page templates, content rules, naming conventions,
+  merge policies); runtime parameters (tag vocabulary, folder layout, output
+  language, page-type registration) MUST be injected at call time via
+  `getSchemaContext()`, never baked into the schema file. Violating
+  reintroduces the dual-source drift Phase 1 was designed to eliminate.
+  (`feedback-schema-phase1-option-a-decision`, `feedback_schema_template_programmatic_injection`)
+
+### PR self-approve & maintainer passby
+
+- **GitHub blocks self-approve on own PR.** Platform hard restriction:
+  `gh pr review <N> --approve` on your own PR fails with
+  `GraphQL: Review Can not approve your own pull request`. For own-PR
+  merges, use `gh pr merge <N> --admin --squash --delete-branch` (the
+  `--admin` flag bypasses the requirement rule, not the review event
+  rule). After merge, post `gh pr comment <N> --body-file <audit-note>`
+  to patch the audit trail. Document the procedural miss in the audit
+  note; do NOT rebase or amend. (`feedback_pr_merge_workflow`,
+  `feedback_pr_review_vs_comment`)
+
 ---
 
 ## Release cadence (since v1.20.2)
