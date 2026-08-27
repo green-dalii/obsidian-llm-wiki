@@ -194,7 +194,7 @@ Das Plugin ergänzt sich mit dem Rest Ihres Obsidian-Stacks — jedes der folgen
 
 **Die meisten Nutzer können diesen Abschnitt überspringen.** Die nutzerseitige CLI des Plugins liegt im Schwester-Repo [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) — Installation mit `npm i -g karpathywiki-cli`, dann `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`.
 
-Was in diesem Repo unter `tools/dev-instrument/` liegt, ist das **reine Dev-Messinstrument** für Engine-Mitarbeiter — es führt den echten `WikiEngine.ingestSource` ohne Obsidian-Runtime gegen einen Vault auf der Festplatte aus, gibt pro Task Token- und Wall-Clock-Abrechnung aus — dieselben Zahlen, die die Performance-Belege in CLAUDE.md und den Release Notes liefern. Siehe [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md) für Entry-Command, Env-Variablen, Mess-Modi und Exit-Code-Spezifikation.
+Was in diesem Repo unter `tools/dev-instrument/` liegt, ist das **reine Dev-Messinstrument** für Engine-Mitarbeiter — es führt den echten `WikiEngine.ingestSource` ohne Obsidian-Runtime gegen einen Vault auf der Festplatte aus, gibt pro Task Token- und Wall-Clock-Abrechnung aus — dieselben Zahlen, die die Performance-Belege in CLAUDE.md und den Release Notes liefern. Siehe [`tools/dev-instrument/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/dev-instrument/README.md) für Entry-Command, Env-Variablen, Mess-Modi und Exit-Code-Spezifikation.
 
 ---
 

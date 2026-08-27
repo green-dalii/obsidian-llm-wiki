@@ -191,7 +191,7 @@
 
 **大多數使用者可跳過本節。** 外掛的面向使用者 CLI 位於獨立倉庫 [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) ——以 npm 套件 `karpathywiki-cli` 形式發佈。安裝：`npm i -g karpathywiki-cli`，執行 `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`。
 
-本倉庫內 [`tools/dev-instrument/`](https://github.com/green-dalii/obsidian-llm-wiki/tree/main/tools/dev-instrument) 裝的是 **dev-only 無頭測量儀器** —— 給引擎貢獻者用，跑真正的 `WikiEngine.ingestSource`，無 Obsidian 執行環境，輸出每任務的 token + wall-clock 統計——與 CLAUDE.md 及發佈說明中的效能證據同一組數字。入口指令、env 變數、測量模式、退出碼規範詳見 [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md)。
+本倉庫內 [`tools/dev-instrument/`](https://github.com/green-dalii/obsidian-llm-wiki/tree/main/tools/dev-instrument) 裝的是 **dev-only 無頭測量儀器** —— 給引擎貢獻者用，跑真正的 `WikiEngine.ingestSource`，無 Obsidian 執行環境，輸出每任務的 token + wall-clock 統計——與 CLAUDE.md 及發佈說明中的效能證據同一組數字。入口指令、env 變數、測量模式、退出碼規範詳見 [`tools/dev-instrument/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/dev-instrument/README.md)。
 
 ## 🔍 檢索原理
 

@@ -193,7 +193,7 @@
 
 **Большинству пользователей этот раздел можно пропустить.** Пользовательская CLI плагина живёт в родственном репозитории [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) — установите через `npm i -g karpathywiki-cli` и выполните `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`.
 
-То, что поставляется в этом репозитории в `tools/dev-instrument/`, — это **dev-only headless измерительный инструмент** для контрибьюторов движка — он запускает настоящий `WikiEngine.ingestSource` против хранилища на диске без Obsidian-окружения, выводит учёт токенов и wall-clock по задачам — те же цифры, что стоят за свидетельствами производительности в `CLAUDE.md` и примечаниях к релизу. См. [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md) для входной команды, переменных окружения, измерительных режимов и спецификации кодов выхода.
+То, что поставляется в этом репозитории в `tools/dev-instrument/`, — это **dev-only headless измерительный инструмент** для контрибьюторов движка — он запускает настоящий `WikiEngine.ingestSource` против хранилища на диске без Obsidian-окружения, выводит учёт токенов и wall-clock по задачам — те же цифры, что стоят за свидетельствами производительности в `CLAUDE.md` и примечаниях к релизу. См. [`tools/dev-instrument/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/dev-instrument/README.md) для входной команды, переменных окружения, измерительных режимов и спецификации кодов выхода.
 
 ---
 
