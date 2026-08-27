@@ -216,7 +216,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs):
 
 **대부분의 사용자는 이 섹션을 건너뛰어도 됩니다.** 본 플러그인의 사용자용 CLI는 형제 리포지토리 [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)에 있습니다 — `karpathywiki-cli` npm 패키지로 배포됩니다. `npm i -g karpathywiki-cli`로 설치하고 `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`로 실행하세요.
 
-본 리포지토리의 `tools/dev-instrument/`에 들어 있는 것은 엔진 기여자용 **dev-only 헤드리스 측정 도구**입니다. Obsidian 런타임 없이 실제 `WikiEngine.ingestSource`를 vault에 대해 실행하고, 작업 단위 토큰 + wall-clock 집계를 출력합니다 — CLAUDE.md 및 릴리스 노트의 perf evidence에 사용되는 수치입니다. 진입 명령, 환경 변수, 측정 모드, 종료 코드 사양은 [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md)를 참조하세요.
+본 리포지토리의 `tools/dev-instrument/`에 들어 있는 것은 엔진 기여자용 **dev-only 헤드리스 측정 도구**입니다. Obsidian 런타임 없이 실제 `WikiEngine.ingestSource`를 vault에 대해 실행하고, 작업 단위 토큰 + wall-clock 집계를 출력합니다 — CLAUDE.md 및 릴리스 노트의 perf evidence에 사용되는 수치입니다. 진입 명령, 환경 변수, 측정 모드, 종료 코드 사양은 [`tools/dev-instrument/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/dev-instrument/README.md)를 참조하세요.
 
 ---
 

@@ -217,7 +217,7 @@ El plugin se combina con el resto de tu stack de Obsidian — cada herramienta d
 
 **La mayoría de usuarios puede saltarse esta sección.** La CLI orientada al usuario del plugin vive en el repositorio hermano [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) — instala con `npm i -g karpathywiki-cli` y ejecuta `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`.
 
-Lo que se envía en este repo bajo `tools/dev-instrument/` es el **instrumento de medición headless dev-only** para contribuidores del motor — ejecuta el `WikiEngine.ingestSource` real contra un vault en disco sin runtime de Obsidian, imprime el cómputo de tokens + tiempo real por tarea — los mismos números que respaldan la evidencia de rendimiento en `CLAUDE.md` y las release notes. Consulta [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md) para el comando de entrada, variables de entorno, modos de medición y especificación del código de salida.
+Lo que se envía en este repo bajo `tools/dev-instrument/` es el **instrumento de medición headless dev-only** para contribuidores del motor — ejecuta el `WikiEngine.ingestSource` real contra un vault en disco sin runtime de Obsidian, imprime el cómputo de tokens + tiempo real por tarea — los mismos números que respaldan la evidencia de rendimiento en `CLAUDE.md` y las release notes. Consulta [`tools/dev-instrument/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/dev-instrument/README.md) para el comando de entrada, variables de entorno, modos de medición y especificación del código de salida.
 
 ---
 
