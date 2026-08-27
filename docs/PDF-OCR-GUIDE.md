@@ -1,10 +1,10 @@
 # 📄 PDF Ingest & OCR Guide
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-08-27
 
-The Karpathy LLM Wiki plugin ingests PDFs through the same path it ingests Markdown notes — the difference is **what runs the model**. The plugin sends the PDF to the configured provider's `/v1/chat/completions` (or `/v1/messages` for Anthropic) as a file part, and the provider returns Markdown. This page covers all three paths: **cloud providers with native PDF support**, **local PDF OCR on Apple Silicon**, and **third-party PDF-to-Markdown services** you can route through any OpenAI-compatible provider.
+The Karpathy LLM Wiki plugin ingests documents through four paths that share the same Markdown output cache — what differs is **what runs the model**. The plugin can (a) send a PDF straight to a cloud provider's `/v1/chat/completions` or `/v1/messages` (Anthropic) endpoint as a file part, (b) route PDF / images / Office documents through the **built-in MinerU backend** (v1.27.0+, no extra setup), (c) run a fully local pipeline on Apple Silicon via [oMLX](https://github.com/jundot/omlx) + Markitdown, or (d) accept Markdown converted elsewhere (MinerU's online extractor for users who prefer a UI over an API token) as a regular text source. This page covers all four paths in the order: simplest → most flexible.
 
-> 📖 Quick cloud setup + provider gate is in the [README → PDF ingest](../README.md#-pdf-ingest-v1250) section. This page is the long form.
+> 📖 Quick setup walkthroughs are in the [README → PDF ingest](../README.md#-pdf-ingest-v1250-mineru-backend-v1270) section. This page is the long form.
 
 ---
 
@@ -21,6 +21,52 @@ These providers accept PDF file parts directly. No conversion step, no cache orc
 | **AWS Bedrock** (OpenAI) | Same as OpenAI, billed through AWS | Same as OpenAI | Useful for VPC / compliance |
 
 For other OpenAI/Anthropic-compatible endpoints (DeepSeek, Kimi, GLM, MiniMax, OpenRouter, custom), the PDF support depends on whether the endpoint accepts file parts. **Force PDF Support** in Settings → LLM Configuration → Advanced tells the plugin to attempt the call; the endpoint decides, and failures surface as a localized Notice guiding you to disable the toggle.
+
+---
+
+## 🆕 Built-in MinerU backend (v1.27.0+, #404)
+
+**As of v1.27.0 the plugin ships native MinerU integration** — no CLI, no separate process, no manual conversion step. One setting flip and PDF / images / Office documents route through [MinerU's Precise parser](https://mineru.net/apiManage/docs) inside the plugin.
+
+### What it accepts
+
+| Format | Extensions |
+|---|---|
+| PDF | `.pdf` |
+| Images | `.png`, `.jpg`, `.jpeg`, `.jp2`, `.webp`, `.gif`, `.bmp` |
+| Office | `.doc`, `.docx`, `.ppt`, `.pptx`, `.xls`, `.xlsx` |
+
+MinerU's Precise parser handles complex multi-modal documents (text + images + formulas + tables) and converts formulas to LaTeX. The plugin caches the result by `(content hash, model, converter version)` — re-ingesting the same file with the same setup is free.
+
+### Obsidian's native format support — important for Office files
+
+Obsidian's accepted file formats ([file-formats](https://obsidian.md/help/file-formats)) cover Markdown, images, audio, video, and PDF — **but not `.docx` / `.xlsx` / `.pptx`**. So the practical workflow for Office files is: MinerU converts to `.md`, the plugin ingests the `.md` into wiki pages (entities, concepts, sources), and the original Office file is kept in the vault for reference but cannot be inlined-previewed. If you need to inline-preview Office files, use a community plugin such as **Pandoc Plugin**, **Docxer**, **Md Importer**, or **Office Reader**.
+
+### Setup (2 steps)
+
+1. **Get a MinerU API token.** Sign up at [mineru.net](https://mineru.net/apiManage/docs) and copy the token from the API management page.
+2. **Configure the plugin.** Settings → Karpathy LLM Wiki → Wiki Configuration → **Markdown Conversion Backend** → pick *MinerU*. Paste the token — it lives in Obsidian SecretStorage, not `data.json` (same discipline as provider API keys).
+
+Click **Test Connection**, then **Save Settings**. `Cmd+P/Ctrl+P` → "Ingest single source" → pick a PDF / image / Office file. The plugin handles the upload, polling, and Markdown cache write transparently.
+
+### Server caps (MinerU side)
+
+- **200 MB / 200 pages per PDF**
+- **256 MB / 10,000 files per archive**
+
+For larger jobs, split the source or pre-process into smaller batches. The plugin does not currently chunk single PDFs above the cap.
+
+### When to pick it over the other paths
+
+- **Mixed PDF + Office + images in one workflow** — MinerU handles all three formats through one backend; cloud-native PDF support is PDF-only, local OCR is PDF-only.
+- **Complex scientific PDFs with formulas / multi-column layouts** — MinerU's Precise parser is tuned for this and the LaTeX output drops cleanly into a wiki page.
+- **Scanned documents where layout matters** — MinerU's OCR preserves structure that pure-vision LLM calls tend to flatten.
+
+If you only ingest plain-text PDFs and care most about cost, **cloud providers with native PDF support** (Anthropic / OpenAI / Bedrock / Gemini) are still the simplest path — see the previous section.
+
+### Privacy-sensitive users: self-host MinerU
+
+If you can't send documents to the MinerU cloud, deploy MinerU yourself per the [MinerU GitHub repository](https://github.com/opendatalab/mineru) and point the plugin at the self-hosted endpoint (env var override at the `karpathywiki-mineru-base-url` SecretStorage key). v1.27.0 ships the cloud path; self-host endpoint is a planned follow-up — see [Issue #404](https://github.com/green-dalii/obsidian-llm-wiki/issues/404) for roadmap status.
 
 ---
 
@@ -52,7 +98,7 @@ Click **Test Connection**, then **Save Settings**. `Cmd+P/Ctrl+P` → "Ingest si
 OCR models are all relatively lightweight — you don't need a multi-tier table. Two bands cover every scenario:
 
 | Hardware | Recommended model | Why |
-|----------|--------------------|-----|
+|----------|--------------------|------|
 | 8 GB RAM (any system) | **GLM-OCR** (0.9B, MIT), **Baidu Unlimited-OCR** (3B / 570M-active), or **Qwen3-VL-2B** | The three lightweights. GLM-OCR is the OCR specialist (94.6 OmniDocBench), Unlimited-OCR is the long-document OCR (handles 50+ page docs in one forward pass), Qwen3-VL-2B is a general VLM. All three fit comfortably in 8 GB RAM. |
 | 16 GB+ RAM (any system) | **Qwen3-VL-4B/8B** @ MLX 4-bit or GGUF Q4_K_M, **DeepSeek-OCR-2** (vLLM), **Baidu Unlimited-OCR** | More memory buys larger models: Qwen3-VL-8B fits at 16 GB, Qwen3-VL-32B at 32 GB+, and DeepSeek-OCR-2 (91.09 OmniDocBench) is the dedicated OCR option. Upgrade the vision model as your hardware allows, but the three 8 GB choices already handle most real-world PDFs. |
 
@@ -71,36 +117,26 @@ Whichever you pick, set the plugin's Base URL to the server's endpoint and the m
 
 ---
 
-## 🛠️ Third-party PDF-to-Markdown services (optional)
+## 🛠️ Third-party PDF-to-Markdown services (optional, pre-v1.27.0 path)
 
-If you need professional-grade PDF extraction (complex scientific layouts, scanned documents, mixed languages) without running your own OCR stack, route the converted Markdown through the plugin as a normal text source. Two services worth knowing:
+If you need professional-grade PDF extraction **without using the built-in MinerU backend above**, route the converted Markdown through the plugin as a normal text source.
 
 ### [MinerU](https://mineru.net/OpenSourceTools/Extractor) — open-source PDF/Office/HTML → Markdown converter
 
 [MinerU](https://mineru.net/OpenSourceTools/Extractor) is an open-source document extraction tool from Shanghai AI Lab's OpenDataLab team (17.4k GitHub stars, Apache-2.0). It handles complex multi-modal PDFs (text + images + formulas + tables) as well as **Word, PowerPoint, Excel, HTML, and images**, preserves structure, and converts formulas to LaTeX. Works on CPU and GPU, cross-platform (Windows/Linux/Mac).
 
-**For most users — use the official online conversion service:**
+**For most users — use the built-in MinerU backend above**, or fall back to the [MinerU Extractor online service](https://mineru.net/OpenSourceTools/Extractor) if you want a UI rather than the in-plugin setting. To route through the plugin as text:
 
 1. Open the [MinerU Extractor online service](https://mineru.net/OpenSourceTools/Extractor) and upload your document (PDF, Word, PPT, Excel, HTML, or image).
 2. Download the converted `.md` file.
 3. In Obsidian, drop the `.md` file anywhere in your vault **outside the wiki folder** (the wiki folder is the plugin's auto-generated output directory configured in Settings → Wiki Configuration → Wiki Folder — default `wiki/`; do not place input notes inside it).
 4. Run `Cmd+P/Ctrl+P` → "Ingest single source" on that file. The plugin ingests it as a regular Markdown note.
 
-This is the **easiest** path for most users — no CLI, no Python, no GPU. No file ever leaves your local machine beyond the upload to the conversion service.
+This path still works for users who can't or don't want to wire up an API token, but it's slower (manual upload/download) than the built-in backend.
 
 **For privacy-sensitive users — self-host MinerU:**
 
-If you require strict data sovereignty, deploy MinerU yourself by following the [MinerU GitHub repository](https://github.com/opendatalab/mineru). The CLI is `magic-pdf -p input.pdf -o output/`. Drop the resulting `.md` into your vault and ingest as above.
-
-**Native integration roadmap:** future versions of the plugin may integrate MinerU as a built-in extractor so users won't need to run it manually — see [Issue #376](https://github.com/green-dalii/obsidian-llm-wiki/issues/376) for the original feature request and roadmap status.
-
-### Other options
-
-- **Adobe PDF Services API** — paid, professional-grade, preserves accessibility tags.
-- **Mathpix** — paid, best-in-class for math-heavy PDFs (arXiv papers, textbooks).
-- **Docling** (IBM) — open-source alternative to MinerU, more focused on document AI pipelines.
-
-For the plugin's purposes, all of these reduce to "convert your document to `.md`, drop it anywhere in your vault **outside the wiki folder**, then ingest as a Markdown note". Pick whichever fits your budget, privacy needs, and accuracy bar.
+See [Self-host MinerU](#privacy-sensitive-users-self-host-mineru) in the **Built-in MinerU backend** section above for the full deployment notes.
 
 ---
 
@@ -123,12 +159,13 @@ Turn on **Write PDF Markdown to Vault** in Settings → Wiki Configuration → W
 | Use case | Best path |
 |----------|-----------|
 | One-off research paper, no setup | Cloud (Anthropic or OpenAI) |
-| Academic PDFs with formulas / multi-column | Cloud OR MinerU → ingest `.md` |
-| Privacy-sensitive PDFs (legal, medical) | Local oMLX on Apple Silicon |
-| Scanned PDFs (image-based) | Local oMLX + Unlimited-OCR |
-| Large batch (100+ PDFs) | Cloud (cheaper at scale) OR MinerU pre-process then cloud ingest |
+| Mixed PDF + Office + images in one workflow | Built-in MinerU backend (v1.27.0+) |
+| Academic PDFs with formulas / multi-column | Cloud OR built-in MinerU OR third-party |
+| Privacy-sensitive PDFs (legal, medical) | Local oMLX on Apple Silicon OR self-hosted MinerU |
+| Scanned PDFs (image-based) | Local oMLX + Unlimited-OCR OR built-in MinerU |
+| Large batch (100+ PDFs) | Cloud (cheaper at scale) OR built-in MinerU pre-process then cloud ingest |
 | Offline / flight mode | Local oMLX on Apple Silicon |
 | Linux/Windows with consumer GPU | Local llama.cpp multimodal + Force PDF Support |
 
-The plugin handles all paths identically. The local-vs-cloud-vs-third-party decision is just which `Base URL` you point at, or which `.md` files you ingest from your vault.
-**Last updated:** 2026-07-23 — provider PDF support and local OCR model recommendations change frequently.
+The plugin handles all paths identically. The local-vs-cloud-vs-MinerU-vs-third-party decision is just which `Base URL` you point at, which backend setting you flip, or which `.md` files you ingest from your vault.
+**Last updated:** 2026-08-27 — added Built-in MinerU backend (v1.27.0+, #404) covering PDF + images + Office ingest through one backend setting; updated path-decision table to surface MinerU as a first-class option; reordered the four ingest paths to surface the simplest option first.

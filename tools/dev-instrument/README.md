@@ -84,7 +84,7 @@ per-task real-LLM cost without waiting for sibling repo sync.
 
 This directory passes `pnpm lint:tools-bot` with **0 `obsidianmd/*`
 findings**. The single local-only `no-unsanitized/method` warning on
-`run-instrument.mjs:78` (the dynamic import of the bundled output) is
+`run-instrument.mjs:97` (the dynamic import of the bundled output) is
 not in the Bot's `obsidianmd/recommended` ruleset and is therefore out
 of scope for submission review.
 

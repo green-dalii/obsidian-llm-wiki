@@ -14,25 +14,24 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 - first-published: 2025-09 (v0.1.0)
 - latest: v1.27.0（MINOR — Bedrock SSO/IAM、MinerU マルチフォーマット、ソースページ逐語引用、候補ゲート、taskPolicies UI、Fix Dead Links leave-it；36 commits, 3677 tests）
 - last-updated: 2026-08-27
-- alternate-names: Karpathy LLM Wiki、LLM Wiki Obsidian、Obsidian wiki プラグイン、グラフベース RAG、埋め込みなし RAG、Personalized PageRank 検索、マルチエージェントナレッジベース、Obsidian セカンドブレイン
-- search-intents: "Obsidian 埋め込みなし RAG", "Obsidian wiki プラグイン", "Personalized PageRank Obsidian", "グラフベースのノート検索", "Karpathy LLM Wiki 実装", "Obsidian ナレッジベース自動生成", "Obsidian グラフビュー + AI", "Obsidian セカンドブレイン プラグイン", "Obsidian ノートリンクグラフ AI", "Obsidian 11 言語プラグイン", "Obsidian 13+ LLM プロバイダープラグイン", "ベクトル DB なし RAG", "Obsidian PDF 取り込み AI", "Obsidian Codex OAuth", "Obsidian Bedrock プラグイン", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian Word PPT Excel 取り込み", "Obsidian IAM 認証情報"
-- features: グラフベース検索, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), 5 段階シード選択カスケード, Tier 1/Tier 2 重複検出, 11 言語 UI + 11 言語 Wiki 出力（独立設定）, 13+ LLM プロバイダー（Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Kimi, GLM, MiniMax, Ollama, LM Studio, OpenRouter, Anthropic-互換, Codex OAuth）, MinerU マルチフォーマット取り込み（PDF + 画像 + Office）, PDF 取り込み（キャッシュのみ、OCR パス）, Lint ヘルススキャン, Smart Fix All, ソースページ逐語引用, 取り込み候補ゲート, ステップ別 taskPolicies UI, Obsidian Graph View 連携, ゼロ埋め込み・ゼロベクトル DB アーキテクチャ, ローカルファーストモード
+- alternate-names: Karpathy LLM Wiki、LLM Wiki Obsidian、Obsidian wiki プラグイン、グラフベース RAG、埋め込みなし RAG、Personalized PageRank 検索、Obsidian セカンドブレイン
+- search-intents: "Obsidian 埋め込みなし RAG", "Obsidian wiki プラグイン", "Personalized PageRank Obsidian", "グラフベースのノート検索", "Karpathy LLM Wiki 実装", "Obsidian ナレッジベース自動生成", "Obsidian グラフビュー + AI", "Obsidian セカンドブレイン プラグイン", "Obsidian ノートリンクグラフ AI", "Obsidian 11 言語プラグイン", "Obsidian 16+ LLM プロバイダープラグイン", "ベクトル DB なし RAG", "Obsidian PDF 取り込み AI", "Obsidian Codex OAuth", "Obsidian Bedrock プラグイン", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian Word PPT Excel 取り込み", "Obsidian IAM 認証情報"
+- features: グラフベース検索, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), 5 段階シード選択カスケード, Tier 1/Tier 2 重複検出, 11 言語 UI + 11 言語 Wiki 出力（独立設定）, 16+ LLM プロバイダー（Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Qwen, Grok, Kimi, GLM, MiniMax, Step, Hunyuan, MiMo, Gemma, Ollama, LM Studio, OpenRouter, Anthropic-互換, Codex OAuth）, MinerU マルチフォーマット取り込み（PDF + 画像 + Office）, PDF 取り込み（キャッシュのみ、OCR パス）, Lint ヘルススキャン, Smart Fix All, ソースページ逐語引用, 取り込み候補ゲート, ステップ別 taskPolicies UI, Obsidian Graph View 連携, ゼロ埋め込み・ゼロベクトル DB アーキテクチャ, ローカルファーストモード
 - direct-competitors: nashsu/llm_wiki（Tauri デスクトップアプリ）、SamurAIGPT/llm-wiki-agent（Claude Code スキル）、sdyckjq/llm-wiki-skill（Codex スキル）、atomicstrata/llm-wiki-compiler（Python パイプライン）
 - retrieval-benchmark: PPR @5 = 27.1% vs 純粋 kNN 24.1%（プロジェクト独自コーパス、OSS LLM-wiki 分野で唯一の公開値）
 - author: green-dalii / Greener-Dalii (https://github.com/green-dalii)
 - canonical: https://github.com/green-dalii/obsidian-llm-wiki/blob/main/README.md
 -->
 
-![llm_wiki_banner](assets/llm_wiki_banner.webp)
+![Karpathy LLM Wiki プラグインのバナー — Obsidian のノートから構築された相互リンクされた Wiki ページのネットワーク](assets/llm_wiki_banner.webp)
 
 # 🧠 Karpathy LLM Wiki Plugin for Obsidian
 
 > AI駆動の構造化知識ベース — ノートを自動的にWikiに変換。[Andrej KarpathyのLLM Wiki概念](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)に基づく実装。Obsidianプラグインとしてワンクリックインストール。
 
-> **Obsidian公式マーケット満点评価 • 埋め込み不要のグラフ検索 • 10言語ネイティブ対応 • あらゆるLLMプロバイダー対応**
-> **ローカルファースト • バックエンドなし • GDPR フレンドリー**
+**Obsidian公式マーケット満点評価 • 埋め込み不要のグラフ検索 • 11言語ネイティブ対応 • ネイティブ PDF + 画像 + Office 取り込み • あらゆるLLMプロバイダー対応 • ローカルファースト • バックエンドなし • GDPR フレンドリー**
 
-![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.4%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-11-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
+![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian Compatibility](https://img.shields.io/badge/obsidian-1.11.4%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-11-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-16%2B-cyan?style=flat-square) <br>
 ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) <br>
 ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -46,29 +45,11 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 
 ---
 
-## 📑 Contents
-
-- [なぜこのプラグインなのか？](#-なぜこのプラグインなのか)
-- [こんな方に](#-こんな方に)
-- [クイックスタート](#-クイックスタート)
-- [特徴](#-特徴)
-- [エコシステム](#-エコシステム)
-- [ヘッドレス CLI](#-ヘッドレス-cli)
-- [検索の仕組み](#-検索の仕組み)
-- [モデル](#-モデル)
-- [FAQ](#-faq)
-- [プライバシー](#-プライバシー)
-- [サポート](#-サポート)
-- [その他のプロジェクト](#-その他のプロジェクト)
-- [ライセンスとクレジット](#-ライセンスとクレジット)
-
----
-
 ## 🤔 なぜこのプラグインなのか？
 
 あなたはノートを書きます。それらはフォルダに眠っています。何が何と関係しているか見つけるには、何ヶ月も前に忘れたスレッドを思い出す必要があります。
 
-**KarpathyのLLM Wikiコンセプトを再実装したオープンソースツールは他にもありますが、ワンクリックで使えるObsidianプラグインとして提供しているものはありません。** 他の実装のほとんどはCLIツール、Claude Codeスキル、または独立したデスクトップアプリです。LLM-Wikiプラグインは、ネイティブUI、vault内ストレージ、Obsidianのグラフビューを内蔵した唯一の実装です。
+**KarpathyのLLM Wikiコンセプトを再実装したオープンソースツールは他にもありますが、ワンクリックで使えるObsidianプラグインとして提供しているものはありません。** 他の実装のほとんどはCLIツール、Claude Codeスキル、または独立したデスクトップアプリです。このプラグインはObsidianの中で動きます — グラフビュー、リボン、コマンドパレットもそのまま使えます。
 
 ### 他実装との比較
 
@@ -77,7 +58,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 | **提供形態とインストール** | ✅ **5分** — ワンクリックObsidianプラグイン：コミュニティプラグイン → インストール → プロバイダー選択 → 取り込み | ❌ 30分以上 — Tauriバイナリのコンパイル/ダウンロード、CLI設定 | ❌ 15分 — Claude Code契約＋スキルインストール | ❌ 10分 — Claude Code/Codex契約＋セットアップ | ❌ 30分以上 — pip install + Python SDK + ローカルサーバー |
 | **アーキテクチャと依存関係** | ✅ **依存関係ゼロ** — ベクトルDB不要、埋め込みモデル不要、外部プロセス不要（設計上、`[[wiki-link]]`グラフをPPRで巡回） | 🟡 独自のPythonランタイム + sigma.js + sqliteを内蔵；埋め込みはオプションでデフォルトオフ | 🟡 Claude Code環境を利用 — 自己完結型ではない；埋め込み不要 | 🟡 別プラットフォームのランタイムが必要；埋め込み不要 | ❌ Python + 埋め込みモデル + ベクトルDBが必要（必須） |
 | **i18n（UI+Wiki出力）** | ✅ 10言語（UIと出力は独立設定） | 🟡 2言語（EN/中文） | ❌ 英語のみ | ❌ 英語のみ | ❌ 英語のみ |
-| **LLMプロバイダー** | ✅ 12以上（Codex OAuth、Bedrock、LM Studio、Ollama、Anthropic互換、Kimi、GLM、MiniMax、DeepSeekなど） | 🟡 OpenAI互換 | 🟡 Claude Code契約経由 | 🟡 Claude Code / Codex契約経由 | 🟡 OpenAI互換 |
+| **LLMプロバイダー** | ✅ 16以上（Anthropic、OpenAI、Bedrock、Gemini、DeepSeek、Qwen、Grok、Kimi、GLM、MiniMax、Step、Hunyuan、MiMo、Gemma、Codex OAuth、Ollama、LM Studio、OpenRouter、Anthropic互換など） | 🟡 OpenAI互換 | 🟡 Claude Code契約経由 | 🟡 Claude Code / Codex契約経由 | 🟡 OpenAI互換 |
 | **検索とクエリパイプライン** | ✅ **5段階カスケード** — Lex → LLMキーワード → 部分文字列スキャン → LLM KBフォールバック → PPR拡張（最初の十分な信号で打ち切り）。Personalized PageRank（Haveliwala 2002）+ Monte Carlo（Fogaras 2005） | 🟡 2ホップ減衰のみ（4信号ヒューリスティック：Adamic-Adar + 2ホップ） | ❌ Louvainコミュニティ検出のみ | ❌ kホッププレビューのみ（LLM拡張なし） | ❌ BM25 + チャンク上のセマンティック検索（グラフなし） |
 | **グラフ可視化** | ✅ Obsidianネイティブのグラフビュー（内蔵、サイズ増加ゼロ） | ❌ カスタムsigma.js + graphology（デスクトップアプリ） | 🟡 vis.js graph.html（別ファイル） | ❌ カスタムsigma.jsオフラインHTML | ❌ 読み取り専用ブラウザビューアー |
 | **Wikiの正直さ** | ✅ Wikiソースがクエリに一致しない場合「Stage FALLBACK」バナーを表示 | ❌ 同等機能なし | ❌ 同等機能なし | ❌ 同等機能なし | ❌ 同等機能なし |
@@ -87,7 +68,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 
 - **🪟 Obsidianがランタイム。** ターミナルも別アプリもDockerもPythonも不要。コミュニティプラグインからインストールして「取り込み」をクリックするだけで、最初の一秒からWikiはあなたのvaultの中に存在します。Obsidianネイティブのグラフビューが`[[wiki-link]]`グラフをレンダリング — 内蔵、バンドルサイズ増加ゼロ。
 - **🧭 クリーンで自己完結。** 依存関係ゼロ。埋め込みモデルもベクトルDBもpipパッケージも不要 — ノートを読み、LLMと通信し、Wikiページを書き出す単一のプラグインです。すべてがObsidian内部で動作します。
-- **🔌 すでに支払っているモデルをそのまま使える。** Anthropic、Bedrock、OpenAI、ChatGPT Plan（Codex OAuth）、DeepSeek、Kimi、GLM、MiniMax、LM Studio、Ollama、OpenRouter、Anthropic互換、カスタムエンドポイント — 12以上のプロバイダー。埋め込みエンドポイントを必要とするものは一つもありません。
+- **🔌 すでに支払っているモデルをそのまま使える。** Anthropic、Bedrock、OpenAI、ChatGPT Plan（Codex OAuth）、Gemini、DeepSeek、Qwen、Grok、Kimi、GLM、MiniMax、Step、Hunyuan、MiMo、Gemma、Ollama、LM Studio、OpenRouter、Anthropic互換、カスタムエンドポイント — 16以上のプロバイダー。埋め込みエンドポイントを必要とするものは一つもありません。
 
 ---
 
@@ -105,9 +86,9 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 
 **❌ こんな方には不向き：**
 
-- **汎用のChatGPT代替品が欲しい。** 本プラグインは*あなたの知識*だけから回答します。
-- **PDFやWebページ、外部コーパスに対するRAGパイプラインが必要。** このプラグインはvault内パスに焦点を当てています（PDFはv1.25.0から対応）。
-- **ホスト型SaaSを探している。** バックエンドもサーバーもアカウントもありません。
+- **汎用のChatGPT代替品が欲しい。** 回答はvaultからのみ得られ、インターネットからは得られません。
+- **Confluence、Notion、arXiv、スクレイプしたWebページなど、大規模な外部コーパスに対するRAGが必要。** このプラグインはあなたのvaultと単体のPDF/Officeファイルを取り込みますが、大規模な外部コーパス向けの一括RAGは設計上スコープ外です。
+- **チーム协作付きのホスティング型SaaSを探している。** バックエンドもサーバーも共有状態もありません。すべてがあなたのObsidian内でローカルに動作します。
 
 ---
 
@@ -126,7 +107,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
    
    Copilot スタイルの右側ドッキングサイドパネルが開き、そこで Wiki とチャットできます。回答にはナレッジグラフへ戻る `[[wiki-links]]` が含まれます。
 
-![Query side panel](/docs/assets/query-side-panel.png)
+![Obsidian の右側にドッキングされた Query Wiki サイドパネル — ナレッジグラフへ戻る wiki リンク付きの回答を返すチャット画面](/docs/assets/query-side-panel.png)
 
 以上です。元のノートは一切変更されません — `wiki/`フォルダ以下に新しいページを作成するだけです。**ノート取り込み** と **Wikiに問い合わせる** はどちらも左側リボンに固定されており、いつでもワンクリックでアクセスできます。（Macは`Cmd`、Windows/Linuxは`Ctrl`。）
 
@@ -149,10 +130,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 |--------|-------|
 | `notes/machine-learning.md`（フラットなファイル） | `wiki/concepts/supervised-learning.md` — `[[双方向リンク]]`、エイリアス、ソース帰属、`wiki/index.md`のエントリ付き |
 
-> 💡 **最新版を保ちましょう。** 新機能・修正・パフォーマンス改善は頻繁にリリースされます。設定 → コミュニティプラグイン → 更新を確認、または自動プラグイン更新を有効にしてください。
-> 📖 詳細なチュートリアル（インストール、PDF設定、マルチプロバイダー設定、アップグレード手順）は [GitHub Discussions → Guides](https://github.com/green-dalii/obsidian-llm-wiki/discussions/categories/guides) で管理されています。
-
-> 🌟 **もしセットアップ時間を節約できたら、[GitHub](https://github.com/green-dalii/obsidian-llm-wiki) で Star をいただけると他の方の助けになります。**
+> 📖 詳細なチュートリアルは [GitHub Discussions → Guides](https://github.com/green-dalii/obsidian-llm-wiki/discussions/categories/guides) にあります。役に立ったら [リポジトリに Star](https://github.com/green-dalii/obsidian-llm-wiki) を付けて、リリースを追いかけてください。
 
 ---
 
@@ -164,26 +142,28 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 - **🏷️ 必須エイリアス** — すべてのページに最低1つのエイリアス（翻訳、略語、別名）が含まれ、言語間の重複検出が機能します。
 - **🔄 階層化重複検出** — Tier 1（直接名称一致：言語間、略語、高類似度タイトル）は常時LLM検証。Tier 2（リンク共有、中程度類似度）が残りのトークン予算を埋めます。
 - **🧩 スマートマージと矛盾状態管理** — 重複マージ時にエイリアスを保持。矛盾は出典付きでフラグ。`reviewed: true`のページは上書きから保護。
-- **🎨 カスタムタグ語彙** — 設定→Wiki→タグ語彙モード→*カスタム*で、独自のエンティティタイプ・概念タイプタグリストを定義可能。語彙は LLM へのスキーマ注入ヒント（schema injection hint）であり、書き込み時の強制ゲートではありません。小型/ローカルモデルは依然としてドリフトする可能性があり、アクティブ語彙から外れたタグは Lint が報告します。一部実装済み — 下記 v1.27.0 機能を参照。
+- **🎨 カスタムタグ語彙** — 設定→Wiki→タグ語彙モード→*カスタム*で、独自のエンティティタイプ・概念タイプタグを定義できます。語彙はスキーマ注入ヒントであり、書き込み時の強制ゲートではありません — 小型/ローカルモデルは依然としてドリフトする可能性があります（10 件に 1 件程度はモデル内蔵の分類が返ってきます）。残りは Lint が可視化します。スキーマ強制の設計アンカーは [Issue #328](https://github.com/green-dalii/obsidian-llm-wiki/issues/328) を参照。
 
-### 📄 PDF取り込み（v1.25.0+）
+### 📄 ドキュメント / PDF / 画像の取り込み
 
-- **🔌 プロバイダーゲート** — Anthropic、OpenAI、BedrockはPDFをネイティブ処理。その他のOpenAI/Anthropic互換エンドポイントでは、設定→LLM Configuration→Advancedの **Force PDF Support** を有効にするとプラグインが呼び出しを試行します。Apple SiliconでのローカルOCR、サードパーティ抽出ツール（MinerU、Docling、Mathpix、Adobe）の詳細と完全なPDF取り込みチュートリアルは、以下の[PDF OCRパス](#-pdf-ocrパス)および[docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)を参照。
-- **🆕 MinerU マルチフォーマットバックエンド（v1.27.0、#404）** — 設定→Wiki Configuration→Markdown Conversion Backend→*MinerU* で、PDF、画像（PNG/JPG/JPEG/JP2/WebP/GIF/BMP）、Office 文書（DOC/DOCX/PPT/PPTX/XLS/XLSX）を[MinerU Precise パーサ](https://mineru.net/apiManage/docs)経由でプラグインから出さずに処理。API トークンは SecretStorage に保存。サーバー上限：PDF 1 件あたり 200MB / 200 ページ、アーカイブ 1 件あたり 256MB / 10,000 ファイルまで。レイアウト保持が重要な科学論文・スキャン文書・Office ファイルに最適のパス。
-- **🗄️ 有界キャッシュ** — `.obsidian/plugins/karpathywiki/pdf-cache/`に、コンテンツハッシュ＋モデル＋コンバーターバージョンでキー付けされた変換済みMarkdownを保存。三層防御のハウスキーピング：合計100MB/1000エントリ/単一10MB上限＋LRU-by-mtimeエビクション。
-- **📝 任意のVaultサイドカー** — 設定→Wiki Configuration→Wiki Folder→*Write PDF Markdown to Vault*で、ソースPDFの隣に`<basename>.pdf.md`を書き出し（デフォルトはオフ。キャッシュのみがデフォルト）。
-- **🛡️ 逐語転写プロンプト** — `[illegible]`/`[figure: ...]`の反幻覚マーカー付きOCRスタイル変換。小型ローカルモデルが出力をmarkdownフェンスで囲んでしまう場合、キャッシュ書き込み前に自動クリーンアップ。
+取り込みごとに切り替えられる 5 つの入口があります：
+
+1. **🆕 組み込み MinerU バックエンド（v1.27.0、#404）** — 設定 → Wiki Configuration → Markdown Conversion Backend → *MinerU*。PDF、画像（PNG/JPG/JPEG/JP2/WebP/GIF/BMP）、Office 文書（DOC/DOCX/PPT/PPTX/XLS/XLSX）を [MinerU Precise パーサ](https://mineru.net/apiManage/docs) 経由で処理します。API トークンは Obsidian SecretStorage に保存。レイアウト保持が重要な科学論文・スキャン文書・Office ファイルに最適のパスです。サーバー上限：PDF 1 件あたり 200MB / 200 ページ、アーカイブ 1 件あたり 256MB / 10,000 ファイル。
+2. **☁️ ネイティブ PDF 対応のクラウドプロバイダー** — Anthropic、OpenAI、Google Gemini、AWS Bedrock（Anthropic + OpenAI 派生）は PDF をファイルパーツとしてそのまま読み取ります。プロバイダーを選ぶ以外の設定は不要です。
+3. **🖥️ Apple Silicon でのローカル OCR** — [oMLX](https://github.com/jundot/omlx) は Microsoft Markitdown を組み込みの PDF→Markdown バックエンドとして同梱しています。oMLX で Markitdown を有効化し、[Baidu Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR)（3B / 570M-active、2026-06 オープンソース化）をビジョンモデルとしてロード。プラグインをカスタム OpenAI 互換プロバイダーとして oMLX に向け、**Force PDF Support** をオンにし、oMLX が提供するマルチモーダルモデルを選択します。PDF がマシンを離れることはありません。
+4. **🛠️ サードパーティ抽出ツール（MinerU オンライン UI）** — API トークンを用意したくない場合は、[MinerU Extractor オンラインサービス](https://mineru.net/OpenSourceTools/Extractor) で手早く UI 変換できます。変換後の `.md` を vault の wiki フォルダ以外に置き、通常の Markdown ノートとして取り込みます。
+5. **🔌 Force PDF Support** — ファイルパーツを受け付けるその他の OpenAI/Anthropic 互換エンドポイントに対して、プラグインが呼び出しを試行します（設定 → LLM Configuration → Advanced）。判断はエンドポイント側に委ねられ、失敗はローカライズされた Notice で通知されます。
+
+**Office 形式に関する注意：** Obsidian は `.docx` / `.xlsx` / `.pptx` をネイティブにレンダリングしません（[file-formats](https://obsidian.md/help/file-formats)）。そのため Office ファイルの実際的なワークフローは、MinerU が `.md` に変換し、プラグインがその `.md` を Wiki ページに取り込み、元の Office ファイルは参照用に残すというものになります。インラインプレビューが必要な場合は、Pandoc Plugin / Docxer / Md Importer / Office Reader などのコミュニティプラグインを利用してください。
+
+**すべてのパスで共通の配管：**
+
+- **🗄️ 有界キャッシュ** — `.obsidian/plugins/karpathywiki/pdf-cache/` に、コンテンツハッシュ＋モデル＋コンバーターバージョンでキー付けされた変換済み Markdown を保存。合計 100MB / 1000 エントリ / 単一 10MB 上限＋LRU-by-mtime エビクション。
+- **📝 任意の Vault サイドカー** — 設定→Wiki Configuration→Wiki Folder→*Write PDF Markdown to Vault* で、ソース PDF の隣に `<basename>.pdf.md` を書き出し（デフォルトはオフ。キャッシュのみがデフォルト）。
+- **🛡️ 逐語転写プロンプト** — `[illegible]`/`[figure: ...]` の反幻覚マーカー付き OCR スタイル変換。小型ローカルモデルが出力を markdown フェンスで囲んでしまう場合、キャッシュ書き込み前に自動クリーンアップします。
 - **🔁 ソースページ逐語引用（v1.27.0、#496）** — 生成された各 `sources/<slug>.md` ページに、抽出時にモデルがすでに「視認できた」と証明済みの逐語引用（エンティティ/概念ごとに）から組み立てた `Mentions in Source` セクションが付与されます。元文書が、ソーステキストへの実体的で根拠付きのトレイルを持つ唯一の wiki ページとなります。
 
-### 📄 PDF OCRパス
-
-3つのパスから環境に合ったものを選択：
-
-1. **☁️ クラウドプロバイダー（ネイティブPDF対応）** — Anthropic、OpenAI、またはAWS BedrockがそのままPDFを読み取り。追加設定不要で取り込み可能。その他のOpenAI/Anthropic互換エンドポイントでは、設定→LLM Configuration→Advancedの **Force PDF Support** を有効にするとプラグインが呼び出しを試行。
-2. **🖥️ Apple SiliconでのローカルOCR** — [oMLX](https://github.com/jundot/omlx)はMicrosoft Markitdownを内蔵のPDF→Markdownバックエンドとして統合。oMLXでMarkitdownを有効化し、[Baidu Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR)（3B/570M-active、2026-06オープンソース）をビジョンモデルとしてロード。プラグインをカスタムOpenAI互換プロバイダーに設定し、**Force PDF Support**をオンにして、oMLXが提供するマルチモーダルモデルを選択。PDFがマシンを離れることはありません。
-3. **🛠️ サードパーティ抽出ツール（MinerU、Docling、Mathpix、Adobe）** — PDFに対して別の抽出ツールを実行して`.md`ファイルを生成し、その後プラグインの標準パイプラインで通常のMarkdownノートとして取り込み。学術論文、スキャン文書、数式の多いPDFに最も信頼性の高い方法です。
-
-📖 **3つのパスすべての完全セットアップ手順**（クラウドプロバイダー、oMLXハードウェア階層、MinerUインストール、キャッシュ管理）→ [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
+📖 **すべてのパスの完全セットアップ手順**（クラウドプロバイダー、oMLX ハードウェア階層、MinerU インストール、キャッシュ管理）→ [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
 
 ### 💬 クエリとメンテナンス
 
@@ -195,7 +175,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 - **📊 操作履歴パネル** — 過去の取り込み・Lintレポート・メンテナンス実行を検索・フィルタ可能なUIで表示。
 - **🛡️ 取り込み前ゲート** — 空・空白・frontmatterのみのノートはLLM呼び出し前に拒否。コンテンツハッシュによる重複排除でパス間の同一ファイルを検出。
 - **🆕 Ingest candidate gate（v1.27.0、#514 / PR #521）** — オプトイントグル（`skipMentionOnlyCandidates`、デフォルト OFF、設定→Advanced）。言語に測定済みプロファイルがあるソースに対し（de は測定済み；en/fr/es/pt/nl/ko はエッジケース固定で推定；zh/ja の文字体系しきい値は未測定）、括弧内・列挙内・短いリスト項目のみで言及されている候補は、ページ作成 + dedup + 生成呼び出しを消費する前に刈り込みます。言語横断ノートはゲート対象外；プロファイルなしの Wiki 言語は取り込みごとに 1 回レポートされ、暗黙的にスキップされません。
-- **🆕 ステップ別 task policies（v1.27.0、#525 / #490）** — LLM Advanced→Task Policies フィールドが `step=mode:thinking` 形式のエントリを受け付け（例：`extract=text:on,merge-triage=text:on`）。`extract` のテキストモード固定と将来のステップ別オーバーライドを 1 か所で制御。リストにないステップの組み込みベースラインは変更されません。
+- **🆕 ステップ別 task policies（v1.27.0、#525 / #490）** — LLM Advanced→Task Policies フィールドで、ステージ別のテキストモード / thinking 設定をコード変更なしに上書きできます。リストにないステップの組み込みベースラインはそのまま維持されます。
 
 ### 🔒 プライバシー
 
@@ -207,14 +187,14 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 ### 🦙 ローカルファースト
 
 - **🖥️ Ollama、LM Studio、OpenRouter、カスタムエンドポイント** — そのまま動作。ローカルモデルはクエリに使用可能（コンテキストウィンドウは小さめ）。2000ページのvault取り込みには通常、長コンテキストのクラウドモデルが必要。
-- **📄 Apple Silicon上で完全ローカルのPDF OCRパス** — 上記[PDF OCRパス](#-pdf-ocrパス)を参照。
-- **🔐 ChatGPT Plan（Codex OAuth）** — デスクトップは`127.0.0.1:1455`でのループバックコールバック、モバイルはデバイスコード経由。認証情報はObsidian SecretStorageのみに保存。サインアウトで消去。OpenAIのパートナーシップではなく、サードパーティのCodex互換機能。
+- **📄 Apple Silicon上で完全ローカルのPDF OCRパス** — 上記[ドキュメント / PDF / 画像の取り込み](#-ドキュメント--pdf--画像の取り込み)を参照。
+- **🔐 ChatGPT Plan（Codex OAuth）** — デスクトップはループバック、モバイルはデバイスコード経由。認証情報はObsidian SecretStorageのみに保存されます。（プロバイダーの境界については下記の[Anthropic vs OpenAI vs Codex OAuth](#anthropic-vs-openai-vs-codex-oauth--それぞれ独立したプロバイダー)を参照。）
 
 ### 🌐 言語
 
 - **🌍 10のUI言語** — English、简体中文、繁體中文、日本語、한국어、Deutsch、Français、Español、Português、Italiano。UI言語とWiki出力言語は独立して設定可能（UIは英語のまま、Wikiは日本語で出力できます）。
 - **📚 10のWiki出力言語** — 同じセット。設定→Wiki Configurationで選択。*Custom input*オプションでアドホックプロンプトも可能。
-- **🈶 269以上の翻訳済みUI文字列** — すべてのラベル、モーダル、通知。12言語目の追加はコントリビューター主導（PR #159パターン）。
+- **UI 文字列はロケールごとに全訳済み** — すべてのラベル、モーダル、通知。12言語目の追加はコントリビューター主導（PR #159パターン）。
 
 ---
 
@@ -222,7 +202,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 
 このプラグインはObsidianの他のツールと組み合わせ可能——以下のツールはすべてコード変更なしで `[[wiki-link]]` グラフに統合できます。
 
-- **📄 [MinerU オンライ変換](https://mineru.net/OpenSourceTools/Extractor)** — Shanghai AI Lab OpenDataLab チームが提供する無料の PDF/Word/PPT/Excel/HTML/画像 → Markdown 変換サービス。ドキュメントをアップロード → `.md` をダウンロード → vault 内の wiki フォルダ以外の任意の場所に配置 → **取り込み（単一ソース）** を実行。科学論文、スキャン文書、複雑なマルチモーダル PDF（数式・表組）に最適なパス。プライバシー重視のユーザーは [MinerU をセルフホスト](https://github.com/opendatalab/mineru) できます。将来のバージョンで MinerU をネイティブ統合する可能性あり — 詳細は [#376](https://github.com/green-dalii/obsidian-llm-wiki/issues/376) を参照。
+- **📄 [MinerU マルチフォーマットバックエンド](https://mineru.net/apiManage/docs)（v1.27.0 より組み込み）** — 以前は別途の CLI/UI 作業だったものが、いまはプラグインのスイッチ 1 つになりました。パス一覧は [ドキュメント / PDF / 画像の取り込み](#-ドキュメント--pdf--画像の取り込み) を参照。API トークンより UI を好むユーザー向けに [MinerU オンラインサービス](https://mineru.net/OpenSourceTools/Extractor) も引き続き利用でき、[MinerU のセルフホスト](https://github.com/opendatalab/mineru) も選択肢です。
 - **🕸️ Obsidian Graph View** — 任意のWikiページでネイティブグラフを開けます。すべての `[[wiki-link]]` がノードに、すべてのバックリンクがエッジになります。標準搭載、追加のバンドルサイズゼロ。
 - **✂️ [Obsidian Web Clipper](https://obsidian.md/clipper)** — 公式ブラウザ拡張機能。記事、ブログ投稿、Redditスレッド、Hacker News、レシピ、研究論文、YouTube字幕（Interpreter経由）をvault内の任意のフォルダに保存し、プラグインの「フォルダから取り込み」コマンドを実行してエンティティとコンセプトを一括抽出できます。
 - **📊 [Dataview](https://github.com/blacksmithgu/obsidian-dataview)** — DQL（`LIST FROM "wiki/entities" WHERE contains(tags, "person")`）またはJS APIでWikiをデータベースのようにクエリ可能。プラグインは全ページに標準frontmatter（`tags:`、`type:`、`aliases:`）を書き込むため、Dataviewクエリはそのまま動作します。
@@ -235,107 +215,15 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 
 ## 🧰 ヘッドレス CLI
 
-ディスク上の vault に対して同じ取り込みパイプラインを実行できます——**Obsidian も Electron もディスプレイも不要**。CI、スクリプト実行、バッチ評価、ヘッドレス回帰ベンチマーク、Obsidian 自体が利用できないあらゆる環境で有用です。
+**大半のユーザーはこのセクションを無視して構いません。** 本プラグインのユーザー向け CLI は兄弟リポジトリ [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) にあります —— `karpathywiki-cli` という npm パッケージとして公開されています。`npm i -g karpathywiki-cli` でインストールし、`karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>` で実行します。
 
-### 🚀 実行（リポジトリ内、現在の権威あるソース）
-
-CLI は本リポジトリの [`tools/llm-wiki-cli/`](https://github.com/green-dalii/obsidian-llm-wiki/tree/main/tools/llm-wiki-cli) に同梱されており、`pnpm llm-wiki` で実行します（bin エントリは `package.json` の `"bin": { "llm-wiki": "./tools/llm-wiki-cli/run-llm-wiki.mjs" }` で宣言済み）。bin 経由でも直接呼び出しても構いません：
-
-```bash
-# bin 経由（本プラグインリポジトリで `pnpm install` 実行後）
-WIKI_API_KEY=... pnpm llm-wiki ingest \
-  --vault /path/to/your/vault \
-  --source "notes/foo.md" \
-  --dry-run
-
-# 直接呼び出し（同じ効果）
-WIKI_API_KEY=... node tools/llm-wiki-cli/run-llm-wiki.mjs ingest \
-  --vault /path/to/your/vault \
-  --source "notes/foo.md" \
-  --dry-run
-```
-
-**エンジン、アナライザ、ページファクトリ、スキーママネージャ、LLM クライアント**——すべて `../../src/` から直接インポートされます。置き換えられるのはホスト（`obsidian`、ライブ vault、metadataCache）のみ。esbuild 駆動の shim（`tools/llm-wiki-cli/src/obsidian.ts` が `obsidian` モジュールシンボルを提供し、`tools/llm-wiki-cli/src/vault.ts` がファイルシステムアダプタを提供する）により、本番エンジンのコードが素の Node 上で動作します。
-
-### ⚙️ 設定の仕組み
-
-CLI はあなたのプラグイン設定を再利用します——CLI 専用の設定画面はありません。設定は `<vault>/.obsidian/plugins/karpathywiki/data.json`（Obsidian が書き込むのと同じファイル）から、プラグインの `applySettingsMigrations` 実行後に読み込まれます。CLI を使用するには：
-
-1. **まず Obsidian で provider を設定**——**設定 → LLM Wiki** を開き、provider を選び、API キーを入力し、**Test Connection** をクリックして保存してください。CLI はあなたが保存した内容を読み込みます。
-2. **`WIKI_API_KEY` で API キーを供給**——Obsidian は v1.25.3 で API キーを SecretStorage（OS のキーチェーン）に移行しており、Node は SecretStorage を読み込めません。CLI は環境変数からキーを読み取ります；キーが無い場合はハードエラーとなり、OS 別の抽出コマンドが出力されます：
-
-   ```bash
-   # macOS — キーチェーンから取得
-   WIKI_API_KEY=$(security find-generic-password -s "obsidian-lw-plugin-karpathywiki" -w) \
-     pnpm llm-wiki ingest --vault /path/to/vault --source "notes/foo.md"
-
-   # Linux（libsecret）
-   WIKI_API_KEY=$(secret-tool lookup service obsidian-lw-plugin-karpathywiki) \
-     pnpm llm-wiki ingest --vault /path/to/vault --source "notes/foo.md"
-
-   # Windows
-   # 資格情報マネージャー → Windows 資格情報 → "obsidian-lw-plugin-karpathywiki" → 表示
-   $env:WIKI_API_KEY = "sk-..."
-   pnpm llm-wiki ingest --vault C:\path\to\vault --source "notes\foo.md"
-   ```
-
-   キーが不要なローカルエンドポイント（Ollama、LM Studio）では、空でない任意のプレースホルダーで動作します（`WIKI_API_KEY=unused`）。キーは決してログされず、ファイルにも書き込まれません。
-3. **Node 24+ が必要**（プラグインの `.nvmrc` と一致；`crypto.subtle` と `fetch` はネイティブ）。`obsidian-llm-wiki/node_modules` がインストールされている必要があります——バンドラとすべての AI-SDK 依存関係はそこから解決されます。
-
-### 🏳️ フラグリファレンス
-
-| フラグ | 意味 |
-|---|---|
-| `--vault` | vault のルート。必須。 |
-| `--source` | ソースファイルのパス**vault からの相対パス**。必須。1 回の実行で 1 ソース。 |
-| `--dry-run` | 全工程を実行し、すべての書き込みをメモリ内に保持。ページ、`index.md`、`log.md`、schema は書き込まれない。 |
-| `--force` | 重複コンテンツゲートを無視して強制的に再取り込み。 |
-| `--extract-only` | 抽出後に停止。`--dry-run` を暗黙的に有効化（書き込みできない実行が 2 番目のフラグ忘れで vault を触ることを防ぐ）。 |
-| `--model` | `data.json` のモデルを上書き——ツーアーム比較用。 |
-| `--temperature` | サンプリング温度；独自に設定しないすべての `createMessage` をカバー。`--top-p` と一緒に渡してください。 |
-| `--top-p` | 核サンプリング。temperature / top-p のいずれか一方だけ上書きすると、プリセットの半分しか比較できない。 |
-| `--seed` | ベストエフォートのシード。Chat Completions では尊重される；一部のローカルサーバーは受け入れるが無視する。LM Studio で真の再現性が必要なら `--temperature 0` を使う。 |
-| `--thinking-mode` | `data-json` \| `plugin-off` \| `server-default`。 |
-| `--granularity` | `fine` \| `standard` \| `coarse` \| `minimal` \| `custom`。バッチサイズ + アイテム上限 + ラウンド上限を決定。 |
-| `--batch-size` | ラウンドあたりのアイテム数。`--granularity custom` 下ではタイプ別キャップが上書きする場合がある。 |
-| `--round-base` | 粒度のラウンドベース；上限は `min(base × 3, ceil(source_chars / 2000) + 2)`。 |
-| `--max-tokens-per-call` | すべての呼び出しの `max_tokens` を制限。`0` で上限解除；抽出の最小値は 16000 で「無制限」ではない。 |
-| `--max-rounds` | 非推奨；エラーをスロー。`--round-base` を使用してください。 |
-
-**`--dry-run` を付けない場合、CLI は実 vault に書き込みます**——Obsidian が使う書き込みパスと同一なので、ページ、`index.md`、`log.md`、schema ファイルが実際に作成・更新されます。
-
-完全なフラグ表 + shim の注意点 + 再現されないもの（SecretStorage、ストリーミング、vault イベント、`metadataCache.links` / `.headings`）：[`tools/llm-wiki-cli/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/llm-wiki-cli/README.md) を参照。
-
-### 📋 出力フォーマット
-
-エンジンからの `console.debug` は stdout へ（色付けは無効化、Obsidian DevTools とバイト単位で比較可能）。`console.warn` / `console.error` は stderr へ。`Notice` トーストは `[Notice] …`、進捗メッセージは `[progress] …`、完了した書き込みは `[write] …` と表示されます。実行終了時にはサマリが出力されます：抽出ラウンド、LLM 呼び出し合計、エンティティ、コンセプト、作成・更新ページ数、入力 + 出力トークン、経過時間。
-
-### 🔮 将来：スタンドアロン CLI リポジトリ
-
-リポジトリ内 CLI は v1.27.0 の CLI 分割の完了後、**独立した兄弟リポジトリ**（[`green-dalii/obsidian-llm-wiki-cli`](https://github.com/green-dalii/obsidian-llm-wiki-cli)）への**移行を予定**しています（[ROADMAP §v1.27.0 MINOR 設計トラック](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/ROADMAP.md#v1270-minor-design-track) を参照）。なぜ移行するのか：
-
-| 質問 | 回答 |
-|---|---|
-| なぜ本リポジトリから出すのか？ | Obsidian マーケットプレイスのレビューボットは**リポジトリ全体の `.ts` ツリー**を lint し（`src/` だけでなく）、Obsidian プラグインと並置された Node CLI に対して約 60 件の構造的 Warning を報告します（静的 `node:` import、`console.log` 出力、`globalThis` shim など——CLI の本質を壊さずにこれらを修正する方法はありません）。唯一の恒久的な解決策は、CLI をボットのスキャン範囲**外**に、そして `obsidian` ランタイム import を一切持たないリポジトリに置くことです。 |
-| マイグレーション計画は？ | **4 フェーズ展開**（[`obsidian-llm-wiki-cli/SPEC.md` §6](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/SPEC.md) を参照）：**Boot** → 新リポジトリが立ち上がり、リポジトリ内 CLI を権威として維持（v1.26.x PATCH ウィンドウ）→ **Coexist** → 両 CLI が動作、npm パッケージ名 `karpathywiki-cli` を発表（v1.27.0）→ **Deprecate** → リポジトリ内 CLI が EOL を宣言（v1.28.0）→ **Demote** → リポジトリ内 `tools/llm-wiki-cli/` が `../../src/` を参照する**開発専用テストハーネス**になる（ユーザー向けインストールはなし）。 |
-| プラグインのインストールフローは変わりますか？ | ❌ いいえ。プラグインは今後も Obsidian Community Plugins を通じて配布・更新されます。リボンアイコンをクリックするだけのプラグインユーザーは何も変わりません。 |
-| CLI ユーザーにとって何が変わる？ | 現在：本プラグインリポジトリで `pnpm llm-wiki` を実行（または `node tools/llm-wiki-cli/run-llm-wiki.mjs`）。v1.27.0 で `karpathywiki-cli` npm パッケージが公開された後：`npx karpathywiki-cli ingest …` が正規のユーザー向けエントリとなり、リポジトリ内 bin は非推奨とされます。v1.28.0 の Demote 後：リポジトリ内 `tools/llm-wiki-cli/` は開発専用（ユーザー向けインストール対象ではなくなります）。 |
-| 今日の状況は？ | 兄弟リポジトリ [`green-dalii/obsidian-llm-wiki-cli`](https://github.com/green-dalii/obsidian-llm-wiki-cli) は **v0.1.0-dev 段階で、まだ npm に公開されていません**。v1.27.0 の Coexist フェーズまで、本リポジトリの `pnpm llm-wiki` が**唯一の**ユーザー向けインストールパスです。 |
-
-### 🔍 リファレンス
-
-- 📘 **リポジトリ内 CLI README：** [`tools/llm-wiki-cli/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/llm-wiki-cli/README.md)——フラグリファレンス、環境要件、shim の注意点、再現されないもの（SecretStorage / ストリーミング / vault イベント / metadataCache.links）。
-- 📘 **兄弟リポジトリ：** [github.com/green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)——開発中（v0.1.0-dev、まだ npm 未公開）。
-- 🏛️ **アーキテクチャの根拠：** [`obsidian-llm-wiki-cli/SPEC.md` §1](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/SPEC.md)——なぜ分割がボット盲点問題に対する唯一の恒久的な答えなのか。
-- 🗺️ **フェーズ追跡：** [`obsidian-llm-wiki-cli/ROADMAP.md`](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/ROADMAP.md)——4 フェーズの移行タイムライン。
-
-> 💡 **v1.27.0 がリリースされるまで**、リポジトリ内の `pnpm llm-wiki` が正規の CLI です。`green-dalii/obsidian-llm-wiki-cli` の兄弟リポジトリは並行開発であり、公開されたユーザー向けインストールではありません——しばらくは `pnpm llm-wiki` をご利用ください。
+本リポジトリの `tools/dev-instrument/` にあるのは、エンジンコントリビューター向けの **dev-only ヘッドレス計測器** です。Obsidian ランタイムなしで実際の `WikiEngine.ingestSource` を vault に対して実行し、タスク単位の token + wall-clock 統計を出力します —— CLAUDE.md やリリースノートに載っている性能エビデンスと同じ数値です。エントリコマンド、環境変数、計測モード、終了コード仕様は [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md) を参照。
 
 ---
 
 ## 🔍 検索の仕組み
 
-ほとんどの「AI検索」プラグインはノートをチャンクに分割し、ベクトルDBに埋め込みます。このプラグインはそうしません。KarpathyがRAGに対して指摘した通り、チャンク化はLLMが知識グラフ全体を横断して推論する能力を損なうからです。代わりに、あなたが`[[wiki-links]]`を書くことで維持しているグラフをそのまま活用します。
+ほとんどの「AI検索」プラグインはノートをチャンクに分割し、ベクトルDBに埋め込みます。このプラグインはそうしません。[Karpathy が RAG に対して指摘した通り](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)、チャンク化はLLMが知識グラフ全体を横断して推論する能力を損なうからです。代わりに、あなたが`[[wiki-links]]`を書くことで維持しているグラフをそのまま活用します。
 
 ### 5段階シード選択カスケード
 
@@ -347,11 +235,11 @@ CLI はあなたのプラグイン設定を再利用します——CLI 専用の
 4. **LLM KBフォールバック** — lex＋キーワードスキャンのシグナルが弱い場合、LLMがwiki全体からトップN候補を1回だけ意味的に再シード。
 5. **PPRグラフ拡張** — 候補シード集合から`[[wiki-link]]`グラフ上でPersonalized PageRank（Haveliwala 2002）を実行。これがグラフ認識のマルチホップコンテキストを提供する仕組みです：「Bill Gates」→「Microsoft」→「競合他社」というように、単なる文字面のタイトル一致ではありません。
 
-カスケードは十分なシグナルが得られた段階で打ち切られます — 固定の5段階コストではなく、lexで十分な時はLLM呼び出しなし、LLM拡張が必要な時は精度を損なわない設計です。
+カスケードは十分なシグナルが得られたステージで打ち切られます — 固定の5ステージ分のコストはかからず、lex で十分な時は LLM 呼び出しなし、意味的フォールバックは lex ＋キーワードスキャンだけでは足りない時にのみ実行されます。
 
 ### Personalized PageRankのスケーリング
 
-Monte Carlo PPR（Fogaras 2005）を使用 — 3,000ランダムウォーク×50ステップ、Haveliwala 2002のデッドエンドルール付き。コストは**O(K×L)**でページ数に依存しないため、2,000ページのvaultでも200ページのvaultと同じ拡張レイテンシです。
+Monte Carlo PPR（Fogaras 2005）を使用 — 3,000ランダムウォーク×50ステップ、Haveliwala 2002のデッドエンドルール付き。コストは**O(K×L)**（K = ウォーク数、L = 1 ウォークあたりのステップ数）でページ数に依存しないため、2,000ページのvaultでも200ページのvaultと同じ拡張レイテンシです。
 
 **PPR @5 = 27.1%（純粋kNNベースライン24.1%を上回る）** — このオープンソースLLM-Wiki分野で唯一公開されている検索ベンチマーク数値です。
 
@@ -363,7 +251,7 @@ Monte Carlo PPR（Fogaras 2005）を使用 — 3,000ランダムウォーク×50
 
 ## 🤖 モデル
 
-**対応プロバイダー（12以上、2026-07月 models.dev クロスチェック済み）：**
+**対応プロバイダー（16以上、2026-07月 models.dev クロスチェック済み）：**
 
 | プロバイダー | シリーズ | 備考 |
 |----------|--------|-------|
@@ -388,10 +276,12 @@ Monte Carlo PPR（Fogaras 2005）を使用 — 3,000ランダムウォーク×50
 
 ### 重要な選択基準
 
-- **🧠 コンテキストウィンドウ 200Kトークン以上** — 約500ページ以上のvaultに推奨。200K未満だとカスケードが組み立てるコンテキストが切り詰められる可能性があります。
+- **🧠 コンテキストウィンドウ 200Kトークン以上** — 約500ページ以上のvaultに推奨。200K未満だと、カスケードが収まりきらず前段のステージを落とす可能性があります。
 - **⚖️ 指示追従の品質** — 抽出タスクでは生のIQよりも重要。スキーマテンプレートに従うモデルを選び、リーダーボードの最大値で選ばないでください。
-- **🔌 埋め込みエンドポイントは無関係** — 埋め込みは使用しません。`/v1/embeddings`がないプロバイダーでも問題ありません（対応プロバイダーのほとんどにありません）。
+- **🔌 埋め込みエンドポイントは無関係** — 埋め込みは使用しません。`/v1/embeddings`がないプロバイダーでも問題ありません（対応する16以上のプロバイダーのほとんどは提供していません）。
 - **🦙 ローカルはクエリ向き、クラウドは取り込み向き** — 2000ページのvault取り込みには通常、長コンテキストのクラウドモデルが必要。262Kのローカルモデルでほとんどのクエリはカバーできます。
+
+PDF / 画像 / Office の取り込みについては、特徴セクションの [ドキュメント / PDF / 画像の取り込み](#-ドキュメント--pdf--画像の取り込み) を参照 — Anthropic、OpenAI、Bedrock、Gemini は PDF をファイルパーツとしてネイティブに読み取り、それ以外は組み込みの MinerU バックエンド（v1.27.0+）と **Force PDF Support** がカバーします。
 
 ### Anthropic vs OpenAI vs Codex OAuth — それぞれ独立したプロバイダー
 
@@ -426,6 +316,10 @@ Obsidianコミュニティプラグインからインストール → プロバ�
 ### 既存のWikiは安全ですか？
 
 ✅ v1.0.0以降後方互換。任意のページに`reviewed: true`を設定すると上書きから保護。v1.24.xからのアップグレードでvaultが書き換えられることはありません。v1.25.0のPDF取り込みはデフォルトでキャッシュのみ。
+
+### PDF・画像・Officeドキュメントを取り込めますか？
+
+✅ はい。Anthropic、OpenAI、Bedrock、Gemini は PDF をネイティブに読み取れます。内蔵の MinerU バックエンド（v1.27.0）がその他すべて（PDF + 画像 + Office）をカバーします。完全なウォークスルー — クラウドプロバイダー、Apple Silicon OCR、Force PDF Support、キャッシュ管理 — は [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md) を参照してください。
 
 ### データは外部に送信されますか？
 
@@ -481,8 +375,6 @@ LLM-Wikiがあなたのナレッジワークフローの重要な一部になっ
 - ☕ **[Ko-fiでコーヒーを](https://ko-fi.com/greenerdalii)** — 単発または月額サポート
 - 💳 **[PayPalでチップを](https://paypal.me/greenerdalii)** — 単発チップ
 
-スポンサーシップは完全に任意です。プラグインは引き続きApache-2.0ライセンスで、機能完備を維持します。
-
 プロジェクトを支援してくださった方々：
 
 [@jameses-cyber](https://github.com/jameses-cyber)、[@issaqua](https://github.com/issaqua)、Dikson Choi
@@ -491,10 +383,10 @@ LLM-Wikiがあなたのナレッジワークフローの重要な一部になっ
 
 ## 🔭 その他のプロジェクト
 
-私が作っている他のプロジェクトです。
-
-- **[obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)** — ヘッドレス取り込み CLI。Obsidian マーケットプレイスの審査ボットが Node CLI の構造に警告を出さないよう、このリポジトリから独立したリポジトリへ移行中です。ディスク上の vault に対して同じ `WikiEngine` を実行し、レンダラーは不要です。現在も開発中の v0.1 で npm 未公開のため、v1.27.0 までは本リポジトリの `pnpm llm-wiki` をお使いください。
+- **[obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)** — ヘッドレス取り込み CLI。`karpathywiki-cli` という npm パッケージとして公開された兄弟リポジトリです。ディスク上の vault に対して同じ `WikiEngine` を実行し、レンダラーは不要です。インストールは `npm i -g karpathywiki-cli`。本リポジトリ内の `tools/dev-instrument/` は dev-only 計測器で、本プラグインのリリースノートにあるタスク単位コスト数値の算出元です。
 - **[pi-shift-router](https://github.com/green-dalii/pi-shift-router)** — [pi-coding-agent](https://github.com/earendil-works/pi) 向けのタスクレベルルーター。各ターンの前に小さな LLM ジャッジがメッセージを日常的か重要かに仕分け、選ばれた段がそのターンを最後まで担当します。複雑なタスクではさらに一歩進み、Smart 段が CTO として計画を立て、実装を Fast サブエージェントに委譲し、結果を一つずつレビューして反復します。上げるのは即座に、下げるのは傾向が続いてから。段ごとのフォールバックチェーンが 429 や 5xx を吸収します。ランタイム依存ゼロ、MIT。→ [shiftrouter.greenerai.top](https://shiftrouter.greenerai.top)
+- **[dsh-shift-router](https://github.com/green-dalii/dsh-shift-router)** — pi-shift-router の DSH フォーク。同じタスクレベルルーティング設計を共有しますが、対象は [dsh-coding-agent](https://github.com/earendil-works/dsh) ランタイムです。同じ判定駆動の段選択、同じ段ごとのフォールバックチェーン、MIT。
+- **[dsh-plugin-dev-skill](https://github.com/green-dalii/dsh-plugin-dev-skill)** — Claude 側の `obsidian-plugin-dev` ワークフローに対応する DSH 版。Obsidian プラグインのワークスペースを足場で組み、Red→Green TDD ループを駆動し、Six-Gate 品質クロージャ（lint/tsc/test/build/css-lint）を実行し、`feat/*` または `fix/*` 分岐でリリース可能なコミットを準備します。DSH を使うコントリビューターが CLAUDE.md からコピー＆ペーストせずに同じ足場＋ゲート体験を得られるようにするためのものです。
 
 ---
 

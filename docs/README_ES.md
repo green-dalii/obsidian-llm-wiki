@@ -14,25 +14,24 @@ Metadatos SEO (no visible para el usuario, parseado por rastreadores / LLMs):
 - first-published: 2025-09 (v0.1.0)
 - latest: v1.27.0 (MINOR — Bedrock SSO/IAM, MinerU multi-formato, citas de página fuente, gate de candidatos, UI taskPolicies, Fix Dead Links leave-it; 36 commits, 3677 tests)
 - last-updated: 2026-08-27
-- alternate-names: Karpathy LLM Wiki, LLM Wiki Obsidian, Obsidian wiki plugin, RAG basado en grafos, RAG sin embeddings, recuperación con Personalized PageRank, base de conocimiento multi-agente, segundo cerebro Obsidian
-- search-intents: "Obsidian RAG sin embeddings", "Obsidian wiki plugin", "Personalized PageRank Obsidian", "recuperación de notas basada en grafo", "implementación Karpathy LLM Wiki", "auto-generación base de conocimiento Obsidian", "Obsidian graph view + IA", "plugin segundo cerebro Obsidian", "IA grafo enlaces notas Obsidian", "plugin Obsidian 11 idiomas", "plugin Obsidian 13 proveedores LLM", "RAG sin BD vectorial", "ingesta PDF Obsidian con IA", "Obsidian Codex OAuth", "plugin Obsidian Bedrock", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian ingesta Word PPT Excel", "credenciales IAM Obsidian"
-- features: recuperación basada en grafos, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), cascada de selección de semillas de 5 etapas, detección de duplicados Tier 1/Tier 2, UI en 11 idiomas + salida wiki en 11 idiomas (independientes), 13+ proveedores LLM (Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Kimi, GLM, MiniMax, Ollama, LM Studio, OpenRouter, Anthropic-Compatible, Codex OAuth), ingesta MinerU multi-formato (PDF + imágenes + Office), ingesta PDF (solo caché, rutas OCR), escaneo de salud lint, Smart Fix All, citas verbatim de página fuente, gate de candidatos de ingesta, UI taskPolicies por paso, integración con Graph View de Obsidian, arquitectura cero-embeddings cero-BD-vectorial, modo local-first
+- alternate-names: Karpathy LLM Wiki, LLM Wiki Obsidian, plugin wiki de Obsidian, RAG basado en grafos, RAG sin embeddings, recuperación con Personalized PageRank, segundo cerebro Obsidian
+- search-intents: "Obsidian RAG sin embeddings", "Obsidian wiki plugin", "Personalized PageRank Obsidian", "recuperación de notas basada en grafo", "implementación Karpathy LLM Wiki", "auto-generación base de conocimiento Obsidian", "Obsidian graph view + IA", "plugin segundo cerebro Obsidian", "IA grafo enlaces notas Obsidian", "plugin Obsidian 11 idiomas", "plugin Obsidian 16 proveedores LLM", "RAG sin BD vectorial", "ingesta PDF Obsidian con IA", "Obsidian Codex OAuth", "plugin Obsidian Bedrock", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian ingesta Word PPT Excel", "credenciales IAM Obsidian"
+- features: recuperación basada en grafos, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), cascada de selección de semillas de 5 etapas, detección de duplicados Tier 1/Tier 2, UI en 11 idiomas + salida wiki en 11 idiomas (independientes), 16+ proveedores LLM (Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Qwen, Grok, Kimi, GLM, MiniMax, Step, Hunyuan, MiMo, Gemma, Ollama, LM Studio, OpenRouter, Anthropic-Compatible, Codex OAuth), ingesta MinerU multi-formato (PDF + imágenes + Office), ingesta PDF (solo caché, rutas OCR), escaneo de salud lint, Smart Fix All, citas verbatim de página fuente, gate de candidatos de ingesta, UI taskPolicies por paso, integración con Graph View de Obsidian, arquitectura cero-embeddings cero-BD-vectorial, modo local-first
 - direct-competitors: nashsu/llm_wiki (app de escritorio Tauri), SamurAIGPT/llm-wiki-agent (skill Claude Code), sdyckjq/llm-wiki-skill (skill Codex), atomicstrata/llm-wiki-compiler (pipeline Python)
 - retrieval-benchmark: PPR @5 = 27.1% vs knn puro 24.1% (corpus del proyecto, único número publicado en este espacio open-source de LLM-wiki)
 - author: green-dalii / Greener-Dalii (https://github.com/green-dalii)
 - canonical: https://github.com/green-dalii/obsidian-llm-wiki/blob/main/README.md
 -->
 
-![llm_wiki_banner](assets/llm_wiki_banner.webp)
+![Banner del plugin Karpathy LLM Wiki — una red de páginas wiki interconectadas, construidas a partir de tus notas de Obsidian](assets/llm_wiki_banner.webp)
 
 # 🧠 Karpathy LLM Wiki Plugin para Obsidian
 
 > Un plugin de Obsidian que convierte tus notas en una base de conocimiento conectada y consultable: la idea del [Karpathy LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f), integrada en el editor donde ya escribes.
 
-> **Puntuación perfecta en la revisión de Obsidian • Recuperación por grafo sin embeddings • 11 idiomas nativos • Funciona con cualquier proveedor**
-> **Local primero • Sin backend • Compatible con RGPD**
+**Puntuación perfecta en la revisión de Obsidian • Recuperación por grafo sin embeddings • 11 idiomas nativos • Ingesta nativa de PDF + imágenes + Office • Funciona con cualquier proveedor • Local primero • Sin backend • Compatible con RGPD**
 
-![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-11-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
+![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-11-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-16%2B-cyan?style=flat-square) <br>
 ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) <br>
 ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -46,29 +45,11 @@ Metadatos SEO (no visible para el usuario, parseado por rastreadores / LLMs):
 
 ---
 
-## 📑 Contenido
-
-- [🤔 Por qué este plugin?](#-por-qué-este-plugin)
-- [🎯 Es para mí?](#-es-para-mí)
-- [🚀 Inicio rápido](#-inicio-rápido)
-- [✨ Características](#-características)
-- [🌐 Ecosistema](#-ecosistema)
-- [🧰 CLI sin interfaz](#-cli-sin-interfaz)
-- [🔍 Cómo funciona la recuperación](#-cómo-funciona-la-recuperación)
-- [🤖 Modelos](#-modelos)
-- [❓ FAQ](#-faq)
-- [🔒 Privacidad](#-privacidad)
-- [💖 Apoyar el proyecto](#-apoyar-el-proyecto)
-- [🔭 Otros proyectos](#-otros-proyectos)
-- [📜 Licencia y créditos](#-licencia-y-créditos)
-
----
-
 ## 🤔 Por qué este plugin?
 
 Escribes notas. Se quedan en carpetas. Encontrar relaciones significa recordar hilos que olvidaste hace meses.
 
-**Existen otras reimplementaciones open-source de la idea de Karpathy, pero ninguna llega como un plugin de Obsidian listo para usar.** La mayoría son herramientas CLI, skills de Claude Code o aplicaciones de escritorio separadas. Somos el único con UI nativa, almacenamiento dentro del vault y el Graph View de Obsidian integrado.
+**Existen otras reimplementaciones open-source de la idea de Karpathy, pero ninguna llega como un plugin de Obsidian listo para usar.** La mayoría son herramientas CLI, skills de Claude Code o aplicaciones de escritorio separadas; este se ejecuta dentro de Obsidian: Graph View, ribbons y paleta de comandos incluidos.
 
 ### Cómo nos comparamos
 
@@ -77,7 +58,7 @@ Escribes notas. Se quedan en carpetas. Encontrar relaciones significa recordar h
 | **Entrega e instalación** | ✅ **5 min** — Plugin de Obsidian listo para usar: Plugins comunitarios → Instalar → elegir proveedor → Ingestar | ❌ 30 min+ — Compilar/descargar binario Tauri, configurar CLI | ❌ 15 min — requiere suscripción Claude Code + instalar skill | ❌ 10 min — requiere suscripción Claude Code/Codex + configurar skill | ❌ 30 min+ — pip install + Python SDK + servidor local |
 | **Arquitectura y dependencias** | ✅ **Cero dependencias** — sin base de datos vectorial, sin modelo de embeddings, sin procesos externos (PPR sobre el grafo `[[wiki-link]]`, por diseño) | 🟡 Incluye su propio runtime Python + sigma.js + sqlite; embeddings opcionales, desactivados por defecto | 🟡 Usa el entorno de Claude Code — no es autónomo; sin embeddings | 🟡 Requiere plataforma de ejecución separada; sin embeddings | ❌ Requiere Python + modelo de embeddings + BD vectorial (obligatorio) |
 | **i18n (UI + salida wiki)** | ✅ 11 idiomas (UI / salida independientes) | 🟡 2 (EN / 中文) | ❌ Solo inglés | ❌ Solo inglés | ❌ Solo inglés |
-| **Proveedores LLM** | ✅ 12+ (incluye Codex OAuth, Bedrock, LM Studio, Ollama, Anthropic-compatible, Kimi, GLM, MiniMax, DeepSeek) | 🟡 Compatible con OpenAI | 🟡 Suscripción vía Claude Code | 🟡 Suscripción vía Claude Code / Codex | 🟡 Compatible con OpenAI |
+| **Proveedores LLM** | ✅ 16+ (Anthropic, OpenAI, Bedrock, Gemini, DeepSeek, Qwen, Grok, Kimi, GLM, MiniMax, Step, Hunyuan, MiMo, Gemma, Codex OAuth, Ollama, LM Studio, OpenRouter, Anthropic-Compatible, ...) | 🟡 Compatible con OpenAI | 🟡 Suscripción vía Claude Code | 🟡 Suscripción vía Claude Code / Codex | 🟡 Compatible con OpenAI |
 | **Recuperación y pipeline de consulta** | ✅ **Cascada de 5 etapas** — Lex → palabras clave LLM → escaneo de subcadenas → fallback LLM KB → expansión PPR (se trunca al llegar a suficiente señal). Personalized PageRank (Haveliwala 2002) + Monte Carlo (Fogaras 2005) | 🟡 Solo decaimiento de 2 saltos (heurística de 4 señales: Adamic-Adar + 2 saltos) | ❌ Solo detección de comunidades Louvain | ❌ Solo previsualizaciones k-hop (sin aumento LLM) | ❌ BM25 + semántico sobre fragmentos (sin grafo) |
 | **Visualización de grafo** | ✅ Graph View nativo de Obsidian (integrado, cero tamaño extra) | ❌ sigma.js personalizado + graphology en app de escritorio | 🟡 graph.html vis.js (archivo separado) | ❌ sigma.js HTML offline personalizado | ❌ Visor de solo lectura en navegador |
 | **Honestidad del Wiki** | ✅ Cartel "Stage FALLBACK" cuando ninguna fuente del wiki coincide con tu consulta | ❌ Sin equivalente | ❌ Sin equivalente | ❌ Sin equivalente | ❌ Sin equivalente |
@@ -87,7 +68,7 @@ Escribes notas. Se quedan en carpetas. Encontrar relaciones significa recordar h
 
 - **🪟 Obsidian es el runtime.** Sin terminal, sin aplicación separada, sin Docker, sin Python. Instálalo desde Plugins Comunitarios, haz clic en Ingestar, el wiki vive en tu vault desde el primer segundo. El Graph View nativo de Obsidian renderiza tu grafo `[[wiki-link]]` — integrado, cero tamaño extra.
 - **🧑‍🍳 Limpio y autocontenido.** Cero dependencias. Sin modelo de embeddings, sin base de datos vectorial, sin paquete pip — un solo plugin que lee tus notas, habla con un LLM y escribe páginas wiki. Todo vive dentro de Obsidian.
-- **🔌 Cualquier modelo por el que ya pagas.** Anthropic, Bedrock, OpenAI, ChatGPT Plan (Codex OAuth), DeepSeek, Kimi, GLM, MiniMax, LM Studio, Ollama, OpenRouter, Anthropic-compatible, endpoint personalizado — más de doce proveedores, ninguno requiere tener un endpoint de embeddings.
+- **🔌 Cualquier modelo por el que ya pagas.** Anthropic, Bedrock, OpenAI, ChatGPT Plan (Codex OAuth), Gemini, DeepSeek, Qwen, Grok, Kimi, GLM, MiniMax, Step, Hunyuan, MiMo, Gemma, Ollama, LM Studio, OpenRouter, Anthropic-compatible, endpoint personalizado — más de dieciséis proveedores, ninguno requiere tener un endpoint de embeddings.
 
 ---
 
@@ -105,9 +86,9 @@ Escribes notas. Se quedan en carpetas. Encontrar relaciones significa recordar h
 
 **❌ No, si:**
 
-- **Quieres un reemplazo de ChatGPT de uso general** — este plugin responde solo desde *tu* conocimiento.
-- **Necesitas un pipeline RAG sobre PDFs / páginas web / corpus externos** — nos enfocamos en la ruta dentro del vault (los PDFs son compatibles desde v1.25.0).
-- **Buscas un SaaS alojado** — no hay backend, ni servidor, ni cuenta.
+- **Quieres un reemplazo de ChatGPT de uso general** — las respuestas vienen solo de tu vault, no de internet.
+- **Necesitas RAG sobre grandes corpus externos** (Confluence, Notion, arXiv, páginas web scrapeadas) — el plugin ingiere tu vault además de archivos PDF/Office independientes; el RAG masivo sobre corpus externos está fuera del alcance por diseño.
+- **Buscas un SaaS alojado con colaboración en equipo** — no hay backend, ni servidor, ni estado compartido; todo se ejecuta localmente dentro de tu Obsidian.
 
 ---
 
@@ -126,7 +107,7 @@ Escribes notas. Se quedan en carpetas. Encontrar relaciones significa recordar h
    
    Se abre un panel lateral derecho estilo Copilot en el que puedes chatear con tu wiki. Las respuestas llevan `[[wiki-links]]` que enlazan de vuelta a tu grafo de conocimiento.
 
-![Query side panel](/docs/assets/query-side-panel.png)
+![Panel de Consulta acoplado a la derecha en Obsidian, mostrando una interfaz de chat con respuestas que llevan wiki-links de vuelta a tu grafo de conocimiento](/docs/assets/query-side-panel.png)
 
 Eso es todo. El plugin no modifica nada en tus notas originales — solo crea páginas nuevas dentro de `wiki/`. Tanto **Ingest** como **Query wiki** están fijados a la cinta izquierda para acceso con un clic en cualquier momento. (`Cmd` en macOS, `Ctrl` en Windows/Linux.)
 
@@ -149,10 +130,7 @@ Eso es todo. El plugin no modifica nada en tus notas originales — solo crea p�
 |-------|---------|
 | `notes/machine-learning.md` (un archivo plano) | `wiki/concepts/supervised-learning.md` con `[[enlaces bidireccionales]]`, alias, atribución de fuente y una entrada en `wiki/index.md` |
 
-> 💡 **Mantenerse actualizado.** Las nuevas funciones, correcciones y mejoras de rendimiento se publican con frecuencia. Configuración → Plugins comunitarios → Buscar actualizaciones, o activa las actualizaciones automáticas de plugins.
-> 📖 Guías detalladas (instalación, configuración PDF, notas multi-proveedor, actualizaciones) se mantienen en [GitHub Discussions → Guides](https://github.com/green-dalii/obsidian-llm-wiki/discussions/categories/guides).
-
-> 🌟 **Si este plugin te ha ahorrado tiempo de configuración, una [estrella en GitHub](https://github.com/green-dalii/obsidian-llm-wiki) ayuda a otros a encontrarlo.**
+> 📖 Guías paso a paso en [GitHub Discussions → Guides](https://github.com/green-dalii/obsidian-llm-wiki/discussions/categories/guides). ¿Te resultó útil? [Deja una estrella en el repo](https://github.com/green-dalii/obsidian-llm-wiki) para seguir las releases.
 
 ---
 
@@ -164,26 +142,28 @@ Eso es todo. El plugin no modifica nada en tus notas originales — solo crea p�
 - **🏷️ Alias obligatorios** — cada página incluye al menos un alias (traducción, abreviatura, variante) para que la detección de duplicados entre idiomas funcione.
 - **🔄 Detección de duplicados por niveles** — Nivel 1 (coincidencia directa de nombre: entre idiomas, abreviatura, títulos de alta similitud) siempre se verifica; Nivel 2 (enlaces compartidos, similitud media) llena el presupuesto de tokens restante.
 - **🧩 Fusión inteligente y máquina de estados de contradicción** — los duplicados se fusionan preservando alias; las contradicciones se marcan con atribución de fuente; las páginas con `reviewed: true` están protegidas contra sobrescritura.
-- **🎨 Vocabulario de etiquetas personalizable** — define tus propias listas de etiquetas de tipo de entidad y concepto en Configuración → Wiki → Tag Vocabulary → *Custom*. El vocabulario es una PISTA DE INYECCIÓN DE ESQUEMA para el LLM, no un gate de escritura — los modelos pequeños/locales aún pueden desviarse, y Lint informa de esas páginas. (Implementado parcialmente — consulta las funciones v1.27.0 más abajo.)
+- **🎨 Vocabulario de etiquetas personalizable** — define tus propias listas de etiquetas de tipo de entidad y concepto en Configuración → Wiki → Vocabulario de etiquetas → *Personalizado*. El vocabulario es una pista de inyección de esquema para el LLM, no una barrera de escritura — los modelos pequeños o locales aún pueden desviarse (aproximadamente uno de cada diez devuelve la taxonomía propia del modelo). Lint detecta el resto. Ancla de diseño para el enforcement del esquema: [Issue #328](https://github.com/green-dalii/obsidian-llm-wiki/issues/328).
 
-### 📄 Ingesta de PDF (v1.25.0+)
+### 📄 Ingesta de Documentos / PDF / Imágenes
 
-- **🔌 Puerta de proveedor** — Anthropic, OpenAI y Bedrock manejan PDF de forma nativa. Para cualquier otro endpoint compatible con OpenAI/Anthropic, activa **Force PDF Support** en Configuración → LLM Configuration → Advanced para que el plugin intente la llamada. Para OCR local en Apple Silicon, extractores de terceros (MinerU, Docling, Mathpix, Adobe) y la guía completa de ingesta PDF, consulta [Rutas de OCR PDF](#-rutas-de-ocr-pdf) más abajo y [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md).
-- **🆕 Backend multi-formato MinerU (v1.27.0, #404)** — Configuración → Wiki Configuration → Markdown Conversion Backend → *MinerU* enruta PDF, imágenes (PNG/JPG/JPEG/JP2/WebP/GIF/BMP) y documentos Office (DOC/DOCX/PPT/PPTX/XLS/XLSX) a través del [parser Precise de MinerU](https://mineru.net/apiManage/docs) sin salir del plugin. El token de API vive en SecretStorage. Límites del servidor: 200 MB / 200 páginas por PDF, 256 MB / 10 000 archivos por archivo comprimido. La mejor ruta para artículos científicos, documentos escaneados y archivos Office donde la conservación del diseño importa.
-- **🗄️ Caché acotada** — `.obsidian/plugins/karpathywiki/pdf-cache/` almacena el Markdown convertido, indexado por hash de contenido + modelo + versión del convertidor. Mantenimiento de tres capas de defensa: 100 MB total / 1000 entradas / 10 MB por entrada individual con evicción LRU por mtime.
-- **📝 Sidecar opcional en el vault** — Configuración → Wiki Configuration → Wiki Folder → *Write PDF Markdown to Vault* escribe `<basename>.pdf.md` junto al PDF fuente (desactivado por defecto — solo caché es el valor predeterminado).
+Cinco rutas de entrada, conmutable por ingesta:
+
+1. **🆕 Backend MinerU integrado (v1.27.0, #404)** — Configuración → Configuración Wiki → Backend de Conversión Markdown → *MinerU*. PDF + imágenes (PNG/JPG/JPEG/JP2/WebP/GIF/BMP) + Office (DOC/DOCX/PPT/PPTX/XLS/XLSX) a través del [parser Precise de MinerU](https://mineru.net/apiManage/docs). Token en Obsidian SecretStorage. Mejor ruta para artículos científicos, documentos escaneados y archivos Office donde la conservación del diseño importa. Límites del servidor: 200 MB / 200 páginas por PDF, 256 MB / 10 000 archivos por archivo comprimido.
+2. **☁️ Proveedores cloud con PDF nativo** — Anthropic, OpenAI, Google Gemini y AWS Bedrock (variantes Anthropic + OpenAI) leen PDFs como file parts de fábrica. Sin configuración más allá de seleccionar el proveedor.
+3. **🖥️ OCR local en Apple Silicon** — [oMLX](https://github.com/jundot/omlx) integra Microsoft Markitdown como backend PDF→Markdown integrado. Activa Markitdown en oMLX, carga [Baidu Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) (3B / 570M activos, open-source 2026-06) como modelo de visión, apunta el plugin a oMLX como proveedor Custom OpenAI-Compatible, activa **Force PDF Support** y elige el modelo multimodal que oMLX está sirviendo. El PDF nunca sale de tu máquina.
+4. **🛠️ Extractor de terceros (UI online MinerU)** — usa el [servicio online MinerU Extractor](https://mineru.net/OpenSourceTools/Extractor) para una UI manual rápida cuando no quieras configurar un token de API. Descarga el `.md` convertido, colócalo en tu vault fuera de la carpeta wiki e ingiéstalo como una nota Markdown normal.
+5. **🔌 Force PDF Support** — para cualquier otro endpoint OpenAI/Anthropic-compatible que acepte file parts, el plugin intenta la llamada (Configuración → Configuración LLM → Avanzado). El endpoint decide; los errores se muestran como Notice localizada.
+
+**Advertencia para formatos Office:** Obsidian no renderiza nativamente `.docx` / `.xlsx` / `.pptx` ([file-formats](https://obsidian.md/help/file-formats)), por lo que el flujo práctico para archivos Office es: MinerU convierte a `.md`, el plugin ingiere ese `.md` en páginas wiki, y el archivo Office original se conserva como referencia. Si necesitas previsualizar Office en línea, usa un plugin comunitario como Pandoc Plugin / Docxer / Md Importer / Office Reader.
+
+**Tubería común a todas las rutas:**
+
+- **🗄️ Caché acotada** — `.obsidian/plugins/karpathywiki/pdf-cache/` almacena el Markdown convertido, indexado por hash de contenido + modelo + versión del convertidor; límites de 100 MB total / 1000 entradas / 10 MB por entrada individual con evicción LRU por mtime.
+- **📝 Sidecar opcional en el vault** — Configuración → Configuración Wiki → Carpeta Wiki → *Write PDF Markdown to Vault* escribe `<basename>.pdf.md` junto al PDF fuente (desactivado por defecto — solo caché es el valor predeterminado).
 - **🛡️ Prompt de transcripción literal** — conversión estilo OCR con marcadores anti-alucinación `[illegible]` / `[figure: ...]`; el envoltorio de fences markdown de modelos locales pequeños se limpia automáticamente antes de escribir en caché.
 - **🔁 Citas verbatim de página fuente (v1.27.0, #496)** — cada página `sources/<slug>.md` generada ahora incluye una sección `Mentions in Source` construida a partir de las mismas citas verbatim que la extracción capturó por entidad/concepto (la prosa que el modelo ya demostró que podía ver), de modo que el documento subyacente es la única página del wiki con un rastro real y fundamentado hasta el texto fuente.
 
-### 📄 Rutas de OCR PDF
-
-Tres rutas, elige la que se ajuste a tu configuración:
-
-1. **☁️ Proveedor cloud con soporte PDF nativo** — Anthropic, OpenAI o AWS Bedrock leen PDFs sin configuración adicional. Solo ingesta; no se necesita configuración extra. Para cualquier otro endpoint compatible con OpenAI/Anthropic, activa **Force PDF Support** en Configuración → LLM Configuration → Advanced para que el plugin intente la llamada.
-2. **🖥️ OCR local en Apple Silicon** — [oMLX](https://github.com/jundot/omlx) integra Microsoft Markitdown como backend PDF→Markdown incorporado. Activa Markitdown en oMLX, carga [Baidu Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) (3B / 570M activos, open-source 2026-06) como modelo de visión, apunta el plugin a oMLX como proveedor Custom OpenAI-Compatible, activa **Force PDF Support** y elige el modelo multimodal que oMLX está sirviendo. El PDF nunca sale de tu máquina.
-3. **🛠️ Extractor de terceros (MinerU, Docling, Mathpix, Adobe)** — ejecuta un extractor separado en tus PDFs para producir archivos `.md`, luego ingéstalos como notas Markdown regulares a través del pipeline estándar del plugin. La opción más fiable para artículos científicos, documentos escaneados y PDFs con muchas matemáticas.
-
-📖 **Guías de configuración completas** para las tres rutas (proveedores cloud, niveles de hardware oMLX, instalación de MinerU, mantenimiento de caché) → [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
+📖 **Guías de configuración completas** para todas las rutas (proveedores cloud, niveles de hardware oMLX, instalación de MinerU, mantenimiento de caché) → [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
 
 ### 💬 Consulta y mantenimiento
 
@@ -195,7 +175,7 @@ Tres rutas, elige la que se ajuste a tu configuración:
 - **📊 Panel de historial de operaciones** — interfaz buscable y filtrable para ingestiones pasadas, informes Lint y ejecuciones de mantenimiento.
 - **🛡️ Portal de pre-ingestión** — las notas vacías / solo espacios / solo frontmatter se rechazan antes de cualquier llamada LLM; el dedup por hash de contenido detecta archivos idénticos en distintas rutas.
 - **🆕 Gate de candidatos de ingesta (v1.27.0, #514 / PR #521)** — toggle opcional (`skipMentionOnlyCandidates`, desactivado por defecto, Configuración → Advanced). Para fuentes cuyo idioma tiene un perfil medido (de medido; en/fr/es/pt/nl/ko estimado con casos límite fijados; umbrales de script de caracteres zh/ja sin medir), los candidatos nombrados solo dentro de paréntesis / enumeraciones / elementos cortos de lista se podan antes de que cuesten una página más llamadas de dedup y generación. Las notas entre idiomas no se filtran; los idiomas del wiki sin perfil reportan una vez por ingesta y nunca omiten en silencio.
-- **🆕 Políticas de tarea por paso (v1.27.0, #525 / #490)** — LLM Advanced → campo Task Policies acepta entradas `step=mode:thinking` (p. ej. `extract=text:on,merge-triage=text:on`). Un único punto de control para el pin de modo texto de `extract` y cualquier futuro override por paso. La línea base interna queda intacta para los pasos que no listes.
+- **🆕 Políticas de tarea por paso (v1.27.0, #525 / #490)** — LLM Advanced → campo Task Policies; sobreescribe el ajuste por paso de modo-texto/thinking sin cambios de código. La línea base interna queda intacta para los pasos que no listes.
 
 ### 🔒 Privacidad
 
@@ -207,14 +187,14 @@ Tres rutas, elige la que se ajuste a tu configuración:
 ### 🦙 Local-first
 
 - **🖥️ Ollama, LM Studio, OpenRouter, endpoint personalizado** — listos para usar. Los modelos locales funcionan para consulta (ventanas de contexto más pequeñas); la ingesta en un vault de 2000 páginas normalmente necesita un modelo cloud de contexto largo.
-- **📄 La ruta de OCR PDF es completamente local en Apple Silicon** — consulta [Rutas de OCR PDF](#-rutas-de-ocr-pdf) más abajo.
-- **🔐 ChatGPT Plan (Codex OAuth)** — callback loopback de escritorio en `127.0.0.1:1455`; móvil mediante código de dispositivo. Las credenciales viven solo en Obsidian SecretStorage; cerrar sesión las borra. Compatibilidad de terceros con Codex, no una asociación con OpenAI.
+- **📄 La ruta de OCR PDF es completamente local en Apple Silicon** — consulta [Ingesta de Documentos / PDF / Imágenes](#-ingesta-de-documentos--pdf--imágenes) arriba.
+- **🔐 ChatGPT Plan (Codex OAuth)** — loopback de escritorio o mobile device-code; las credenciales viven solo en Obsidian SecretStorage. (Consulta [Anthropic vs OpenAI vs Codex OAuth](#-anthropic-vs-openai-vs-codex-oauth--son-proveedores-distintos) abajo para la explicación completa de límites entre proveedores.)
 
 ### 🌐 Idioma
 
 - **🌍 11 idiomas de UI** — English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano, Русский. La UI y el idioma de salida del wiki son independientes — tu wiki puede estar en chino mientras la interfaz está en inglés.
 - **📚 11 idiomas de salida del wiki** — el mismo conjunto; elige en Configuración → Wiki Configuration. Opción *Custom input* para prompts ad-hoc.
-- **🈶 269+ cadenas de UI traducidas** — cada etiqueta, modal y aviso. Añadir un 11.º idioma es impulsado por contribuciones (patrón PR #159).
+- **Todas las cadenas de UI traducidas por locale** — cada etiqueta, modal y aviso. Añadir un 12.º idioma es impulsado por contribuciones (patrón PR #159).
 
 ---
 
@@ -222,7 +202,7 @@ Tres rutas, elige la que se ajuste a tu configuración:
 
 El plugin se combina con el resto de tu stack de Obsidian — cada herramienta de abajo se conecta al grafo `[[wiki-link]]` sin cambios de código.
 
-- **📄 [Conversión en línea MinerU](https://mineru.net/OpenSourceTools/Extractor)** — conversor gratuito PDF/Word/PPT/Excel/HTML/imagen → Markdown del equipo OpenDataLab de Shanghai AI Lab. Sube un documento, descarga el `.md`, colócalo en tu vault fuera de la carpeta wiki y ejecuta **Ingestar fuente única**. Mejor ruta para artículos científicos, documentos escaneados y PDF multimodales complejos con fórmulas/tablas. Los usuarios con requisitos de privacidad pueden [auto-hospedar MinerU](https://github.com/opendatalab/mineru); versiones futuras podrían integrar MinerU de forma nativa — consulta [#376](https://github.com/green-dalii/obsidian-llm-wiki/issues/376).
+- **📄 [Backend multi-formato MinerU](https://mineru.net/apiManage/docs) (integrado desde v1.27.0)** — lo que antes era un paso CLI/UI separado ahora es un conmutador del plugin; consulta [Ingesta de Documentos / PDF / Imágenes](#-ingesta-de-documentos--pdf--imágenes) para la tabla de rutas completa. El [servicio online MinerU](https://mineru.net/OpenSourceTools/Extractor) sigue disponible para usuarios que prefieren una UI rápida sobre un token de API; [auto-hospedar MinerU](https://github.com/opendatalab/mineru) también es una opción.
 - **🕸️ Obsidian Graph View** — abre la vista de grafo nativa en cualquier página wiki; cada `[[wiki-link]]` se convierte en un nodo, cada backlink en una arista. Integrado, cero tamaño adicional del bundle.
 - **✂️ [Obsidian Web Clipper](https://obsidian.md/clipper)** — extensión oficial del navegador. Guarda páginas web (artículos, entradas de blog, hilos de Reddit, Hacker News, recetas, trabajos de investigación, transcripciones de YouTube vía Interpreter) en cualquier carpeta de tu vault y luego ejecuta el comando «Ingerir desde carpeta» del plugin para extraer entidades y conceptos en lote.
 - **📊 [Dataview](https://github.com/blacksmithgu/obsidian-dataview)** — consulta el wiki como una base de datos con DQL (`LIST FROM "wiki/entities" WHERE contains(tags, "person")`) o la API JS. El plugin escribe frontmatter estándar (`tags:`, `type:`, `aliases:`) en cada página, por lo que las consultas Dataview funcionan sin configuración adicional.
@@ -235,103 +215,15 @@ El plugin se combina con el resto de tu stack de Obsidian — cada herramienta d
 
 ## 🧰 CLI sin interfaz
 
-El mismo pipeline de ingestión que usa el plugin, pero funcionando bajo Node puro. Úsalo cuando Obsidian no está a mano — CI, jobs por lotes, ejecuciones con script.
+**La mayoría de usuarios puede saltarse esta sección.** La CLI orientada al usuario del plugin vive en el repositorio hermano [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) — instala con `npm i -g karpathywiki-cli` y ejecuta `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`.
 
-### Cómo se ejecuta
-
-La CLI viene en este repo, en `tools/llm-wiki-cli/`. Tras `pnpm install`, aparece como el binario `llm-wiki`:
-
-```bash
-WIKI_API_KEY=... pnpm llm-wiki ingest \
-  --vault /path/to/your/vault \
-  --source "notes/foo.md" \
-  --dry-run
-```
-
-Eso es todo. `--dry-run` mantiene todas las páginas en memoria y no escribe nada; quítalo para hacer la escritura real.
-
-### Configuración: ¿de dónde vienen mis ajustes?
-
-La CLI no tiene ajustes propios — lee el mismo `<vault>/.obsidian/plugins/karpathywiki/data.json` que escribe Obsidian. Antes de usar la CLI:
-
-1. **Configura el proveedor en Obsidian una vez.** Configuración → LLM Wiki → elige un proveedor, pega la clave API, pulsa **Test Connection**, guarda. La CLI leerá lo que hayas guardado ahí.
-2. **Pasa la clave API mediante `WIKI_API_KEY`.** v1.25.3 movió las claves al SecretStorage de Obsidian (el llavero del SO), que Node no puede leer. Así que la CLI toma la clave del entorno; si falta, es un error grave — imprimirá el comando adecuado para tu SO:
-
-   ```bash
-   # macOS — extraer del llavero
-   WIKI_API_KEY=$(security find-generic-password -s "obsidian-lw-plugin-karpathywiki" -w) \
-     pnpm llm-wiki ingest --vault /path/to/vault --source "notes/foo.md"
-
-   # Linux (libsecret)
-   WIKI_API_KEY=$(secret-tool lookup service obsidian-lw-plugin-karpathywiki) \
-     pnpm llm-wiki ingest --vault /path/to/vault --source "notes/foo.md"
-
-   # Windows
-   # Administrador de credenciales → Credenciales de Windows → "obsidian-lw-plugin-karpathywiki" → Mostrar
-   $env:WIKI_API_KEY = "sk-..."
-   pnpm llm-wiki ingest --vault C:\path\to\vault --source "notes\foo.md"
-   ```
-
-   Para endpoints locales sin clave (Ollama, LM Studio) sirve cualquier marcador no vacío (`WIKI_API_KEY=unused`). La clave nunca se registra, nunca se escribe en un archivo.
-3. **Requiere Node 24+.** Coincide con el `.nvmrc` del plugin; `crypto.subtle` y `fetch` son nativos. `obsidian-llm-wiki/node_modules` debe estar instalado.
-
-### Flags
-
-El conjunto de flags es pequeño. Las principales:
-
-| Flag | Qué hace |
-|---|---|
-| `--vault` | Raíz del vault. Obligatorio. |
-| `--source` | Archivo fuente relativo al vault. Obligatorio. Una fuente por ejecución — para lotes, itera. |
-| `--dry-run` | Ejecuta el pipeline completo y mantiene cada escritura en memoria. Quítalo para escribir de verdad. |
-| `--force` | Re-ingiere aunque el gate de contenido duplicado diga que es un duplicado. |
-| `--extract-only` | Se detiene tras la extracción. Implica `--dry-run` — no puedes escribir por accidente con este flag. |
-| `--model` | Sobrescribe el modelo de `data.json`. Útil para comparaciones A/B. |
-| `--temperature` / `--top-p` | Sobrescrituras de muestreo. Pásalas juntas: un preset es la pareja. |
-| `--seed` | Seed best-effort. Chat Completions la respeta; algunos servidores locales la aceptan y la ignoran (LM Studio hace esto — `--temperature 0` es la única palanca de reproducibilidad real allí). |
-| `--thinking-mode` | `data-json` / `plugin-off` / `server-default`. |
-| `--granularity` | `fine` / `standard` / `coarse` / `minimal` / `custom`. Dirige tamaño de lote + límite de items + tope de rondas a la vez. |
-| `--batch-size` / `--round-base` | Mandos de nivel inferior. Bajo `--granularity custom` los topes por tipo pueden sobrescribirlos. |
-| `--max-tokens-per-call` | Tope de `max_tokens` por llamada. `0` elimina el tope (el mínimo de extracción sigue siendo 16000). |
-| `--max-rounds` | Obsoleto; lanza un error. Usa `--round-base`. |
-
-Tabla completa de flags + advertencias del shim + lo que no se reproduce (SecretStorage, streaming, eventos del vault, `metadataCache.links`/`.headings`): consulta [`tools/llm-wiki-cli/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/llm-wiki-cli/README.md).
-
-### Salida
-
-`console.debug` del motor va a stdout. `console.warn`/`console.error` van a stderr. Los avisos se imprimen como `[Notice] …`, el progreso como `[progress] …`, las escrituras completadas como `[write] …`. La ejecución termina con un resumen: rondas de extracción, llamadas LLM totales, entidades, conceptos, páginas creadas y actualizadas, tokens de entrada + salida, tiempo transcurrido.
-
-### Qué hay en el bundle
-
-La CLI importa el `WikiEngine`, `SourceAnalyzer`, `PageFactory`, `SchemaManager` y los clientes LLM de producción directamente desde `../../src/`. Lo único que se reemplaza es el host (`obsidian`, el vault en vivo, el metadataCache) — esbuild empaqueta `tools/llm-wiki-cli/src/main.ts` para Node y reescribe cada `from 'obsidian'` hacia `tools/llm-wiki-cli/src/obsidian.ts`. Un módulo compartido significa una sola clase `TFile` compartida, que es lo que hace funcionar las comprobaciones `instanceof TFile` del motor.
-
-### Futuro: repositorio independiente
-
-La CLI **va a salir de este repositorio** hacia un repositorio hermano independiente en [`green-dalii/obsidian-llm-wiki-cli`](https://github.com/green-dalii/obsidian-llm-wiki-cli). Por qué: el bot de revisión del marketplace de Obsidian pasa el lint a todo el árbol `.ts` del repo, no solo `src/`, y señala ~60 Warnings estructurales sobre cualquier CLI Node que viva junto a un plugin Obsidian (imports `node:` estáticos, salida `console.log`, shim `globalThis` — todo intratable sin romper lo que es la CLI).
-
-La migración tiene cuatro fases — **Boot → Coexist → Deprecate → Demote** — detalladas en [`obsidian-llm-wiki-cli/SPEC.md`](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/SPEC.md). En resumen:
-
-- **Hoy (ventana v1.26.x PATCH):** el repositorio hermano arranca; `pnpm llm-wiki` aquí sigue siendo la única CLI para el usuario final.
-- **v1.27.0:** se publica el paquete npm `karpathywiki-cli`; ambas CLIs funcionan, pero la de npm es el camino recomendado.
-- **v1.28.0:** la CLI en árbol anuncia su fin de vida.
-- **Tras Demote:** `tools/llm-wiki-cli/` pasa a ser un arnés de pruebas solo-dev que apunta a `../../src/`, no un objetivo de instalación para el usuario.
-
-El repositorio hermano está en **v0.1.0-dev, aún sin publicar en npm** a fecha de 2026-08-13. Hasta la fase Coexist de v1.27.0, `pnpm llm-wiki` aquí es la CLI canónica — úsala por ahora. Si solo has pulsado el icono del ribbon en Obsidian, todo esto no va contigo; el plugin se sigue distribuyendo y actualizando a través de los Plugins Comunitarios como siempre.
-
-### Referencias
-
-- 📘 [`tools/llm-wiki-cli/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/llm-wiki-cli/README.md) — referencia de flags, entorno, advertencias del shim
-- 📘 [github.com/green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) — repositorio hermano (v0.1.0-dev, aún sin publicar en npm)
-- 🏛️ [`obsidian-llm-wiki-cli/SPEC.md`](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/SPEC.md) — por qué la división, despliegue en 4 fases
-- 🗺️ [`obsidian-llm-wiki-cli/ROADMAP.md`](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/ROADMAP.md) — seguimiento de fases
-
-> 💡 **Hasta que se publique v1.27.0**, usa `pnpm llm-wiki` desde este repositorio. El repositorio hermano es desarrollo paralelo, no una instalación publicada.
+Lo que se envía en este repo bajo `tools/dev-instrument/` es el **instrumento de medición headless dev-only** para contribuidores del motor — ejecuta el `WikiEngine.ingestSource` real contra un vault en disco sin runtime de Obsidian, imprime el cómputo de tokens + tiempo real por tarea — los mismos números que respaldan la evidencia de rendimiento en `CLAUDE.md` y las release notes. Consulta [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md) para el comando de entrada, variables de entorno, modos de medición y especificación del código de salida.
 
 ---
 
 ## 🔍 Cómo funciona la recuperación
 
-La mayoría de los plugins de "búsqueda AI" fragmentan tus notas en trozos y los incrustan en una base de datos vectorial. Nosotros no. El argumento de Karpathy contra RAG es que la fragmentación rompe la capacidad del LLM para razonar a través de todo tu grafo de conocimiento — y ese argumento se sostiene en la práctica. En su lugar, recorremos el grafo que ya mantienes al escribir `[[wiki-links]]`.
+La mayoría de los plugins de "búsqueda AI" fragmentan tus notas en trozos y los incrustan en una base de datos vectorial. Nosotros no. El [argumento de Karpathy contra RAG](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) es que la fragmentación rompe la capacidad del LLM para razonar a través de todo tu grafo de conocimiento — y ese argumento se sostiene en la práctica. En su lugar, recorremos el grafo que ya mantienes al escribir `[[wiki-links]]`.
 
 ### La cascada de selección de semillas de 5 etapas
 
@@ -343,11 +235,11 @@ Cuando preguntas "Quién fundó Microsoft?", Query Wiki ejecuta cinco etapas ant
 4. **Fallback LLM KB** — cuando lex + escaneo de palabras clave devuelven señales débiles, el LLM resiembra los N mejores candidatos contra el wiki completo en una pasada semántica.
 5. **Expansión de grafo PPR** — Personalized PageRank (Haveliwala 2002) sobre el grafo `[[wiki-link]]` partiendo del conjunto de semillas candidatas. Esto es lo que proporciona contexto multi-hop consciente del grafo: "Bill Gates" → "Microsoft" → "competidores", no solo superposición literal de títulos.
 
-La cascada se trunca en el paso que devuelva suficiente señal — sin costo fijo de 5 etapas, sin llamadas LLM cuando lex es suficiente, sin pérdida de precisión cuando se necesita aumento LLM.
+La cascada se trunca en la etapa que devuelva suficiente señal — sin costo fijo de 5 etapas; sin llamadas LLM cuando lex es suficiente; fallback semántico solo cuando lex + escaneo de palabras clave por sí solos no bastan.
 
 ### Personalized PageRank a escala
 
-Usamos Monte Carlo PPR (Fogaras 2005) — 3000 caminatas aleatorias × 50 pasos cada una — con la regla de dead-end de Haveliwala 2002. El costo es **O(K × L)** independiente del número de páginas, por lo que un vault de 2000 páginas ve la misma latencia de expansión que uno de 200 páginas.
+Usamos Monte Carlo PPR (Fogaras 2005) — 3000 caminatas aleatorias × 50 pasos cada una — con la regla de dead-end de Haveliwala 2002. El costo es **O(K × L)** (K = caminatas, L = pasos por caminata), independiente del número de páginas, por lo que un vault de 2000 páginas ve la misma latencia de expansión que uno de 200 páginas.
 
 **PPR @5 = 27.1% vs línea base knn puro 24.1%** en el corpus de benchmark del proyecto (el único benchmark de recuperación publicado en este espacio open-source de LLM-Wiki).
 
@@ -359,7 +251,7 @@ Rechazamos deliberadamente la ruta de embeddings en [Issue #175](https://github.
 
 ## 🤖 Modelos
 
-**Proveedores compatibles (12+, cotejados con models.dev en 2026-07):**
+**Proveedores compatibles (16+, cotejados con models.dev en 2026-07):**
 
 | Proveedor | Series | Notas |
 |-----------|--------|-------|
@@ -384,10 +276,12 @@ Este plugin alimenta al LLM con el contexto completo de tu Wiki por consulta —
 
 ### Qué importa
 
-- **🧠 Ventana de contexto ≥ 200K tokens** para vaults de más de ~500 páginas. Por debajo de 200K, el contexto ensamblado de la cascada empieza a truncarse.
+- **🧠 Ventana de contexto ≥ 200K tokens** para vaults de más de ~500 páginas. Por debajo de 200K, la cascada puede descartar etapas anteriores para caber.
 - **⚖️ La calidad de seguimiento de instrucciones importa más que el IQ bruto** para la tarea de extracción — elige un modelo que siga la plantilla del esquema, no el número más grande en el leaderboard.
-- **🔌 El endpoint de embeddings es irrelevante** — no usamos embeddings. Un proveedor que carezca de `/v1/embeddings` funciona bien (la mayoría de nuestros 12+ proveedores lo son).
+- **🔌 El endpoint de embeddings es irrelevante** — no usamos embeddings. Un proveedor que carezca de `/v1/embeddings` funciona bien (la mayoría de nuestros 16+ proveedores no lo proveen).
 - **🦙 Local funciona para consulta, cloud para ingesta** — la ingesta en un vault de 2000 páginas normalmente necesita un modelo cloud de contexto largo; un modelo local de 262K cubre la mayoría de las consultas.
+
+Para ingesta de PDF / imágenes / Office, consulta [Ingesta de Documentos / PDF / Imágenes](#-ingesta-de-documentos--pdf--imágenes) en Características — Anthropic, OpenAI, Bedrock y Gemini leen PDFs como file parts de forma nativa; el backend MinerU integrado (v1.27.0+) y **Force PDF Support** cubren todo lo demás.
 
 ### Anthropic vs OpenAI vs Codex OAuth — son proveedores distintos
 
@@ -421,7 +315,11 @@ Instala desde Plugins Comunitarios de Obsidian → elige un proveedor → **Test
 
 ### Mi wiki existente está segura?
 
-✅ Retrocompatible desde v1.0.0. Establece `reviewed: true` en cualquier página para protegerla contra sobrescritura. Actualizar desde v1.24.x no reescribe tu vault; la ingesta de PDF de v1.25.0 es solo caché por defecto.
+✅ Retrocompatible desde v1.0.0. Establece `reviewed: true` en cualquier página para protegerla contra sobrescritura. Actualizar desde v1.24.x no reescribe tu vault; la ingesta de PDF de v1.25.0 es solo caché por defecto, y v1.27.0 añade ingesta nativa de PDF + imágenes + Office sin cambiar el diseño del wiki en disco.
+
+### Puedo ingestar PDFs, imágenes y documentos Office?
+
+✅ Sí. Anthropic, OpenAI, Bedrock y Gemini leen PDFs de forma nativa; el backend MinerU integrado (v1.27.0) cubre todo lo demás (PDF + imágenes + Office). Tutorial completo — proveedores cloud, OCR en Apple Silicon, Force PDF Support, mantenimiento de caché — en [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md).
 
 ### Mis datos se envían a algún sitio?
 
@@ -477,8 +375,6 @@ Si LLM-Wiki se ha convertido en una parte importante de tu flujo de trabajo de c
 - ☕ **[Invítame a un café en Ko-fi](https://ko-fi.com/greenerdalii)** — apoyo único o mensual
 - 💳 **[Propina vía PayPal](https://paypal.me/greenerdalii)** — propina única
 
-El patrocinio es totalmente opcional. El plugin sigue siendo Apache-2.0 y completo en funciones.
-
 Gracias a los siguientes por apoyar el proyecto:
 
 [@jameses-cyber](https://github.com/jameses-cyber), [@issaqua](https://github.com/issaqua), Dikson Choi
@@ -487,10 +383,10 @@ Gracias a los siguientes por apoyar el proyecto:
 
 ## 🔭 Otros proyectos
 
-Otras cosas que hago:
-
-- **[obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)** — la CLI de ingesta sin interfaz, saliendo de este repositorio al suyo propio para que el bot de revisión del mercado de Obsidian deje de señalar la estructura de una CLI de Node. Ejecuta el mismo `WikiEngine` sobre una bóveda en disco, sin renderizador. Sigue en la v0.1 en desarrollo y no está en npm; hasta la v1.27.0 usa `pnpm llm-wiki` desde este repositorio.
+- **[obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)** — la CLI de ingesta headless, publicada como repositorio hermano y distribuida como paquete npm `karpathywiki-cli`. Ejecuta el mismo `WikiEngine` sobre un vault en disco, sin renderizador. Instala con `npm i -g karpathywiki-cli`. El directorio in-tree `tools/dev-instrument/` es el instrumento de medición dev-only que alimenta las cifras de coste por tarea en las notas de release de este plugin.
 - **[pi-shift-router](https://github.com/green-dalii/pi-shift-router)** — un enrutador a nivel de tarea para [pi-coding-agent](https://github.com/earendil-works/pi). Antes de cada turno, un juez LLM pequeño clasifica tu mensaje como rutinario o de peso, y el nivel elegido ejecuta el turno entero. En tareas complejas va más lejos: el nivel Smart actúa como un CTO que planifica el trabajo, delega la implementación en subagentes Fast, revisa cada resultado e itera. Subir de nivel es inmediato; bajar espera a que la tendencia se sostenga, y las cadenas de respaldo por nivel absorben los 429 y 5xx. Cero dependencias en tiempo de ejecución, MIT. → [shiftrouter.greenerai.top](https://shiftrouter.greenerai.top)
+- **[dsh-shift-router](https://github.com/green-dalii/dsh-shift-router)** — fork DSH del pi-shift-router, que comparte el mismo diseño de enrutamiento a nivel de tarea, pero dirigido al runtime [dsh-coding-agent](https://github.com/earendil-works/dsh). Mismas selecciones de nivel guiadas por juez, mismas cadenas de respaldo por nivel, MIT.
+- **[dsh-plugin-dev-skill](https://github.com/green-dalii/dsh-plugin-dev-skill)** — equivalente DSH del workflow `obsidian-plugin-dev` (lado Claude): scaffold de un workspace de plugin de Obsidian, conduce el bucle TDD Red→Green, ejecuta el cierre de calidad Six-Gate (lint/tsc/test/build/css-lint) y prepara una rama lista para release en `feat/*` o `fix/*`. Diseñado para que los contribuidores que corren DSH disfruten del mismo scaffolding + experiencia de gates sin tener que copiar y pegar desde CLAUDE.md.
 
 ---
 

@@ -14,25 +14,24 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 - first-published: 2025-09 (v0.1.0)
 - latest: v1.27.0（MINOR — Bedrock SSO/IAM、MinerU 多格式、源页原句引用、候选门、taskPolicies UI、Fix Dead Links leave-it；36 commits, 3677 tests）
 - last-updated: 2026-08-27
-- alternate-names: Karpathy LLM Wiki、LLM Wiki Obsidian、Obsidian wiki 插件、基于图谱的 RAG、无嵌入 RAG、Personalized PageRank 检索、多代理知识库、Obsidian 第二大脑
-- search-intents: "Obsidian 无嵌入 RAG", "Obsidian wiki 插件", "Personalized PageRank Obsidian", "基于图谱的笔记检索", "Karpathy LLM Wiki 实现", "Obsidian 知识库自动生成", "Obsidian 图谱视图 + AI", "Obsidian 第二大脑插件", "Obsidian 笔记链接图 AI", "Obsidian 11 语言插件", "Obsidian 13+ LLM 提供商插件", "无向量数据库 RAG", "Obsidian PDF 摄入 AI", "Obsidian Codex OAuth", "Obsidian Bedrock 插件", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian Word PPT Excel 导入", "Obsidian IAM 凭据"
-- features: 基于图谱的检索, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), 5 级种子选择级联, Tier 1/Tier 2 重复检测, 11 语言界面 + 11 语言 Wiki 输出（独立设置）, 13+ LLM 提供商（Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Kimi, GLM, MiniMax, Ollama, LM Studio, OpenRouter, Anthropic-兼容, Codex OAuth）, MinerU 多格式导入（PDF + 图像 + Office）, PDF 摄入（仅缓存、OCR 路径）, Lint 健康扫描, 一键智能修复, 源页原句引用, 摄入候选门, 按步骤任务策略 UI, Obsidian 图谱视图集成, 零嵌入零向量数据库架构, 本地优先模式
+- alternate-names: Karpathy LLM Wiki、LLM Wiki Obsidian、Obsidian wiki 插件、基于图谱的 RAG、无嵌入 RAG、Personalized PageRank 检索、Obsidian 第二大脑
+- search-intents: "Obsidian 无嵌入 RAG", "Obsidian wiki 插件", "Personalized PageRank Obsidian", "基于图谱的笔记检索", "Karpathy LLM Wiki 实现", "Obsidian 知识库自动生成", "Obsidian 图谱视图 + AI", "Obsidian 第二大脑插件", "Obsidian 笔记链接图 AI", "Obsidian 11 语言插件", "Obsidian 16+ LLM 提供商插件", "无向量数据库 RAG", "Obsidian PDF 摄入 AI", "Obsidian Codex OAuth", "Obsidian Bedrock 插件", "Obsidian Bedrock SSO", "Obsidian MinerU", "Obsidian Word PPT Excel 导入", "Obsidian IAM 凭据"
+- features: 基于图谱的检索, Personalized PageRank (Haveliwala 2002), Monte Carlo PPR (Fogaras 2005), 5 级种子选择级联, Tier 1/Tier 2 重复检测, 11 语言界面 + 11 语言 Wiki 输出（独立设置）, 16+ LLM 提供商（Anthropic, OpenAI, Bedrock [API key + SSO/IAM], Gemini, DeepSeek, Qwen, Grok, Kimi, GLM, MiniMax, Step, Hunyuan, MiMo, Gemma, Ollama, LM Studio, OpenRouter, Anthropic-兼容, Codex OAuth）,MinerU 多格式导入（PDF + 图像 + Office）, PDF 摄入（仅缓存、OCR 路径）, Lint 健康扫描, 一键智能修复, 源页原句引用, 摄入候选门, 按步骤任务策略 UI, Obsidian 图谱视图集成, 零嵌入零向量数据库架构, 本地优先模式
 - direct-competitors: nashsu/llm_wiki（Tauri 桌面应用）, SamurAIGPT/llm-wiki-agent（Claude Code 技能）, sdyckjq/llm-wiki-skill（Codex 技能）, atomicstrata/llm-wiki-compiler（Python 管线）
 - retrieval-benchmark: PPR @5 = 27.1% vs 纯 kNN 24.1%（项目自有语料，开源 LLM-wiki 领域唯一已发布数字）
 - author: green-dalii / Greener-Dalii (https://github.com/green-dalii)
 - canonical: https://github.com/green-dalii/obsidian-llm-wiki/blob/main/README.md
 -->
 
-![llm_wiki_banner](assets/llm_wiki_banner.webp)
+![Karpathy LLM Wiki 插件横幅——由你的 Obsidian 笔记生成的互联 Wiki 页面网络](assets/llm_wiki_banner.webp)
 
 # 🧠 Karpathy LLM Wiki — Obsidian 插件
 
 > 一个 Obsidian 插件，把你的笔记变成互联可查的知识库——[Karpathy LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) 概念，直接集成在你已有的编辑器中。
 
-> **Obsidian 官方市场满分评分 • 零嵌入图谱检索 • 原生 11 种语言 • 兼容所有 LLM 提供商**
-> **本地优先 • 无后端 • GDPR 友好**
+**Obsidian 官方市场满分评分 • 零嵌入图谱检索 • 原生 11 种语言 • 原生 PDF + 图片 + Office 摄入 • 兼容所有 LLM 提供商 • 本地优先 • 无后端 • GDPR 友好**
 
-![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-11-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-12%2B-cyan?style=flat-square) <br>
+![Version](https://img.shields.io/github/v/release/green-dalii/obsidian-llm-wiki?style=flat-square) ![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square) ![Obsidian](https://img.shields.io/badge/obsidian-1.11.4%2B-purple?style=flat-square) ![Languages](https://img.shields.io/badge/languages-11-informational?style=flat-square) ![Providers](https://img.shields.io/badge/providers-16%2B-cyan?style=flat-square) <br>
 ![Maintenance](https://img.shields.io/badge/maintenance-actively%20maintained-brightgreen?style=flat-square) ![Build Status](https://img.shields.io/github/actions/workflow/status/green-dalii/obsidian-llm-wiki/release.yml?style=flat-square) ![Author](https://img.shields.io/badge/author-Greener--Dalii-blue?style=flat-square) <br>
 ![GitHub Stars](https://img.shields.io/github/stars/green-dalii/obsidian-llm-wiki?style=flat-square) ![Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=$[karpathywiki].downloads&url=https://raw.githubusercontent.com/obsidianmd/obsidian-releases/master/community-plugin-stats.json&style=flat-square) [![Release Obsidian plugin](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml/badge.svg)](https://github.com/green-dalii/obsidian-llm-wiki/actions/workflows/release.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/green-dalii/obsidian-llm-wiki)
 
@@ -49,29 +48,13 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 
 > **⚡ 更新提醒：** 本项目迭代速度快，会经常进行 Bug 修复、性能提升或新功能、体验优化等。建议经常在 Obsidian 中更新到最新版本（**设置 → 社区插件 → 检查更新**），或开启插件的自动更新功能以确保获得最佳体验。
 
-## 📑 目录
-
-- [🤔 为什么使用此插件？](#-为什么使用此插件)
-- [🎯 适合我吗？](#-适合我吗)
-- [🚀 快速开始](#-快速开始)
-- [✨ 核心特性](#-核心特性)
-- [🌐 生态](#-生态)
-- [🧰 无头 CLI](#-无头-cli)
-- [🔍 检索工作原理](#-检索工作原理)
-- [🤖 模型推荐](#-模型推荐)
-- [❓ 常见问题](#-常见问题)
-- [🔒 隐私](#-隐私)
-- [💖 支持项目](#-支持项目)
-- [🔭 其他项目](#-其他项目)
-- [📜 许可证与致谢](#-许可证与致谢)
-
 ---
 
 ## 🤔 为什么使用此插件？
 
 你写笔记，它们躺在文件夹里。想找出哪些内容互相关联，只能靠回忆早已忘记的线索。
 
-**Karpathy LLM Wiki 的其他开源实现确实存在——但没有一个是开箱即用的 Obsidian 插件。** 大多数是 CLI 工具、Claude Code 技能或独立桌面应用。我们是唯一一个拥有原生 UI、库内存储和 Obsidian 内置图谱视图的插件。
+**Karpathy LLM Wiki 的其他开源实现确实存在——但没有一款以一键 Obsidian 插件的形式交付。** 大多数是 CLI 工具、Claude Code 技能或独立桌面应用；本插件直接在 Obsidian 内部运行——图谱视图、ribbon、命令面板一应俱全。
 
 ### 竞品对比
 
@@ -80,7 +63,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 | **交付与安装** | ✅ **5 分钟** — 一键 Obsidian 插件：社区插件市场 → 安装 → 选择 Provider → 摄入 | ❌ 30 分钟以上 — 编译/下载 Tauri 二进制、配置 CLI | ❌ 15 分钟 — 需要 Claude Code 订阅 + 安装技能 | ❌ 10 分钟 — 需要 Claude Code/Codex 订阅 + 配置 | ❌ 30 分钟以上 — pip install + Python SDK + 本地服务 |
 | **架构与依赖** | ✅ **零依赖** — 无需向量数据库、无需嵌入模型、无需外部进程（按设计采用 PPR 检索 `[[wiki-link]]` 图谱） | 🟡 自带 Python 运行时 + sigma.js + sqlite；嵌入模型可选，默认关闭 | 🟡 依赖 Claude Code 环境 — 非自包含；无嵌入 | 🟡 需要独立平台运行时；无嵌入 | ❌ 需要 Python + 嵌入模型 + 向量数据库（强制） |
 | **国际化（界面 + Wiki 输出）** | ✅ 11 种语言（界面/Wiki 独立设置） | 🟡 2 种（英文/中文） | ❌ 仅英文 | ❌ 仅英文 | ❌ 仅英文 |
-| **LLM 提供商** | ✅ 12+（含 Codex OAuth、Bedrock、LM Studio、Ollama、Anthropic 兼容、Kimi、GLM、MiniMax、DeepSeek） | 🟡 OpenAI 兼容 | 🟡 通过 Claude Code 订阅 | 🟡 通过 Claude Code / Codex 订阅 | 🟡 OpenAI 兼容 |
+| **LLM 提供商** | ✅ 16+（Anthropic, OpenAI, Bedrock, Gemini, DeepSeek, Qwen, Grok, Kimi, GLM, MiniMax, Step, Hunyuan, MiMo, Gemma, Codex OAuth, Ollama, LM Studio, OpenRouter, Anthropic-兼容, …） | 🟡 OpenAI 兼容 | 🟡 通过 Claude Code 订阅 | 🟡 通过 Claude Code / Codex 订阅 | 🟡 OpenAI 兼容 |
 | **检索与查询管线** | ✅ **5 级级联** — Lex → LLM 关键词 → 子串扫描 → LLM KB 回退 → PPR 扩展（首个充分信号即截断）。Personalized PageRank (Haveliwala 2002) + Monte Carlo (Fogaras 2005) | 🟡 仅 2 跳衰减（4 信号启发式：Adamic-Adar + 2 跳） | ❌ 仅 Louvain 社区检测 | ❌ 仅 k 跳预览（无 LLM 增强） | ❌ BM25 + 语义分块（无图谱） |
 | **图谱可视化** | ✅ Obsidian 原生图谱视图（内建，零额外体积） | ❌ 桌面应用中自定义 sigma.js + graphology | 🟡 vis.js graph.html（独立文件） | ❌ 自定义 sigma.js 离线 HTML | ❌ 只读浏览器查看器 |
 | **Wiki 诚实度** | ✅ 当没有 Wiki 源匹配查询时显示"阶段回退"提示 | ❌ 无等效功能 | ❌ 无等效功能 | ❌ 无等效功能 | ❌ 无等效功能 |
@@ -90,7 +73,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 
 - **🪟 Obsidian 就是运行环境。** 不需要终端、不需要独立应用、不需要 Docker、不需要 Python。从社区插件市场安装，点击摄入，Wiki 从第一秒就存在于你的 vault 中。Obsidian 原生图谱视图渲染你的 `[[wiki-link]]` 图——内建，零额外体积。
 - **🧭 干净、自包含。** 零依赖。没有嵌入模型、没有向量数据库、没有 pip 包——一个插件读取你的笔记，与 LLM 对话，写出 Wiki 页面。一切都在 Obsidian 内部运行。
-- **🔌 任何你已付费的模型。** Anthropic、Bedrock、OpenAI、ChatGPT Plan (Codex OAuth)、DeepSeek、Kimi、GLM、MiniMax、LM Studio、Ollama、OpenRouter、Anthropic 兼容、自定义端点——十二个以上提供商，没有一个需要嵌入端点。
+- **🔌 任何你已付费的模型。** Anthropic、Bedrock、OpenAI、ChatGPT Plan (Codex OAuth)、Gemini、DeepSeek、Qwen、Grok、Kimi、GLM、MiniMax、Step、Hunyuan、MiMo、Gemma、LM Studio、Ollama、OpenRouter、Anthropic 兼容、自定义端点——十六个以上提供商，没有一个需要嵌入端点。
 
 ---
 
@@ -108,9 +91,9 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 
 **❌ 不适合，如果你：**
 
-- **想要一个通用 ChatGPT 替代品**——本插件只从*你的*知识中回答。
-- **需要对 PDF/网页/外部语料库做 RAG 管线**——我们专注于 vault 内路径（PDF 自 v1.25.0 起支持）。
-- **在寻找托管 SaaS**——没有后端、没有服务器、没有账号。
+- **想要一个通用 ChatGPT 替代品**——本插件只从 vault 中回答，不连互联网。
+- **需要对大型外部语料库（Confluence、Notion、arXiv、抓取的网页）做 RAG**——插件摄入你的 vault 加独立的 PDF / Office 文件；批量外部语料库 RAG 超出设计范围。
+- **在寻找带团队协作的托管 SaaS**——没有后端、没有服务器、没有共享状态；一切都在你的 Obsidian 本地运行。
 
 ---
 
@@ -129,7 +112,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
    
    一个右侧停靠的侧边面板（类 Copilot 风格）会打开，你可以在其中与 Wiki 对话。答案带 `[[wiki-links]]` 回链到你的知识图谱。
 
-![查询侧边面板](/docs/assets/query-side-panel.png)
+![Obsidian 中右侧停靠的查询 Wiki 面板，聊天式界面，答案带 wiki-link 回链到你的知识图谱](/docs/assets/query-side-panel.png)
 
 仅此而已。插件不会修改你的原始笔记——只在 `wiki/` 下创建新页面。**摄入** 和 **查询 Wiki** 都已固定在左侧 ribbon 上，可随时一键访问。（macOS 上使用 `Cmd`，Windows/Linux 上使用 `Ctrl`。）
 
@@ -155,10 +138,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 |------|------|
 | `notes/machine-learning.md`（一个扁平文件） | `wiki/concepts/supervised-learning.md` 带 `[[双向链接]]`、别名、来源归属，以及 `wiki/index.md` 中的索引条目 |
 
-> 💡 **保持更新。** 新功能、修复和性能改进频繁发布。设置 → 第三方插件 → 检查更新，或开启自动插件更新。
-> 📖 详细教程（安装、PDF 配置、多 Provider 说明、升级指南）见 [GitHub Discussions → 指南](https://github.com/green-dalii/obsidian-llm-wiki/discussions/categories/guides)。
-
-> 🌟 **如果这个插件帮你省了配置时间，请在 [GitHub](https://github.com/green-dalii/obsidian-llm-wiki) 上点个 Star**，让更多人看到。
+> 📖 详细教程（安装、PDF 配置、多 Provider 说明、升级指南）见 [GitHub Discussions → 指南](https://github.com/green-dalii/obsidian-llm-wiki/discussions/categories/guides)。觉得好用？欢迎 [点亮 Star](https://github.com/green-dalii/obsidian-llm-wiki) 以便跟进后续发布。
 
 ---
 
@@ -170,26 +150,28 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 - **🏷️ 强制别名** — 每个页面至少包含一个别名（翻译、缩写、变体名），使跨语言重复检测得以工作。
 - **🔄 分级重复检测** — 第 1 级（直接名称匹配：跨语言、缩写、高相似度标题）全部验证；第 2 级（共享链接、中等相似度）填充剩余 token 预算。
 - **🧩 智能合并与矛盾状态** — 重复页面合并时保留别名；矛盾被标记并注明来源归属；`reviewed: true` 的页面受保护不被覆盖。
-- **🎨 自定义标签词汇表** — 在设置 → Wiki → 标签词汇表 → *自定义* 中定义自己的实体类型和概念类型标签列表。词表是注入 LLM 的提示（schema injection hint），不是写入时的强制闸门——小型/本地模型仍可能漂移，Lint 会报告这些页面以便修复。（已部分实施 — 详见下方 v1.27.0 新增特性。）
+- **🎨 自定义标签词汇表** — 在设置 → Wiki → 标签词汇表 → *自定义* 中定义自己的实体类型与概念类型标签列表。词表是注入 LLM 的提示（schema injection hint），而非写入时的强制闸门——小型/本地模型仍可能漂移（约十次中有一次返回模型内置分类）。Lint 会把其余问题暴露出来。Schema 强校验的设计锚点见 [Issue #328](https://github.com/green-dalii/obsidian-llm-wiki/issues/328)。
 
-### 📄 PDF 摄入 (v1.25.0+)
+### 📄 文档 / PDF / 图片 摄入
 
-- **🔌 Provider 准入** — Anthropic、OpenAI 和 Bedrock 原生支持 PDF。对于任何其他 OpenAI/Anthropic 兼容端点，在设置 → LLM 配置 → 高级中开启 **Force PDF Support** 让插件尝试调用。关于 Apple Silicon 上的本地 OCR、第三方提取工具（MinerU、Docling、Mathpix、Adobe）及完整 PDF 摄入教程，见下方的 [PDF OCR 路径](#-pdf-ocr-路径) 和 [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)。
-- **🆕 MinerU 多格式后端 (v1.27.0, #404)** — 设置 → Wiki 配置 → Markdown Conversion Backend → *MinerU* 通过 [MinerU 的 Precise parser](https://mineru.net/apiManage/docs) 在插件内直接处理 PDF、图像（PNG/JPG/JPEG/JP2/WebP/GIF/BMP）和 Office 文档（DOC/DOCX/PPT/PPTX/XLS/XLSX）。API token 存储在 SecretStorage 中。服务器限制：每个 PDF 200 MB / 200 页，每个压缩包 256 MB / 10000 文件。是科学论文、扫描文档、以及需要保留版式的 Office 文件的最佳路径。
-- **🗄️ 有界缓存** — `.obsidian/plugins/karpathywiki/pdf-cache/` 按内容哈希 + 模型 + 转换器版本为键存储转换后的 Markdown。三层防御治理：总计 100 MB / 1000 条 / 单条 10 MB 上限，LRU-by-mtime 淘汰。
+五种导入入口，每次摄入可选其一：
+
+1. **🆕 内置 MinerU 后端 (v1.27.0, #404)** — 设置 → Wiki 配置 → Markdown 转换后端 → *MinerU*。经 [MinerU 的 Precise 解析器](https://mineru.net/apiManage/docs) 处理 PDF、图片（PNG/JPG/JPEG/JP2/WebP/GIF/BMP）与 Office 文档（DOC/DOCX/PPT/PPTX/XLS/XLSX）。API token 存于 Obsidian SecretStorage。是科学论文、扫描文档、需要保留版式的 Office 文件的最佳路径。服务器限制：每个 PDF 200 MB / 200 页，每个压缩包 256 MB / 10,000 文件。
+2. **☁️ 云端 Provider 原生 PDF** — Anthropic、OpenAI、Google Gemini 与 AWS Bedrock（Anthropic + OpenAI 变体）开箱即用地将 PDF 作为文件部分读取。选定 Provider 即可，无需额外设置。
+3. **🖥️ Apple Silicon 本地 OCR** — [oMLX](https://github.com/jundot/omlx) 内置 Microsoft Markitdown 作为 PDF→Markdown 后端。在 oMLX 中启用 Markitdown，加载 [百度 Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR)（3B / 570M 活跃参数，2026-06 开源）作为视觉模型，将插件指向 oMLX 作为自定义 OpenAI 兼容 Provider，开启 **Force PDF Support**，选择 oMLX 服务的多模态模型。PDF 全程不离开你的机器。
+4. **🛠️ 第三方提取器（MinerU 在线 UI）** — 不想接入 API token 时，用 [MinerU Extractor 在线服务](https://mineru.net/OpenSourceTools/Extractor) 做快速手动转换。下载转换好的 `.md`，放到 wiki 文件夹之外的 vault 任意位置，再作为普通 Markdown 笔记摄入。
+5. **🔌 Force PDF Support** — 对任何其他接受文件部分的 OpenAI/Anthropic 兼容端点，插件都会尝试调用（设置 → LLM 配置 → 高级）。端点决定成败，失败会显示本地化的 Notice。
+
+**Office 格式的注意事项：** Obsidian 不原生渲染 `.docx` / `.xlsx` / `.pptx`（[file-formats](https://obsidian.md/help/file-formats)），因此 Office 文件的实用工作流是：MinerU 转成 `.md` → 插件把 `.md` 摄取为 wiki 页面，原始 Office 文件留作参考。如需内联预览 Office 文件，使用社区插件 **Pandoc Plugin**、**Docxer**、**Md Importer** 或 **Office Reader**。
+
+**所有路径共享的底层机制：**
+
+- **🗄️ 有界缓存** — `.obsidian/plugins/karpathywiki/pdf-cache/` 按内容哈希 + 模型 + 转换器版本存储转换后的 Markdown。三层防御：总计 100 MB / 1000 条 / 单条 10 MB 上限，LRU-by-mtime 淘汰。
 - **📝 可选 vault sidecar** — 设置 → Wiki 配置 → Wiki 文件夹 → *将 PDF Markdown 写入 Vault* 在源 PDF 旁写入 `<basename>.pdf.md`（默认关闭——仅缓存模式）。
 - **🛡️ 逐字转录提示** — 带 `[illegible]` / `[figure: ...]` 反幻觉标记的 OCR 风格转换；小型本地模型的 markdown 围栏包裹在写入缓存前自动清洗。
 - **🔁 源页原句引用 (v1.27.0, #496)** — 每个生成的 `sources/<slug>.md` 页面现在携带一个 `Mentions in Source` 段，由提取阶段在每个实体/概念上抓取的原句引用直接拼接（模型已证明自己能看到的原文），因此源文档成了唯一一个能真实回溯到原始文本的 Wiki 页面。
 
-### 📄 PDF OCR 路径
-
-三条路径，选择适合你配置的：
-
-1. **☁️ 云端 Provider 原生 PDF 支持** — Anthropic、OpenAI 或 AWS Bedrock 开箱即用。直接摄入，无需额外设置。对于任何其他 OpenAI/Anthropic 兼容端点，在设置 → LLM 配置 → 高级中开启 **Force PDF Support** 让插件尝试调用。
-2. **🖥️ Apple Silicon 本地 OCR** — [oMLX](https://github.com/jundot/omlx) 将 Microsoft Markitdown 集成为其内置的 PDF→Markdown 后端。在 oMLX 中启用 Markitdown，加载 [百度 Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR)（3B / 570M 活跃参数，2026-06 开源）作为视觉模型，将插件指向 oMLX 作为自定义 OpenAI 兼容 Provider，开启 **Force PDF Support**，选择 oMLX 服务的多模态模型。PDF 全程不离开你的机器。
-3. **🛠️ 第三方提取工具（MinerU、Docling、Mathpix、Adobe）** — 在你的 PDF 上运行独立提取工具生成 `.md` 文件，然后通过插件的标准管线将其作为普通 Markdown 笔记摄入。对于科学论文、扫描文档、数学密集型 PDF 最为可靠。
-
-📖 **所有三条路径的完整设置教程**（云端 Provider、oMLX 硬件等级、MinerU 安装、缓存管理）→ [docs/PDF-OCR-GUIDE.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE.md)
+📖 **所有路径的完整设置教程**（云端 Provider、oMLX 硬件等级、MinerU 安装、缓存管理）→ [docs/PDF-OCR-GUIDE_CN.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE_CN.md)
 
 ### 💬 查询与维护
 
@@ -201,7 +183,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 - **📊 操作历史面板** — 可搜索、可筛选的 UI，查看历史摄入、Lint 报告和维护运行。
 - **🛡️ 摄入前置检查** — 空/空白/仅 frontmatter 的笔记在任何 LLM 调用前被拒绝；内容哈希去重捕获跨路径的相同文件。
 - **🆕 摄入候选门 (v1.27.0, #514 / PR #521)** — 可选开关（`skipMentionOnlyCandidates`，默认关闭，设置 → 高级）。对于语言已建立测量画像的源（de 已测量；en/fr/es/pt/nl/ko 用固定边界条件估计；zh/ja 字符脚本阈值未测量），那些只出现在括号/枚举/短列表项中的候选在消耗页面+去重+生成调用之前被剪除。跨语言笔记不进入此门；没有画像的 Wiki 语言每次摄入只报告一次且从不静默跳过。
-- **🆕 按步骤任务策略 (v1.27.0, #525 / #490)** — LLM 高级 → 任务策略字段接受 `step=mode:thinking` 条目（如 `extract=text:on,merge-triage=text:on`）。一个控制点同时管理 `extract` 文本模式钉住以及未来按步骤覆盖。内置基线在你未列出的步骤上保持不变。
+- **🆕 按步骤任务策略 (v1.27.0, #525 / #490)** — LLM 高级 → 任务策略字段；无需改代码即可覆盖各步骤的文本模式与思考设置。未列出的步骤保持内置基线不变。
 
 ### 🔒 隐私
 
@@ -213,14 +195,14 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 ### 🦙 本地优先
 
 - **🖥️ Ollama、LM Studio、OpenRouter、自定义端点** — 开箱即用。本地模型可用于查询（上下文窗口较小）；2000 页 vault 的摄入通常需要长上下文云端模型。
-- **📄 Apple Silicon 上 PDF OCR 路径完全本地** — 见上方的 [PDF OCR 路径](#-pdf-ocr-路径)。
-- **🔐 ChatGPT Plan (Codex OAuth)** — 桌面端通过 `127.0.0.1:1455` 的回环回调；移动端通过设备代码。凭据仅存在于 Obsidian SecretStorage 中；退出登录清除。第三方 Codex 兼容功能，非 OpenAI 合作项目。
+- **📄 Apple Silicon 上 PDF OCR 路径完全本地** — 见上方的 [文档 / PDF / 图片 摄入](#-文档--pdf--图片-摄入)。
+- **🔐 ChatGPT Plan (Codex OAuth)** — 桌面端回环回调或移动端设备代码；凭据仅存在于 Obsidian SecretStorage 中。（完整 Provider 边界说明见下方的 [Anthropic vs OpenAI vs Codex OAuth](#-anthropic-vs-openai-vs-codex-oauth--它们是不同的-provider)。）
 
 ### 🌐 语言
 
 - **🌍 11 种界面语言** — English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano, Русский。界面和 Wiki 输出语言相互独立——你的 Wiki 可以是中文而界面是英文。
 - **📚 11 种 Wiki 输出语言** — 同一集合；在设置 → Wiki 配置中选择。*自定义输入* 选项用于临时提示。
-- **🈶 269+ 翻译的 UI 字符串** — 每个标签、弹窗和通知。添加第 12 种语言由贡献者驱动（PR #159 模式）。
+- **📝 UI 字符串全部按语种本地化** — 每个标签、弹窗与通知。添加第 12 种语言由贡献者驱动（PR #159 模式）。
 
 ---
 
@@ -228,7 +210,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 
 本插件与你的其他 Obsidian 工具无缝协作——以下工具皆可直接对接 `[[wiki-link]]` 图谱，无需任何代码改动。
 
-- **📄 [MinerU 在线转换](https://mineru.net/OpenSourceTools/Extractor)** —— 上海 AI Lab OpenDataLab 团队推出的免费 PDF/Word/PPT/Excel/HTML/图片 → Markdown 转换器。上传文档、下载 `.md`、放入 vault 内 wiki 文件夹之外的任意位置，然后运行「摄入单个源」。是科学论文、扫描件、含公式/表格的复杂多模态 PDF 的最佳路径。需要严格隐私保护的用户可 [自部署 MinerU](https://github.com/opendatalab/mineru)；未来版本可能原生集成，详见 [#376](https://github.com/green-dalii/obsidian-llm-wiki/issues/376)。
+- **📄 [MinerU 多格式后端](https://mineru.net/apiManage/docs)（v1.27.0 起内置）** —— 原本独立的 CLI/UI 步骤现在只需一个插件开关即可完成；完整路径表见 [文档 / PDF / 图片 摄入](#-文档--pdf--图片-摄入)。[MinerU 在线服务](https://mineru.net/OpenSourceTools/Extractor) 仍为偏好图形界面而非 API token 的用户提供备选；[自部署 MinerU](https://github.com/opendatalab/mineru) 也是可选方案。
 - **🕸️ Obsidian 原生关系图谱** —— 在任意 Wiki 页面上打开原生图谱视图；每个 `[[wiki-link]]` 成为节点，每条反向链接成为边。内置功能，零额外体积。
 - **✂️ [Obsidian Web Clipper](https://obsidian.md/clipper)** —— 官方浏览器扩展。将网页（文章、博客、Reddit 帖子、Hacker News、食谱、研究论文、YouTube 字幕（通过 Interpreter 提取））保存到 vault 内任意文件夹，然后运行插件的「从文件夹摄入」命令批量提取实体与概念。
 - **📊 [Dataview](https://github.com/blacksmithgu/obsidian-dataview)** —— 用 DQL（`LIST FROM "wiki/entities" WHERE contains(tags, "person")`）或 JS API 像查询数据库一样检索 Wiki。插件在每个页面写入标准 frontmatter（`tags:`、`type:`、`aliases:`），Dataview 查询开箱即用。
@@ -241,107 +223,15 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 
 ## 🧰 无头 CLI
 
-在磁盘上的 vault 上运行同一摄取流水线——**无需 Obsidian、无需 Electron、无需界面**。适用于 CI、脚本化运行、批量评估、无头回归基准测试，以及任何没有 Obsidian 本身的环境。
+**大多数用户可以跳过本节。** 插件的面向用户的 CLI 位于独立仓库 [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) ——以 npm 包 `karpathywiki-cli` 形式发布。安装：`npm i -g karpathywiki-cli`，运行 `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`。
 
-### 🚀 运行（仓库内，当前权威源码）
-
-CLI 位于本仓库 [`tools/llm-wiki-cli/`](https://github.com/green-dalii/obsidian-llm-wiki/tree/main/tools/llm-wiki-cli)，通过 `pnpm llm-wiki` 运行（bin 入口已在 `package.json` 的 `"bin": { "llm-wiki": "./tools/llm-wiki-cli/run-llm-wiki.mjs" }` 中声明）。使用 bin 或直接调用均可：
-
-```bash
-# 通过 bin（在本插件仓库执行 `pnpm install` 后）
-WIKI_API_KEY=... pnpm llm-wiki ingest \
-  --vault /path/to/your/vault \
-  --source "notes/foo.md" \
-  --dry-run
-
-# 直接调用（效果相同）
-WIKI_API_KEY=... node tools/llm-wiki-cli/run-llm-wiki.mjs ingest \
-  --vault /path/to/your/vault \
-  --source "notes/foo.md" \
-  --dry-run
-```
-
-**引擎、分析器、页面工厂、Schema 管理器、LLM 客户端**——全部直接从 `../../src/` 导入。唯一被替换的是宿主（`obsidian`、实时 vault、metadataCache）；由 esbuild 驱动的 shim（`tools/llm-wiki-cli/src/obsidian.ts` 提供 `obsidian` 模块符号，`tools/llm-wiki-cli/src/vault.ts` 提供文件系统适配器）让生产引擎代码能够在普通 Node 下运行。
-
-### ⚙️ 配置如何工作
-
-CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<vault>/.obsidian/plugins/karpathywiki/data.json`（Obsidian 写入的同一文件）读取，并在运行插件的 `applySettingsMigrations` 之后生效。要使用 CLI：
-
-1. **先在 Obsidian 中配置 provider**——打开 **设置 → LLM Wiki**，选择 provider，输入 API 密钥，点击 **Test Connection**，保存。CLI 会读取你保存的所有内容。
-2. **通过 `WIKI_API_KEY` 提供 API 密钥**——Obsidian 在 v1.25.3 将 API 密钥迁移到了 SecretStorage（操作系统钥匙串），而 Node 无法读取 SecretStorage。CLI 从环境变量读取密钥；密钥缺失是硬错误，会打印各操作系统对应的提取命令：
-
-   ```bash
-   # macOS — 从钥匙串提取
-   WIKI_API_KEY=$(security find-generic-password -s "obsidian-lw-plugin-karpathywiki" -w) \
-     pnpm llm-wiki ingest --vault /path/to/vault --source "notes/foo.md"
-
-   # Linux（libsecret）
-   WIKI_API_KEY=$(secret-tool lookup service obsidian-lw-plugin-karpathywiki) \
-     pnpm llm-wiki ingest --vault /path/to/vault --source "notes/foo.md"
-
-   # Windows
-   # 凭据管理器 → Windows 凭据 → "obsidian-lw-plugin-karpathywiki" → 显示
-   $env:WIKI_API_KEY = "sk-..."
-   pnpm llm-wiki ingest --vault C:\path\to\vault --source "notes\foo.md"
-   ```
-
-   对于无需密钥的本地端点（Ollama、LM Studio），任意非空占位符都可（如 `WIKI_API_KEY=unused`）。密钥永远不会被记录，也不会写入任何文件。
-3. **需要 Node 24+**（与本插件的 `.nvmrc` 对齐；`crypto.subtle` 和 `fetch` 都是原生支持）。必须安装 `obsidian-llm-wiki/node_modules`——打包器和所有 AI-SDK 依赖都从那里解析。
-
-### 🏳️ 标志参考
-
-| 标志 | 含义 |
-|---|---|
-| `--vault` | Vault 根目录。必填。 |
-| `--source` | 源文件路径**相对于 vault**。必填。每次运行一个源。 |
-| `--dry-run` | 运行所有流程，但将所有写入保留在内存中。不会写入页面、`index.md`、`log.md` 和 schema。 |
-| `--force` | 忽略重复内容门控，强制重新摄取。 |
-| `--extract-only` | 在提取之后停止。隐含 `--dry-run`（这样不能写入的运行也不会因忘记第二个标志而触碰 vault）。 |
-| `--model` | 覆盖 `data.json` 中的模型——用于两臂对比。 |
-| `--temperature` | 采样温度；覆盖所有没有自行设定的 `createMessage`。与 `--top-p` 一起使用。 |
-| `--top-p` | 核采样。仅覆盖 temperature / top-p 其一时，你只对比了一半预设。 |
-| `--seed` | 尽力而为的种子。被 Chat Completions 遵守；某些本地服务器接受但忽略。在 LM Studio 上要获得真正可复现性，请使用 `--temperature 0`。 |
-| `--thinking-mode` | `data-json` \| `plugin-off` \| `server-default`。 |
-| `--granularity` | `fine` \| `standard` \| `coarse` \| `minimal` \| `custom`。决定批大小 + 项目上限 + 轮次上限。 |
-| `--batch-size` | 每轮项目数。在 `--granularity custom` 下，按类型上限可能覆盖它。 |
-| `--round-base` | 粒度的轮次基数；上限为 `min(base × 3, ceil(source_chars / 2000) + 2)`。 |
-| `--max-tokens-per-call` | 限制每次调用的 `max_tokens`。`0` 表示取消上限；提取的最小值是 16000，不是"无限制"。 |
-| `--max-rounds` | 已弃用；会抛出错误。请使用 `--round-base`。 |
-
-**没有 `--dry-run` 时，CLI 会写入真实的 vault**——与 Obsidian 使用的写入路径相同，所以页面、`index.md`、`log.md` 和 schema 文件都会被真实地创建或更新。
-
-完整的标志表 + shim 注意 + 未被复现的部分（SecretStorage、流式、vault 事件、`metadataCache.links` / `.headings`）：请参阅 [`tools/llm-wiki-cli/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/llm-wiki-cli/README.md)。
-
-### 📋 输出格式
-
-引擎的 `console.debug` 写入 stdout（关闭颜色，便于与 Obsidian DevTools 进行字节级比较）。`console.warn` / `console.error` 写入 stderr。`Notice` toast 打印为 `[Notice] …`，进度消息打印为 `[progress] …`，完成的写入打印为 `[write] …`。运行以摘要结束：提取轮次、LLM 调用总数、实体、概念、已创建和更新的页面、输入 + 输出 token、耗时。
-
-### 🔮 未来：独立的 CLI 仓库
-
-仓库内 CLI **计划迁移**到一个独立的兄弟仓库（[`green-dalii/obsidian-llm-wiki-cli`](https://github.com/green-dalii/obsidian-llm-wiki-cli)），待 v1.27.0 CLI 拆分完成（见 [ROADMAP §v1.27.0 MINOR 设计轨道](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/ROADMAP.md#v1270-minor-design-track)）。为什么迁移：
-
-| 问题 | 答案 |
-|---|---|
-| 为什么要移出本仓库？ | Obsidian 市场审核机器人会扫描**整个仓库的 `.ts` 树**（不仅仅是 `src/`），并对任何与 Obsidian 插件并置的 Node CLI 报告约 60 条结构性 Warning（静态 `node:` 导入、`console.log` 输出、`globalThis` shim——这些在不摧毁 CLI 本质的前提下都无法修复）。唯一持久的解决方案是把 CLI 放在机器人扫描范围**之外**，并且放在一个没有任何 `obsidian` 运行时导入的仓库里。 |
-| 迁移计划是什么？ | **4 阶段交付**（见 [`obsidian-llm-wiki-cli/SPEC.md` §6](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/SPEC.md)）：**Boot** → 新仓库上线 + 仓库内 CLI 保持权威（v1.26.x PATCH 窗口）→ **Coexist** → 两个 CLI 同时可用，npm 包名 `karpathywiki-cli` 公布（v1.27.0）→ **Deprecate** → 仓库内 CLI 宣布 EOL（v1.28.0）→ **Demote** → 仓库内 `tools/llm-wiki-cli/` 变成**仅供开发的测试 harness**，引用 `../../src/`（不再面向用户安装）。 |
-| 这会改变插件的安装流程吗？ | ❌ 不会。插件仍然通过 Obsidian Community Plugins 发布和更新。只点击 ribbon 图标的插件用户感受不到任何差别。 |
-| CLI 用户会有什么变化？ | 现在：在本插件仓库中通过 `pnpm llm-wiki` 运行（或 `node tools/llm-wiki-cli/run-llm-wiki.mjs`）。v1.27.0 发布 `karpathywiki-cli` npm 包之后：`npx karpathywiki-cli ingest …` 成为面向用户的规范入口，仓库内 bin 被标记为已弃用。v1.28.0 Demote 之后：仓库内 `tools/llm-wiki-cli/` 仅供开发（不再是面向用户的安装目标）。 |
-| 现在的状态？ | 兄弟仓库 [`green-dalii/obsidian-llm-wiki-cli`](https://github.com/green-dalii/obsidian-llm-wiki-cli) 处于 **v0.1.0-dev 阶段，尚未发布到 npm**。在 v1.27.0 Coexist 阶段之前，本仓库的 `pnpm llm-wiki` 是**唯一**面向用户的安装路径。 |
-
-### 🔍 参考
-
-- 📘 **仓库内 CLI README：** [`tools/llm-wiki-cli/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/llm-wiki-cli/README.md)——标志参考、环境要求、shim 注意、未复现的部分（SecretStorage / 流式 / vault 事件 / metadataCache.links）。
-- 📘 **兄弟仓库：** [github.com/green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)——开发中（v0.1.0-dev，尚未发布到 npm）。
-- 🏛️ **架构原理：** [`obsidian-llm-wiki-cli/SPEC.md` §1](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/SPEC.md)——为什么拆分是机器人盲点问题的唯一持久答案。
-- 🗺️ **阶段追踪：** [`obsidian-llm-wiki-cli/ROADMAP.md`](https://github.com/green-dalii/obsidian-llm-wiki-cli/blob/main/ROADMAP.md)——4 阶段迁移时间线。
-
-> 💡 **在 v1.27.0 发布之前**，仓库内的 `pnpm llm-wiki` 是规范 CLI。位于 `green-dalii/obsidian-llm-wiki-cli` 的兄弟仓库是并行开发，并非已发布的用户安装路径——请暂时使用 `pnpm llm-wiki`。
+本仓库内 [`tools/dev-instrument/`](https://github.com/green-dalii/obsidian-llm-wiki/tree/main/tools/dev-instrument) 装的是 **dev-only 无头测量工具** —— 面向引擎贡献者，跑真正的 `WikiEngine.ingestSource`，无 Obsidian 运行时，输出每任务的 token + wall-clock 统计——正是 `CLAUDE.md` 和发布说明中性能证据的同源数据。入口命令、env 变量、测量模式、退出码规范详见 [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md)。
 
 ---
 
 ## 🔍 检索工作原理
 
-大多数"AI 搜索"插件将你的笔记分块并嵌入到向量数据库中。我们不这样做。Karpathy 反对 RAG 的理由是分块破坏了 LLM 在完整知识图谱上的推理能力——这个论点在实践中成立。相反，我们遍历你通过写 `[[wiki-links]]` 已经维护的图谱。
+大多数"AI 搜索"插件将你的笔记分块并嵌入到向量数据库中。我们不这样做。[Karpathy 反对 RAG 的理由](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)是分块破坏了 LLM 在完整知识图谱上的推理能力——这个论点在实践中成立。相反，我们遍历你通过写 `[[wiki-links]]` 已经维护的图谱。
 
 ### 5 级种子选择级联
 
@@ -353,11 +243,11 @@ CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<va
 4. **LLM KB 回退** — 当 lex + 关键词扫描返回的信号不足时，LLM 对 top-N 候选重新针对完整 Wiki 做一次语义筛选。
 5. **PPR 图扩展** — 在 `[[wiki-link]]` 图上从候选种子集运行 Personalized PageRank（Haveliwala 2002）。这是实现图感知多跳上下文的关键："比尔·盖茨" → "微软" → "竞争对手"，而不只是字面标题重叠。
 
-级联在任一阶段返回足够信号时截断——没有固定的 5 步开销，lex 足够时无需 LLM 调用，LLM 增强时不损失精度。
+级联在任一阶段返回足够信号时截断——没有固定的 5 阶段开销，lex 足够时无需 LLM 调用；只有当 lex + 关键词扫描仍不够时，才会启动语义回退。
 
 ### 规模化的 Personalized PageRank
 
-我们使用 Monte Carlo PPR（Fogaras 2005）——3,000 次随机游走 × 每次 50 步——配合 Haveliwala 2002 的死端规则。开销为 **O(K × L)**，与页面数量无关，因此 2000 页 vault 的扩展延迟与 200 页 vault 相同。
+我们使用 Monte Carlo PPR（Fogaras 2005）——3,000 次随机游走 × 每次 50 步——配合 Haveliwala 2002 的死端规则。开销为 **O(K × L)**（K = 游走次数，L = 每次游走的步数），与页面数量无关，因此 2000 页 vault 的扩展延迟与 200 页 vault 相同。
 
 **PPR @5 = 27.1% vs 纯 knn 基线 24.1%** —— 基于项目自有基准语料（该开源 LLM-Wiki 领域唯一已发布的检索基准）。
 
@@ -369,7 +259,7 @@ CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<va
 
 ## 🤖 模型推荐
 
-**支持的 Provider（12+，基于 2026-07 来自 models.dev 的交叉核对）：**
+**支持的 Provider（16+，基于 2026-07 来自 models.dev 的交叉核对）：**
 
 | Provider | 系列 | 备注 |
 |----------|------|------|
@@ -394,10 +284,12 @@ CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<va
 
 ### 什么更重要
 
-- **🧠 上下文窗口 ≥ 200K tokens**，对于超过 ~500 页的 vault。低于 200K 时，级联组装的上下文会开始被截断。
+- **🧠 上下文窗口 ≥ 200K tokens**，对于超过 ~500 页的 vault。低于 200K 时，级联可能截断较早阶段以适配。
 - **⚖️ 指令遵循质量** 对提取任务比原始 IQ 更重要——选择一个能遵循 Schema 模板的模型，而非排行榜上最大的数字。
-- **🔌 嵌入端点无关紧要**——我们不使用嵌入。缺乏 `/v1/embeddings` 的 Provider 完全没问题（我们 12+ 个 Provider 中大部分都没有）。
+- **🔌 嵌入端点无关紧要**——我们不使用嵌入。缺乏 `/v1/embeddings` 的 Provider 完全没问题（我们 16+ 个 Provider 中大部分都不提供）。
 - **🦙 本地用于查询，云端用于摄入**——2000 页 vault 的摄入通常需要长上下文云端模型；262K 的本地模型覆盖大部分查询。
+
+关于 PDF / 图片 / Office 摄入，参见特性章节 [文档 / PDF / 图片 摄入](#-文档--pdf--图片-摄入) —— Anthropic、OpenAI、Bedrock、Gemini 原生将 PDF 作为文件部分读取；内置 MinerU 后端（v1.27.0+）与 **Force PDF Support** 覆盖其余全部场景。
 
 ### Anthropic vs OpenAI vs Codex OAuth —— 它们是不同的 Provider
 
@@ -429,9 +321,13 @@ CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<va
 
 从 Obsidian 社区插件市场安装 → 选择 Provider → **测试连接** → 在任意笔记上运行 **摄入单个源文件**。首条 Wiki 页面在几秒内出现。见 [快速开始](#-快速开始)。
 
+### 能摄入 PDF、图片和 Office 文档吗？
+
+✅ 可以。Anthropic、OpenAI、Bedrock、Gemini 原生支持 PDF；内置 MinerU 后端（v1.27.0）覆盖其余全部场景（PDF + 图片 + Office）。完整教程——云端 Provider、Apple Silicon OCR、Force PDF Support、缓存管理——见 [docs/PDF-OCR-GUIDE_CN.md](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/docs/PDF-OCR-GUIDE_CN.md)。
+
 ### 我现有的 Wiki 安全吗？
 
-✅ 自 v1.0.0 向后兼容。在任何页面设置 `reviewed: true` 以保护不被覆盖。从 v1.24.x 升级不会重写你的 vault；v1.25.0 的 PDF 摄入默认仅缓存。
+✅ 自 v1.0.0 向后兼容。在任何页面设置 `reviewed: true` 以保护不被覆盖。从 v1.24.x 升级不会重写你的 vault；v1.25.0 的 PDF 摄入默认仅缓存，v1.27.0 新增的 PDF + 图片 + Office 摄入也不会改变磁盘上的 Wiki 布局。
 
 ### 我的数据会被发送给第三方吗？
 
@@ -487,8 +383,6 @@ CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<va
 - ☕ **[在 Ko-fi 上请我喝杯咖啡](https://ko-fi.com/greenerdalii)** — 一次性或月度支持
 - 💳 **[通过 PayPal 打赏](https://paypal.me/greenerdalii)** — 一次性打赏
 
-赞助完全自愿。插件始终保留 Apache-2.0 许可且功能完整。
-
 感谢以下赞助者对项目的支持：
 
 [@jameses-cyber](https://github.com/jameses-cyber)、[@issaqua](https://github.com/issaqua)、Dikson Choi
@@ -497,10 +391,10 @@ CLI 复用你的插件设置——没有独立的 CLI 配置面。设置从 `<va
 
 ## 🔭 其他项目
 
-我做的其他项目：
-
-- **[obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)** — 无头摄入 CLI，正在从本仓库迁出、独立成库，好让 Obsidian 市场审核 Bot 不再对 Node CLI 的结构报警。它对着磁盘上的 vault 跑同一套 `WikiEngine`，不需要渲染器。目前仍是开发中的 v0.1，尚未发布到 npm；在 v1.27.0 之前请用本仓库的 `pnpm llm-wiki`。
+- **[obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli)** — 无头摄入 CLI，独立仓库以 npm 包 `karpathywiki-cli` 形式发布。对着磁盘上的 vault 跑同一套 `WikiEngine`，不需要渲染器。安装：`npm i -g karpathywiki-cli`。本仓库内的 `tools/dev-instrument/` 是 dev-only 测量工具，为本插件的发布说明提供每任务成本数据。
 - **[pi-shift-router](https://github.com/green-dalii/pi-shift-router)** — [pi-coding-agent](https://github.com/earendil-works/pi) 的任务级路由器。每轮开始前，一个小模型判定把你的消息分成例行还是要紧，选中的档位接管整轮。复杂任务还会更进一步：Smart 档像 CTO 一样规划，把实现派发给 Fast 子代理，逐项审核并迭代。升档立即生效，降档要等趋势稳住；每档的回退链能扛住 429 和 5xx。零运行时依赖，MIT。→ [shiftrouter.greenerai.top](https://shiftrouter.greenerai.top)
+- **[dsh-shift-router](https://github.com/green-dalii/dsh-shift-router)** — pi-shift-router 的 DSH 分支，共享同样的任务级路由设计，但面向 [dsh-coding-agent](https://github.com/earendil-works/dsh) 运行时。同样的判定驱动档位选择、同样的每档回退链，MIT。
+- **[dsh-plugin-dev-skill](https://github.com/green-dalii/dsh-plugin-dev-skill)** — DSH 版的 `obsidian-plugin-dev` 工作流配套：搭建 Obsidian 插件工作区、驱动 Red→Green TDD 循环、跑 Six-Gate 质量闭环（lint/tsc/test/build/css-lint），并在 `feat/*` 或 `fix/*` 分支上准备可发布的 commit。让跑 DSH 的贡献者获得与维护者同样的脚手架 + gate 体验，无需从 CLAUDE.md 复制粘贴。
 
 ---
 
