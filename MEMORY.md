@@ -89,9 +89,11 @@ audit surfaces. If `--approve` was skipped, post `gh pr comment <N> --body-file
   re-resolves from registry and drifts from pnpm).
 - **Always** `rm -f pnpm-lock.yaml && pnpm install && npm install
   --legacy-peer-deps --package-lock-only` in the project directory. The
-  project pins `pnpm@10.14.0` and uses flat `pnpm.overrides` — npm `overrides`
-  has different semantics, so `package.json` declares BOTH keys with the
-  same flat values to keep both lockfiles aligned.
+  project pins `pnpm@10.14.0`; the flat pnpm overrides live in
+  `pnpm-workspace.yaml` (the `pnpm` field in package.json is deprecated and
+  pnpm >= 11 no longer reads it, Issue #556) — npm `overrides` has different
+  semantics, so `package.json` keeps the top-level key with the same flat
+  values to keep both lockfiles aligned.
 
 ### Issue close keyword
 
