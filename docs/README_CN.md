@@ -225,7 +225,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 
 **大多数用户可以跳过本节。** 插件的面向用户的 CLI 位于独立仓库 [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) ——以 npm 包 `karpathywiki-cli` 形式发布。安装：`npm i -g karpathywiki-cli`，运行 `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`。
 
-本仓库内 [`tools/dev-instrument/`](https://github.com/green-dalii/obsidian-llm-wiki/tree/main/tools/dev-instrument) 装的是 **dev-only 无头测量工具** —— 面向引擎贡献者，跑真正的 `WikiEngine.ingestSource`，无 Obsidian 运行时，输出每任务的 token + wall-clock 统计——正是 `CLAUDE.md` 和发布说明中性能证据的同源数据。入口命令、env 变量、测量模式、退出码规范详见 [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md)。
+本仓库内 [`tools/dev-instrument/`](https://github.com/green-dalii/obsidian-llm-wiki/tree/main/tools/dev-instrument) 装的是 **dev-only 无头测量工具** —— 面向引擎贡献者，跑真正的 `WikiEngine.ingestSource`，无 Obsidian 运行时，输出每任务的 token + wall-clock 统计——正是 `CLAUDE.md` 和发布说明中性能证据的同源数据。入口命令、env 变量、测量模式、退出码规范详见 [`tools/dev-instrument/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/dev-instrument/README.md)。
 
 ---
 

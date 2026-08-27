@@ -219,7 +219,7 @@ The plugin composes with the rest of your Obsidian stack — each tool below plu
 
 **Most users should ignore this section.** The plugin's user-facing CLI lives in the sibling repo [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) — install with `npm i -g karpathywiki-cli` and run `karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>`.
 
-What ships in this repo at `tools/dev-instrument/` is the **dev-only headless measurement instrument** for engine contributors — it runs the real `WikiEngine.ingestSource` against a vault on disk with no Obsidian runtime, prints per-task token + wall-clock accounting — same numbers that drive the perf evidence in CLAUDE.md and release notes. See [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md) for the entry command, env vars, measurement modes, and exit-code spec.
+What ships in this repo at `tools/dev-instrument/` is the **dev-only headless measurement instrument** for engine contributors — it runs the real `WikiEngine.ingestSource` against a vault on disk with no Obsidian runtime, prints per-task token + wall-clock accounting — same numbers that drive the perf evidence in CLAUDE.md and release notes. See [`tools/dev-instrument/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/dev-instrument/README.md) for the entry command, env vars, measurement modes, and exit-code spec.
 
 ---
 

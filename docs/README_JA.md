@@ -217,7 +217,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 日本語ロー�
 
 **大半のユーザーはこのセクションを無視して構いません。** 本プラグインのユーザー向け CLI は兄弟リポジトリ [green-dalii/obsidian-llm-wiki-cli](https://github.com/green-dalii/obsidian-llm-wiki-cli) にあります —— `karpathywiki-cli` という npm パッケージとして公開されています。`npm i -g karpathywiki-cli` でインストールし、`karpathywiki-cli ingest --sources <path> --wiki <path> --provider <id> --key <key>` で実行します。
 
-本リポジトリの `tools/dev-instrument/` にあるのは、エンジンコントリビューター向けの **dev-only ヘッドレス計測器** です。Obsidian ランタイムなしで実際の `WikiEngine.ingestSource` を vault に対して実行し、タスク単位の token + wall-clock 統計を出力します —— CLAUDE.md やリリースノートに載っている性能エビデンスと同じ数値です。エントリコマンド、環境変数、計測モード、終了コード仕様は [`tools/dev-instrument/README.md`](tools/dev-instrument/README.md) を参照。
+本リポジトリの `tools/dev-instrument/` にあるのは、エンジンコントリビューター向けの **dev-only ヘッドレス計測器** です。Obsidian ランタイムなしで実際の `WikiEngine.ingestSource` を vault に対して実行し、タスク単位の token + wall-clock 統計を出力します —— CLAUDE.md やリリースノートに載っている性能エビデンスと同じ数値です。エントリコマンド、環境変数、計測モード、終了コード仕様は [`tools/dev-instrument/README.md`](https://github.com/green-dalii/obsidian-llm-wiki/blob/main/tools/dev-instrument/README.md) を参照。
 
 ---
 
