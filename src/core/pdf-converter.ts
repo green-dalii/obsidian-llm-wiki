@@ -348,14 +348,34 @@ async function convertPdfToMarkdownViaVision(params: {
 }): Promise<string> {
   const { llmClient, model, system, pdfBytes, info, pdfFileName, abortSignal } = params;
 
-  // pdfjs-dist v5 legacy build: synchronous rendering, no Worker. The
-  // default worker import throws inside Obsidian's CSP, so we ship an
-  // empty workerSrc to force the legacy fallback.
+  // pdfjs-dist v5 worker setup.
+  //
+  // v5 has no public `disableWorker` option. The legacy synchronous API
+  // requires either (a) a real worker URL on GlobalWorkerOptions.workerSrc
+  // or (b) a Node.js runtime (where _isWorkerDisabled is auto-set). We
+  // are in the Electron renderer, so neither applies — the workerSrc
+  // getter throws "No 'GlobalWorkerOptions.workerSrc' specified" if we
+  // leave it empty.
+  //
+  // Workaround: pdf.worker.mjs is read at build time and inlined into
+  // main.js as the `__PDFJS_WORKER_SOURCE__` constant (see esbuild.config.mjs).
+  // At runtime we wrap it in a Blob and hand pdfjs the resulting object
+  // URL as if it were a remote worker module. pdfjs's loader does
+  // `await import(workerSrc)` — dynamic import of a blob: URL is valid
+  // in Chromium / Electron and resolves to the WorkerMessageHandler
+  // export just like a CDN-served worker would.
+  //
+  // Trade-off: this inlines ~2 MB of worker code into main.js. The
+  // user-visible cost is one extra-second cold-load for the plugin; we
+  // avoid shipping a second .mjs file alongside main.js and the URL-
+  // resolution pitfalls that come with relative paths in the Obsidian
+  // renderer (no import.meta.url under CJS bundle, baseURI varies).
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pdfjs: typeof import('pdfjs-dist') =
     await import('pdfjs-dist/legacy/build/pdf.mjs');
-  // @ts-expect-error — empty workerSrc disables the worker
-  pdfjs.GlobalWorkerOptions.workerSrc = '';
+  pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+    new Blob([__PDFJS_WORKER_SOURCE__], { type: 'application/javascript' })
+  );
 
   // OffscreenCanvas factory — pdfjs calls create() per page, reset()
   // between renders. OffscreenCanvas is structurally compatible with
@@ -380,8 +400,6 @@ async function convertPdfToMarkdownViaVision(params: {
   const scale = VISION_PDF_DPI / 72; // PDF spec: 72 DPI base
   const loadingTask = pdfjs.getDocument({
     data: pdfBytes,
-    // @ts-expect-error — disableWorker is in v5 legacy options
-    disableWorker: true,
     isEvalSupported: false, // Obsidian CSP forbids new Function(...)
     useSystemFonts: true,
   });

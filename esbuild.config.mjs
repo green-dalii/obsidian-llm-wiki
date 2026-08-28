@@ -1,6 +1,18 @@
 import esbuild from "esbuild";
 import process from "process";
+import fs from "fs";
+import path from "path";
 import { builtinModules } from "module";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+// Read pdfjs worker source once at build time and inline via define.
+// We resolve through createRequire so the path is stable under pnpm's
+// .pnpm/<name>@<ver>/node_modules/<name>/ layout.
+const workerPath = require.resolve(
+  "pdfjs-dist/legacy/build/pdf.worker.mjs"
+);
+const workerSource = fs.readFileSync(workerPath, "utf8");
 
 const banner =
 `/*
@@ -19,6 +31,13 @@ const context = await esbuild.context({
     js: banner + prodBanner,
   },
   entryPoints: ['src/main.ts'],
+  // Inline pdf.worker.mjs source as a string constant so we can hand
+  // pdfjs a blob: URL without shipping a second .mjs file alongside
+  // main.js (relative URL resolution is unreliable in the Obsidian
+  // Electron renderer under CJS bundle — no import.meta.url).
+  define: {
+    __PDFJS_WORKER_SOURCE__: JSON.stringify(workerSource),
+  },
   bundle: true,
   external: [
     'obsidian',
