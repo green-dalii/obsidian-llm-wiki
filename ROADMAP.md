@@ -2,7 +2,7 @@
 
 > Feature planning and improvement proposals
 
-**Latest shipped:** v1.27.0 MINOR (2026-08-27). See [CHANGELOG.md §1.27.0](./CHANGELOG.md#1270---2026-08-27) for the canonical composition record. | **Updated:** 2026-08-27
+**Latest shipped:** v1.27.0 MINOR (2026-08-27). See [CHANGELOG.md §1.27.0](./CHANGELOG.md#1270---2026-08-27) for the canonical composition record. | **Updated:** 2026-08-28 (post v1.27.0 PATCH triage — 5 new items + simplify/code-review pass on PR #569)
 
 **v1.26.5 PATCH CANCELLED 2026-08-19** — folded into v1.27.0 MINOR to amortize release-cycle overhead (per user direction).
 
@@ -73,6 +73,61 @@ Follow-ups filed from #517 adjacent findings: **#533** (`isUrlError` treats mode
 
 Open follow-ups from review threads: alias-floor unification (#537×#532), bounded type-repair concurrency (#528), zh/ja candidate-gate measurement (#521 debt), plus from the #525 scan — codex-client `outputModeOverride` honoring (extract stays JSON-mode on that provider despite the builtin pin), source-borne loop pre-check before spending the halve-retry, exhaustion-arm test, hardcoded-EN placeholder i18n.
 
+---
+
+## v1.27.x PATCH cycle — current scope (2026-08-28)
+
+**Triggered by:** v1.27.0 MINOR shipped 2026-08-27 (`3464cce`). PATCH backlog is the union of (a) v1.27.0 ship-day bugs from architect-level triage (4 PRs already shipped 2026-08-27: #559 / #564 / #557 + #566 owner-passby), (b) deferred items from v1.27.0 review threads, (c) post-MINOR new Issues filed by @DocTpoint 2026-08-28 (#567 / #568) + PR #569.
+
+### Active backlog (priority × ROI)
+
+| # | Issue | What | Why now | Owner | Status |
+|---|-------|------|---------|-------|--------|
+| 1 | **#543** | `parseTaskPolicySpec` — `__proto__` entry bypasses the duplicate-task guard | 1-line + 1 test; closes `Object.prototype` pollution class | green-dalii (owner-self) | Ready, not yet PR |
+| 2 | **#567** | `customEntityLimit` / `customConceptLimit` ceiling-vs-denominator coupling reduces yield as limit rises | Real user pain (11-50 default range); recommended contract: ceiling-only + stop gets own signal sibling to `checkEmptyBatch` | green-dalii (owner-self) | Issue open; needs contract decision then PR |
+| 3 | **#568 / #569** | Domain-axis write side — `domains:` frontmatter key, validated against vault tag vocabulary | #91 read-side prerequisite; PR #569 has 6 pre-merge bugs (B1-B6) concentrated in fold-aware dedup inconsistency (3 writers vs validator) + empty-`wikiFolder` edge case + 3 test gaps | DocTpoint | PR open; **CHANGES_REQUESTED 2026-08-28**; author fix needed |
+| 4 | **#542** | `isSourceBorneLoop` suppresses halve-retry for common-word degenerate cases | Reaffirmed by #525 follow-up review (source-borne loop pre-check before spending halve-retry) | green-dalii (owner-self) | Issue open; small fix |
+| 5 | **#407 Stage 2** | 7 silent-failure sites in `conversation-ingest.ts:337` et al (one PR per blast radius) | High-ROI bug series, blast-radius split per `feedback_*` lessons | green-dalii (owner-self) | Open; split into ~3 PRs |
+| 6 | **#528** | Type-repair fan-out — bound concurrency to 2-4 chunks | Review-thread follow-up from #528 merged (PR #526/#528); no hot spot today | DocTpoint | Open; defer to mid-PATCH |
+| 7 | **#539 follow-ups** | codex-client `outputModeOverride` honoring + exhaustion-arm test + hardcoded-EN placeholder i18n | 6 filed items from simplify pass on PR #539 (merged `4c15cc5`); quality items | green-dalii (owner-self) | Open; mid-PATCH |
+
+### Recently shipped into v1.27.x PATCH (2026-08-27, pre-triage batch)
+
+| PR | Issue | What | Why |
+|----|-------|------|-----|
+| **#559** (`92f2f8c`) | #537 × #532 | `minAliasLength` floor threaded to the create path; cross-page alias gate wired at path resolution | Alias-floor unification from v1.27.0 review thread |
+| **#564** (`1a56a9d`) | #562 | `parenSpans` no longer treats wikilink markup brackets as aside | Gate link markup misread |
+| **#557** (`bd992f8c`) | #556 | `pnpm.overrides` deprecation → move to `pnpm-workspace.yaml` | pnpm 11+ silently drops the `pnpm` field |
+| **#566** (`a4c90c4`) | #560 follow-up | dev-instrument relative links converted to absolute https URLs | Path-changing PR must sync-audit `readme-links` guard |
+
+### Review-thread debts carried into v1.27.x PATCH
+
+- **#528** type-repair fan-out (concurrent → 2-4 chunks)
+- **#521** zh/ja candidate-gate measurement on a Chinese vault (DocTpoint → maintainer follow-up)
+- Alias-floor unification (#537×#532) — **DONE via PR #559**, but `filterRedundantAliases` cross-page gate still needs the wiring follow-up tracked separately
+- codex-client `outputModeOverride` honoring + exhaustion arm + i18n placeholders (from PR #525 / #539 review)
+
+### Research bookmarks (NOT in PATCH cycle)
+
+- **#479** Coverage measurement denominator — "no edge" readability (DocTpoint, 2026-08-18): 30.1% omission rate measured; on `v1.27.0+ research` milestone 2026-08-28; reopen when LLM-side probe ready
+- **#480** "PPR ≈ kNN" is a property of co-occurrence edges — depends on typed relations #285 emitting before re-test meaningful; on `v1.27.0+ research` milestone 2026-08-28
+
+### Recommended cycle cadence
+
+| Phase | Items | ETA |
+|-------|-------|-----|
+| **Early PATCH** (urgent + self-contained) | #543 + #567 + merge #569 (post B1-B6 + T1-T3) | ~1 day |
+| **Mid PATCH** (consolidation) | #542 + first PR of #407 Stage 2 + #539 follow-ups | ~3 days |
+| **Late PATCH** (research-grade) | #528 type-repair chunking + #521 zh/ja measurement | ~5 days |
+
+### Triage discipline notes (post-triage 2026-08-28)
+
+- 5 new items triaged: 4 from @DocTpoint (3 architect-level + 2 future-work bookmarks) + 1 PR. Total open issues 21 + 1 PR.
+- AND-rule (eyes + label both present) skipped #542 / #543 — those had previous maintainer 👀 + label, but the work is still pending; visible in backlog above.
+- PR review policy per CLAUDE.md "Mandatory merge sequence": `gh pr review` (formal review event) precedes any `gh pr merge`. PR #569 received `CHANGES_REQUESTED` review event 2026-08-28 with B1-B6 + T1-T3 as pre-merge scope.
+
+---
+
 ### Other follow-ups
 
 - **#407 Stages 2** — `conversation-ingest.ts:337` and remaining 7 silent-failure sites, one PR per blast radius.
@@ -119,7 +174,7 @@ Open follow-ups from review threads: alias-floor unification (#537×#532), bound
 - Obsidian Bases for index (#184) — Obsidian Bases still experimental; post-PPR integration
 - OKF Bundle export (#285) — typed-edges output standard; community-pending
 - 'auto' granularity mapping (#168) — needs benchmark + equation; community-pending
-- PPR ≈ kNN co-occurrence (#480) — research bookmark
-- Coverage measurement denominator (#479) — research bookmark
+- **PPR ≈ kNN co-occurrence (#480)** — research bookmark; reopened 2026-08-28 with self-correction on symmetric-vs-directed adjacency; re-test only meaningful after typed relations #285
+- **Coverage measurement denominator (#479)** — research bookmark; reopened 2026-08-28 with 30.1% omission rate measured; needs LLM-side per-edge probe before instrumentation
 - Lint details in user README — partial via Advanced settings UI; full section TBD
 - OS-async observation window policy — formalize SecretStorage 5-version stabilization pattern
