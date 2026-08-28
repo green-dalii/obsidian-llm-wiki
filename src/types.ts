@@ -697,7 +697,8 @@ export interface IngestOptions {
  */
 export type MessageContentPart =
   | { type: 'text'; text: string }
-  | { type: 'file'; data: string; mediaType: 'application/pdf'; filename?: string };
+  | { type: 'file'; data: string; mediaType: 'application/pdf'; filename?: string }
+  | { type: 'image'; image: string; mimeType: 'image/png' | 'image/jpeg'; filename?: string };
 
 /**
  * Why the provider stopped generating. Mirrors the AI SDK v6 `FinishReason`

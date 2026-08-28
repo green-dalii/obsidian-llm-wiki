@@ -60,6 +60,7 @@
     "@ai-sdk/openai-compatible": "2.0.62",
     "ai": "6.0.230",
     "fflate": "0.8.3",
+    "pdfjs-dist": "5.3.93",
     "zod": "^3.25.76"
   }
 }
