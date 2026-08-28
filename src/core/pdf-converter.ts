@@ -474,7 +474,10 @@ async function convertPdfToMarkdownViaVision(params: {
       messages: chunkMessages,
       ...(abortSignal ? { abortSignal } : {}),
     });
-    markdownParts.push(chunkResponse);
+    // Clean each response before joining. If a local model ignores the
+    // no-fence instruction, cleaning only after concatenation would leave
+    // an inner ```...``` block spanning a chunk boundary.
+    markdownParts.push(PDF_PROMPTS.unwrapFencedMarkdown(chunkResponse));
   }
 
   // Concatenate chunks with a blank line between — preserves page
