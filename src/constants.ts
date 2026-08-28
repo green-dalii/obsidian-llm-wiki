@@ -140,9 +140,29 @@ export const VISION_PDF_PROVIDER_IDS = [
 ] as const;
 
 /** Version suffix for the vision-path cache key. Bump when the
- *  rasterizer (DPI, image format, pdfjs version) changes. */
-export const VISION_PDF_VERSION = 1;
+ *  rasterizer (DPI, image format, pdfjs version, chunking strategy) changes. */
+export const VISION_PDF_VERSION = 2;
 export const VISION_PDF_DPI = 150;
+
+/**
+ * Max PDF pages sent to the LLM in one vision call.
+ *
+ * Empirically calibrated for a 32K-context local model (bonsai-27b Q1_0
+ * running through Ollama /v1/chat/completions). At 150 DPI each page
+ * rasterizes to ~2-3K image tokens; 6 pages ≈ 15K image tokens + ~700
+ * prompt overhead + 8K output reserve = ~24K, comfortably under 32K.
+ *
+ * Larger-context models (Claude 200K, GPT-4o 128K) trivially fit more
+ * pages per call but chunking never hurts — the bottleneck is the
+ * model's effective attention across many images, not raw context
+ * budget. Keeping a small constant here makes the worst-case LLM-call
+ * latency bounded regardless of which provider the user picks.
+ *
+ * Documents with more pages are split into chunks of this size;
+ * each chunk is sent as a separate LLM call and the markdown outputs
+ * are concatenated in page order.
+ */
+export const VISION_PDF_PAGES_PER_CHUNK = 6;
 
 /** MinerU online API endpoints and bounded conversion resources. */
 export const MINERU_API_BASE_URL = 'https://mineru.net/api/v4';

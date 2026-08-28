@@ -46,10 +46,13 @@ import {
   VISION_PDF_PROVIDER_IDS,
   VISION_PDF_VERSION,
   VISION_PDF_DPI,
+  VISION_PDF_PAGES_PER_CHUNK,
 } from '../constants';
 import { PDF_PROMPTS } from '../wiki/prompts/pdf';
 import type { LLMClient } from '../types';
 import { convertPdfWithMineru } from './mineru-converter';
+
+/* global __PDFJS_WORKER_SOURCE__ -- injected by esbuild.config.mjs at production build time */
 
 // --- public types ---
 
@@ -346,7 +349,7 @@ async function convertPdfToMarkdownViaVision(params: {
   pdfFileName: string;
   abortSignal?: AbortSignal;
 }): Promise<string> {
-  const { llmClient, model, system, pdfBytes, info, pdfFileName, abortSignal } = params;
+  const { llmClient, model, system, pdfBytes, info, abortSignal } = params;
 
   // pdfjs-dist v5 worker setup.
   //
@@ -370,7 +373,6 @@ async function convertPdfToMarkdownViaVision(params: {
   // avoid shipping a second .mjs file alongside main.js and the URL-
   // resolution pitfalls that come with relative paths in the Obsidian
   // renderer (no import.meta.url under CJS bundle, baseURI varies).
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pdfjs: typeof import('pdfjs-dist') =
     await import('pdfjs-dist/legacy/build/pdf.mjs');
   pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
@@ -413,7 +415,7 @@ async function convertPdfToMarkdownViaVision(params: {
       const ctxObj = canvasFactory.create(viewport.width, viewport.height);
       try {
         await page.render({
-          canvasContext: ctxObj.context,
+          canvasContext: ctxObj.context as unknown as CanvasRenderingContext2D,
           viewport,
           canvasFactory,
         }).promise;
@@ -429,25 +431,54 @@ async function convertPdfToMarkdownViaVision(params: {
     await pdf.destroy();
   }
 
-  const messages = [{
-    role: 'user' as const,
-    content: [
-      { type: 'text' as const,
-        text: buildUserText(info) + ` (${pageImages.length} page(s) attached as images)` },
-      ...pageImages.map((p) => ({
-        type: 'image' as const,
-        image: p.image,
-        mimeType: p.mimeType,
-      })),
-    ],
-  }];
+  // Chunk pages to fit the model's context window. A 30-page paper
+  // at 150 DPI is ~75K image tokens — well past a 32K local model
+  // (e.g. bonsai-27b Q1_0). VISION_PDF_PAGES_PER_CHUNK keeps each
+  // call under the budget regardless of paper length; outputs are
+  // concatenated in page order, separated by a blank line so the
+  // downstream `unwrapFencedMarkdown` + analyzer still sees the
+  // correct paragraph structure.
+  const totalPages = pageImages.length;
+  const chunks: Array<Array<{ image: string; mimeType: 'image/png' }>> = [];
+  for (let start = 0; start < totalPages; start += VISION_PDF_PAGES_PER_CHUNK) {
+    chunks.push(pageImages.slice(start, start + VISION_PDF_PAGES_PER_CHUNK));
+  }
 
-  return await llmClient.createMessage({
-    task: 'pdf-convert',
-    model,
-    max_tokens: TOKENS_PDF_CONVERSION,
-    system,
-    messages,
-    ...(abortSignal ? { abortSignal } : {}),
-  });
+  const markdownParts: string[] = [];
+  for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+    const chunk = chunks[chunkIdx];
+    const pageStart = chunkIdx * VISION_PDF_PAGES_PER_CHUNK + 1;
+    const pageEnd = Math.min(pageStart + chunk.length - 1, totalPages);
+    const chunkText = chunkIdx === 0
+      ? buildUserText(info) +
+        ` (pages ${pageStart}-${pageEnd} of ${totalPages} attached as images)`
+      : `Continue conversion. Pages ${pageStart}-${pageEnd} of ${totalPages} attached.`;
+
+    const chunkMessages = [{
+      role: 'user' as const,
+      content: [
+        { type: 'text' as const, text: chunkText },
+        ...chunk.map((p) => ({
+          type: 'image' as const,
+          image: p.image,
+          mimeType: p.mimeType,
+        })),
+      ],
+    }];
+
+    const chunkResponse = await llmClient.createMessage({
+      task: 'pdf-convert',
+      model,
+      max_tokens: TOKENS_PDF_CONVERSION,
+      system,
+      messages: chunkMessages,
+      ...(abortSignal ? { abortSignal } : {}),
+    });
+    markdownParts.push(chunkResponse);
+  }
+
+  // Concatenate chunks with a blank line between — preserves page
+  // boundaries for the downstream analyzer without inventing
+  // structural breaks that aren't in the source.
+  return markdownParts.join('\n\n');
 }
