@@ -537,8 +537,14 @@ describe('SourceAnalyzer — repetition loop guard (#524)', () => {
 describe('SourceAnalyzer — source-borne repetition (#525 review)', () => {
   const REFRAIN = 'Und täglich grüßt das Murmeltier. ';
   // The note itself states the refrain far more often than the detector's
-  // four-repeat threshold, which is what makes the echo faithful.
-  const REFRAIN_NOTE = '# Refrain\n' + (REFRAIN + 'Dazwischen steht anderer Text. ').repeat(30);
+  // Four consecutive occurrences at the start (#542: scattered mentions are
+  // not a refrain — the new contract requires back-to-back occurrences, like
+  // the response detector's `LOOP_RE` `\1{3,}`). The trailing scattered
+  // mentions remain to confirm the count-based path is no longer the
+  // trigger; only the consecutive run at the head of the note is.
+  const REFRAIN_NOTE = '# Refrain\n' + REFRAIN.repeat(4)
+    + ' Dazwischen steht anderer Text. '
+    + (REFRAIN + 'Dazwischen steht anderer Text. ').repeat(30);
   const ECHO = JSON.stringify({
     source_title: 'Refrain',
     summary: 'A refrain.',

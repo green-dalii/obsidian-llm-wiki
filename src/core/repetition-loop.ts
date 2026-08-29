@@ -82,17 +82,29 @@ export function findRepetitionLoop(
  * carries is therefore reproduced by every retry, so the budget is spent on a
  * certainty.
  *
- * Why "repeats it four times" and not "contains it once", which is the cheaper
- * reading: the two errors are not symmetric. Skipping the retry on a batch that
- * really is damaged costs items silently; spending it on a source-borne loop
- * costs one call. So the test has to be the conservative one, and a unit that
+ * Why "four times" and not "contains it once", which is the cheaper reading:
+ * the two errors are not symmetric. Skipping the retry on a batch that really
+ * is damaged costs items silently; spending it on a source-borne loop costs
+ * one call. So the test has to be the conservative one, and a unit that
  * appears once in a long note is no evidence at all — `Vitamin D, ` occurs in
- * half the vault and would suppress the retry for every genuine loop built from
- * it. A unit the note states four times is a refrain.
+ * half the vault and would suppress the retry for every genuine loop built
+ * from it. A unit the note states four times is a refrain.
+ *
+ * #542: the threshold is *consecutive* occurrences, mirroring the response
+ * detector's `LOOP_RE` `\1{3,}`. The previous check counted any non-
+ * overlapping occurrence, which let a stopword scattered through ordinary
+ * prose (`"und die "` ×25 in a German note, never as a refrain) suppress
+ * the retry for genuine token-level degeneration. The scatter is not the
+ * note's pattern to repeat — it is how the language works. Consecutive
+ * runs are the refrain shape; the detector's contract has to match it.
  */
 export function isSourceBorneLoop(loop: RepetitionLoop, sourceText: string): boolean {
   if (!loop.rawUnit) return false;
-  // split() counts non-overlapping occurrences, which is the conservative
-  // direction: it can undercount a self-overlapping unit, never overcount.
-  return sourceText.split(loop.rawUnit).length - 1 >= REPETITION_LOOP_MIN_REPEATS;
+  // Escape the unit for the repeat quantifier so a unit containing regex
+  // metacharacters (a quoted phrase, a path with a slash) still matches
+  // literally. The unit is already on the response side verbatim, so this
+  // is a literal-vs-regex question, not a normalisation question.
+  const escaped = loop.rawUnit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(?:${escaped}){${REPETITION_LOOP_MIN_REPEATS},}`);
+  return re.test(sourceText);
 }

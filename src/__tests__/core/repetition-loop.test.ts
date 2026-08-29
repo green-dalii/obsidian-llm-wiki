@@ -100,12 +100,20 @@ describe('findRepetitionLoop', () => {
 
 // #525 review: halving changes how many items are asked for, never the note,
 // so a loop the note itself carries is reproduced by every retry.
+// #542: the source check has to mirror the response detector — the response
+// detector requires 4 *consecutive* repeats (LOOP_RE `\1{3,}`), so a faithful
+// echo is also a *consecutive* pattern in the note, not 4 scattered mentions.
+// A stopword scattered through ordinary prose ("und die " ×25 in a German
+// note) is not the note's pattern to repeat; spending the halve-retry on it
+// drops the only recovery attempt #524 provided for a damaged batch.
 describe('isSourceBorneLoop', () => {
   const REFRAIN = 'Und täglich grüßt das Murmeltier. ';
 
-  it('recognises a refrain the note states at least four times', () => {
+  it('recognises a refrain the note states at least four times consecutively', () => {
     const loop = findRepetitionLoop(REFRAIN.repeat(10))!;
-    const note = (REFRAIN + 'Dazwischen anderer Text. ').repeat(6);
+    // REFRAIN×4 back-to-back, then intervening prose, then REFRAIN×2: the
+    // 4-consecutive run at the start is the refrain pattern.
+    const note = `${REFRAIN.repeat(4)} Dazwischen anderer Text. ${REFRAIN.repeat(2)}`;
     expect(isSourceBorneLoop(loop, note)).toBe(true);
   });
 
@@ -119,6 +127,25 @@ describe('isSourceBorneLoop', () => {
     expect(isSourceBorneLoop(loop, 'Ein Text über Ferritin und Eisen.')).toBe(false);
   });
 
+  // #542 failure mode: a stopword ("und die ") appears many times scattered
+  // through ordinary German prose. The pre-#542 guard's `>= 4 scattered` check
+  // returned true and suppressed the halve-retry — the loop unit was 25× in
+  // the note, but never as a refrain; the response's 80× was degeneration,
+  // not echo. After the fix: scattered mentions don't satisfy the
+  // consecutive-run check, so the retry fires.
+  it('does not fire on a stopword scattered through the note (#542)', () => {
+    const loop = findRepetitionLoop('und die '.repeat(80))!;
+    const note = [
+      'Ein gewöhnlicher Text über Sprache. Die ist ein Wort. Die kommt oft vor.',
+      'Die und die Bedeutung und die Form. Die ist ein Wort. Die ist häufig.',
+      'und die Verbindung. und die Form. und die Syntax. und die Bedeutung.',
+      'und die Syntax, und die Semantik, und die Pragmatik.',
+    ].join(' ');
+    // "und die " appears many times scattered, never ≥4 consecutive.
+    expect(note.split('und die ').length - 1).toBeGreaterThanOrEqual(8);
+    expect(isSourceBorneLoop(loop, note)).toBe(false);
+  });
+
   // The trap this exists to avoid: `unit` is shortened for log lines, so a
   // unit over 40 characters would never be found in the note if the lookup
   // used it. The check has to read `rawUnit`.
@@ -128,5 +155,14 @@ describe('isSourceBorneLoop', () => {
     const loop = findRepetitionLoop(long.repeat(8))!;
     expect(loop.unit).toContain('…');
     expect(isSourceBorneLoop(loop, long.repeat(5))).toBe(true);
+  });
+
+  // #542 acceptance criterion #1: pin the consecutive-run boundary. Exactly
+  // 4 → true (the threshold), exactly 3 → false. A `>= 3 → false` mutation
+  // (changing the threshold) must NOT pass these tests.
+  it('requires exactly 4 consecutive occurrences (boundary pinned, #542)', () => {
+    const loop = findRepetitionLoop(REFRAIN.repeat(10))!;
+    expect(isSourceBorneLoop(loop, `${REFRAIN.repeat(3)} Dazwischen Text.`)).toBe(false);
+    expect(isSourceBorneLoop(loop, `${REFRAIN.repeat(4)} Dazwischen Text.`)).toBe(true);
   });
 });
