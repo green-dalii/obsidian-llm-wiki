@@ -105,15 +105,13 @@ OCR models are all relatively lightweight — you don't need a multi-tier table.
 
 ### Fallback: any local multimodal LLM
 
-If oMLX/Markitdown is unavailable (Linux/Windows or older Macs without M-series), point **Force PDF Support** at any local multimodal LLM that accepts PDF file parts:
+If oMLX/Markitdown is unavailable (Linux/Windows or older Macs without M-series), you can point **Force PDF Support** at a local multimodal LLM — **but first check whether your server actually accepts PDF file parts**. The OpenAI-compatible `/v1/chat/completions` wire format carries `text` and `image` content parts; a PDF `file` part is not part of that standard and most local servers do not consume it:
 
+- **Ollama** — accepts only text and base64-image parts. A PDF file part is rejected (400 from the server).
+- **LM Studio** — likewise validates image blocks as real image binaries; a PDF sent as an image block is rejected.
+- **llama.cpp / vLLM** — support varies by build and model. Verify against your own server before relying on this path; if it works, set the plugin's Base URL to the server's endpoint and pick the multimodal model name.
 
-- **llama.cpp with a multimodal GGUF** (Qwen3-VL, Llama 3.2 Vision, Pixtral, Gemma 3 vision variants)
-- **Ollama with a multimodal model tag** (`ollama pull qwen3-vl:4b`, `ollama pull llama3.2-vision`)
-- **LM Studio** with a vision-capable GGUF loaded and the OpenAI-compatible server running
-- **vLLM with a dedicated OCR model** (`deepseek-ocr-2`, `glm-ocr`) — talk the standard OpenAI multimodal API
-
-Whichever you pick, set the plugin's Base URL to the server's endpoint and the model picker to the multimodal model name. The plugin's cache key includes the model, so switching models invalidates stale entries automatically.
+For local servers that reject PDF parts, the reliable pattern is to **convert the PDF before the LLM call** — the oMLX + Markitdown stack above, or any external converter (MinerU extractor, `markitdown` CLI, marker) — and ingest the resulting Markdown as a regular text source. The plugin's cache key includes the model, so switching models invalidates stale entries automatically.
 
 ---
 

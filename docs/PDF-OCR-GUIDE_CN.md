@@ -104,14 +104,13 @@ OCR 模型都相对轻量 —— 不需要多档位表格。两个带宽覆盖�
 
 ### 备选：任意本地多模态 LLM
 
-如果 oMLX / Markitdown 不可用（Linux/Windows 或不带 M 系列的旧 Mac），把 **Force PDF Support** 指向任意接受 PDF 文件部分的本地多模态 LLM：
+如果 oMLX / Markitdown 不可用（Linux/Windows 或不带 M 系列的旧 Mac），可以把 **Force PDF Support** 指向本地多模态 LLM —— **但先确认你的服务器真的接受 PDF 文件部分**。OpenAI 兼容的 `/v1/chat/completions` wire 格式只携带 `text` 和 `image` 两种 content part；PDF `file` part 不属于该标准，大多数本地服务器不会消费它：
 
-- **llama.cpp 配多模态 GGUF**（Qwen3-VL、Llama 3.2 Vision、Pixtral、Gemma 3 视觉变体）
-- **Ollama 配多模态模型 tag**（`ollama pull qwen3-vl:4b`、`ollama pull llama3.2-vision`）
-- **LM Studio** 加载支持视觉的 GGUF 并跑 OpenAI 兼容服务器
-- **vLLM 配专用 OCR 模型**（`deepseek-ocr-2`、`glm-ocr`）—— 走标准 OpenAI 多模态 API
+- **Ollama** —— 只接受 text 和 base64 图片 part。发 PDF file part 会被服务器拒绝（400）。
+- **LM Studio** —— 同样会校验 image 块必须是真实的图片二进制；把 PDF 当 image 块发会被拒绝。
+- **llama.cpp / vLLM** —— 支持情况因构建版本和模型而异。先在自己的服务器上验证再依赖这条路；如果可用，把插件的 Base URL 指向该服务器端点，模型选择器选多模态模型名。
 
-无论选哪个，把插件的 Base URL 指向该服务器的端点，模型选择器选多模态模型名字。插件的缓存 key 包含模型，所以切换模型会自动让陈旧条目失效。
+对拒绝 PDF part 的本地服务器，可靠的做法是**在 LLM 调用前先把 PDF 转好** —— 用上面的 oMLX + Markitdown 栈，或任何外部转换器（MinerU extractor、`markitdown` CLI、marker）—— 再把得到的 Markdown 作为普通文本源摄入。插件的缓存 key 包含模型，所以切换模型会自动让陈旧条目失效。
 
 ---
 
