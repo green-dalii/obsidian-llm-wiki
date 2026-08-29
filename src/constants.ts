@@ -162,7 +162,7 @@ export const VISION_PDF_DPI = 150;
  * each chunk is sent as a separate LLM call and the markdown outputs
  * are concatenated in page order.
  */
-export const VISION_PDF_PAGES_PER_CHUNK = 6;
+export const VISION_PDF_PAGES_PER_CHUNK = 1;
 
 /** MinerU online API endpoints and bounded conversion resources. */
 export const MINERU_API_BASE_URL = 'https://mineru.net/api/v4';
