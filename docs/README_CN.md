@@ -215,7 +215,7 @@ SEO metadata (not user-visible, parsed by crawlers / LLMs) — 简体中文本�
 - **✂️ [Obsidian Web Clipper](https://obsidian.md/clipper)** —— 官方浏览器扩展。将网页（文章、博客、Reddit 帖子、Hacker News、食谱、研究论文、YouTube 字幕（通过 Interpreter 提取））保存到 vault 内任意文件夹，然后运行插件的「从文件夹摄入」命令批量提取实体与概念。
 - **📊 [Dataview](https://github.com/blacksmithgu/obsidian-dataview)** —— 用 DQL（`LIST FROM "wiki/entities" WHERE contains(tags, "person")`）或 JS API 像查询数据库一样检索 Wiki。插件在每个页面写入标准 frontmatter（`tags:`、`type:`、`aliases:`），Dataview 查询开箱即用。
 - **🌿 Git** —— 用任意 Git 客户端对 vault 进行版本控制。插件永不重写源文件，仅在 `wiki/` 下创建新页面，因此 `git diff` 能清晰区分你的手动编辑与 LLM 生成内容。
-- **🎞️ [Marp Slides](https://github.com/samuele-cozzi/obsidian-marp)** —— 通过 Marp frontmatter（`marp: true`）将任意 Obsidian 笔记转为幻灯片。Wiki 页面是纯 Markdown，可直接渲染为幻灯片，无需额外转换。
+- **🎞️ [Marp Slides](https://github.com/samuele-cozzi/obsidian-marp-slides)** —— 通过 Marp frontmatter（`marp: true`）将任意 Obsidian 笔记转为幻灯片。Wiki 页面是纯 Markdown，可直接渲染为幻灯片，无需额外转换。
 - **🖼️ Canvas** —— Obsidian 原生无限画布。把 Wiki 卡片拖到 Canvas 上，无需离开 vault 即可拼装学习指南、思维导图或研究概览，所有内容均通过 `[[wiki-links]]` 互联。
 - **🎤 [Obsidian Nous](https://github.com/AndyMDH/obsidian-nous)** —— 本地语音备忘录与会议录制（macOS 上使用 whisper.cpp，音频数据不出本机）的配套插件。生成带说话人标记的转录文件与自有 wiki 中心页面。与本插件相互独立——可在同一 vault 共存而无需耦合。
 

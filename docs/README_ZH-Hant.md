@@ -183,7 +183,7 @@
 - **✂️ [Obsidian Web Clipper](https://obsidian.md/clipper)** —— 官方瀏覽器擴充功能。將網頁（文章、部落格文章、Reddit 串文、Hacker News、食譜、研究論文、YouTube 字幕（透過 Interpreter 取得））儲存到 vault 內任一資料夾，然後執行外掛的「從資料夾攝入」指令以批次萃取實體與概念。
 - **📊 [Dataview](https://github.com/blacksmithgu/obsidian-dataview)** —— 使用 DQL（`LIST FROM "wiki/entities" WHERE contains(tags, "person")`）或 JS API 像查詢資料庫一樣檢索 Wiki。外掛會在每個頁面寫入標準 frontmatter（`tags:`、`type:`、`aliases:`），Dataview 查詢開箱即可使用。
 - **🌿 Git** —— 用任何 Git 客戶端對 vault 進行版本控制。外掛絕不重寫來源檔案，僅在 `wiki/` 下建立新頁面，因此 `git diff` 能清晰區分你的手動編輯與 LLM 生成內容。
-- **🎞️ [Marp Slides](https://github.com/samuele-cozzi/obsidian-marp)** —— 透過 Marp frontmatter（`marp: true`）將任何 Obsidian 筆記轉為投影片。Wiki 頁面為純 Markdown，無需額外轉換即可直接渲染為投影片。
+- **🎞️ [Marp Slides](https://github.com/samuele-cozzi/obsidian-marp-slides)** —— 透過 Marp frontmatter（`marp: true`）將任何 Obsidian 筆記轉為投影片。Wiki 頁面為純 Markdown，無需額外轉換即可直接渲染為投影片。
 - **🖼️ Canvas** —— Obsidian 原生無限畫布。把 Wiki 卡片拖到 Canvas 上，無需離開 vault 即可拼裝學習指南、心智圖或研究概覽，所有內容均透過 `[[wiki-links]]` 互聯。
 - **🎤 [Obsidian Nous](https://github.com/AndyMDH/obsidian-nous)** —— 本地語音備忘錄與會議錄製（macOS 上使用 whisper.cpp，音訊資料不出本機）的配套外掛。產生帶說話者標記的轉錄檔案與自有 wiki 中心頁面。與本外掛相互獨立——可在同一 vault 共存而無需耦合。
 

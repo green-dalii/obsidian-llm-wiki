@@ -209,7 +209,7 @@ Le plugin s'intègre au reste de votre stack Obsidian — chacun des outils ci-d
 - **✂️ [Obsidian Web Clipper](https://obsidian.md/clipper)** — extension officielle de navigateur. Enregistrez des pages web (articles, billets de blog, fils Reddit, Hacker News, recettes, articles de recherche, transcriptions YouTube via Interpreter) dans n'importe quel dossier de votre vault, puis exécutez la commande « Ingérer depuis le dossier » du plugin pour extraire entités et concepts en lot.
 - **📊 [Dataview](https://github.com/blacksmithgu/obsidian-dataview)** — interrogez le wiki comme une base de données avec DQL (`LIST FROM "wiki/entities" WHERE contains(tags, "person")`) ou l'API JS. Le plugin écrit du frontmatter standard (`tags:`, `type:`, `aliases:`) sur chaque page, donc les requêtes Dataview fonctionnent sans configuration.
 - **🌿 Git** — versionnez votre vault (avec n'importe quel client Git). Le plugin ne réécrit jamais vos fichiers sources ; il crée uniquement de nouvelles pages sous `wiki/`, de sorte que `git diff` sépare clairement vos modifications du contenu généré par le LLM.
-- **🎞️ [Marp Slides](https://github.com/samuele-cozzi/obsidian-marp)** — transformez n'importe quelle note Obsidian en diaporama via le frontmatter Marp (`marp: true`). Les pages wiki sont en Markdown pur, elles se rendent en diapositives sans conversion supplémentaire.
+- **🎞️ [Marp Slides](https://github.com/samuele-cozzi/obsidian-marp-slides)** — transformez n'importe quelle note Obsidian en diaporama via le frontmatter Marp (`marp: true`). Les pages wiki sont en Markdown pur, elles se rendent en diapositives sans conversion supplémentaire.
 - **🖼️ Canvas** — canevas infini natif d'Obsidian. Déposez des fiches wiki sur un canvas pour assembler guides d'étude, cartes mentales ou synthèses de recherche à partir de `[[wiki-links]]`, sans quitter le vault.
 - **🎤 [Obsidian Nous](https://github.com/AndyMDH/obsidian-nous)** — plugin compagnon pour la capture locale de mémos vocaux et réunions (whisper.cpp sur macOS ; l'audio ne quitte jamais la machine). Génère des transcriptions étiquetées par locuteur et ses propres pages wiki hub. Indépendant de ce plugin — les deux peuvent partager le même vault sans couplage.
 
@@ -388,7 +388,7 @@ Merci aux suivants pour leur soutien au projet:
 
 ## 📜 Licence et crédits
 
-Apache License, Version 2.0 — voir [LICENSE](LICENSE) et [NOTICE](NOTICE).
+Apache License, Version 2.0 — voir [LICENSE](../LICENSE) et [NOTICE](../NOTICE).
 
 **Construit avec :**
 - 💡 [LLM Wiki d'Andrej Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — le concept original

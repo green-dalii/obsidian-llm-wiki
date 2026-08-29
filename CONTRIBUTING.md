@@ -48,7 +48,7 @@ The composite alias `pnpm gate:1` runs all five in the correct order.
 - **llmReady guard**: New core features must call `requireLLMReady()` at entry points. The plugin requires a successful connection test before core features are available.
 - **i18n**: UI strings use the TEXTS system. English strings in `src/texts/en.ts` are the canonical source; all 9 other languages must be updated in lockstep.
 
-> **Historical release notes** (v1.23.0+llm-client removal, v1.24.0 splits, v1.24.1 Bedrock + PPR + page-factory, v1.25.0 PDF Ingest): see [CHANGELOG.md](../CHANGELOG.md). Keep a Changelog format is the canonical record; this file documents the project structure as it stands.
+> **Historical release notes** (v1.23.0+llm-client removal, v1.24.0 splits, v1.24.1 Bedrock + PPR + page-factory, v1.25.0 PDF Ingest): see [CHANGELOG.md](CHANGELOG.md). Keep a Changelog format is the canonical record; this file documents the project structure as it stands.
 
 ## Project Structure
 
@@ -323,7 +323,7 @@ These four patterns appear throughout the engine. New contributors should recogn
 
 ## 📜 License & DCO
 
-This project is licensed under the **Apache License, Version 2.0**. See [LICENSE](../LICENSE) for the full text and [NOTICE](../NOTICE) for contributor attribution.
+This project is licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE) for the full text and [NOTICE](NOTICE) for contributor attribution.
 
 ### Developer Certificate of Origin (DCO)
 

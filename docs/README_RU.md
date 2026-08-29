@@ -183,7 +183,7 @@
 - **✂️ [Obsidian Web Clipper](https://obsidian.md/clipper)** — официальное браузерное расширение. Сохраняйте веб-страницы (статьи, посты блогов, треды Reddit, Hacker News, рецепты, исследовательские работы, расшифровки YouTube через Interpreter) в любую папку вашего хранилища, затем запустите команду плагина `Импорт из папки` для пакетного извлечения сущностей и концепций.
 - **📊 [Dataview](https://github.com/blacksmithgu/obsidian-dataview)** — запрашивайте Wiki как базу данных с DQL (`LIST FROM "wiki/entities" WHERE contains(tags, "person")`) или JS API. Плагин записывает стандартный frontmatter (`tags:`, `type:`, `aliases:`) на каждой странице, так что запросы Dataview работают из коробки.
 - **🌿 Git** — версионируйте ваше хранилище (любой Git-клиент). Плагин никогда не перезаписывает ваши исходные файлы; только создаёт новые страницы в `wiki/`, так что `git diff` чисто разделяет ваши правки от LLM-сгенерированного контента.
-- **🎞️ [Marp Slides](https://github.com/samuele-cozzi/obsidian-marp)** — превращайте любую заметку Obsidian в слайды через Marp frontmatter (`marp: true`). Страницы Wiki — это чистый Markdown, поэтому они рендерятся как слайды без дополнительной конвертации.
+- **🎞️ [Marp Slides](https://github.com/samuele-cozzi/obsidian-marp-slides)** — превращайте любую заметку Obsidian в слайды через Marp frontmatter (`marp: true`). Страницы Wiki — это чистый Markdown, поэтому они рендерятся как слайды без дополнительной конвертации.
 - **🖼️ Canvas** — нативный бесконечный холст Obsidian. Перетаскивайте карточки Wiki на Canvas, чтобы собрать учебные руководства, ментальные карты или исследовательские обзоры из `[[wiki-links]]`, не покидая хранилище.
 - **🎤 [Obsidian Nous](https://github.com/AndyMDH/obsidian-nous)** — сопутствующий плагин для локальных голосовых заметок и захвата встреч (whisper.cpp на macOS; аудио никогда не покидает машину). Генерирует транскрипты с метками говорящих и собственные хаб-страницы Wiki. Независим от этого плагина — оба могут разделять одно хранилище без связывания.
 
@@ -366,7 +366,7 @@
 
 ## 📜 Лицензия и благодарности
 
-Apache License, Version 2.0 — см. [LICENSE](LICENSE) и [NOTICE](NOTICE).
+Apache License, Version 2.0 — см. [LICENSE](../LICENSE) и [NOTICE](../NOTICE).
 
 **Построено на:**
 - 💡 [Karpathy LLM Wiki Андрея Карпатого](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — оригинальная концепция
