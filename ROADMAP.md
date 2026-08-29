@@ -12,7 +12,7 @@
 
 ## Process notes
 
-Process standards live in [CLAUDE.md §"🛡️ Six-Gate Quality Closure"](./CLAUDE.md). Release flow lives in [`obsidian-plugin-release` skill](/Users/greener/.claude/skills/obsidian-plugin-release/SKILL.md). ROADMAP does not duplicate process standards or shipped-version details — only the **planning decisions** that have not yet shipped.
+Process standards live in [AGENTS.md §"🛡️ Six-Gate Quality Closure"](./AGENTS.md#-six-gate-quality-closure). Release flow lives in the [`obsidian-plugin-release` skill](/Users/greener/.pi/skills/obsidian-plugin-release/SKILL.md) (Pi canonical path; legacy alias `/Users/greener/.claude/skills/obsidian-plugin-release/SKILL.md` still works under Claude Code sessions). ROADMAP does not duplicate process standards or shipped-version details — only the **planning decisions** that have not yet shipped. The historical `[CLAUDE.md](./CLAUDE.md)` file is now a pointer stub to `AGENTS.md`; all new content goes in `AGENTS.md`.
 
 ---
 
@@ -124,7 +124,7 @@ Open follow-ups from review threads: alias-floor unification (#537×#532), bound
 
 - 5 new items triaged: 4 from @DocTpoint (3 architect-level + 2 future-work bookmarks) + 1 PR. Total open issues 21 + 1 PR.
 - AND-rule (eyes + label both present) skipped #542 / #543 — those had previous maintainer 👀 + label, but the work is still pending; visible in backlog above.
-- PR review policy per CLAUDE.md "Mandatory merge sequence": `gh pr review` (formal review event) precedes any `gh pr merge`. PR #569 received `CHANGES_REQUESTED` review event 2026-08-28 with B1-B6 + T1-T3 as pre-merge scope.
+- PR review policy per AGENTS.md "Mandatory merge sequence": `gh pr review` (formal review event) precedes any `gh pr merge`. PR #569 received `CHANGES_REQUESTED` review event 2026-08-28 with B1-B6 + T1-T3 as pre-merge scope.
 
 ---
 
