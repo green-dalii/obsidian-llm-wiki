@@ -165,7 +165,13 @@ const THINKING_ALIASES: Readonly<Record<string, TaskThinking>> = {
  * never matches. Give the labels one home and this becomes a two-line check.
  */
 export function parseTaskPolicySpec(spec: string): TaskPolicyMap {
-  const policies: Record<string, TaskPolicy> = {};
+  // #543: a null-prototype map. `policies['__proto__'] = ...` on a plain
+  // object literal invokes the inherited accessor instead of setting an
+  // own property, so a second `__proto__=...` entry bypassed the duplicate
+  // guard and silently mutated the object's prototype. `hasOwnProperty.call`
+  // on a null-proto object still reports whatever string was assigned, and
+  // `__proto__` becomes a normal own key like any other.
+  const policies: Record<string, TaskPolicy> = Object.create(null) as Record<string, TaskPolicy>;
   for (const rawEntry of spec.split(',')) {
     const entry = rawEntry.trim();
     if (entry === '') continue;

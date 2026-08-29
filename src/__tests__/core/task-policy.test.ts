@@ -178,6 +178,17 @@ describe('parseTaskPolicySpec — bounded thinking', () => {
       .toThrow(/"extract" is set twice/);
   });
 
+  // #543: the duplicate-task guard relied on `Object.prototype.hasOwnProperty.call`
+  // against a plain object literal, which leaves `__proto__` as an inherited
+  // accessor — `policies['__proto__'] = ...` never becomes an own property, so
+  // a second `__proto__=...` entry passed the guard and silently mutated the
+  // object's prototype instead. The contract "a task named twice is an error"
+  // must hold for every key the parser accepts as a task name.
+  it('rejects a __proto__ entry set twice (closes the hasOwnProperty.call bypass, #543)', () => {
+    expect(() => parseTaskPolicySpec('__proto__=text:on,__proto__=schema:off'))
+      .toThrow(/"__proto__" is set twice/);
+  });
+
   it('rejects a repeated wildcard too', () => {
     expect(() => parseTaskPolicySpec('*=text,*=schema')).toThrow(/set twice/);
   });
