@@ -16,7 +16,19 @@ export function cleanMarkdownResponse(response: string): string {
 
   let cleaned = stripThinkingBlocks(response.trim());
 
-  if (cleaned.indexOf('\n---\n') === -1) {
+  // Preamble cut: strip chat prose the model put before the first heading
+  // ("Here is the merged page:", …). Guarded twofold:
+  //   - a response carrying frontmatter is left alone (original guard), and
+  //   - a response that already STARTS with a `#`/`##` heading is left alone.
+  // The second guard is the fix for a silent first-section eater: the search
+  // pattern requires a leading newline, so on a body that opens with
+  // `## Description` the first MATCH was the SECOND heading — and the cut
+  // deleted the entire first section. Downstream, preserveExistingSections
+  // then restored the OLD section, so every body-merge looked like it never
+  // touched the description while Related/Mentions arrived. Measured on a
+  // real ingest: description-bearing first sections were dropped from
+  // merge-body responses on every touched page.
+  if (cleaned.indexOf('\n---\n') === -1 && !/^#{1,6} /.test(cleaned)) {
     const headerMatch = cleaned.match(/\n#{1,2} \S/);
     if (headerMatch) {
       const cutIdx = cleaned.indexOf(headerMatch[0]);

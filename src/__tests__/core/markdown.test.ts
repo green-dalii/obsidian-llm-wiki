@@ -196,3 +196,36 @@ describe('stripTrailingSeparators (#310)', () => {
   });
 });
 
+
+// Fix: the preamble cut must not eat a legitimate first section.
+describe('cleanMarkdownResponse — preamble cut guards', () => {
+  it('keeps the first section when the response starts with a heading', () => {
+    const resp = [
+      '## Description',
+      'New merged description with the source facts.',
+      '',
+      '## Related Entities',
+      '- [[AHA]]',
+    ].join('\n');
+    const out = cleanMarkdownResponse(resp);
+    expect(out).toContain('## Description');
+    expect(out).toContain('source facts');
+  });
+
+  it('still strips chat preamble before the first heading', () => {
+    const resp = [
+      'Here is the merged page:',
+      '',
+      '## Description',
+      'Body text.',
+    ].join('\n');
+    const out = cleanMarkdownResponse(resp);
+    expect(out.startsWith('## Description')).toBe(true);
+    expect(out).not.toContain('Here is the merged page');
+  });
+
+  it('leaves frontmatter-carrying responses alone (original guard)', () => {
+    const resp = '---\ntype: entity\n---\n\n# Title\n\n## Description\nBody.';
+    expect(cleanMarkdownResponse(resp)).toContain('type: entity');
+  });
+});
