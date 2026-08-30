@@ -31,6 +31,8 @@ export interface WikiEngineHarness {
   stats: { llmCalls: number; vaultMarkdownScans: number };
   /** Filenames delivered to `onIngestionStart` (status-bar text hooks). */
   startedFilenames: string[];
+  /** Paths handed to fileManager.trashFile, in order. */
+  trashedPaths: string[];
   /** Progress messages delivered to `onProgress` (PDF "Reading PDF: …"). */
   progressMessages: string[];
 }
@@ -42,6 +44,9 @@ export interface HarnessOptions {
   /** Paths where getAbstractFileByPath returns null despite the file existing.
    *  Simulates macOS NFC/NFD normalization mismatch (Issue #173 Symptom A). */
   nfcNfdPaths?: string[];
+  /** Invoked before every stubbed LLM call with the 0-based call index.
+   *  Throwing here simulates the SDK propagating an abort/failure mid-run. */
+  beforeLLMCall?: (callIndex: number) => void;
 }
 
 function mkFile(path: string): TFile {
@@ -61,6 +66,7 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
   const writtenPaths: string[] = [];
   const reports: IngestReport[] = [];
   const stats = { llmCalls: 0, vaultMarkdownScans: 0 };
+  const trashedPaths: string[] = [];
   let llmIdx = 0;
 
   const app = {
@@ -92,6 +98,12 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
       getMarkdownFiles: () => { stats.vaultMarkdownScans++; return [...files.keys()].filter(p => p.endsWith('.md')).map(mkFile); },
       getFiles: () => [...files.keys()].map(mkFile),
     },
+    fileManager: {
+      trashFile: async (f: { path: string }) => {
+        files.delete(f.path);
+        trashedPaths.push(f.path);
+      },
+    },
     metadataCache: {
       // Reflect stored frontmatter from the in-memory vault so content-hash
       // dedup (buildIngestedHashes) behaves like the real cached metadata.
@@ -106,6 +118,7 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
 
   const client: LLMClient = {
     createMessage: async params => {
+      opts.beforeLLMCall?.(stats.llmCalls);
       stats.llmCalls++;
       llmRequests.push(params);
       return opts.llmResponses?.[llmIdx++] ?? '{"entities":[],"concepts":[]}';
@@ -139,7 +152,7 @@ export function createWikiEngineHarness(opts: HarnessOptions = {}): WikiEngineHa
     () => { /* onEnd: nothing to capture */ },
   );
 
-  return { engine, llmRequests, writtenPaths, reports, files, stats, startedFilenames, progressMessages };
+  return { engine, llmRequests, writtenPaths, reports, files, stats, startedFilenames, progressMessages, trashedPaths };
 }
 
 /** True if any written path is a wiki entity/concept/source page (the #164 symptom). */

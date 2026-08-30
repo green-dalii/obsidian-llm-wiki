@@ -995,6 +995,9 @@ export class WikiEngine {
 
     const failedItems: Array<{ type: 'entity' | 'concept'; name: string; reason: string }> = [];
     let analysis: SourceAnalysis | null = null;
+    // Path of the summary page written in Stage 2, tracked outside the try so
+    // the cancellation path can remove it — see the AbortError branch below.
+    let summaryPagePath: string | null = null;
 
     try {
       await this.ensureWikiStructure();
@@ -1082,6 +1085,7 @@ export class WikiEngine {
       const summaryTime = Date.now() - summaryStart;
       console.debug(`[Time] Summary page generation: ${summaryTime}ms`);
       analysis.created_pages.push(summaryPage);
+      summaryPagePath = summaryPage;
 
       // Stage 3: Entity/Concept Page Generation
       // v1.25.1 Phase C-PR1: retry + rate-limit template extracted to
@@ -1334,13 +1338,30 @@ export class WikiEngine {
       if (error instanceof DOMException && error.name === 'AbortError') {
         this.wasCancelled = true;
         console.debug('=== Ingestion cancelled by user ===');
+
+        // A cancelled ingest must not read as a completed one: the summary
+        // page doubles as the completion marker (isAlreadyIngested checks its
+        // existence), so leaving it behind freezes the half-finished ingest as
+        // done and every later trigger skips the source. Trash it — the next
+        // trigger then re-ingests cleanly. Content pages stay: a re-ingest
+        // merges them additively.
+        if (summaryPagePath) {
+          try {
+            await this.deleteFile(summaryPagePath);
+            console.debug('Cancelled ingest: removed summary page so the source re-ingests:', summaryPagePath);
+          } catch (cleanupError) {
+            console.warn('Cancelled ingest: could not remove summary page:', summaryPagePath, cleanupError);
+          }
+        }
+        const reportedCreated = createdPages.filter(p => p !== summaryPagePath);
+
         new Notice(getText(this.settings.language, 'ingestionCancelled'), NOTICE_NORMAL);
         this.onDone?.({
           sourceFile: file.path,
-          createdPages,
+          createdPages: reportedCreated,
           updatedPages: analysis?.updated_pages || [],
-          entitiesCreated: createdPages.filter(p => p.includes('/entities/')).length,
-          conceptsCreated: createdPages.filter(p => p.includes('/concepts/')).length,
+          entitiesCreated: reportedCreated.filter(p => p.includes('/entities/')).length,
+          conceptsCreated: reportedCreated.filter(p => p.includes('/concepts/')).length,
           failedItems,
           contradictionsFound: analysis?.contradictions?.length || 0,
           success: false,
