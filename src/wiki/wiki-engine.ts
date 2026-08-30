@@ -16,6 +16,7 @@ import {
   DEFAULT_SOURCE_TAG,
 } from '../types';
 import { PROMPTS } from '../prompts';
+import { normalizeHeadingSpacing } from '../core/markdown-spacing';
 import { getText } from '../core/i18n';
 import { buildRepetitionPenaltyHint } from '../core/repetition-penalty-hint';
 import { formatTaskUsage, snapshotTaskUsage, taskUsageSince } from '../core/llm-task-usage';
@@ -1567,6 +1568,13 @@ export class WikiEngine {
     if (sourcesFix.fixed > 0) {
       console.warn(`createOrUpdateFile: normalized polluted sources field in ${path}`);
       content = sourcesFix.content;
+    }
+
+    // Cosmetic spacing: one blank line after each heading, blank-line runs
+    // collapsed (see core/markdown-spacing.ts). Wiki content pages only —
+    // log/schema writes pass through untouched.
+    if (this.isInWikiContentFolder(path, this.settings.wikiFolder)) {
+      content = normalizeHeadingSpacing(content);
     }
 
     for (let attempt = 0; attempt < 3; attempt++) {
