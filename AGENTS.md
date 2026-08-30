@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-08-27
 
-**Current state pointer:** see [ROADMAP.md](./ROADMAP.md#current-status) for active development phase + [CHANGELOG.md](./CHANGELOG.md) for shipped history. CLAUDE.md carries process standards only. **Latest shipped:** v1.27.0 MINOR (2026-08-27, 3677 tests / 260 files).
+**Current state pointer:** see [ROADMAP.md](./ROADMAP.md#current-status) for active development phase + [CHANGELOG.md](./CHANGELOG.md) for shipped history. This file (AGENTS.md) carries process standards only — and is the single canonical source. The historical mirror at `CLAUDE.md` is now a pointer stub to this file; all new content goes here. **Latest shipped:** v1.27.0 MINOR (2026-08-27, 3677 tests / 260 files).
 
 ---
 
@@ -14,7 +14,7 @@
 | **2. No side effects** | Call-site audit + data flow + state mutation + error propagation | Structured review |
 | **3. No breaking changes** | API/Schema/File format/Default behavior/Command IDs/Obsidian API | Breaking-change matrix |
 | **4. No performance regression** | CPU/memory/IO/network/token — 5-dim written assessment | simplify + code-review + Gate 4 table |
-| **5. Docs complete** | 10 READMEs + ROADMAP + CLAUDE + CHANGELOG + memory | pre-release-gate |
+| **5. Docs complete** | 10 READMEs + ROADMAP + AGENTS + CHANGELOG + memory | pre-release-gate |
 | **6. Release clean** | Supersets 1-5 + TOC + i18n + Release Notes + Contributors + git hygiene | pre-release-gate |
 
 ### Gate 1: Five-Gate automated
@@ -199,7 +199,7 @@ When user says "build local debug file for testing":
 2. Verify `main.js` ends with `//# sourceMappingURL=data:application/json;base64,...`
 3. Confirm `console.debug` is NOT replaced
 
-For full release workflow (commit + push + tag + release notes), use `obsidian-plugin-release` skill. **Main branch is protected** — direct pushes rejected with `GH013`.
+For full release workflow (commit + push + tag + release notes), use the `obsidian-plugin-release` skill. Canonical path under Pi: `~/.pi/skills/obsidian-plugin-release/SKILL.md`. Legacy alias `~/.claude/skills/obsidian-plugin-release/SKILL.md` still works under Claude Code sessions. **Main branch is protected** — direct pushes rejected with `GH013`.
 
 ---
 
@@ -262,7 +262,7 @@ English, conventional commits: `feat:` `fix:` `docs:` `refactor:` `test:` `chore
 
 **Auto-close:** append `Closes #N` (or `Fixes #N` / `Resolves #N`) to commit body. NEVER use `gh issue close` or UI close — let the commit message do it.
 
-**Author identity:** canonical `green-dalii <654534332@qq.com>`. NEW commits (incl. `--amend` and squash) MUST use lowercase canonical form. **Maintainer commits DO NOT include any `Co-Authored-By:` AI trailer** (per [[feedback_co_authored_by_format]]). External contributors write their own trailers — preserve verbatim on merge.
+**Author identity:** canonical `green-dalii <654534332@qq.com>`. NEW commits (incl. `--amend` and squash) MUST use lowercase canonical form. **Maintainer commits DO NOT include any AI-generated trailer** — no `Co-Authored-By:`, no `Generated with`, no equivalent marker from **any** AI agent (Claude Code, Codex, Cursor, Pi, …). AI tooling may legitimately assist authoring, but the commit's audit trail must read as a single human author (per [[feedback_co_authored_by_format]]). External contributors write their own trailers — preserve verbatim on merge.
 
 ---
 
@@ -362,7 +362,7 @@ Planning: [ROADMAP §v1.27.0 MINOR track](./ROADMAP.md#v1270-minor-design-track)
 
 ### ⚠️ Architect-level contributors (v1.26.0+)
 
-See `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_architect_contributor_policy.md` for definition, role, scope, DocTpoint case study. Currently granted to @DocTpoint (Write role on personal repo; "no push to main" enforced by branch protection, not role assignment).
+See [MEMORY.md §"Architect-level contributors"](./MEMORY.md#architect-level-contributors) and §"Key Design Decisions" below for definition, role, scope, DocTpoint case study. The project keeps no per-agent private memory directory; the only durable record is [MEMORY.md](./MEMORY.md). Currently granted to @DocTpoint (Write role on personal repo; "no push to main" enforced by branch protection, not role assignment).
 
 ### ⚠️ Withdrawn / non-issues (archaeology)
 
@@ -376,7 +376,8 @@ See `~/.claude/projects/-Users-greener-project-obsidian-llm-wiki/memory/project_
 
 | File | Responsibility | What belongs | Does NOT belongs |
 |------|---------------|--------------|-----------------|
-| **CLAUDE.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current state | Old release histories, project structure tree, full version timeline |
+| **AGENTS.md** | Dev standards + current phase | Six-Gate / TDD / Git workflow / current state | Old release histories, project structure tree, full version timeline |
+| **CLAUDE.md** | Historical mirror (pointer stub only) | One-line redirect to `AGENTS.md` | All new process content (CLAUDE.md is frozen) |
 | **ROADMAP.md** | Planning | Next Milestone / Version Timeline (condensed) / Deferred & Backlog | Per-version detail (use CHANGELOG) |
 | **CHANGELOG.md** | History (Keep a Changelog) | Per-version Added/Changed/Fixed/Removed — ancient versions are pre-aggregated, **do not re-merge** | Forward-looking plans, dev standards |
 | **CONTRIBUTING.md** | Contributor guide | Project structure tree, architecture, Mermaid, dev setup | User docs, design philosophy |
