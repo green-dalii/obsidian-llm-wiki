@@ -1,4 +1,4 @@
-import { detectAliasDeficiency, scanOrphans, scanTagViolations, scanDeadLinks, scanQuoteGrounding, scanHubLinkDensity, scanSourceDrift, collectCitedRawNoteTargets } from '../scanners';
+import { detectAliasDeficiency, scanOrphans, scanTagViolations, scanDeadLinks, scanQuoteGrounding, scanHubLinkDensity, scanSourceDrift, scanContradictionMarkers, collectCitedRawNoteTargets } from '../scanners';
 import { detectPollutedPages } from '../utils';
 import { parseFrontmatter } from '../../../core/frontmatter';
 import { getText } from '../../../core/i18n';
@@ -150,6 +150,14 @@ export async function runProgrammaticPhase(
   const sourceDriftIssues = scanSourceDrift(input.pageMap, driftNoteContents, ctx.settings.wikiFolder);
   console.debug(`lintWiki: ${sourceDriftIssues.length} source page(s) with drifted origin notes`);
 
+  // 9. Contradiction markers (#575 read half) — pages the merge triage
+  // stamped with `contradictions:` when it routed a conflicted rewrite.
+  // Pure frontmatter read, zero IO, zero LLM; complements the
+  // contradiction-phase folder records, which only cover conflicts the
+  // lint's own LLM pass detected.
+  const contradictionMarkerIssues = scanContradictionMarkers(input.pageMap);
+  console.debug(`lintWiki: ${contradictionMarkerIssues.length} page(s) carrying a contradictions: marker`);
+
   return {
     aliasDeficientPages,
     emptyPages: [],
@@ -160,6 +168,7 @@ export async function runProgrammaticPhase(
     ungroundedQuotes,
     hubLinkDensityIssues,
     sourceDriftIssues,
+    contradictionMarkerIssues,
     sourcesNormalizedFiles: 0, // populated by preparation phase caller
     sourcesNormalizedEntries: 0,
     doubleNestFixes: 0,

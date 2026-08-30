@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans, scanTagViolations, scanSourceDrift, ScannerPage } from '../../../wiki/lint/scanners';
+import { buildKnownTargets, detectAliasDeficiency, scanDeadLinks, scanOrphans, scanTagViolations, scanSourceDrift, scanContradictionMarkers, ScannerPage } from '../../../wiki/lint/scanners';
 import { hashBody } from '../../../core/source-requirements';
 import { LLMWikiSettings } from '../../../types';
 
@@ -596,5 +596,35 @@ describe('scanSourceDrift — canonical source_file frontmatter', () => {
 
     const unchanged = new Map([['Notizen/6-Minuten-Gehtest.md', noteBody]]);
     expect(scanSourceDrift(pageMap, unchanged, 'wiki')).toHaveLength(0);
+  });
+});
+
+// ── scanContradictionMarkers (#575 read half) ─────────────
+
+describe('scanContradictionMarkers', () => {
+  const page = (path: string, content: string): [string, ScannerPage] => [
+    path,
+    { path, basename: path.split('/').pop()!, content },
+  ];
+
+  it('surfaces pages with a non-empty contradictions: list', () => {
+    const pageMap = new Map<string, ScannerPage>([
+      page('wiki/entities/butyrat.md',
+        '---\ntype: entity\ncontradictions:\n  - Notizen/Neue-Studie.md\n  - Notizen/Alte-Studie.md\n---\n\nBody'),
+      page('wiki/entities/clean.md', '---\ntype: entity\n---\n\nBody'),
+    ]);
+    const issues = scanContradictionMarkers(pageMap);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].path).toBe('wiki/entities/butyrat.md');
+    expect(issues[0].sources).toEqual(['Notizen/Neue-Studie.md', 'Notizen/Alte-Studie.md']);
+  });
+
+  it('ignores empty lists, blank entries, and non-list values', () => {
+    const pageMap = new Map<string, ScannerPage>([
+      page('wiki/entities/empty.md', '---\ntype: entity\ncontradictions:\n---\n\nBody'),
+      page('wiki/entities/blank.md', '---\ntype: entity\ncontradictions:\n  - ""\n---\n\nBody'),
+      page('wiki/entities/nofm.md', 'Body without frontmatter'),
+    ]);
+    expect(scanContradictionMarkers(pageMap)).toHaveLength(0);
   });
 });

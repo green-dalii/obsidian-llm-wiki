@@ -629,6 +629,8 @@ export const ZH_TEXTS = {
     lintNoIssuesFound: '未检测到重复、断链、空洞、孤立页面或无来源引证。',
     lintSourceDriftSection: '导入后已变更的来源笔记 [共 {count} 个]',
     lintSourceDriftItem: '- [[{page}]] — 原始笔记 [[{note}]] 在导入后被编辑，页面内容可能已过时',
+    lintContradictionMarkerSection: '带有矛盾标记的页面（合并分流）[共 {count} 个]',
+    lintContradictionMarkerItem: '- [[{page}]] — 冲突来源：{sources}；审阅后请移除 contradictions: 标记',
     lintQuoteGroundingSection: '无来源引证（程序检测）[共 {count} 个]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}："{quote}"',
     lintContradictionOpen: '未解决的矛盾：{count} 个',

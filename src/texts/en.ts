@@ -671,6 +671,8 @@ export const EN_TEXTS = {
     lintNoIssuesFound: 'No duplicates, dead links, empty pages, orphan pages, or ungrounded quotes detected.',
     lintSourceDriftSection: 'Source notes changed since ingest [{count}]',
     lintSourceDriftItem: '- [[{page}]] — origin note [[{note}]] was edited after ingest; the page may be stale',
+    lintContradictionMarkerSection: 'Pages flagged with contradictions (merge triage) [{count}]',
+    lintContradictionMarkerItem: '- [[{page}]] — conflicting source(s): {sources}; review and remove the contradictions: marker when settled',
     lintQuoteGroundingSection: 'Ungrounded quotes (detected) [{count}]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: "{quote}"',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (page does not exist){dupFlag}',

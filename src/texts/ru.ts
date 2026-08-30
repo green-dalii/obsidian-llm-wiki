@@ -652,6 +652,8 @@ export const RU_TEXTS = {
     lintNoIssuesFound: 'Дубликатов, мёртвых ссылок, пустых страниц, висячих страниц или неподтверждённых цитат не обнаружено.',
     lintSourceDriftSection: 'Исходные заметки изменены после импорта [{count}]',
     lintSourceDriftItem: '- [[{page}]] — исходная заметка [[{note}]] была изменена после импорта; страница может быть устаревшей',
+    lintContradictionMarkerSection: 'Страницы с маркером противоречий (триаж слияния) [{count}]',
+    lintContradictionMarkerItem: '- [[{page}]] — конфликтующие источники: {sources}; после проверки удалите маркер contradictions:',
     lintQuoteGroundingSection: 'Неподтверждённые цитаты (обнаружено) [{count}]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: «{quote}»',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (страница не существует){dupFlag}',

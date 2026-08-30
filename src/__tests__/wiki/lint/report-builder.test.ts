@@ -23,6 +23,7 @@ function makeFindings(overrides: Partial<ProgrammaticFindings> = {}): Programmat
     ungroundedQuotes: [],
     hubLinkDensityIssues: [],
     sourceDriftIssues: [],
+    contradictionMarkerIssues: [],
     sourcesNormalizedFiles: 0,
     sourcesNormalizedEntries: 0,
     doubleNestFixes: 0,
@@ -180,5 +181,38 @@ describe('source drift section (Issue #220 Tier 0)', () => {
       totalPages: 10,
     });
     expect(report).not.toContain('Source notes changed since ingest');
+  });
+});
+
+describe('contradiction marker section (#575 read half)', () => {
+  it('renders marked pages with their conflicting sources', () => {
+    const report = buildLintReport({
+      settings: makeSettings(),
+      findings: makeFindings({
+        contradictionMarkerIssues: [
+          { path: 'wiki/entities/butyrat.md', sources: ['Notizen/Neue-Studie.md'] },
+        ],
+      }),
+      duplicates: [],
+      contradictionsReport: '',
+      elapsedSeconds: 1,
+      totalPages: 10,
+    });
+    expect(report).toContain('Pages flagged with contradictions (merge triage) [1]');
+    expect(report).toContain('[[entities/butyrat]]');
+    expect(report).toContain('[[Notizen/Neue-Studie]]');
+    expect(report).not.toContain('No issues found');
+  });
+
+  it('omits the section when no page carries the marker', () => {
+    const report = buildLintReport({
+      settings: makeSettings(),
+      findings: makeFindings(),
+      duplicates: [],
+      contradictionsReport: '',
+      elapsedSeconds: 1,
+      totalPages: 10,
+    });
+    expect(report).not.toContain('Pages flagged with contradictions');
   });
 });

@@ -107,6 +107,8 @@ export interface ProgrammaticFindings {
   hubLinkDensityIssues: import('./scanners').HubLinkDensityIssue[];
   /** Issue #220 Tier 0 (read half) — source pages whose origin note changed since ingest. */
   sourceDriftIssues: import('./scanners').SourceDriftIssue[];
+  /** #575 read half — pages carrying the triage-stamped `contradictions:` marker. */
+  contradictionMarkerIssues: import('./scanners').ContradictionMarkerIssue[];
   sourcesNormalizedFiles: number;
   sourcesNormalizedEntries: number;
   doubleNestFixes: number;

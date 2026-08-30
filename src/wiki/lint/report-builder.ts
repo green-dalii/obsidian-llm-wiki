@@ -35,6 +35,7 @@ export function buildLintReport(input: ReportInput): string {
   const sourcesNormalizedFiles = findings.sourcesNormalizedFiles;
   const sourcesNormalizedEntries = findings.sourcesNormalizedEntries;
   const sourceDriftIssues = findings.sourceDriftIssues;
+  const contradictionMarkerIssues = findings.contradictionMarkerIssues;
 
   // Compute deadLinkFromDup / orphanFromDup counts
   const duplicatePaths = new Set<string>();
@@ -215,8 +216,23 @@ export function buildLintReport(input: ReportInput): string {
     progReport += '\n';
   }
 
+  // 8d. Contradiction markers (#575 read half) — pages stamped by the merge
+  // triage. Shown next to the contradiction-phase records so the two
+  // detection paths (merge-time vs. lint-time) land in one review surface.
+  if (contradictionMarkerIssues.length > 0) {
+    progReport += `## ${t.lintContradictionMarkerSection.replace('{count}', String(contradictionMarkerIssues.length))}\n\n`;
+    for (const c of contradictionMarkerIssues) {
+      const rel = c.path.replace(folder + '/', '').replace('.md', '');
+      const src = c.sources.map(s2 => `[[${s2.replace('.md', '')}]]`).join(', ');
+      progReport += t.lintContradictionMarkerItem
+        .replace('{page}', rel)
+        .replace('{sources}', src) + '\n';
+    }
+    progReport += '\n';
+  }
+
   // 9. No issues message
-  if (!duplicates.length && !deadLinks.length && !emptyPages.length && !orphans.length && !ungroundedQuotes.length && !hubLinkDensityIssues.length && !sourceDriftIssues.length) {
+  if (!duplicates.length && !deadLinks.length && !emptyPages.length && !orphans.length && !ungroundedQuotes.length && !hubLinkDensityIssues.length && !sourceDriftIssues.length && !contradictionMarkerIssues.length) {
     progReport += `${t.lintNoIssuesFound}\n\n`;
   }
 

@@ -3,6 +3,7 @@
 
 import { parseFrontmatter, extractBody } from '../../core/frontmatter';
 import { hashBody } from '../../core/source-requirements';
+import { CONTRADICTIONS_KEY } from '../../core/contradicted-marker';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from '../../core/tag-vocab';
 import { normalizeQuote, isQuoteGrounded } from './utils';
 import { LLMWikiSettings } from '../../types';
@@ -554,6 +555,44 @@ export function scanSourceDrift(
       });
     }
   }
+  return issues;
+}
 
+// ── Contradiction marker scanner (#575 read half) ──────────────────────
+
+export interface ContradictionMarkerIssue {
+  /** Wiki page carrying a non-empty `contradictions:` frontmatter list. */
+  path: string;
+  /** Source paths whose triage flagged a conflict with this page. */
+  sources: string[];
+}
+
+/**
+ * Surface pages whose frontmatter carries the `contradictions:` marker that
+ * the merge triage stamps when it routes a conflicted rewrite (#575). The
+ * marker module wrote the field for exactly this consumer ("Lint can later
+ * scan this field to surface pages that need editorial review") — without
+ * this scanner the durable half of the contradiction lane is write-only.
+ *
+ * Pure and IO-free: the marker accumulates across re-touches, so this is a
+ * frontmatter read over the pages the lint already holds. A page leaves the
+ * report when the user removes the marker after review — the inline
+ * "Potential Contradiction" body block is NOT required to still exist (it
+ * falls to section pruning on later rewrites; the frontmatter is the
+ * durable signal).
+ */
+export function scanContradictionMarkers(
+  pageMap: Map<string, ScannerPage>,
+): ContradictionMarkerIssue[] {
+  const issues: ContradictionMarkerIssue[] = [];
+  for (const [path, page] of pageMap) {
+    const fm = parseFrontmatter(page.content);
+    if (!fm) continue;
+    const raw = (fm as Record<string, unknown>)[CONTRADICTIONS_KEY];
+    if (!Array.isArray(raw)) continue;
+    const sources = raw.map(s => String(s).trim()).filter(s => s.length > 0);
+    if (sources.length === 0) continue;
+    issues.push({ path, sources });
+  }
   return issues;
 }

@@ -657,6 +657,8 @@ export const PT_TEXTS = {
     lintNoIssuesFound: 'Nenhuma duplicata, link quebrado, página vazia, página órfã ou citação sem fonte detectada.',
     lintSourceDriftSection: 'Notas de origem alteradas desde a ingestão [{count}]',
     lintSourceDriftItem: '- [[{page}]] — a nota de origem [[{note}]] foi editada após a ingestão; a página pode estar desatualizada',
+    lintContradictionMarkerSection: 'Páginas marcadas com contradições (triagem de mesclagem) [{count}]',
+    lintContradictionMarkerItem: '- [[{page}]] — fonte(s) em conflito: {sources}; após a revisão, remova o marcador contradictions:',
     lintQuoteGroundingSection: 'Citações sem fonte (detectadas) [{count}]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: "{quote}"',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (página inexistente){dupFlag}',
