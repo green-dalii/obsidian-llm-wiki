@@ -508,16 +508,27 @@ export function scanSourceDrift(
     if (!fm) continue;
     const storedHash = (fm as Record<string, unknown>).contentHash;
     if (typeof storedHash !== 'string' || !storedHash) continue;
-    if (!Array.isArray(fm.sources) || fm.sources.length === 0) continue;
 
-    const notePaths = fm.sources
+    // Canonical source pages carry a scalar `source_file:` wikilink
+    // (generation.ts template); a `sources:` list only appears on pages
+    // written through the entity/concept path. Read the scalar first and
+    // fall back to the list — reading only `sources:` would make the
+    // scanner blind on every canonical page (found by probing a real
+    // vault: 35/35 source pages carried source_file, none sources:).
+    const rawRefs: string[] = [];
+    const sourceFile = (fm as Record<string, unknown>).source_file;
+    if (typeof sourceFile === 'string') rawRefs.push(sourceFile);
+    if (Array.isArray(fm.sources)) rawRefs.push(...fm.sources.map(s => String(s)));
+
+    const notePaths = rawRefs
       .map(s => {
-        const trimmed = String(s).trim();
+        const trimmed = s.trim();
         return trimmed.startsWith('[[') && trimmed.endsWith(']]')
           ? trimmed.slice(2, -2).trim()
           : trimmed;
       })
       .filter(p => p.length > 0);
+    if (notePaths.length === 0) continue;
 
     let anyReadable = false;
     let anyMatch = false;

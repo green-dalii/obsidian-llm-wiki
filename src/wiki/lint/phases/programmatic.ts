@@ -124,9 +124,15 @@ export async function runProgrammaticPhase(
   for (const [path, page] of input.pageMap) {
     if (!path.startsWith(`${ctx.settings.wikiFolder}/sources/`)) continue;
     const fm = parseFrontmatter(page.content);
-    if (!Array.isArray(fm?.sources)) continue;
-    for (const s of fm.sources) {
-      const trimmed = String(s).trim();
+    if (!fm) continue;
+    // Same field precedence as scanSourceDrift: scalar `source_file:`
+    // (canonical on sources/ pages) plus any `sources:` list entries.
+    const refs: string[] = [];
+    const sourceFile = (fm as Record<string, unknown>).source_file;
+    if (typeof sourceFile === 'string') refs.push(sourceFile);
+    if (Array.isArray(fm.sources)) refs.push(...fm.sources.map(s => String(s)));
+    for (const s of refs) {
+      const trimmed = s.trim();
       const notePath = trimmed.startsWith('[[') && trimmed.endsWith(']]')
         ? trimmed.slice(2, -2).trim()
         : trimmed;

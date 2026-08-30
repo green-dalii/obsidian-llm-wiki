@@ -578,3 +578,23 @@ describe('scanSourceDrift', () => {
     expect(issues[0].note).toBe('Notizen/A.md');
   });
 });
+
+describe('scanSourceDrift — canonical source_file frontmatter', () => {
+  it('reads the scalar source_file wikilink written by the generation template', () => {
+    const noteBody = 'Original note body.';
+    const pageMap = new Map<string, ScannerPage>([
+      ['wiki/sources/geh-test.md', {
+        path: 'wiki/sources/geh-test.md',
+        basename: 'geh-test.md',
+        content: `---\ntype: source\nsource_file: "[[Notizen/6-Minuten-Gehtest.md]]"\ncontentHash: ${hashBody(noteBody)}\n---\n\nSummary.`,
+      }],
+    ]);
+    const changed = new Map([['Notizen/6-Minuten-Gehtest.md', 'Edited body.']]);
+    const issues = scanSourceDrift(pageMap, changed, 'wiki');
+    expect(issues).toHaveLength(1);
+    expect(issues[0].note).toBe('Notizen/6-Minuten-Gehtest.md');
+
+    const unchanged = new Map([['Notizen/6-Minuten-Gehtest.md', noteBody]]);
+    expect(scanSourceDrift(pageMap, unchanged, 'wiki')).toHaveLength(0);
+  });
+});
