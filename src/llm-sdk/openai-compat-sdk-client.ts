@@ -39,7 +39,7 @@ import {
 import { TokenKeyProber } from './token-key-probe';
 import { ReasoningStripProber } from './reasoning-strip-probe';
 import { OutputModeProber, type OutputMode } from './output-mode-prober';
-import { assertNotReasoningOnly, normalizeUsage, reportFinish, extractReasoningText } from './finish-reason';
+import { assertNotReasoningOnly, isReasoningRunaway, normalizeUsage, reportFinish, extractReasoningText } from './finish-reason';
 import { buildSamplingArgs } from './sampling-args';
 import { buildOutputArgs } from './output-args';
 import { JSON_ENFORCEMENT_SYSTEM_PREFIX, forcedTextPromptSystem } from './json-prompt-prefix';
@@ -374,13 +374,20 @@ export class OpenAICompatSdkClient implements LLMClient {
       } catch {
         /* No reasoning field on this provider. */
       }
+      // S143: the reasoning-channel rescue below exists for backends that put
+      // the ANSWER into `reasoning_content`. When the usage says the budget
+      // went to reasoning and content is empty at `length`, the reasoning is
+      // a runaway think, not an answer — skip the prepend so the #470 assert
+      // sees the empty answer and throws (see isReasoningRunaway).
+      const usage = normalizeUsage(result.usage);
       const finalText = reasoningContent
+          && !isReasoningRunaway(result.text, result.finishReason, usage)
         ? prependReasoningForParse(reasoningContent, result.text)
         : result.text;
       // Issue #470: empty answer + `length` + the budget spent on reasoning is
       // a thinking-control failure, not a parse failure. Checked on finalText
       // so the reasoning-channel prepend above counts as content.
-      assertNotReasoningOnly(finalText, result.finishReason, normalizeUsage(result.usage));
+      assertNotReasoningOnly(finalText, result.finishReason, usage);
       return finalText;
     } catch (err) {
       // v1.26.3 PATCH Path 2 fix (DocTpoint CHANGES_REQUESTED
@@ -939,10 +946,12 @@ export class OpenAICompatSdkClient implements LLMClient {
       } catch {
         /* No reasoning field on this provider. */
       }
+      // S143: same runaway gate as the plain path — see createMessage.
+      const usage = normalizeUsage(result.usage);
       const text = reasoningContent
+          && !isReasoningRunaway(result.text, result.finishReason, usage)
         ? prependReasoningForParse(reasoningContent, result.text)
         : result.text;
-      const usage = normalizeUsage(result.usage);
       recoveredText = text;
       recoveredUsage = usage;
       recoveredFinishReason = result.finishReason;

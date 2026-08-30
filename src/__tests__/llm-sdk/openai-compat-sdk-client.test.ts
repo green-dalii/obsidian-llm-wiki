@@ -293,6 +293,53 @@ describe('OpenAICompatSdkClient', () => {
       expect(text).toContain('"name":"A"');
     });
 
+    // S143: the prepend rescue is for answers that arrived through the
+    // reasoning channel (finish=stop). A think that ran into the token limit
+    // with empty content never produced an answer — prepending it would
+    // launder the runaway reasoning into a "valid" response that downstream
+    // merges into wiki pages (observed: 7 pages with 30K-char English
+    // think-plans as body). The #470 guard must fire instead.
+    it('createMessage: does NOT launder a runaway think (empty content at length)', async () => {
+      mockGenerateText.mockReset();
+      const runaway = {
+        ...(makeResultWithReasoning('', '*   Target: Update the "Burnout" wiki page…') as object),
+        finishReason: 'length',
+        usage: { inputTokens: 9000, outputTokens: 32767, totalTokens: 41767, reasoningTokens: 32765, cachedInputTokens: undefined },
+      } as Awaited<ReturnType<typeof generateText>>;
+      mockGenerateText.mockResolvedValue(runaway);
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'http://localhost:1234/v1',
+        provider: 'lmstudio',
+      });
+      await expect(client.createMessage({
+        model: 'gemma-4-26b',
+        max_tokens: 32767,
+        messages: [{ role: 'user', content: 'merge' }],
+      })).rejects.toThrow(/max_tokens/);
+    });
+
+    it('createMessageWithOutput: same runaway gate on the typed path', async () => {
+      mockGenerateText.mockReset();
+      const runaway = {
+        ...(makeResultWithReasoning('', 'endless format rumination…') as object),
+        finishReason: 'length',
+        usage: { inputTokens: 9000, outputTokens: 16000, totalTokens: 25000, reasoningTokens: 15997, cachedInputTokens: undefined },
+      } as Awaited<ReturnType<typeof generateText>>;
+      mockGenerateText.mockResolvedValue(runaway);
+      const client = new OpenAICompatSdkClient({
+        apiKey: 'sk-test',
+        baseURL: 'http://localhost:1234/v1',
+        provider: 'lmstudio',
+      });
+      await expect(client.createMessageWithOutput({
+        model: 'gemma-4-26b',
+        max_tokens: 16000,
+        messages: [{ role: 'user', content: 'analyze' }],
+        response_format: { type: 'json_object', schema: {} },
+      })).rejects.toThrow(/reasoning/);
+    });
+
     it('does NOT prepend when reasoning is empty (cloud providers unaffected)', async () => {
       mockGenerateText.mockReset();
       mockGenerateText.mockResolvedValue(

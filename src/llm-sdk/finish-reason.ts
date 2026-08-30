@@ -116,20 +116,41 @@ export function extractReasoningText(reasoning: unknown): string {
  *     provider to have said what the tokens went to; without it, "empty at
  *     length" is just truncation, which is #305's signal, not this one.
  */
+/**
+ * S143: the predicate of assertNotReasoningOnly, reusable BEFORE the
+ * reasoning-channel prepend. When it holds, the reasoning is a runaway think
+ * that never reached the answer — prepending it would hand 30K chars of
+ * reasoning prose to markdown-consuming callers (merge/create), which have
+ * no parse gate and write it into pages. Callers skip the prepend so the
+ * assert below sees the empty answer and throws. When the provider reports
+ * no reasoning breakdown, this stays false and the legacy prepend applies
+ * (#544: a truncated JSON in the reasoning channel still reaches the
+ * parse-and-retry path downstream).
+ */
+export function isReasoningRunaway(
+  text: string,
+  raw: unknown,
+  usage: LLMUsage | undefined,
+): boolean {
+  if (text.trim().length > 0) return false;
+  if (normalizeFinishReason(raw) !== 'length') return false;
+  const outputTokens = usage?.outputTokens ?? 0;
+  const reasoningTokens = usage?.reasoningTokens;
+  if (reasoningTokens === undefined || outputTokens <= 0) return false;
+  return reasoningTokens / outputTokens >= 0.5;
+}
+
 export function assertNotReasoningOnly(
   text: string,
   raw: unknown,
   usage: LLMUsage | undefined,
 ): void {
-  if (text.trim().length > 0) return;
-  if (normalizeFinishReason(raw) !== 'length') return;
+  if (!isReasoningRunaway(text, raw, usage)) return;
   const outputTokens = usage?.outputTokens ?? 0;
   const reasoningTokens = usage?.reasoningTokens;
-  if (reasoningTokens === undefined || outputTokens <= 0) return;
-  if (reasoningTokens / outputTokens < 0.5) return;
   throw new Error(
     `The model returned empty content after spending ${reasoningTokens} of `
     + `${outputTokens} output tokens on reasoning. Disable thinking for this `
-    + `model, or raise the token limit so the answer fits after it.`,
+    + `model, or raise the token limit (max_tokens) so the answer fits after it.`,
   );
 }
