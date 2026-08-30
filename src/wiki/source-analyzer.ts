@@ -214,6 +214,13 @@ export class SourceAnalyzer {
     let currentBatchSize = limits.initialBatchSize;
     let batchSizeHalved = false;
     let retryingBatch = false; // one retry on truncation: halve batch size
+    // S143: halving lowers only the item ceiling inside the prompt. A
+    // reasoning model that spent the whole budget thinking never reached the
+    // items, so a smaller ceiling cannot shorten the retry — and
+    // Math.max(baseMaxTokens, …) could only shrink the budget back to base.
+    // The retry must also raise the budget to retryCap, which until now was
+    // only ever passed as a ceiling nothing climbed toward.
+    let escalateMaxTokens = false;
     // v1.26.x PATCH follow-up (#443 LMStudio + Qwen3.5): a reasoning-mode
     // model under grammar constraint emits `{"": ""}` (minimum valid JSON
     // object) as a placeholder when its thinking budget is tight. The
@@ -241,7 +248,8 @@ export class SourceAnalyzer {
     const halveBatchAndRetry = (batchLabel: string, cause: string): boolean => {
       if (!canHalveBatch()) return false;
       currentBatchSize = Math.max(limits.minBatchSize, Math.floor(currentBatchSize * 0.5));
-      console.warn(`${batchLabel} Truncation detected (${cause}), halving batch size to ${currentBatchSize} and retrying`);
+      escalateMaxTokens = true;
+      console.warn(`${batchLabel} Truncation detected (${cause}), halving batch size to ${currentBatchSize} and raising max_tokens to ${retryCap} for the retry`);
       retryingBatch = true;
       return true;
     };
@@ -358,7 +366,9 @@ export class SourceAnalyzer {
       try {
         const systemPrompt = await this.ctx.buildSystemPrompt('analyze');
         // Scale max_tokens with current batch size to avoid truncation.
-        const batchMaxTokens = Math.max(baseMaxTokens, currentBatchSize * TOKENS_PER_ITEM_BUDGET);
+        const batchMaxTokens = escalateMaxTokens
+          ? retryCap
+          : Math.max(baseMaxTokens, currentBatchSize * TOKENS_PER_ITEM_BUDGET);
         // v1.24.0 #208: route through resolveModelForTask so the debug
         // log reflects the ACTUAL model used (per-task override), not
         // the unified setting. Without this, e2e verification of
@@ -563,6 +573,7 @@ export class SourceAnalyzer {
         // complete while missing that batch's items. Resetting here, on the
         // success path, gives each batch its own retry budget.
         retryingBatch = false;
+        escalateMaxTokens = false;
 
         const { validity, data: norm } = normalizeBatchResponse(analysisData);
 
@@ -691,6 +702,7 @@ export class SourceAnalyzer {
           continue;
         }
         retryingBatch = false;
+        escalateMaxTokens = false;
         console.warn(`[Batch ${batchNum + 1}] Non-first-round failure, keeping extracted items`);
         break;
       }

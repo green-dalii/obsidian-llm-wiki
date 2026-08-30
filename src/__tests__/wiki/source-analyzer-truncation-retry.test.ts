@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createMockContext, createMockFile } from '../__support__/engine-context';
 import { SourceAnalyzer } from '../../wiki/source-analyzer';
 import { normalizeFinishReason } from '../../llm-sdk/finish-reason';
+import { SOURCE_ANALYZER_RETRY_MULTIPLIER } from '../../constants';
 import type { LLMClient, LLMFinishReason } from '../../types';
 import { TFile } from 'obsidian';
 
@@ -50,9 +51,11 @@ function scriptedClient(replies: ScriptedReply[], opts: { repair?: (broken: stri
   client: LLMClient;
   prompts: string[];
   repairPrompts: string[];
+  maxTokens: number[];
 } {
   const prompts: string[] = [];
   const repairPrompts: string[] = [];
+  const maxTokens: number[] = [];
   let idx = 0;
   let lastText = '';
   const client: LLMClient = {
@@ -64,6 +67,7 @@ function scriptedClient(replies: ScriptedReply[], opts: { repair?: (broken: stri
         return opts.repair ? opts.repair(lastText) : lastText;
       }
       prompts.push(prompt);
+      maxTokens.push(params.max_tokens as number);
       const reply = replies[idx++];
       if (!reply) throw new Error(`unscripted extraction call #${idx}`);
       if (reply.finishReason) params.onFinish?.({ finishReason: reply.finishReason });
@@ -71,7 +75,7 @@ function scriptedClient(replies: ScriptedReply[], opts: { repair?: (broken: stri
       return reply.text;
     },
   };
-  return { client, prompts, repairPrompts };
+  return { client, prompts, repairPrompts, maxTokens };
 }
 
 function analyzerWith(client: LLMClient): SourceAnalyzer {
@@ -113,6 +117,23 @@ describe('SourceAnalyzer truncation retry (#305)', () => {
     const mainPrompts = prompts.filter(p => batchSizeOf(p) !== null);
     expect(mainPrompts.length).toBeGreaterThanOrEqual(2);
     expect(batchSizeOf(mainPrompts[1])!).toBeLessThan(batchSizeOf(mainPrompts[0])!);
+  });
+
+  it('raises max_tokens to the retry cap on the truncation retry', async () => {
+    // S143: a reasoning model can spend the entire budget thinking, so the
+    // retry must offer more room — halving only lowers the item ceiling in
+    // the prompt, which cannot shorten a think-phase that never reached the
+    // items.
+    const { client, maxTokens } = scriptedClient([
+      { text: TRUNCATED, finishReason: 'length' },
+      { text: VALID, finishReason: 'stop' },
+    ]);
+
+    const result = await run(analyzerWith(client));
+
+    expect(result).not.toBeNull();
+    expect(maxTokens.length).toBeGreaterThanOrEqual(2);
+    expect(maxTokens[1]).toBe(maxTokens[0] * SOURCE_ANALYZER_RETRY_MULTIPLIER);
   });
 
   it('does not retry when the parse failed for a reason other than truncation', async () => {
