@@ -24,6 +24,7 @@ import { TOKENS_MERGE_TRIAGE } from '../../constants';
 import { resolveModelForTask } from '../../core/model-resolver';
 import { getSectionLabels, applySectionLabels } from '../system-prompts';
 import { firstQuotesForPrompt } from './contextualize';
+import { renderNoteExcerptBlock } from './note-window';
 import { renderTemplate } from '../../core/template-renderer';
 import { MergeTriageSchema, type MergeTriage } from '../../llm-sdk/output-schemas';
 
@@ -80,6 +81,7 @@ export async function classifyMergeNeed(
   sourceFile: TFile | { path: string; basename: string },
   existingContent: string,
   sourceContext?: SourceContext,
+  sourceExcerpt?: string,
 ): Promise<MergeTriageResult> {
   const client = ctx.getClient();
   if (!client) throw new Error('LLM client not initialized');
@@ -95,6 +97,7 @@ export async function classifyMergeNeed(
     page_type: pageType,
     existing_content: existingContent,
     new_info: buildNewInfoSummary(info, sourceFile),
+    source_excerpt: renderNoteExcerptBlock(sourceExcerpt ?? '', info.name),
     source_context: renderSourceContextBlock(sourceContext),
     source_ownership_rule: renderSourceOwnershipRule(sourceContext),
     section_labels: `- ${sectionLabelsList}`,

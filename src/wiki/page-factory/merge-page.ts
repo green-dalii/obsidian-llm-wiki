@@ -42,7 +42,7 @@ import {
   stripUnknownSections,
 } from '../../core/section-header-canonicalizer';
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
-import { mergeFrontmatter, parseFrontmatter } from '../../core/frontmatter';
+import { mergeFrontmatter, parseFrontmatter, extractBody } from '../../core/frontmatter';
 import { incomingTypeTag } from '../../core/tag-vocab';
 import { appendContradictedByMarker } from '../../core/contradicted-marker';
 import { injectMentionsSection } from '../../core/mentions-injector';
@@ -54,6 +54,7 @@ import { classifyMergeNeed, isSourceOwnPageLemma } from './merge-triage';
 import { assembleFinalContent } from './mentions-integration';
 import { applyComplementaryAppends } from './complementary-appends';
 import { firstQuotesForPrompt, isConversationSource, mergeError } from './contextualize';
+import { buildNoteExcerpt, renderNoteExcerptBlock } from './note-window';
 
 /**
  * Minimal context contract required by mergePage / appendToReviewedPage.
@@ -112,6 +113,26 @@ export async function mergePage(
       sourceContext,
     });
 
+    // Note excerpt window — the merge payload was a constant (item summary +
+    // two quotes) regardless of how much the note says about this page;
+    // measured on a real ingest, 5 of 7 merges added nothing but links. Give
+    // both merge consumers the note's own paragraphs about the page — and
+    // the page whose lemma the note carries gets the whole note, because a
+    // note about X is THE source for page X. Deterministic, bounded, and ''
+    // (prompt-invariant) when the note never discusses the page in prose.
+    const noteRaw = await ctx.tryReadFile(sourceFile.path);
+    const noteExcerpt = noteRaw
+      ? buildNoteExcerpt(extractBody(noteRaw), {
+          pageName: pageBasename,
+          aliases: [
+            info.name,
+            ...(info.aliases ?? []),
+            ...(Array.isArray(existingAliases) ? existingAliases : []),
+          ],
+          fullNote: sourceOwnsPage,
+        })
+      : '';
+
     // 1. v1.24.0 #216 — classify-then-route triage.
     let shouldSkip = false;
     let complementaryBody: string | null = null;
@@ -121,7 +142,7 @@ export async function mergePage(
     // not classified.
     let contradictedSourcePath: string | null = null;
     try {
-      const triage = await classifyMergeNeed(ctx, info, pageType, sourceFile, existingBody, sourceContext);
+      const triage = await classifyMergeNeed(ctx, info, pageType, sourceFile, existingBody, sourceContext, noteExcerpt);
 
       // #312 part 2: a page's own primary source must not be dropped on a
       // novelty judgement — that is how an incidental mention keeps a
@@ -196,6 +217,7 @@ export async function mergePage(
       related_entities: info.related_entities?.join(', ') || '',
       related_concepts: info.related_concepts?.join(', ') || '',
       key_details: firstQuotesForPrompt(info),
+      source_excerpt: renderNoteExcerptBlock(noteExcerpt, pageBasename),
     });
 
     // #328 Phase 1 follow-up: user-layer tag-vocab removed — system layer injects once.
@@ -297,12 +319,29 @@ export async function appendToReviewedPage(
       incomingTypeTag(ctx.settings, pageKind, info.type),
     );
 
-    // 2. Minimal LLM check for genuinely new content.
+    // 2. Minimal LLM check for genuinely new content. Same note-excerpt
+    // window as mergePage (matched paragraphs only — no lemma full-note
+    // here, the reviewed body is locked anyway and only a small block is
+    // drafted): the draft should see what the note says, not just two quotes.
+    const reviewedPageBasename = path.split('/').pop()?.replace(/\.md$/i, '') ?? '';
+    const reviewedAliases = parseFrontmatter(existingContent)?.aliases;
+    const reviewedNoteRaw = await ctx.tryReadFile(sourceFile.path);
+    const reviewedExcerpt = reviewedNoteRaw
+      ? buildNoteExcerpt(extractBody(reviewedNoteRaw), {
+          pageName: reviewedPageBasename,
+          aliases: [
+            info.name,
+            ...(info.aliases ?? []),
+            ...(Array.isArray(reviewedAliases) ? reviewedAliases : []),
+          ],
+        })
+      : '';
     const prompt = renderTemplate(PROMPTS.appendToReviewedPage, {
       existing_body: existingBody,
       new_source: sourceFile.basename,
       entity_summary: info.summary,
       key_details: firstQuotesForPrompt(info),
+      source_excerpt: renderNoteExcerptBlock(reviewedExcerpt, reviewedPageBasename),
       constraints: UNIVERSAL_LINK_CONSTRAINTS,
     });
 

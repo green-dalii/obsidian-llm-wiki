@@ -36,7 +36,7 @@ export const MERGE_PROMPTS = {
 {{existing_content}}
 
 **New Information from Source File:**
-{{new_info}}{{source_context}}
+{{new_info}}{{source_excerpt}}{{source_context}}
 
 **Available sections in the existing page (target_section MUST be one of these exact names):**
 {{section_labels}}
@@ -86,11 +86,11 @@ Rules:
 - Summary: {{entity_summary}}
 - Related entities: {{related_entities}}
 - Related concepts: {{related_concepts}}
-- Key details: {{key_details}}
+- Key details: {{key_details}}{{source_excerpt}}
 
 **Integration Requirements:**
 1. STRUCTURE: Follow the schema sections exactly. If a section exists, update it; if missing, create it.
-2. DESCRIPTION: Integrate new facts naturally. Do NOT duplicate existing information.
+2. DESCRIPTION: Integrate new facts naturally. When a verbatim excerpt block is present, it is the authoritative payload: integrate EVERY fact in it that concerns this page, not only the summary lines. Do NOT duplicate existing information.
 3. RELATED: Update "{{section_related_entities}}" and "{{section_related_concepts}}" sections with new relationships.
 4. CONTRADICTIONS: If new info conflicts with existing, preserve BOTH with clear attribution.
 5. LINKS: Write [[Name]] as you would say the name. Do NOT write or guess a folder path — the system resolves every name to its real page after the merge, against the whole wiki. A display name is optional.
@@ -123,11 +123,11 @@ Output ONLY the body content (no frontmatter):
 - Summary: {{concept_summary}}
 - Related concepts: {{related_concepts}}
 - Related entities: {{related_entities}}
-- Key details: {{key_details}}
+- Key details: {{key_details}}{{source_excerpt}}
 
 **Integration Requirements:**
 1. STRUCTURE: Follow the schema sections exactly. Update existing, create missing.
-2. DESCRIPTION: Integrate new understanding coherently with existing.
+2. DESCRIPTION: Integrate new understanding coherently with existing. When a verbatim excerpt block is present, it is the authoritative payload: integrate EVERY fact in it that concerns this concept, not only the summary lines.
 3. RELATED CONCEPTS: Update links — add new ones, preserve existing.
 4. RELATED ENTITIES: Update links — add new ones from this source.
 5. CONTRADICTIONS: If new info conflicts, preserve both with attribution.
@@ -155,7 +155,7 @@ Output ONLY the body content (no frontmatter):
 
 **New Information from Source "{{new_source}}":**
 - Summary: {{entity_summary}}
-- Key details: {{key_details}}
+- Key details: {{key_details}}{{source_excerpt}}
 
 **Task:**
 1. Compare new information against existing content
