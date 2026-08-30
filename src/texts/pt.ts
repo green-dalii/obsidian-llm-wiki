@@ -655,6 +655,8 @@ export const PT_TEXTS = {
     lintContradictionSection: 'Contradições (detectadas)',
     lintDuplicateSection: 'Páginas duplicadas (detectadas)',
     lintNoIssuesFound: 'Nenhuma duplicata, link quebrado, página vazia, página órfã ou citação sem fonte detectada.',
+    lintSourceDriftSection: 'Notas de origem alteradas desde a ingestão [{count}]',
+    lintSourceDriftItem: '- [[{page}]] — a nota de origem [[{note}]] foi editada após a ingestão; a página pode estar desatualizada',
     lintQuoteGroundingSection: 'Citações sem fonte (detectadas) [{count}]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: "{quote}"',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (página inexistente){dupFlag}',

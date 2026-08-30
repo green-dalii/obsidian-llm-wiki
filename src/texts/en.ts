@@ -669,6 +669,8 @@ export const EN_TEXTS = {
     lintSourcesNormalizedSection: 'Sources normalized (auto-fixed) [{files} files / {entries} entries]',
     lintSourcesNormalizedItem: 'Cleaned {entries} polluted sources entries across {files} file(s) (external paths, .md extensions, alias pipes removed and deduplicated).',
     lintNoIssuesFound: 'No duplicates, dead links, empty pages, orphan pages, or ungrounded quotes detected.',
+    lintSourceDriftSection: 'Source notes changed since ingest [{count}]',
+    lintSourceDriftItem: '- [[{page}]] — origin note [[{note}]] was edited after ingest; the page may be stale',
     lintQuoteGroundingSection: 'Ungrounded quotes (detected) [{count}]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: "{quote}"',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (page does not exist){dupFlag}',

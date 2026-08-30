@@ -657,6 +657,8 @@ export const DE_TEXTS = {
     lintContradictionSection: 'Widersprüche (erkannt)',
     lintDuplicateSection: 'Doppelte Seiten (erkannt)',
     lintNoIssuesFound: 'Keine Duplikate, defekten Links, leeren Seiten, verwaisten Seiten oder unbelegten Zitate erkannt.',
+    lintSourceDriftSection: 'Quellnotizen seit dem Ingest geändert [{count}]',
+    lintSourceDriftItem: '- [[{page}]] — Ursprungsnotiz [[{note}]] wurde nach dem Ingest bearbeitet; die Seite ist womöglich veraltet',
     lintQuoteGroundingSection: 'Unbelegte Zitate (erkannt) [{count}]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: "{quote}"',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (Seite existiert nicht){dupFlag}',

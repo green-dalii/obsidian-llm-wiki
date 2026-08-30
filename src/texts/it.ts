@@ -669,6 +669,8 @@ export const IT_TEXTS = {
     lintSourcesNormalizedSection: 'Sorgenti normalizzate (corrette automaticamente) [{files} file / {entries} voci]',
     lintSourcesNormalizedItem: 'Pulite {entries} voci sorgenti inquinate in {files} file (percorsi esterni, estensioni .md, pipe degli alias rimossi e deduplicati).',
     lintNoIssuesFound: 'Nessun duplicato, collegamento interrotto, pagina vuota, pagina orfana o citazione non fondata rilevato.',
+    lintSourceDriftSection: 'Note sorgente modificate dopo l\'ingestione [{count}]',
+    lintSourceDriftItem: '- [[{page}]] — la nota di origine [[{note}]] è stata modificata dopo l\'ingestione; la pagina potrebbe non essere aggiornata',
     lintQuoteGroundingSection: 'Citazioni non fondate (rilevate) [{count}]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: "{quote}"',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (la pagina non esiste){dupFlag}',

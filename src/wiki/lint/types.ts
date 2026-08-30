@@ -105,6 +105,8 @@ export interface ProgrammaticFindings {
   ungroundedQuotes: import('./scanners').QuoteGroundingIssue[];
   /** v1.23.0 P1-6 — hub pages with redundant links in ## Related (Issue #157 / #175). */
   hubLinkDensityIssues: import('./scanners').HubLinkDensityIssue[];
+  /** Issue #220 Tier 0 (read half) — source pages whose origin note changed since ingest. */
+  sourceDriftIssues: import('./scanners').SourceDriftIssue[];
   sourcesNormalizedFiles: number;
   sourcesNormalizedEntries: number;
   doubleNestFixes: number;

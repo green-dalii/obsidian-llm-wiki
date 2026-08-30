@@ -611,6 +611,8 @@ export const FR_TEXTS = {
     lintContradictionSection: 'Contradictions (détectées)',
     lintDuplicateSection: 'Pages dupliquées (détectées)',
     lintNoIssuesFound: 'Aucun doublon, lien cassé, page vide, page orpheline ou citation non fondée détecté.',
+    lintSourceDriftSection: 'Notes sources modifiées depuis l\'ingestion [{count}]',
+    lintSourceDriftItem: '- [[{page}]] — la note d\'origine [[{note}]] a été modifiée après l\'ingestion ; la page peut être obsolète',
     lintQuoteGroundingSection: 'Citations non fondées (détectées) [{count}]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: « {quote} »',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (la page n\'existe pas){dupFlag}',

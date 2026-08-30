@@ -1,7 +1,8 @@
 // Lint scanner functions — extracted from lint-controller.ts for testability.
 // These have no Obsidian API dependencies and can be unit tested directly.
 
-import { parseFrontmatter } from '../../core/frontmatter';
+import { parseFrontmatter, extractBody } from '../../core/frontmatter';
+import { hashBody } from '../../core/source-requirements';
 import { getActiveEntityTags, getActiveConceptTags, getActiveSourceTags } from '../../core/tag-vocab';
 import { normalizeQuote, isQuoteGrounded } from './utils';
 import { LLMWikiSettings } from '../../types';
@@ -467,3 +468,81 @@ export function scanTagViolations(
 // makes the algorithm unit-testable without an Obsidian dependency.
 
 export { scanHubLinkDensity, type HubLinkDensityIssue, type HubLinkDensityOptions } from '../../core/hub-link-distinctiveness';
+
+// ── Source drift scanner (Issue #220 Tier 0, read half) ──────────────────────
+
+export interface SourceDriftIssue {
+  /** Wiki source page whose stored fingerprint no longer matches. */
+  sourcePage: string;
+  /** Origin note (first listed, normalized) whose current body was compared. */
+  note: string;
+  storedHash: string;
+  currentHash: string;
+}
+
+/**
+ * Detect source drift: a `sources/` page stores the `contentHash` of the note
+ * body it was built from (#164). When the note is edited afterwards, nothing
+ * re-reads that hash — the wiki silently keeps summarizing a body that no
+ * longer exists (Issue #220, Tier 0). This scanner is the read half: recompute
+ * the fingerprint of each origin note and flag mismatches.
+ *
+ * Report-only by design — a re-ingest is additive, so acting on drift
+ * automatically would duplicate content rather than revise it. Conservative on
+ * multi-source pages: the stored hash belongs to whichever note was written
+ * last, so a page is only flagged when NO listed, readable note matches it.
+ * Pages without a `contentHash` (pre-#164) and notes that cannot be read are
+ * skipped — absence of evidence is not drift.
+ */
+export function scanSourceDrift(
+  pageMap: Map<string, ScannerPage>,
+  noteContents: Map<string, string>,
+  wikiFolder: string,
+): SourceDriftIssue[] {
+  const issues: SourceDriftIssue[] = [];
+  const sourcesPrefix = `${wikiFolder}/sources/`;
+
+  for (const [path, page] of pageMap) {
+    if (!path.startsWith(sourcesPrefix)) continue;
+    const fm = parseFrontmatter(page.content);
+    if (!fm) continue;
+    const storedHash = (fm as Record<string, unknown>).contentHash;
+    if (typeof storedHash !== 'string' || !storedHash) continue;
+    if (!Array.isArray(fm.sources) || fm.sources.length === 0) continue;
+
+    const notePaths = fm.sources
+      .map(s => {
+        const trimmed = String(s).trim();
+        return trimmed.startsWith('[[') && trimmed.endsWith(']]')
+          ? trimmed.slice(2, -2).trim()
+          : trimmed;
+      })
+      .filter(p => p.length > 0);
+
+    let anyReadable = false;
+    let anyMatch = false;
+    let firstMismatch: { note: string; currentHash: string } | null = null;
+    for (const notePath of notePaths) {
+      const noteContent = noteContents.get(notePath);
+      if (noteContent === undefined) continue;
+      anyReadable = true;
+      const currentHash = hashBody(extractBody(noteContent));
+      if (currentHash === storedHash) {
+        anyMatch = true;
+        break;
+      }
+      if (!firstMismatch) firstMismatch = { note: notePath, currentHash };
+    }
+
+    if (anyReadable && !anyMatch && firstMismatch) {
+      issues.push({
+        sourcePage: path,
+        note: firstMismatch.note,
+        storedHash,
+        currentHash: firstMismatch.currentHash,
+      });
+    }
+  }
+
+  return issues;
+}

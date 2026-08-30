@@ -619,6 +619,8 @@ export const ZH_HANT_TEXTS = {
     lintHubLinkDensitySummary: '摘要：{strip} 個頁面建議剝離，{review} 個頁面建議覆核。',
     lintHubLinkDensityNoRelated: ' （未找到 ## Related 區塊）',
     lintNoIssuesFound: '未檢測到重複、斷鏈、空洞、孤立頁面或無來源引證。',
+    lintSourceDriftSection: '匯入後已變更的來源筆記 [共 {count} 個]',
+    lintSourceDriftItem: '- [[{page}]] — 原始筆記 [[{note}]] 在匯入後被編輯，頁面內容可能已過時',
     lintQuoteGroundingSection: '無來源引證（程式檢測）[共 {count} 個]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}："{quote}"',
     lintContradictionOpen: '未解決的矛盾：{count} 個',

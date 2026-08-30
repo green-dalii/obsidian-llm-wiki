@@ -658,6 +658,8 @@ export const KO_TEXTS = {
     lintContradictionSection: '모순 (감지됨)',
     lintDuplicateSection: '중복 페이지 (감지됨)',
     lintNoIssuesFound: '중복, 깨진 링크, 빈 페이지, 고아 페이지 또는 출처 없는 인용이 감지되지 않았습니다.',
+    lintSourceDriftSection: '수집 후 변경된 소스 노트 [{count}개]',
+    lintSourceDriftItem: '- [[{page}]] — 원본 노트 [[{note}]]가 수집 후 수정되었습니다. 페이지가 오래되었을 수 있습니다',
     lintQuoteGroundingSection: '출처 없는 인용 (감지됨) [{count}개]',
     lintQuoteGroundingItem: '- [[{page}]]{sourceHint}: "{quote}"',
     lintDeadLinkItem: '- [[{source}]] → **{target}** (페이지가 존재하지 않음){dupFlag}',

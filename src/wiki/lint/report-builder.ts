@@ -34,6 +34,7 @@ export function buildLintReport(input: ReportInput): string {
   const hubLinkDensityIssues: HubLinkDensityIssue[] = findings.hubLinkDensityIssues;
   const sourcesNormalizedFiles = findings.sourcesNormalizedFiles;
   const sourcesNormalizedEntries = findings.sourcesNormalizedEntries;
+  const sourceDriftIssues = findings.sourceDriftIssues;
 
   // Compute deadLinkFromDup / orphanFromDup counts
   const duplicatePaths = new Set<string>();
@@ -200,8 +201,22 @@ export function buildLintReport(input: ReportInput): string {
     progReport += '\n';
   }
 
+  // 8c. Source drift (Issue #220 Tier 0, read half) — origin notes edited
+  // since their source page was built. Report-only: re-ingest is additive,
+  // so the decision what to do with a revision stays editorial.
+  if (sourceDriftIssues.length > 0) {
+    progReport += `## ${t.lintSourceDriftSection.replace('{count}', String(sourceDriftIssues.length))}\n\n`;
+    for (const d of sourceDriftIssues) {
+      const rel = d.sourcePage.replace(folder + '/', '').replace('.md', '');
+      progReport += t.lintSourceDriftItem
+        .replace('{page}', rel)
+        .replace('{note}', d.note.replace('.md', '')) + '\n';
+    }
+    progReport += '\n';
+  }
+
   // 9. No issues message
-  if (!duplicates.length && !deadLinks.length && !emptyPages.length && !orphans.length && !ungroundedQuotes.length && !hubLinkDensityIssues.length) {
+  if (!duplicates.length && !deadLinks.length && !emptyPages.length && !orphans.length && !ungroundedQuotes.length && !hubLinkDensityIssues.length && !sourceDriftIssues.length) {
     progReport += `${t.lintNoIssuesFound}\n\n`;
   }
 

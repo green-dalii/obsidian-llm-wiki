@@ -22,6 +22,7 @@ function makeFindings(overrides: Partial<ProgrammaticFindings> = {}): Programmat
     deadLinks: [],
     ungroundedQuotes: [],
     hubLinkDensityIssues: [],
+    sourceDriftIssues: [],
     sourcesNormalizedFiles: 0,
     sourcesNormalizedEntries: 0,
     doubleNestFixes: 0,
@@ -145,3 +146,39 @@ describe('buildLintReport', () => {
   });
 });
 
+
+describe('source drift section (Issue #220 Tier 0)', () => {
+  it('renders drifted pages and keeps the no-issues message suppressed', () => {
+    const report = buildLintReport({
+      settings: makeSettings(),
+      findings: makeFindings({
+        sourceDriftIssues: [{
+          sourcePage: 'wiki/sources/butyrat.md',
+          note: 'Notizen/Butyrat.md',
+          storedHash: '22-aaaaaaaa',
+          currentHash: '25-bbbbbbbb',
+        }],
+      }),
+      duplicates: [],
+      contradictionsReport: '',
+      elapsedSeconds: 1,
+      totalPages: 10,
+    });
+    expect(report).toContain('Source notes changed since ingest [1]');
+    expect(report).toContain('[[sources/butyrat]]');
+    expect(report).toContain('[[Notizen/Butyrat]]');
+    expect(report).not.toContain('No issues found');
+  });
+
+  it('omits the section when nothing drifted', () => {
+    const report = buildLintReport({
+      settings: makeSettings(),
+      findings: makeFindings(),
+      duplicates: [],
+      contradictionsReport: '',
+      elapsedSeconds: 1,
+      totalPages: 10,
+    });
+    expect(report).not.toContain('Source notes changed since ingest');
+  });
+});
