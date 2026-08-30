@@ -389,3 +389,45 @@ describe('classifyMergeNeed — typed-output path (createMessageWithOutput)', ()
     expect(seenSchema).toBeDefined();
   });
 });
+
+describe('classifyMergeNeed — item-level contradiction lane', () => {
+  it('carries kind=contradictory through validation', async () => {
+    const ctx = makeCtx({
+      createMessage: async () =>
+        JSON.stringify({
+          strategy: 'complementary',
+          reason: 'mixed batch',
+          items: [
+            { kind: 'complementary', content: 'new fact', target_section: '## Background', reason: 'expands' },
+            { kind: 'contradictory', content: 'conflicting claim', target_section: '## Background', reason: 'conflicts with the stated dose' },
+          ],
+        }),
+    });
+    const result = await classifyMergeNeed(
+      ctx,
+      createMockEntity({ name: 'X' }),
+      'entity',
+      { path: 'p.md', basename: 'p.md' },
+      '# existing',
+    );
+    expect(result.items.map(i => i.kind)).toEqual(['complementary', 'contradictory']);
+  });
+
+  it('defaults an unknown kind to complementary', async () => {
+    const ctx = makeCtx({
+      createMessage: async () =>
+        JSON.stringify({
+          strategy: 'complementary',
+          items: [{ kind: 'novel', content: 'fact', target_section: '## A' }],
+        }),
+    });
+    const result = await classifyMergeNeed(
+      ctx,
+      createMockEntity({ name: 'X' }),
+      'entity',
+      { path: 'p.md', basename: 'p.md' },
+      '# x',
+    );
+    expect(result.items[0]?.kind).toBe('complementary');
+  });
+});

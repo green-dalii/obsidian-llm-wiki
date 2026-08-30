@@ -44,7 +44,7 @@ import {
 import { correctRelatedLinkPrefixes } from '../../core/related-link-corrector';
 import { mergeFrontmatter, parseFrontmatter, extractBody } from '../../core/frontmatter';
 import { incomingTypeTag } from '../../core/tag-vocab';
-import { appendContradictedByMarker } from '../../core/contradicted-marker';
+import { appendContradictedByMarker, appendContradictionNotes } from '../../core/contradicted-marker';
 import { injectMentionsSection } from '../../core/mentions-injector';
 import { renderTemplate } from '../../core/template-renderer';
 import { applySectionLabels, getSectionLabels } from '../system-prompts';
@@ -164,16 +164,29 @@ export async function mergePage(
         );
         shouldSkip = true;
       } else if (strategy === 'complementary' && triage.items.length > 0) {
+        // Item-level contradiction lane: a piece that conflicts with an
+        // existing statement must not ride the per-section append (which
+        // integrates it as if it were a fact). It becomes an attributed
+        // conflict block, and the page gets the same frontmatter marker
+        // as the page-level 'contradictory' strategy.
+        const appendItems = triage.items.filter(i => i.kind !== 'contradictory');
+        const conflictItems = triage.items.filter(i => i.kind === 'contradictory');
         console.debug(
-          `[mergePage] triage=complementary items=${triage.items.length} — appending to existing sections for ${path}`,
+          `[mergePage] triage=complementary items=${appendItems.length} conflicts=${conflictItems.length} — appending to existing sections for ${path}`,
         );
-        complementaryBody = await applyComplementaryAppends(
-          ctx,
-          triage.items,
-          existingBody,
-          info,
-          sourceFile,
-        );
+        complementaryBody = appendItems.length > 0
+          ? await applyComplementaryAppends(
+              ctx,
+              appendItems,
+              existingBody,
+              info,
+              sourceFile,
+            )
+          : existingBody;
+        if (conflictItems.length > 0) {
+          complementaryBody = appendContradictionNotes(complementaryBody, conflictItems, sourceFile.basename);
+          contradictedSourcePath = sourceFile.path;
+        }
         if (complementaryBody === existingBody) {
           console.debug(
             `[mergePage] complementary path produced no per-section appends — falling back to body-merge for ${path}`,
@@ -199,9 +212,14 @@ export async function mergePage(
 
     if (shouldSkip) {
       const bodyToWrite = complementaryBody ?? existingBody;
+      // Item-level contradictions reach this path (complementary write):
+      // stamp the same frontmatter marker the rewrite path stamps below.
+      const fmToWrite = contradictedSourcePath
+        ? appendContradictedByMarker(frontmatter, contradictedSourcePath)
+        : frontmatter;
       await ctx.createOrUpdateFile(
         path,
-        await assembleFinalContent(ctx, frontmatter, bodyToWrite, info, sourceFile, existingBody),
+        await assembleFinalContent(ctx, fmToWrite, bodyToWrite, info, sourceFile, existingBody),
       );
       return path;
     }

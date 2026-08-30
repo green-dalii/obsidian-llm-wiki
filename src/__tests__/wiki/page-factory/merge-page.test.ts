@@ -401,3 +401,27 @@ describe('mergePage — note excerpt window (payload fix)', () => {
     expect(client.prompts[1]).not.toContain('{{source_excerpt}}');
   });
 });
+
+describe('mergePage — item-level contradiction lane stamps marker and appends attributed block', () => {
+  it('routes kind=contradictory items to the deterministic conflict block, not the section append', async () => {
+    const triage = JSON.stringify({
+      strategy: 'complementary',
+      reason: 'one conflicting claim',
+      items: [
+        { kind: 'contradictory', content: 'Dose is 10mg', target_section: '## Description', reason: 'page states 5mg' },
+      ],
+    });
+    // Only ONE LLM response: the triage. A per-section append call for the
+    // conflicting item would consume a second response and integrate the
+    // claim as if it were a fact.
+    const ctx = makeCtx(makeClient([triage]));
+    await mergePage(ctx, createMockEntity({ name: 'Caching' }), 'entity', { path: 'note.md', basename: 'note' }, EXISTING, [], 'wiki/entities/caching.md');
+    const written = ctx.written.get('wiki/entities/caching.md');
+    expect(written).toBeDefined();
+    expect(written).toContain('## Description\nOld text.');
+    expect(written).toContain('## ⚠️ Potential Contradiction');
+    expect(written).toContain('**Source claim** (from note): Dose is 10mg');
+    expect(written).toContain('contradictions:');
+    expect(written).toContain('note.md');
+  });
+});

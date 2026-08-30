@@ -65,3 +65,42 @@ function normalizeSource(s: string): string {
   return s.trim().replace(/^\[\[|\]\]$/g, '').trim().toLowerCase();
 }
 
+
+/**
+ * A triage item flagged `kind: 'contradictory'` — the shape the
+ * deterministic body append below consumes. Mirrors the fields of
+ * `ComplementaryItem` (merge-triage.ts) without importing it, so this
+ * module stays dependency-free.
+ */
+export interface ContradictionNoteItem {
+  content: string;
+  target_section: string;
+  reason?: string;
+}
+
+/**
+ * Append an attributed conflict block for item-level contradictions.
+ *
+ * Deterministic on purpose: a conflicting claim must never be handed to
+ * the per-section append LLM, which would integrate it as if it were a
+ * fact — the poison would land exactly where it blends in best. The
+ * heading is byte-identical to the one `ContradictionManager` writes so
+ * downstream tooling has ONE string to scan for both flag paths.
+ *
+ * Pure, no IO. Returns the body unchanged when `items` is empty.
+ */
+export function appendContradictionNotes(
+  body: string,
+  items: readonly ContradictionNoteItem[],
+  sourceBasename: string,
+): string {
+  if (items.length === 0) return body;
+  const date = new Date().toISOString().split('T')[0];
+  const blocks = items.map(item => {
+    const reason = item.reason?.trim()
+      ? `\n\n**Conflicts with** (${item.target_section}): ${item.reason.trim()}`
+      : `\n\n**Conflicts with**: ${item.target_section}`;
+    return `**Source claim** (from ${sourceBasename}): ${item.content}${reason}`;
+  });
+  return `${body}\n\n## ⚠️ Potential Contradiction\n\n${blocks.join('\n\n')}\n\n---\n*Flagged: ${date}*`;
+}
