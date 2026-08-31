@@ -309,6 +309,82 @@ workflow".
 
 ---
 
+## Lessons learned (2026-08-30 session — Hermes cross-reference)
+
+**Trigger:** Issue #575 (newly opened) + DocTpoint's 2026-08-30 revive of
+Issue #220, cross-referenced against the Hermes agent's bundled `llm-wiki`
+skill (`NousResearch/hermes-agent`, `skills/research/llm-wiki/SKILL.md`
+v2.1.0; PR #5100 introduction; PR #13700 provenance/sha256/quality signals;
+PR #5635 skill-config interface). Full analysis: see commit history of the
+2026-08-30 session for the prior write-up.
+
+### Cross-reference table — borrow / don't-borrow / borrow-and-rewrite
+
+| Hermes does | We do | Action |
+|---|---|---|
+| Raw sources carry `sha256:` frontmatter (PR #13700) | Derived `wiki/sources/*.md` carries `contentHash` (`src/wiki/wiki-engine.ts:1470`, PR #164) | **Borrow-and-rewrite**: our posture (plugin never writes user notes) is more conservative than Hermes'; keep it. The fingerprint function `hashBody(extractBody(content))` is the same in both — body-only SHA-256, frontmatter excluded so it doesn't hash itself. |
+| Re-ingest: skip when body hash unchanged, flag drift when changed; report-only | #577 (open PR by DocTpoint, 2026-08-30) does exactly this on the read half of #220 Tier 0 | **Borrow unchanged**. Hermes and #577 are second-source-of-truth for the same design judgment. |
+| Paragraph-level provenance markers `^[raw/articles/source.md]` on pages synthesising 3+ sources (PR #13700) | Structured `Mentions:` block + per-claim `mentions_in_source` fields | **Don't borrow** (yet). Reader-UX enhancement, not core. Our structured form is friendlier for LLM parsing; human-traceability is satisfied by `Mentions:`. Revisit only if user-research shows the gap. |
+| Three-layer architecture (raw / entities / schema) | AGENTS.md "Three-layer architecture" (Sources → Wiki → Schema) | **Borrow unchanged** — same concept, same folder isolation in our vault. |
+| Compile-once vs. RAG-rediscover | Same — LLM-wiki pattern is the assumption, not a feature | **Borrow unchanged**. |
+| Contradiction handling: frontmatter mark + body keeps both positions with dates + source | `ContradictionManager` writes structured contradiction records in lint phase | **Borrow-and-rewrite**: keep the structured representation; do NOT regress to LLM-readable text. |
+| `mergeAnalysis` falls through to body-rewrite on contradiction; no structured signal kept at the merge point | Same — issue #575 documents this as a literal bug (`merge` definition includes "contradicts" bullet → `strategy: "contradictory"` is unreachable, 0/58 calls) | **Fix #575** (see "Next moves" below). DocTpoint called this out in #220 comment on 2026-07-12; #575 is the more specific location. |
+
+### First-principles anchors
+
+- **Drift detection is intrinsic to wiki-mode**, not an optional add-on. Wiki's
+  premise (offline-compiled synthesis > per-query RAG) breaks the moment
+  sources change silently. So `contentHash` + read-back lint is required
+  for the pattern to hold.
+- **Auto-revise on drift is empirically harmful** — Wikipedia's 30-year
+  track record shows fact-revision-on-page-X does NOT auto-propagate to
+  pages that reference X; an automatic fix risks unbounded cascade
+  corruption. DocTpoint's #220 Tier 3 explicitly preserves this
+  conservatism ("detect and flag, not auto-rewrite"). Hermes PR #13700
+  commit message is also explicit: report-only, not a hard error. So:
+  report drift → route to user, do not auto-re-ingest, do not auto-revise.
+- **Tier 2 of #220 ("recency ≠ correctness") stays open by design**. A
+  "newest wins" rule would silently collapse editorial disagreement into
+  recency, which is exactly the failure mode #358 (complementary memory
+  model) warns against. Until we have a real benchmark for cross-source
+  resolution, **do not implement** an automatic rule here.
+
+### Next moves (recorded here so they're findable later)
+
+1. **Fix #575** — owner-self, ~half-day. Remove "contradicts" from the `merge`
+   definition bullet list so `strategy: "contradictory"` becomes reachable.
+   When `mergeAnalysis` returns `contradictory`, push the structured
+   record to `ContradictionManager` at merge time (DocTpoint's #220
+   comment 2026-07-12 already proposed this; #575 is the specific
+   evidence that the path was unreachable). Test delta: ~3-5 unit tests
+   covering the now-reachable path.
+2. **Review PR #577** — the read half of #220 Tier 0 as a report-only
+   lint check (DocTpoint, 2026-08-30, 3699 tests passing, tsc/eslint
+   clean per PR description). Design matches Hermes and our own
+   `hashBody` post-#164; the only thing to verify is the edge-case
+   conservatism (skip pages with no `contentHash`, multi-source pages
+   with one surviving match, etc.).
+3. **Defer Tier 1 (`supersedes:` frontmatter flag) to a later MINOR**.
+   After #577 lands, the Tier 1 contract becomes: fingerprint detects
+   drift → user-declared `supersedes: true` overrides fingerprint
+   ambiguity → deterministic replace-self-block path. Not urgent; not
+   PATCH-scale; do not bundle with #577 in the same cycle.
+4. **Hold open**: Tier 2 (cross-source resolution) and Tier 3 (review
+   queue UI). Tier 3 is a product-surface decision; route to MINOR-track
+   design discussion. Tier 2 has no good automatic answer — do NOT
+   propose "newest wins" as a default.
+
+### Session memory pointer
+
+This section was extracted from the 2026-08-30 session's full analysis
+(in `/tmp/...` working notes of the same session). Full technical detail
+on Hermes's PR #13700 commit message, sha256-frontmatter mechanics, and
+the contradiction-handling comparison is recoverable from the session
+transcript; the *conclusions* — borrow table, first-principles anchors,
+next moves — are captured here for retrieval.
+
+---
+
 ## Where to look
 
 - **Project standards & process:** [AGENTS.md](./AGENTS.md) (canonical; the historical [CLAUDE.md](./CLAUDE.md) is now a pointer stub only)
