@@ -20,8 +20,9 @@
  *
  * Provider support matrix:
  *   - anthropic / openai / bedrock-anthropic / bedrock-openai: native PDF support
+ *   - ollama / lmstudio: vision-path (PDF → per-page PNG via pdfjs-dist → image_url parts)
  *   - custom / anthropic-compatible: requires forcePdfSupport=true (else throw)
- *   - ollama / lmstudio / deepseek / glm: never supported (throw)
+ *   - deepseek / glm / kimi / openrouter / gemini / future providers: never supported (throw)
  *
  * Errors are surfaced verbatim — the LLM client already wraps them in
  * the project's standard error shape. We do not add a translation layer.
@@ -42,10 +43,16 @@ import {
 import {
   TOKENS_PDF_CONVERSION,
   NATIVE_PDF_PROVIDER_IDS,
+  VISION_PDF_PROVIDER_IDS,
+  VISION_PDF_VERSION,
+  VISION_PDF_DPI,
+  VISION_PDF_PAGES_PER_CHUNK,
 } from '../constants';
 import { PDF_PROMPTS } from '../wiki/prompts/pdf';
 import type { LLMClient } from '../types';
 import { convertPdfWithMineru } from './mineru-converter';
+
+/* global __PDFJS_WORKER_SOURCE__ -- injected by esbuild.config.mjs at production build time */
 
 // --- public types ---
 
@@ -91,7 +98,8 @@ export class UnsupportedProviderError extends Error {
   constructor(public readonly provider: string) {
     super(
       `PDF conversion is not supported by provider "${provider}". ` +
-        `Supported providers: anthropic, openai, bedrock-anthropic, bedrock-openai. ` +
+        `Supported providers: anthropic, openai, bedrock-anthropic, bedrock-openai, ` +
+        `ollama, lmstudio. ` +
         `For other OpenAI-compatible or Anthropic-compatible providers, enable ` +
         `"Force PDF Support" in Settings → LLM Configuration → Advanced (at your own risk).`
     );
@@ -164,35 +172,55 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
   }
   const info = parsePdfInfoDictText(text);
 
-  // 6. Encode PDF as base64 for the LLM content part
+  // v1.28.x PR — dispatch by provider capability. Native providers
+  // get a single file content part; vision providers get per-page
+  // PNG rasterization + image content parts. The branch is on the
+  // same call site so metadata extraction and cache miss logic
+  // stay in one place.
+  const isVision = (VISION_PDF_PROVIDER_IDS as readonly string[]).includes(settings.provider);
+
+  // Cache key for the vision branch includes DPI + version so a
+  // user switching from anthropic to ollama cannot silently reuse
+  // an anthropic-rendered conversion.
+  let visionFileToken: string | null = null;
+  if (isVision) {
+    const visionLogicalKey = `${logicalKey}:vision:v${VISION_PDF_VERSION}@${VISION_PDF_DPI}dpi`;
+    visionFileToken = await hashCacheKey(visionLogicalKey, subtle);
+    const visionCached = await cache.get(visionFileToken);
+    if (visionCached) return visionCached;
+  }
+
+  // 6. Encode PDF as base64 for the native LLM content part (only used by native path)
   const base64 = bytesToBase64(bytes);
 
-  // 7. Call LLM. abortSignal is threaded through so the status-bar cancel
-  // button actually interrupts the LLM HTTP request via Vercel AI SDK v6.
-  // v1.25.0 PR3 follow-up #9 (prompt centralization): the verbatim
-  // system prompt lives in src/wiki/prompts/pdf.ts alongside every other
-  // LLM-call prompt in the project (barrel re-exported by src/prompts.ts).
-  const response = await llmClient.createMessage({
-    task: 'pdf-convert',
-    model,
-    max_tokens: TOKENS_PDF_CONVERSION,
-    system: PDF_PROMPTS.systemPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: buildUserText(info) },
+  // 7. Call LLM via the appropriate path.
+  const response = isVision
+    ? await convertPdfToMarkdownViaVision({
+        llmClient, model, system: PDF_PROMPTS.systemPrompt,
+        pdfBytes: bytes, info, pdfFileName: pdfFile.name,
+        abortSignal: ctx.abortSignal,
+      })
+    : (await llmClient.createMessage({
+        task: 'pdf-convert',
+        model,
+        max_tokens: TOKENS_PDF_CONVERSION,
+        system: PDF_PROMPTS.systemPrompt,
+        messages: [
           {
-            type: 'file',
-            data: base64,
-            mediaType: 'application/pdf',
-            filename: pdfFile.name,
+            role: 'user',
+            content: [
+              { type: 'text', text: buildUserText(info) },
+              {
+                type: 'file',
+                data: base64,
+                mediaType: 'application/pdf',
+                filename: pdfFile.name,
+              },
+            ],
           },
         ],
-      },
-    ],
-    ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
-  });
+        ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
+      }));
 
   // v1.25.0 PR3 follow-up #9 (output cleanup): some local / small models
   // (Qwen3.5-2B-MLX-4bit, Llama 3 8B Instruct, etc.) wrap their response
@@ -213,10 +241,12 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
       author: info.author,
       pageCount: info.pageCount,
       convertedAt: new Date().toISOString(),
-      converter: `${settings.provider}/${model}`,
+      converter: isVision
+        ? `${settings.provider}/${model}:vision:v${VISION_PDF_VERSION}`
+        : `${settings.provider}/${model}`,
     },
   };
-  await cache.set(fileToken, entry);
+  await cache.set(isVision ? visionFileToken! : fileToken, entry);
   return entry;
 }
 
@@ -245,6 +275,7 @@ export async function convertPdfToMarkdown(ctx: PdfConversionContext): Promise<C
  */
 function providerSupportsPdf(settings: PdfConversionContext['settings']): boolean {
   if ((NATIVE_PDF_PROVIDER_IDS as readonly string[]).includes(settings.provider)) return true;
+  if ((VISION_PDF_PROVIDER_IDS as readonly string[]).includes(settings.provider)) return true;
   if (settings.forcePdfSupport === true) return true;
   return false;
 }
@@ -277,4 +308,180 @@ function buildUserText(info: { title?: string; author?: string; pageCount?: numb
     for (const h of hints) parts.push(`- ${h}`);
   }
   return parts.join('\n');
+}
+
+// --- vision path ---
+
+/**
+ * v1.28.x PR — PDF → per-page PNG → image content parts.
+ *
+ * Rasterizes each PDF page with pdfjs-dist (legacy build, no worker)
+ * using OffscreenCanvas. Works inside Obsidian's Electron renderer
+ * without violating the obsidianmd/no-node-builtin ESLint rule.
+ *
+ * Message shape sent to llmClient.createMessage:
+ *   user: [
+ *     { type: 'text', text: <buildUserText(info)> + " (N page(s) attached)" },
+ *     { type: 'image', image: <base64 PNG>, mimeType: 'image/png' }, // page 1
+ *     { type: 'image', image: <base64 PNG>, mimeType: 'image/png' }, // page 2
+ *     ...
+ *   ]
+ *
+ * The AI SDK's openai-compat provider encodes image parts as OpenAI
+ * Chat Completions `image_url`, which Ollama and LM Studio accept on
+ * /v1/chat/completions natively and convert to their internal
+ * images[] representation server-side.
+ *
+ * Throws: pdfjs-dist exceptions propagate verbatim (e.g. "Invalid PDF
+ * structure" / "Password required") — caller can surface them.
+ *
+ * Abort: signal propagates to the LLM call but NOT to per-page
+ * rasterization (cancellation mid-render would leak partial state).
+ * For a worst-case 200-page cancel-at-page-50 the cost is 50
+ * rasterized pages of CPU — acceptable, no external resources held.
+ */
+async function convertPdfToMarkdownViaVision(params: {
+  llmClient: LLMClient;
+  model: string;
+  system: string;
+  pdfBytes: Uint8Array;
+  info: { title?: string; author?: string; pageCount?: number };
+  pdfFileName: string;
+  abortSignal?: AbortSignal;
+}): Promise<string> {
+  const { llmClient, model, system, pdfBytes, info, abortSignal } = params;
+
+  // pdfjs-dist v5 worker setup.
+  //
+  // v5 has no public `disableWorker` option. The legacy synchronous API
+  // requires either (a) a real worker URL on GlobalWorkerOptions.workerSrc
+  // or (b) a Node.js runtime (where _isWorkerDisabled is auto-set). We
+  // are in the Electron renderer, so neither applies — the workerSrc
+  // getter throws "No 'GlobalWorkerOptions.workerSrc' specified" if we
+  // leave it empty.
+  //
+  // Workaround: pdf.worker.mjs is read at build time and inlined into
+  // main.js as the `__PDFJS_WORKER_SOURCE__` constant (see esbuild.config.mjs).
+  // At runtime we wrap it in a Blob and hand pdfjs the resulting object
+  // URL as if it were a remote worker module. pdfjs's loader does
+  // `await import(workerSrc)` — dynamic import of a blob: URL is valid
+  // in Chromium / Electron and resolves to the WorkerMessageHandler
+  // export just like a CDN-served worker would.
+  //
+  // Trade-off: this inlines ~2 MB of worker code into main.js. The
+  // user-visible cost is one extra-second cold-load for the plugin; we
+  // avoid shipping a second .mjs file alongside main.js and the URL-
+  // resolution pitfalls that come with relative paths in the Obsidian
+  // renderer (no import.meta.url under CJS bundle, baseURI varies).
+  const pdfjs: typeof import('pdfjs-dist') =
+    await import('pdfjs-dist/legacy/build/pdf.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+    new Blob([__PDFJS_WORKER_SOURCE__], { type: 'application/javascript' })
+  );
+
+  // OffscreenCanvas factory — pdfjs calls create() per page, reset()
+  // between renders. OffscreenCanvas is structurally compatible with
+  // the HTMLCanvasElement surface pdfjs uses (width/height/getContext)
+  // and stays inside the browser-safe API.
+  const canvasFactory = {
+    create(width: number, height: number) {
+      const canvas = new OffscreenCanvas(width, height);
+      return { canvas, context: canvas.getContext('2d')! };
+    },
+    reset(c: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D },
+          width: number, height: number) {
+      c.canvas.width = width;
+      c.canvas.height = height;
+    },
+    destroy(c: { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D }) {
+      c.canvas.width = 0;
+      c.canvas.height = 0;
+    },
+  };
+
+  const scale = VISION_PDF_DPI / 72; // PDF spec: 72 DPI base
+  const loadingTask = pdfjs.getDocument({
+    data: pdfBytes,
+    isEvalSupported: false, // Obsidian CSP forbids new Function(...)
+    useSystemFonts: true,
+  });
+  const pdf = await loadingTask.promise;
+  const pageImages: Array<{ image: string; mimeType: 'image/png' }> = [];
+
+  try {
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale });
+      const ctxObj = canvasFactory.create(viewport.width, viewport.height);
+      try {
+        await page.render({
+          canvasContext: ctxObj.context as unknown as CanvasRenderingContext2D,
+          viewport,
+          canvasFactory,
+        }).promise;
+        const blob = await ctxObj.canvas.convertToBlob({ type: 'image/png' });
+        const buffer = new Uint8Array(await blob.arrayBuffer());
+        pageImages.push({ image: bytesToBase64(buffer), mimeType: 'image/png' });
+      } finally {
+        canvasFactory.destroy(ctxObj);
+      }
+    }
+  } finally {
+    await pdf.cleanup();
+    await pdf.destroy();
+  }
+
+  // Chunk pages to fit the model's context window. A 30-page paper
+  // at 150 DPI is ~75K image tokens — well past a 32K local model
+  // (e.g. bonsai-27b Q1_0). VISION_PDF_PAGES_PER_CHUNK keeps each
+  // call under the budget regardless of paper length; outputs are
+  // concatenated in page order, separated by a blank line so the
+  // downstream `unwrapFencedMarkdown` + analyzer still sees the
+  // correct paragraph structure.
+  const totalPages = pageImages.length;
+  const chunks: Array<Array<{ image: string; mimeType: 'image/png' }>> = [];
+  for (let start = 0; start < totalPages; start += VISION_PDF_PAGES_PER_CHUNK) {
+    chunks.push(pageImages.slice(start, start + VISION_PDF_PAGES_PER_CHUNK));
+  }
+
+  const markdownParts: string[] = [];
+  for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+    const chunk = chunks[chunkIdx];
+    const pageStart = chunkIdx * VISION_PDF_PAGES_PER_CHUNK + 1;
+    const pageEnd = Math.min(pageStart + chunk.length - 1, totalPages);
+    const chunkText = chunkIdx === 0
+      ? buildUserText(info) +
+        ` (pages ${pageStart}-${pageEnd} of ${totalPages} attached as images)`
+      : `Continue conversion. Pages ${pageStart}-${pageEnd} of ${totalPages} attached.`;
+
+    const chunkMessages = [{
+      role: 'user' as const,
+      content: [
+        { type: 'text' as const, text: chunkText },
+        ...chunk.map((p) => ({
+          type: 'image' as const,
+          image: p.image,
+          mimeType: p.mimeType,
+        })),
+      ],
+    }];
+
+    const chunkResponse = await llmClient.createMessage({
+      task: 'pdf-convert',
+      model,
+      max_tokens: TOKENS_PDF_CONVERSION,
+      system,
+      messages: chunkMessages,
+      ...(abortSignal ? { abortSignal } : {}),
+    });
+    // Clean each response before joining. If a local model ignores the
+    // no-fence instruction, cleaning only after concatenation would leave
+    // an inner ```...``` block spanning a chunk boundary.
+    markdownParts.push(PDF_PROMPTS.unwrapFencedMarkdown(chunkResponse));
+  }
+
+  // Concatenate chunks with a blank line between — preserves page
+  // boundaries for the downstream analyzer without inventing
+  // structural breaks that aren't in the source.
+  return markdownParts.join('\n\n');
 }

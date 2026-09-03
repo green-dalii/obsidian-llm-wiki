@@ -119,6 +119,51 @@ export const NATIVE_PDF_PROVIDER_IDS = [
   'bedrock-openai',
 ] as const;
 
+/**
+ * v1.28.x PR — Provider IDs whose `/v1/chat/completions` accepts
+ * multimodal `image_url` parts. Used by `core/pdf-converter.ts` to
+ * route PDF ingestion through per-page PNG rasterization (via
+ * pdfjs-dist) instead of the `application/pdf` content type that
+ * openai-compat SDKs do not emit.
+ *
+ * Why a separate list (not an addition to NATIVE_PDF_PROVIDER_IDS):
+ * the conversion path is fundamentally different — the client must
+ * rasterize the PDF before sending, the message contains N image
+ * parts instead of one file part, and the cache key includes a
+ * DPI/version suffix to keep vision conversions isolated from
+ * native ones (a user switching providers cannot silently receive a
+ * stale conversion from a different backend).
+ */
+export const VISION_PDF_PROVIDER_IDS = [
+  'ollama',
+  'lmstudio',
+] as const;
+
+/** Version suffix for the vision-path cache key. Bump when the
+ *  rasterizer (DPI, image format, pdfjs version, chunking strategy) changes. */
+export const VISION_PDF_VERSION = 2;
+export const VISION_PDF_DPI = 150;
+
+/**
+ * Max PDF pages sent to the LLM in one vision call.
+ *
+ * Empirically calibrated for a 32K-context local model (bonsai-27b Q1_0
+ * running through Ollama /v1/chat/completions). At 150 DPI each page
+ * rasterizes to ~2-3K image tokens; 6 pages ≈ 15K image tokens + ~700
+ * prompt overhead + 8K output reserve = ~24K, comfortably under 32K.
+ *
+ * Larger-context models (Claude 200K, GPT-4o 128K) trivially fit more
+ * pages per call but chunking never hurts — the bottleneck is the
+ * model's effective attention across many images, not raw context
+ * budget. Keeping a small constant here makes the worst-case LLM-call
+ * latency bounded regardless of which provider the user picks.
+ *
+ * Documents with more pages are split into chunks of this size;
+ * each chunk is sent as a separate LLM call and the markdown outputs
+ * are concatenated in page order.
+ */
+export const VISION_PDF_PAGES_PER_CHUNK = 1;
+
 /** MinerU online API endpoints and bounded conversion resources. */
 export const MINERU_API_BASE_URL = 'https://mineru.net/api/v4';
 export const MINERU_API_TOKEN_SECRET_ID = 'karpathywiki-mineru-api-token';
