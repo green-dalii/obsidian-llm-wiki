@@ -207,6 +207,14 @@ export function extractThinkingBlocks(content: string): {
  */
 export function wrapReasoningContent(reasoning: string, text: string): string {
   if (!reasoning) return text;
+  // Idempotence guard: when text already carries a <think> block, this is a
+  // re-wrap (the SDK client's reasoning channel and visible text overlap).
+  // The canonical encoder used to be one-shot; the openai-sdk-client's
+  // private copy kept a `text.includes('<think>') return text` guard since
+  // v1.20.0, but the rest of the SDKs (anthropic / codex / compat) called
+  // this function directly and inherited the double-wrap risk. Audit phase 2
+  // lifts the guard here so all four SDKs are protected by the same check.
+  if (text.includes('<think>')) return text;
   // Escape any literal </think> inside reasoning to prevent premature block close
   // by extractThinkingBlocks regex. The escaped form is harmless in rendered pre text.
   const safeReasoning = reasoning.replace(/<\/think/gi, '<\\/think');

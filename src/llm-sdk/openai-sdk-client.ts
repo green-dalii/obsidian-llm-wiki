@@ -33,6 +33,7 @@ import { type LanguageModel, APICallError, NoSuchModelError, InvalidPromptError 
 import { createOpenAI } from '@ai-sdk/openai';
 import { LLMClient } from '../types';
 import { obsidianFetchBridge, streamWithFallback } from '../core/obsidian-fetch-bridge';
+import { wrapReasoningContent } from '../core/markdown';
 import {
   getCachedUrl,
   resolveBaseUrlWithFallback,
@@ -560,21 +561,6 @@ export class OpenAISdkClient implements LLMClient {
   async listModels(): Promise<string[]> {
     return [];
   }
-}
-
-/**
- * Prepend reasoning content as <think>...</think> block.
- *
- * Mirrors `wrapReasoningContent` in src/core/markdown.ts — duplicated
- * here to avoid pulling the markdown module into the LLM SDK layer
- * (which would create a circular dep risk). Keep behavior identical:
- *   - If `text` already contains <think>, return text unchanged.
- *   - Else wrap reasoning in <think>\n...\n</think> and prepend.
- */
-function wrapReasoningContent(reasoning: string, text: string): string {
-  if (!reasoning) return text;
-  if (text.includes('<think>')) return text;
-  return `<think>\n${reasoning}\n</think>\n\n${text}`;
 }
 
 /**

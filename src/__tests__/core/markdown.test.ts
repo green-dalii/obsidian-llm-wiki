@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cleanMarkdownResponse, stripTrailingSeparators } from '../../core/markdown';
+import { cleanMarkdownResponse, stripTrailingSeparators, wrapReasoningContent } from '../../core/markdown';
 describe('cleanMarkdownResponse', () => {
   it('strips markdown code fence (```json...```)', () => {
     // Code only recognizes markdown/md language tags; json tag text remains
@@ -227,5 +227,39 @@ describe('cleanMarkdownResponse — preamble cut guards', () => {
   it('leaves frontmatter-carrying responses alone (original guard)', () => {
     const resp = '---\ntype: entity\n---\n\n# Title\n\n## Description\nBody.';
     expect(cleanMarkdownResponse(resp)).toContain('type: entity');
+  });
+});
+
+// Audit phase 2 — wrapReasoningContent is the canonical encoder used by
+// anthropic / openai-codex / openai-compat SDK clients. openai-sdk-client
+// had a private copy with a different shape (no </think escaping, no
+// idempotence guard). Phase 2 migrates openai onto the canonical function
+// and locks the contract here so future forks have one source of truth.
+describe('wrapReasoningContent (canonical encoder)', () => {
+  it('returns text unchanged when reasoning is empty', () => {
+    expect(wrapReasoningContent('', 'visible answer')).toBe('visible answer');
+  });
+
+  it('wraps reasoning in <think>...</think> and prepends to visible text', () => {
+    const out = wrapReasoningContent('Step 1\nStep 2', 'Final answer.');
+    expect(out).toMatch(/^<think>Step 1\nStep 2<\/think>\n\nFinal answer\.$/);
+  });
+
+  it('escapes literal </think inside reasoning to prevent premature close', () => {
+    // Raw `</think` in reasoning would otherwise close the outer block
+    // early and break extractThinkingBlocks' regex. The escape is reverted
+    // by unescapeThinkingTag after extraction.
+    const out = wrapReasoningContent('inner </think> rest', 'after');
+    expect(out).toContain('<\\/think>');
+    expect(out).not.toMatch(/inner <\/think> rest<\/think>/);
+  });
+
+  it('is idempotent: text already containing <think> passes through', () => {
+    // openai-sdk-client had this guard in its private copy. Lift it to the
+    // canonical encoder so every SDK consumer (anthropic / codex / compat
+    // also call wrapReasoningContent directly) is protected against double
+    // wrap when reasoning and visible text overlap on a <think> block.
+    const prewrapped = '<think>already done</think>\n\nresult';
+    expect(wrapReasoningContent('extra reasoning', prewrapped)).toBe(prewrapped);
   });
 });
