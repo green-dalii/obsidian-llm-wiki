@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mergeDuplicatePages } from '../../../wiki/lint/merge-duplicates';
-import { createFakeLinkVault } from '../../__support__/link-vault';
-import type { EngineContext } from '../../../types';
+import { createMergeCtx } from '../../__support__/link-vault';
 
 // Issue #386 at the call site. PR #389 deliberately left the merge-duplicates
 // site without leak-direction coverage because this issue replaces the filter
@@ -14,18 +13,7 @@ const TARGET = 'wiki/entities/Osteopontin.md';
 const SOURCE = 'wiki/entities/Osteopontin-2.md';
 
 function makeCtx(files: Record<string, string>) {
-  const fake = createFakeLinkVault(files);
-  const deleted: string[] = [];
-  const ctx = {
-    app: { vault: fake.vault, metadataCache: fake.metadataCache },
-    settings: { wikiFolder: 'wiki', language: 'en' },
-    getClient: () => null,
-    tryReadFile: async (path: string) => (files[path] === undefined ? fake.read(path) || null : fake.read(path)),
-    createOrUpdateFile: async (path: string, content: string) => { fake.write(path, content); },
-    deleteFile: async (path: string) => { deleted.push(path); },
-    getSchemaContext: async () => undefined,
-  } as unknown as EngineContext;
-  return { ctx, fake, deleted };
+  return createMergeCtx(files, { captureDeletes: true });
 }
 
 describe('mergeDuplicatePages — link retargeting (#386)', () => {

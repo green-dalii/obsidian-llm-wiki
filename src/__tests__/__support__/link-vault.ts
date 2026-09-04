@@ -16,6 +16,8 @@
 // Links inside fenced code blocks are not reported, which is also what the real
 // metadata cache does — a quoted `[[Foo]]` in documentation is not a link.
 
+import type { EngineContext } from '../../types';
+
 export interface FakeReference {
   link: string;
   original: string;
@@ -131,4 +133,29 @@ export function createFakeLinkVault(initial: Record<string, string>): FakeLinkVa
     write: (path, content) => { files.set(path, content); },
     processed,
   };
+}
+
+/**
+ * EngineContext wrapper over a FakeLinkVault, for tests that drive a
+ * lint/wiki module through ctx methods (mergeDuplicatePages and friends).
+ * Mirrors what the three merge-duplicates test files used to hand-roll:
+ * tryReadFile falls back to the vault fake, createOrUpdateFile writes
+ * through, deleteFile pushes into the optional `deleted` capture array.
+ */
+export function createMergeCtx(
+  files: Record<string, string>,
+  opts: { captureDeletes?: boolean } = {},
+): { ctx: EngineContext; fake: FakeLinkVault; deleted: string[] } {
+  const fake = createFakeLinkVault(files);
+  const deleted: string[] = [];
+  const ctx = {
+    app: { vault: fake.vault, metadataCache: fake.metadataCache },
+    settings: { wikiFolder: 'wiki', language: 'en' },
+    getClient: () => null,
+    tryReadFile: async (path: string) => (files[path] === undefined ? fake.read(path) || null : fake.read(path)),
+    createOrUpdateFile: async (path: string, content: string) => { fake.write(path, content); },
+    deleteFile: async (path: string) => { if (opts.captureDeletes) deleted.push(path); },
+    getSchemaContext: async () => undefined,
+  } as unknown as EngineContext;
+  return { ctx, fake, deleted };
 }

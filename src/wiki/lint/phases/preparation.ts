@@ -6,6 +6,7 @@ import { parseFrontmatter } from '../../../core/frontmatter';
 import { LINT_PREP_BATCH_READ } from '../../../constants';
 import { LintPhaseContext, ScannerPage } from '../types';
 import { isInFolderScope } from '../../../core/folder-scope';
+import { buildKnownTargets } from '../scanners';
 
 export interface PreparationResult {
   wikiFiles: Array<{ path: string; basename: string }>;
@@ -163,29 +164,6 @@ export async function runPreparationPhase(
     sourcesNormalizedFiles,
     sourcesNormalizedEntries,
   };
-}
-
-function buildKnownTargets(
-  allVaultFiles: Array<{ basename: string; path: string }>
-): { known: Set<string>; knownLower: Set<string> } {
-  const known = new Set<string>();
-  const knownLower = new Set<string>();
-  const addTarget = (t: string) => { known.add(t); knownLower.add(t.toLowerCase()); };
-  for (const file of allVaultFiles) {
-    const nameWithoutExt = file.basename.replace('.md', '');
-    addTarget(file.basename);
-    addTarget(nameWithoutExt);
-    const relPath = file.path.replace('.md', '');
-    addTarget(relPath);
-    addTarget(file.path);
-    const parts = relPath.split('/');
-    for (let i = 1; i < parts.length; i++) {
-      const subPath = parts.slice(i).join('/');
-      addTarget(subPath);
-      addTarget(subPath + '.md');
-    }
-  }
-  return { known, knownLower };
 }
 
 export { TEXTS };

@@ -31,6 +31,7 @@
 import { Setting, Notice } from 'obsidian';
 import type { LLMWikiSettingTab } from '../settings';
 import { WIKI_LANGUAGES } from '../../types';
+import type { TEXTS } from '../../texts';
 import { NOTICE_SHORT } from '../../constants';
 
 export function renderLanguageSection(tab: LLMWikiSettingTab, containerEl: HTMLElement): void {
@@ -45,7 +46,7 @@ export function renderLanguageSection(tab: LLMWikiSettingTab, containerEl: HTMLE
         dropdown.addOption(key, label);
       }
       dropdown.setValue(tempSettings.language);
-      dropdown.onChange((value: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it') => {
+      dropdown.onChange((value: keyof typeof TEXTS) => {
         tempSettings.language = value;
         tab.display();
       });

@@ -5,6 +5,7 @@ import type { z } from 'zod';
 import type { RejectionReason } from './core/source-requirements';
 import type { TaskPolicyMap } from './core/task-policy';
 import type { OutputMode } from './llm-sdk/output-mode-prober';
+import type { TEXTS } from './texts';
 
 /**
  * Issue #244 — Programmatic Mentions writes (v1.23.3 / v1.24.0).
@@ -230,7 +231,9 @@ export interface LLMWikiSettings {
    *  (Anthropic Vision + OpenAI Vision support images natively). */
   markdownConversionBackend?: 'native' | 'mineru';
   wikiFolder: string;
-  language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it';
+  /** UI language — the locale the settings panel and modals render in. Keyed
+   *  off the TEXTS barrel (11 locales) so adding a locale updates this type. */
+  language: keyof typeof TEXTS;
   wikiLanguage: string;
   /**
    * v1.24.1 PATCH Stage 1 — AWS region used by both Bedrock providers. Only

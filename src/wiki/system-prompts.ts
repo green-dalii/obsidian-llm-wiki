@@ -183,15 +183,11 @@ export function getGranularityInstruction(settings: LLMWikiSettings): string {
   return GRANULARITY_INSTRUCTIONS[granularity] || GRANULARITY_INSTRUCTIONS.standard;
 }
 
-// Issue #96: Lint LLM analysis previously ignored the user's
-// extractionGranularity setting. This helper appends the granularity
-// instruction to an existing prompt so the lint LLM respects the same
-// constraints as the ingestion path. Idempotent on empty instructions.
-export function appendGranularityToPrompt(prompt: string, settings: LLMWikiSettings): string {
-  const instruction = getGranularityInstruction(settings);
-  if (!instruction) return prompt;
-  return `${prompt}\n\n${instruction}`;
-}
+// Issue #96 was originally addressed by appending a granularity instruction to
+// the lint prompt (appendGranularityToPrompt). That helper was never wired to a
+// caller — the #96 intent is served by getGranularityFixLimits (fill-empty-page)
+// and getGranularityInstruction (source-analyzer ingest path) instead. Removed
+// in the audit phase-1 cleanup (dead code, 0 callers, 0 tests).
 
 export function getGranularityFixLimits(settings: LLMWikiSettings): { maxEntities: number; maxConcepts: number } {
   const granularity = settings.extractionGranularity || 'standard';

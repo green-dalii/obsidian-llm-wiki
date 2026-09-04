@@ -7,24 +7,13 @@
 import { describe, it, expect } from 'vitest';
 import { mergeDuplicatePages } from '../../../wiki/lint/merge-duplicates';
 import { parseFrontmatter } from '../../../core/frontmatter';
-import { createFakeLinkVault } from '../../__support__/link-vault';
-import type { EngineContext } from '../../../types';
+import { createMergeCtx } from '../../__support__/link-vault';
 
 const TARGET = 'wiki/entities/Ferritin.md';
 const SOURCE = 'wiki/entities/Ferritin-2.md';
 
 function makeCtx(files: Record<string, string>) {
-  const fake = createFakeLinkVault(files);
-  const ctx = {
-    app: { vault: fake.vault, metadataCache: fake.metadataCache },
-    settings: { wikiFolder: 'wiki', language: 'en' },
-    getClient: () => null,
-    tryReadFile: async (path: string) => (files[path] === undefined ? fake.read(path) || null : fake.read(path)),
-    createOrUpdateFile: async (path: string, content: string) => { fake.write(path, content); },
-    deleteFile: async () => { /* not under test */ },
-    getSchemaContext: async () => undefined,
-  } as unknown as EngineContext;
-  return { ctx, fake };
+  return createMergeCtx(files);
 }
 
 describe('mergeDuplicatePages — frontmatter passthrough and domains union', () => {

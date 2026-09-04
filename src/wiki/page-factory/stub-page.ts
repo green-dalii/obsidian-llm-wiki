@@ -32,6 +32,7 @@ import type { EntityInfo, ConceptInfo } from '../../types';
 import type { StubCandidate, StubIdentity } from '../../core/candidate-gate';
 import { slugify } from '../../core/slug';
 import { selectDomains } from '../../core/domain-axis';
+import { localDateStamp } from '../../core/format';
 
 interface ExistingPageLike {
   path: string;
@@ -120,7 +121,7 @@ export function buildDissentStubContent(params: {
   vocabulary?: readonly string[];
 }): string {
   const { item, stubType, sourceSlug, cell, vocabulary } = params;
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStamp();
   // Tag-Achse Stufe 4 (S137): one field — the identity value (the extraction
   // type) and the validated belonging values share `tags:`; no `domains:`.
   // S142: the identity fallback leaked the settings typelist (`person`,
