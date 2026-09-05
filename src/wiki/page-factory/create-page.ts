@@ -61,7 +61,7 @@ export interface CreatePageContext extends PathResolutionContext {
  * the engine already hands to this module. Returns undefined when there is no
  * analysis (lint-side callers), which keeps the merge path unchanged for them.
  */
-export function sourceContextFromAnalysis(
+function sourceContextFromAnalysis(
   analysis: SourceAnalysis | undefined,
 ): SourceContext | undefined {
   if (!analysis) return undefined;

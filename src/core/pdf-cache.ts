@@ -230,7 +230,7 @@ export class PdfConversionCache {
  * Centralized here so the 3 call sites (pdf-converter, main.ts clear,
  * main.ts housekeeping) cannot drift.
  */
-export function getPdfCacheDir(app: { vault: { configDir: string } }): string {
+function getPdfCacheDir(app: { vault: { configDir: string } }): string {
   return `${app.vault.configDir}/plugins/karpathywiki/pdf-cache`;
 }
 

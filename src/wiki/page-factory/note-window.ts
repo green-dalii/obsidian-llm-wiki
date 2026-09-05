@@ -37,7 +37,7 @@ export interface NoteExcerptOptions {
 /** Default cap for the matched-paragraph window. */
 export const EXCERPT_MAX_CHARS = 4000;
 /** Default cap for the lemma full-note case. */
-export const EXCERPT_FULL_NOTE_MAX_CHARS = 12000;
+const EXCERPT_FULL_NOTE_MAX_CHARS = 12000;
 
 const TRUNCATION_MARK = '\n[…]';
 

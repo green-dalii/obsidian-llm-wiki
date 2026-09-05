@@ -50,7 +50,7 @@ export type TaskOutputMode = 'default' | OutputMode;
 export type TaskThinking = 'default' | 'off' | 'on' | 'low' | 'medium' | 'high';
 
 /** The three that name a budget, as opposed to just not suppressing. */
-export const THINKING_EFFORTS = ['low', 'medium', 'high'] as const;
+const THINKING_EFFORTS = ['low', 'medium', 'high'] as const;
 export type ThinkingEffort = (typeof THINKING_EFFORTS)[number];
 
 export function thinkingEffort(thinking: TaskThinking): ThinkingEffort | undefined {
@@ -70,7 +70,7 @@ export const DEFAULT_TASK_POLICY: TaskPolicy = Object.freeze({
 });
 
 /** Wildcard key: applies to every task that has no entry of its own. */
-export const TASK_POLICY_WILDCARD = '*';
+const TASK_POLICY_WILDCARD = '*';
 
 export type TaskPolicyMap = Readonly<Record<string, TaskPolicy>>;
 

@@ -19,7 +19,7 @@ export interface RateLimitInfo {
  * Adding/removing markers (e.g. 'quota exceeded') is a one-line edit
  * here; both consumers pick up the change automatically.
  */
-export const RATE_LIMIT_MARKER_RE = /429|rate.?limit|too many requests|throttl/i;
+const RATE_LIMIT_MARKER_RE = /429|rate.?limit|too many requests|throttl/i;
 
 /**
  * v1.26.0 Batch 7 + CR-3 fix: accept a structured failure item (with

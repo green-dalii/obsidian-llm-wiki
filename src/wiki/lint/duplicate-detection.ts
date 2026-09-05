@@ -36,7 +36,7 @@ export interface DuplicateCandidate {
  */
 export type WikiPageType = 'entity' | 'concept' | 'source' | 'other';
 
-export function pageTypeOf(path: string): WikiPageType {
+function pageTypeOf(path: string): WikiPageType {
   if (path.includes(`/${WIKI_SUBFOLDERS.entities}/`)) return 'entity';
   if (path.includes(`/${WIKI_SUBFOLDERS.concepts}/`)) return 'concept';
   if (path.includes(`/${WIKI_SUBFOLDERS.sources}/`)) return 'source';
@@ -84,7 +84,7 @@ export function isCrossTypePairAllowed(a: WikiPageType, b: WikiPageType): boolea
 // ── Pure Functions (extracted for testability) ───────────────────────────────
 
 /** Extract character bigrams from string for similarity comparison. */
-export function bigrams(s: string): Set<string> {
+function bigrams(s: string): Set<string> {
   const result = new Set<string>();
   const normalized = s.toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
   for (let i = 0; i < normalized.length - 1; i++) {

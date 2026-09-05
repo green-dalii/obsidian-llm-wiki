@@ -213,7 +213,7 @@ export async function classifyMergeNeed(
  * The source name is not repeated here — `buildNewInfoSummary` already writes
  * `Source: <basename>` into `{{new_info}}`.
  */
-export function renderSourceContextBlock(sourceContext?: SourceContext): string {
+function renderSourceContextBlock(sourceContext?: SourceContext): string {
   const summary = sourceContext?.summary?.trim();
   if (!summary) return '';
   return `\n\n**What the source document as a whole is about:**\nSource summary: ${summary}`;
@@ -227,7 +227,7 @@ export function renderSourceContextBlock(sourceContext?: SourceContext): string 
  * Rendered only alongside the summary: asking whether a source is the page's
  * subject, without saying what the source is about, is not answerable.
  */
-export function renderSourceOwnershipRule(sourceContext?: SourceContext): string {
+function renderSourceOwnershipRule(sourceContext?: SourceContext): string {
   if (!renderSourceContextBlock(sourceContext)) return '';
   return '\n- Consider whether this source is primarily ABOUT this page or only mentions it in passing. A source whose subject IS this page carries more weight for the page\'s core description than an incidental mention — prefer "merge" over "skip" for it.';
 }

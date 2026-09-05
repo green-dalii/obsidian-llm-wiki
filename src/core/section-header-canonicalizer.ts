@@ -207,7 +207,7 @@ function canonicalSectionBlocks(
  * it programmatically below — once, at the right anchor. Pure, O(lines × labels).
  */
 /** A kept section whose content falls below this fraction of its previous length is restored. */
-export const SECTION_SHRINK_FLOOR = 0.5;
+const SECTION_SHRINK_FLOOR = 0.5;
 /** Sections shorter than this before the rewrite are never shrink-guarded — the model may reword them freely. */
 export const SECTION_SHRINK_MIN_CHARS = 400;
 
