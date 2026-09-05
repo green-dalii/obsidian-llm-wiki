@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchCodexModelCatalog } from '../../llm-sdk/openai-codex/model-catalog';
+import { fetchCodexModelCatalog } from '../../../llm-sdk/openai-codex/model-catalog';
 
 function catalogResponse(models: unknown[], status = 200): Response {
   return new Response(JSON.stringify({ models }), { status, headers: { 'Content-Type': 'application/json' } });

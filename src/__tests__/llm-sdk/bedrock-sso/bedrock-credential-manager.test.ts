@@ -3,9 +3,9 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
-import { BedrockAuthManager } from '../../llm-sdk/bedrock-sso/credential-manager';
-import { BEDROCK_IAM_SECRET_ID, BEDROCK_SSO_SECRET_ID } from '../../llm-sdk/bedrock-sso/constants';
-import { BedrockSsoExpiredError } from '../../llm-sdk/bedrock-sso/types';
+import { BedrockAuthManager } from '../../../llm-sdk/bedrock-sso/credential-manager';
+import { BEDROCK_IAM_SECRET_ID, BEDROCK_SSO_SECRET_ID } from '../../../llm-sdk/bedrock-sso/constants';
+import { BedrockSsoExpiredError } from '../../../llm-sdk/bedrock-sso/types';
 
 Object.defineProperty(globalThis, 'crypto', {
   configurable: true,

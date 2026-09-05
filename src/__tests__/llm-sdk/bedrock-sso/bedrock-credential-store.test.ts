@@ -3,8 +3,8 @@
 // validated parse, corrupt JSON → null, clear → empty.
 
 import { describe, expect, it, vi } from 'vitest';
-import { BedrockIamCredentialStore, BedrockSsoCredentialStore } from '../../llm-sdk/bedrock-sso/credential-store';
-import { BEDROCK_IAM_SECRET_ID, BEDROCK_SSO_SECRET_ID } from '../../llm-sdk/bedrock-sso/constants';
+import { BedrockIamCredentialStore, BedrockSsoCredentialStore } from '../../../llm-sdk/bedrock-sso/credential-store';
+import { BEDROCK_IAM_SECRET_ID, BEDROCK_SSO_SECRET_ID } from '../../../llm-sdk/bedrock-sso/constants';
 
 function memoryStorage(): {
   getSecret: ReturnType<typeof vi.fn<(id: string) => string | null>>;

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { createLoopbackServer, loadNodeHttp, parseLoopbackCallback, runLoopbackLogin } from '../../llm-sdk/openai-codex/loopback-flow';
-import type { LoopbackHttpModule } from '../../llm-sdk/openai-codex/loopback-flow';
-import type { FetchLike } from '../../llm-sdk/openai-codex/types';
-import { fakeLoopbackServer, failingFetch, jwt } from './openai-codex-test-helpers';
+import { createLoopbackServer, loadNodeHttp, parseLoopbackCallback, runLoopbackLogin } from '../../../llm-sdk/openai-codex/loopback-flow';
+import type { LoopbackHttpModule } from '../../../llm-sdk/openai-codex/loopback-flow';
+import type { FetchLike } from '../../../llm-sdk/openai-codex/types';
+import { fakeLoopbackServer, failingFetch, jwt } from '../openai-codex-test-helpers';
 
 const callbackUrl = '/auth/callback?code=abc&state=state-1';
 

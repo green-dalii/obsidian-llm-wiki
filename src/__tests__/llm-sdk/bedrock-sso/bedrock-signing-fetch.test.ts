@@ -8,9 +8,9 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
-import type { ObsidianFetchInit } from '../../core/obsidian-fetch-bridge';
-import { createSigV4SigningFetch } from '../../llm-sdk/bedrock-sso/signing-fetch';
-import type { BedrockCredentials } from '../../llm-sdk/bedrock-sso/types';
+import type { ObsidianFetchInit } from '../../../core/obsidian-fetch-bridge';
+import { createSigV4SigningFetch } from '../../../llm-sdk/bedrock-sso/signing-fetch';
+import type { BedrockCredentials } from '../../../llm-sdk/bedrock-sso/types';
 
 Object.defineProperty(globalThis, 'crypto', {
   configurable: true,

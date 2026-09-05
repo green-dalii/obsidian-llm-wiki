@@ -10,8 +10,8 @@ import {
   getRoleCredentials,
   listAccountRoles,
   listAccounts,
-} from '../../llm-sdk/bedrock-sso/role-credentials';
-import { BedrockSsoExpiredError } from '../../llm-sdk/bedrock-sso/types';
+} from '../../../llm-sdk/bedrock-sso/role-credentials';
+import { BedrockSsoExpiredError } from '../../../llm-sdk/bedrock-sso/types';
 
 Object.defineProperty(globalThis, 'crypto', {
   configurable: true,

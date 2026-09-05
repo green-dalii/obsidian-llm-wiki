@@ -14,15 +14,15 @@
 // `private readonly` field, so a structural cast is the natural fit.
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { AnthropicSdkClient } from '../../llm-sdk/anthropic-sdk-client';
-import { OpenAICompatSdkClient } from '../../llm-sdk/openai-compat-sdk-client';
-import { obsidianFetchBridge, streamWithFallback } from '../../core/obsidian-fetch-bridge';
-import type { BedrockAuthManager } from '../../llm-sdk/bedrock-sso/credential-manager';
+import { AnthropicSdkClient } from '../../../llm-sdk/anthropic-sdk-client';
+import { OpenAICompatSdkClient } from '../../../llm-sdk/openai-compat-sdk-client';
+import { obsidianFetchBridge, streamWithFallback } from '../../../core/obsidian-fetch-bridge';
+import type { BedrockAuthManager } from '../../../llm-sdk/bedrock-sso/credential-manager';
 import {
   createLLMClientFromSettings,
   createLLMClientFromSettingsSync,
   preloadLLMClientModules,
-} from '../../llm-sdk/create-llm-client';
+} from '../../../llm-sdk/create-llm-client';
 
 function privateBaseURL(client: unknown): string | undefined {
   // Both client classes store baseURL as `private readonly baseURL`.
@@ -118,7 +118,7 @@ describe('Bedrock Stage 1 factory (v1.24.1 PATCH)', () => {
       // provider === 'openai' routes to OpenAISdkClient (official); the
       // bedrock-* branches must NOT be reached. bedrock-openai is
       // OpenAICompatSdkClient — confirm OpenAISdkClient is selected here.
-      const { OpenAISdkClient } = await import('../../llm-sdk/openai-sdk-client');
+      const { OpenAISdkClient } = await import('../../../llm-sdk/openai-sdk-client');
       expect(client).toBeInstanceOf(OpenAISdkClient);
     });
   });

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { completeDeviceAuthorization, requestDeviceCode } from '../../llm-sdk/openai-codex/device-flow';
-import { CODEX_OAUTH_CLIENT_ID, CODEX_TOKEN_URL } from '../../llm-sdk/openai-codex/constants';
-import type { FetchLike } from '../../llm-sdk/openai-codex/types';
-import { jwt } from './openai-codex-test-helpers';
+import { completeDeviceAuthorization, requestDeviceCode } from '../../../llm-sdk/openai-codex/device-flow';
+import { CODEX_OAUTH_CLIENT_ID, CODEX_TOKEN_URL } from '../../../llm-sdk/openai-codex/constants';
+import type { FetchLike } from '../../../llm-sdk/openai-codex/types';
+import { jwt } from '../openai-codex-test-helpers';
 
 const authorization = { deviceAuthId: 'dev-1', userCode: 'ABCD-EFGH', intervalMs: 1000 };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildAuthorizationUrl, extractAccountId, extractTokenResponseAccountId, generateOAuthState, generatePkce, parseTokenResponse } from '../../llm-sdk/openai-codex/auth-core';
-import { CODEX_DEVICE_URL, CODEX_MODELS, CODEX_OAUTH_CLIENT_ID, CODEX_OAUTH_ISSUER, CODEX_REDIRECT_URI, CODEX_RESPONSES_URL, CODEX_SECRET_ID, CODEX_TOKEN_URL } from '../../llm-sdk/openai-codex/constants';
+import { buildAuthorizationUrl, extractAccountId, extractTokenResponseAccountId, generateOAuthState, generatePkce, parseTokenResponse } from '../../../llm-sdk/openai-codex/auth-core';
+import { CODEX_DEVICE_URL, CODEX_MODELS, CODEX_OAUTH_CLIENT_ID, CODEX_OAUTH_ISSUER, CODEX_REDIRECT_URI, CODEX_RESPONSES_URL, CODEX_SECRET_ID, CODEX_TOKEN_URL } from '../../../llm-sdk/openai-codex/constants';
 
 function encodedPayload(value: Record<string, unknown>): string {
   return btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/u, '');

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CodexAuthManager } from '../../llm-sdk/openai-codex/auth-manager';
-import type { CodexCredential } from '../../llm-sdk/openai-codex/types';
-import { expiredCredential, freshCredential, memoryCredentialStore } from './openai-codex-test-helpers';
+import { CodexAuthManager } from '../../../llm-sdk/openai-codex/auth-manager';
+import type { CodexCredential } from '../../../llm-sdk/openai-codex/types';
+import { expiredCredential, freshCredential, memoryCredentialStore } from '../openai-codex-test-helpers';
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   let resolve = (_value: T): void => undefined;

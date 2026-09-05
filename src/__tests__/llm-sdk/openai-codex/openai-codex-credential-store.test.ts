@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CodexCredentialStore } from '../../llm-sdk/openai-codex/credential-store';
+import { CodexCredentialStore } from '../../../llm-sdk/openai-codex/credential-store';
 
 function backendWith(raw?: string): { values: Map<string, string>; getSecret: (id: string) => string | null; setSecret: (id: string, value: string) => void } {
   const values = new Map<string, string>();

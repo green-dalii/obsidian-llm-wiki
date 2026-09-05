@@ -15,7 +15,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { webcrypto } from 'node:crypto';
-import { signRequest, hashSha256Hex } from '../../llm-sdk/bedrock-sso/sigv4';
+import { signRequest, hashSha256Hex } from '../../../llm-sdk/bedrock-sso/sigv4';
 
 // The shared setup installs a minimal deterministic crypto.subtle stub
 // (digest-only, NOT SHA-256). SigV4 conformance needs REAL primitives:

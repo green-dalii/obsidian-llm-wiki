@@ -10,13 +10,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   bedrockOidcBaseUrl,
-} from '../../llm-sdk/bedrock-sso/constants';
+} from '../../../llm-sdk/bedrock-sso/constants';
 import {
   completeDeviceAuthorization,
   registerClient,
   startDeviceAuthorization,
   type BedrockDeviceAuthorization,
-} from '../../llm-sdk/bedrock-sso/sso-oidc';
+} from '../../../llm-sdk/bedrock-sso/sso-oidc';
 
 const REGION = 'us-east-1';
 const OIDC = bedrockOidcBaseUrl(REGION);

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCodexRequestFetch, OpenAICodexSdkClient } from '../../llm-sdk/openai-codex-sdk-client';
-import { errorResponse, fakeAuthManager, messageParams, textResponse } from './openai-codex-test-helpers';
+import { createCodexRequestFetch, OpenAICodexSdkClient } from '../../../llm-sdk/openai-codex-sdk-client';
+import { errorResponse, fakeAuthManager, messageParams, textResponse } from '../openai-codex-test-helpers';
 import { requestUrl } from 'obsidian';
 
 function streamingResponse(chunks: string[]): Response {

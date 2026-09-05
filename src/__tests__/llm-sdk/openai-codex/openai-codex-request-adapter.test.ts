@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeCodexRequest } from '../../llm-sdk/openai-codex/request-adapter';
+import { normalizeCodexRequest } from '../../../llm-sdk/openai-codex/request-adapter';
 
 const access = { accessToken: 'oauth-secret', accountId: 'acct' };
 
