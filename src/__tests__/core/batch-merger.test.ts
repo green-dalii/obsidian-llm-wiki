@@ -5,8 +5,8 @@ import {
   buildSourceAnalysis,
   extractUniqueNames,
   calculateBatchStats,
-} from './batch-merger';
-import { EntityInfo, ConceptInfo } from '../types';
+} from '../../core/batch-merger';
+import { EntityInfo, ConceptInfo } from '../../types';
 
 describe('Batch Merger — Pure Functions', () => {
   describe('createEmptyAccumulation', () => {

@@ -4,7 +4,7 @@ import {
   cleanWikiIndex,
   correctLinkPollution,
   type EmptyPageContext,
-} from './prompt-builders';
+} from '../../core/prompt-builders';
 
 describe('Prompt Builders — Pure Functions', () => {
   describe('buildEmptyPagePrompt', () => {

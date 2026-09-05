@@ -4,7 +4,7 @@ import {
   buildUndirectedAdjacency,
   assessHubs,
   type HubVerdict,
-} from './hub-retirement';
+} from '../../core/hub-retirement';
 
 // Build an undirected adjacency from an edge list (also exercises
 // buildUndirectedAdjacency, the integration entry point).

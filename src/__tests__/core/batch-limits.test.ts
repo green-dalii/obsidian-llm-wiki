@@ -4,7 +4,7 @@ import {
   adjustBatchSizeForResponse,
   getCustomTypeCaps,
   GRANULARITY_CONFIG,
-} from './batch-limits';
+} from '../../core/batch-limits';
 
 describe('Batch Limits — Pure Functions', () => {
   describe('calculateBatchLimits', () => {

@@ -4,7 +4,7 @@ import {
   buildDeadLinkReplacement,
   replaceDeadLink,
   type PageRef,
-} from './dead-link-detector';
+} from '../../core/dead-link-detector';
 
 describe('Dead Link Detector — Pure Functions', () => {
   describe('findDeadLinkTarget', () => {

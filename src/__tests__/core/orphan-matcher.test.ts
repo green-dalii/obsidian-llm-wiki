@@ -6,7 +6,7 @@ import {
   normalizeOrphanPagePath,
   type OrphanContext,
   type OrphanLinkSuggestion,
-} from './orphan-matcher';
+} from '../../core/orphan-matcher';
 
 describe('Orphan Matcher — Pure Functions', () => {
   describe('buildOrphanLinkPrompt', () => {

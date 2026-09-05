@@ -4,7 +4,7 @@ import {
   checkCumulativeLimits,
   checkEmptyBatch,
   formatConvergenceStatus,
-} from './convergence-detector';
+} from '../../core/convergence-detector';
 
 describe('Convergence Detector — Pure Functions', () => {
   describe('detectConvergence', () => {
