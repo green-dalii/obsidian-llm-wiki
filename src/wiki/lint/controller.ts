@@ -41,24 +41,6 @@ import { SchemaTask } from '../../schema/schema-manager';
 // ui/modals/ indirect import) still reference `LintContext` from this file.
 export type { LintContext } from './types';
 
-/**
- * Extract just the per-section body from a full Lint report.
- *
- * The LLM analysis prompt wants the findings (per-section markdown) without
- * the title heading and the summary line (which is already encoded in the
- * prompt's own template). We strip them here so the same builder output
- * feeds both the LLM prompt and the user-facing report.
- */
-function extractProgReport(fullReport: string): string {
-  // The full report has structure: `# title\n\n> summary\n\n<body>`.
-  // The body starts after the first `\n\n` following the `>` summary line.
-  const summaryEnd = fullReport.indexOf('\n\n', fullReport.indexOf('> '));
-  if (summaryEnd < 0) return fullReport;
-  const after = fullReport.indexOf('\n\n', summaryEnd + 2);
-  if (after < 0) return '';
-  return fullReport.slice(after + 2);
-}
-
 export async function runLintWiki(
   ctx: LintContext,
   signal?: AbortSignal,
@@ -189,105 +171,38 @@ export async function runLintWiki(
       }
     }
 
-    // ---- 4. Build programmatic findings report (delegated to report-builder) ----
-    // Compute duplicate-affected counts for the summary line.
-    const duplicatePaths = new Set<string>();
-    for (const d of duplicates) {
-      duplicatePaths.add(d.target);
-      duplicatePaths.add(d.source);
-    }
-    let deadLinkFromDup = 0;
-    for (const dl of deadLinks) {
-      const sourcePath = `${ctx.settings.wikiFolder}/${dl.source}.md`;
-      const targetPath = `${ctx.settings.wikiFolder}/${dl.target}.md`;
-      if (duplicatePaths.has(sourcePath) || duplicatePaths.has(targetPath)) deadLinkFromDup++;
-    }
-    let orphanFromDup = 0;
-    for (const op of orphans) {
-      if (duplicatePaths.has(op)) orphanFromDup++;
-    }
-
-    const findingsWithEmpty: ProgrammaticFindings = {
-      ...findings,
-      emptyPages,
-    };
-    let progReport = buildLintReport({
-      settings: ctx.settings,
-      findings: findingsWithEmpty,
-      duplicates,
-      contradictionsReport: '',
-      elapsedSeconds: 0,
-      totalPages: wikiFiles.length,
-    });
-    // Extract the inner body (skip title + summary) for the LLM analysis prompt.
-    // The LLM prompt needs only the per-section findings, not the title/summary.
-    progReport = extractProgReport(progReport);
-
-    // ---- 5. Contradiction scanning (LLM-assisted / mixed) ----
+    // ---- 4. Contradiction scanning (LLM-assisted / mixed) ----
     //
     // v1.24.0: extracted to lint/llm-phases/contradiction-phase.ts.
     // Behavior is identical to the previous inline implementation; see
     // that file for the review_ok auto-resolve + report-render details.
+    //
+    // v1.27.x audit (Phase 3 T3-1): the contradiction phase now runs
+    // BEFORE the report is built. Historically it ran after a throwaway
+    // buildLintReport call whose output was stripped (extractProgReport)
+    // for the LLM analysis prompt — deleted in v1.26.4 #473. With that
+    // consumer gone, the strip-then-re-add round-trip (and the duplicate
+    // summaryText / aliasPre re-derivation in this file) is dead weight:
+    // the builder already emits `# title + summary + aliasPre + body` in
+    // one pass. One call, real elapsed time, contradictions appended.
+    const findingsWithEmpty: ProgrammaticFindings = {
+      ...findings,
+      emptyPages,
+    };
     const { report: contradictionsReport } = await runContradictionPhase(phaseCtx);
 
-    // ---- 6. LLM analysis ----
-    //
-    // v1.24.0: extracted to lint/llm-phases/analysis-phase.ts.
-    // Behavior is identical to the previous inline implementation; see
-    // that file for content-sample building and prompt-construction details.
-    //
-    // v1.25.1 Phase F2 (closes controller.ts:239 TODO from v1.18.0+):
-    // analysis-phase.ts makes a single LLM call with token-bounded content
-    // ---- 6. (removed) LLM analysis phase ----
-    //
-    // v1.26.4 PATCH #473 follow-up: the LLM analysis section was deleted
-    // entirely from the LintReportModal. Rationale ( Karpathy first
-    // principles + complementary memory model ):
-    //   1. The prompt asks the LLM to judge the whole wiki, but the LLM
-    //      only sees a 5-field WikiStats block + 8 pages of content sample
-    //      (~5 K tokens of the 152 K-token vault). The analysis is
-    //      dishonest: it has to repeat the programmatic findings or invent
-    //      details about pages it never read.
-    //   2. Karpathy's lint design ("ask the LLM to health-check") is
-    //      conversational. The schema-suggest button keeps that path for
-    //      users who want LLM-driven schema recommendations.
-    //   3. The LLM call also surfaced 5 known regressions we kept
-    //      patching instead of removing: duplicate "## LLM 分析" heading,
-    //      leaked chain-of-thought from LM Studio reasoning models,
-    //      nested <ul><ul> rendering, repeated headings, JSON parse
-    //      failures on truncated output. Removing the call removes all of
-    //      them at once.
-    //   4. Lint speed up by ~10-30 s on large wikis (one fewer LLM call).
-    //
-    // The contradictions phase (above) remains — it surfaces genuinely
-    // LLM-shaped judgements (claim A contradicts claim B), which are
-    // hard to detect programmatically. Schema suggestions remain on the
-    // "Analyze Schema" button (Layer 4 in the modal).
-
-    // ---- 7. Combine and display ----
+    // ---- 5. Build the full report (delegated to report-builder) ----
     // Measure elapsed wall time since runLintWiki started. Round to whole
     // seconds for the user-facing summary; sub-second precision is noise here.
     const elapsedSeconds = Math.max(1, Math.round((Date.now() - lintStartTime) / 1000));
-    const summaryText = t.lintReportSummary
-      .replace('{total}', String(wikiFiles.length))
-      .replace('{aliasesMissing}', String(aliasDeficientPages.length))
-      .replace('{duplicates}', String(duplicates.length))
-      .replace('{deadLinks}', String(deadLinks.length))
-      .replace('{deadLinkFromDup}', String(deadLinkFromDup))
-      .replace('{orphans}', String(orphans.length))
-      .replace('{orphanFromDup}', String(orphanFromDup))
-      .replace('{emptyPages}', String(emptyPages.length))
-      .replace('{ungroundedQuotes}', String(ungroundedQuotes.length))
-      .replace('{tagViolations}', String(tagViolations.length))
-      .replace('{elapsedSeconds}', String(elapsedSeconds));
-
-    // Prepend aliases deficiency section to progReport (shown first in report body)
-    if (aliasDeficientPages.length > 0) {
-      const aliasPre = `> ${t.lintAliasesMissing.replace('{count}', String(aliasDeficientPages.length))}\n\n`;
-      progReport = aliasPre + progReport;
-    }
-
-    const fullReport = `# ${t.lintReportTitle}\n\n> ${summaryText}\n\n${progReport}${contradictionsReport}`;
+    const fullReport = buildLintReport({
+      settings: ctx.settings,
+      findings: findingsWithEmpty,
+      duplicates,
+      contradictionsReport,
+      elapsedSeconds,
+      totalPages: wikiFiles.length,
+    });
 
     // v1.24.0: removed the v1.18.0-era "Missing Concept Pages tracker" TODO
     // (24 lines of design notes that had been parked here since 2026-07 and
