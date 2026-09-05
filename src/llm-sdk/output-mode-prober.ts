@@ -55,11 +55,11 @@ import { classifyFieldError } from './shared-rejection-verbs';
 
 /**
  * The three output-mode tiers, ordered strongest → weakest.
- * The numeric index in OUTPUT_MODES is the demotion order: a 400 with
- * Tier N's rejection demotes to Tier N+1.
+ * The demotion order is documented by the numeric comments below: a 400
+ * with Tier N's rejection demotes to Tier N+1. The order is encoded in
+ * the literal union (kept in sync with the prober's demotion chain).
  */
-const OUTPUT_MODES = ['json_schema', 'json_object', 'text_prompt'] as const;
-export type OutputMode = (typeof OUTPUT_MODES)[number];
+export type OutputMode = 'json_schema' | 'json_object' | 'text_prompt';
 
 /**
  * Field markers for the Tier 1 demotion classifier (json_object /
