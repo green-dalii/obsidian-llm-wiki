@@ -27,6 +27,7 @@ import { resolveModelForTask } from '../../core/model-resolver';
 import { stripThinkingBlocks } from '../../core/markdown';
 import { snapHeaderToCanonical } from '../../core/section-header-canonicalizer';
 import { getSectionLabels } from '../system-prompts';
+import { escapeRegex } from '../lint/utils';
 import { isListSection } from './contextualize';
 import type { ComplementaryItem } from './merge-triage';
 
@@ -56,10 +57,12 @@ export interface ComplementaryContext {
 /**
  * Escape regex special characters in a string.
  * Pure function — independently testable.
+ *
+ * v1.27.x audit (Phase 3 T1-1): canonical copy lives in `../lint/utils`
+ * (`escapeRegex`). Re-exported under the legacy name so the existing
+ * public API and its 13 test refs keep working without an import churn.
  */
-export function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+export { escapeRegex as escapeRegExp };
 
 /**
  * Find a `## headingName` section in `body`. Returns its content (trimmed
@@ -72,7 +75,7 @@ export function findSectionInBody(
 ): SectionAnchor | null {
   // No /m flag — see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
   const nextLinePattern = new RegExp(
-    `(?:^|\\n)##\\s*${escapeRegExp(headingText)}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`,
+    `(?:^|\\n)##\\s*${escapeRegex(headingText)}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`,
   );
   const m = nextLinePattern.exec(body);
   if (!m) return null;
