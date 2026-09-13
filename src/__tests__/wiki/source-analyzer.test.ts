@@ -38,7 +38,7 @@ describe('SourceAnalyzer', () => {
       vaultFiles: { [TEST_PATH]: 'Before chart\n\n![[assets/chart.png]]\n\nAfter chart' },
       settings: { analyzeEmbeddedImages: true },
       llmResponses: [
-        JSON.stringify({ images: [{ index: 1, visible_text: 'Chart title', description: 'A line chart.', context_relevance: 'Explains the surrounding chart discussion.' }] }),
+        JSON.stringify({ images: [{ index: 1, visible_text: 'Chart title', description: 'A line chart.', before_relevance: 'related', after_relevance: 'unrelated', context_interpretation: 'The preceding caption explains the chart.' }] }),
         JSON.stringify({ entities: [], concepts: [] }),
       ],
     });
@@ -62,9 +62,11 @@ describe('SourceAnalyzer', () => {
     expect((visionContent[0] as { text: string }).text).toContain('Text before image: Before chart');
     expect((visionContent[0] as { text: string }).text).toContain('Text after image: After chart');
     const extractionContent = spy.mock.calls[1][0].messages[0].content;
+    if (typeof extractionContent !== 'string') throw new Error('Expected text-only extraction request');
     expect(extractionContent).toContain('## Embedded Image Visual Evidence');
     expect(extractionContent).toContain('Chart title');
-    expect(extractionContent).toContain('Context relevance: Explains the surrounding chart discussion.');
+    expect(extractionContent).toContain('Context interpretation: The preceding caption explains the chart.');
+    expect(extractionContent.split('## Embedded Image Visual Evidence')[1]).not.toContain('After chart');
     expect(spy.mock.calls[1][0].cacheBreakpoint).toBeDefined();
   });
 

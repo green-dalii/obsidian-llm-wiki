@@ -119,7 +119,9 @@ export interface EmbeddedImageEvidence {
   contextAfter: string;
   visibleText?: string;
   description?: string;
-  contextRelevance?: string;
+  beforeRelevance?: string;
+  afterRelevance?: string;
+  contextInterpretation?: string;
   status: 'analyzed' | 'no-evidence' | 'skipped' | 'failed';
   reason?: string;
 }

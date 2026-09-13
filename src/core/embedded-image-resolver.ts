@@ -60,11 +60,16 @@ function imageTargets(markdown: string): Array<{ sourceOffset: number; endOffset
 }
 
 function cleanContext(text: string): string {
-  return text
+  const cleaned = text
     .replace(/!\[\[[^\]]+\]\]/g, '')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+  const handle = /@[\p{L}\p{N}_.-]+$/u.exec(cleaned);
+  if (!handle) return cleaned;
+  if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(cleaned)) return cleaned;
+  const beforeHandle = cleaned.slice(0, handle.index).trimEnd();
+  return beforeHandle;
 }
 
 function contextBefore(markdown: string, offset: number, maxChars: number): string {

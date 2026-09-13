@@ -26,6 +26,29 @@ describe('embedded image resolver', () => {
     });
   });
 
+  it('skips standalone author handles and removes trailing handles from nearby context', async () => {
+    const result = await discoverEmbeddedImages({
+      markdown: 'Useful preceding caption.\n\n@only_author\n\n![[assets/chart.png]]\n\nUseful following caption @next_author',
+      sourcePath: 'notes/source.md',
+      resolveLink: target => target,
+      stat: async () => ({ size: 1 }),
+    });
+    expect(result.candidates[0]).toMatchObject({
+      contextBefore: 'Useful preceding caption.',
+      contextAfter: 'Useful following caption',
+    });
+  });
+
+  it('preserves ordinary text containing an at sign', async () => {
+    const result = await discoverEmbeddedImages({
+      markdown: 'Contact person@example.com\n\n![[assets/chart.png]]',
+      sourcePath: 'notes/source.md',
+      resolveLink: target => target,
+      stat: async () => ({ size: 1 }),
+    });
+    expect(result.candidates[0].contextBefore).toBe('Contact person@example.com');
+  });
+
   it('clips a long neighboring paragraph to the context limit', async () => {
     const before = 'a'.repeat(600);
     const result = await discoverEmbeddedImages({

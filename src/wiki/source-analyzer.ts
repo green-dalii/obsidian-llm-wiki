@@ -900,15 +900,19 @@ export class SourceAnalyzer {
           if (!packageIndexes.has(item.index)) continue;
           const visibleText = (item.visible_text ?? '').trim();
           const description = (item.description ?? '').trim();
-          const contextRelevance = (item.context_relevance ?? '').trim();
+          const beforeRelevance = (item.before_relevance ?? '').trim();
+          const afterRelevance = (item.after_relevance ?? '').trim();
+          const contextInterpretation = (item.context_interpretation ?? '').trim();
           if (visibleText || description) {
-            evidence.push({ index: item.index, text: [visibleText && `Visible text: ${visibleText}`, description && `Description: ${description}`, contextRelevance && `Context relevance: ${contextRelevance}`].filter(Boolean).join('\n') });
+            evidence.push({ index: item.index, text: [visibleText && `Visible text: ${visibleText}`, description && `Description: ${description}`, contextInterpretation && `Context interpretation: ${contextInterpretation}`].filter(Boolean).join('\n') });
             const audit = evidenceByIndex.get(item.index);
             if (audit) {
               audit.status = 'analyzed';
               audit.visibleText = visibleText || undefined;
               audit.description = description || undefined;
-              audit.contextRelevance = contextRelevance || undefined;
+              audit.beforeRelevance = beforeRelevance || undefined;
+              audit.afterRelevance = afterRelevance || undefined;
+              audit.contextInterpretation = contextInterpretation || undefined;
             }
             analyzedIndexes.add(item.index);
           }
